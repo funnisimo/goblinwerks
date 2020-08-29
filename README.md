@@ -1,7 +1,5 @@
 # GoblinWerks
 
-<!-- [![Greenkeeper badge](https://badges.greenkeeper.io/funnisimo/goblinwerks.svg)](https://greenkeeper.io/) -->
-
 This library helps to get you started writing a Roguelike game in Javascript.
 
 ## Getting started
