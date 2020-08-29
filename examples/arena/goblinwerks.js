@@ -1,0 +1,1 @@
+../goblinwerks/dist/goblinwerks.js
