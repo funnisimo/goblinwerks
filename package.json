@@ -1,10 +1,11 @@
 {
-  "name": "GoblinWerks",
-  "version": "0.1.0",
+  "name": "goblinwerks",
+  "version": "0.1.1",
   "author": "Funnisimo",
+  "license": "MIT",
   "repository": {
-    "type" : "git",
-    "url" : "https://github.com/funnisimo/goblinwerks.git"
+    "type": "git",
+    "url": "https://github.com/funnisimo/goblinwerks.git"
   },
   "main": "dist/goblinwerks.cjs",
   "module": "dist/goblinwerks.mjs",
