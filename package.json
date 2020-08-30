@@ -1,21 +1,22 @@
 {
   "name": "goblinwerks",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "author": "Funnisimo",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/funnisimo/goblinwerks.git"
   },
-  "main": "dist/goblinwerks.cjs",
-  "module": "dist/goblinwerks.mjs",
-  "browser": "dist/goblinwerks.js",
+  "main": "dist/gw.cjs",
+  "module": "dist/gw.mjs",
+  "browser": "dist/gw.js",
   "type": "module",
   "dependencies": {},
   "devDependencies": {
     "@rollup/plugin-commonjs": "^15.0.0",
     "@rollup/plugin-node-resolve": "^9.0.0",
     "jest": "^26.4.2",
+    "jest-extended": "^0.11.5",
     "rollup": "^2.26.7"
   },
   "scripts": {
@@ -26,5 +27,8 @@
   },
   "files": [
     "dist"
-  ]
+  ],
+  "jest": {
+    "setupFilesAfterEnv": ["jest-extended", "./test/matchers.js"]
+  }
 }

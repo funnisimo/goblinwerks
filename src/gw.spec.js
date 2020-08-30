@@ -1,5 +1,5 @@
 
-const GW = require('../dist/goblinwerks.cjs');
+const GW = require('../dist/gw.cjs');
 
 describe('GW', () => {
 
@@ -8,7 +8,4 @@ describe('GW', () => {
     expect(GW.PLAYER).toBeNull();
   });
 
-  test('clamp', () => {
-    expect(GW.utils.clamp(5, 1, 4)).toEqual(4);
-  });
 });
