@@ -37,22 +37,27 @@ class Buffer extends Grid {
 
   copy(other) {
     this.forEach( (c, i, j) => c.copy(other[i][j]) );
+    this.needsUpdate = true;
   }
 
   clear() {
     this.forEach( (c) => c.clear() );
+    this.needsUpdate = true;
   }
 
   clearRect(x, y, w, h) {
     this.forRect(x, y, w, h, (c) => c.clear() );
+    this.needsUpdate = true;
   }
 
   erase() {
     this.forEach( (c) => c.erase() );
+    this.needsUpdate = true;
   }
 
   eraseRect(x, y, w, h) {
     this.forRect(x, y, w, h, (c) => c.erase() );
+    this.needsUpdate = true;
   }
 
   plotChar(x, y, ch, fg, bg) {
