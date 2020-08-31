@@ -8,7 +8,7 @@ import { canvas, buffer, types, debug } from './gw.js';
 
 
 const HANGING_LETTERS = ['y', 'p', 'g', 'j', 'q', '[', ']', '(', ')', '{', '}'];
-const DISPLAY_FONT = 'monospace';
+const DEFAULT_FONT = 'monospace';
 
 
 
@@ -73,8 +73,8 @@ types.Buffer = Buffer;
 
 
 function setFont(canvas, size, name) {
-  canvas.font = name || 'monospace';
-  canvas.ctx.font = (size * canvas.displayRatio) + 'px ' + canvas.font;
+  canvas.font = name || DEFAULT_FONT;
+  canvas.ctx.font = (size) + 'px ' + canvas.font;
   canvas.ctx.textAlign = 'center';
   canvas.ctx.textBaseline = 'middle';
 }
@@ -140,6 +140,8 @@ class Canvas {
 
       window.addEventListener('resize', handleResizeEvent.bind(this));
       handleResizeEvent.call(this);
+
+      setFont(this, this.tileSize);
     }
 
 
@@ -188,7 +190,7 @@ class Canvas {
 
   drawCell(cell, x, y) {
     const ctx = this.ctx;
-    const tileSize = this.tileSize * this.displayRatio;
+    const tileSize = this.tileSize;// * this.displayRatio;
 
     const backCss = css(cell.bg);
     ctx.fillStyle = backCss;
@@ -204,8 +206,8 @@ class Canvas {
       const foreCss = css(cell.fg);
       ctx.fillStyle = foreCss;
 
-      const textX = x * tileSize + tileSize * 0.5;
-      const textY = y * tileSize + tileSize * 0.5;
+      const textX = x * tileSize + Math.floor(tileSize * 0.5);
+      const textY = y * tileSize + Math.floor(tileSize * 0.5);
 
       ctx.fillText(
         cell.ch,

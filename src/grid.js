@@ -61,6 +61,18 @@ export class Grid extends Array {
 		}
 	}
 
+	forCircle(x, y, radius, fn) {
+		let i, j;
+
+		for (i=Math.max(0, x - radius - 1); i < Math.min(this.width, x + radius + 1); i++) {
+				for (j=Math.max(0, y - radius - 1); j < Math.min(this.height, y + radius + 1); j++) {
+						if (this.hasXY(i, j) && (((i-x)*(i-x) + (j-y)*(j-y)) < radius * radius + radius)) {	// + radius softens the circle
+								fn(this[i][j], i, j);
+						}
+				}
+		}
+	}
+
 	hasXY(x, y) {
 		return x >= 0 && y >= 0 && x < this.width && y < this.height;
 	}
@@ -78,9 +90,42 @@ export class Grid extends Array {
 		}
 	}
 
-	fill(v) {
+	updateRect(x, y, width, height, fn) {
+	    let i, j;
+	    for (i=x; i < x+width; i++) {
+	        for (j=y; j<y+height; j++) {
+						if (this.hasXY(i, j)) {
+							this[i][j] = fn(this[i][j], i, j);
+						}
+	        }
+	    }
+	}
+
+	updateCircle(x, y, radius, fn) {
+	    let i, j;
+
+	    for (i=Math.max(0, x - radius - 1); i < Math.min(this.width, x + radius + 1); i++) {
+	        for (j=Math.max(0, y - radius - 1); j < Math.min(this.height, y + radius + 1); j++) {
+	            if (this.hasXY(i, j) && (((i-x)*(i-x) + (j-y)*(j-y)) < radius * radius + radius)) {	// + radius softens the circle
+	                this[i][j] = fn(this[i][j], i, j);
+	            }
+	        }
+	    }
+	}
+
+	fill(v=1) {
 		const fn = (typeof v === 'function') ? v : (() => v);
 		this.update(fn);
+	}
+
+	fillRect(x, y, w, h, v=1) {
+		const fn = (typeof v === 'function') ? v : (() => v);
+		this.updateRect(x, y, w, h, fn);
+	}
+
+	fillCircle(x, y, radius, v=1) {
+		const fn = (typeof v === 'function') ? v : (() => v);
+		this.updateCircle(x, y, radius, fn);
 	}
 
 	copy(from) {
@@ -118,9 +163,11 @@ export class Grid extends Array {
 	  return bestLoc;
 	}
 
-	randomMatchingXY(fn) {
+	randomMatchingXY(v, deterministic) {
 		let locationCount;
 	  let i, j, index;
+
+		const fn = (typeof v === 'function') ? v : ((c) => v == c);
 
 	  locationCount = 0;
 		this.forEach( (v, i, j) => {
@@ -138,9 +185,9 @@ export class Grid extends Array {
       index = random.range(0, locationCount - 1);
     }
 
-		for(i = 0; i < grid.width && index >= 0; i++) {
-			for(j = 0; j < grid.height && index >= 0; j++) {
-        if (fn(grid[i][j], i, j)) {
+		for(i = 0; i < this.width && index >= 0; i++) {
+			for(j = 0; j < this.height && index >= 0; j++) {
+        if (fn(this[i][j], i, j)) {
           if (index == 0) {
 						return [i,j];
           }
@@ -272,30 +319,7 @@ function resizeAndClearGrid(grid, width, height, value=0) {
 }
 
 
-export function zero(grid) {
-	grid.fill(0);
-}
 
-GRID.zero = zero;
-
-
-
-export function fillCircle(grid, x, y, radius, value) {
-    let i, j;
-
-		const fn = (typeof value === 'function') ? value : (() => value);
-
-    for (i=Math.max(0, x - radius - 1); i < Math.min(grid.width, x + radius + 1); i++) {
-        for (j=Math.max(0, y - radius - 1); j < Math.min(grid.height, y + radius + 1); j++) {
-            if ((i-x)*(i-x) + (j-y)*(j-y) < radius * radius + radius) {	// + radius softens the circle
-                grid[i][j] = fn(grid[i][j], i, j);
-            }
-        }
-    }
-}
-
-GRID.fillCircle = fillCircle;
-GRID.updateCircle = fillCircle;
 
 
 // function gridMapCellsInCircle(grid, x, y, radius, fn) {
@@ -324,7 +348,7 @@ GRID.updateCircle = fillCircle;
 
 
 export function dumpGrid(grid, fmtFn) {
-	dumpGridSquare(grid, 0, 0, grid.width, grid.height, fmtFn);
+	gridDumpRect(grid, 0, 0, grid.width, grid.height, fmtFn);
 }
 
 GRID.dump = dumpGrid;
@@ -351,15 +375,17 @@ function _formatGridValue(v) {
 	}
 }
 
-export function dumpGridSquare(grid, left, top, right, bottom, fmtFn) {
+export function gridDumpRect(grid, left, top, width, height, fmtFn) {
 	let i, j;
 
 	fmtFn = fmtFn || _formatGridValue
 
 	left = utils.clamp(left, 0, grid.width - 2);
-	right = utils.clamp(right, 1, grid.width - 1);
 	top = utils.clamp(top, 0, grid.height - 2);
-	bottom = utils.clamp(bottom, 0, grid.height - 1);
+	const right = utils.clamp(left + width, 1, grid.width - 1);
+	const bottom = utils.clamp(top + height, 1, grid.height - 1);
+
+	let output = [];
 
 	for(j = top; j <= bottom; j++) {
 		let line = ('' + j + ']').padStart(3, ' ');
@@ -371,15 +397,16 @@ export function dumpGridSquare(grid, left, top, right, bottom, fmtFn) {
 			const v = grid[i][j];
 			line += fmtFn(v, i, j)[0];
 		}
-		debug.log(line);
+		output.push(line);
 	}
+	console.log(output.join('\n'));
 }
 
-GRID.dumpRect = dumpGridSquare;
+GRID.dumpRect = gridDumpRect;
 
 
 export function dumpGridAround(grid, x, y, radius) {
-	dumpGridSquare(grid, x - radius, y - radius, x + radius, y + radius);
+	gridDumpRect(grid, x - radius, y - radius, 2 * radius, 2 * radius);
 }
 
 GRID.dumpAround = dumpGridAround;
@@ -428,17 +455,6 @@ export function floodFillRange(grid, x, y, eligibleValueMin, eligibleValueMax, f
 
 GRID.floodFillRange = floodFillRange;
 
-
-export function fillRect(grid, x, y, width, height, value=1) {
-    let i, j;
-    for (i=x; i < x+width; i++) {
-        for (j=y; j<y+height; j++) {
-            grid[i][j] = value;
-        }
-    }
-}
-
-GRID.fillRect = fillRect;
 
 export function invert(grid) {
 	grid.update((v, i, j) => !v );

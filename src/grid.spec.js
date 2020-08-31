@@ -46,10 +46,10 @@ describe('GW.grid', () => {
     expect(a.isBoundaryXY(0, 10)).toBeFalsy();
   });
 
-  test('zero', () => {
+  test('fill', () => {
     a = GW.grid.alloc(10, 10, 10);
     expect(a.count(0)).toEqual(0);
-    GW.grid.zero(a);
+    a.fill(0);
     expect(a.count(0)).toEqual(100);
   });
 
