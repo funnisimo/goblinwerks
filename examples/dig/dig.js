@@ -24,12 +24,10 @@ function drawMap() {
 	let doors = [ [startingXY.x, startingXY.y] ];
 	let roomCount = 10;
 
+	GW.dig.digRoom({ digger: 'ROOM', doors, tries: 20, tile: 1 });
+
 	for(let i = 0; i < roomCount; ++i) {
-		doors = GW.dig.digRoom({ digger: 'ROOM', doors, tries: 20, tile: 1 });
-		if (!doors) {
-			console.warn('Failed to dig map on room #' + (i + 1));
-			break;
-		}
+		GW.dig.digRoom({ digger: 'ROOM', tries: 20, tile: 1, hallChance: 10 });
 	}
 
 	SITE.grid.forEach( (v, i, j) => {

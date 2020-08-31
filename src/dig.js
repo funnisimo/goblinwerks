@@ -639,7 +639,7 @@ function attachRoomToDungeon(roomMap, doorSites) {
 
       const dir = directionOfDoorSite(DIG_GRID, x, y);
       if (dir != def.NO_DIRECTION) {
-        oppDir = OPP_DIRS[dir];
+        const oppDir = OPP_DIRS[dir];
 
         if (doorSites[oppDir][0] != -1
             && roomAttachesAt(roomMap, x - doorSites[oppDir][0], y - doorSites[oppDir][1]))
@@ -648,7 +648,7 @@ function attachRoomToDungeon(roomMap, doorSites) {
 
           // Room fits here.
           insertRoomAt(DIG_GRID, roomMap, x - doorSites[oppDir][0], y - doorSites[oppDir][1], doorSites[oppDir][0], doorSites[oppDir][1]);
-          DIG_GRID[x][y] = matchTile || 2; // Door site.
+          DIG_GRID[x][y] = 2; // Door site.
           return true;
         }
       }

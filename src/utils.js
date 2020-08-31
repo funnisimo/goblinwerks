@@ -167,7 +167,7 @@ utils.getOpt = getOpt;
 
 export function first(field, ...args) {
   for(let arg of args) {
-    if (typeof arg === 'string' || typeof arg === 'number') {
+    if (typeof arg !== 'object' || Array.isArray(arg)) {
       return arg;
     }
     if (arg[field] !== undefined) {
