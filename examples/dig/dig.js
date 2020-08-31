@@ -1,5 +1,6 @@
 
 let canvas = null;
+const startingXY = { x: 50, y: 32 };
 
 const TILES = [
 	GW.make.sprite('#', [50,50,50], [20,20,20]),
@@ -10,11 +11,17 @@ const TILES = [
 GW.dig.installDigger('ROOM',     GW.dig.rectangularRoom,  { width: [10,20], height: [5,10] });
 
 
+function handleClick(e) {
+	startingXY.x = canvas.toX(e.clientX);
+	startingXY.y = canvas.toY(e.clientY);
+	drawMap();
+}
+
 function drawMap() {
 	// dig a map
 	const SITE = GW.dig.startDig(100, 34);
 
-	let doors = [ [50, 32] ];
+	let doors = [ [startingXY.x, startingXY.y] ];
 	let roomCount = 10;
 
 	for(let i = 0; i < roomCount; ++i) {
@@ -36,7 +43,7 @@ function drawMap() {
 // start the environment
 function start() {
 	canvas = new GW.types.Canvas(100, 34, 'game', { tileSize: 11 });
-	game.onmousedown = drawMap;
+	game.onmousedown = handleClick;
 	document.onkeydown = drawMap;
 
 	drawMap();
