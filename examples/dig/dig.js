@@ -4,7 +4,7 @@ const startingXY = { x: 50, y: 32 };
 
 const TILES = [
 	GW.make.sprite('#', [50,50,50], [20,20,20]),
-	GW.make.sprite('.', [30,30,30], [90,90,90]),
+	GW.make.sprite('\u00b7', [30,30,30], [90,90,90]),
 	GW.make.sprite('+', [100,40,40], [30,60,60]),
 ];
 
@@ -42,7 +42,7 @@ function drawMap() {
 
 // start the environment
 function start() {
-	canvas = new GW.types.Canvas(100, 34, 'game', { tileSize: 11 });
+	canvas = new GW.types.Canvas(100, 34, 'game');
 	game.onmousedown = handleClick;
 	document.onkeydown = drawMap;
 

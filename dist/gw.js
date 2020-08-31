@@ -1519,6 +1519,8 @@
       this.buffer = new Buffer(w, h);
       this.dead = [];
       this.displayRatio = 1;
+      this.width  = w;
+      this.height = h;
 
       if (typeof document !== 'undefined') {
         let parent = document;
@@ -1535,13 +1537,20 @@
 
         this.ctx = this.element.getContext('2d');
         this.displayRatio = window.devicePixelRatio || 1;
+
+        const bounds = this.element.getBoundingClientRect();
+        const size = Math.min(Math.floor(bounds.width / this.width), Math.floor(bounds.height / this.height));
+
+        this.tileSize = opts.tileSize || size;
+        this.pxWidth  = bounds.width;
+        this.pxHeight = bounds.height;
+      }
+      else {
+        this.tileSize = opts.tileSize || 16;
+        this.pxWidth  = this.tileSize * this.width  * this.displayRatio;
+        this.pxHeight = this.tileSize * this.height * this.displayRatio;
       }
 
-      this.width  = w;
-      this.height = h;
-      this.tileSize = opts.tileSize || 16;
-      this.pxWidth  = this.tileSize * this.width  * this.displayRatio;
-      this.pxHeight = this.tileSize * this.height * this.displayRatio;
       this.dances = false;
 
       if (typeof window !== 'undefined') {
