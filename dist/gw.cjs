@@ -570,6 +570,30 @@ function applyMix(baseColor, newColor, opacity) {
 
 color.applyMix = applyMix;
 
+
+function toRGB(v, vr) {
+  return clamp(Math.round(2.551 * (v + cosmetic.value() * vr) ), 0, 255);
+}
+
+const V_TO_CSS = [];
+for(let i = 0; i < 256; ++i) {
+  V_TO_CSS[i] = i.toString(16).padStart(2, '0');
+}
+
+function toCSS(v) {
+  return V_TO_CSS[Math.floor(v)];
+}
+
+function css(color) {
+  const rand = cosmetic.value() * (color[6] || 0);
+  const red = toRGB(color[0] + rand, color[3]);
+  const green = toRGB(color[1] + rand, color[4]);
+  const blue = toRGB(color[2] + rand, color[5]);
+  return `#${toCSS(red)}${toCSS(green)}${toCSS(blue)}`;
+}
+
+color.css = css;
+
 class Sprite {
 	constructor(ch, fg, bg) {
 		this.ch = ch || ' ';
@@ -1339,25 +1363,10 @@ function fillBlob(grid,
 grid$1.fillBlob = fillBlob;
 
 const HANGING_LETTERS = ['y', 'p', 'g', 'j', 'q', '[', ']', '(', ')', '{', '}'];
-
-const DEAD_BUFFERS = [];
-var BUFFER = null;
-var CANVAS = null;
-var DISPLAY_CTX = null;
-
-var DISPLAY_DANCES = false;
-var TILE_SIZE = 0;
-var DISPLAY_PIXEL_RATIO = 1;
-var SCREEN_WIDTH = 0;
-var SCREEN_HEIGHT = 0;
-
-var DISPLAY_FONT = 'monospace';
-
 const DANCING_FORECOLOR = 1 << 0;
 const DANCING_BACKCOLOR = 1 << 1;
 
-canvas.width = -1;
-canvas.height = -1;
+
 
 class Buffer extends Grid {
   constructor(w, h) {
@@ -1367,22 +1376,27 @@ class Buffer extends Grid {
 
   copy(other) {
     this.forEach( (c, i, j) => c.copy(other[i][j]) );
+    this.needsUpdate = true;
   }
 
   clear() {
     this.forEach( (c) => c.clear() );
+    this.needsUpdate = true;
   }
 
   clearRect(x, y, w, h) {
     this.forRect(x, y, w, h, (c) => c.clear() );
+    this.needsUpdate = true;
   }
 
   erase() {
     this.forEach( (c) => c.erase() );
+    this.needsUpdate = true;
   }
 
   eraseRect(x, y, w, h) {
     this.forRect(x, y, w, h, (c) => c.erase() );
+    this.needsUpdate = true;
   }
 
   plotChar(x, y, ch, fg, bg) {
@@ -1401,234 +1415,49 @@ class Buffer extends Grid {
 types.Buffer = Buffer;
 
 
-function toRGB(v, vr) {
-  return clamp(Math.floor(2.55 * (v + cosmetic.value() * vr) ), 0, 255);
-}
-
-const V_TO_CSS = [];
-for(let i = 0; i < 256; ++i) {
-  V_TO_CSS[i] = i.toString(16).padStart(2, '0');
-}
-
-function toCSS(v) {
-  return V_TO_CSS[Math.floor(v)];
-}
-
-function drawCell(x, y, cell) {
-  const ctx = DISPLAY_CTX;
-  const tileSize = TILE_SIZE * DISPLAY_PIXEL_RATIO;
-
-  let rf = Math.random() * (cell.fg[6] || 0);
-  let rb = Math.random() * (cell.bg[6] || 0);
-
-  const fr = toRGB(cell.fg[0] + rf, cell.fg[3]);
-  const fg = toRGB(cell.fg[1] + rf, cell.fg[4]);
-  const fb = toRGB(cell.fg[2] + rf, cell.fg[5]);
-
-  const br = toRGB(cell.bg[0] + rb, cell.bg[3]);
-  const bg = toRGB(cell.bg[1] + rb, cell.bg[4]);
-  const bb = toRGB(cell.bg[2] + rb, cell.bg[5]);
-
-  const backCss = `#${toCSS(br)}${toCSS(bg)}${toCSS(bb)}`;
-  ctx.fillStyle = backCss;
-
-  ctx.fillRect(
-    x * tileSize,
-    y * tileSize,
-    tileSize,
-    tileSize
-  );
-
-  if (cell.ch && cell.ch !== ' ') {
-    const foreCss = `#${toCSS(fr)}${toCSS(fg)}${toCSS(fb)}`;
-    ctx.fillStyle = foreCss;
-
-    const textX = x * tileSize + tileSize * 0.5;  // TODO - offsetX
-    const textY = y * tileSize + tileSize * 0.5;  // TODO - offsetY
-
-    ctx.fillText(
-      cell.ch,
-      textX,
-      textY
-    );
-  }
-
-}
-
-canvas.drawCell = drawCell;
-
-
-function draw(force) {
-
-  if (BUFFER && (BUFFER.needsUpdate || DISPLAY_DANCES || force)) {
-
-    BUFFER.needsUpdate = false;
-    DISPLAY_DANCES = false;
-    const _drawCell = canvas.drawCell;
-
-    BUFFER.forEach( (cell, i, j) => {
-      if (cell.flags & (DANCING_BACKCOLOR | DANCING_FORECOLOR)) {
-        DISPLAY_DANCES = true;
-        if (cosmetic.value() < 0.002) {
-          cell.needsUpdate = true;
-        }
-      }
-
-      if (cell.needsUpdate) {
-        _drawCell(i, j, cell);
-        cell.needsUpdate = false;
-      }
-    });
-
-  }
-}
-
-canvas.draw = draw;
-
-
-function hasXY(x, y) {
-  return BUFFER && BUFFER.hasXY(x, y);
-}
-
-canvas.hasXY = hasXY;
-
-function toX(x) {
-  return Math.floor(BUFFER.width * x / SCREEN_WIDTH);
-}
-
-canvas.toX = toX;
-
-function toY(y) {
-  return Math.floor(BUFFER.height * y / SCREEN_HEIGHT);
-}
-
-canvas.toY = toY;
-
-
-function setup(w, h, div) {
-  BUFFER = new Buffer(w, h);
-
-  if (typeof document !== 'undefined') {
-    let parent = document;
-    CANVAS = document.getElementById(div);
-    if (CANVAS && CANVAS.tagName !== 'CANVAS') {
-      parent = CANVAS;
-      CANVAS = null;
-    }
-    if (!CANVAS) {
-      // Need to create canvas
-      CANVAS = document.createElement('canvas');
-      parent.appendChild(CANVAS);
-    }
-
-    DISPLAY_CTX = CANVAS.getContext('2d');
-  }
-
-  canvas.width = w;
-  canvas.height = h;
-  canvas.BUFFER = BUFFER;
-  canvas.element = CANVAS;
-
-  if (typeof window !== 'undefined') {
-    window.addEventListener('resize', handleResizeEvent);
-    handleResizeEvent();
-  }
-
-  return true;
-}
-
-canvas.setup = setup;
-
-
-function setFont(size, name) {
-  DISPLAY_FONT = name || 'monospace';
-  DISPLAY_CTX.font = (size * DISPLAY_PIXEL_RATIO) + 'px ' + DISPLAY_FONT;
-  DISPLAY_CTX.textAlign = 'center';
-  DISPLAY_CTX.textBaseline = 'middle';
-}
-
-
-function fillBg(css) {
-    DISPLAY_CTX.fillStyle = css || '#000';
-    DISPLAY_CTX.fillRect(
-        0,
-        0,
-        CANVAS.width,
-        CANVAS.height
-    );
-}
-
-
 function handleResizeEvent() {
 
-  TILE_SIZE = Math.min(Math.floor(window.innerWidth / BUFFER.width), Math.floor(window.innerHeight / BUFFER.height));
+  const rect = this.element.getBoundingClientRect();
+  this.pxWidth  = rect.width;
+  this.pxHeight = rect.height;
+  console.log('canvas', rect);
 
-  let width = BUFFER.width * TILE_SIZE;
-  let height = BUFFER.height * TILE_SIZE;
+  // this.tileSize = Math.min(Math.floor(window.innerWidth / this.buffer.width), Math.floor(window.innerHeight / this.buffer.height));
+  //
+  // let width = this.buffer.width * this.tileSize;
+  // let height = this.buffer.height * this.tileSize;
+  //
+  // DISPLAY_PIXEL_RATIO = window.devicePixelRatio || 1;
+  // if (DISPLAY_PIXEL_RATIO !== 1) {
+  //     // CANVAS.style.width = width + 'px';
+  //     // CANVAS.style.height = height + 'px';
+  //     // CANVAS.style.width = '100%';
+  //     // CANVAS.style.height = '100%';
+  //
+  //     width = Math.floor(width * DISPLAY_PIXEL_RATIO);
+  //     height = Math.floor(height * DISPLAY_PIXEL_RATIO);
+  // }
+  //
+  // CANVAS.width = width;
+  // CANVAS.height = height;
+  //
+  // const rect = CANVAS.getBoundingClientRect();
+  // SCREEN_WIDTH = rect.width;
+  // SCREEN_HEIGHT = rect.height;
+  //
+  // GW.debug.log('resize', SCREEN_WIDTH, SCREEN_HEIGHT, this.tileSize, DISPLAY_PIXEL_RATIO);
+  //
+  // setFont(this, this.tileSize, this.font);
+  // fillBg(this, '#000');
 
-  DISPLAY_PIXEL_RATIO = window.devicePixelRatio || 1;
-  if (DISPLAY_PIXEL_RATIO !== 1) {
-      // CANVAS.style.width = width + 'px';
-      // CANVAS.style.height = height + 'px';
-      CANVAS.style.width = '100%';
-      CANVAS.style.height = '100%';
-
-      width = Math.floor(width * DISPLAY_PIXEL_RATIO);
-      height = Math.floor(height * DISPLAY_PIXEL_RATIO);
-  }
-
-  CANVAS.width = width;
-  CANVAS.height = height;
-
-  const rect = CANVAS.getBoundingClientRect();
-  SCREEN_WIDTH = rect.width;
-  SCREEN_HEIGHT = rect.height;
-
-  GW.debug.log('resize', SCREEN_WIDTH, SCREEN_HEIGHT, TILE_SIZE, DISPLAY_PIXEL_RATIO);
-
-  setFont(TILE_SIZE, DISPLAY_FONT);
-  fillBg('#000');
-
-  BUFFER.forEach((c) => { c.needsUpdate = true; });
+  this.buffer.forEach((c) => { c.needsUpdate = true; });
 
 }
 
 
-function plotChar(x, y, ch, fg, bg) {
-  BUFFER.plotChar(x, y, ch, fg, bg);
-}
+function plotCharToDisplayBuffer(buffer, x, y, ch, fg, bg) {
 
-canvas.plotChar = plotChar;
-
-
-
-
-function allocBuffer() {
-  let buf;
-  if (DEAD_BUFFERS.length) {
-    buf = DEAD_BUFFERS.pop();
-  }
-  else {
-    buf = new Buffer(BUFFER.width, BUFFER.height);
-  }
-
-  buf.copy(BUFFER);
-  return buf;
-}
-
-canvas.allocBuffer = allocBuffer;
-
-
-function freeBuffer(...bufs) {
-  bufs.forEach( (buf) => DEAD_BUFFERS.push(buf) );
-}
-
-canvas.freeBuffer = freeBuffer;
-
-
-function plotCharToDisplayBuffer(x, y, ch, fg, bg) {
-
-  const destCell = BUFFER[x][y];
+  const destCell = buffer[x][y];
 
   fg = fg || destCell.fg;
   bg = bg || destCell.bg;
@@ -1649,8 +1478,8 @@ function plotCharToDisplayBuffer(x, y, ch, fg, bg) {
     || bg[1] !== destCell.bg[1]
     || bg[2] !== destCell.bg[2])
   {
-    if (HANGING_LETTERS.includes(destCell.ch) && y < BUFFER.height - 1) {
-      BUFFER[x][y + 1].needsUpdate = true;	// redraw the row below any hanging letters that changed
+    if (HANGING_LETTERS.includes(destCell.ch) && y < buffer.height - 1) {
+      buffer[x][y + 1].needsUpdate = true;	// redraw the row below any hanging letters that changed
     }
 
     destCell.plot(ch, fg, bg);
@@ -1660,65 +1489,188 @@ function plotCharToDisplayBuffer(x, y, ch, fg, bg) {
     if (bg.dances) {
       destCell.flags |= DANCING_BACKCOLOR;
     }
-    BUFFER.needsUpdate = true;
+    buffer.needsUpdate = true;
   }
 
 }
 
 
 
+class Canvas {
+  constructor(w, h, div, opts={}) {
+    this.buffer = new Buffer(w, h);
+    this.dead = [];
+    this.displayRatio = 1;
+
+    if (typeof document !== 'undefined') {
+      let parent = document;
+      this.element = document.getElementById(div);
+      if (this.element && this.element.tagName !== 'CANVAS') {
+        parent = this.element;
+        this.element = null;
+      }
+      if (!this.element) {
+        // Need to create canvas
+        this.element = document.createElement('canvas');
+        parent.appendChild(this.element);
+      }
+
+      this.ctx = this.element.getContext('2d');
+      this.displayRatio = window.devicePixelRatio || 1;
+    }
+
+    this.width  = w;
+    this.height = h;
+    this.tileSize = opts.tileSize || 16;
+    this.pxWidth  = this.tileSize * this.width  * this.displayRatio;
+    this.pxHeight = this.tileSize * this.height * this.displayRatio;
+    this.dances = false;
+
+    if (typeof window !== 'undefined') {
+      this.element.width = this.width * this.tileSize;
+      this.element.height = this.height * this.tileSize;
+      
+      window.addEventListener('resize', handleResizeEvent.bind(this));
+      handleResizeEvent.call(this);
+    }
 
 
-
-// draws overBuf over the current canvas with per-cell pseudotransparency as specified in overBuf.
-// If previousBuf is not null, it gets filled with the preexisting canvas for reversion purposes.
-function overlay( overBuf,  previousBuf) {
-  if (previousBuf) {
-    previousBuf.copy(BUFFER);
   }
-  overlayRect(overBuf, 0, 0, BUFFER.width, BUFFER.height);
-}
 
-canvas.overlay = overlay;
+  hasXY(x, y) {
+    return this.buffer.hasXY(x, y);
+  }
 
+  toX(x) {
+    return Math.floor(this.buffer.width * x / this.pxWidth);
+  }
 
+  toY(y) {
+    return Math.floor(this.buffer.height * y / this.pxHeight);
+  }
 
-// draws overBuf over the current canvas with per-cell pseudotransparency as specified in overBuf.
-// If previousBuf is not null, it gets filled with the preexisting canvas for reversion purposes.
-function overlayRect( overBuf,  x, y, w, h) {
-  let i, j;
-  let foreColor, tempColor, backColor = new Color();
-  let character;
+  draw() {
+    if ((this.buffer.needsUpdate || this.dances)) {
 
-  for (i=x; i<x + w; i++) {
-    for (j=y; j<y + h; j++) {
+      this.buffer.needsUpdate = false;
+      this.dances = false;
 
-      if (overBuf[i][j].opacity != 0) {
-        backColor.copy(overBuf[i][j].bg);
-
-        // character and fore color:
-        if (overBuf[i][j].ch == ' ') { // Blank cells in the overbuf take the character from the screen.
-          character = BUFFER[i][j].ch;
-          foreColor = BUFFER[i][j].fg;
-          applyMix(foreColor, backColor, overBuf[i][j].opacity);
-        } else {
-          character = overBuf[i][j].ch;
-          foreColor = overBuf[i][j].fg;
+      this.buffer.forEach( (cell, i, j) => {
+        if (cell.flags & (DANCING_BACKCOLOR | DANCING_FORECOLOR)) {
+          this.dances = true;
+          if (cosmetic.value() < 0.002) {
+            cell.needsUpdate = true;
+          }
         }
 
-        // back color:
-        tempColor = BUFFER[i][j].bg;
-        applyMix(backColor, tempColor, 100 - overBuf[i][j].opacity);
+        if (cell.needsUpdate) {
+          this.drawCell(cell, i, j);
+          cell.needsUpdate = false;
+        }
+      });
 
-        plotCharToDisplayBuffer(i, j, character, foreColor, backColor);
-      }
     }
   }
 
+  drawCell(cell, x, y) {
+    const ctx = this.ctx;
+    const tileSize = this.tileSize * this.displayRatio;
+
+    const backCss = css(cell.bg);
+    ctx.fillStyle = backCss;
+
+    ctx.fillRect(
+      x * tileSize,
+      y * tileSize,
+      tileSize,
+      tileSize
+    );
+
+    if (cell.ch && cell.ch !== ' ') {
+      const foreCss = css(cell.fg);
+      ctx.fillStyle = foreCss;
+
+      const textX = x * tileSize + tileSize * 0.5;
+      const textY = y * tileSize + tileSize * 0.5;
+
+      ctx.fillText(
+        cell.ch,
+        textX,
+        textY
+      );
+    }
+  }
+
+
+  plotChar(x, y, ch, fg, bg) {
+    this.buffer.plotChar(x, y, ch, fg, bg);
+  }
+
+
+  allocBuffer() {
+    let buf;
+    if (this.dead.length) {
+      buf = this.dead.pop();
+    }
+    else {
+      buf = new Buffer(this.buffer.width, this.buffer.height);
+    }
+
+    buf.copy(this.buffer);
+    return buf;
+  }
+
+  freeBuffer(...bufs) {
+    bufs.forEach( (buf) => this.dead.push(buf) );
+  }
+
+
+  // draws overBuf over the current canvas with per-cell pseudotransparency as specified in overBuf.
+  // If previousBuf is not null, it gets filled with the preexisting canvas for reversion purposes.
+  overlay( overBuf,  previousBuf) {
+    if (previousBuf) {
+      previousBuf.copy(this.buffer);
+    }
+    overlayRect(overBuf, 0, 0, this.buffer.width, this.buffer.height);
+  }
+
+  // draws overBuf over the current canvas with per-cell pseudotransparency as specified in overBuf.
+  // If previousBuf is not null, it gets filled with the preexisting canvas for reversion purposes.
+  overlayRect( overBuf,  x, y, w, h) {
+    let i, j;
+    let foreColor, tempColor, backColor = new Color();
+    let character;
+
+    for (i=x; i<x + w; i++) {
+      for (j=y; j<y + h; j++) {
+
+        if (overBuf[i][j].opacity != 0) {
+          backColor.copy(overBuf[i][j].bg);
+
+          // character and fore color:
+          if (overBuf[i][j].ch == ' ') { // Blank cells in the overbuf take the character from the screen.
+            character = this.buffer[i][j].ch;
+            foreColor = this.buffer[i][j].fg;
+            applyMix(foreColor, backColor, overBuf[i][j].opacity);
+          } else {
+            character = overBuf[i][j].ch;
+            foreColor = overBuf[i][j].fg;
+          }
+
+          // back color:
+          tempColor = this.buffer[i][j].bg;
+          applyMix(backColor, tempColor, 100 - overBuf[i][j].opacity);
+
+          plotCharToDisplayBuffer(this.buffer, i, j, character, foreColor, backColor);
+        }
+      }
+    }
+
+  }
+
 }
 
-
-canvas.overlayRect = overlayRect;
+types.Canvas = Canvas;
 
 const EVENTS = [];
 const DEAD_EVENTS = [];
@@ -1749,6 +1701,15 @@ io.clearEvents = clearEvents;
 
 
 function pushEvent(ev) {
+  if (EVENTS.length && ev.type === MOUSEMOVE) {
+  	last = EVENTS[EVENTS.length - 1];
+    if (last.type === MOUSEMOVE) {
+			last.x = ev.x;
+		  last.y = ev.y;
+      return;
+    }
+  }
+
 	if (CURRENT_HANDLER) {
   	CURRENT_HANDLER(ev);
   }
@@ -1834,6 +1795,7 @@ function makeKeyEvent(e) {
   return { type: KEYPRESS, key: key, code: e.code, x: -1, y: -1, shiftKey: e.shiftKey, altKey: e.altKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey };
 }
 
+io.makeKeyEvent = makeKeyEvent;
 
 function onkeydown(e) {
 	if (CONTROL_CODES.includes(e.code)) return;
@@ -1874,12 +1836,9 @@ io.keyDirection = keyDirection;
 var mouse = {x: -1, y: -1};
 io.mouse = mouse;
 
-function makeMouseEvent(e) {
+function makeMouseEvent(e, x, y) {
 
   let event = e.buttons ? CLICK : MOUSEMOVE;
-
-	const x = toX(e.clientX);
-  const y = toY(e.clientY);
 
 	if (DEAD_EVENTS.length) {
   	ev = DEAD_EVENTS.pop();
@@ -1900,28 +1859,25 @@ function makeMouseEvent(e) {
   return { type: event, key: null, code: null, x: x, y: y, shiftKey: e.shiftKey, altKey: e.altKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey };
 }
 
-function onmousemove(e) {
-	let ev;
-  if (EVENTS.length) {
-  	ev = EVENTS[EVENTS.length - 1];
-    if (ev.type === MOUSEMOVE) {
-			ev.x = toX(e.clientX);
-		  ev.y = toY(e.clientY);
-      return;
-    }
-  }
-	ev = makeMouseEvent(e);
-	io.pushEvent(ev);
-}
+io.makeMouseEvent = makeMouseEvent;
 
-io.onmousemove = onmousemove;
-
-function onmousedown(e) {
-	const ev = makeMouseEvent(e);
-	io.pushEvent(ev);
-}
-
-io.onmousedown = onmousedown;
+// export function onmousemove(e) {
+// 	const x = canvas.toX(e.clientX);
+// 	const y = canvas.toy(e.clientY);
+// 	const ev = makeMouseEvent(e, x, y);
+// 	io.pushEvent(ev);
+// }
+//
+// io.onmousemove = onmousemove;
+//
+// export function onmousedown(e) {
+// 	const x = canvas.toX(e.clientX);
+// 	const y = canvas.toy(e.clientY);
+// 	const ev = makeMouseEvent(e, x, y);
+// 	io.pushEvent(ev);
+// }
+//
+// io.onmousedown = onmousedown;
 
 // IO
 

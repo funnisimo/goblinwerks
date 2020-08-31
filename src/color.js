@@ -1,4 +1,6 @@
 
+import { clamp } from './utils.js';
+import { cosmetic } from './random.js';
 import { types, color, colors } from './gw.js';
 
 
@@ -63,3 +65,27 @@ export function applyMix(baseColor, newColor, opacity) {
 }
 
 color.applyMix = applyMix;
+
+
+function toRGB(v, vr) {
+  return clamp(Math.round(2.551 * (v + cosmetic.value() * vr) ), 0, 255);
+}
+
+const V_TO_CSS = [];
+for(let i = 0; i < 256; ++i) {
+  V_TO_CSS[i] = i.toString(16).padStart(2, '0');
+}
+
+function toCSS(v) {
+  return V_TO_CSS[Math.floor(v)];
+}
+
+export function css(color) {
+  const rand = cosmetic.value() * (color[6] || 0);
+  const red = toRGB(color[0] + rand, color[3]);
+  const green = toRGB(color[1] + rand, color[4]);
+  const blue = toRGB(color[2] + rand, color[5]);
+  return `#${toCSS(red)}${toCSS(green)}${toCSS(blue)}`;
+}
+
+color.css = css;
