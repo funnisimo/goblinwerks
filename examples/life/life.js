@@ -4,6 +4,9 @@
 let data = GW.grid.alloc(100, 34);
 let canvas = null;
 
+const DEAD = GW.make.sprite(' ', [0], [0]);
+const ALIVE = GW.make.sprite(' ', [0], [100, 50, 50]);
+
 // when you click a cell, you make it alive
 function handleClick(e) {
 	const x = canvas.toX(e.clientX);
@@ -18,12 +21,7 @@ function handleClick(e) {
 // alive = @, dead = ' '
 function draw() {
 	data.forEach( (v, x, y) => {
-		if (v) {
-			canvas.plotChar(x, y, ' ', [0], [100, 50, 50]);
-		}
-		else {
-			canvas.plotChar(x, y, ' ', [0], [0]);
-		}
+		canvas.plot(x, y, v ? ALIVE : DEAD);
 	});
 	canvas.draw();
 }

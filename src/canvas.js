@@ -1,16 +1,13 @@
 
-import { Color, applyMix, css } from './color.js';
+import { css } from './color.js';
 import { Sprite } from './sprite.js';
 import { Grid } from './grid.js';
-import { clamp } from './utils';
 import { cosmetic } from './random.js';
 
 import { canvas, buffer, types, debug } from './gw.js';
 
 
 const HANGING_LETTERS = ['y', 'p', 'g', 'j', 'q', '[', ']', '(', ')', '{', '}'];
-const DANCING_FORECOLOR = 1 << 0;
-const DANCING_BACKCOLOR = 1 << 1;
 const DISPLAY_FONT = 'monospace';
 
 
@@ -46,6 +43,18 @@ class Buffer extends Grid {
     this.needsUpdate = true;
   }
 
+  plot(x, y, sprite) {
+    if (!this.hasXY(x, y)) {
+      debug.log('invalid coordinates: ' + x + ', ' + y);
+      return false;
+    }
+    const destCell = this[x][y];
+    if (destCell.plot(sprite)) {
+      this.needsUpdate = true;
+    }
+    return this.needsUpdate;
+  }
+
   plotChar(x, y, ch, fg, bg) {
     if (!this.hasXY(x, y)) {
       debug.log('invalid coordinates: ' + x + ', ' + y);
@@ -53,7 +62,7 @@ class Buffer extends Grid {
     }
 
     const destCell = this[x][y];
-    destCell.plot(ch, fg, bg);
+    destCell.plotChar(ch, fg, bg);
     this.needsUpdate = true;
   }
 
@@ -87,77 +96,9 @@ function handleResizeEvent() {
   const rect = this.element.getBoundingClientRect();
   this.pxWidth  = rect.width;
   this.pxHeight = rect.height;
-  console.log('canvas', rect);
-
-  // this.tileSize = Math.min(Math.floor(window.innerWidth / this.buffer.width), Math.floor(window.innerHeight / this.buffer.height));
-  //
-  // let width = this.buffer.width * this.tileSize;
-  // let height = this.buffer.height * this.tileSize;
-  //
-  // DISPLAY_PIXEL_RATIO = window.devicePixelRatio || 1;
-  // if (DISPLAY_PIXEL_RATIO !== 1) {
-  //     // CANVAS.style.width = width + 'px';
-  //     // CANVAS.style.height = height + 'px';
-  //     // CANVAS.style.width = '100%';
-  //     // CANVAS.style.height = '100%';
-  //
-  //     width = Math.floor(width * DISPLAY_PIXEL_RATIO);
-  //     height = Math.floor(height * DISPLAY_PIXEL_RATIO);
-  // }
-  //
-  // CANVAS.width = width;
-  // CANVAS.height = height;
-  //
-  // const rect = CANVAS.getBoundingClientRect();
-  // SCREEN_WIDTH = rect.width;
-  // SCREEN_HEIGHT = rect.height;
-  //
-  // GW.debug.log('resize', SCREEN_WIDTH, SCREEN_HEIGHT, this.tileSize, DISPLAY_PIXEL_RATIO);
-  //
-  // setFont(this, this.tileSize, this.font);
-  // fillBg(this, '#000');
+  console.log('canvas resize', rect);
 
   this.buffer.forEach((c) => { c.needsUpdate = true; });
-
-}
-
-
-function plotCharToDisplayBuffer(buffer, x, y, ch, fg, bg) {
-
-  const destCell = buffer[x][y];
-
-  fg = fg || destCell.fg;
-  bg = bg || destCell.bg;
-
-  if (ch != ' '
-    && fg[0] === bg[0]
-    && fg[1] === bg[1]
-    && fg[2] === bg[2])
-  {
-    ch = ' ';
-  }
-
-  if (ch		!== destCell.ch
-    || fg[0] !== destCell.fg[0]
-    || fg[1] !== destCell.fg[1]
-    || fg[2] !== destCell.fg[2]
-    || bg[0] !== destCell.bg[0]
-    || bg[1] !== destCell.bg[1]
-    || bg[2] !== destCell.bg[2])
-  {
-    if (HANGING_LETTERS.includes(destCell.ch) && y < buffer.height - 1) {
-      buffer[x][y + 1].needsUpdate = true;	// redraw the row below any hanging letters that changed
-    }
-
-    destCell.plot(ch, fg, bg);
-    if (fg.dances) {
-      destCell.flags |= DANCING_FORECOLOR;
-    }
-    if (bg.dances) {
-      destCell.flags |= DANCING_BACKCOLOR;
-    }
-    buffer.needsUpdate = true;
-  }
 
 }
 
@@ -196,7 +137,7 @@ class Canvas {
     if (typeof window !== 'undefined') {
       this.element.width = this.width * this.tileSize;
       this.element.height = this.height * this.tileSize;
-      
+
       window.addEventListener('resize', handleResizeEvent.bind(this));
       handleResizeEvent.call(this);
     }
@@ -225,7 +166,7 @@ class Canvas {
       const _drawCell = canvas.drawCell;
 
       this.buffer.forEach( (cell, i, j) => {
-        if (cell.flags & (DANCING_BACKCOLOR | DANCING_FORECOLOR)) {
+        if (cell.fg.dances || cell.bg.dances) {
           this.dances = true;
           if (cosmetic.value() < 0.002) {
             cell.needsUpdate = true;
@@ -233,6 +174,10 @@ class Canvas {
         }
 
         if (cell.needsUpdate) {
+          if (HANGING_LETTERS.includes(cell.ch) && j < buffer.height - 1) {
+            this.buffer[i][j + 1].needsUpdate = true;	// redraw the row below any hanging letters that changed
+          }
+
           this.drawCell(cell, i, j);
           cell.needsUpdate = false;
         }
@@ -270,11 +215,13 @@ class Canvas {
     }
   }
 
+  plot(x, y, sprite) {
+    this.buffer.plot(x, y, sprite);
+  }
 
   plotChar(x, y, ch, fg, bg) {
     this.buffer.plotChar(x, y, ch, fg, bg);
   }
-
 
   allocBuffer() {
     let buf;
@@ -305,33 +252,12 @@ class Canvas {
 
   // draws overBuf over the current canvas with per-cell pseudotransparency as specified in overBuf.
   // If previousBuf is not null, it gets filled with the preexisting canvas for reversion purposes.
-  overlayRect( overBuf,  x, y, w, h) {
+  overlayRect(overBuf, x, y, w, h) {
     let i, j;
-    let foreColor, tempColor, backColor = new Color();
-    let character;
 
     for (i=x; i<x + w; i++) {
       for (j=y; j<y + h; j++) {
-
-        if (overBuf[i][j].opacity != 0) {
-          backColor.copy(overBuf[i][j].bg);
-
-          // character and fore color:
-          if (overBuf[i][j].ch == ' ') { // Blank cells in the overbuf take the character from the screen.
-            character = this.buffer[i][j].ch;
-            foreColor = this.buffer[i][j].fg;
-            applyMix(foreColor, backColor, overBuf[i][j].opacity);
-          } else {
-            character = overBuf[i][j].ch;
-            foreColor = overBuf[i][j].fg;
-          }
-
-          // back color:
-          tempColor = this.buffer[i][j].bg;
-          applyMix(backColor, tempColor, 100 - overBuf[i][j].opacity);
-
-          plotCharToDisplayBuffer(this.buffer, i, j, character, foreColor, backColor);
-        }
+        this.buffer.plot(i, j, overBuf[i][j]);
       }
     }
 
