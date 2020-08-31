@@ -7,6 +7,11 @@ import { dig as DIG, diggers as DIGGERS, def } from './gw.js';
 const DIRS = def.dirs;
 const OPP_DIRS = [def.DOWN, def.UP, def.RIGHT, def.LEFT];
 
+const WALL = 0;
+const FLOOR = 1;
+const DOOR = 2;
+const LAKE = 3;
+
 
 export function installDigger(id, fn, config) {
   config = fn(config || {});	// call to have function bind itself to the config
@@ -648,7 +653,7 @@ function attachRoomToDungeon(roomMap, doorSites) {
 
           // Room fits here.
           insertRoomAt(DIG_GRID, roomMap, x - doorSites[oppDir][0], y - doorSites[oppDir][1], doorSites[oppDir][0], doorSites[oppDir][1]);
-          DIG_GRID[x][y] = 2; // Door site.
+          DIG_GRID[x][y] = DOOR; // Door site.
           return true;
         }
       }
@@ -674,7 +679,7 @@ function attachRoomAtXY(x, y, roomMap, doorSites) {
       const offX = x - doorSites[oppDir][0];
       const offY = y - doorSites[oppDir][1];
       insertRoomAt(DIG_GRID, roomMap, offX, offY, doorSites[oppDir][0], doorSites[oppDir][1]);
-      DIG_GRID[x][y] = 2; // Door site.
+      DIG_GRID[x][y] = DOOR; // Door site.
       const newDoors = doorSites.map( (site) => {
         const x0 = site[0] + offX;
         const y0 = site[1] + offY;
@@ -704,4 +709,90 @@ function attachRoomAtDoors(roomMap, roomDoors, siteDoors) {
   }
 
   return false;
+}
+
+export function digLake(opts={}) {
+  let i, j, k;
+  let x, y;
+  let lakeMaxHeight, lakeMaxWidth, lakeMinSize, tries, maxCount, canDisrupt;
+  let count = 0;
+
+  lakeMaxHeight = opts.height || 15;
+  lakeMaxWidth = opts.width || 30;
+  lakeMinSize = opts.minSize || 5;
+  tries = opts.tries || 20;
+  maxCount = 1; // opts.count || tries;
+  canDisrupt = opts.canDisrupt || false;
+
+  const lakeGrid = allocGrid(SITE.width, SITE.height, 0);
+
+  for (; lakeMaxHeight >= lakeMinSize && lakeMaxWidth >= lakeMinSize && count < maxCount; lakeMaxHeight--, lakeMaxWidth -= 2) { // lake generations
+
+    lakeGrid.fill(0);
+    const bounds = GW.grid.fillBlob(lakeGrid, 5, 4, 4, lakeMaxWidth, lakeMaxHeight, 55, "ffffftttt", "ffffttttt");
+
+    for (k=0; k < tries && count < maxCount; k++) { // placement attempts
+        // propose a position for the top-left of the lakeGrid in the dungeon
+        x = random.range(1 - bounds.x, lakeGrid.width - bounds.width - bounds.x - 2);
+        y = random.range(1 - bounds.y, lakeGrid.height - bounds.height - bounds.y - 2);
+
+      if (canDisrupt || !lakeDisruptsPassability(lakeGrid, -x, -y)) { // level with lake is completely connected
+        console.log("Placed a lake!", x, y);
+
+        ++count;
+        // copy in lake
+        for (i = 0; i < bounds.width; i++) {  // skip boundary
+          for (j = 0; j < bounds.height; j++) { // skip boundary
+              if (lakeGrid[i + bounds.x][j + bounds.y]) {
+                  SITE.grid[i + bounds.x + x][j + bounds.y + y] = LAKE;
+              }
+          }
+        }
+        break;
+      }
+    }
+  }
+  freeGrid(lakeGrid);
+  return count;
+
+}
+
+DIG.digLake = digLake;
+
+
+function lakeDisruptsPassability(lakeGrid, dungeonToGridX, dungeonToGridY) {
+    let result;
+    let i, j, x, y;
+
+    const walkableGrid = allocGrid(lakeGrid.width, lakeGrid.height, 0);
+
+    x = y = -1;
+    // Get all walkable locations after lake added
+    SITE.grid.forEach( (v, i, j) => {
+      if (v == FLOOR || v == DOOR) {
+        const lakeX = i + dungeonToGridX;
+        const lakeY = j + dungeonToGridY;
+        if (lakeGrid.hasXY(lakeX, lakeY) && lakeGrid[lakeX][lakeY]) return;
+        walkableGrid[i][j] = FLOOR;
+      }
+    });
+
+    let first = true;
+    let disrupts = false;
+    for(let i = 0; i < walkableGrid.width && !disrupts; ++i) {
+      for(let j = 0; j < walkableGrid.height && !disrupts; ++j) {
+        if (walkableGrid[i][j] == FLOOR) {
+          if (first) {
+            GW.grid.floodFill(walkableGrid, i, j, FLOOR, DOOR);
+            first = false;
+          }
+          else {
+            disrupts = true;
+          }
+        }
+      }
+    }
+
+    GW.grid.free(walkableGrid);
+    return disrupts;
 }

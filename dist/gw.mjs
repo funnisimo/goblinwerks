@@ -845,6 +845,20 @@ class Grid extends Array {
 	  return bestLoc;
 	}
 
+	firstMatchingXY(v) {
+
+		const fn = (typeof v === 'function') ? v : ((c) => v == c);
+		for(let i = 0; i < this.width; ++i) {
+			for(let j = 0; j < this.height; ++j) {
+				if (fn(this[i][j], i, j)) {
+					return [i, j];
+				}
+			}
+		}
+
+		return [-1,-1];
+	}
+
 	randomMatchingXY(v, deterministic) {
 		let locationCount;
 	  let i, j, index;
@@ -1236,11 +1250,14 @@ grid$1.arcCount = arcCount;
 
 
 // Marks a cell as being a member of blobNumber, then recursively iterates through the rest of the blob
-function floodFill(grid, x, y, fillValue) {
+function floodFill(grid, x, y, matchValue, fillValue) {
   let dir;
 	let newX, newY, numberOfCells = 1;
 
-	grid[x][y] = fillValue;
+	const matchFn = (typeof matchValue == 'function') ? matchValue : ((v) => v == matchValue);
+	const fillFn  = (typeof fillValue  == 'function') ? fillValue  : (() => fillValue);
+
+	grid[x][y] = fillFn(grid[x][y], x, y);
 
 	// Iterate through the four cardinal neighbors.
 	for (dir=0; dir<4; dir++) {
@@ -1249,8 +1266,8 @@ function floodFill(grid, x, y, fillValue) {
 		if (!grid.hasXY(newX, newY)) {
 			break;
 		}
-		if (grid[newX][newY] == 1) { // If the neighbor is an unmarked region cell,
-			numberOfCells += floodFill(grid, newX, newY, fillValue); // then recurse.
+		if (matchFn(grid[newX][newY], newX, newY)) { // If the neighbor is an unmarked region cell,
+			numberOfCells += floodFill(grid, newX, newY, matchFn, fillFn); // then recurse.
 		}
 	}
 	return numberOfCells;
@@ -1305,15 +1322,18 @@ function fillBlob(grid,
   let topBlobMinX, topBlobMinY, topBlobMaxX, topBlobMaxY, blobWidth, blobHeight;
 		let foundACellThisLine;
 
+	const left = Math.floor((grid.width - maxBlobWidth) / 2);
+	const top  = Math.floor((grid.height - maxBlobHeight) / 2);
+
 	// Generate blobs until they satisfy the minBlobWidth and minBlobHeight restraints
 	do {
 		// Clear buffer.
-    zero(grid);
+    grid.fill(0);
 
 		// Fill relevant portion with noise based on the percentSeeded argument.
 		for(i=0; i<maxBlobWidth; i++) {
 			for(j=0; j<maxBlobHeight; j++) {
-				grid[i][j] = (random.percent(percentSeeded) ? 1 : 0);
+				grid[i + left][j + top] = (random.percent(percentSeeded) ? 1 : 0);
 			}
 		}
 
@@ -1349,7 +1369,7 @@ function fillBlob(grid,
 			for(j=0; j<grid.height; j++) {
 				if (grid[i][j] == 1) { // an unmarked blob
 					// Mark all the cells and returns the total size:
-					blobSize = floodFill(grid, i, j, blobNumber);
+					blobSize = floodFill(grid, i, j, 1, blobNumber);
 					if (blobSize > topBlobSize) { // if this blob is a new record
 						topBlobSize = blobSize;
 						topBlobNumber = blobNumber;
@@ -1976,6 +1996,9 @@ io.dispatchEvent = dispatchEvent;
 
 const DIRS$1 = def.dirs;
 const OPP_DIRS = [def.DOWN, def.UP, def.RIGHT, def.LEFT];
+const FLOOR = 1;
+const DOOR = 2;
+const LAKE = 3;
 
 
 function installDigger(id, fn, config) {
@@ -2610,7 +2633,7 @@ function attachRoomToDungeon(roomMap, doorSites) {
 
           // Room fits here.
           insertRoomAt(DIG_GRID, roomMap, x - doorSites[oppDir][0], y - doorSites[oppDir][1], doorSites[oppDir][0], doorSites[oppDir][1]);
-          DIG_GRID[x][y] = 2; // Door site.
+          DIG_GRID[x][y] = DOOR; // Door site.
           return true;
         }
       }
@@ -2636,7 +2659,7 @@ function attachRoomAtXY(x, y, roomMap, doorSites) {
       const offX = x - doorSites[oppDir][0];
       const offY = y - doorSites[oppDir][1];
       insertRoomAt(DIG_GRID, roomMap, offX, offY, doorSites[oppDir][0], doorSites[oppDir][1]);
-      DIG_GRID[x][y] = 2; // Door site.
+      DIG_GRID[x][y] = DOOR; // Door site.
       const newDoors = doorSites.map( (site) => {
         const x0 = site[0] + offX;
         const y0 = site[1] + offY;
@@ -2666,6 +2689,88 @@ function attachRoomAtDoors(roomMap, roomDoors, siteDoors) {
   }
 
   return false;
+}
+
+function digLake(opts={}) {
+  let i, j, k;
+  let x, y;
+  let lakeMaxHeight, lakeMaxWidth, lakeMinSize, tries, maxCount, canDisrupt;
+  let count = 0;
+
+  lakeMaxHeight = opts.height || 15;
+  lakeMaxWidth = opts.width || 30;
+  lakeMinSize = opts.minSize || 5;
+  tries = opts.tries || 20;
+  maxCount = 1; // opts.count || tries;
+  canDisrupt = opts.canDisrupt || false;
+
+  const lakeGrid = allocGrid(SITE.width, SITE.height, 0);
+
+  for (; lakeMaxHeight >= lakeMinSize && lakeMaxWidth >= lakeMinSize && count < maxCount; lakeMaxHeight--, lakeMaxWidth -= 2) { // lake generations
+
+    lakeGrid.fill(0);
+    const bounds = GW.grid.fillBlob(lakeGrid, 5, 4, 4, lakeMaxWidth, lakeMaxHeight, 55, "ffffftttt", "ffffttttt");
+
+    for (k=0; k < tries && count < maxCount; k++) { // placement attempts
+        // propose a position for the top-left of the lakeGrid in the dungeon
+        x = random.range(1 - bounds.x, lakeGrid.width - bounds.width - bounds.x - 2);
+        y = random.range(1 - bounds.y, lakeGrid.height - bounds.height - bounds.y - 2);
+
+      if (canDisrupt || !lakeDisruptsPassability(lakeGrid, -x, -y)) { // level with lake is completely connected
+        console.log("Placed a lake!", x, y);
+
+        ++count;
+        // copy in lake
+        for (i = 0; i < bounds.width; i++) {  // skip boundary
+          for (j = 0; j < bounds.height; j++) { // skip boundary
+              if (lakeGrid[i + bounds.x][j + bounds.y]) {
+                  SITE.grid[i + bounds.x + x][j + bounds.y + y] = LAKE;
+              }
+          }
+        }
+        break;
+      }
+    }
+  }
+  freeGrid(lakeGrid);
+  return count;
+
+}
+
+dig.digLake = digLake;
+
+
+function lakeDisruptsPassability(lakeGrid, dungeonToGridX, dungeonToGridY) {
+
+    const walkableGrid = allocGrid(lakeGrid.width, lakeGrid.height, 0);
+    // Get all walkable locations after lake added
+    SITE.grid.forEach( (v, i, j) => {
+      if (v == FLOOR || v == DOOR) {
+        const lakeX = i + dungeonToGridX;
+        const lakeY = j + dungeonToGridY;
+        if (lakeGrid.hasXY(lakeX, lakeY) && lakeGrid[lakeX][lakeY]) return;
+        walkableGrid[i][j] = FLOOR;
+      }
+    });
+
+    let first = true;
+    let disrupts = false;
+    for(let i = 0; i < walkableGrid.width && !disrupts; ++i) {
+      for(let j = 0; j < walkableGrid.height && !disrupts; ++j) {
+        if (walkableGrid[i][j] == FLOOR) {
+          if (first) {
+            GW.grid.floodFill(walkableGrid, i, j, FLOOR, DOOR);
+            first = false;
+          }
+          else {
+            disrupts = true;
+          }
+        }
+      }
+    }
+
+    GW.grid.free(walkableGrid);
+    return disrupts;
 }
 
 export { MAP, PLAYER, actor, buffer, canvas, color, colors, cosmetic, debug$1 as debug, def, dig, diggers, grid$1 as grid, install, io, make, map, random, sprite, types, utils };

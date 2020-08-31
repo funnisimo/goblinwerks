@@ -163,6 +163,24 @@ export class Grid extends Array {
 	  return bestLoc;
 	}
 
+	firstMatchingXY(v) {
+		let locationCount;
+	  let i, j, index;
+
+		const fn = (typeof v === 'function') ? v : ((c) => v == c);
+
+	  locationCount = 0;
+		for(let i = 0; i < this.width; ++i) {
+			for(let j = 0; j < this.height; ++j) {
+				if (fn(this[i][j], i, j)) {
+					return [i, j];
+				}
+			}
+		}
+
+		return [-1,-1];
+	}
+
 	randomMatchingXY(v, deterministic) {
 		let locationCount;
 	  let i, j, index;
@@ -561,11 +579,14 @@ GRID.arcCount = arcCount;
 
 
 // Marks a cell as being a member of blobNumber, then recursively iterates through the rest of the blob
-export function floodFill(grid, x, y, fillValue) {
+export function floodFill(grid, x, y, matchValue, fillValue) {
   let dir;
 	let newX, newY, numberOfCells = 1;
 
-	grid[x][y] = fillValue;
+	const matchFn = (typeof matchValue == 'function') ? matchValue : ((v) => v == matchValue);
+	const fillFn  = (typeof fillValue  == 'function') ? fillValue  : (() => fillValue);
+
+	grid[x][y] = fillFn(grid[x][y], x, y);
 
 	// Iterate through the four cardinal neighbors.
 	for (dir=0; dir<4; dir++) {
@@ -574,8 +595,8 @@ export function floodFill(grid, x, y, fillValue) {
 		if (!grid.hasXY(newX, newY)) {
 			break;
 		}
-		if (grid[newX][newY] == 1) { // If the neighbor is an unmarked region cell,
-			numberOfCells += floodFill(grid, newX, newY, fillValue); // then recurse.
+		if (matchFn(grid[newX][newY], newX, newY)) { // If the neighbor is an unmarked region cell,
+			numberOfCells += floodFill(grid, newX, newY, matchFn, fillFn); // then recurse.
 		}
 	}
 	return numberOfCells;
@@ -632,15 +653,18 @@ export function fillBlob(grid,
   let topBlobMinX, topBlobMinY, topBlobMaxX, topBlobMaxY, blobWidth, blobHeight;
 		let foundACellThisLine;
 
+	const left = Math.floor((grid.width - maxBlobWidth) / 2);
+	const top  = Math.floor((grid.height - maxBlobHeight) / 2);
+
 	// Generate blobs until they satisfy the minBlobWidth and minBlobHeight restraints
 	do {
 		// Clear buffer.
-    zero(grid);
+    grid.fill(0);
 
 		// Fill relevant portion with noise based on the percentSeeded argument.
 		for(i=0; i<maxBlobWidth; i++) {
 			for(j=0; j<maxBlobHeight; j++) {
-				grid[i][j] = (random.percent(percentSeeded) ? 1 : 0);
+				grid[i + left][j + top] = (random.percent(percentSeeded) ? 1 : 0);
 			}
 		}
 
@@ -676,7 +700,7 @@ export function fillBlob(grid,
 			for(j=0; j<grid.height; j++) {
 				if (grid[i][j] == 1) { // an unmarked blob
 					// Mark all the cells and returns the total size:
-					blobSize = floodFill(grid, i, j, blobNumber);
+					blobSize = floodFill(grid, i, j, 1, blobNumber);
 					if (blobSize > topBlobSize) { // if this blob is a new record
 						topBlobSize = blobSize;
 						topBlobNumber = blobNumber;
