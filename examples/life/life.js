@@ -2,12 +2,14 @@
 // This Grid holds all the simulation data:
 // 1 - alive, 0 - dead
 let data = GW.grid.alloc(100, 34);
+let canvas = null;
 
 // when you click a cell, you make it alive
 function handleClick(e) {
-	const x = GW.canvas.toX(e.clientX);
-	const y = GW.canvas.toY(e.clientY);
+	const x = canvas.toX(e.clientX);
+	const y = canvas.toY(e.clientY);
 
+	console.log('click', x, y);
 	data[x][y] = 1;
 	draw();
 }
@@ -15,16 +17,15 @@ function handleClick(e) {
 // draw all the cells
 // alive = @, dead = ' '
 function draw() {
-	const buf = GW.canvas.BUFFER;
 	data.forEach( (v, x, y) => {
 		if (v) {
-			buf.plotChar(x, y, ' ', [0], [100, 50, 50]);
+			canvas.plotChar(x, y, ' ', [0], [100, 50, 50]);
 		}
 		else {
-			buf.plotChar(x, y, ' ', [0], [0]);
+			canvas.plotChar(x, y, ' ', [0], [0]);
 		}
 	});
-	GW.canvas.draw();
+	canvas.draw();
 }
 
 
@@ -64,7 +65,7 @@ function runSim() {
 
 // start the environment
 function start() {
-	GW.canvas.setup(100, 34, 'game');
+	canvas = new GW.types.Canvas(100, 34, 'game', { tileSize: 11 });
 	game.onmousedown = handleClick;
 	document.onkeydown = runSim;
 }

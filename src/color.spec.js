@@ -11,7 +11,11 @@ describe('GW.color', () => {
     expect(d[0]).toEqual(100);
     expect(d[1]).toEqual(90);
     expect(d[2]).toEqual(80);
+  });
 
+  test('css', () => {
+    const c = new GW.types.Color(100, 50, 0);
+    expect(GW.color.css(c)).toEqual('#ff8000');
   });
 
 });

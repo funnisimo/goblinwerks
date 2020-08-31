@@ -1,6 +1,5 @@
 
 import { NOOP, TRUE, FALSE } from './utils.js';
-import { toX, toY } from './canvas.js';
 import { io, def } from './gw.js';
 
 
@@ -33,6 +32,15 @@ io.clearEvents = clearEvents;
 
 
 export function pushEvent(ev) {
+  if (EVENTS.length && ev.type === MOUSEMOVE) {
+  	last = EVENTS[EVENTS.length - 1];
+    if (last.type === MOUSEMOVE) {
+			last.x = ev.x;
+		  last.y = ev.y;
+      return;
+    }
+  }
+
 	if (CURRENT_HANDLER) {
   	CURRENT_HANDLER(ev);
   }
@@ -85,7 +93,7 @@ io.clearTimeout = clearTimeout;
 
 // KEYBOARD
 
-function makeKeyEvent(e) {
+export function makeKeyEvent(e) {
 	let ev;
 
 	let flags = 0;
@@ -120,6 +128,7 @@ function makeKeyEvent(e) {
   return { type: KEYPRESS, key: key, code: e.code, x: -1, y: -1, shiftKey: e.shiftKey, altKey: e.altKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey };
 }
 
+io.makeKeyEvent = makeKeyEvent;
 
 export function onkeydown(e) {
 	if (CONTROL_CODES.includes(e.code)) return;
@@ -160,12 +169,9 @@ io.keyDirection = keyDirection;
 export var mouse = {x: -1, y: -1};
 io.mouse = mouse;
 
-function makeMouseEvent(e) {
+export function makeMouseEvent(e, x, y) {
 
   let event = e.buttons ? CLICK : MOUSEMOVE;
-
-	const x = toX(e.clientX);
-  const y = toY(e.clientY);
 
 	if (DEAD_EVENTS.length) {
   	ev = DEAD_EVENTS.pop();
@@ -186,28 +192,25 @@ function makeMouseEvent(e) {
   return { type: event, key: null, code: null, x: x, y: y, shiftKey: e.shiftKey, altKey: e.altKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey };
 }
 
-export function onmousemove(e) {
-	let ev;
-  if (EVENTS.length) {
-  	ev = EVENTS[EVENTS.length - 1];
-    if (ev.type === MOUSEMOVE) {
-			ev.x = toX(e.clientX);
-		  ev.y = toY(e.clientY);
-      return;
-    }
-  }
-	ev = makeMouseEvent(e);
-	io.pushEvent(ev);
-}
+io.makeMouseEvent = makeMouseEvent;
 
-io.onmousemove = onmousemove;
-
-export function onmousedown(e) {
-	const ev = makeMouseEvent(e);
-	io.pushEvent(ev);
-}
-
-io.onmousedown = onmousedown;
+// export function onmousemove(e) {
+// 	const x = canvas.toX(e.clientX);
+// 	const y = canvas.toy(e.clientY);
+// 	const ev = makeMouseEvent(e, x, y);
+// 	io.pushEvent(ev);
+// }
+//
+// io.onmousemove = onmousemove;
+//
+// export function onmousedown(e) {
+// 	const x = canvas.toX(e.clientX);
+// 	const y = canvas.toy(e.clientY);
+// 	const ev = makeMouseEvent(e, x, y);
+// 	io.pushEvent(ev);
+// }
+//
+// io.onmousedown = onmousedown;
 
 // IO
 
