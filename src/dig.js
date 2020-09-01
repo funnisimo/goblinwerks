@@ -313,9 +313,10 @@ DIG.chunkyRoom = designChunkyRoom;
 const WALL = 0;
 const FLOOR = 1;
 const DOOR = 2;
-const LAKE = 3;
-const LAKE_FLOOR = 4;
-const LAKE_DOOR = 5;
+const BRIDGE = 3;
+const LAKE = 4;
+const LAKE_FLOOR = 5;
+const LAKE_DOOR = 6;
 
 
 class DigSite {
@@ -330,7 +331,7 @@ class DigSite {
   isPassable(x, y) {
     if (!this.grid.hasXY(x, y)) return false;
     const v = this.grid[x][y];
-    return v == FLOOR || v == DOOR;
+    return v == FLOOR || v == DOOR || v == BRIDGE;
   }
 
   isObstruction(x, y) {
@@ -811,8 +812,13 @@ export function digLake(opts={}) {
         for (i = 0; i < bounds.width; i++) {  // skip boundary
           for (j = 0; j < bounds.height; j++) { // skip boundary
               if (lakeGrid[i + bounds.x][j + bounds.y]) {
-                if (!SITE.isLake(i + bounds.x + x, j + bounds.y + y)) {
-                  SITE.grid[i + bounds.x + x][j + bounds.y + y] += LAKE;
+                const sx = i + bounds.x + x;
+                const sy = j + bounds.y + y;
+                if (!SITE.isLake(sx, sy)) {
+                  if (SITE.grid[sx][sy] == BRIDGE) {
+                    SITE.grid[sx][sy] = FLOOR;
+                  }
+                  SITE.grid[sx][sy] += LAKE;
                 }
               }
           }
@@ -954,6 +960,89 @@ export function addLoops(minimumPathingDistance, maxConnectionLength) {
 }
 
 DIG.addLoops = addLoops;
+
+
+function isBridgeCandidate(x, y, bridgeDir) {
+  if (!SITE.isLake(x, y)) return false;
+  if (!SITE.isLake(x + bridgeDir[1], y + bridgeDir[0])) return false;
+  if (!SITE.isLake(x - bridgeDir[1], y - bridgeDir[0])) return false;
+  return true;
+}
+
+// Add some loops to the otherwise simply connected network of rooms.
+export function addBridges(minimumPathingDistance, maxConnectionLength) {
+    let newX, newY, oppX, oppY;
+    let i, j, d, x, y;
+
+    maxConnectionLength = maxConnectionLength || 1; // by default only break walls down
+
+    const siteGrid = SITE.grid;
+    const pathGrid = allocGrid(SITE.width, SITE.height);
+    const costGrid = allocGrid(SITE.width, SITE.height);
+
+    const dirCoords = [[1, 0], [0, 1]];
+
+    siteGrid.forEach( (v, i, j) => {
+      costGrid[i][j] = SITE.isPassable(i, j) ? 1 : def.PDS_OBSTRUCTION;
+    });
+
+    for (i = 0; i < LOCS.length; i++) {
+        x = Math.floor(LOCS[i] / siteGrid.height);
+        y = LOCS[i] % siteGrid.height;
+
+        if (SITE.isPassable(x, y)) {
+            for (d=0; d <= 1; d++) { // Try right, then down
+                const bridgeDir = dirCoords[d];
+                newX = x + bridgeDir[0];
+                newY = y + bridgeDir[1];
+                j = maxConnectionLength;
+
+                // check for line of lake tiles
+                // if (isBridgeCandidate(newX, newY, bridgeDir)) {
+                if (SITE.isLake(newX, newY, bridgeDir)) {
+                  for(j = 0; j < maxConnectionLength; ++j) {
+                    newX += bridgeDir[0];
+                    newY += bridgeDir[1];
+
+                    // if (!isBridgeCandidate(newX, newY, bridgeDir)) {
+                    if (!SITE.isLake(newX, newY, bridgeDir)) {
+                      break;
+                    }
+                  }
+                }
+
+                if (SITE.isPassable(newX, newY) && j < maxConnectionLength) {
+                  calculateDistances(pathGrid, newX, newY, costGrid, false);
+                  // pathGrid.fill(30000);
+                  // pathGrid[newX][newY] = 0;
+                  // dijkstraScan(pathGrid, costGrid, false);
+                  if (pathGrid[x][y] > minimumPathingDistance) { // and if the pathing distance between the two flanking floor tiles exceeds minimumPathingDistance,
+
+                      debug.log('Adding Bridge', x, y, ' => ', newX, newY);
+
+                      while(x !== newX || y !== newY) {
+                        if (isBridgeCandidate(x, y, bridgeDir)) {
+                          siteGrid[x][y] = BRIDGE;
+                          costGrid[x][y] = 1;          // (Cost map also needs updating.)
+                        }
+                        else {
+                          siteGrid[x][y] = FLOOR;
+                          costGrid[x][y] = 1;
+                        }
+                        x += bridgeDir[0];
+                        y += bridgeDir[1];
+                      }
+                      break;
+                  }
+                }
+            }
+        }
+    }
+    freeGrid(pathGrid);
+    freeGrid(costGrid);
+}
+
+DIG.addBridges = addBridges;
 
 
 

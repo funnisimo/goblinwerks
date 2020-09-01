@@ -5,9 +5,10 @@ const startingXY = { x: 40, y: 28 };
 GW.random.seed(12345);
 
 const TILES = [
-	GW.make.sprite('#', [50,50,50], [20,20,20]),
-	GW.make.sprite('\u00b7', [30,30,30], [90,90,90]),
-	GW.make.sprite('+', [100,40,40], [30,60,60]),
+	GW.make.sprite('#', [50,50,50], [20,20,20]),	// WALL
+	GW.make.sprite('\u00b7', [30,30,30], [90,90,90]),	// FLOOR
+	GW.make.sprite('+', [100,40,40], [30,60,60]),	// DOOR
+	GW.make.sprite('=', [100,40,40], [60,40,0]),	// BRIDGE
 	GW.make.sprite('~', [0,80,100], [0,30,100]),	// LAKE
 	GW.make.sprite('\u00b7', [0,80,100], [30,50,100]),	// LAKE_FLOOR
 	GW.make.sprite('+', [0,80,100], [30,50,100]),	// LAKE_DOOR
@@ -114,6 +115,8 @@ function drawMap() {
 		GW.dig.digLake();
 		stopTimer('lake #' + i);
 	}
+
+	GW.dig.addBridges(40, 8);
 
 	GW.dig.removeDiagonalOpenings();
 	GW.dig.finishDoors();
