@@ -66,6 +66,13 @@ class Buffer extends Grid {
     this.needsUpdate = true;
   }
 
+  plotText(x, y, text, fg, bg) {
+    let len = text.length;
+    for(let i = 0; i < len; ++i) {
+      this.plotChar(i + x, y, text[i], fg, bg);
+    }
+  }
+
 }
 
 types.Buffer = Buffer;
@@ -232,6 +239,10 @@ class Canvas {
 
   plotChar(x, y, ch, fg, bg) {
     this.buffer.plotChar(x, y, ch, fg, bg);
+  }
+
+  plotText(x, y, text, fg, bg) {
+    this.buffer.plotText(x, y, text, fg, bg);
   }
 
   allocBuffer() {

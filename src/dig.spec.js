@@ -52,4 +52,27 @@ describe('GW.dig', () => {
 
   });
 
+  test('adds loops', () => {
+
+    GW.random.seed(12345);
+    const SITE = GW.dig.startDig(80, 30);
+
+    let doors = [ [38, 28] ];
+    let roomCount = 5;
+
+    for(let i = 0; i < roomCount; ++i) {
+  		doors = GW.dig.digRoom({ digger: 'ROOM', doors, tries: 20, tile: 1 });
+  		if (!doors) {
+        fail('Failed to dig map on room #' + (i + 1));
+  		}
+  	}
+
+    expect(SITE.grid[52][19]).toEqual(0);
+    expect(SITE.grid[70][16]).toEqual(0);
+    GW.dig.addLoops(20, 5);
+    expect(SITE.grid[52][19]).toEqual(2); // added door
+    expect(SITE.grid[70][16]).toEqual(2); // added door
+
+  });
+
 });

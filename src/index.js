@@ -6,6 +6,7 @@ import './sprite.js';
 import './grid.js';
 import './canvas.js';
 import './io.js';
+import './path.js';
 import './dig.js';
 
 export * from './gw.js';

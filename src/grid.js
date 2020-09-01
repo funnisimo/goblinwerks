@@ -1,7 +1,7 @@
 
 import * as utils from './utils.js';
 import { random } from './random.js';
-import { grid as GRID, def, MAP, types, debug } from './gw.js';
+import { grid as GRID, def, MAP, types, debug, make } from './gw.js';
 
 
 const GRID_CACHE = [];
@@ -13,17 +13,26 @@ var   GRID_CREATE_COUNT = 0;
 const DIRS = def.dirs;
 const CDIRS = def.clockDirs;
 
+
+export function makeArray(l, fn) {
+	fn = fn || (() => 0);
+	const arr = new Array(l);
+	for( let i = 0; i < l; ++i) {
+		arr[i] = fn(i);
+	}
+	return arr;
+}
+
+make.array = makeArray;
+
+
 export class Grid extends Array {
 	constructor(w, h, v) {
 		v = v || 0;
 		const fn = (typeof v === 'function') ? v : (() => v);
 		super(w);
 		for( let i = 0; i < w; ++i ) {
-			const row = new Array(h);
-			for( let j = 0; j < h; ++j) {
-				row[j] = fn(j, i);
-			}
-			this[i] = row;
+			this[i] = makeArray(h, (j) => fn(i, j));;
 		}
 		this.width = w;
 		this.height = h;
@@ -613,6 +622,7 @@ function cellularAutomataRound(grid, birthParameters /* char[9] */, survivalPara
     buffer2 = allocGrid(grid.width, grid.height, 0);
     buffer2.copy(grid); // Make a backup of grid in buffer2, so that each generation is isolated.
 
+		let didSomething = false;
     for(i=0; i<grid.width; i++) {
         for(j=0; j<grid.height; j++) {
             nbCount = 0;
@@ -627,15 +637,18 @@ function cellularAutomataRound(grid, birthParameters /* char[9] */, survivalPara
             }
             if (!buffer2[i][j] && birthParameters[nbCount] == 't') {
                 grid[i][j] = 1;	// birth
+								didSomething = true;
             } else if (buffer2[i][j] && survivalParameters[nbCount] == 't') {
                 // survival
             } else {
                 grid[i][j] = 0;	// death
+								didSomething = true;
             }
         }
     }
 
     freeGrid(buffer2);
+		return didSomething;
 }
 
 
@@ -668,22 +681,12 @@ export function fillBlob(grid,
 			}
 		}
 
-//        colorOverDungeon(&darkGray);
-//        hiliteGrid(grid, &white, 100);
-//        temporaryMessage("Random starting noise:", true);
-
 		// Some iterations of cellular automata
 		for (k=0; k<roundCount; k++) {
-			cellularAutomataRound(grid, birthParameters, survivalParameters);
-
-//            colorOverDungeon(&darkGray);
-//            hiliteGrid(grid, &white, 100);
-//            temporaryMessage("Cellular automata progress:", true);
+			if (!cellularAutomataRound(grid, birthParameters, survivalParameters)) {
+				k = roundCount;	// cellularAutomataRound did not make any changes
+			}
 		}
-
-//        colorOverDungeon(&darkGray);
-//        hiliteGrid(grid, &white, 100);
-//        temporaryMessage("Cellular automata result:", true);
 
 		// Now to measure the result. These are best-of variables; start them out at worst-case values.
 		topBlobSize =   0;

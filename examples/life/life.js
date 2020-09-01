@@ -13,7 +13,7 @@ function handleClick(e) {
 	const y = canvas.toY(e.clientY);
 
 	console.log('click', x, y);
-	data[x][y] = 1;
+	data[x][y] = (data[x][y] + 1) % 2;
 	draw();
 }
 
@@ -66,6 +66,10 @@ function start() {
 	canvas = new GW.types.Canvas(100, 34, 'game', { tileSize: 11 });
 	game.onmousedown = handleClick;
 	document.onkeydown = runSim;
+
+	canvas.plotText(20, 15, 'Click to Turn on/off some cells.', [100,50,0]);
+	canvas.plotText(20, 17, 'Press any key to run simulation.', [100,50,0]);
+	canvas.draw();
 }
 
 window.onload = start;
