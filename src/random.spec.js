@@ -8,6 +8,22 @@ describe('GW.random', () => {
     expect(GW.random).toBeDefined();
   });
 
+  test('works with a seed', () => {
+    GW.random.seed(12345);
+    expect(GW.random.number(100)).toEqual(21);
+    expect(GW.random.number(100)).toEqual(72);
+    expect(GW.random.number(100)).toEqual(41);
+    expect(GW.random.number(100)).toEqual(53);
+    expect(GW.random.number(100)).toEqual(60);
+
+    GW.random.seed(12345);
+    expect(GW.random.number(100)).toEqual(21);
+    expect(GW.random.number(100)).toEqual(72);
+    expect(GW.random.number(100)).toEqual(41);
+    expect(GW.random.number(100)).toEqual(53);
+    expect(GW.random.number(100)).toEqual(60);
+  });
+
   test('gives random percents => [0, 1)', () => {
     for(let i = 0; i < 10000; ++i) {
       expect(GW.random.value()).toBeWithin(0, 1);

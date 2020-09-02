@@ -8,7 +8,7 @@ import { canvas, buffer, types, debug } from './gw.js';
 
 
 const HANGING_LETTERS = ['y', 'p', 'g', 'j', 'q', '[', ']', '(', ')', '{', '}'];
-const DISPLAY_FONT = 'monospace';
+const DEFAULT_FONT = 'monospace';
 
 
 
@@ -66,6 +66,13 @@ class Buffer extends Grid {
     this.needsUpdate = true;
   }
 
+  plotText(x, y, text, fg, bg) {
+    let len = text.length;
+    for(let i = 0; i < len; ++i) {
+      this.plotChar(i + x, y, text[i], fg, bg);
+    }
+  }
+
 }
 
 types.Buffer = Buffer;
@@ -73,8 +80,8 @@ types.Buffer = Buffer;
 
 
 function setFont(canvas, size, name) {
-  canvas.font = name || 'monospace';
-  canvas.ctx.font = (size * canvas.displayRatio) + 'px ' + canvas.font;
+  canvas.font = name || DEFAULT_FONT;
+  canvas.ctx.font = (size) + 'px ' + canvas.font;
   canvas.ctx.textAlign = 'center';
   canvas.ctx.textBaseline = 'middle';
 }
@@ -109,6 +116,8 @@ class Canvas {
     this.buffer = new Buffer(w, h);
     this.dead = [];
     this.displayRatio = 1;
+    this.width  = w;
+    this.height = h;
 
     if (typeof document !== 'undefined') {
       let parent = document;
@@ -125,13 +134,20 @@ class Canvas {
 
       this.ctx = this.element.getContext('2d');
       this.displayRatio = window.devicePixelRatio || 1;
+
+      const bounds = this.element.getBoundingClientRect();
+      const size = Math.min(Math.floor(bounds.width / this.width), Math.floor(bounds.height / this.height));
+
+      this.tileSize = opts.tileSize || size;
+      this.pxWidth  = bounds.width;
+      this.pxHeight = bounds.height;
+    }
+    else {
+      this.tileSize = opts.tileSize || 16;
+      this.pxWidth  = this.tileSize * this.width  * this.displayRatio;
+      this.pxHeight = this.tileSize * this.height * this.displayRatio;
     }
 
-    this.width  = w;
-    this.height = h;
-    this.tileSize = opts.tileSize || 16;
-    this.pxWidth  = this.tileSize * this.width  * this.displayRatio;
-    this.pxHeight = this.tileSize * this.height * this.displayRatio;
     this.dances = false;
 
     if (typeof window !== 'undefined') {
@@ -140,6 +156,8 @@ class Canvas {
 
       window.addEventListener('resize', handleResizeEvent.bind(this));
       handleResizeEvent.call(this);
+
+      setFont(this, this.tileSize);
     }
 
 
@@ -188,7 +206,7 @@ class Canvas {
 
   drawCell(cell, x, y) {
     const ctx = this.ctx;
-    const tileSize = this.tileSize * this.displayRatio;
+    const tileSize = this.tileSize;// * this.displayRatio;
 
     const backCss = css(cell.bg);
     ctx.fillStyle = backCss;
@@ -204,8 +222,8 @@ class Canvas {
       const foreCss = css(cell.fg);
       ctx.fillStyle = foreCss;
 
-      const textX = x * tileSize + tileSize * 0.5;
-      const textY = y * tileSize + tileSize * 0.5;
+      const textX = x * tileSize + Math.floor(tileSize * 0.5);
+      const textY = y * tileSize + Math.floor(tileSize * 0.5);
 
       ctx.fillText(
         cell.ch,
@@ -221,6 +239,10 @@ class Canvas {
 
   plotChar(x, y, ch, fg, bg) {
     this.buffer.plotChar(x, y, ch, fg, bg);
+  }
+
+  plotText(x, y, text, fg, bg) {
+    this.buffer.plotText(x, y, text, fg, bg);
   }
 
   allocBuffer() {
