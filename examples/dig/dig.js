@@ -1,6 +1,7 @@
 
 let canvas = null;
-const startingXY = { x: 40, y: 28 };
+let SITE = null;
+const startingXY = [40, 28];
 
 GW.random.seed(12345);
 
@@ -9,6 +10,8 @@ const TILES = [
 	GW.make.sprite('\u00b7', [30,30,30], [90,90,90]),	// FLOOR
 	GW.make.sprite('+', [100,40,40], [30,60,60]),	// DOOR
 	GW.make.sprite('=', [100,40,40], [60,40,0]),	// BRIDGE
+	GW.make.sprite('<', [100,40,40], [100,60,20]),	// UP
+	GW.make.sprite('>', [100,40,40], [100,60,20]),	// DOWN
 	GW.make.sprite('~', [0,80,100], [0,30,100]),	// LAKE
 	GW.make.sprite('\u00b7', [0,80,100], [30,50,100]),	// LAKE_FLOOR
 	GW.make.sprite('+', [0,80,100], [30,50,100]),	// LAKE_DOOR
@@ -62,8 +65,8 @@ GW.dig.installDigger('FIRST_ROOM',   		GW.dig.choiceRoom,
 										} });
 
 function handleClick(e) {
-	startingXY.x = canvas.toX(e.clientX);
-	startingXY.y = canvas.toY(e.clientY);
+	startingXY[0] = canvas.toX(e.clientX);
+	startingXY[1] = canvas.toY(e.clientY);
 	drawMap();
 }
 
@@ -88,9 +91,9 @@ function stopTimer(text) {
 
 function drawMap() {
 	// dig a map
-	const SITE = GW.dig.startDig(80, 30);
+	SITE = GW.dig.startDig(80, 30);
 
-	let doors = [ [startingXY.x, startingXY.y] ];
+	let doors = [ [startingXY[0], startingXY[1]] ];
 	let roomCount = 0;
 
 	const start = startTimer();
@@ -110,7 +113,8 @@ function drawMap() {
 	GW.dig.addLoops(20, 5);
 	stopTimer('loops');
 
-	for(let i = 0; i < 5; ++i) {
+	let lakeCount = GW.random.number(5);
+	for(let i = 0; i < lakeCount; ++i) {
 		startTimer();
 		GW.dig.digLake();
 		stopTimer('lake #' + i);
@@ -120,6 +124,30 @@ function drawMap() {
 
 	GW.dig.removeDiagonalOpenings();
 	GW.dig.finishDoors();
+
+	let loc = SITE.grid.matchingXYNear(startingXY[0], startingXY[1], GW.dig.isValidStairLoc);
+	if (loc && loc[0] > 0) {
+		GW.dig.addStairs(loc[0], loc[1], 4);	// UP_STAIRS
+		SITE.locations.start = loc;
+	}
+	else {
+		console.error('Failed to place up stairs.');
+		return drawMap();
+	}
+
+	loc = SITE.grid.randomMatchingXY( (v, x, y) => {
+		if (GW.utils.distanceBetween(x, y, SITE.locations.start[0], SITE.locations.start[1]) < 30) return false;
+		return GW.dig.isValidStairLoc(v, x, y);
+	});
+
+	if (loc && loc[0] > 0) {
+		GW.dig.addStairs(loc[0], loc[1], 5);
+		SITE.locations.finish = loc;
+	}
+	else {
+		console.error('Failed to place down stairs.');
+		return drawMap();
+	}
 
 	time = start;
 	stopTimer('DIG');

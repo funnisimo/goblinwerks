@@ -903,20 +903,21 @@ class Grid extends Array {
 		return [-1,-1];
 	}
 
-	matchingXYNear(x, y, deterministic)
+	matchingXYNear(x, y, v, deterministic)
 	{
 	  let loc = [];
 		let i, j, k, candidateLocs, randIndex;
 
+		const fn = (typeof v === 'function') ? v : ((n) => n == v);
 		candidateLocs = 0;
 
 		// count up the number of candidate locations
-		for (k=0; k < Math.max(grid.width, grid.height) && !candidateLocs; k++) {
+		for (k=0; k < Math.max(this.width, this.height) && !candidateLocs; k++) {
 			for (i = x-k; i <= x+k; i++) {
 				for (j = y-k; j <= y+k; j++) {
-					if (grid.hasXY(i, j)
+					if (this.hasXY(i, j)
 						&& (i == x-k || i == x+k || j == y-k || j == y+k)
-						&& grid[i][j])
+						&& fn(this[i][j], i, j))
 	        {
 						candidateLocs++;
 					}
@@ -932,15 +933,15 @@ class Grid extends Array {
 		if (deterministic) {
 			randIndex = 1 + Math.floor(candidateLocs / 2);
 		} else {
-			randIndex = random.number(candidateLocs);
+			randIndex = 1 + random.number(candidateLocs);
 		}
 
-		for (k=0; k < Math.max(grid.width, grid.height); k++) {
+		for (k=0; k < Math.max(this.width, this.height); k++) {
 			for (i = x-k; i <= x+k; i++) {
 				for (j = y-k; j <= y+k; j++) {
-					if (grid.hasXY(i, j)
+					if (this.hasXY(i, j)
 						&& (i == x-k || i == x+k || j == y-k || j == y+k)
-						&& grid[i][j])
+						&& fn(this[i][j], i, j))
 	        {
 						if (--randIndex == 0) {
 							loc[0] = i;
@@ -2782,9 +2783,12 @@ const WALL = 0;
 const FLOOR = 1;
 const DOOR = 2;
 const BRIDGE = 3;
-const LAKE = 4;
-const LAKE_FLOOR = 5;
-const LAKE_DOOR = 6;
+const UP_STAIRS = 4;
+const DOWN_STAIRS = 5;
+
+const LAKE = 6;
+const LAKE_FLOOR = 7;
+const LAKE_DOOR = 8;
 
 
 class DigSite {
@@ -2817,7 +2821,7 @@ class DigSite {
   isBlocked(x, y) {
     if (!this.grid.hasXY(x, y)) return false;
     const v = this.grid[x][y];
-    return v == WALL || v == LAKE || v == LAKE_FLOOR || v == LAKE_DOOR;
+    return v == WALL || v == LAKE || v == LAKE_FLOOR || v == LAKE_DOOR || v == UP_STAIRS || v == DOWN_STAIRS;
   }
 
   isLake(x, y) {
@@ -2915,10 +2919,10 @@ function digRoom(opts={}) {
     }
 
     if (opts.doors && opts.doors.length) {
-      result = attachRoomAtDoors(grid, doors, opts.doors);
+      result = attachRoomAtDoors(grid, doors, opts.doors, opts.placeDoor);
     }
     else {
-      result = attachRoomToDungeon(grid, doors);
+      result = attachRoomToDungeon(grid, doors, opts.placeDoor);
     }
 
   }
@@ -2931,19 +2935,34 @@ function digRoom(opts={}) {
 dig.digRoom = digRoom;
 
 
-function validStairLoc(x, y, grid) {
+function isValidStairLoc(v, x, y) {
   let count = 0;
+  if (v !== WALL) return false;
+
   for(let i = 0; i < 4; ++i) {
     const dir = def.dirs[i];
-    if (!grid.hasXY(x + dir[0], y + dir[1])) return false;
-    if (grid[x + dir[0]][y + dir[1]]) {
+    if (!SITE.grid.hasXY(x + dir[0], y + dir[1])) return false;
+    const tile = SITE.grid[x + dir[0]][y + dir[1]];
+    if (tile == FLOOR) {
       count += 1;
+      if (SITE.grid[x - dir[0] + dir[1]][y - dir[1] + dir[0]] != WALL) return false;
+      if (SITE.grid[x - dir[0] - dir[1]][y - dir[1] - dir[0]] != WALL) return false;
+    }
+    else if (tile != WALL) {
+      return false;
     }
   }
   return count == 1;
 }
 
-dig.validStairLoc = validStairLoc;
+dig.isValidStairLoc = isValidStairLoc;
+
+
+function addStairs(x,y, stairTile) {
+  SITE.grid[x][y] = stairTile;  // assume everything is ok
+}
+
+dig.addStairs = addStairs;
 
 
 function randomDoor(sites, matchFn) {
@@ -3164,7 +3183,7 @@ function insertRoomAt(destGrid, roomGrid, roomToDungeonX, roomToDungeonY, xRoom,
 }
 
 
-function attachRoomToDungeon(roomMap, doorSites) {
+function attachRoomToDungeon(roomMap, doorSites, placeDoor) {
 
   // Slide hyperspace across real space, in a random but predetermined order, until the room matches up with a wall.
   for (let i = 0; i < LOCS.length; i++) {
@@ -3182,7 +3201,9 @@ function attachRoomToDungeon(roomMap, doorSites) {
 
           // Room fits here.
           insertRoomAt(SITE.grid, roomMap, x - doorSites[oppDir][0], y - doorSites[oppDir][1], doorSites[oppDir][0], doorSites[oppDir][1]);
-          SITE.grid[x][y] = DOOR; // Door site.
+          if (placeDoor !== false) {
+            SITE.grid[x][y] = (typeof placeDoor === 'number') ? placeDoor : DOOR; // Door site.
+          }
           return true;
         }
       }
@@ -3191,7 +3212,7 @@ function attachRoomToDungeon(roomMap, doorSites) {
   return false;
 }
 
-function attachRoomAtXY(x, y, roomMap, doorSites) {
+function attachRoomAtXY(x, y, roomMap, doorSites, placeDoor) {
 
   const dirs = sequence(4);
   random.shuffle(dirs);
@@ -3208,7 +3229,9 @@ function attachRoomAtXY(x, y, roomMap, doorSites) {
       const offX = x - doorSites[oppDir][0];
       const offY = y - doorSites[oppDir][1];
       insertRoomAt(SITE.grid, roomMap, offX, offY, doorSites[oppDir][0], doorSites[oppDir][1]);
-      SITE.grid[x][y] = DOOR; // Door site.
+      if (placeDoor !== false) {
+        SITE.grid[x][y] = (typeof placeDoor === 'number') ? placeDoor : DOOR; // Door site.
+      }
       const newDoors = doorSites.map( (site) => {
         const x0 = site[0] + offX;
         const y0 = site[1] + offY;
@@ -3222,7 +3245,7 @@ function attachRoomAtXY(x, y, roomMap, doorSites) {
 }
 
 
-function attachRoomAtDoors(roomMap, roomDoors, siteDoors) {
+function attachRoomAtDoors(roomMap, roomDoors, siteDoors, placeDoor) {
 
   const doorIndexes = sequence(siteDoors.length);
   random.shuffle(doorIndexes);
@@ -3233,7 +3256,7 @@ function attachRoomAtDoors(roomMap, roomDoors, siteDoors) {
     const x = siteDoors[index][0];
     const y = siteDoors[index][1];
 
-    const doors = attachRoomAtXY(x, y, roomMap, roomDoors);
+    const doors = attachRoomAtXY(x, y, roomMap, roomDoors, placeDoor);
     if (doors) return doors;
   }
 
@@ -3299,18 +3322,26 @@ dig.digLake = digLake;
 function lakeDisruptsPassability(lakeGrid, dungeonToGridX, dungeonToGridY) {
 
     const walkableGrid = allocGrid(lakeGrid.width, lakeGrid.height, 0);
+    let disrupts = false;
     // Get all walkable locations after lake added
     SITE.grid.forEach( (v, i, j) => {
-      if (v == FLOOR || v == DOOR) {
-        const lakeX = i + dungeonToGridX;
-        const lakeY = j + dungeonToGridY;
+      const lakeX = i + dungeonToGridX;
+      const lakeY = j + dungeonToGridY;
+      if (v == FLOOR || v == DOOR || v == BRIDGE) {
         if (lakeGrid.hasXY(lakeX, lakeY) && lakeGrid[lakeX][lakeY]) return;
         walkableGrid[i][j] = FLOOR;
+      }
+      else if (v == UP_STAIRS || v == DOWN_STAIRS) {
+        if (lakeGrid.hasXY(lakeX, lakeY) && lakeGrid[lakeX][lakeY]) {
+          disrupts = true;
+        }
+        else {
+          walkableGrid[i][j] = FLOOR;
+        }
       }
     });
 
     let first = true;
-    let disrupts = false;
     for(let i = 0; i < walkableGrid.width && !disrupts; ++i) {
       for(let j = 0; j < walkableGrid.height && !disrupts; ++j) {
         if (walkableGrid[i][j] == FLOOR) {

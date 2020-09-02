@@ -225,20 +225,21 @@ export class Grid extends Array {
 		return [-1,-1];
 	}
 
-	matchingXYNear(x, y, deterministic)
+	matchingXYNear(x, y, v, deterministic)
 	{
 	  let loc = [];
 		let i, j, k, candidateLocs, randIndex;
 
+		const fn = (typeof v === 'function') ? v : ((n) => n == v);
 		candidateLocs = 0;
 
 		// count up the number of candidate locations
-		for (k=0; k < Math.max(grid.width, grid.height) && !candidateLocs; k++) {
+		for (k=0; k < Math.max(this.width, this.height) && !candidateLocs; k++) {
 			for (i = x-k; i <= x+k; i++) {
 				for (j = y-k; j <= y+k; j++) {
-					if (grid.hasXY(i, j)
+					if (this.hasXY(i, j)
 						&& (i == x-k || i == x+k || j == y-k || j == y+k)
-						&& grid[i][j])
+						&& fn(this[i][j], i, j))
 	        {
 						candidateLocs++;
 					}
@@ -254,15 +255,15 @@ export class Grid extends Array {
 		if (deterministic) {
 			randIndex = 1 + Math.floor(candidateLocs / 2);
 		} else {
-			randIndex = random.number(candidateLocs);
+			randIndex = 1 + random.number(candidateLocs);
 		}
 
-		for (k=0; k < Math.max(grid.width, grid.height); k++) {
+		for (k=0; k < Math.max(this.width, this.height); k++) {
 			for (i = x-k; i <= x+k; i++) {
 				for (j = y-k; j <= y+k; j++) {
-					if (grid.hasXY(i, j)
+					if (this.hasXY(i, j)
 						&& (i == x-k || i == x+k || j == y-k || j == y+k)
-						&& grid[i][j])
+						&& fn(this[i][j], i, j))
 	        {
 						if (--randIndex == 0) {
 							loc[0] = i;
