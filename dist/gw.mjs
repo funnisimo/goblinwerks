@@ -3592,7 +3592,7 @@ function digLake(opts={}) {
                 const sx = i + bounds.x + x;
                 const sy = j + bounds.y + y;
                 if (!SITE.isLake(sx, sy)) {
-                  if (SITE.grid[sx][sy] == BRIDGE) {
+                  if (SITE.grid[sx][sy] == BRIDGE || SITE.grid[sx][sy] == DOOR) {
                     SITE.grid[sx][sy] = FLOOR;
                   }
                   SITE.grid[sx][sy] += LAKE;

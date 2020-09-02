@@ -30,7 +30,8 @@ function drawMap() {
 	let roomCount = 0;
 
 	SITE.grid.fillRect(2, 2, 76, 26, 1);
-	// GW.dig.digRoom({ digger: 'HUGE_ROOM', doors, tries: 5, tile: 1, placeDoor: false });
+	// TODO - GW.dig.digRoom({ digger: 'HUGE_ROOM', xy: [2,2], placeDoor: false });
+	// dig should slide the room around until any door site (not just random ones) fits at given xy
 
 	let lakeCount = GW.random.number(5);
 	for(let i = 0; i < lakeCount; ++i) {
