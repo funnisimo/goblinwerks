@@ -6,15 +6,15 @@ const startingXY = [40, 28];
 GW.random.seed(12345);
 
 const TILES = [
-	GW.make.sprite('#', [50,50,50], [20,20,20]),	// WALL
-	GW.make.sprite('\u00b7', [30,30,30], [90,90,90]),	// FLOOR
-	GW.make.sprite('+', [100,40,40], [30,60,60]),	// DOOR
-	GW.make.sprite('=', [100,40,40], [60,40,0]),	// BRIDGE
-	GW.make.sprite('<', [100,40,40], [100,60,20]),	// UP
-	GW.make.sprite('>', [100,40,40], [100,60,20]),	// DOWN
-	GW.make.sprite('~', [0,80,100], [0,30,100]),	// LAKE
-	GW.make.sprite('\u00b7', [0,80,100], [30,50,100]),	// LAKE_FLOOR
-	GW.make.sprite('+', [0,80,100], [30,50,100]),	// LAKE_DOOR
+	GW.make.tile('#', [50,50,50], [20,20,20]),	// WALL
+	GW.make.tile('\u00b7', [30,30,30], [90,90,90]),	// FLOOR
+	GW.make.tile('+', [100,40,40], [30,60,60]),	// DOOR
+	GW.make.tile('=', [100,40,40], [60,40,0]),	// BRIDGE
+	GW.make.tile('<', [100,40,40], [100,60,20]),	// UP
+	GW.make.tile('>', [100,40,40], [100,60,20]),	// DOWN
+	GW.make.tile('~', [0,80,100], [0,30,100]),	// LAKE
+	GW.make.tile('\u00b7', [0,80,100], [30,50,100]),	// LAKE_FLOOR
+	GW.make.tile('+', [0,80,100], [30,50,100]),	// LAKE_DOOR
 ];
 
 GW.dig.installDigger('HUGE_ROOM',     GW.dig.rectangularRoom,  { width: [50,76], height: [15,28] });
@@ -53,7 +53,7 @@ function drawMap() {
 	SITE.grid.forEach( (v, i, j) => {
 		const tile = TILES[v];
 		if (tile) {
-			canvas.plot(i, j, tile);
+			canvas.plot(i, j, tile.sprite);
 		}
 		else {
 			console.warn('missing tile ', v, i, j);

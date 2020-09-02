@@ -67,11 +67,16 @@ describe('GW.dig', () => {
   		}
   	}
 
-    expect(SITE.grid[52][19]).toEqual(0);
-    expect(SITE.grid[70][16]).toEqual(0);
+    // GW.grid.dump(SITE.grid);
+
+    expect(SITE.grid[56][18]).toEqual(0);
+    expect(SITE.grid[69][16]).toEqual(0);
     GW.dig.addLoops(20, 5);
-    expect(SITE.grid[52][19]).toEqual(2); // added door
-    expect(SITE.grid[70][16]).toEqual(2); // added door
+
+    // GW.grid.dump(SITE.grid);
+
+    expect(SITE.grid[56][18]).toEqual(2); // added door
+    expect(SITE.grid[69][16]).toEqual(2); // added door
 
   });
 

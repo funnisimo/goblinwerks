@@ -10,8 +10,6 @@ export var debug = {};
 export var make = {};
 export var install = {};
 
-export var color = {};
-export var colors = {};
 export var sprite = {};
 export var grid = {};
 

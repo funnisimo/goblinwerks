@@ -12,8 +12,6 @@
   var make = {};
   var install = {};
 
-  var color = {};
-  var colors = {};
   var sprite = {};
   var grid$1 = {};
 
@@ -516,12 +514,16 @@
 
   make.range = makeRange;
 
+  var color = {};
+  var colors = {};
+
+
   class Color extends Array {
     constructor(...args) {
       if (args.length == 1 && Array.isArray(args[0])) { args = args[0]; }
       while(args.length < 7) args.push(0);
       super(...args.slice(0,7));
-      this.dances = (args.length > 7 && args[7]);
+      this.dances = (args.length > 7 && !!args[7]);
     }
 
     get red() 	{ return this[0]; }
@@ -531,15 +533,15 @@
     get blue() 	{ return this[2]; }
     set blue(v) { this[2] = v; }
 
-    get redRand() 	{ return this[3]; }
-    set redRand(v)  { this[3] = v; }
-    get greenRand()  { return this[4]; }
-    set greenRand(v) { this[4] = v; }
-    get blueRand() 	{ return this[5]; }
-    set blueRand(v) { this[5] = v; }
+    get rand() 	{ return this[3]; }
+    set rand(v)  { this[3] = v; }
 
-    get rand() 	{ return this[6]; }
-    set rand(v)  { this[6] = v; }
+    get redRand() 	{ return this[4]; }
+    set redRand(v)  { this[4] = v; }
+    get greenRand()  { return this[5]; }
+    set greenRand(v) { this[5] = v; }
+    get blueRand() 	{ return this[6]; }
+    set blueRand(v) { this[6] = v; }
 
     clone() {
       const other = new Color(...this);
@@ -566,17 +568,75 @@
 
   types.Color = Color;
 
+  function makeColor(...args) {
+    let hex = args[0];
+    if (args.length == 0) { return new types.Color(0,0,0); }
+    if (args.length == 1 && hex instanceof types.Color) {
+      return hex.clone();
+    }
+    else if (Array.isArray(hex)) {
+      return new types.Color(...hex);
+    }
+    else if (args.length >= 3) {
+      return new types.Color(...args);
+    }
+    if (typeof hex === 'string') {
+      let color = colors[hex] || null;
+      if (color) return color.clone();
+
+      if (!hex.startsWith('#')) return null;
+      if (hex.length === 4) {
+        const r = hex.charAt(1);
+        const g = hex.charAt(2);
+        const b = hex.charAt(3);
+        hex = `#${r}${r}${g}${g}${b}${b}`;
+      }
+      hex = Number.parseInt(hex.substring(1), 16);
+    }
+
+    if (typeof hex === 'number') {
+      const r = Math.floor( ((hex & 0xFF0000) >> 16) / 2.55 );
+      const g = Math.floor( ((hex & 0x00FF00) >> 8)  / 2.55 );
+      const b = Math.floor( (hex & 0x0000FF) / 2.55 );
+      return new types.Color(r,g,b);
+    }
+
+    return null;
+  }
+
+  make.color = makeColor;
+
+
+  function installColor(name, ...args) {
+  	const color = make.color(...args);
+  	colors[name] = color;
+  	return color;
+  }
+
+  color.install = installColor;
+
+  function colorFrom(arg) {
+    if (typeof arg === 'string') {
+      return colors[arg] || make.color(arg);
+    }
+    return make.color(arg);
+  }
+
+  color.from = colorFrom;
 
 
   function applyMix(baseColor, newColor, opacity) {
     if (opacity <= 0) return;
     const weightComplement = 100 - opacity;
-    baseColor[0] = Math.floor((baseColor[0] * weightComplement + newColor[0] * opacity) / 100);
-    baseColor[1] = Math.floor((baseColor[1] * weightComplement + newColor[1] * opacity) / 100);
-    baseColor[2] = Math.floor((baseColor[2] * weightComplement + newColor[2] * opacity) / 100);
+    for(let i = 0; i < baseColor.length; ++i) {
+      baseColor[i] = Math.floor((baseColor[i] * weightComplement + newColor[i] * opacity) / 100);
+    }
+    baseColor.dances = (baseColor.dances || newColor.dances);
+    return baseColor;
   }
 
   color.applyMix = applyMix;
+  color.applyAverage = applyMix;
 
 
   function toRGB(v, vr) {
@@ -593,10 +653,10 @@
   }
 
   function css(color) {
-    const rand = cosmetic.value() * (color[6] || 0);
-    const red = toRGB(color[0] + rand, color[3]);
-    const green = toRGB(color[1] + rand, color[4]);
-    const blue = toRGB(color[2] + rand, color[5]);
+    const rand = cosmetic.value() * (color.rand || 0);
+    const red = toRGB(color.red + rand, color.redRand);
+    const green = toRGB(color.green + rand, color.greenRand);
+    const blue = toRGB(color.blue + rand, color.blueRand);
     return `#${toCSS(red)}${toCSS(green)}${toCSS(blue)}`;
   }
 
@@ -608,13 +668,236 @@
 
   color.equals = equals;
 
+  function clampColor(theColor) {
+    theColor.red		= clamp(theColor.red, 0, 100);
+    theColor.green	= clamp(theColor.green, 0, 100);
+    theColor.blue		= clamp(theColor.blue, 0, 100);
+  }
+
+  color.clamp = clampColor;
+
+
+  function bakeColor(/* color */theColor) {
+    let rand;
+    rand = cosmetic.range(0, theColor.rand);
+    theColor.red   += Math.round(GW.random.cosmetic.range(0, theColor.redRand) + rand);
+    theColor.green += Math.round(GW.random.cosmetic.range(0, theColor.greenRand) + rand);
+    theColor.blue  += Math.round(GW.random.cosmetic.range(0, theColor.blueRand) + rand);
+    theColor.redRand = theColor.greenRand = theColor.blueRand = theColor.rand = 0;
+  }
+
+  color.bake = bakeColor;
+
+
+  function lightenColor(destColor, percent) {
+    destColor.red =    Math.round(destColor.red + (100 - destColor.red) * percent / 100);
+    destColor.green =  Math.round(destColor.green + (100 - destColor.green) * percent / 100);
+    destColor.blue =   Math.round(destColor.blue + (100 - destColor.blue) * percent / 100);
+
+    // leave randoms the same
+    return destColor;
+  }
+
+  color.lighten = lightenColor;
+
+  function darkenColor(destColor, percent) {
+    destColor.red =    Math.round(destColor.red * (100 - percent) / 100);
+    destColor.green =  Math.round(destColor.green * (100 - percent) / 100);
+    destColor.blue =   Math.round(destColor.blue * (100 - percent) / 100);
+
+    // leave randoms the same
+    return destColor;
+  }
+
+  color.darken = darkenColor;
+
+
+  function applyColorAugment(baseColor, augmentColor, weight) {
+    baseColor.red += Math.floor((augmentColor.red * weight) / 100);
+    baseColor.redRand += Math.floor((augmentColor.redRand * weight) / 100);
+    baseColor.green += Math.floor((augmentColor.green * weight) / 100);
+    baseColor.greenRand += Math.floor((augmentColor.greenRand * weight) / 100);
+    baseColor.blue += Math.floor((augmentColor.blue * weight) / 100);
+    baseColor.blueRand += Math.floor((augmentColor.blueRand * weight) / 100);
+    baseColor.rand += Math.floor((augmentColor.rand * weight) / 100);
+    return baseColor;
+  }
+
+  color.applyAugment = applyColorAugment;
+
+
+  function applyColorMultiplier(baseColor, multiplierColor) {
+    baseColor.red = Math.round(baseColor.red * multiplierColor.red / 100);
+    baseColor.redRand = Math.round(baseColor.redRand * multiplierColor.redRand / 100);
+    baseColor.green = Math.round(baseColor.green * multiplierColor.green / 100);
+    baseColor.greenRand = Math.round(baseColor.greenRand * multiplierColor.greenRand / 100);
+    baseColor.blue = Math.round(baseColor.blue * multiplierColor.blue / 100);
+    baseColor.blueRand = Math.round(baseColor.blueRand * multiplierColor.blueRand / 100);
+    baseColor.rand = Math.round(baseColor.rand * multiplierColor.rand / 100);
+    baseColor.dances = baseColor.dances || multiplierColor.dances;
+    return baseColor;
+  }
+
+  color.applyMultiplier = applyColorMultiplier;
+
+  function applyColorScalar(baseColor, scalar) {
+    baseColor.red          = Math.round(baseColor.red        * scalar / 100);
+    baseColor.redRand      = Math.round(baseColor.redRand    * scalar / 100);
+    baseColor.green        = Math.round(baseColor.green      * scalar / 100);
+    baseColor.greenRand    = Math.round(baseColor.greenRand  * scalar / 100);
+    baseColor.blue         = Math.round(baseColor.blue       * scalar / 100);
+    baseColor.blueRand     = Math.round(baseColor.blueRand   * scalar / 100);
+    baseColor.rand         = Math.round(baseColor.rand       * scalar / 100);
+  }
+
+  color.applyScalar = applyColorScalar;
+
+  function _randomizeColorByPercent(input, percent) {
+    return (cosmetic.range( Math.floor(input * (100 - percent) / 100), Math.floor(input * (100 + percent) / 100)));
+  }
+
+  function randomizeColor(baseColor, randomizePercent) {
+    baseColor.red = _randomizeColorByPercent(baseColor.red, randomizePercent);
+    baseColor.green = _randomizeColorByPercent(baseColor.green, randomizePercent);
+    baseColor.blue = _randomizeColorByPercent(baseColor.blue, randomizePercent);
+  }
+
+  color.randomize = randomizeColor;
+
+  function swapColors(color1, color2) {
+      const tempColor = color1.clone();
+      color1.copy(color2);
+      color2.copy(tempColor);
+  }
+
+  color.swap = swapColors;
+
+  const MIN_COLOR_DIFF =			600;
+
+  // weighted sum of the squares of the component differences. Weights are according to color perception.
+  function colorDiff(f, b)		 {
+    return ((f.red - b.red) * (f.red - b.red) * 0.2126
+      + (f.green - b.green) * (f.green - b.green) * 0.7152
+      + (f.blue - b.blue) * (f.blue - b.blue) * 0.0722);
+  }
+
+  color.diff = colorDiff;
+
+  function normColor(baseColor, aggregateMultiplier, colorTranslation) {
+
+      baseColor.red += colorTranslation;
+      baseColor.green += colorTranslation;
+      baseColor.blue += colorTranslation;
+      const vectorLength =  baseColor.red + baseColor.green + baseColor.blue;
+
+      if (vectorLength != 0) {
+          baseColor.red =    Math.round(baseColor.red * 300    / vectorLength * aggregateMultiplier / 100);
+          baseColor.green =  Math.round(baseColor.green * 300  / vectorLength * aggregateMultiplier / 100);
+          baseColor.blue =   Math.round(baseColor.blue * 300   / vectorLength * aggregateMultiplier / 100);
+      }
+      baseColor.redRand = 0;
+      baseColor.greenRand = 0;
+      baseColor.blueRand = 0;
+      baseColor.rand = 0;
+  }
+
+  color.normalize = normColor;
+
+
+  // if forecolor is too similar to back, darken or lighten it and return true.
+  // Assumes colors have already been baked (no random components).
+  function separateColors(/* color */ fore, /* color */ back) {
+    let f, b, modifier = null;
+    let failsafe;
+    let madeChange;
+
+    f = fore.clone();
+    b = back.clone();
+
+    f.red			= clamp(f.red, 0, 100);
+    f.green		= clamp(f.green, 0, 100);
+    f.blue		= clamp(f.blue, 0, 100);
+    b.red			= clamp(b.red, 0, 100);
+    b.green		= clamp(b.green, 0, 100);
+    b.blue		= clamp(b.blue, 0, 100);
+
+    if (f.red + f.blue + f.green > 50 * 3) {
+      modifier = colors.black;
+    } else {
+      modifier = colors.white;
+    }
+
+    madeChange = false;
+    failsafe = 10;
+
+    while(color.diff(f, b) < MIN_COLOR_DIFF && --failsafe) {
+      applyMix(f, modifier, 20);
+      madeChange = true;
+    }
+
+    if (madeChange) {
+      fore.copy(f);
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  color.separate = separateColors;
+
+
+  function installColorSpread(name, r, g, b) {
+  	let baseColor;
+  	baseColor = installColor(name, r, g, b);
+  	installColor('light_' + name, color.lighten(baseColor.clone(), 25));
+  	installColor('lighter_' + name, color.lighten(baseColor.clone(), 50));
+  	installColor('lightest_' + name, color.lighten(baseColor.clone(), 75));
+  	installColor('dark_' + name, color.darken(baseColor.clone(), 25));
+  	installColor('darker_' + name, color.darken(baseColor.clone(), 50));
+  	installColor('darkest_' + name, color.darken(baseColor.clone(), 75));
+  	return baseColor;
+  }
+
+  color.installSpread = installColorSpread;
+
+  installColor('white', 				100,	100,	100);
+  installColor('black', 				0,		0,		0);
+
+  installColorSpread('teal', 				30,		100,	100);
+  installColorSpread('brown', 			60,		40,		0);
+  installColorSpread('tanColor', 		80,		67,		15);
+  installColorSpread('pink', 				100,	60,		66);
+  installColorSpread('gray', 				50,		50,		50);
+  installColorSpread('yellow', 			100,	100,	0);
+  installColorSpread('purple', 			100,	0,		100);
+  installColorSpread('green', 			0,		100,	0);
+  installColorSpread('orange', 			100,	50,		0);
+  installColorSpread('blue', 				0,		0,		100);
+  installColorSpread('red', 				100,	0,		0);
+
+  installColorSpread('amber', 			100,  75,   0);
+  installColorSpread('flame', 			100,  25,   0);
+  installColorSpread('fuchsia', 		100,  0,    100);
+  installColorSpread('magenta', 		100,  0,    75);
+  installColorSpread('crimson', 		100,  0,    25);
+  installColorSpread('lime', 			  75,   100,  0);
+  installColorSpread('chartreuse',  50,   100,  0);
+  installColorSpread('sepia', 			50,   40,   25);
+  installColorSpread('violet', 		  50,   0,    100);
+  installColorSpread('han', 				25,   0,    100);
+  installColorSpread('cyan', 			  0,    100,  100);
+  installColorSpread('turquoise', 	0,    100,  75);
+  installColorSpread('sea', 				0,    100,  50);
+  installColorSpread('sky', 				0,    75,   100);
+  installColorSpread('azure', 			0,    50,   100);
+
   const TEMP_BG = new Color();
 
   class Sprite {
   	constructor(ch, fg, bg, opacity=100) {
   		this.ch = ch || ' ';
-  		this.fg = new Color(fg || [100,100,100,0,0,0]);
-  		this.bg = new Color(bg || [0,0,0,0,0,0]);
+  		this.fg = makeColor(fg || 'white');
+  		this.bg = makeColor(bg || 'black');
   		this.opacity = opacity;
   		this.needsUpdate = true;
   	}
@@ -3607,6 +3890,256 @@
 
   dig.finishDoors = finishDoors;
 
+  var flag = {};
+  var flags = {};
+
+  ///////////////////////////////////
+  // FLAG
+
+  function Fl(N) { return (1 << N); }
+
+  flag.fl = Fl;
+
+  function flagToText(flagObj, value) {
+    const inverse = Object.entries(flagObj).reduce( (out, [key, value]) => {
+      out[value] = key;
+      return out;
+    }, {});
+
+    const out = [];
+    for(let index = 0; index < 32; ++index) {
+      const fl = (1 << index);
+      if (value & fl) {
+        out.push(inverse[fl]);
+      }
+    }
+    return out.join(' | ');
+  }
+
+  function makeFlag(obj, ...args) {
+    let result = 0;
+    for(let index = 0; index < args.length; ++index) {
+      let value = args[index];
+      if (value === undefined) continue;
+      if (typeof value == 'number') {
+        result |= value;
+        continue;	// next
+      }
+      else if (typeof value === 'string') {
+        value = value.split(/[,|]/).map( (t) => t.trim() );
+      }
+
+      if (Array.isArray(value)) {
+        value.forEach( (v) => {
+          if (typeof v == 'string') {
+            v = v.trim();
+            if (v.startsWith('!')) {
+              const f = obj[v.substring(1)];
+              result &= ~f;
+            }
+            else {
+              const f = obj[v];
+              if (f) { result |= f; }
+            }
+          }
+          else {
+            result |= v;
+          }
+        });
+      }
+    }
+    return result;
+  }
+
+
+  class Flag {
+    constructor(name) {
+    }
+    toString(v) {
+      return flagToText(this, v);
+    }
+    toFlag(...args) {
+      return makeFlag(this, ...args);
+    }
+    install(obj) {
+      Object.getOwnPropertyNames(this).forEach( (name) => {
+        obj[name] = this[name];
+      });
+    }
+  }
+
+  types.Flag = Flag;
+
+  function installFlag(flagName, values) {
+    const flag = new Flag(flagName);
+    Object.entries(values).forEach( ([key, value]) => {
+      if (Array.isArray(value)) {
+        value = value.reduce( (out, name) => {
+          return out | flag[name];
+        }, 0);
+      }
+      flag[key] = def[key] = value;
+    });
+
+    flags[flagName] = flag;
+    return flag;
+  }
+
+  flag.install = installFlag;
+
+  var tile = {};
+  var tiles = {};
+
+
+  const Flags = installFlag('tile', {
+    T_OBSTRUCTS_PASSABILITY	: Fl(0),		// cannot be walked through
+    T_OBSTRUCTS_VISION			: Fl(1),		// blocks line of sight
+    T_OBSTRUCTS_ITEMS				: Fl(2),		// items can't be on this tile
+    T_OBSTRUCTS_SURFACE_EFFECTS		: Fl(3),		// grass, blood, etc. cannot exist on this tile
+    T_OBSTRUCTS_GAS					: Fl(4),		// blocks the permeation of gas
+    T_OBSTRUCTS_DIAGONAL_MOVEMENT : Fl(5),    // can't step diagonally around this tile
+
+    T_AUTO_DESCENT					: Fl(6),		// automatically drops creatures down a depth level and does some damage (2d6)
+
+    T_SPONTANEOUSLY_IGNITES	: Fl(7),		// monsters avoid unless chasing player or immune to fire
+    T_LAVA_INSTA_DEATH			: Fl(8),		// kills any non-levitating non-fire-immune creature instantly
+    T_IS_FLAMMABLE					: Fl(9),		// terrain can catch fire
+    T_IS_FIRE								: Fl(10),		// terrain is a type of fire; ignites neighboring flammable cells
+    T_ENTANGLES							: Fl(11),		// entangles players and monsters like a spiderweb
+    T_IS_DEEP_WATER					: Fl(12),		// steals items 50% of the time and moves them around randomly
+
+    T_CAUSES_POISON					: Fl(13),		// any non-levitating creature gets 10 poison
+    T_CAUSES_DAMAGE					: Fl(14),		// anything on the tile takes max(1-2, 10%) damage per turn
+    T_CAUSES_NAUSEA					: Fl(15),		// any creature on the tile becomes nauseous
+    T_CAUSES_PARALYSIS			: Fl(16),		// anything caught on this tile is paralyzed
+    T_CAUSES_CONFUSION			: Fl(17),		// causes creatures on this tile to become confused
+    T_CAUSES_HEALING   	    : Fl(18),   // heals 20% max HP per turn for any player or non-inanimate monsters
+    T_IS_TRAP								: Fl(19),		// spews gas of type specified in fireType when stepped on
+    T_CAUSES_EXPLOSIVE_DAMAGE		: Fl(20),		// is an explosion; deals higher of 15-20 or 50% damage instantly, but not again for five turns
+    T_SACRED                : Fl(21),   // monsters that aren't allies of the player will avoid stepping here
+
+    T_UP_STAIRS							: Fl(22),
+    T_DOWN_STAIRS						: Fl(23),
+    T_IS_DOOR								: Fl(24),
+
+    T_HAS_STAIRS						: ['T_UP_STAIRS', 'T_DOWN_STAIRS'],
+    T_OBSTRUCTS_SCENT				: ['T_OBSTRUCTS_PASSABILITY', 'T_OBSTRUCTS_VISION', 'T_AUTO_DESCENT', 'T_LAVA_INSTA_DEATH', 'T_IS_DEEP_WATER', 'T_SPONTANEOUSLY_IGNITES', 'T_HAS_STAIRS'],
+    T_PATHING_BLOCKER				: ['T_OBSTRUCTS_PASSABILITY', 'T_AUTO_DESCENT', 'T_IS_TRAP', 'T_LAVA_INSTA_DEATH', 'T_IS_DEEP_WATER', 'T_IS_FIRE', 'T_SPONTANEOUSLY_IGNITES'],
+    T_DIVIDES_LEVEL       	: ['T_OBSTRUCTS_PASSABILITY', 'T_AUTO_DESCENT', 'T_IS_TRAP', 'T_LAVA_INSTA_DEATH', 'T_IS_DEEP_WATER'],
+    T_LAKE_PATHING_BLOCKER	: ['T_AUTO_DESCENT', 'T_LAVA_INSTA_DEATH', 'T_IS_DEEP_WATER', 'T_SPONTANEOUSLY_IGNITES'],
+    T_WAYPOINT_BLOCKER			: ['T_OBSTRUCTS_PASSABILITY', 'T_AUTO_DESCENT', 'T_IS_TRAP', 'T_LAVA_INSTA_DEATH', 'T_IS_DEEP_WATER', 'T_SPONTANEOUSLY_IGNITES'],
+    T_MOVES_ITEMS						: ['T_IS_DEEP_WATER', 'T_LAVA_INSTA_DEATH'],
+    T_CAN_BE_BRIDGED				: ['T_AUTO_DESCENT'],
+    T_OBSTRUCTS_EVERYTHING	: ['T_OBSTRUCTS_PASSABILITY', 'T_OBSTRUCTS_VISION', 'T_OBSTRUCTS_ITEMS', 'T_OBSTRUCTS_GAS', 'T_OBSTRUCTS_SURFACE_EFFECTS', 'T_OBSTRUCTS_DIAGONAL_MOVEMENT'],
+    T_HARMFUL_TERRAIN				: ['T_CAUSES_POISON', 'T_IS_FIRE', 'T_CAUSES_DAMAGE', 'T_CAUSES_PARALYSIS', 'T_CAUSES_CONFUSION', 'T_CAUSES_EXPLOSIVE_DAMAGE'],
+    T_RESPIRATION_IMMUNITIES  : ['T_CAUSES_DAMAGE', 'T_CAUSES_CONFUSION', 'T_CAUSES_PARALYSIS', 'T_CAUSES_NAUSEA'],
+  });
+
+  tile.flags = Flags;
+
+  ///////////////////////////////////////////////////////
+  // TILE MECH
+
+
+  const MechFlags = installFlag('tileMech', {
+    TM_IS_SECRET							: Fl(0),		// successful search or being stepped on while visible transforms it into discoverType
+    TM_PROMOTES_WITH_KEY			: Fl(1),		// promotes if the key is present on the tile (in your pack, carried by monster, or lying on the ground)
+    TM_PROMOTES_WITHOUT_KEY		: Fl(2),		// promotes if the key is NOT present on the tile (in your pack, carried by monster, or lying on the ground)
+    TM_PROMOTES_ON_STEP				: Fl(3),		// promotes when a creature, player or item is on the tile (whether or not levitating)
+    TM_PROMOTES_ON_ITEM_REMOVE		: Fl(4),		// promotes when an item is lifted from the tile (primarily for altars)
+    TM_PROMOTES_ON_PLAYER_ENTRY		: Fl(5),		// promotes when the player enters the tile (whether or not levitating)
+    TM_PROMOTES_ON_SACRIFICE_ENTRY: Fl(6),		// promotes when the sacrifice target enters the tile (whether or not levitating)
+    TM_PROMOTES_ON_ELECTRICITY    : Fl(7),    // promotes when hit by a lightning bolt
+    TM_ALLOWS_SUBMERGING					: Fl(8),		// allows submersible monsters to submerge in this terrain
+    TM_IS_WIRED										: Fl(9),		// if wired, promotes when powered, and sends power when promoting
+    TM_IS_CIRCUIT_BREAKER 				: Fl(10),        // prevents power from circulating in its machine
+    TM_GAS_DISSIPATES							: Fl(11),		// does not just hang in the air forever
+    TM_GAS_DISSIPATES_QUICKLY			: Fl(12),		// dissipates quickly
+    TM_EXTINGUISHES_FIRE					: Fl(13),		// extinguishes burning terrain or creatures
+    TM_VANISHES_UPON_PROMOTION		: Fl(14),		// vanishes when creating promotion dungeon feature, even if the replacement terrain priority doesn't require it
+    TM_REFLECTS_BOLTS           	: Fl(15),       // magic bolts reflect off of its surface randomly (similar to ACTIVE_CELLS flag IMPREGNABLE)
+    TM_STAND_IN_TILE            	: Fl(16),		// earthbound creatures will be said to stand "in" the tile, not on it
+    TM_LIST_IN_SIDEBAR          	: Fl(17),       // terrain will be listed in the sidebar with a description of the terrain type
+    TM_VISUALLY_DISTINCT        	: Fl(18),       // terrain will be color-adjusted if necessary so the character stands out from the background
+    TM_BRIGHT_MEMORY            	: Fl(19),       // no blue fade when this tile is out of sight
+    TM_EXPLOSIVE_PROMOTE        	: Fl(20),       // when burned, will promote to promoteType instead of burningType if surrounded by tiles with T_IS_FIRE or TM_EXPLOSIVE_PROMOTE
+    TM_CONNECTS_LEVEL           	: Fl(21),       // will be treated as passable for purposes of calculating level connectedness, irrespective of other aspects of this terrain layer
+    TM_INTERRUPT_EXPLORATION_WHEN_SEEN : Fl(22),    // will generate a message when discovered during exploration to interrupt exploration
+    TM_INVERT_WHEN_HIGHLIGHTED  	: Fl(23),       // will flip fore and back colors when highlighted with pathing
+    TM_SWAP_ENCHANTS_ACTIVATION 	: Fl(24),       // in machine, swap item enchantments when two suitable items are on this terrain, and activate the machine when that happens
+    TM_PROMOTES										: 'TM_PROMOTES_WITH_KEY | TM_PROMOTES_WITHOUT_KEY | TM_PROMOTES_ON_STEP | TM_PROMOTES_ON_ITEM_REMOVE | TM_PROMOTES_ON_SACRIFICE_ENTRY | TM_PROMOTES_ON_ELECTRICITY | TM_PROMOTES_ON_PLAYER_ENTRY',
+  });
+
+  tile.mechFlags = MechFlags;
+
+  function setFlags(tile, allFlags) {
+    let flags = [];
+    if (!allFlags) return;  // no flags
+
+    if (typeof allFlags === 'string') {
+      flags = allFlags.split(/[,|]/).map( (t) => t.trim() );
+    }
+    else if (!Array.isArray(allFlags)) {
+      return WARN('Invalid tile flags: ' + allFlags);
+    }
+    else if (allFlags.length <= 2) {
+      if (typeof allFlags[0] === 'number') {
+        tile.flags = allFlags[0] || 0;
+        tile.mechFlags = allFlags[1] || 0;
+        return;
+      }
+    }
+
+    flags.forEach((f) => {
+      if (typeof f !== 'string') {
+        WARN('Invalid tile flag: ' + f);
+      }
+      else if (Flags[f]) {
+        tile.flags |= Flags[f];
+      }
+      else if (MechFlags[f]) {
+        tile.mechFlags |= MechFlags[f];
+      }
+      else {
+        WARN('Invalid tile flag: ' + f);
+      }
+    });
+  }
+
+
+  class Tile {
+    constructor(ch, fg, bg, layer, priority, allFlags, desc, flavor) {
+      this.flags = 0;
+      this.mechFlags = 0;
+      this.layer = layer || 0;
+      this.priority = priority || 50; // lower means higher priority (50 = average)
+      this.sprite = makeSprite(ch, fg, bg);
+      this.events = {};
+      this.light = null;
+      this.desc = desc || '';
+      this.flavor = flavor || '';
+      this.id = null;
+
+      setFlags(this, allFlags);
+    }
+  }
+
+  types.Tile = Tile;
+
+  function makeTile(ch, fg, bg, layer, priority, allFlags, desc, flavor, opts={}) {
+    const tile = new types.Tile(ch, fg, bg, layer, priority, allFlags, desc, flavor);
+    // TODO - tile.light = opts.light || null;
+    // TODO - tile.events.fire = opts.fire
+    // TODO - tile.events.promote = opts.promote
+    // TODO - tile.events.discover = opts.discover
+    return tile;
+  }
+
+  make.tile = makeTile;
+
+  const NOTHING = def.NOTHING = 0;
+  tiles[NOTHING] = makeTile(' ', 'black', 'black', 0, 100, 0, "an eerie nothingness", "");
+
   exports.MAP = MAP;
   exports.PLAYER = PLAYER;
   exports.actor = actor;
@@ -3619,6 +4152,8 @@
   exports.def = def;
   exports.dig = dig;
   exports.diggers = diggers;
+  exports.flag = flag;
+  exports.flags = flags;
   exports.grid = grid$1;
   exports.install = install;
   exports.io = io;
@@ -3627,6 +4162,8 @@
   exports.path = path;
   exports.random = random;
   exports.sprite = sprite;
+  exports.tile = tile;
+  exports.tiles = tiles;
   exports.types = types;
   exports.utils = utils;
 
