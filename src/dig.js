@@ -401,10 +401,9 @@ export function startDig(opts={}) {
 
 DIG.startDig = startDig;
 
+const tileIds = ['WALL', 'FLOOR', 'DOOR', 'BRIDGE', 'UP_STAIRS', 'DOWN_STAIRS', 'LAKE', 'LAKE_FLOOR'];
 function mapGridToTile(v) {
-  if (v == 0) return 'WALL';
-  if (v == 2) return 'DOOR';
-  return 'FLOOR';
+  return tileIds[v] || 'FLOOR';
 }
 
 function finishDig(tileFn) {
@@ -418,11 +417,13 @@ function finishDig(tileFn) {
   //   map.cells[x][y].layers[0] = tile || 'FLOOR';
   // });
 
-  removeDiagonalOpenings();
-  finishDoors();
+  // removeDiagonalOpenings();
+  // finishDoors();
 
-  freeGrid(SITE.grid);
-  SITE.grid = null;
+  SITE.grid.update( tileFn || mapGridToTile );
+
+  // freeGrid(SITE.grid);
+  // SITE.grid = null;
 
   // return map;
 }
