@@ -5,7 +5,7 @@ import { makeSprite } from './sprite.js';
 import { types, def, make } from './gw.js';
 
 export var tile = {};
-export var tiles = {};
+export var tiles = [];
 
 
 export const Flags = installFlag('tile', {
@@ -135,7 +135,7 @@ export class Tile {
     this.light = null;
     this.desc = desc || '';
     this.flavor = flavor || '';
-    this.id = null;
+    this.name = null;
 
     setFlags(this, allFlags);
   }
@@ -162,8 +162,10 @@ export function installTile(name, ...args) {
   else {
     tile = make.tile(...args);
   }
-  tiles[name] = tile;
-  return tile;
+  tile.name = name;
+  tile.id = tiles.length;
+  tiles.push(tile);
+  return tile.id;
 }
 
 tile.install = installTile;
@@ -171,11 +173,11 @@ tile.install = installTile;
 
 const NOTHING = def.NOTHING = 0;
 installTile(NOTHING,       ' ', 'black', 'black', 0, 100, 0, "an eerie nothingness", "");
-installTile('WALL',        '#', [50,50,50,10], [20,20,20,10]);	// WALL
 installTile('FLOOR',       '\u00b7', [40,40,40,15], [90,90,90]);	// FLOOR
 installTile('DOOR',        '+', [100,40,40], [30,60,60]);	// DOOR
 installTile('BRIDGE',      '=', [100,40,40], [60,40,0]);	// BRIDGE
 installTile('UP_STAIRS',   '<', [100,40,40], [100,60,20]);	// UP
 installTile('DOWN_STAIRS', '>', [100,40,40], [100,60,20]);	// DOWN
+installTile('WALL',        '#', [50,50,50,10], [20,20,20,10]);	// WALL
 installTile('LAKE',        '~', [0,80,100,10], [0,30,100,10,0,0,0,1]);	// LAKE
 installTile('LAKE_FLOOR',  '\u00b7', [0,80,100, 10], [30,50,100,10,0,0,0,1]);	// LAKE_FLOOR

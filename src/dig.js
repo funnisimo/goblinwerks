@@ -9,6 +9,31 @@ const DIRS = def.dirs;
 const OPP_DIRS = [def.DOWN, def.UP, def.RIGHT, def.LEFT];
 
 
+const defaultTiles = {
+  NOTHING: 0,
+  FLOOR: 1,
+  DOOR: 2,
+  BRIDGE: 3,
+  UP_STAIRS: 4,
+  DOWN_STAIRS: 5,
+  WALL: 6,
+  LAKE: 7,
+  LAKE_FLOOR: 8,
+};
+
+
+const NOTHING = 0;
+const FLOOR = 1;
+const DOOR = 2;
+const BRIDGE = 3;
+const UP_STAIRS = 4;
+const DOWN_STAIRS = 5;
+const WALL = 6;
+
+const LAKE = 7;
+const LAKE_FLOOR = 8;
+
+
 export function installDigger(id, fn, config) {
   config = fn(config || {});	// call to have function bind itself to the config
   config.fn = fn;
@@ -77,7 +102,7 @@ export function designCavern(config, grid) {
   const minHeight = config.height[0];
   const maxHeight = config.height[1];
 
-  grid.fill(0);
+  grid.fill(NOTHING);
   const bounds = GW.grid.fillBlob(blobGrid, 5, minWidth, minHeight, maxWidth, maxHeight, 55, "ffffffttt", "ffffttttt");
 
 //    colorOverDungeon(/* Color. */darkGray);
@@ -146,7 +171,7 @@ export function designEntranceRoom(config, grid) {
 
   let roomWidth, roomHeight, roomWidth2, roomHeight2, roomX, roomY, roomX2, roomY2;
 
-  grid.fill(0);
+  grid.fill(NOTHING);
 
   roomWidth = config.width[0];
   roomHeight = config.height[0];
@@ -159,8 +184,8 @@ export function designEntranceRoom(config, grid) {
   roomX2 = Math.floor(grid.width/2 - roomWidth2/2 - 1);
   roomY2 = grid.height - roomHeight2 - 2;
 
-  grid.fillRect(roomX, roomY, roomWidth, roomHeight, 1);
-  grid.fillRect(roomX2, roomY2, roomWidth2, roomHeight2, 1);
+  grid.fillRect(roomX, roomY, roomWidth, roomHeight, FLOOR);
+  grid.fillRect(roomX2, roomY2, roomWidth2, roomHeight2, FLOOR);
 }
 
 
@@ -173,7 +198,7 @@ export function designCrossRoom(config, grid) {
 
   let roomWidth, roomHeight, roomWidth2, roomHeight2, roomX, roomY, roomX2, roomY2;
 
-  grid.fill(0);
+  grid.fill(NOTHING);
 
   roomWidth = random.range(config.width[0], config.width[1]);
   roomX = random.range(Math.max(0, Math.floor(grid.width/2) - (roomWidth - 1)), Math.min(grid.width, Math.floor(grid.width/2)));
@@ -186,8 +211,8 @@ export function designCrossRoom(config, grid) {
   roomHeight2 = random.range(config.height2[0], config.height2[1]);
   roomY2 = Math.floor(grid.height/2 - roomHeight2 - (random.range(0, 2) + random.range(0, 1)));
 
-  grid.fillRect(roomX - 5, roomY + 5, roomWidth, roomHeight, 1);
-  grid.fillRect(roomX2 - 5, roomY2 + 5, roomWidth2, roomHeight2, 1);
+  grid.fillRect(roomX - 5, roomY + 5, roomWidth, roomHeight, FLOOR);
+  grid.fillRect(roomX2 - 5, roomY2 + 5, roomWidth2, roomHeight2, FLOOR);
 }
 
 DIG.crossRoom = designCrossRoom;
@@ -199,7 +224,7 @@ export function designSymmetricalCrossRoom(config, grid) {
 
   let majorWidth, majorHeight, minorWidth, minorHeight;
 
-  grid.fill(0);
+  grid.fill(NOTHING);
 
   majorWidth = random.range(config.width[0], config.width[1]);
   majorHeight = random.range(config.height[0], config.height[1]);
@@ -213,8 +238,8 @@ export function designSymmetricalCrossRoom(config, grid) {
       minorHeight -= 1;
   }
 
-  grid.fillRect(Math.floor((grid.width - majorWidth)/2), Math.floor((grid.height - minorHeight)/2), majorWidth, minorHeight, 1);
-  grid.fillRect(Math.floor((grid.width - minorWidth)/2), Math.floor((grid.height - majorHeight)/2), minorWidth, majorHeight, 1);
+  grid.fillRect(Math.floor((grid.width - majorWidth)/2), Math.floor((grid.height - minorHeight)/2), majorWidth, minorHeight, FLOOR);
+  grid.fillRect(Math.floor((grid.width - minorWidth)/2), Math.floor((grid.height - majorHeight)/2), minorWidth, majorHeight, FLOOR);
 }
 
 DIG.symmetricalCrossRoom = designSymmetricalCrossRoom;
@@ -226,10 +251,10 @@ export function designRectangularRoom(config, grid) {
 
   let width, height;
 
-  grid.fill(0);
+  grid.fill(NOTHING);
   width = random.range(config.width[0], config.width[1]);
   height = random.range(config.height[0], config.height[1]);
-  grid.fillRect(Math.floor((grid.width - width) / 2), Math.floor((grid.height - height) / 2), width, height, 1);
+  grid.fillRect(Math.floor((grid.width - width) / 2), Math.floor((grid.height - height) / 2), width, height, FLOOR);
 }
 
 DIG.rectangularRoom = designRectangularRoom;
@@ -241,8 +266,8 @@ export function designCircularRoom(config, grid) {
 
   let radius = random.range(config.radius[0], config.radius[1]);
 
-  grid.fill(0);
-  grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, 1);
+  grid.fill(NOTHING);
+  grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, FLOOR);
 
 }
 
@@ -258,13 +283,13 @@ export function designBrogueCircularRoom(config, grid) {
   let params = random.percent(config.altChance || 5) ? config.radius2 : config.radius;
   radius = random.range(params[0], params[1]);
 
-  grid.fill(0);
-  grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, 1);
+  grid.fill(NOTHING);
+  grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, FLOOR);
 
   if (radius > config.ringMinWidth + config.holeMinSize
       && random.percent(config.holeChance))
   {
-      grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), random.range(config.holeMinSize, radius - config.holeMinSize), 0);
+      grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), random.range(config.holeMinSize, radius - config.holeMinSize), NOTHING);
   }
 }
 
@@ -279,7 +304,7 @@ export function designChunkyRoom(config, grid) {
   let minX, maxX, minY, maxY;
   let chunkCount = random.range(config.count[0], config.count[1]);
 
-  grid.fill(0);
+  grid.fill(NOTHING);
   grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), 2, 1);
   minX = Math.floor(grid.width/2) - 3;
   maxX = Math.floor(grid.width/2) + 3;
@@ -293,7 +318,7 @@ export function designChunkyRoom(config, grid) {
 //            colorOverDungeon(/* Color. */darkGray);
 //            hiliteGrid(grid, /* Color. */white, 100);
 
-          grid.fillCircle(x, y, 2, 1);
+          grid.fillCircle(x, y, 2, FLOOR);
           i++;
           minX = Math.max(1, Math.min(x - 3, minX));
           maxX = Math.min(grid.width - 2, Math.max(x + 3, maxX));
@@ -309,26 +334,14 @@ export function designChunkyRoom(config, grid) {
 DIG.chunkyRoom = designChunkyRoom;
 
 
-
-const WALL = 0;
-const FLOOR = 1;
-const DOOR = 2;
-const BRIDGE = 3;
-const UP_STAIRS = 4;
-const DOWN_STAIRS = 5;
-
-const LAKE = 6;
-const LAKE_FLOOR = 7;
-const LAKE_DOOR = 8;
-
-
 class DigSite {
   constructor(w, h, opts={}) {
     Object.assign(this, opts);
     this.width = w;
     this.height = h;
-    this.grid = allocGrid(w, h);
+    this.grid = allocGrid(w, h, NOTHING);
     this.locations = {};
+    this.tiles = Object.assign({}, defaultTiles, opts.tiles || {});
   }
 
   isPassable(x, y) {
@@ -352,13 +365,13 @@ class DigSite {
   isBlocked(x, y) {
     if (!this.grid.hasXY(x, y)) return false;
     const v = this.grid[x][y];
-    return v == WALL || v == LAKE || v == LAKE_FLOOR || v == LAKE_DOOR || v == UP_STAIRS || v == DOWN_STAIRS;
+    return v == WALL || v == LAKE || v == LAKE_FLOOR || v == UP_STAIRS || v == DOWN_STAIRS;
   }
 
   isLake(x, y) {
     if (!this.grid.hasXY(x, y)) return false;
     const v = this.grid[x][y];
-    return v == LAKE || v == LAKE_FLOOR || v == LAKE_DOOR;
+    return v == LAKE || v == LAKE_FLOOR;
   }
 
 }
@@ -401,10 +414,6 @@ export function startDig(opts={}) {
 
 DIG.startDig = startDig;
 
-const tileIds = ['WALL', 'FLOOR', 'DOOR', 'BRIDGE', 'UP_STAIRS', 'DOWN_STAIRS', 'LAKE', 'LAKE_FLOOR'];
-function mapGridToTile(v) {
-  return tileIds[v] || 'FLOOR';
-}
 
 function finishDig(tileFn) {
   // const map = GW.make.map(SITE.width, SITE.height);
@@ -417,10 +426,10 @@ function finishDig(tileFn) {
   //   map.cells[x][y].layers[0] = tile || 'FLOOR';
   // });
 
-  // removeDiagonalOpenings();
-  // finishDoors();
+  removeDiagonalOpenings();
+  finishDoors();
 
-  SITE.grid.update( tileFn || mapGridToTile );
+  SITE.grid.update( (v) => v || WALL );
 
   // freeGrid(SITE.grid);
   // SITE.grid = null;
@@ -448,7 +457,7 @@ export function digRoom(opts={}) {
   let result = false;
   let tries = opts.tries || 10;
   while(--tries >= 0 && !result) {
-    grid.fill(0);
+    grid.fill(NOTHING);
 
     digger.fn(config, grid);
     const doors = chooseRandomDoorSites(grid);
@@ -475,7 +484,7 @@ DIG.digRoom = digRoom;
 
 export function isValidStairLoc(v, x, y) {
   let count = 0;
-  if (v !== WALL) return false;
+  if (v && v !== WALL) return false;
 
   for(let i = 0; i < 4; ++i) {
     const dir = def.dirs[i];
@@ -483,10 +492,12 @@ export function isValidStairLoc(v, x, y) {
     const tile = SITE.grid[x + dir[0]][y + dir[1]];
     if (tile == FLOOR) {
       count += 1;
-      if (SITE.grid[x - dir[0] + dir[1]][y - dir[1] + dir[0]] != WALL) return false;
-      if (SITE.grid[x - dir[0] - dir[1]][y - dir[1] - dir[0]] != WALL) return false;
+      const va = SITE.grid[x - dir[0] + dir[1]][y - dir[1] + dir[0]];
+      if (va && va != WALL) return false;
+      const vb = SITE.grid[x - dir[0] - dir[1]][y - dir[1] - dir[0]];
+      if (vb && vb != WALL) return false;
     }
-    else if (tile != WALL) {
+    else if (tile && tile != WALL) {
       return false;
     }
   }
@@ -714,7 +725,7 @@ function insertRoomAt(destGrid, roomGrid, roomToDungeonX, roomToDungeonY, xRoom,
         if (roomGrid.hasXY(newX, newY)
             && roomGrid[newX][newY]
             && destGrid.hasXY(newX + roomToDungeonX, newY + roomToDungeonY)
-            && destGrid[newX + roomToDungeonX][newY + roomToDungeonY] == 0)
+            && (destGrid[newX + roomToDungeonX][newY + roomToDungeonY] == NOTHING))
         {
           insertRoomAt(destGrid, roomGrid, roomToDungeonX, roomToDungeonY, newX, newY);
         }
@@ -819,7 +830,7 @@ export function digLake(opts={}) {
 
   for (; lakeMaxHeight >= lakeMinSize && lakeMaxWidth >= lakeMinSize && count < maxCount; lakeMaxHeight--, lakeMaxWidth -= 2) { // lake generations
 
-    lakeGrid.fill(0);
+    lakeGrid.fill(NOTHING);
     const bounds = GW.grid.fillBlob(lakeGrid, 5, 4, 4, lakeMaxWidth, lakeMaxHeight, 55, "ffffftttt", "ffffttttt");
 
     for (k=0; k < tries && count < maxCount; k++) { // placement attempts
@@ -926,7 +937,8 @@ export function addLoops(minimumPathingDistance, maxConnectionLength) {
         x = Math.floor(LOCS[i] / siteGrid.height);
         y = LOCS[i] % siteGrid.height;
 
-        if (siteGrid[x][y] == WALL) {
+        const tile = siteGrid[x][y];
+        if (!tile || tile == WALL) {
             for (d=0; d <= 1; d++) { // Try a horizontal door, and then a vertical door.
                 newX = x + dirCoords[d][0];
                 newY = y + dirCoords[d][1];
@@ -972,7 +984,8 @@ export function addLoops(minimumPathingDistance, maxConnectionLength) {
                       debug.log('Adding Loop', newX, newY, ' => ', oppX, oppY);
 
                       while(oppX !== newX || oppY !== newY) {
-                        if (siteGrid[oppX][oppY] == WALL) {
+                        const siteTile = siteGrid[oppX][oppY];
+                        if (!siteTile || siteTile == WALL) {
                           siteGrid[oppX][oppY] = FLOOR;
                           costGrid[oppX][oppY] = 1;          // (Cost map also needs updating.)
                         }

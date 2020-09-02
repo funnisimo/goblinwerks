@@ -135,7 +135,7 @@ function drawMap(attempt=0) {
 	});
 
 	if (loc && loc[0] > 0) {
-		GW.dig.addStairs(loc[0], loc[1], 5);
+		GW.dig.addStairs(loc[0], loc[1], 5);	// DOWN_STAIRS
 		SITE.locations.finish = loc;
 	}
 	else {
