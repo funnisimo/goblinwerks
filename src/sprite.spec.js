@@ -7,7 +7,9 @@ describe('Sprite', () => {
   test('make', () => {
     const s = GW.make.sprite('@');
     expect(s.ch).toEqual('@');
+    expect(s.fg).not.toBe(GW.colors.white); // cannot be a reference bc we change it on a plot
     expect(GW.color.css(s.fg)).toEqual('#ffffff');
+    expect(s.bg).not.toBe(GW.colors.black);
     expect(GW.color.css(s.bg)).toEqual('#000000');
     expect(s.opacity).toEqual(100);
     expect(s.needsUpdate).toBeTruthy();

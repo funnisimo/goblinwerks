@@ -6,8 +6,6 @@ var debug$1 = {};
 var make = {};
 var install = {};
 
-var color = {};
-var colors = {};
 var sprite = {};
 var grid$1 = {};
 
@@ -510,12 +508,16 @@ function makeRange(config, rng) {
 
 make.range = makeRange;
 
+var color = {};
+var colors = {};
+
+
 class Color extends Array {
   constructor(...args) {
     if (args.length == 1 && Array.isArray(args[0])) { args = args[0]; }
     while(args.length < 7) args.push(0);
     super(...args.slice(0,7));
-    this.dances = (args.length > 7 && args[7]);
+    this.dances = (args.length > 7 && !!args[7]);
   }
 
   get red() 	{ return this[0]; }
@@ -525,15 +527,15 @@ class Color extends Array {
   get blue() 	{ return this[2]; }
   set blue(v) { this[2] = v; }
 
-  get redRand() 	{ return this[3]; }
-  set redRand(v)  { this[3] = v; }
-  get greenRand()  { return this[4]; }
-  set greenRand(v) { this[4] = v; }
-  get blueRand() 	{ return this[5]; }
-  set blueRand(v) { this[5] = v; }
+  get rand() 	{ return this[3]; }
+  set rand(v)  { this[3] = v; }
 
-  get rand() 	{ return this[6]; }
-  set rand(v)  { this[6] = v; }
+  get redRand() 	{ return this[4]; }
+  set redRand(v)  { this[4] = v; }
+  get greenRand()  { return this[5]; }
+  set greenRand(v) { this[5] = v; }
+  get blueRand() 	{ return this[6]; }
+  set blueRand(v) { this[6] = v; }
 
   clone() {
     const other = new Color(...this);
@@ -560,17 +562,75 @@ class Color extends Array {
 
 types.Color = Color;
 
+function makeColor(...args) {
+  let hex = args[0];
+  if (args.length == 0) { return new types.Color(0,0,0); }
+  if (args.length == 1 && hex instanceof types.Color) {
+    return hex.clone();
+  }
+  else if (Array.isArray(hex)) {
+    return new types.Color(...hex);
+  }
+  else if (args.length >= 3) {
+    return new types.Color(...args);
+  }
+  if (typeof hex === 'string') {
+    let color = colors[hex] || null;
+    if (color) return color.clone();
+
+    if (!hex.startsWith('#')) return null;
+    if (hex.length === 4) {
+      const r = hex.charAt(1);
+      const g = hex.charAt(2);
+      const b = hex.charAt(3);
+      hex = `#${r}${r}${g}${g}${b}${b}`;
+    }
+    hex = Number.parseInt(hex.substring(1), 16);
+  }
+
+  if (typeof hex === 'number') {
+    const r = Math.floor( ((hex & 0xFF0000) >> 16) / 2.55 );
+    const g = Math.floor( ((hex & 0x00FF00) >> 8)  / 2.55 );
+    const b = Math.floor( (hex & 0x0000FF) / 2.55 );
+    return new types.Color(r,g,b);
+  }
+
+  return null;
+}
+
+make.color = makeColor;
+
+
+function installColor(name, ...args) {
+	const color = make.color(...args);
+	colors[name] = color;
+	return color;
+}
+
+color.install = installColor;
+
+function colorFrom(arg) {
+  if (typeof arg === 'string') {
+    return colors[arg] || make.color(arg);
+  }
+  return make.color(arg);
+}
+
+color.from = colorFrom;
 
 
 function applyMix(baseColor, newColor, opacity) {
   if (opacity <= 0) return;
   const weightComplement = 100 - opacity;
-  baseColor[0] = Math.floor((baseColor[0] * weightComplement + newColor[0] * opacity) / 100);
-  baseColor[1] = Math.floor((baseColor[1] * weightComplement + newColor[1] * opacity) / 100);
-  baseColor[2] = Math.floor((baseColor[2] * weightComplement + newColor[2] * opacity) / 100);
+  for(let i = 0; i < baseColor.length; ++i) {
+    baseColor[i] = Math.floor((baseColor[i] * weightComplement + newColor[i] * opacity) / 100);
+  }
+  baseColor.dances = (baseColor.dances || newColor.dances);
+  return baseColor;
 }
 
 color.applyMix = applyMix;
+color.applyAverage = applyMix;
 
 
 function toRGB(v, vr) {
@@ -587,10 +647,10 @@ function toCSS(v) {
 }
 
 function css(color) {
-  const rand = cosmetic.value() * (color[6] || 0);
-  const red = toRGB(color[0] + rand, color[3]);
-  const green = toRGB(color[1] + rand, color[4]);
-  const blue = toRGB(color[2] + rand, color[5]);
+  const rand = cosmetic.value() * (color.rand || 0);
+  const red = toRGB(color.red + rand, color.redRand);
+  const green = toRGB(color.green + rand, color.greenRand);
+  const blue = toRGB(color.blue + rand, color.blueRand);
   return `#${toCSS(red)}${toCSS(green)}${toCSS(blue)}`;
 }
 
@@ -602,13 +662,236 @@ function equals(a, b) {
 
 color.equals = equals;
 
+function clampColor(theColor) {
+  theColor.red		= clamp(theColor.red, 0, 100);
+  theColor.green	= clamp(theColor.green, 0, 100);
+  theColor.blue		= clamp(theColor.blue, 0, 100);
+}
+
+color.clamp = clampColor;
+
+
+function bakeColor(/* color */theColor) {
+  let rand;
+  rand = cosmetic.range(0, theColor.rand);
+  theColor.red   += Math.round(GW.random.cosmetic.range(0, theColor.redRand) + rand);
+  theColor.green += Math.round(GW.random.cosmetic.range(0, theColor.greenRand) + rand);
+  theColor.blue  += Math.round(GW.random.cosmetic.range(0, theColor.blueRand) + rand);
+  theColor.redRand = theColor.greenRand = theColor.blueRand = theColor.rand = 0;
+}
+
+color.bake = bakeColor;
+
+
+function lightenColor(destColor, percent) {
+  destColor.red =    Math.round(destColor.red + (100 - destColor.red) * percent / 100);
+  destColor.green =  Math.round(destColor.green + (100 - destColor.green) * percent / 100);
+  destColor.blue =   Math.round(destColor.blue + (100 - destColor.blue) * percent / 100);
+
+  // leave randoms the same
+  return destColor;
+}
+
+color.lighten = lightenColor;
+
+function darkenColor(destColor, percent) {
+  destColor.red =    Math.round(destColor.red * (100 - percent) / 100);
+  destColor.green =  Math.round(destColor.green * (100 - percent) / 100);
+  destColor.blue =   Math.round(destColor.blue * (100 - percent) / 100);
+
+  // leave randoms the same
+  return destColor;
+}
+
+color.darken = darkenColor;
+
+
+function applyColorAugment(baseColor, augmentColor, weight) {
+  baseColor.red += Math.floor((augmentColor.red * weight) / 100);
+  baseColor.redRand += Math.floor((augmentColor.redRand * weight) / 100);
+  baseColor.green += Math.floor((augmentColor.green * weight) / 100);
+  baseColor.greenRand += Math.floor((augmentColor.greenRand * weight) / 100);
+  baseColor.blue += Math.floor((augmentColor.blue * weight) / 100);
+  baseColor.blueRand += Math.floor((augmentColor.blueRand * weight) / 100);
+  baseColor.rand += Math.floor((augmentColor.rand * weight) / 100);
+  return baseColor;
+}
+
+color.applyAugment = applyColorAugment;
+
+
+function applyColorMultiplier(baseColor, multiplierColor) {
+  baseColor.red = Math.round(baseColor.red * multiplierColor.red / 100);
+  baseColor.redRand = Math.round(baseColor.redRand * multiplierColor.redRand / 100);
+  baseColor.green = Math.round(baseColor.green * multiplierColor.green / 100);
+  baseColor.greenRand = Math.round(baseColor.greenRand * multiplierColor.greenRand / 100);
+  baseColor.blue = Math.round(baseColor.blue * multiplierColor.blue / 100);
+  baseColor.blueRand = Math.round(baseColor.blueRand * multiplierColor.blueRand / 100);
+  baseColor.rand = Math.round(baseColor.rand * multiplierColor.rand / 100);
+  baseColor.dances = baseColor.dances || multiplierColor.dances;
+  return baseColor;
+}
+
+color.applyMultiplier = applyColorMultiplier;
+
+function applyColorScalar(baseColor, scalar) {
+  baseColor.red          = Math.round(baseColor.red        * scalar / 100);
+  baseColor.redRand      = Math.round(baseColor.redRand    * scalar / 100);
+  baseColor.green        = Math.round(baseColor.green      * scalar / 100);
+  baseColor.greenRand    = Math.round(baseColor.greenRand  * scalar / 100);
+  baseColor.blue         = Math.round(baseColor.blue       * scalar / 100);
+  baseColor.blueRand     = Math.round(baseColor.blueRand   * scalar / 100);
+  baseColor.rand         = Math.round(baseColor.rand       * scalar / 100);
+}
+
+color.applyScalar = applyColorScalar;
+
+function _randomizeColorByPercent(input, percent) {
+  return (cosmetic.range( Math.floor(input * (100 - percent) / 100), Math.floor(input * (100 + percent) / 100)));
+}
+
+function randomizeColor(baseColor, randomizePercent) {
+  baseColor.red = _randomizeColorByPercent(baseColor.red, randomizePercent);
+  baseColor.green = _randomizeColorByPercent(baseColor.green, randomizePercent);
+  baseColor.blue = _randomizeColorByPercent(baseColor.blue, randomizePercent);
+}
+
+color.randomize = randomizeColor;
+
+function swapColors(color1, color2) {
+    const tempColor = color1.clone();
+    color1.copy(color2);
+    color2.copy(tempColor);
+}
+
+color.swap = swapColors;
+
+const MIN_COLOR_DIFF =			600;
+
+// weighted sum of the squares of the component differences. Weights are according to color perception.
+function colorDiff(f, b)		 {
+  return ((f.red - b.red) * (f.red - b.red) * 0.2126
+    + (f.green - b.green) * (f.green - b.green) * 0.7152
+    + (f.blue - b.blue) * (f.blue - b.blue) * 0.0722);
+}
+
+color.diff = colorDiff;
+
+function normColor(baseColor, aggregateMultiplier, colorTranslation) {
+
+    baseColor.red += colorTranslation;
+    baseColor.green += colorTranslation;
+    baseColor.blue += colorTranslation;
+    const vectorLength =  baseColor.red + baseColor.green + baseColor.blue;
+
+    if (vectorLength != 0) {
+        baseColor.red =    Math.round(baseColor.red * 300    / vectorLength * aggregateMultiplier / 100);
+        baseColor.green =  Math.round(baseColor.green * 300  / vectorLength * aggregateMultiplier / 100);
+        baseColor.blue =   Math.round(baseColor.blue * 300   / vectorLength * aggregateMultiplier / 100);
+    }
+    baseColor.redRand = 0;
+    baseColor.greenRand = 0;
+    baseColor.blueRand = 0;
+    baseColor.rand = 0;
+}
+
+color.normalize = normColor;
+
+
+// if forecolor is too similar to back, darken or lighten it and return true.
+// Assumes colors have already been baked (no random components).
+function separateColors(/* color */ fore, /* color */ back) {
+  let f, b, modifier = null;
+  let failsafe;
+  let madeChange;
+
+  f = fore.clone();
+  b = back.clone();
+
+  f.red			= clamp(f.red, 0, 100);
+  f.green		= clamp(f.green, 0, 100);
+  f.blue		= clamp(f.blue, 0, 100);
+  b.red			= clamp(b.red, 0, 100);
+  b.green		= clamp(b.green, 0, 100);
+  b.blue		= clamp(b.blue, 0, 100);
+
+  if (f.red + f.blue + f.green > 50 * 3) {
+    modifier = colors.black;
+  } else {
+    modifier = colors.white;
+  }
+
+  madeChange = false;
+  failsafe = 10;
+
+  while(color.diff(f, b) < MIN_COLOR_DIFF && --failsafe) {
+    applyMix(f, modifier, 20);
+    madeChange = true;
+  }
+
+  if (madeChange) {
+    fore.copy(f);
+    return true;
+  } else {
+    return false;
+  }
+}
+
+color.separate = separateColors;
+
+
+function installColorSpread(name, r, g, b) {
+	let baseColor;
+	baseColor = installColor(name, r, g, b);
+	installColor('light_' + name, color.lighten(baseColor.clone(), 25));
+	installColor('lighter_' + name, color.lighten(baseColor.clone(), 50));
+	installColor('lightest_' + name, color.lighten(baseColor.clone(), 75));
+	installColor('dark_' + name, color.darken(baseColor.clone(), 25));
+	installColor('darker_' + name, color.darken(baseColor.clone(), 50));
+	installColor('darkest_' + name, color.darken(baseColor.clone(), 75));
+	return baseColor;
+}
+
+color.installSpread = installColorSpread;
+
+installColor('white', 				100,	100,	100);
+installColor('black', 				0,		0,		0);
+
+installColorSpread('teal', 				30,		100,	100);
+installColorSpread('brown', 			60,		40,		0);
+installColorSpread('tanColor', 		80,		67,		15);
+installColorSpread('pink', 				100,	60,		66);
+installColorSpread('gray', 				50,		50,		50);
+installColorSpread('yellow', 			100,	100,	0);
+installColorSpread('purple', 			100,	0,		100);
+installColorSpread('green', 			0,		100,	0);
+installColorSpread('orange', 			100,	50,		0);
+installColorSpread('blue', 				0,		0,		100);
+installColorSpread('red', 				100,	0,		0);
+
+installColorSpread('amber', 			100,  75,   0);
+installColorSpread('flame', 			100,  25,   0);
+installColorSpread('fuchsia', 		100,  0,    100);
+installColorSpread('magenta', 		100,  0,    75);
+installColorSpread('crimson', 		100,  0,    25);
+installColorSpread('lime', 			  75,   100,  0);
+installColorSpread('chartreuse',  50,   100,  0);
+installColorSpread('sepia', 			50,   40,   25);
+installColorSpread('violet', 		  50,   0,    100);
+installColorSpread('han', 				25,   0,    100);
+installColorSpread('cyan', 			  0,    100,  100);
+installColorSpread('turquoise', 	0,    100,  75);
+installColorSpread('sea', 				0,    100,  50);
+installColorSpread('sky', 				0,    75,   100);
+installColorSpread('azure', 			0,    50,   100);
+
 const TEMP_BG = new Color();
 
 class Sprite {
 	constructor(ch, fg, bg, opacity=100) {
 		this.ch = ch || ' ';
-		this.fg = new Color(fg || [100,100,100,0,0,0]);
-		this.bg = new Color(bg || [0,0,0,0,0,0]);
+		this.fg = makeColor(fg || 'white');
+		this.bg = makeColor(bg || 'black');
 		this.opacity = opacity;
 		this.needsUpdate = true;
 	}
@@ -831,6 +1114,9 @@ class Grid extends Array {
 	  return count;
 	}
 
+	dump(fmtFn) {
+		gridDumpRect(this, 0, 0, this.width, this.height, fmtFn);
+	}
 
 	closestMatchingXY(x, y, fn) {
 		let bestLoc = [-1, -1];
@@ -1068,6 +1354,9 @@ function _formatGridValue(v) {
 	}
 	else if (v < 62) {
 		return String.fromCharCode( 'A'.charCodeAt(0) + v - 10 - 26);
+	}
+	else if (typeof v === 'string') {
+		return v[0];
 	}
 	else {
 		return '#';
@@ -2475,8 +2764,301 @@ path.calculateDistances = calculateDistances;
 //
 // GW.path.from = getMonsterPathOnMap;
 
+var flag = {};
+var flags = {};
+
+///////////////////////////////////
+// FLAG
+
+function Fl(N) { return (1 << N); }
+
+flag.fl = Fl;
+
+function flagToText(flagObj, value) {
+  const inverse = Object.entries(flagObj).reduce( (out, [key, value]) => {
+    out[value] = key;
+    return out;
+  }, {});
+
+  const out = [];
+  for(let index = 0; index < 32; ++index) {
+    const fl = (1 << index);
+    if (value & fl) {
+      out.push(inverse[fl]);
+    }
+  }
+  return out.join(' | ');
+}
+
+function makeFlag(obj, ...args) {
+  let result = 0;
+  for(let index = 0; index < args.length; ++index) {
+    let value = args[index];
+    if (value === undefined) continue;
+    if (typeof value == 'number') {
+      result |= value;
+      continue;	// next
+    }
+    else if (typeof value === 'string') {
+      value = value.split(/[,|]/).map( (t) => t.trim() );
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach( (v) => {
+        if (typeof v == 'string') {
+          v = v.trim();
+          if (v.startsWith('!')) {
+            const f = obj[v.substring(1)];
+            result &= ~f;
+          }
+          else {
+            const f = obj[v];
+            if (f) { result |= f; }
+          }
+        }
+        else {
+          result |= v;
+        }
+      });
+    }
+  }
+  return result;
+}
+
+
+class Flag {
+  constructor(name) {
+  }
+  toString(v) {
+    return flagToText(this, v);
+  }
+  toFlag(...args) {
+    return makeFlag(this, ...args);
+  }
+  install(obj) {
+    Object.getOwnPropertyNames(this).forEach( (name) => {
+      obj[name] = this[name];
+    });
+  }
+}
+
+types.Flag = Flag;
+
+function installFlag(flagName, values) {
+  const flag = new Flag(flagName);
+  Object.entries(values).forEach( ([key, value]) => {
+    if (Array.isArray(value)) {
+      value = value.reduce( (out, name) => {
+        return out | flag[name];
+      }, 0);
+    }
+    flag[key] = def[key] = value;
+  });
+
+  flags[flagName] = flag;
+  return flag;
+}
+
+flag.install = installFlag;
+
+var tile = {};
+var tiles = [];
+
+
+const Flags = installFlag('tile', {
+  T_OBSTRUCTS_PASSABILITY	: Fl(0),		// cannot be walked through
+  T_OBSTRUCTS_VISION			: Fl(1),		// blocks line of sight
+  T_OBSTRUCTS_ITEMS				: Fl(2),		// items can't be on this tile
+  T_OBSTRUCTS_SURFACE_EFFECTS		: Fl(3),		// grass, blood, etc. cannot exist on this tile
+  T_OBSTRUCTS_GAS					: Fl(4),		// blocks the permeation of gas
+  T_OBSTRUCTS_DIAGONAL_MOVEMENT : Fl(5),    // can't step diagonally around this tile
+
+  T_AUTO_DESCENT					: Fl(6),		// automatically drops creatures down a depth level and does some damage (2d6)
+
+  T_SPONTANEOUSLY_IGNITES	: Fl(7),		// monsters avoid unless chasing player or immune to fire
+  T_LAVA_INSTA_DEATH			: Fl(8),		// kills any non-levitating non-fire-immune creature instantly
+  T_IS_FLAMMABLE					: Fl(9),		// terrain can catch fire
+  T_IS_FIRE								: Fl(10),		// terrain is a type of fire; ignites neighboring flammable cells
+  T_ENTANGLES							: Fl(11),		// entangles players and monsters like a spiderweb
+  T_IS_DEEP_WATER					: Fl(12),		// steals items 50% of the time and moves them around randomly
+
+  T_CAUSES_POISON					: Fl(13),		// any non-levitating creature gets 10 poison
+  T_CAUSES_DAMAGE					: Fl(14),		// anything on the tile takes max(1-2, 10%) damage per turn
+  T_CAUSES_NAUSEA					: Fl(15),		// any creature on the tile becomes nauseous
+  T_CAUSES_PARALYSIS			: Fl(16),		// anything caught on this tile is paralyzed
+  T_CAUSES_CONFUSION			: Fl(17),		// causes creatures on this tile to become confused
+  T_CAUSES_HEALING   	    : Fl(18),   // heals 20% max HP per turn for any player or non-inanimate monsters
+  T_IS_TRAP								: Fl(19),		// spews gas of type specified in fireType when stepped on
+  T_CAUSES_EXPLOSIVE_DAMAGE		: Fl(20),		// is an explosion; deals higher of 15-20 or 50% damage instantly, but not again for five turns
+  T_SACRED                : Fl(21),   // monsters that aren't allies of the player will avoid stepping here
+
+  T_UP_STAIRS							: Fl(22),
+  T_DOWN_STAIRS						: Fl(23),
+  T_IS_DOOR								: Fl(24),
+
+  T_HAS_STAIRS						: ['T_UP_STAIRS', 'T_DOWN_STAIRS'],
+  T_OBSTRUCTS_SCENT				: ['T_OBSTRUCTS_PASSABILITY', 'T_OBSTRUCTS_VISION', 'T_AUTO_DESCENT', 'T_LAVA_INSTA_DEATH', 'T_IS_DEEP_WATER', 'T_SPONTANEOUSLY_IGNITES', 'T_HAS_STAIRS'],
+  T_PATHING_BLOCKER				: ['T_OBSTRUCTS_PASSABILITY', 'T_AUTO_DESCENT', 'T_IS_TRAP', 'T_LAVA_INSTA_DEATH', 'T_IS_DEEP_WATER', 'T_IS_FIRE', 'T_SPONTANEOUSLY_IGNITES'],
+  T_DIVIDES_LEVEL       	: ['T_OBSTRUCTS_PASSABILITY', 'T_AUTO_DESCENT', 'T_IS_TRAP', 'T_LAVA_INSTA_DEATH', 'T_IS_DEEP_WATER'],
+  T_LAKE_PATHING_BLOCKER	: ['T_AUTO_DESCENT', 'T_LAVA_INSTA_DEATH', 'T_IS_DEEP_WATER', 'T_SPONTANEOUSLY_IGNITES'],
+  T_WAYPOINT_BLOCKER			: ['T_OBSTRUCTS_PASSABILITY', 'T_AUTO_DESCENT', 'T_IS_TRAP', 'T_LAVA_INSTA_DEATH', 'T_IS_DEEP_WATER', 'T_SPONTANEOUSLY_IGNITES'],
+  T_MOVES_ITEMS						: ['T_IS_DEEP_WATER', 'T_LAVA_INSTA_DEATH'],
+  T_CAN_BE_BRIDGED				: ['T_AUTO_DESCENT'],
+  T_OBSTRUCTS_EVERYTHING	: ['T_OBSTRUCTS_PASSABILITY', 'T_OBSTRUCTS_VISION', 'T_OBSTRUCTS_ITEMS', 'T_OBSTRUCTS_GAS', 'T_OBSTRUCTS_SURFACE_EFFECTS', 'T_OBSTRUCTS_DIAGONAL_MOVEMENT'],
+  T_HARMFUL_TERRAIN				: ['T_CAUSES_POISON', 'T_IS_FIRE', 'T_CAUSES_DAMAGE', 'T_CAUSES_PARALYSIS', 'T_CAUSES_CONFUSION', 'T_CAUSES_EXPLOSIVE_DAMAGE'],
+  T_RESPIRATION_IMMUNITIES  : ['T_CAUSES_DAMAGE', 'T_CAUSES_CONFUSION', 'T_CAUSES_PARALYSIS', 'T_CAUSES_NAUSEA'],
+});
+
+tile.flags = Flags;
+
+///////////////////////////////////////////////////////
+// TILE MECH
+
+
+const MechFlags = installFlag('tileMech', {
+  TM_IS_SECRET							: Fl(0),		// successful search or being stepped on while visible transforms it into discoverType
+  TM_PROMOTES_WITH_KEY			: Fl(1),		// promotes if the key is present on the tile (in your pack, carried by monster, or lying on the ground)
+  TM_PROMOTES_WITHOUT_KEY		: Fl(2),		// promotes if the key is NOT present on the tile (in your pack, carried by monster, or lying on the ground)
+  TM_PROMOTES_ON_STEP				: Fl(3),		// promotes when a creature, player or item is on the tile (whether or not levitating)
+  TM_PROMOTES_ON_ITEM_REMOVE		: Fl(4),		// promotes when an item is lifted from the tile (primarily for altars)
+  TM_PROMOTES_ON_PLAYER_ENTRY		: Fl(5),		// promotes when the player enters the tile (whether or not levitating)
+  TM_PROMOTES_ON_SACRIFICE_ENTRY: Fl(6),		// promotes when the sacrifice target enters the tile (whether or not levitating)
+  TM_PROMOTES_ON_ELECTRICITY    : Fl(7),    // promotes when hit by a lightning bolt
+  TM_ALLOWS_SUBMERGING					: Fl(8),		// allows submersible monsters to submerge in this terrain
+  TM_IS_WIRED										: Fl(9),		// if wired, promotes when powered, and sends power when promoting
+  TM_IS_CIRCUIT_BREAKER 				: Fl(10),        // prevents power from circulating in its machine
+  TM_GAS_DISSIPATES							: Fl(11),		// does not just hang in the air forever
+  TM_GAS_DISSIPATES_QUICKLY			: Fl(12),		// dissipates quickly
+  TM_EXTINGUISHES_FIRE					: Fl(13),		// extinguishes burning terrain or creatures
+  TM_VANISHES_UPON_PROMOTION		: Fl(14),		// vanishes when creating promotion dungeon feature, even if the replacement terrain priority doesn't require it
+  TM_REFLECTS_BOLTS           	: Fl(15),       // magic bolts reflect off of its surface randomly (similar to ACTIVE_CELLS flag IMPREGNABLE)
+  TM_STAND_IN_TILE            	: Fl(16),		// earthbound creatures will be said to stand "in" the tile, not on it
+  TM_LIST_IN_SIDEBAR          	: Fl(17),       // terrain will be listed in the sidebar with a description of the terrain type
+  TM_VISUALLY_DISTINCT        	: Fl(18),       // terrain will be color-adjusted if necessary so the character stands out from the background
+  TM_BRIGHT_MEMORY            	: Fl(19),       // no blue fade when this tile is out of sight
+  TM_EXPLOSIVE_PROMOTE        	: Fl(20),       // when burned, will promote to promoteType instead of burningType if surrounded by tiles with T_IS_FIRE or TM_EXPLOSIVE_PROMOTE
+  TM_CONNECTS_LEVEL           	: Fl(21),       // will be treated as passable for purposes of calculating level connectedness, irrespective of other aspects of this terrain layer
+  TM_INTERRUPT_EXPLORATION_WHEN_SEEN : Fl(22),    // will generate a message when discovered during exploration to interrupt exploration
+  TM_INVERT_WHEN_HIGHLIGHTED  	: Fl(23),       // will flip fore and back colors when highlighted with pathing
+  TM_SWAP_ENCHANTS_ACTIVATION 	: Fl(24),       // in machine, swap item enchantments when two suitable items are on this terrain, and activate the machine when that happens
+  TM_PROMOTES										: 'TM_PROMOTES_WITH_KEY | TM_PROMOTES_WITHOUT_KEY | TM_PROMOTES_ON_STEP | TM_PROMOTES_ON_ITEM_REMOVE | TM_PROMOTES_ON_SACRIFICE_ENTRY | TM_PROMOTES_ON_ELECTRICITY | TM_PROMOTES_ON_PLAYER_ENTRY',
+});
+
+tile.mechFlags = MechFlags;
+
+function setFlags(tile, allFlags) {
+  let flags = [];
+  if (!allFlags) return;  // no flags
+
+  if (typeof allFlags === 'string') {
+    flags = allFlags.split(/[,|]/).map( (t) => t.trim() );
+  }
+  else if (!Array.isArray(allFlags)) {
+    return WARN('Invalid tile flags: ' + allFlags);
+  }
+  else if (allFlags.length <= 2) {
+    if (typeof allFlags[0] === 'number') {
+      tile.flags = allFlags[0] || 0;
+      tile.mechFlags = allFlags[1] || 0;
+      return;
+    }
+  }
+
+  flags.forEach((f) => {
+    if (typeof f !== 'string') {
+      WARN('Invalid tile flag: ' + f);
+    }
+    else if (Flags[f]) {
+      tile.flags |= Flags[f];
+    }
+    else if (MechFlags[f]) {
+      tile.mechFlags |= MechFlags[f];
+    }
+    else {
+      WARN('Invalid tile flag: ' + f);
+    }
+  });
+}
+
+
+class Tile {
+  constructor(ch, fg, bg, layer, priority, allFlags, desc, flavor) {
+    this.flags = 0;
+    this.mechFlags = 0;
+    this.layer = layer || 0;
+    this.priority = priority || 50; // lower means higher priority (50 = average)
+    this.sprite = makeSprite(ch, fg, bg);
+    this.events = {};
+    this.light = null;
+    this.desc = desc || '';
+    this.flavor = flavor || '';
+    this.name = null;
+
+    setFlags(this, allFlags);
+  }
+}
+
+types.Tile = Tile;
+
+function makeTile(ch, fg, bg, layer, priority, allFlags, desc, flavor, opts={}) {
+  const tile = new types.Tile(ch, fg, bg, layer, priority, allFlags, desc, flavor);
+  // TODO - tile.light = opts.light || null;
+  // TODO - tile.events.fire = opts.fire
+  // TODO - tile.events.promote = opts.promote
+  // TODO - tile.events.discover = opts.discover
+  return tile;
+}
+
+make.tile = makeTile;
+
+function installTile(name, ...args) {
+  let tile;
+  if (args.length == 1 && args[0] instanceof Tile) {
+    tile = args[0];
+  }
+  else {
+    tile = make.tile(...args);
+  }
+  tile.name = name;
+  tile.id = tiles.length;
+  tiles.push(tile);
+  return tile.id;
+}
+
+tile.install = installTile;
+
+// These are the minimal set of tiles to make the diggers work
+const NOTHING = def.NOTHING = 0;
+installTile(NOTHING,       '\u2205', 'black', 'black', 0, 100, 0, "an eerie nothingness", "");
+installTile('FLOOR',       '\u00b7', [40,40,40,15], [90,90,90]);	// FLOOR
+installTile('DOOR',        '+', [100,40,40], [30,60,60]);	// DOOR
+installTile('BRIDGE',      '=', [100,40,40], [60,40,0]);	// BRIDGE
+installTile('UP_STAIRS',   '<', [100,40,40], [100,60,20]);	// UP
+installTile('DOWN_STAIRS', '>', [100,40,40], [100,60,20]);	// DOWN
+installTile('WALL',        '#', [50,50,50,10], [20,20,20,10]);	// WALL
+installTile('LAKE',        '~', [0,80,100,10], [0,30,100,10,0,0,0,1]);	// LAKE
+installTile('LAKE_FLOOR',  '\u00b7', [0,80,100, 10], [30,50,100,10,0,0,0,1]);	// LAKE_FLOOR
+
+function withName(name) {
+  return tiles.find( (t) => t.name == name );
+}
+
+tile.withName = withName;
+
 const DIRS$2 = def.dirs;
 const OPP_DIRS = [def.DOWN, def.UP, def.RIGHT, def.LEFT];
+
+
+const NOTHING$1 = 0;
+let FLOOR = 1;
+let DOOR = 2;
+let BRIDGE = 3;
+let UP_STAIRS = 4;
+let DOWN_STAIRS = 5;
+let WALL = 6;
+
+let LAKE = 7;
+let LAKE_FLOOR = 8;
 
 
 function installDigger(id, fn, config) {
@@ -2546,7 +3128,7 @@ function designCavern(config, grid) {
   const minHeight = config.height[0];
   const maxHeight = config.height[1];
 
-  grid.fill(0);
+  grid.fill(NOTHING$1);
   const bounds = GW.grid.fillBlob(blobGrid, 5, minWidth, minHeight, maxWidth, maxHeight, 55, "ffffffttt", "ffffttttt");
 
 //    colorOverDungeon(/* Color. */darkGray);
@@ -2566,7 +3148,7 @@ function designCavern(config, grid) {
       }
   }
   // ...and copy it to the master grid.
-  insertRoomAt(grid, blobGrid, destX - bounds.x, destY - bounds.y, fillX, fillY);
+  insertRoomAt(grid, blobGrid, destX - bounds.x, destY - bounds.y, fillX, fillY, FLOOR);
   freeGrid(blobGrid);
 }
 
@@ -2615,7 +3197,7 @@ function designEntranceRoom(config, grid) {
 
   let roomWidth, roomHeight, roomWidth2, roomHeight2, roomX, roomY, roomX2, roomY2;
 
-  grid.fill(0);
+  grid.fill(NOTHING$1);
 
   roomWidth = config.width[0];
   roomHeight = config.height[0];
@@ -2628,8 +3210,8 @@ function designEntranceRoom(config, grid) {
   roomX2 = Math.floor(grid.width/2 - roomWidth2/2 - 1);
   roomY2 = grid.height - roomHeight2 - 2;
 
-  grid.fillRect(roomX, roomY, roomWidth, roomHeight, 1);
-  grid.fillRect(roomX2, roomY2, roomWidth2, roomHeight2, 1);
+  grid.fillRect(roomX, roomY, roomWidth, roomHeight, FLOOR);
+  grid.fillRect(roomX2, roomY2, roomWidth2, roomHeight2, FLOOR);
 }
 
 
@@ -2642,7 +3224,7 @@ function designCrossRoom(config, grid) {
 
   let roomWidth, roomHeight, roomWidth2, roomHeight2, roomX, roomY, roomX2, roomY2;
 
-  grid.fill(0);
+  grid.fill(NOTHING$1);
 
   roomWidth = random.range(config.width[0], config.width[1]);
   roomX = random.range(Math.max(0, Math.floor(grid.width/2) - (roomWidth - 1)), Math.min(grid.width, Math.floor(grid.width/2)));
@@ -2655,8 +3237,8 @@ function designCrossRoom(config, grid) {
   roomHeight2 = random.range(config.height2[0], config.height2[1]);
   roomY2 = Math.floor(grid.height/2 - roomHeight2 - (random.range(0, 2) + random.range(0, 1)));
 
-  grid.fillRect(roomX - 5, roomY + 5, roomWidth, roomHeight, 1);
-  grid.fillRect(roomX2 - 5, roomY2 + 5, roomWidth2, roomHeight2, 1);
+  grid.fillRect(roomX - 5, roomY + 5, roomWidth, roomHeight, FLOOR);
+  grid.fillRect(roomX2 - 5, roomY2 + 5, roomWidth2, roomHeight2, FLOOR);
 }
 
 dig.crossRoom = designCrossRoom;
@@ -2668,7 +3250,7 @@ function designSymmetricalCrossRoom(config, grid) {
 
   let majorWidth, majorHeight, minorWidth, minorHeight;
 
-  grid.fill(0);
+  grid.fill(NOTHING$1);
 
   majorWidth = random.range(config.width[0], config.width[1]);
   majorHeight = random.range(config.height[0], config.height[1]);
@@ -2682,8 +3264,8 @@ function designSymmetricalCrossRoom(config, grid) {
       minorHeight -= 1;
   }
 
-  grid.fillRect(Math.floor((grid.width - majorWidth)/2), Math.floor((grid.height - minorHeight)/2), majorWidth, minorHeight, 1);
-  grid.fillRect(Math.floor((grid.width - minorWidth)/2), Math.floor((grid.height - majorHeight)/2), minorWidth, majorHeight, 1);
+  grid.fillRect(Math.floor((grid.width - majorWidth)/2), Math.floor((grid.height - minorHeight)/2), majorWidth, minorHeight, FLOOR);
+  grid.fillRect(Math.floor((grid.width - minorWidth)/2), Math.floor((grid.height - majorHeight)/2), minorWidth, majorHeight, FLOOR);
 }
 
 dig.symmetricalCrossRoom = designSymmetricalCrossRoom;
@@ -2695,10 +3277,10 @@ function designRectangularRoom(config, grid) {
 
   let width, height;
 
-  grid.fill(0);
+  grid.fill(NOTHING$1);
   width = random.range(config.width[0], config.width[1]);
   height = random.range(config.height[0], config.height[1]);
-  grid.fillRect(Math.floor((grid.width - width) / 2), Math.floor((grid.height - height) / 2), width, height, 1);
+  grid.fillRect(Math.floor((grid.width - width) / 2), Math.floor((grid.height - height) / 2), width, height, FLOOR);
 }
 
 dig.rectangularRoom = designRectangularRoom;
@@ -2710,8 +3292,8 @@ function designCircularRoom(config, grid) {
 
   let radius = random.range(config.radius[0], config.radius[1]);
 
-  grid.fill(0);
-  grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, 1);
+  grid.fill(NOTHING$1);
+  grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, FLOOR);
 
 }
 
@@ -2727,13 +3309,13 @@ function designBrogueCircularRoom(config, grid) {
   let params = random.percent(config.altChance || 5) ? config.radius2 : config.radius;
   radius = random.range(params[0], params[1]);
 
-  grid.fill(0);
-  grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, 1);
+  grid.fill(NOTHING$1);
+  grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, FLOOR);
 
   if (radius > config.ringMinWidth + config.holeMinSize
       && random.percent(config.holeChance))
   {
-      grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), random.range(config.holeMinSize, radius - config.holeMinSize), 0);
+      grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), random.range(config.holeMinSize, radius - config.holeMinSize), NOTHING$1);
   }
 }
 
@@ -2748,7 +3330,7 @@ function designChunkyRoom(config, grid) {
   let minX, maxX, minY, maxY;
   let chunkCount = random.range(config.count[0], config.count[1]);
 
-  grid.fill(0);
+  grid.fill(NOTHING$1);
   grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), 2, 1);
   minX = Math.floor(grid.width/2) - 3;
   maxX = Math.floor(grid.width/2) + 3;
@@ -2762,7 +3344,7 @@ function designChunkyRoom(config, grid) {
 //            colorOverDungeon(/* Color. */darkGray);
 //            hiliteGrid(grid, /* Color. */white, 100);
 
-          grid.fillCircle(x, y, 2, 1);
+          grid.fillCircle(x, y, 2, FLOOR);
           i++;
           minX = Math.max(1, Math.min(x - 3, minX));
           maxX = Math.min(grid.width - 2, Math.max(x + 3, maxX));
@@ -2778,25 +3360,12 @@ function designChunkyRoom(config, grid) {
 dig.chunkyRoom = designChunkyRoom;
 
 
-
-const WALL = 0;
-const FLOOR = 1;
-const DOOR = 2;
-const BRIDGE = 3;
-const UP_STAIRS = 4;
-const DOWN_STAIRS = 5;
-
-const LAKE = 6;
-const LAKE_FLOOR = 7;
-const LAKE_DOOR = 8;
-
-
 class DigSite {
   constructor(w, h, opts={}) {
     Object.assign(this, opts);
     this.width = w;
     this.height = h;
-    this.grid = allocGrid(w, h);
+    this.grid = allocGrid(w, h, NOTHING$1);
     this.locations = {};
   }
 
@@ -2821,13 +3390,13 @@ class DigSite {
   isBlocked(x, y) {
     if (!this.grid.hasXY(x, y)) return false;
     const v = this.grid[x][y];
-    return v == WALL || v == LAKE || v == LAKE_FLOOR || v == LAKE_DOOR || v == UP_STAIRS || v == DOWN_STAIRS;
+    return v == WALL || v == LAKE || v == LAKE_FLOOR || v == UP_STAIRS || v == DOWN_STAIRS;
   }
 
   isLake(x, y) {
     if (!this.grid.hasXY(x, y)) return false;
     const v = this.grid[x][y];
-    return v == LAKE || v == LAKE_FLOOR || v == LAKE_DOOR;
+    return v == LAKE || v == LAKE_FLOOR;
   }
 
 }
@@ -2859,6 +3428,15 @@ function startDig(opts={}) {
     freeGrid(SITE.grid);
   }
 
+  FLOOR       = withName('FLOOR')       ? withName('FLOOR').id        : FLOOR;
+  DOOR        = withName('DOOR')        ? withName('DOOR').id         : DOOR;
+  BRIDGE      = withName('BRIDGE')      ? withName('BRIDGE').id       : BRIDGE;
+  UP_STAIRS   = withName('UP_STAIRS')   ? withName('UP_STAIRS').id    : UP_STAIRS;
+  DOWN_STAIRS = withName('DOWN_STAIRS') ? withName('DOWN_STAIRS').id  : DOWN_STAIRS;
+  WALL        = withName('WALL')        ? withName('WALL').id         : WALL;
+  LAKE        = withName('LAKE')        ? withName('LAKE').id         : LAKE;
+  LAKE_FLOOR  = withName('LAKE_FLOOR')  ? withName('LAKE_FLOOR').id   : LAKE_FLOOR;
+
   LOCS = sequence(width * height);
   random.shuffle(LOCS);
 
@@ -2869,6 +3447,7 @@ function startDig(opts={}) {
 }
 
 dig.startDig = startDig;
+
 
 function finishDig(tileFn) {
   // const map = GW.make.map(SITE.width, SITE.height);
@@ -2884,8 +3463,10 @@ function finishDig(tileFn) {
   removeDiagonalOpenings();
   finishDoors();
 
-  freeGrid(SITE.grid);
-  SITE.grid = null;
+  SITE.grid.update( (v) => v || WALL );
+
+  // freeGrid(SITE.grid);
+  // SITE.grid = null;
 
   // return map;
 }
@@ -2904,13 +3485,23 @@ function digRoom(opts={}) {
   }
 
   const config = Object.assign({}, digger, opts);
+  let locs = opts.locs || opts.loc || null;
+  if (!Array.isArray(locs)) {
+    locs = null;
+  }
+  else if (locs && locs.length && locs.length == 2 && typeof locs[0] == 'number') {
+    locs = [locs];
+  }
+  else if (locs.length == 0) {
+    locs = null;
+  }
 
   const grid = allocGrid(SITE.width, SITE.height);
 
   let result = false;
   let tries = opts.tries || 10;
   while(--tries >= 0 && !result) {
-    grid.fill(0);
+    grid.fill(NOTHING$1);
 
     digger.fn(config, grid);
     const doors = chooseRandomDoorSites(grid);
@@ -2918,8 +3509,17 @@ function digRoom(opts={}) {
       attachHallway(grid, doors);
     }
 
-    if (opts.doors && opts.doors.length) {
-      result = attachRoomAtDoors(grid, doors, opts.doors, opts.placeDoor);
+    if (locs) {
+      // try the doors first
+      result = attachRoomAtDoors(grid, doors, locs, opts.placeDoor);
+      if (!result) {
+        // otherwise try everywhere
+        for(let i = 0; i < locs.length && !result; ++i) {
+          if (locs[i][0] > 0) {
+            result = attachRoomAtXY(grid, locs[i], doors, opts.placeDoor);
+          }
+        }
+      }
     }
     else {
       result = attachRoomToDungeon(grid, doors, opts.placeDoor);
@@ -2937,7 +3537,7 @@ dig.digRoom = digRoom;
 
 function isValidStairLoc(v, x, y) {
   let count = 0;
-  if (v !== WALL) return false;
+  if (v && v !== WALL) return false;
 
   for(let i = 0; i < 4; ++i) {
     const dir = def.dirs[i];
@@ -2945,10 +3545,12 @@ function isValidStairLoc(v, x, y) {
     const tile = SITE.grid[x + dir[0]][y + dir[1]];
     if (tile == FLOOR) {
       count += 1;
-      if (SITE.grid[x - dir[0] + dir[1]][y - dir[1] + dir[0]] != WALL) return false;
-      if (SITE.grid[x - dir[0] - dir[1]][y - dir[1] - dir[0]] != WALL) return false;
+      const va = SITE.grid[x - dir[0] + dir[1]][y - dir[1] + dir[0]];
+      if (va && va != WALL) return false;
+      const vb = SITE.grid[x - dir[0] - dir[1]][y - dir[1] - dir[0]];
+      if (vb && vb != WALL) return false;
     }
-    else if (tile != WALL) {
+    else if (tile && tile != WALL) {
       return false;
     }
   }
@@ -3009,7 +3611,7 @@ function chooseRandomDoorSites(sourceGrid) {
                         newY += DIRS$2[dir][1];
                     }
                     if (!doorSiteFailed) {
-                        grid[i][j] = dir + 2; // So as not to conflict with 0 or 1, which are used to indicate exterior/interior.
+                        grid[i][j] = dir + 10000; // So as not to conflict with other tiles.
                     }
                 }
             }
@@ -3019,7 +3621,7 @@ function chooseRandomDoorSites(sourceGrid) {
   let doorSites = [];
   // Pick four doors, one in each direction, and store them in doorSites[dir].
   for (dir=0; dir<4; dir++) {
-      const loc = grid.randomMatchingXY(dir + 2) || [-1, -1];
+      const loc = grid.randomMatchingXY(dir + 10000) || [-1, -1];
       doorSites[dir] = loc.slice();
   }
 
@@ -3135,12 +3737,12 @@ function directionOfDoorSite(grid, x, y) {
 
 
 
-function roomAttachesAt(roomMap, roomToDungeonX, roomToDungeonY) {
+function roomAttachesAt(roomGrid, roomToDungeonX, roomToDungeonY) {
     let xRoom, yRoom, xDungeon, yDungeon, i, j;
 
-    for (xRoom = 0; xRoom < roomMap.width; xRoom++) {
-        for (yRoom = 0; yRoom < roomMap.height; yRoom++) {
-            if (roomMap[xRoom][yRoom]) {
+    for (xRoom = 0; xRoom < roomGrid.width; xRoom++) {
+        for (yRoom = 0; yRoom < roomGrid.height; yRoom++) {
+            if (roomGrid[xRoom][yRoom]) {
                 xDungeon = xRoom + roomToDungeonX;
                 yDungeon = yRoom + roomToDungeonY;
 
@@ -3162,25 +3764,26 @@ function roomAttachesAt(roomMap, roomToDungeonX, roomToDungeonY) {
 
 
 
-function insertRoomAt(destGrid, roomGrid, roomToDungeonX, roomToDungeonY, xRoom, yRoom) {
+function insertRoomAt(destGrid, roomGrid, roomToDungeonX, roomToDungeonY, xRoom, yRoom, tile) {
     let newX, newY;
     let dir;
 
     // GW.debug.log("insertRoomAt: ", xRoom + roomToDungeonX, yRoom + roomToDungeonY);
 
-    destGrid[xRoom + roomToDungeonX][yRoom + roomToDungeonY] = roomGrid[xRoom][yRoom];
+    destGrid[xRoom + roomToDungeonX][yRoom + roomToDungeonY] = roomGrid[xRoom][yRoom] ? (tile || roomGrid[xRoom][yRoom]) : 0;
     for (dir = 0; dir < 4; dir++) {
         newX = xRoom + DIRS$2[dir][0];
         newY = yRoom + DIRS$2[dir][1];
         if (roomGrid.hasXY(newX, newY)
             && roomGrid[newX][newY]
             && destGrid.hasXY(newX + roomToDungeonX, newY + roomToDungeonY)
-            && destGrid[newX + roomToDungeonX][newY + roomToDungeonY] == 0)
+            && (destGrid[newX + roomToDungeonX][newY + roomToDungeonY] == NOTHING$1))
         {
-          insertRoomAt(destGrid, roomGrid, roomToDungeonX, roomToDungeonY, newX, newY);
+          insertRoomAt(destGrid, roomGrid, roomToDungeonX, roomToDungeonY, newX, newY, tile);
         }
     }
 }
+
 
 
 function attachRoomToDungeon(roomMap, doorSites, placeDoor) {
@@ -3194,17 +3797,28 @@ function attachRoomToDungeon(roomMap, doorSites, placeDoor) {
       if (dir != def.NO_DIRECTION) {
         const oppDir = OPP_DIRS[dir];
 
+        const offsetX = x - doorSites[oppDir][0];
+        const offsetY = y - doorSites[oppDir][1];
+
         if (doorSites[oppDir][0] != -1
-            && roomAttachesAt(roomMap, x - doorSites[oppDir][0], y - doorSites[oppDir][1]))
+            && roomAttachesAt(roomMap, offsetX, offsetY))
         {
           // GW.debug.log("attachRoom: ", x, y, oppDir);
 
           // Room fits here.
-          insertRoomAt(SITE.grid, roomMap, x - doorSites[oppDir][0], y - doorSites[oppDir][1], doorSites[oppDir][0], doorSites[oppDir][1]);
+          insertRoomAt(SITE.grid, roomMap, offsetX, offsetY, doorSites[oppDir][0], doorSites[oppDir][1]);
           if (placeDoor !== false) {
             SITE.grid[x][y] = (typeof placeDoor === 'number') ? placeDoor : DOOR; // Door site.
           }
-          return true;
+          doorSites[oppDir][0] = -1;
+          doorSites[oppDir][1] = -1;
+          for(let i = 0; i < doorSites.length; ++i) {
+            if (doorSites[i][0] > 0) {
+              doorSites[i][0] += offsetX;
+              doorSites[i][1] += offsetY;
+            }
+          }
+          return doorSites;
         }
       }
   }
@@ -3212,7 +3826,41 @@ function attachRoomToDungeon(roomMap, doorSites, placeDoor) {
   return false;
 }
 
-function attachRoomAtXY(x, y, roomMap, doorSites, placeDoor) {
+
+function attachRoomAtXY(roomGrid, xy, doors, placeDoor) {
+
+  // Slide hyperspace across real space, in a random but predetermined order, until the room matches up with a wall.
+  for (let i = 0; i < LOCS.length; i++) {
+      const x = Math.floor(LOCS[i] / SITE.height);
+      const y = LOCS[i] % SITE.height;
+
+      const dir = directionOfDoorSite(roomGrid, x, y);
+      if (dir != def.NO_DIRECTION) {
+        const d = DIRS$2[dir];
+        if (roomAttachesAt(roomGrid, xy[0] - x, xy[1] - y)) {
+          insertRoomAt(SITE.grid, roomGrid, xy[0] - x, xy[1] - y, x, y);
+          if (placeDoor !== false) {
+            SITE.grid[xy[0]][xy[1]] = (typeof placeDoor === 'number') ? placeDoor : DOOR; // Door site.
+          }
+          doors[dir][0] = -1;
+          doors[dir][1] = -1;
+          for(let i = 0; i < doors.length; ++i) {
+            if (doors[i][0] > 0) {
+              doors[i][0] += xy[0] - x;
+              doors[i][1] += xy[1] - y;
+            }
+          }
+          return doors;
+        }
+      }
+  }
+
+  return false;
+}
+
+
+
+function insertRoomAtXY(x, y, roomMap, doorSites, placeDoor) {
 
   const dirs = sequence(4);
   random.shuffle(dirs);
@@ -3256,12 +3904,13 @@ function attachRoomAtDoors(roomMap, roomDoors, siteDoors, placeDoor) {
     const x = siteDoors[index][0];
     const y = siteDoors[index][1];
 
-    const doors = attachRoomAtXY(x, y, roomMap, roomDoors, placeDoor);
+    const doors = insertRoomAtXY(x, y, roomMap, roomDoors, placeDoor);
     if (doors) return doors;
   }
 
   return false;
 }
+
 
 function digLake(opts={}) {
   let i, j, k;
@@ -3280,7 +3929,7 @@ function digLake(opts={}) {
 
   for (; lakeMaxHeight >= lakeMinSize && lakeMaxWidth >= lakeMinSize && count < maxCount; lakeMaxHeight--, lakeMaxWidth -= 2) { // lake generations
 
-    lakeGrid.fill(0);
+    lakeGrid.fill(NOTHING$1);
     const bounds = GW.grid.fillBlob(lakeGrid, 5, 4, 4, lakeMaxWidth, lakeMaxHeight, 55, "ffffftttt", "ffffttttt");
 
     for (k=0; k < tries && count < maxCount; k++) { // placement attempts
@@ -3299,7 +3948,7 @@ function digLake(opts={}) {
                 const sx = i + bounds.x + x;
                 const sy = j + bounds.y + y;
                 if (!SITE.isLake(sx, sy)) {
-                  if (SITE.grid[sx][sy] == BRIDGE) {
+                  if (SITE.grid[sx][sy] == BRIDGE || SITE.grid[sx][sy] == DOOR) {
                     SITE.grid[sx][sy] = FLOOR;
                   }
                   SITE.grid[sx][sy] += LAKE;
@@ -3383,7 +4032,8 @@ function addLoops(minimumPathingDistance, maxConnectionLength) {
         x = Math.floor(LOCS[i] / siteGrid.height);
         y = LOCS[i] % siteGrid.height;
 
-        if (siteGrid[x][y] == WALL) {
+        const tile = siteGrid[x][y];
+        if (!tile || tile == WALL) {
             for (d=0; d <= 1; d++) { // Try a horizontal door, and then a vertical door.
                 newX = x + dirCoords[d][0];
                 newY = y + dirCoords[d][1];
@@ -3429,7 +4079,8 @@ function addLoops(minimumPathingDistance, maxConnectionLength) {
                       debug$1.log('Adding Loop', newX, newY, ' => ', oppX, oppY);
 
                       while(oppX !== newX || oppY !== newY) {
-                        if (siteGrid[oppX][oppY] == WALL) {
+                        const siteTile = siteGrid[oppX][oppY];
+                        if (!siteTile || siteTile == WALL) {
                           siteGrid[oppX][oppY] = FLOOR;
                           costGrid[oppX][oppY] = 1;          // (Cost map also needs updating.)
                         }
@@ -3601,4 +4252,4 @@ function finishDoors(doorTile, floorTile, secretDoorChance, secretDoorTile) {
 
 dig.finishDoors = finishDoors;
 
-export { MAP, PLAYER, actor, buffer, canvas, color, colors, cosmetic, debug$1 as debug, def, dig, diggers, grid$1 as grid, install, io, make, map, path, random, sprite, types, utils };
+export { MAP, PLAYER, actor, buffer, canvas, color, colors, cosmetic, debug$1 as debug, def, dig, diggers, flag, flags, grid$1 as grid, install, io, make, map, path, random, sprite, tile, tiles, types, utils };

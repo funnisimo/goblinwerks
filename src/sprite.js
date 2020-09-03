@@ -1,5 +1,5 @@
 
-import { Color, applyMix, equals } from './color.js';
+import { Color, applyMix, equals, makeColor } from './color.js';
 import { types, make } from './gw.js';
 
 const TEMP_BG = new Color();
@@ -7,8 +7,8 @@ const TEMP_BG = new Color();
 export class Sprite {
 	constructor(ch, fg, bg, opacity=100) {
 		this.ch = ch || ' ';
-		this.fg = new Color(fg || [100,100,100,0,0,0]);
-		this.bg = new Color(bg || [0,0,0,0,0,0]);
+		this.fg = makeColor(fg || 'white');
+		this.bg = makeColor(bg || 'black');
 		this.opacity = opacity;
 		this.needsUpdate = true;
 	}

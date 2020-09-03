@@ -149,6 +149,9 @@ export class Grid extends Array {
 	  return count;
 	}
 
+	dump(fmtFn) {
+		gridDumpRect(this, 0, 0, this.width, this.height, fmtFn);
+	}
 
 	closestMatchingXY(x, y, fn) {
 		let bestLoc = [-1, -1];
@@ -397,6 +400,9 @@ function _formatGridValue(v) {
 	}
 	else if (v < 62) {
 		return String.fromCharCode( 'A'.charCodeAt(0) + v - 10 - 26);
+	}
+	else if (typeof v === 'string') {
+		return v[0];
 	}
 	else {
 		return '#';

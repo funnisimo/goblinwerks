@@ -5,17 +5,7 @@ const startingXY = [40, 28];
 
 GW.random.seed(12345);
 
-const TILES = [
-	GW.make.sprite('#', [50,50,50], [20,20,20]),	// WALL
-	GW.make.sprite('\u00b7', [30,30,30], [90,90,90]),	// FLOOR
-	GW.make.sprite('+', [100,40,40], [30,60,60]),	// DOOR
-	GW.make.sprite('=', [100,40,40], [60,40,0]),	// BRIDGE
-	GW.make.sprite('<', [100,40,40], [100,60,20]),	// UP
-	GW.make.sprite('>', [100,40,40], [100,60,20]),	// DOWN
-	GW.make.sprite('~', [0,80,100], [0,30,100]),	// LAKE
-	GW.make.sprite('\u00b7', [0,80,100], [30,50,100]),	// LAKE_FLOOR
-	GW.make.sprite('+', [0,80,100], [30,50,100]),	// LAKE_DOOR
-];
+const TILES = GW.tiles;
 
 GW.dig.installDigger('ROOM',     			GW.dig.rectangularRoom,  { width: [10,20], height: [5,10] });
 GW.dig.installDigger('CROSS',         GW.dig.crossRoom,        { width: [3,12], height: [3,7], width2: [4,20], height2: [2,5] });
@@ -51,17 +41,17 @@ GW.dig.installDigger('PROFILE',   		GW.dig.choiceRoom,
 
 GW.dig.installDigger('FIRST_ROOM',   		GW.dig.choiceRoom,
 										{ choices: {
-											ROOM: 10,
-											CROSS: 20,
-											SYMMETRICAL_CROSS: 10,
+											ROOM: 5,
+											CROSS: 5,
+											SYMMETRICAL_CROSS: 5,
 											LARGE_ROOM: 5,
 											HUGE_ROOM: 5,
 											LARGE_CIRCLE: 5,
 											BROGUE_CIRCLE: 5,
-											BROGUE_CAVE: 5,
-											HUGE_CAVE: 5,
+											BROGUE_CAVE: 30,	// These are harder to match
+											HUGE_CAVE: 30,		// ...
 											BROGUE_ENTRANCE: 5,
-											CHUNKY: 10,
+											CHUNKY: 5,
 										} });
 
 function handleClick(e) {
@@ -89,35 +79,32 @@ function stopTimer(text) {
 	return diff;
 }
 
-function drawMap() {
+function drawMap(attempt=0) {
+	if (attempt > 20) {
+		console.error('Failed to build map!');
+		return false;
+	}
 	// dig a map
 	SITE = GW.dig.startDig(80, 30);
 
-	let doors = [ [startingXY[0], startingXY[1]] ];
+	let loc = [startingXY[0], startingXY[1]];
 	let roomCount = 0;
 
 	const start = startTimer();
-	GW.dig.digRoom({ digger: 'FIRST_ROOM', doors, tries: 20, tile: 1, placeDoor: false });
-	stopTimer('first room');
+	GW.dig.digRoom({ digger: 'FIRST_ROOM', loc, tries: 20, placeDoor: false });
 
 	let fails = 0;
 	while(fails < 20) {
-		startTimer();
-		if (!GW.dig.digRoom({ digger: 'PROFILE', tries: 1, tile: 1, hallChance: 10 })) {
+		if (!GW.dig.digRoom({ digger: 'PROFILE', tries: 1, hallChance: 10 })) {
 			++fails;
 		}
-		stopTimer('room #' + ++roomCount);
 	}
 
-	startTimer();
 	GW.dig.addLoops(20, 5);
-	stopTimer('loops');
 
 	let lakeCount = GW.random.number(5);
 	for(let i = 0; i < lakeCount; ++i) {
-		startTimer();
 		GW.dig.digLake();
-		stopTimer('lake #' + i);
 	}
 
 	GW.dig.addBridges(40, 8);
@@ -125,14 +112,14 @@ function drawMap() {
 	GW.dig.removeDiagonalOpenings();
 	GW.dig.finishDoors();
 
-	let loc = SITE.grid.matchingXYNear(startingXY[0], startingXY[1], GW.dig.isValidStairLoc);
+	loc = SITE.grid.matchingXYNear(startingXY[0], startingXY[1], GW.dig.isValidStairLoc);
 	if (loc && loc[0] > 0) {
 		GW.dig.addStairs(loc[0], loc[1], 4);	// UP_STAIRS
 		SITE.locations.start = loc;
 	}
 	else {
 		console.error('Failed to place up stairs.');
-		return drawMap();
+		return drawMap(++attempt);
 	}
 
 	loc = SITE.grid.randomMatchingXY( (v, x, y) => {
@@ -141,21 +128,22 @@ function drawMap() {
 	});
 
 	if (loc && loc[0] > 0) {
-		GW.dig.addStairs(loc[0], loc[1], 5);
+		GW.dig.addStairs(loc[0], loc[1], 5);	// DOWN_STAIRS
 		SITE.locations.finish = loc;
 	}
 	else {
 		console.error('Failed to place down stairs.');
-		return drawMap();
+		return drawMap(++attempt);
 	}
 
-	time = start;
 	stopTimer('DIG');
+
+	GW.dig.finishDig();
 
 	SITE.grid.forEach( (v, i, j) => {
 		const tile = TILES[v];
 		if (tile) {
-			canvas.plot(i, j, tile);
+			canvas.plot(i, j, tile.sprite);
 		}
 		else {
 			console.warn('missing tile ', v, i, j);
@@ -165,6 +153,10 @@ function drawMap() {
 	canvas.draw();
 }
 
+function drawCanvas() {
+	requestAnimationFrame(drawCanvas);
+	canvas.draw();
+}
 
 // start the environment
 function start() {
@@ -173,8 +165,10 @@ function start() {
 	document.onkeydown = handleKey;
 
 	canvas.plotText(10, 15, 'Click to draw map with starting location at click point.', [100,50,0]);
-	canvas.plotText(10, 17, 'Press any key to redesign map at same starting point.', [100,50,0]);
+	canvas.plotText(10, 17, 'Press any key to redesign the map at same starting point.', [100,50,0]);
 	canvas.draw();
+
+	// drawCanvas();	// uncomment to have water colors dance
 }
 
 window.onload = start;

@@ -1,6 +1,11 @@
 
 const GW = require('../dist/gw.cjs');
 
+function always(testFn, count=1000) {
+  for(let i = 0; i < count; ++i) {
+    testFn();
+  }
+}
 
 describe('GW.random', () => {
 
@@ -25,16 +30,12 @@ describe('GW.random', () => {
   });
 
   test('gives random percents => [0, 1)', () => {
-    for(let i = 0; i < 10000; ++i) {
-      expect(GW.random.value()).toBeWithin(0, 1);
-    }
+    always( () => expect(GW.random.value()).toBeWithin(0, 1) );
   });
 
   test('gives random numbers => [0, MAX)', () => {
     expect(GW.types.Random.MAX).toBeGreaterThan(1e6);
-    for(let i = 0; i < 10000; ++i) {
-      expect(GW.random.number()).toBeWithin(0, GW.types.Random.MAX);
-    }
+    always( () => expect(GW.random.number()).toBeWithin(0, GW.types.Random.MAX) );
   });
 
 });
@@ -42,7 +43,7 @@ describe('GW.random', () => {
 describe('GW.cosmetic', () => {
 
   test('can give random numbers', () => {
-    expect(GW.cosmetic.value()).toBeWithin(0, 1);
+    always( () => expect(GW.cosmetic.value()).toBeWithin(0, 1) );
   });
 });
 
