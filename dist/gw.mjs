@@ -4236,7 +4236,7 @@ function installTile(name, ...args) {
 
 tile.install = installTile;
 
-
+// These are the minimal set of tiles to make the diggers work
 const NOTHING$1 = def.NOTHING = 0;
 installTile(NOTHING$1,       ' ', 'black', 'black', 0, 100, 0, "an eerie nothingness", "");
 installTile('FLOOR',       '\u00b7', [40,40,40,15], [90,90,90]);	// FLOOR
@@ -4247,5 +4247,11 @@ installTile('DOWN_STAIRS', '>', [100,40,40], [100,60,20]);	// DOWN
 installTile('WALL',        '#', [50,50,50,10], [20,20,20,10]);	// WALL
 installTile('LAKE',        '~', [0,80,100,10], [0,30,100,10,0,0,0,1]);	// LAKE
 installTile('LAKE_FLOOR',  '\u00b7', [0,80,100, 10], [30,50,100,10,0,0,0,1]);	// LAKE_FLOOR
+
+function tileWithName(name) {
+  return tiles.find( (t) => t.name == name );
+}
+
+tile.withName = tileWithName;
 
 export { MAP, PLAYER, actor, buffer, canvas, color, colors, cosmetic, debug$1 as debug, def, dig, diggers, flag, flags, grid$1 as grid, install, io, make, map, path, random, sprite, tile, tiles, types, utils };
