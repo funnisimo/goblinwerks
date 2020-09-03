@@ -41,17 +41,17 @@ GW.dig.installDigger('PROFILE',   		GW.dig.choiceRoom,
 
 GW.dig.installDigger('FIRST_ROOM',   		GW.dig.choiceRoom,
 										{ choices: {
-											ROOM: 10,
-											CROSS: 20,
-											SYMMETRICAL_CROSS: 10,
+											ROOM: 5,
+											CROSS: 5,
+											SYMMETRICAL_CROSS: 5,
 											LARGE_ROOM: 5,
 											HUGE_ROOM: 5,
 											LARGE_CIRCLE: 5,
 											BROGUE_CIRCLE: 5,
-											BROGUE_CAVE: 5,
-											HUGE_CAVE: 5,
+											BROGUE_CAVE: 30,	// These are harder to match
+											HUGE_CAVE: 30,		// ...
 											BROGUE_ENTRANCE: 5,
-											CHUNKY: 10,
+											CHUNKY: 5,
 										} });
 
 function handleClick(e) {
@@ -87,31 +87,24 @@ function drawMap(attempt=0) {
 	// dig a map
 	SITE = GW.dig.startDig(80, 30);
 
-	let doors = [ [startingXY[0], startingXY[1]] ];
+	let loc = [startingXY[0], startingXY[1]];
 	let roomCount = 0;
 
 	const start = startTimer();
-	GW.dig.digRoom({ digger: 'FIRST_ROOM', doors, tries: 20, placeDoor: false });
-	stopTimer('first room');
+	GW.dig.digRoom({ digger: 'FIRST_ROOM', loc, tries: 20, placeDoor: false });
 
 	let fails = 0;
 	while(fails < 20) {
-		startTimer();
 		if (!GW.dig.digRoom({ digger: 'PROFILE', tries: 1, hallChance: 10 })) {
 			++fails;
 		}
-		stopTimer('room #' + ++roomCount);
 	}
 
-	startTimer();
 	GW.dig.addLoops(20, 5);
-	stopTimer('loops');
 
 	let lakeCount = GW.random.number(5);
 	for(let i = 0; i < lakeCount; ++i) {
-		startTimer();
 		GW.dig.digLake();
-		stopTimer('lake #' + i);
 	}
 
 	GW.dig.addBridges(40, 8);
@@ -119,7 +112,7 @@ function drawMap(attempt=0) {
 	GW.dig.removeDiagonalOpenings();
 	GW.dig.finishDoors();
 
-	let loc = SITE.grid.matchingXYNear(startingXY[0], startingXY[1], GW.dig.isValidStairLoc);
+	loc = SITE.grid.matchingXYNear(startingXY[0], startingXY[1], GW.dig.isValidStairLoc);
 	if (loc && loc[0] > 0) {
 		GW.dig.addStairs(loc[0], loc[1], 4);	// UP_STAIRS
 		SITE.locations.start = loc;
@@ -143,7 +136,6 @@ function drawMap(attempt=0) {
 		return drawMap(++attempt);
 	}
 
-	time = start;
 	stopTimer('DIG');
 
 	GW.dig.finishDig();

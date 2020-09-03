@@ -2879,7 +2879,7 @@ function designCavern(config, grid) {
       }
   }
   // ...and copy it to the master grid.
-  insertRoomAt(grid, blobGrid, destX - bounds.x, destY - bounds.y, fillX, fillY);
+  insertRoomAt(grid, blobGrid, destX - bounds.x, destY - bounds.y, fillX, fillY, FLOOR);
   freeGrid(blobGrid);
 }
 
@@ -3208,6 +3208,16 @@ function digRoom(opts={}) {
   }
 
   const config = Object.assign({}, digger, opts);
+  let locs = opts.locs || opts.loc || null;
+  if (!Array.isArray(locs)) {
+    locs = null;
+  }
+  else if (locs && locs.length && locs.length == 2 && typeof locs[0] == 'number') {
+    locs = [locs];
+  }
+  else if (locs.length == 0) {
+    locs = null;
+  }
 
   const grid = allocGrid(SITE.width, SITE.height);
 
@@ -3222,8 +3232,17 @@ function digRoom(opts={}) {
       attachHallway(grid, doors);
     }
 
-    if (opts.doors && opts.doors.length) {
-      result = attachRoomAtDoors(grid, doors, opts.doors, opts.placeDoor);
+    if (locs) {
+      // try the doors first
+      result = attachRoomAtDoors(grid, doors, locs, opts.placeDoor);
+      if (!result) {
+        // otherwise try everywhere
+        for(let i = 0; i < locs.length && !result; ++i) {
+          if (locs[i][0] > 0) {
+            result = attachRoomAtXY(grid, locs[i], doors, opts.placeDoor);
+          }
+        }
+      }
     }
     else {
       result = attachRoomToDungeon(grid, doors, opts.placeDoor);
@@ -3315,7 +3334,7 @@ function chooseRandomDoorSites(sourceGrid) {
                         newY += DIRS$2[dir][1];
                     }
                     if (!doorSiteFailed) {
-                        grid[i][j] = dir + 2; // So as not to conflict with 0 or 1, which are used to indicate exterior/interior.
+                        grid[i][j] = dir + 10000; // So as not to conflict with other tiles.
                     }
                 }
             }
@@ -3325,7 +3344,7 @@ function chooseRandomDoorSites(sourceGrid) {
   let doorSites = [];
   // Pick four doors, one in each direction, and store them in doorSites[dir].
   for (dir=0; dir<4; dir++) {
-      const loc = grid.randomMatchingXY(dir + 2) || [-1, -1];
+      const loc = grid.randomMatchingXY(dir + 10000) || [-1, -1];
       doorSites[dir] = loc.slice();
   }
 
@@ -3441,12 +3460,12 @@ function directionOfDoorSite(grid, x, y) {
 
 
 
-function roomAttachesAt(roomMap, roomToDungeonX, roomToDungeonY) {
+function roomAttachesAt(roomGrid, roomToDungeonX, roomToDungeonY) {
     let xRoom, yRoom, xDungeon, yDungeon, i, j;
 
-    for (xRoom = 0; xRoom < roomMap.width; xRoom++) {
-        for (yRoom = 0; yRoom < roomMap.height; yRoom++) {
-            if (roomMap[xRoom][yRoom]) {
+    for (xRoom = 0; xRoom < roomGrid.width; xRoom++) {
+        for (yRoom = 0; yRoom < roomGrid.height; yRoom++) {
+            if (roomGrid[xRoom][yRoom]) {
                 xDungeon = xRoom + roomToDungeonX;
                 yDungeon = yRoom + roomToDungeonY;
 
@@ -3468,13 +3487,13 @@ function roomAttachesAt(roomMap, roomToDungeonX, roomToDungeonY) {
 
 
 
-function insertRoomAt(destGrid, roomGrid, roomToDungeonX, roomToDungeonY, xRoom, yRoom) {
+function insertRoomAt(destGrid, roomGrid, roomToDungeonX, roomToDungeonY, xRoom, yRoom, tile) {
     let newX, newY;
     let dir;
 
     // GW.debug.log("insertRoomAt: ", xRoom + roomToDungeonX, yRoom + roomToDungeonY);
 
-    destGrid[xRoom + roomToDungeonX][yRoom + roomToDungeonY] = roomGrid[xRoom][yRoom];
+    destGrid[xRoom + roomToDungeonX][yRoom + roomToDungeonY] = roomGrid[xRoom][yRoom] ? (tile || roomGrid[xRoom][yRoom]) : 0;
     for (dir = 0; dir < 4; dir++) {
         newX = xRoom + DIRS$2[dir][0];
         newY = yRoom + DIRS$2[dir][1];
@@ -3483,10 +3502,11 @@ function insertRoomAt(destGrid, roomGrid, roomToDungeonX, roomToDungeonY, xRoom,
             && destGrid.hasXY(newX + roomToDungeonX, newY + roomToDungeonY)
             && (destGrid[newX + roomToDungeonX][newY + roomToDungeonY] == NOTHING))
         {
-          insertRoomAt(destGrid, roomGrid, roomToDungeonX, roomToDungeonY, newX, newY);
+          insertRoomAt(destGrid, roomGrid, roomToDungeonX, roomToDungeonY, newX, newY, tile);
         }
     }
 }
+
 
 
 function attachRoomToDungeon(roomMap, doorSites, placeDoor) {
@@ -3500,17 +3520,28 @@ function attachRoomToDungeon(roomMap, doorSites, placeDoor) {
       if (dir != def.NO_DIRECTION) {
         const oppDir = OPP_DIRS[dir];
 
+        const offsetX = x - doorSites[oppDir][0];
+        const offsetY = y - doorSites[oppDir][1];
+
         if (doorSites[oppDir][0] != -1
-            && roomAttachesAt(roomMap, x - doorSites[oppDir][0], y - doorSites[oppDir][1]))
+            && roomAttachesAt(roomMap, offsetX, offsetY))
         {
           // GW.debug.log("attachRoom: ", x, y, oppDir);
 
           // Room fits here.
-          insertRoomAt(SITE.grid, roomMap, x - doorSites[oppDir][0], y - doorSites[oppDir][1], doorSites[oppDir][0], doorSites[oppDir][1]);
+          insertRoomAt(SITE.grid, roomMap, offsetX, offsetY, doorSites[oppDir][0], doorSites[oppDir][1]);
           if (placeDoor !== false) {
             SITE.grid[x][y] = (typeof placeDoor === 'number') ? placeDoor : DOOR; // Door site.
           }
-          return true;
+          doorSites[oppDir][0] = -1;
+          doorSites[oppDir][1] = -1;
+          for(let i = 0; i < doorSites.length; ++i) {
+            if (doorSites[i][0] > 0) {
+              doorSites[i][0] += offsetX;
+              doorSites[i][1] += offsetY;
+            }
+          }
+          return doorSites;
         }
       }
   }
@@ -3518,7 +3549,41 @@ function attachRoomToDungeon(roomMap, doorSites, placeDoor) {
   return false;
 }
 
-function attachRoomAtXY(x, y, roomMap, doorSites, placeDoor) {
+
+function attachRoomAtXY(roomGrid, xy, doors, placeDoor) {
+
+  // Slide hyperspace across real space, in a random but predetermined order, until the room matches up with a wall.
+  for (let i = 0; i < LOCS.length; i++) {
+      const x = Math.floor(LOCS[i] / SITE.height);
+      const y = LOCS[i] % SITE.height;
+
+      const dir = directionOfDoorSite(roomGrid, x, y);
+      if (dir != def.NO_DIRECTION) {
+        const d = DIRS$2[dir];
+        if (roomAttachesAt(roomGrid, xy[0] - x, xy[1] - y)) {
+          insertRoomAt(SITE.grid, roomGrid, xy[0] - x, xy[1] - y, x, y);
+          if (placeDoor !== false) {
+            SITE.grid[xy[0]][xy[1]] = (typeof placeDoor === 'number') ? placeDoor : DOOR; // Door site.
+          }
+          doors[dir][0] = -1;
+          doors[dir][1] = -1;
+          for(let i = 0; i < doors.length; ++i) {
+            if (doors[i][0] > 0) {
+              doors[i][0] += xy[0] - x;
+              doors[i][1] += xy[1] - y;
+            }
+          }
+          return doors;
+        }
+      }
+  }
+
+  return false;
+}
+
+
+
+function insertRoomAtXY(x, y, roomMap, doorSites, placeDoor) {
 
   const dirs = sequence(4);
   random.shuffle(dirs);
@@ -3562,12 +3627,13 @@ function attachRoomAtDoors(roomMap, roomDoors, siteDoors, placeDoor) {
     const x = siteDoors[index][0];
     const y = siteDoors[index][1];
 
-    const doors = attachRoomAtXY(x, y, roomMap, roomDoors, placeDoor);
+    const doors = insertRoomAtXY(x, y, roomMap, roomDoors, placeDoor);
     if (doors) return doors;
   }
 
   return false;
 }
+
 
 function digLake(opts={}) {
   let i, j, k;
