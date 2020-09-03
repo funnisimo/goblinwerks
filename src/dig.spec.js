@@ -44,7 +44,7 @@ describe('GW.dig', () => {
   		}
   	}
 
-    // GW.grid.dump(SITE.grid);
+    // SITE.grid.dump( (v) => GW.tiles[v].sprite.ch );
 
     expect(locs).toEqual([[75,8], [60,18], [-1,-1], [76,9]]);
     expect(SITE.grid[70][15]).toEqual(1);

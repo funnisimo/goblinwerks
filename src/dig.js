@@ -3,35 +3,23 @@ import { WARN, ERROR, sequence, first } from './utils.js';
 import { Grid, allocGrid, freeGrid } from './grid.js';
 import { random } from './random.js';
 import { calculateDistances } from './path.js';
+import { withName } from './tile.js';
 import { dig as DIG, diggers as DIGGERS, def, debug } from './gw.js';
 
 const DIRS = def.dirs;
 const OPP_DIRS = [def.DOWN, def.UP, def.RIGHT, def.LEFT];
 
 
-const defaultTiles = {
-  NOTHING: 0,
-  FLOOR: 1,
-  DOOR: 2,
-  BRIDGE: 3,
-  UP_STAIRS: 4,
-  DOWN_STAIRS: 5,
-  WALL: 6,
-  LAKE: 7,
-  LAKE_FLOOR: 8,
-};
-
-
 const NOTHING = 0;
-const FLOOR = 1;
-const DOOR = 2;
-const BRIDGE = 3;
-const UP_STAIRS = 4;
-const DOWN_STAIRS = 5;
-const WALL = 6;
+let FLOOR = 1;
+let DOOR = 2;
+let BRIDGE = 3;
+let UP_STAIRS = 4;
+let DOWN_STAIRS = 5;
+let WALL = 6;
 
-const LAKE = 7;
-const LAKE_FLOOR = 8;
+let LAKE = 7;
+let LAKE_FLOOR = 8;
 
 
 export function installDigger(id, fn, config) {
@@ -341,7 +329,6 @@ class DigSite {
     this.height = h;
     this.grid = allocGrid(w, h, NOTHING);
     this.locations = {};
-    this.tiles = Object.assign({}, defaultTiles, opts.tiles || {});
   }
 
   isPassable(x, y) {
@@ -402,6 +389,15 @@ export function startDig(opts={}) {
   if (SITE) {
     freeGrid(SITE.grid);
   }
+
+  FLOOR       = withName('FLOOR')       ? withName('FLOOR').id        : FLOOR;
+  DOOR        = withName('DOOR')        ? withName('DOOR').id         : DOOR;
+  BRIDGE      = withName('BRIDGE')      ? withName('BRIDGE').id       : BRIDGE;
+  UP_STAIRS   = withName('UP_STAIRS')   ? withName('UP_STAIRS').id    : UP_STAIRS;
+  DOWN_STAIRS = withName('DOWN_STAIRS') ? withName('DOWN_STAIRS').id  : DOWN_STAIRS;
+  WALL        = withName('WALL')        ? withName('WALL').id         : WALL;
+  LAKE        = withName('LAKE')        ? withName('LAKE').id         : LAKE;
+  LAKE_FLOOR  = withName('LAKE_FLOOR')  ? withName('LAKE_FLOOR').id   : LAKE_FLOOR;
 
   LOCS = sequence(width * height);
   random.shuffle(LOCS);

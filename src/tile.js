@@ -172,7 +172,7 @@ tile.install = installTile;
 
 // These are the minimal set of tiles to make the diggers work
 const NOTHING = def.NOTHING = 0;
-installTile(NOTHING,       ' ', 'black', 'black', 0, 100, 0, "an eerie nothingness", "");
+installTile(NOTHING,       '\u2205', 'black', 'black', 0, 100, 0, "an eerie nothingness", "");
 installTile('FLOOR',       '\u00b7', [40,40,40,15], [90,90,90]);	// FLOOR
 installTile('DOOR',        '+', [100,40,40], [30,60,60]);	// DOOR
 installTile('BRIDGE',      '=', [100,40,40], [60,40,0]);	// BRIDGE
@@ -182,8 +182,8 @@ installTile('WALL',        '#', [50,50,50,10], [20,20,20,10]);	// WALL
 installTile('LAKE',        '~', [0,80,100,10], [0,30,100,10,0,0,0,1]);	// LAKE
 installTile('LAKE_FLOOR',  '\u00b7', [0,80,100, 10], [30,50,100,10,0,0,0,1]);	// LAKE_FLOOR
 
-function tileWithName(name) {
+export function withName(name) {
   return tiles.find( (t) => t.name == name );
 }
 
-tile.withName = tileWithName;
+tile.withName = withName;

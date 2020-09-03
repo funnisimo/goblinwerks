@@ -149,6 +149,9 @@ export class Grid extends Array {
 	  return count;
 	}
 
+	dump(fmtFn) {
+		gridDumpRect(this, 0, 0, this.width, this.height, fmtFn);
+	}
 
 	closestMatchingXY(x, y, fn) {
 		let bestLoc = [-1, -1];
