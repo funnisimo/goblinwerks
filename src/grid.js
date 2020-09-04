@@ -620,6 +620,26 @@ export function floodFill(grid, x, y, matchValue, fillValue) {
 GRID.floodFill = floodFill;
 
 
+
+export function offsetApply(destGrid, srcGrid, srcToDestX, srcToDestY, value) {
+    let newX, newY;
+    let dir;
+
+		value = value || ((v) => v);
+		const fn = (typeof value === 'function') ? value : (() => value);
+
+		srcGrid.forEach( (c, i, j) => {
+			const destX = i + srcToDestX;
+			const destY = j + srcToDestY;
+			if (!destGrid.hasXY(destX, destY)) return;
+			if (!c) return;
+			destGrid[destX][destY] = fn(c, i, j);
+		});
+}
+
+GRID.offsetApply = offsetApply;
+
+
 function cellularAutomataRound(grid, birthParameters /* char[9] */, survivalParameters /* char[9] */) {
     let i, j, nbCount, newX, newY;
     let dir;
@@ -670,7 +690,16 @@ export function fillBlob(grid,
 	let blobNumber, blobSize, topBlobNumber, topBlobSize;
 
   let topBlobMinX, topBlobMinY, topBlobMaxX, topBlobMaxY, blobWidth, blobHeight;
-		let foundACellThisLine;
+	let foundACellThisLine;
+
+	if (minBlobWidth >= maxBlobWidth) {
+		minBlobWidth = Math.round(0.75 * maxBlobWidth);
+		maxBlobWidth = Math.round(1.25 * maxBlobWidth);
+	}
+	if (minBlobHeight >= maxBlobHeight) {
+		minBlobHeight = Math.round(0.75 * maxBlobHeight);
+		maxBlobHeight = Math.round(1.25 * maxBlobHeight);
+	}
 
 	const left = Math.floor((grid.width - maxBlobWidth) / 2);
 	const top  = Math.floor((grid.height - maxBlobHeight) / 2);
@@ -697,9 +726,9 @@ export function fillBlob(grid,
 		// Now to measure the result. These are best-of variables; start them out at worst-case values.
 		topBlobSize =   0;
 		topBlobNumber = 0;
-		topBlobMinX =   maxBlobWidth;
+		topBlobMinX =   grid.width;
 		topBlobMaxX =   0;
-		topBlobMinY =   maxBlobHeight;
+		topBlobMinY =   grid.height;
 		topBlobMaxY =   0;
 
 		// Fill each blob with its own number, starting with 2 (since 1 means floor), and keeping track of the biggest:

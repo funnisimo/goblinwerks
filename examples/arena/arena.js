@@ -6,7 +6,7 @@ const startingXY = [40, 28];
 
 GW.random.seed(12345);
 
-GW.dungeon.installDigger('HUGE_ROOM',     GW.dungeon.rectangularRoom,  { width: [50,76], height: [15,28] });
+GW.digger.install('HUGE_ROOM',     GW.digger.rectangularRoom,  { width: [50,76], height: [15,28] });
 
 function handleClick(e) {
 	const x = canvas.toX(e.clientX);

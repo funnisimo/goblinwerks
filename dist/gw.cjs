@@ -1705,6 +1705,24 @@ function floodFill(grid, x, y, matchValue, fillValue) {
 grid$1.floodFill = floodFill;
 
 
+
+function offsetApply(destGrid, srcGrid, srcToDestX, srcToDestY, value) {
+
+		value = value || ((v) => v);
+		const fn = (typeof value === 'function') ? value : (() => value);
+
+		srcGrid.forEach( (c, i, j) => {
+			const destX = i + srcToDestX;
+			const destY = j + srcToDestY;
+			if (!destGrid.hasXY(destX, destY)) return;
+			if (!c) return;
+			destGrid[destX][destY] = fn(c, i, j);
+		});
+}
+
+grid$1.offsetApply = offsetApply;
+
+
 function cellularAutomataRound(grid, birthParameters /* char[9] */, survivalParameters /* char[9] */) {
     let i, j, nbCount, newX, newY;
     let dir;
@@ -1753,7 +1771,16 @@ function fillBlob(grid,
 	let blobNumber, blobSize, topBlobNumber, topBlobSize;
 
   let topBlobMinX, topBlobMinY, topBlobMaxX, topBlobMaxY, blobWidth, blobHeight;
-		let foundACellThisLine;
+	let foundACellThisLine;
+
+	if (minBlobWidth >= maxBlobWidth) {
+		minBlobWidth = Math.round(0.75 * maxBlobWidth);
+		maxBlobWidth = Math.round(1.25 * maxBlobWidth);
+	}
+	if (minBlobHeight >= maxBlobHeight) {
+		minBlobHeight = Math.round(0.75 * maxBlobHeight);
+		maxBlobHeight = Math.round(1.25 * maxBlobHeight);
+	}
 
 	const left = Math.floor((grid.width - maxBlobWidth) / 2);
 	const top  = Math.floor((grid.height - maxBlobHeight) / 2);
@@ -1780,9 +1807,9 @@ function fillBlob(grid,
 		// Now to measure the result. These are best-of variables; start them out at worst-case values.
 		topBlobSize =   0;
 		topBlobNumber = 0;
-		topBlobMinX =   maxBlobWidth;
+		topBlobMinX =   grid.width;
 		topBlobMaxX =   0;
-		topBlobMinY =   maxBlobHeight;
+		topBlobMinY =   grid.height;
 		topBlobMaxY =   0;
 
 		// Fill each blob with its own number, starting with 2 (since 1 means floor), and keeping track of the biggest:
@@ -2894,6 +2921,288 @@ path.calculateDistances = calculateDistances;
 //
 // GW.path.from = getMonsterPathOnMap;
 
+var digger = {};
+var diggers = {};
+
+
+const TILE = 1;
+
+
+function installDigger(id, fn, config) {
+  config = fn(config || {});	// call to have function bind itself to the config
+  config.fn = fn;
+  config.id = id;
+  diggers[id] = config;
+  return config;
+}
+
+digger.install = installDigger;
+
+
+function checkDiggerConfig(config, opts) {
+  config = config || {};
+  opts = opts || {};
+
+  Object.entries(opts).forEach( ([key,expect]) => {
+    const have = config[key];
+
+    if (expect === true) {	// needs to be a number > 0
+      if (typeof have !== 'number') {
+        ERROR('Invalid configuration for digger: ' + key + ' expected number received ' + typeof have);
+      }
+    }
+    else if (typeof expect === 'number') {	// needs to be a number, this is the default
+      const have = config[key];
+      if (typeof have !== 'number') {
+        config[key] = expect;	// provide default
+      }
+    }
+    else if (Array.isArray(expect)) {	// needs to be an array with this size, these are the defaults
+      if (typeof have === 'number') {
+        config[key] = new Array(expect.length).fill(have);
+      }
+      else if (!Array.isArray(have)) {
+        WARN('Received unexpected config for digger : ' + key + ' expected array, received ' + typeof have + ', using defaults.');
+        config[key] = expect.slice();
+      }
+      else if (expect.length > have.length) {
+        for(let i = have.length; i < expect.length; ++i) {
+          have[i] = expect[i];
+        }
+      }
+    }
+    else {
+      WARN('Unexpected digger configuration parameter: ', key, expect);
+    }
+  });
+
+  return config;
+}
+
+digger.checkConfig = checkDiggerConfig;
+
+
+function digCavern(config, grid) {
+  config = digger.checkConfig(config, { width: [3,12], height: [4,8] });
+  if (!grid) return config;
+
+  let destX, destY;
+  let blobGrid;
+
+  blobGrid = allocGrid(grid.width, grid.height, 0);
+
+  const minWidth  = config.width[0];
+  const maxWidth  = config.width[1];
+  const minHeight = config.height[0];
+  const maxHeight = config.height[1];
+
+  grid.fill(0);
+  const bounds = fillBlob(blobGrid, 5, minWidth, minHeight, maxWidth, maxHeight, 55, "ffffffttt", "ffffttttt");
+
+  // Position the new cave in the middle of the grid...
+  destX = Math.floor((grid.width - bounds.width) / 2);
+  destY = Math.floor((grid.height - bounds.height) / 2);
+
+  // ...and copy it to the master grid.
+  offsetApply(grid, blobGrid, destX - bounds.x, destY - bounds.y, config.tile);
+  freeGrid(blobGrid);
+}
+
+digger.cavern = digCavern;
+
+
+function digChoiceRoom(config, grid) {
+  config = config || {};
+  let choices;
+  if (Array.isArray(config.choices)) {
+    choices = config.choices;
+  }
+  else if (typeof config.choices == 'object') {
+    choices = Object.keys(config.choices);
+  }
+  else {
+    ERROR('Expected choices to be either array of choices or map { digger: weight }');
+  }
+  for(let choice of choices) {
+    if (!diggers[choice]) {
+      ERROR('Missing digger choice: ' + choice);
+    }
+  }
+
+  if (!grid) return config;
+
+  let id;
+  if (Array.isArray(config.choices)) {
+    id = random.item(config.choices);
+  }
+  else {
+    id = random.lottery(config.choices);
+  }
+  const digger = diggers[id];
+  debug$1.log('Choose room: ', id);
+  digger.fn(digger, grid);
+}
+
+digger.choiceRoom = digChoiceRoom;
+
+
+// This is a special room that appears at the entrance to the dungeon on depth 1.
+function digEntranceRoom(config, grid) {
+  config = digger.checkConfig(config, { width: [8,20], height: [10,5] });
+  if (!grid) return config;
+
+  const roomWidth = config.width[0];
+  const roomHeight = config.height[0];
+  const roomWidth2 = config.width[1];
+  const roomHeight2 = config.height[1];
+
+  // ALWAYS start at bottom+center of map
+  const roomX = Math.floor(grid.width/2 - roomWidth/2 - 1);
+  const roomY = grid.height - roomHeight - 2;
+  const roomX2 = Math.floor(grid.width/2 - roomWidth2/2 - 1);
+  const roomY2 = grid.height - roomHeight2 - 2;
+
+  grid.fill(0);
+  grid.fillRect(roomX, roomY, roomWidth, roomHeight, config.tile || TILE);
+  grid.fillRect(roomX2, roomY2, roomWidth2, roomHeight2, config.tile || TILE);
+}
+
+
+digger.entranceRoom = digEntranceRoom;
+
+
+function digCrossRoom(config, grid) {
+  config = digger.checkConfig(config, { width: [3,12], height: [3,7], width2: [4,20], height2: [2,5] });
+  if (!grid) return config;
+
+  const roomWidth = random.range(config.width[0], config.width[1]);
+  const roomWidth2 = random.range(config.width2[0], config.width2[1]);
+  const roomHeight = random.range(config.height[0], config.height[1]);
+  const roomHeight2 = random.range(config.height2[0], config.height2[1]);
+
+  const roomX = random.range(Math.max(0, Math.floor(grid.width/2) - (roomWidth - 1)), Math.min(grid.width, Math.floor(grid.width/2)));
+  const roomX2 = (roomX + Math.floor(roomWidth / 2) + random.range(0, 2) + random.range(0, 2) - 3) - Math.floor(roomWidth2 / 2);
+  const roomY = Math.floor(grid.height/2 - roomHeight);
+  const roomY2 = Math.floor(grid.height/2 - roomHeight2 - (random.range(0, 2) + random.range(0, 1)));
+
+  grid.fill(0);
+
+  grid.fillRect(roomX - 5, roomY + 5, roomWidth, roomHeight, config.tile || TILE);
+  grid.fillRect(roomX2 - 5, roomY2 + 5, roomWidth2, roomHeight2, config.tile || TILE);
+}
+
+digger.crossRoom = digCrossRoom;
+
+
+function digSymmetricalCrossRoom(config, grid) {
+  config = digger.checkConfig(config, { width: [4,8], height: [4,5], width2: [3,4], height2: [3,3] });
+  if (!grid) return config;
+
+  let majorWidth = random.range(config.width[0], config.width[1]);
+  let majorHeight = random.range(config.height[0], config.height[1]);
+
+  let minorWidth = random.range(config.width2[0], config.width2[1]);
+  if (majorHeight % 2 == 0) {
+      minorWidth -= 1;
+  }
+  let minorHeight = random.range(config.height2[0], config.height2[1]);	// originally 2,3?
+  if (majorWidth % 2 == 0) {
+      minorHeight -= 1;
+  }
+
+  grid.fill(0);
+  grid.fillRect(Math.floor((grid.width - majorWidth)/2), Math.floor((grid.height - minorHeight)/2), majorWidth, minorHeight, config.tile || TILE);
+  grid.fillRect(Math.floor((grid.width - minorWidth)/2), Math.floor((grid.height - majorHeight)/2), minorWidth, majorHeight, config.tile || TILE);
+}
+
+digger.symmetricalCrossRoom = digSymmetricalCrossRoom;
+
+
+function digRectangularRoom(config, grid) {
+  config = digger.checkConfig(config, { width: [3,6], height: [2,4] });
+  if (!grid) return config;
+
+  const width = random.range(config.width[0], config.width[1]);
+  const height = random.range(config.height[0], config.height[1]);
+
+  grid.fill(0);
+  grid.fillRect(Math.floor((grid.width - width) / 2), Math.floor((grid.height - height) / 2), width, height, config.tile || TILE);
+}
+
+digger.rectangularRoom = digRectangularRoom;
+
+
+function digCircularRoom(config, grid) {
+  config = digger.checkConfig(config, { radius: [2,4] });
+  if (!grid) return config;
+
+  const radius = random.range(config.radius[0], config.radius[1]);
+
+  grid.fill(0);
+  grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, config.tile || TILE);
+
+}
+
+digger.circularRoom = digCircularRoom;
+
+
+function digBrogueCircularRoom(config, grid) {
+  config = digger.checkConfig(config, { radius: [2,4], radius2: [4,10], altChance: 5, ringMinWidth: 3, holeMinSize: 3, holeChance: 50 });
+  if (!grid) return config;
+
+  const params = random.percent(config.altChance || 5) ? config.radius2 : config.radius;
+  const radius = random.range(params[0], params[1]);
+
+  grid.fill(0);
+  grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, config.tile || TILE);
+
+  if (radius > config.ringMinWidth + config.holeMinSize
+      && random.percent(config.holeChance))
+  {
+      grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), random.range(config.holeMinSize, radius - config.holeMinSize), 0);
+  }
+}
+
+digger.brogueCircularRoom = digBrogueCircularRoom;
+
+
+function digChunkyRoom(config, grid) {
+  config = digger.checkConfig(config, { count: [2,8] });
+  if (!grid) return config;
+
+  let i, x, y;
+  let minX, maxX, minY, maxY;
+  let chunkCount = random.range(config.count[0], config.count[1]);
+
+  grid.fill(0);
+  grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), 2, 1);
+  minX = Math.floor(grid.width/2) - 3;
+  maxX = Math.floor(grid.width/2) + 3;
+  minY = Math.floor(grid.height/2) - 3;
+  maxY = Math.floor(grid.height/2) + 3;
+
+  for (i=0; i<chunkCount;) {
+      x = random.range(minX, maxX);
+      y = random.range(minY, maxY);
+      if (grid[x][y]) {
+//            colorOverDungeon(/* Color. */darkGray);
+//            hiliteGrid(grid, /* Color. */white, 100);
+
+          grid.fillCircle(x, y, 2, config.tile || TILE);
+          i++;
+          minX = Math.max(1, Math.min(x - 3, minX));
+          maxX = Math.min(grid.width - 2, Math.max(x + 3, maxX));
+          minY = Math.max(1, Math.min(y - 3, minY));
+          maxY = Math.min(grid.height - 2, Math.max(y + 3, maxY));
+
+//            hiliteGrid(grid, /* Color. */green, 50);
+//            temporaryMessage("Added a chunk:", true);
+      }
+  }
+}
+
+digger.chunkyRoom = digChunkyRoom;
+
 var tile = {};
 var tiles = [];
 
@@ -3092,7 +3401,6 @@ const DIRS$2 = def.dirs;
 const OPP_DIRS = [def.DOWN, def.UP, def.RIGHT, def.LEFT];
 
 var dungeon = {};
-var diggers = {};
 
 
 const NOTHING$1 = 0;
@@ -3105,305 +3413,6 @@ let WALL = 6;
 
 let LAKE = 7;
 let LAKE_FLOOR = 8;
-
-
-function installDigger(id, fn, config) {
-  config = fn(config || {});	// call to have function bind itself to the config
-  config.fn = fn;
-  config.id = id;
-  diggers[id] = config;
-  return config;
-}
-
-dungeon.installDigger = installDigger;
-
-function _ensureBasicDiggerConfig(config, opts) {
-  config = config || {};
-  opts = opts || {};
-
-  Object.entries(opts).forEach( ([key,expect]) => {
-    const have = config[key];
-
-    if (expect === true) {	// needs to be a number > 0
-      if (typeof have !== 'number') {
-        ERROR('Invalid configuration for digger: ' + key + ' expected number received ' + typeof have);
-      }
-    }
-    else if (typeof expect === 'number') {	// needs to be a number, this is the default
-      const have = config[key];
-      if (typeof have !== 'number') {
-        config[key] = expect;	// provide default
-      }
-    }
-    else if (Array.isArray(expect)) {	// needs to be an array with this size, these are the defaults
-      if (typeof have === 'number') {
-        config[key] = new Array(expect.length).fill(have);
-      }
-      else if (!Array.isArray(have)) {
-        WARN('Received unexpected config for digger : ' + key + ' expected array, received ' + typeof have + ', using defaults.');
-        config[key] = expect.slice();
-      }
-      else if (expect.length > have.length) {
-        for(let i = have.length; i < expect.length; ++i) {
-          have[i] = expect[i];
-        }
-      }
-    }
-    else {
-      WARN('Unexpected digger configuration parameter: ', key, expect);
-    }
-  });
-
-  return config;
-}
-
-
-function designCavern(config, grid) {
-  config = _ensureBasicDiggerConfig(config, { width: [3,12], height: [4,8] });
-  if (!grid) return config;
-
-  let destX, destY;
-  let fillX, fillY;
-  let foundFillPoint = false;
-  let blobGrid;
-
-  blobGrid = allocGrid(grid.width, grid.height, 0);
-
-  const minWidth  = config.width[0];
-  const maxWidth  = config.width[1];
-  const minHeight = config.height[0];
-  const maxHeight = config.height[1];
-
-  grid.fill(NOTHING$1);
-  const bounds = GW.grid.fillBlob(blobGrid, 5, minWidth, minHeight, maxWidth, maxHeight, 55, "ffffffttt", "ffffttttt");
-
-//    colorOverDungeon(/* Color. */darkGray);
-//    hiliteGrid(blobGrid, /* Color. */tanColor, 80);
-//    temporaryMessage("Here's the cave:", true);
-
-  // Position the new cave in the middle of the grid...
-  destX = Math.floor((grid.width - bounds.width) / 2);
-  destY = Math.floor((grid.height - bounds.height) / 2);
-
-  // ...pick a floodfill insertion point...
-  for (fillX = 0; fillX < grid.width && !foundFillPoint; fillX++) {
-      for (fillY = 0; fillY < grid.height && !foundFillPoint; fillY++) {
-          if (blobGrid[fillX][fillY]) {
-              foundFillPoint = true;
-          }
-      }
-  }
-  // ...and copy it to the master grid.
-  insertRoomAt(grid, blobGrid, destX - bounds.x, destY - bounds.y, fillX, fillY, FLOOR);
-  freeGrid(blobGrid);
-}
-
-dungeon.cavern = designCavern;
-
-
-function designChoiceRoom(config, grid) {
-  config = config || {};
-  let choices;
-  if (Array.isArray(config.choices)) {
-    choices = config.choices;
-  }
-  else if (typeof config.choices == 'object') {
-    choices = Object.keys(config.choices);
-  }
-  else {
-    ERROR('Expected choices to be either array of choices or map { digger: weight }');
-  }
-  for(let choice of choices) {
-    if (!diggers[choice]) {
-      ERROR('Missing digger choice: ' + choice);
-    }
-  }
-
-  if (!grid) return config;
-
-  let id;
-  if (Array.isArray(config.choices)) {
-    id = random.item(config.choices);
-  }
-  else {
-    id = random.lottery(config.choices);
-  }
-  const digger = diggers[id];
-  debug$1.log('Choose room: ', id);
-  digger.fn(digger, grid);
-}
-
-dungeon.choiceRoom = designChoiceRoom;
-
-
-// This is a special room that appears at the entrance to the dungeon on depth 1.
-function designEntranceRoom(config, grid) {
-  config = _ensureBasicDiggerConfig(config, { width: [8,20], height: [10,5] });
-  if (!grid) return config;
-
-  let roomWidth, roomHeight, roomWidth2, roomHeight2, roomX, roomY, roomX2, roomY2;
-
-  grid.fill(NOTHING$1);
-
-  roomWidth = config.width[0];
-  roomHeight = config.height[0];
-  roomWidth2 = config.width[1];
-  roomHeight2 = config.height[1];
-
-  // ALWAYS start at bottom+center of map
-  roomX = Math.floor(grid.width/2 - roomWidth/2 - 1);
-  roomY = grid.height - roomHeight - 2;
-  roomX2 = Math.floor(grid.width/2 - roomWidth2/2 - 1);
-  roomY2 = grid.height - roomHeight2 - 2;
-
-  grid.fillRect(roomX, roomY, roomWidth, roomHeight, FLOOR);
-  grid.fillRect(roomX2, roomY2, roomWidth2, roomHeight2, FLOOR);
-}
-
-
-dungeon.entranceRoom = designEntranceRoom;
-
-
-function designCrossRoom(config, grid) {
-  config = _ensureBasicDiggerConfig(config, { width: [3,12], height: [3,7], width2: [4,20], height2: [2,5] });
-  if (!grid) return config;
-
-  let roomWidth, roomHeight, roomWidth2, roomHeight2, roomX, roomY, roomX2, roomY2;
-
-  grid.fill(NOTHING$1);
-
-  roomWidth = random.range(config.width[0], config.width[1]);
-  roomX = random.range(Math.max(0, Math.floor(grid.width/2) - (roomWidth - 1)), Math.min(grid.width, Math.floor(grid.width/2)));
-  roomWidth2 = random.range(config.width2[0], config.width2[1]);
-  roomX2 = (roomX + Math.floor(roomWidth / 2) + random.range(0, 2) + random.range(0, 2) - 3) - Math.floor(roomWidth2 / 2);
-
-  roomHeight = random.range(config.height[0], config.height[1]);
-  roomY = Math.floor(grid.height/2 - roomHeight);
-
-  roomHeight2 = random.range(config.height2[0], config.height2[1]);
-  roomY2 = Math.floor(grid.height/2 - roomHeight2 - (random.range(0, 2) + random.range(0, 1)));
-
-  grid.fillRect(roomX - 5, roomY + 5, roomWidth, roomHeight, FLOOR);
-  grid.fillRect(roomX2 - 5, roomY2 + 5, roomWidth2, roomHeight2, FLOOR);
-}
-
-dungeon.crossRoom = designCrossRoom;
-
-
-function designSymmetricalCrossRoom(config, grid) {
-  config = _ensureBasicDiggerConfig(config, { width: [4,8], height: [4,5], width2: [3,4], height2: [3,3] });
-  if (!grid) return config;
-
-  let majorWidth, majorHeight, minorWidth, minorHeight;
-
-  grid.fill(NOTHING$1);
-
-  majorWidth = random.range(config.width[0], config.width[1]);
-  majorHeight = random.range(config.height[0], config.height[1]);
-
-  minorWidth = random.range(config.width2[0], config.width2[1]);
-  if (majorHeight % 2 == 0) {
-      minorWidth -= 1;
-  }
-  minorHeight = random.range(config.height2[0], config.height2[1]);	// originally 2,3?
-  if (majorWidth % 2 == 0) {
-      minorHeight -= 1;
-  }
-
-  grid.fillRect(Math.floor((grid.width - majorWidth)/2), Math.floor((grid.height - minorHeight)/2), majorWidth, minorHeight, FLOOR);
-  grid.fillRect(Math.floor((grid.width - minorWidth)/2), Math.floor((grid.height - majorHeight)/2), minorWidth, majorHeight, FLOOR);
-}
-
-dungeon.symmetricalCrossRoom = designSymmetricalCrossRoom;
-
-
-function designRectangularRoom(config, grid) {
-  config = _ensureBasicDiggerConfig(config, { width: [3,6], height: [2,4] });
-  if (!grid) return config;
-
-  let width, height;
-
-  grid.fill(NOTHING$1);
-  width = random.range(config.width[0], config.width[1]);
-  height = random.range(config.height[0], config.height[1]);
-  grid.fillRect(Math.floor((grid.width - width) / 2), Math.floor((grid.height - height) / 2), width, height, FLOOR);
-}
-
-dungeon.rectangularRoom = designRectangularRoom;
-
-
-function designCircularRoom(config, grid) {
-  config = _ensureBasicDiggerConfig(config, { radius: [2,4] });
-  if (!grid) return config;
-
-  let radius = random.range(config.radius[0], config.radius[1]);
-
-  grid.fill(NOTHING$1);
-  grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, FLOOR);
-
-}
-
-dungeon.circularRoom = designCircularRoom;
-
-
-function designBrogueCircularRoom(config, grid) {
-  config = _ensureBasicDiggerConfig(config, { radius: [2,4], radius2: [4,10], altChance: 5, ringMinWidth: 3, holeMinSize: 3, holeChance: 50 });
-  if (!grid) return config;
-
-  let radius;
-
-  let params = random.percent(config.altChance || 5) ? config.radius2 : config.radius;
-  radius = random.range(params[0], params[1]);
-
-  grid.fill(NOTHING$1);
-  grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, FLOOR);
-
-  if (radius > config.ringMinWidth + config.holeMinSize
-      && random.percent(config.holeChance))
-  {
-      grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), random.range(config.holeMinSize, radius - config.holeMinSize), NOTHING$1);
-  }
-}
-
-dungeon.brogueCircularRoom = designBrogueCircularRoom;
-
-
-function designChunkyRoom(config, grid) {
-  config = _ensureBasicDiggerConfig(config, { count: [2,8] });
-  if (!grid) return config;
-
-  let i, x, y;
-  let minX, maxX, minY, maxY;
-  let chunkCount = random.range(config.count[0], config.count[1]);
-
-  grid.fill(NOTHING$1);
-  grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), 2, 1);
-  minX = Math.floor(grid.width/2) - 3;
-  maxX = Math.floor(grid.width/2) + 3;
-  minY = Math.floor(grid.height/2) - 3;
-  maxY = Math.floor(grid.height/2) + 3;
-
-  for (i=0; i<chunkCount;) {
-      x = random.range(minX, maxX);
-      y = random.range(minY, maxY);
-      if (grid[x][y]) {
-//            colorOverDungeon(/* Color. */darkGray);
-//            hiliteGrid(grid, /* Color. */white, 100);
-
-          grid.fillCircle(x, y, 2, FLOOR);
-          i++;
-          minX = Math.max(1, Math.min(x - 3, minX));
-          maxX = Math.min(grid.width - 2, Math.max(x + 3, maxX));
-          minY = Math.max(1, Math.min(y - 3, minY));
-          maxY = Math.min(grid.height - 2, Math.max(y + 3, maxY));
-
-//            hiliteGrid(grid, /* Color. */green, 50);
-//            temporaryMessage("Added a chunk:", true);
-      }
-  }
-}
-
-dungeon.chunkyRoom = designChunkyRoom;
 
 
 class DigSite {
@@ -3809,26 +3818,26 @@ function roomAttachesAt(roomGrid, roomToDungeonX, roomToDungeonY) {
 }
 
 
-
-function insertRoomAt(destGrid, roomGrid, roomToDungeonX, roomToDungeonY, xRoom, yRoom, tile) {
-    let newX, newY;
-    let dir;
-
-    // GW.debug.log("insertRoomAt: ", xRoom + roomToDungeonX, yRoom + roomToDungeonY);
-
-    destGrid[xRoom + roomToDungeonX][yRoom + roomToDungeonY] = roomGrid[xRoom][yRoom] ? (tile || roomGrid[xRoom][yRoom]) : 0;
-    for (dir = 0; dir < 4; dir++) {
-        newX = xRoom + DIRS$2[dir][0];
-        newY = yRoom + DIRS$2[dir][1];
-        if (roomGrid.hasXY(newX, newY)
-            && roomGrid[newX][newY]
-            && destGrid.hasXY(newX + roomToDungeonX, newY + roomToDungeonY)
-            && (destGrid[newX + roomToDungeonX][newY + roomToDungeonY] == NOTHING$1))
-        {
-          insertRoomAt(destGrid, roomGrid, roomToDungeonX, roomToDungeonY, newX, newY, tile);
-        }
-    }
-}
+//
+// function insertRoomAt(destGrid, roomGrid, roomToDungeonX, roomToDungeonY, xRoom, yRoom, tile) {
+//     let newX, newY;
+//     let dir;
+//
+//     // GW.debug.log("insertRoomAt: ", xRoom + roomToDungeonX, yRoom + roomToDungeonY);
+//
+//     destGrid[xRoom + roomToDungeonX][yRoom + roomToDungeonY] = roomGrid[xRoom][yRoom] ? (tile || roomGrid[xRoom][yRoom]) : 0;
+//     for (dir = 0; dir < 4; dir++) {
+//         newX = xRoom + DIRS[dir][0];
+//         newY = yRoom + DIRS[dir][1];
+//         if (roomGrid.hasXY(newX, newY)
+//             && roomGrid[newX][newY]
+//             && destGrid.hasXY(newX + roomToDungeonX, newY + roomToDungeonY)
+//             && (destGrid[newX + roomToDungeonX][newY + roomToDungeonY] == NOTHING))
+//         {
+//           insertRoomAt(destGrid, roomGrid, roomToDungeonX, roomToDungeonY, newX, newY, tile);
+//         }
+//     }
+// }
 
 
 
@@ -3852,7 +3861,7 @@ function attachRoomToDungeon(roomMap, doorSites, placeDoor) {
           // GW.debug.log("attachRoom: ", x, y, oppDir);
 
           // Room fits here.
-          insertRoomAt(SITE.grid, roomMap, offsetX, offsetY, doorSites[oppDir][0], doorSites[oppDir][1]);
+          offsetApply(SITE.grid, roomMap, offsetX, offsetY);
           if (placeDoor !== false) {
             SITE.grid[x][y] = (typeof placeDoor === 'number') ? placeDoor : DOOR; // Door site.
           }
@@ -3884,7 +3893,7 @@ function attachRoomAtXY(roomGrid, xy, doors, placeDoor) {
       if (dir != def.NO_DIRECTION) {
         const d = DIRS$2[dir];
         if (roomAttachesAt(roomGrid, xy[0] - x, xy[1] - y)) {
-          insertRoomAt(SITE.grid, roomGrid, xy[0] - x, xy[1] - y, x, y);
+          offsetApply(SITE.grid, roomGrid, xy[0] - x, xy[1] - y);
           if (placeDoor !== false) {
             SITE.grid[xy[0]][xy[1]] = (typeof placeDoor === 'number') ? placeDoor : DOOR; // Door site.
           }
@@ -3922,7 +3931,7 @@ function insertRoomAtXY(x, y, roomMap, doorSites, placeDoor) {
       // Room fits here.
       const offX = x - doorSites[oppDir][0];
       const offY = y - doorSites[oppDir][1];
-      insertRoomAt(SITE.grid, roomMap, offX, offY, doorSites[oppDir][0], doorSites[oppDir][1]);
+      offsetApply(SITE.grid, roomMap, offX, offY);
       if (placeDoor !== false) {
         SITE.grid[x][y] = (typeof placeDoor === 'number') ? placeDoor : DOOR; // Door site.
       }
@@ -5061,6 +5070,7 @@ exports.cosmetic = cosmetic;
 exports.data = data;
 exports.debug = debug$1;
 exports.def = def;
+exports.digger = digger;
 exports.diggers = diggers;
 exports.dungeon = dungeon;
 exports.flag = flag;

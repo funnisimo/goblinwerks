@@ -57,8 +57,16 @@ describe('GW.grid', () => {
     a = GW.grid.alloc(80, 30);
     expect(a.count(1)).toEqual(0);
 
-    debugger;
     GW.grid.fillBlob(a, 5, 4, 4, 30, 15, 55, "ffffftttt", "ffffttttt");
+    expect(a.count(1)).toBeGreaterThan(10);
+  });
+
+  test.only('fillBlob - can handle min >= max', () => {
+    GW.random.seed(123456);
+    a = GW.grid.alloc(50, 30);
+    expect(a.count(1)).toEqual(0);
+
+    GW.grid.fillBlob(a, 5, 12, 12, 10, 10, 55, "ffffftttt", "ffffttttt");
     expect(a.count(1)).toBeGreaterThan(10);
   });
 

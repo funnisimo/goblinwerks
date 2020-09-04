@@ -5,7 +5,7 @@ const GW = require('../dist/gw.cjs');
 describe('GW.dungeon', () => {
 
   beforeAll( () => {
-    GW.dungeon.installDigger('ROOM',     GW.dungeon.rectangularRoom,  { width: [10,20], height: [5,10] });
+    GW.digger.install('ROOM',     GW.digger.rectangularRoom,  { width: [10,20], height: [5,10] });
   });
 
   afterEach( () => {
@@ -14,7 +14,7 @@ describe('GW.dungeon', () => {
 
   test('one big room', () => {
     const SITE = GW.dungeon.startDig(10, 10);
-  	GW.dungeon.rectangularRoom({ width: SITE.width - 2, height: SITE.height - 2 }, SITE.grid);
+  	GW.digger.rectangularRoom({ width: SITE.width - 2, height: SITE.height - 2 }, SITE.grid);
 
     SITE.grid.forEach( (v, i, j) => {
       if (SITE.grid.isBoundaryXY(i, j)) {
