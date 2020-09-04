@@ -2,19 +2,19 @@
 const GW = require('../dist/gw.cjs');
 
 
-describe('GW.dig', () => {
+describe('GW.dungeon', () => {
 
   beforeAll( () => {
-    GW.dig.installDigger('ROOM',     GW.dig.rectangularRoom,  { width: [10,20], height: [5,10] });
+    GW.dungeon.installDigger('ROOM',     GW.dungeon.rectangularRoom,  { width: [10,20], height: [5,10] });
   });
 
   afterEach( () => {
-    GW.dig.finishDig();
+    GW.dungeon.finishDig();
   });
 
   test('one big room', () => {
-    const SITE = GW.dig.startDig(10, 10);
-  	GW.dig.rectangularRoom({ width: SITE.width - 2, height: SITE.height - 2 }, SITE.grid);
+    const SITE = GW.dungeon.startDig(10, 10);
+  	GW.dungeon.rectangularRoom({ width: SITE.width - 2, height: SITE.height - 2 }, SITE.grid);
 
     SITE.grid.forEach( (v, i, j) => {
       if (SITE.grid.isBoundaryXY(i, j)) {
@@ -29,16 +29,16 @@ describe('GW.dig', () => {
 
   test('can randomly attach rooms', () => {
     GW.random.seed(12345);
-    const SITE = GW.dig.startDig(80, 30);
+    const SITE = GW.dungeon.startDig(80, 30);
 
     let locs = [38, 28];
     let roomCount = 4;
 
-    locs = GW.dig.digRoom({ digger: 'ROOM', locs, tries: 20, tile: 1 });
+    locs = GW.dungeon.digRoom({ digger: 'ROOM', locs, tries: 20, tile: 1 });
 
     debugger;
     for(let i = 0; i < roomCount; ++i) {
-  		locs = GW.dig.digRoom({ digger: 'ROOM', tries: 20, tile: 1 });
+  		locs = GW.dungeon.digRoom({ digger: 'ROOM', tries: 20, tile: 1 });
   		if (!locs) {
         fail('Failed to dig map on room #' + (i + 1));
   		}
@@ -61,13 +61,13 @@ describe('GW.dig', () => {
 
   test('can chain five rooms', () => {
     GW.random.seed(12345);
-    const SITE = GW.dig.startDig(80, 30);
+    const SITE = GW.dungeon.startDig(80, 30);
 
     let locs = [38, 28];
     let roomCount = 5;
 
     for(let i = 0; i < roomCount; ++i) {
-  		locs = GW.dig.digRoom({ digger: 'ROOM', locs, tries: 20, tile: 1 });
+  		locs = GW.dungeon.digRoom({ digger: 'ROOM', locs, tries: 20, tile: 1 });
   		if (!locs) {
         fail('Failed to dig map on room #' + (i + 1));
   		}
@@ -90,13 +90,13 @@ describe('GW.dig', () => {
   test('adds loops', () => {
 
     GW.random.seed(12345);
-    const SITE = GW.dig.startDig(80, 30);
+    const SITE = GW.dungeon.startDig(80, 30);
 
     let locs = [38, 28];
     let roomCount = 5;
 
     for(let i = 0; i < roomCount; ++i) {
-  		locs = GW.dig.digRoom({ digger: 'ROOM', locs, tries: 20, tile: 1 });
+  		locs = GW.dungeon.digRoom({ digger: 'ROOM', locs, tries: 20, tile: 1 });
   		if (!locs) {
         fail('Failed to dig map on room #' + (i + 1));
   		}
@@ -106,7 +106,7 @@ describe('GW.dig', () => {
 
     expect(SITE.grid[56][18]).toEqual(0);
     expect(SITE.grid[69][16]).toEqual(0);
-    GW.dig.addLoops(20, 5);
+    GW.dungeon.addLoops(20, 5);
 
     // GW.grid.dump(SITE.grid);
 

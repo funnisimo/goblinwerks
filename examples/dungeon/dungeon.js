@@ -7,26 +7,26 @@ GW.random.seed(12345);
 
 const TILES = GW.tiles;
 
-GW.dig.installDigger('ROOM',     			GW.dig.rectangularRoom,  { width: [10,20], height: [5,10] });
-GW.dig.installDigger('CROSS',         GW.dig.crossRoom,        { width: [3,12], height: [3,7], width2: [4,20], height2: [2,5] });
-GW.dig.installDigger('SYMMETRICAL_CROSS', GW.dig.symmetricalCrossRoom,
+GW.dungeon.installDigger('ROOM',     			GW.dungeon.rectangularRoom,  { width: [10,20], height: [5,10] });
+GW.dungeon.installDigger('CROSS',         GW.dungeon.crossRoom,        { width: [3,12], height: [3,7], width2: [4,20], height2: [2,5] });
+GW.dungeon.installDigger('SYMMETRICAL_CROSS', GW.dungeon.symmetricalCrossRoom,
 											{ width: [4,8], height: [4,5], width2: [3,4], height2: [3,3] });
-GW.dig.installDigger('SMALL_ROOM',    GW.dig.rectangularRoom,  { width: [3,6], height: [2,4] });
-GW.dig.installDigger('LARGE_ROOM',    GW.dig.rectangularRoom,  { width: [25,40], height: [10,20] });
-GW.dig.installDigger('HUGE_ROOM',     GW.dig.rectangularRoom,  { width: [50,76], height: [15,28] });
-GW.dig.installDigger('SMALL_CIRCLE',  GW.dig.circularRoom,     { radius: [2,4] });
-GW.dig.installDigger('LARGE_CIRCLE',  GW.dig.circularRoom,     { radius: [4,10] });
-GW.dig.installDigger('BROGUE_CIRCLE', GW.dig.brogueCircularRoom,
+GW.dungeon.installDigger('SMALL_ROOM',    GW.dungeon.rectangularRoom,  { width: [3,6], height: [2,4] });
+GW.dungeon.installDigger('LARGE_ROOM',    GW.dungeon.rectangularRoom,  { width: [25,40], height: [10,20] });
+GW.dungeon.installDigger('HUGE_ROOM',     GW.dungeon.rectangularRoom,  { width: [50,76], height: [15,28] });
+GW.dungeon.installDigger('SMALL_CIRCLE',  GW.dungeon.circularRoom,     { radius: [2,4] });
+GW.dungeon.installDigger('LARGE_CIRCLE',  GW.dungeon.circularRoom,     { radius: [4,10] });
+GW.dungeon.installDigger('BROGUE_CIRCLE', GW.dungeon.brogueCircularRoom,
 											{ radius: [2,4], radius2: [4,10], altChance: 5, ringMinWidth: 3, holeMinSize: 3, holeChance: 50 });
-GW.dig.installDigger('COMPACT_CAVE', 	GW.dig.cavern,           { width: [ 3,12], height: [ 4, 8] });
-GW.dig.installDigger('LARGE_NS_CAVE', GW.dig.cavern,           { width: [ 3,12], height: [15,27] });
-GW.dig.installDigger('LARGE_EW_CAVE', GW.dig.cavern,           { width: [20,27], height: [ 4, 8] });
-GW.dig.installDigger('BROGUE_CAVE',   GW.dig.choiceRoom,       { choices: ['COMPACT_CAVE', 'LARGE_NS_CAVE', 'LARGE_EW_CAVE'] });
-GW.dig.installDigger('HUGE_CAVE', 		GW.dig.cavern,           { width: [50,77], height: [20,27] });
-GW.dig.installDigger('BROGUE_ENTRANCE', GW.dig.entranceRoom,   { width: [8,20], height: [10, 5] });
-GW.dig.installDigger('CHUNKY', 				GW.dig.chunkyRoom, 			 { count: [2,8] })
+GW.dungeon.installDigger('COMPACT_CAVE', 	GW.dungeon.cavern,           { width: [ 3,12], height: [ 4, 8] });
+GW.dungeon.installDigger('LARGE_NS_CAVE', GW.dungeon.cavern,           { width: [ 3,12], height: [15,27] });
+GW.dungeon.installDigger('LARGE_EW_CAVE', GW.dungeon.cavern,           { width: [20,27], height: [ 4, 8] });
+GW.dungeon.installDigger('BROGUE_CAVE',   GW.dungeon.choiceRoom,       { choices: ['COMPACT_CAVE', 'LARGE_NS_CAVE', 'LARGE_EW_CAVE'] });
+GW.dungeon.installDigger('HUGE_CAVE', 		GW.dungeon.cavern,           { width: [50,77], height: [20,27] });
+GW.dungeon.installDigger('BROGUE_ENTRANCE', GW.dungeon.entranceRoom,   { width: [8,20], height: [10, 5] });
+GW.dungeon.installDigger('CHUNKY', 				GW.dungeon.chunkyRoom, 			 { count: [2,8] })
 
-GW.dig.installDigger('PROFILE',   		GW.dig.choiceRoom,
+GW.dungeon.installDigger('PROFILE',   		GW.dungeon.choiceRoom,
 										{ choices: {
 											ROOM: 10,
 											CROSS: 20,
@@ -39,7 +39,7 @@ GW.dig.installDigger('PROFILE',   		GW.dig.choiceRoom,
 										} });
 
 
-GW.dig.installDigger('FIRST_ROOM',   		GW.dig.choiceRoom,
+GW.dungeon.installDigger('FIRST_ROOM',   		GW.dungeon.choiceRoom,
 										{ choices: {
 											ROOM: 5,
 											CROSS: 5,
@@ -85,36 +85,36 @@ function drawMap(attempt=0) {
 		return false;
 	}
 	// dig a map
-	SITE = GW.dig.startDig(80, 30);
+	SITE = GW.dungeon.startDig(80, 30);
 
 	let loc = [startingXY[0], startingXY[1]];
 	let roomCount = 0;
 
 	const start = startTimer();
-	GW.dig.digRoom({ digger: 'FIRST_ROOM', loc, tries: 20, placeDoor: false });
+	GW.dungeon.digRoom({ digger: 'FIRST_ROOM', loc, tries: 20, placeDoor: false });
 
 	let fails = 0;
 	while(fails < 20) {
-		if (!GW.dig.digRoom({ digger: 'PROFILE', tries: 1, hallChance: 10 })) {
+		if (!GW.dungeon.digRoom({ digger: 'PROFILE', tries: 1, hallChance: 10 })) {
 			++fails;
 		}
 	}
 
-	GW.dig.addLoops(20, 5);
+	GW.dungeon.addLoops(20, 5);
 
 	let lakeCount = GW.random.number(5);
 	for(let i = 0; i < lakeCount; ++i) {
-		GW.dig.digLake();
+		GW.dungeon.digLake();
 	}
 
-	GW.dig.addBridges(40, 8);
+	GW.dungeon.addBridges(40, 8);
 
-	GW.dig.removeDiagonalOpenings();
-	GW.dig.finishDoors();
+	GW.dungeon.removeDiagonalOpenings();
+	GW.dungeon.finishDoors();
 
-	loc = SITE.grid.matchingXYNear(startingXY[0], startingXY[1], GW.dig.isValidStairLoc);
+	loc = SITE.grid.matchingXYNear(startingXY[0], startingXY[1], GW.dungeon.isValidStairLoc);
 	if (loc && loc[0] > 0) {
-		GW.dig.addStairs(loc[0], loc[1], 4);	// UP_STAIRS
+		GW.dungeon.addStairs(loc[0], loc[1], 4);	// UP_STAIRS
 		SITE.locations.start = loc;
 	}
 	else {
@@ -124,11 +124,11 @@ function drawMap(attempt=0) {
 
 	loc = SITE.grid.randomMatchingXY( (v, x, y) => {
 		if (GW.utils.distanceBetween(x, y, SITE.locations.start[0], SITE.locations.start[1]) < 30) return false;
-		return GW.dig.isValidStairLoc(v, x, y);
+		return GW.dungeon.isValidStairLoc(v, x, y);
 	});
 
 	if (loc && loc[0] > 0) {
-		GW.dig.addStairs(loc[0], loc[1], 5);	// DOWN_STAIRS
+		GW.dungeon.addStairs(loc[0], loc[1], 5);	// DOWN_STAIRS
 		SITE.locations.finish = loc;
 	}
 	else {
@@ -138,7 +138,7 @@ function drawMap(attempt=0) {
 
 	stopTimer('DIG');
 
-	GW.dig.finishDig();
+	GW.dungeon.finishDig();
 
 	SITE.grid.forEach( (v, i, j) => {
 		const tile = TILES[v];

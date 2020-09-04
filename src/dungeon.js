@@ -4,10 +4,13 @@ import { Grid, allocGrid, freeGrid } from './grid.js';
 import { random } from './random.js';
 import { calculateDistances } from './path.js';
 import { withName } from './tile.js';
-import { dig as DIG, diggers as DIGGERS, def, debug } from './gw.js';
+import { def, debug } from './gw.js';
 
 const DIRS = def.dirs;
 const OPP_DIRS = [def.DOWN, def.UP, def.RIGHT, def.LEFT];
+
+export var dungeon = {};
+export var diggers = {};
 
 
 const NOTHING = 0;
@@ -26,11 +29,11 @@ export function installDigger(id, fn, config) {
   config = fn(config || {});	// call to have function bind itself to the config
   config.fn = fn;
   config.id = id;
-  DIGGERS[id] = config;
+  diggers[id] = config;
   return config;
 }
 
-DIG.installDigger = installDigger;
+dungeon.installDigger = installDigger;
 
 function _ensureBasicDiggerConfig(config, opts) {
   config = config || {};
@@ -114,23 +117,23 @@ export function designCavern(config, grid) {
   freeGrid(blobGrid);
 }
 
-DIG.cavern = designCavern;
+dungeon.cavern = designCavern;
 
 
 export function designChoiceRoom(config, grid) {
   config = config || {};
-  let diggers;
+  let choices;
   if (Array.isArray(config.choices)) {
-    diggers = config.choices;
+    choices = config.choices;
   }
   else if (typeof config.choices == 'object') {
-    diggers = Object.keys(config.choices);
+    choices = Object.keys(config.choices);
   }
   else {
-    ERROR('Expected choices to be either array of diggers or map { digger: weight }');
+    ERROR('Expected choices to be either array of choices or map { digger: weight }');
   }
-  for(let choice of diggers) {
-    if (!DIGGERS[choice]) {
+  for(let choice of choices) {
+    if (!diggers[choice]) {
       ERROR('Missing digger choice: ' + choice);
     }
   }
@@ -144,12 +147,12 @@ export function designChoiceRoom(config, grid) {
   else {
     id = random.lottery(config.choices);
   }
-  const digger = DIGGERS[id];
+  const digger = diggers[id];
   debug.log('Choose room: ', id);
   digger.fn(digger, grid);
 }
 
-DIG.choiceRoom = designChoiceRoom;
+dungeon.choiceRoom = designChoiceRoom;
 
 
 // This is a special room that appears at the entrance to the dungeon on depth 1.
@@ -177,7 +180,7 @@ export function designEntranceRoom(config, grid) {
 }
 
 
-DIG.entranceRoom = designEntranceRoom;
+dungeon.entranceRoom = designEntranceRoom;
 
 
 export function designCrossRoom(config, grid) {
@@ -203,7 +206,7 @@ export function designCrossRoom(config, grid) {
   grid.fillRect(roomX2 - 5, roomY2 + 5, roomWidth2, roomHeight2, FLOOR);
 }
 
-DIG.crossRoom = designCrossRoom;
+dungeon.crossRoom = designCrossRoom;
 
 
 export function designSymmetricalCrossRoom(config, grid) {
@@ -230,7 +233,7 @@ export function designSymmetricalCrossRoom(config, grid) {
   grid.fillRect(Math.floor((grid.width - minorWidth)/2), Math.floor((grid.height - majorHeight)/2), minorWidth, majorHeight, FLOOR);
 }
 
-DIG.symmetricalCrossRoom = designSymmetricalCrossRoom;
+dungeon.symmetricalCrossRoom = designSymmetricalCrossRoom;
 
 
 export function designRectangularRoom(config, grid) {
@@ -245,7 +248,7 @@ export function designRectangularRoom(config, grid) {
   grid.fillRect(Math.floor((grid.width - width) / 2), Math.floor((grid.height - height) / 2), width, height, FLOOR);
 }
 
-DIG.rectangularRoom = designRectangularRoom;
+dungeon.rectangularRoom = designRectangularRoom;
 
 
 export function designCircularRoom(config, grid) {
@@ -259,7 +262,7 @@ export function designCircularRoom(config, grid) {
 
 }
 
-DIG.circularRoom = designCircularRoom;
+dungeon.circularRoom = designCircularRoom;
 
 
 export function designBrogueCircularRoom(config, grid) {
@@ -281,7 +284,7 @@ export function designBrogueCircularRoom(config, grid) {
   }
 }
 
-DIG.brogueCircularRoom = designBrogueCircularRoom;
+dungeon.brogueCircularRoom = designBrogueCircularRoom;
 
 
 export function designChunkyRoom(config, grid) {
@@ -319,7 +322,7 @@ export function designChunkyRoom(config, grid) {
   }
 }
 
-DIG.chunkyRoom = designChunkyRoom;
+dungeon.chunkyRoom = designChunkyRoom;
 
 
 class DigSite {
@@ -408,7 +411,7 @@ export function startDig(opts={}) {
   return SITE;
 }
 
-DIG.startDig = startDig;
+dungeon.startDig = startDig;
 
 
 function finishDig(tileFn) {
@@ -433,7 +436,7 @@ function finishDig(tileFn) {
   // return map;
 }
 
-DIG.finishDig = finishDig;
+dungeon.finishDig = finishDig;
 
 
 // Returns an array of door sites if successful
@@ -441,7 +444,7 @@ export function digRoom(opts={}) {
   const hallChance = first('hallChance', opts, SITE, 0);
   const diggerId = opts.digger || opts.id || 'SMALL'; // TODO - get random id
 
-  const digger = DIGGERS[diggerId];
+  const digger = diggers[diggerId];
   if (!digger) {
     throw new Error('Failed to find digger: ' + diggerId);
   }
@@ -494,7 +497,7 @@ export function digRoom(opts={}) {
   return result;
 }
 
-DIG.digRoom = digRoom;
+dungeon.digRoom = digRoom;
 
 
 export function isValidStairLoc(v, x, y) {
@@ -519,14 +522,14 @@ export function isValidStairLoc(v, x, y) {
   return count == 1;
 }
 
-DIG.isValidStairLoc = isValidStairLoc;
+dungeon.isValidStairLoc = isValidStairLoc;
 
 
 export function addStairs(x,y, stairTile) {
   SITE.grid[x][y] = stairTile;  // assume everything is ok
 }
 
-DIG.addStairs = addStairs;
+dungeon.addStairs = addStairs;
 
 
 export function randomDoor(sites, matchFn) {
@@ -544,7 +547,7 @@ export function randomDoor(sites, matchFn) {
   return null;
 }
 
-DIG.randomDoor = randomDoor;
+dungeon.randomDoor = randomDoor;
 
 
 function chooseRandomDoorSites(sourceGrid) {
@@ -928,7 +931,7 @@ export function digLake(opts={}) {
 
 }
 
-DIG.digLake = digLake;
+dungeon.digLake = digLake;
 
 
 function lakeDisruptsPassability(lakeGrid, dungeonToGridX, dungeonToGridY) {
@@ -1065,7 +1068,7 @@ export function addLoops(minimumPathingDistance, maxConnectionLength) {
     freeGrid(costGrid);
 }
 
-DIG.addLoops = addLoops;
+dungeon.addLoops = addLoops;
 
 
 function isBridgeCandidate(x, y, bridgeDir) {
@@ -1148,7 +1151,7 @@ export function addBridges(minimumPathingDistance, maxConnectionLength) {
     freeGrid(costGrid);
 }
 
-DIG.addBridges = addBridges;
+dungeon.addBridges = addBridges;
 
 
 
@@ -1187,7 +1190,7 @@ export function removeDiagonalOpenings() {
 	} while (diagonalCornerRemoved == true);
 }
 
-DIG.removeDiagonalOpenings = removeDiagonalOpenings;
+dungeon.removeDiagonalOpenings = removeDiagonalOpenings;
 
 
 function finishDoors(doorTile, floorTile, secretDoorChance, secretDoorTile) {
@@ -1217,4 +1220,4 @@ function finishDoors(doorTile, floorTile, secretDoorChance, secretDoorTile) {
 	}
 }
 
-DIG.finishDoors = finishDoors;
+dungeon.finishDoors = finishDoors;

@@ -15,9 +15,6 @@ export var buffer = {};
 export var canvas = {};
 export var io = {};
 
-export var dig = {};
-export var diggers = {};
-
 export var path = {};
 export var map = {};
 export var actor = {};

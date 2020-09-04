@@ -13,9 +13,6 @@ var buffer = {};
 var canvas = {};
 var io = {};
 
-var dig = {};
-var diggers = {};
-
 var path = {};
 var actor = {};
 
@@ -3092,6 +3089,9 @@ tile.withName = withName;
 const DIRS$2 = def.dirs;
 const OPP_DIRS = [def.DOWN, def.UP, def.RIGHT, def.LEFT];
 
+var dungeon = {};
+var diggers = {};
+
 
 const NOTHING$1 = 0;
 let FLOOR = 1;
@@ -3113,7 +3113,7 @@ function installDigger(id, fn, config) {
   return config;
 }
 
-dig.installDigger = installDigger;
+dungeon.installDigger = installDigger;
 
 function _ensureBasicDiggerConfig(config, opts) {
   config = config || {};
@@ -3196,22 +3196,22 @@ function designCavern(config, grid) {
   freeGrid(blobGrid);
 }
 
-dig.cavern = designCavern;
+dungeon.cavern = designCavern;
 
 
 function designChoiceRoom(config, grid) {
   config = config || {};
-  let diggers$1;
+  let choices;
   if (Array.isArray(config.choices)) {
-    diggers$1 = config.choices;
+    choices = config.choices;
   }
   else if (typeof config.choices == 'object') {
-    diggers$1 = Object.keys(config.choices);
+    choices = Object.keys(config.choices);
   }
   else {
-    ERROR('Expected choices to be either array of diggers or map { digger: weight }');
+    ERROR('Expected choices to be either array of choices or map { digger: weight }');
   }
-  for(let choice of diggers$1) {
+  for(let choice of choices) {
     if (!diggers[choice]) {
       ERROR('Missing digger choice: ' + choice);
     }
@@ -3231,7 +3231,7 @@ function designChoiceRoom(config, grid) {
   digger.fn(digger, grid);
 }
 
-dig.choiceRoom = designChoiceRoom;
+dungeon.choiceRoom = designChoiceRoom;
 
 
 // This is a special room that appears at the entrance to the dungeon on depth 1.
@@ -3259,7 +3259,7 @@ function designEntranceRoom(config, grid) {
 }
 
 
-dig.entranceRoom = designEntranceRoom;
+dungeon.entranceRoom = designEntranceRoom;
 
 
 function designCrossRoom(config, grid) {
@@ -3285,7 +3285,7 @@ function designCrossRoom(config, grid) {
   grid.fillRect(roomX2 - 5, roomY2 + 5, roomWidth2, roomHeight2, FLOOR);
 }
 
-dig.crossRoom = designCrossRoom;
+dungeon.crossRoom = designCrossRoom;
 
 
 function designSymmetricalCrossRoom(config, grid) {
@@ -3312,7 +3312,7 @@ function designSymmetricalCrossRoom(config, grid) {
   grid.fillRect(Math.floor((grid.width - minorWidth)/2), Math.floor((grid.height - majorHeight)/2), minorWidth, majorHeight, FLOOR);
 }
 
-dig.symmetricalCrossRoom = designSymmetricalCrossRoom;
+dungeon.symmetricalCrossRoom = designSymmetricalCrossRoom;
 
 
 function designRectangularRoom(config, grid) {
@@ -3327,7 +3327,7 @@ function designRectangularRoom(config, grid) {
   grid.fillRect(Math.floor((grid.width - width) / 2), Math.floor((grid.height - height) / 2), width, height, FLOOR);
 }
 
-dig.rectangularRoom = designRectangularRoom;
+dungeon.rectangularRoom = designRectangularRoom;
 
 
 function designCircularRoom(config, grid) {
@@ -3341,7 +3341,7 @@ function designCircularRoom(config, grid) {
 
 }
 
-dig.circularRoom = designCircularRoom;
+dungeon.circularRoom = designCircularRoom;
 
 
 function designBrogueCircularRoom(config, grid) {
@@ -3363,7 +3363,7 @@ function designBrogueCircularRoom(config, grid) {
   }
 }
 
-dig.brogueCircularRoom = designBrogueCircularRoom;
+dungeon.brogueCircularRoom = designBrogueCircularRoom;
 
 
 function designChunkyRoom(config, grid) {
@@ -3401,7 +3401,7 @@ function designChunkyRoom(config, grid) {
   }
 }
 
-dig.chunkyRoom = designChunkyRoom;
+dungeon.chunkyRoom = designChunkyRoom;
 
 
 class DigSite {
@@ -3490,7 +3490,7 @@ function startDig(opts={}) {
   return SITE;
 }
 
-dig.startDig = startDig;
+dungeon.startDig = startDig;
 
 
 function finishDig(tileFn) {
@@ -3515,7 +3515,7 @@ function finishDig(tileFn) {
   // return map;
 }
 
-dig.finishDig = finishDig;
+dungeon.finishDig = finishDig;
 
 
 // Returns an array of door sites if successful
@@ -3576,7 +3576,7 @@ function digRoom(opts={}) {
   return result;
 }
 
-dig.digRoom = digRoom;
+dungeon.digRoom = digRoom;
 
 
 function isValidStairLoc(v, x, y) {
@@ -3601,14 +3601,14 @@ function isValidStairLoc(v, x, y) {
   return count == 1;
 }
 
-dig.isValidStairLoc = isValidStairLoc;
+dungeon.isValidStairLoc = isValidStairLoc;
 
 
 function addStairs(x,y, stairTile) {
   SITE.grid[x][y] = stairTile;  // assume everything is ok
 }
 
-dig.addStairs = addStairs;
+dungeon.addStairs = addStairs;
 
 
 function randomDoor(sites, matchFn) {
@@ -3626,7 +3626,7 @@ function randomDoor(sites, matchFn) {
   return null;
 }
 
-dig.randomDoor = randomDoor;
+dungeon.randomDoor = randomDoor;
 
 
 function chooseRandomDoorSites(sourceGrid) {
@@ -4009,7 +4009,7 @@ function digLake(opts={}) {
 
 }
 
-dig.digLake = digLake;
+dungeon.digLake = digLake;
 
 
 function lakeDisruptsPassability(lakeGrid, dungeonToGridX, dungeonToGridY) {
@@ -4142,7 +4142,7 @@ function addLoops(minimumPathingDistance, maxConnectionLength) {
     freeGrid(costGrid);
 }
 
-dig.addLoops = addLoops;
+dungeon.addLoops = addLoops;
 
 
 function isBridgeCandidate(x, y, bridgeDir) {
@@ -4225,7 +4225,7 @@ function addBridges(minimumPathingDistance, maxConnectionLength) {
     freeGrid(costGrid);
 }
 
-dig.addBridges = addBridges;
+dungeon.addBridges = addBridges;
 
 
 
@@ -4264,7 +4264,7 @@ function removeDiagonalOpenings() {
 	} while (diagonalCornerRemoved == true);
 }
 
-dig.removeDiagonalOpenings = removeDiagonalOpenings;
+dungeon.removeDiagonalOpenings = removeDiagonalOpenings;
 
 
 function finishDoors(doorTile, floorTile, secretDoorChance, secretDoorTile) {
@@ -4294,7 +4294,7 @@ function finishDoors(doorTile, floorTile, secretDoorChance, secretDoorTile) {
 	}
 }
 
-dig.finishDoors = finishDoors;
+dungeon.finishDoors = finishDoors;
 
 var cell$1 = {};
 
@@ -5048,4 +5048,4 @@ function makeMap(w, h, opts={}) {
 
 make.map = makeMap;
 
-export { actor, buffer, canvas, cell$1 as cell, color, colors, config, cosmetic, data, debug$1 as debug, def, dig, diggers, flag, flags, grid$1 as grid, install, io, make, map, path, random, sprite, tile, tiles, types, utils };
+export { actor, buffer, canvas, cell$1 as cell, color, colors, config, cosmetic, data, debug$1 as debug, def, diggers, dungeon, flag, flags, grid$1 as grid, install, io, make, map, path, random, sprite, tile, tiles, types, utils };

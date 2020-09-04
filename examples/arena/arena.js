@@ -6,7 +6,7 @@ const startingXY = [40, 28];
 
 GW.random.seed(12345);
 
-GW.dig.installDigger('HUGE_ROOM',     GW.dig.rectangularRoom,  { width: [50,76], height: [15,28] });
+GW.dungeon.installDigger('HUGE_ROOM',     GW.dungeon.rectangularRoom,  { width: [50,76], height: [15,28] });
 
 function handleClick(e) {
 	const x = canvas.toX(e.clientX);
@@ -24,22 +24,22 @@ function handleKey(e) {
 
 function drawMap() {
 	// dig a map
-	SITE = GW.dig.startDig(80, 30);
+	SITE = GW.dungeon.startDig(80, 30);
 
 	let doors = [ startingXY ];
 	let roomCount = 0;
 
 	SITE.grid.fillRect(2, 2, 76, 26, 1);
-	// TODO - GW.dig.digRoom({ digger: 'HUGE_ROOM', xy: [2,2], placeDoor: false });
+	// TODO - GW.dungeon.digRoom({ digger: 'HUGE_ROOM', xy: [2,2], placeDoor: false });
 	// dig should slide the room around until any door site (not just random ones) fits at given xy
 
 	let lakeCount = GW.random.number(5);
 	for(let i = 0; i < lakeCount; ++i) {
-		GW.dig.digLake();
+		GW.dungeon.digLake();
 	}
 
-	GW.dig.addBridges(40, 8);
-	GW.dig.finishDig();
+	GW.dungeon.addBridges(40, 8);
+	GW.dungeon.finishDig();
 
 	SITE.grid.forEach( (v, i, j) => {
 		const tile = TILES[v];

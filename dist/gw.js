@@ -19,9 +19,6 @@
   var canvas = {};
   var io = {};
 
-  var dig = {};
-  var diggers = {};
-
   var path = {};
   var actor = {};
 
@@ -3098,6 +3095,9 @@
   const DIRS$2 = def.dirs;
   const OPP_DIRS = [def.DOWN, def.UP, def.RIGHT, def.LEFT];
 
+  var dungeon = {};
+  var diggers = {};
+
 
   const NOTHING$1 = 0;
   let FLOOR = 1;
@@ -3119,7 +3119,7 @@
     return config;
   }
 
-  dig.installDigger = installDigger;
+  dungeon.installDigger = installDigger;
 
   function _ensureBasicDiggerConfig(config, opts) {
     config = config || {};
@@ -3202,22 +3202,22 @@
     freeGrid(blobGrid);
   }
 
-  dig.cavern = designCavern;
+  dungeon.cavern = designCavern;
 
 
   function designChoiceRoom(config, grid) {
     config = config || {};
-    let diggers$1;
+    let choices;
     if (Array.isArray(config.choices)) {
-      diggers$1 = config.choices;
+      choices = config.choices;
     }
     else if (typeof config.choices == 'object') {
-      diggers$1 = Object.keys(config.choices);
+      choices = Object.keys(config.choices);
     }
     else {
-      ERROR('Expected choices to be either array of diggers or map { digger: weight }');
+      ERROR('Expected choices to be either array of choices or map { digger: weight }');
     }
-    for(let choice of diggers$1) {
+    for(let choice of choices) {
       if (!diggers[choice]) {
         ERROR('Missing digger choice: ' + choice);
       }
@@ -3237,7 +3237,7 @@
     digger.fn(digger, grid);
   }
 
-  dig.choiceRoom = designChoiceRoom;
+  dungeon.choiceRoom = designChoiceRoom;
 
 
   // This is a special room that appears at the entrance to the dungeon on depth 1.
@@ -3265,7 +3265,7 @@
   }
 
 
-  dig.entranceRoom = designEntranceRoom;
+  dungeon.entranceRoom = designEntranceRoom;
 
 
   function designCrossRoom(config, grid) {
@@ -3291,7 +3291,7 @@
     grid.fillRect(roomX2 - 5, roomY2 + 5, roomWidth2, roomHeight2, FLOOR);
   }
 
-  dig.crossRoom = designCrossRoom;
+  dungeon.crossRoom = designCrossRoom;
 
 
   function designSymmetricalCrossRoom(config, grid) {
@@ -3318,7 +3318,7 @@
     grid.fillRect(Math.floor((grid.width - minorWidth)/2), Math.floor((grid.height - majorHeight)/2), minorWidth, majorHeight, FLOOR);
   }
 
-  dig.symmetricalCrossRoom = designSymmetricalCrossRoom;
+  dungeon.symmetricalCrossRoom = designSymmetricalCrossRoom;
 
 
   function designRectangularRoom(config, grid) {
@@ -3333,7 +3333,7 @@
     grid.fillRect(Math.floor((grid.width - width) / 2), Math.floor((grid.height - height) / 2), width, height, FLOOR);
   }
 
-  dig.rectangularRoom = designRectangularRoom;
+  dungeon.rectangularRoom = designRectangularRoom;
 
 
   function designCircularRoom(config, grid) {
@@ -3347,7 +3347,7 @@
 
   }
 
-  dig.circularRoom = designCircularRoom;
+  dungeon.circularRoom = designCircularRoom;
 
 
   function designBrogueCircularRoom(config, grid) {
@@ -3369,7 +3369,7 @@
     }
   }
 
-  dig.brogueCircularRoom = designBrogueCircularRoom;
+  dungeon.brogueCircularRoom = designBrogueCircularRoom;
 
 
   function designChunkyRoom(config, grid) {
@@ -3407,7 +3407,7 @@
     }
   }
 
-  dig.chunkyRoom = designChunkyRoom;
+  dungeon.chunkyRoom = designChunkyRoom;
 
 
   class DigSite {
@@ -3496,7 +3496,7 @@
     return SITE;
   }
 
-  dig.startDig = startDig;
+  dungeon.startDig = startDig;
 
 
   function finishDig(tileFn) {
@@ -3521,7 +3521,7 @@
     // return map;
   }
 
-  dig.finishDig = finishDig;
+  dungeon.finishDig = finishDig;
 
 
   // Returns an array of door sites if successful
@@ -3582,7 +3582,7 @@
     return result;
   }
 
-  dig.digRoom = digRoom;
+  dungeon.digRoom = digRoom;
 
 
   function isValidStairLoc(v, x, y) {
@@ -3607,14 +3607,14 @@
     return count == 1;
   }
 
-  dig.isValidStairLoc = isValidStairLoc;
+  dungeon.isValidStairLoc = isValidStairLoc;
 
 
   function addStairs(x,y, stairTile) {
     SITE.grid[x][y] = stairTile;  // assume everything is ok
   }
 
-  dig.addStairs = addStairs;
+  dungeon.addStairs = addStairs;
 
 
   function randomDoor(sites, matchFn) {
@@ -3632,7 +3632,7 @@
     return null;
   }
 
-  dig.randomDoor = randomDoor;
+  dungeon.randomDoor = randomDoor;
 
 
   function chooseRandomDoorSites(sourceGrid) {
@@ -4015,7 +4015,7 @@
 
   }
 
-  dig.digLake = digLake;
+  dungeon.digLake = digLake;
 
 
   function lakeDisruptsPassability(lakeGrid, dungeonToGridX, dungeonToGridY) {
@@ -4148,7 +4148,7 @@
       freeGrid(costGrid);
   }
 
-  dig.addLoops = addLoops;
+  dungeon.addLoops = addLoops;
 
 
   function isBridgeCandidate(x, y, bridgeDir) {
@@ -4231,7 +4231,7 @@
       freeGrid(costGrid);
   }
 
-  dig.addBridges = addBridges;
+  dungeon.addBridges = addBridges;
 
 
 
@@ -4270,7 +4270,7 @@
   	} while (diagonalCornerRemoved == true);
   }
 
-  dig.removeDiagonalOpenings = removeDiagonalOpenings;
+  dungeon.removeDiagonalOpenings = removeDiagonalOpenings;
 
 
   function finishDoors(doorTile, floorTile, secretDoorChance, secretDoorTile) {
@@ -4300,7 +4300,7 @@
   	}
   }
 
-  dig.finishDoors = finishDoors;
+  dungeon.finishDoors = finishDoors;
 
   var cell$1 = {};
 
@@ -5065,8 +5065,8 @@
   exports.data = data;
   exports.debug = debug$1;
   exports.def = def;
-  exports.dig = dig;
   exports.diggers = diggers;
+  exports.dungeon = dungeon;
   exports.flag = flag;
   exports.flags = flags;
   exports.grid = grid$1;
