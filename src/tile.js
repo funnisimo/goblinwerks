@@ -139,6 +139,16 @@ export class Tile {
 
     setFlags(this, allFlags);
   }
+
+  successorFlags(event) {
+    const e = this.events[event];
+    if (!e) return 0;
+    const feature = e.feature;
+    if (!feature) return 0;
+    // const tile = FEATURES[feature].tile;
+    // if (!tile) return 0;
+    // return tiles[tile].flags;
+  }
 }
 
 types.Tile = Tile;

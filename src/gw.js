@@ -1,7 +1,5 @@
 
 
-
-
 export var def = {};
 export var utils = {};
 export var types = {};
@@ -24,11 +22,8 @@ export var path = {};
 export var map = {};
 export var actor = {};
 
-export var random = null;
-export var cosmetic = null;
-export var MAP = null;
-export var PLAYER = null;
-
+export var config = {};
+export var data = {};
 
 def.dirs    = [[0,-1], [0,1],  [-1,0], [1,0],  [-1,-1], [-1,1], [1,-1], [1,1]];
 def.oppDirs = [[0,1],  [0,-1], [1,0],  [-1,0], [1,1],   [1,-1], [-1,1], [-1,-1]];

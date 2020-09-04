@@ -1,7 +1,7 @@
 
 import * as utils from './utils.js';
 import { random } from './random.js';
-import { grid as GRID, def, MAP, types, debug, make } from './gw.js';
+import { grid as GRID, def, data as DATA, types, debug, make } from './gw.js';
 
 
 const GRID_CACHE = [];
@@ -282,21 +282,54 @@ export class Grid extends Array {
 		return null; // should never reach this point
 	}
 
+
+	// Rotates around the cell, counting up the number of distinct strings of neighbors with the same test result in a single revolution.
+	//		Zero means there are no impassable tiles adjacent.
+	//		One means it is adjacent to a wall.
+	//		Two means it is in a hallway or something similar.
+	//		Three means it is the center of a T-intersection or something similar.
+	//		Four means it is in the intersection of two hallways.
+	//		Five or more means there is a bug.
+	arcCount(x, y, testFn) {
+		let arcCount, dir, oldX, oldY, newX, newY;
+
+	  // brogueAssert(grid.hasXY(x, y));
+
+		testFn = testFn || utils.IDENTITY;
+
+		arcCount = 0;
+		for (dir = 0; dir < CDIRS.length; dir++) {
+			oldX = x + CDIRS[(dir + 7) % 8][0];
+			oldY = y + CDIRS[(dir + 7) % 8][1];
+			newX = x + CDIRS[dir][0];
+			newY = y + CDIRS[dir][1];
+			// Counts every transition from passable to impassable or vice-versa on the way around the cell:
+			if ((this.hasXY(newX, newY) && testFn(this[newX][newY], newX, newY))
+				!= (this.hasXY(oldX, oldY) && testFn(this[oldX][oldY], oldX, oldY)))
+			{
+				arcCount++;
+			}
+		}
+		return Math.floor(arcCount / 2); // Since we added one when we entered a wall and another when we left.
+	}
+
 }
 
 types.Grid = Grid;
 
 
 export function makeGrid(w, h, v) {
-	return new Grid(w, h, v);
+	return new types.Grid(w, h, v);
 }
+
+make.grid = makeGrid;
 
 
 // mallocing two-dimensional arrays! dun dun DUN!
 export function allocGrid(w, h, v) {
 
-	w = w || (MAP ? MAP.width : 100);
-	h = h || (MAP ? MAP.height : 34);
+	w = w || (DATA.map ? DATA.map.width : 100);
+	h = h || (DATA.map ? DATA.map.height : 34);
 	v = v || 0;
 
 	++GRID_ACTIVE_COUNT;
@@ -559,40 +592,6 @@ export function randomLeastPositiveLocation(grid, deterministic) {
 }
 
 GRID.randomLeastPositiveLocation = randomLeastPositiveLocation;
-
-
-// Rotates around the cell, counting up the number of distinct strings of neighbors with the same test result in a single revolution.
-//		Zero means there are no impassable tiles adjacent.
-//		One means it is adjacent to a wall.
-//		Two means it is in a hallway or something similar.
-//		Three means it is the center of a T-intersection or something similar.
-//		Four means it is in the intersection of two hallways.
-//		Five or more means there is a bug.
-export function arcCount(grid, x, y, testFn) {
-	let arcCount, dir, oldX, oldY, newX, newY;
-
-  // brogueAssert(grid.hasXY(x, y));
-
-	testFn = testFn || utils.IDENTITY;
-
-	arcCount = 0;
-	for (dir = 0; dir < CDIRS.length; dir++) {
-		oldX = x + CDIRS[(dir + 7) % 8][0];
-		oldY = y + CDIRS[(dir + 7) % 8][1];
-		newX = x + CDIRS[dir][0];
-		newY = y + CDIRS[dir][1];
-		// Counts every transition from passable to impassable or vice-versa on the way around the cell:
-		if ((grid.hasXY(newX, newY) && testFn(grid[newX][newY], newX, newY))
-			!= (grid.hasXY(oldX, oldY) && testFn(grid[oldX][oldY], oldX, oldY)))
-		{
-			arcCount++;
-		}
-	}
-	return Math.floor(arcCount / 2); // Since we added one when we entered a wall and another when we left.
-}
-
-GRID.arcCount = arcCount;
-
 
 // Marks a cell as being a member of blobNumber, then recursively iterates through the rest of the blob
 export function floodFill(grid, x, y, matchValue, fillValue) {
