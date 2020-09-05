@@ -3,9 +3,9 @@ import { copyObject } from './utils.js';
 import { Enum } from './enum.js';
 import { installFlag, Fl } from './flag.js';
 import { makeSprite } from './sprite.js';
-import { tiles as TILES, Flags as TileFlags, MechFlags as TileMechFlags } from './tile.js';
+import { tiles as TILES, Flags as TileFlags, MechFlags as TileMechFlags, withName } from './tile.js';
 
-import { types, make, def } from './gw.js';
+import { types, make, def, config as CONFIG, data as DATA } from './gw.js';
 
 
 export var cell = {};
@@ -124,13 +124,9 @@ types.CellMemory = CellMemory;
 
 class Cell {
   constructor() {
-
     this.layers = [0, 0, 0, 0]; // [NUMBER_TERRAIN_LAYERS];	// terrain  /* ENUM tileType */
-    this.flags = 0;							// non-terrain cell flags
-    this.mechFlags = 0;
-    this.volume = 0;						// quantity of gas in cell
-    this.machineNumber = 0;
     this.memory = new types.CellMemory();
+    this.clear();
   }
 
   copy(other) {
@@ -142,8 +138,19 @@ class Cell {
     this.memory.copy(other.memory);			// how the player remembers the cell to look
   }
 
+  clear() {
+    for(let i = 0; i < 4; ++i) {
+      this.layers[i] = 0;
+    }
+    this.flags = 0;							// non-terrain cell flags
+    this.mechFlags = 0;
+    this.volume = 0;						// quantity of gas in cell
+    this.machineNumber = 0;
+    this.memory.clear();
+  }
+  dump() { return TILES[this.layers[0]].sprite.ch; }
   isVisible() { return this.flags & Flags.VISIBLE; }
-  isAnyKindOfVisible() { return (this.flags & Flags.ANY_KIND_OF_VISIBLE) || GW.GAME.playbackOmniscience; }
+  isAnyKindOfVisible() { return (this.flags & Flags.ANY_KIND_OF_VISIBLE) || CONFIG.playbackOmniscience; }
 
   *tiles() {
     for(let i = 0; i < this.layers.length; ++i) {
@@ -276,13 +283,17 @@ class Cell {
     return this.highestPriorityTile(false).desc;
   }
 
+  isEmpty() {
+    return this.layers[0] == 0;
+  }
+
   isPassableNow(limitToPlayerKnowledge) {
     const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
     const tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
     if (!(tileFlags & TileFlags.T_PATHING_BLOCKER)) return true;
 
     let tileMechFlags = (useMemory) ? this.memory.tileMechFlags : this.tileMechFlags();
-    return (tileMechFlags & TileMechFlags.TM_IS_SECRET) && !(this.discoveredTileFlags() & TileFlags.T_PATHING_BLOCKER);
+    return limitToPlayerKnowledge ? false : this.isSecretDoor();
   }
 
   canBePassed(limitToPlayerKnowledge) {
@@ -293,31 +304,65 @@ class Cell {
     return ((tileMechFlags & TileMechFlags.TM_PROMOTES) && !(this.promotedTileFlags() & TileFlags.T_PATHING_BLOCKER));
   }
 
+  isObstruction(limitToPlayerKnowledge) {
+    const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
+    let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
+    return tileFlags & TileFlags.T_OBSTRUCTS_DIAGONAL_MOVEMENT;
+  }
+
+  isDoor(limitToPlayerKnowledge) {
+    const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
+    let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
+    return tileFlags & TileFlags.T_IS_DOOR;
+  }
+
+  isSecretDoor(limitToPlayerKnowledge) {
+    if (limitToPlayerKnowledge) return false;
+    const tileMechFlags = this.tileMechFlags();
+    return (tileMechFlags & TileMechFlags.TM_IS_SECRET) && !(this.discoveredTileFlags() & TileFlags.T_PATHING_BLOCKER)
+  }
+
+  blocksPathing(limitToPlayerKnowledge) {
+    const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
+    let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
+    return tileFlags & TileFlags.T_PATHING_BLOCKER;
+  }
+
+  isLiquid(limitToPlayerKnowledge) {
+    const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
+    let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
+    return tileFlags & TileFlags.T_IS_LIQUID;
+  }
+
   markRevealed() {
     this.flags &= ~Flags.STABLE_MEMORY;
     if (!(this.flags & Flags.REVEALED)) {
       this.flags |= Flags.REVEALED;
-      if (!this.hasTileFlag(TIleFlags.T_PATHING_BLOCKER)) {
-        GW.GAME.xpxpThisTurn++;
+      if (!this.hasTileFlag(TileFlags.T_PATHING_BLOCKER)) {
+        DATA.xpxpThisTurn++;
       }
     }
   }
 
-  setTile(tileId, volume=0) {
-    let tile = TILES[tileId];
+  setTile(tileId, force) {
+    let tile;
+    if (typeof tileId === 'string') {
+      tile = withName(tileId);
+    }
+    else {
+      tile = TILES[tileId];
+    }
 
     if (!tile) {
-      tileId = 0;
       tile = TILES[0];
     }
 
     const oldTileId = this.layers[tile.layer] || 0;
     const oldTile = TILES[oldTileId] || TILES[0];
 
-    if (tile.layer == Layers.GAS) {
-        this.volume += (volume || 0);
-    }
-    this.layers[tile.layer] = tileId;
+    if (!force && oldTile.priority < tile.priority) return false;
+
+    this.layers[tile.layer] = tile.id;
     this.flags |= (Flags.NEEDS_REDRAW | Flags.TILE_CHANGED);
     return (oldTile.glowLight !== tile.glowLight);
   }
@@ -344,10 +389,20 @@ class Cell {
 types.Cell = Cell;
 
 
-function makeCell() {
-  const cell = new GW.types.Cell();
+function makeCell(...args) {
+  const cell = new types.Cell(...args);
   return cell;
 }
 
 
 make.cell = makeCell;
+
+
+export function getAppearance(cell, dest) {
+	dest.clear();
+  const tile = cell.highestPriorityTile();
+  dest.copy(tile.sprite);
+  return true;
+}
+
+cell.getAppearance = getAppearance;

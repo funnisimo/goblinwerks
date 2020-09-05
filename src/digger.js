@@ -1,12 +1,14 @@
 
-import { ERROR, WARN } from './utils.js';
-import { allocGrid, freeGrid, offsetApply, fillBlob } from './grid.js';
+import { ERROR, WARN, first, sequence, clamp } from './utils.js';
+import { allocGrid, freeGrid, offsetZip, fillBlob, directionOfDoorSite } from './grid.js';
 import { random } from './random.js';
-import { debug } from './gw.js';
+import { debug, def } from './gw.js';
 
 
 export var digger = {};
 export var diggers = {};
+
+const DIRS = def.dirs;
 
 
 const TILE = 1;
@@ -91,7 +93,7 @@ export function digCavern(config, grid) {
   destY = Math.floor((grid.height - bounds.height) / 2);
 
   // ...and copy it to the master grid.
-  offsetApply(grid, blobGrid, destX - bounds.x, destY - bounds.y, config.tile);
+  offsetZip(grid, blobGrid, destX - bounds.x, destY - bounds.y, config.tile);
   freeGrid(blobGrid);
 }
 
@@ -289,3 +291,126 @@ export function digChunkyRoom(config, grid) {
 }
 
 digger.chunkyRoom = digChunkyRoom;
+
+
+
+export function chooseRandomDoorSites(sourceGrid) {
+    let i, j, k, newX, newY;
+    let dir;
+    let doorSiteFailed;
+
+    const grid = allocGrid(sourceGrid.width, sourceGrid.height);
+    grid.copy(sourceGrid);
+
+    for (i=0; i<grid.width; i++) {
+        for (j=0; j<grid.height; j++) {
+            if (!grid[i][j]) {
+                dir = directionOfDoorSite(grid, i, j);
+                if (dir != def.NO_DIRECTION) {
+                    // Trace a ray 10 spaces outward from the door site to make sure it doesn't intersect the room.
+                    // If it does, it's not a valid door site.
+                    newX = i + DIRS[dir][0];
+                    newY = j + DIRS[dir][1];
+                    doorSiteFailed = false;
+                    for (k=0; k<10 && grid.hasXY(newX, newY) && !doorSiteFailed; k++) {
+                        if (grid[newX][newY]) {
+                            doorSiteFailed = true;
+                        }
+                        newX += DIRS[dir][0];
+                        newY += DIRS[dir][1];
+                    }
+                    if (!doorSiteFailed) {
+                        grid[i][j] = dir + 10000; // So as not to conflict with other tiles.
+                    }
+                }
+            }
+        }
+    }
+
+  let doorSites = [];
+  // Pick four doors, one in each direction, and store them in doorSites[dir].
+  for (dir=0; dir<4; dir++) {
+      const loc = grid.randomMatchingXY(dir + 10000) || [-1, -1];
+      doorSites[dir] = loc.slice();
+  }
+
+  freeGrid(grid);
+  return doorSites;
+}
+
+digger.chooseRandomDoorSites = chooseRandomDoorSites;
+
+
+
+export function attachHallway(grid, doorSitesArray, opts) {
+    let i, x, y, newX, newY;
+    let dirs = []; // [4];
+    let length;
+    let dir, dir2;
+    let allowObliqueHallwayExit;
+
+    opts = opts || {};
+    const tile = opts.tile || 1;
+
+    const horizontalLength = first('horizontalHallLength', opts, [9,15]);
+    const verticalLength = first('verticalHallLength', opts, [2,9]);
+
+    // Pick a direction.
+    dir = opts.dir;
+    if (dir === undefined) {
+      const dirs = sequence(4);
+      random.shuffle(dirs);
+      for (i=0; i<4; i++) {
+          dir = dirs[i];
+          if (doorSitesArray[dir][0] != -1
+              && doorSitesArray[dir][1] != -1
+              && grid.hasXY(doorSitesArray[dir][0] + Math.floor(DIRS[dir][0] * horizontalLength[1]),
+                                     doorSitesArray[dir][1] + Math.floor(DIRS[dir][1] * verticalLength[1])) ) {
+                  break; // That's our direction!
+          }
+      }
+      if (i==4) {
+          return; // No valid direction for hallways.
+      }
+    }
+
+    if (dir == def.UP || dir == def.DOWN) {
+        length = random.range(...verticalLength);
+    } else {
+        length = random.range(...horizontalLength);
+    }
+
+    x = doorSitesArray[dir][0];
+    y = doorSitesArray[dir][1];
+
+    const attachLoc = [x - DIRS[dir][0], y - DIRS[dir][1]];
+    for (i = 0; i < length; i++) {
+        if (grid.hasXY(x, y)) {
+            grid[x][y] = tile;
+        }
+        x += DIRS[dir][0];
+        y += DIRS[dir][1];
+    }
+    x = clamp(x - DIRS[dir][0], 0, grid.width - 1);
+    y = clamp(y - DIRS[dir][1], 0, grid.height - 1); // Now (x, y) points at the last interior cell of the hallway.
+    allowObliqueHallwayExit = random.percent(15);
+    for (dir2 = 0; dir2 < 4; dir2++) {
+        newX = x + DIRS[dir2][0];
+        newY = y + DIRS[dir2][1];
+
+        if ((dir2 != dir && !allowObliqueHallwayExit)
+            || !grid.hasXY(newX, newY)
+            || grid[newX][newY])
+        {
+            doorSitesArray[dir2][0] = -1;
+            doorSitesArray[dir2][1] = -1;
+        } else {
+            doorSitesArray[dir2][0] = newX;
+            doorSitesArray[dir2][1] = newY;
+        }
+    }
+
+    return attachLoc;
+}
+
+digger.attachHallway = attachHallway;

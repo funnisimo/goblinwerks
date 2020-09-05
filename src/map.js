@@ -3,7 +3,7 @@ import { distanceBetween } from './utils.js';
 import { installFlag, Fl } from './flag.js';
 import { random } from './random.js';
 import { colors } from './color.js';
-import { Flags as CellFlags, MechFlags as CellMechFlags, Layers as CellLayers } from './cell.js';
+import { Flags as CellFlags, MechFlags as CellMechFlags, Layers as CellLayers, getAppearance as cellGetAppearance } from './cell.js';
 import { types, def, make, data as DATA, config as CONFIG } from './gw.js';
 
 
@@ -24,8 +24,12 @@ export class Map {
 		this.width = w;
 		this.height = h;
 		this.cells = make.grid(w, h, () => new types.Cell() );
+		this.locations = {};
+		this.config = {};
 	}
 
+	clear() { this.cells.forEach( (c) => c.clear() ); }
+	dump() { this.cells.dump((c) => c.dump()); }
 	cell(x, y)   { return this.cells[x][y]; }
 	eachCell(fn) { this.cells.forEach(fn); }
 
@@ -88,44 +92,59 @@ export class Map {
 		this.flags |= Flags.MAP_CHANGED;
 	}
 
-	hasTile(x, y, tile)	{ return this.cell(x, y).hasTile(tile); }
+	hasTile(x, y, tile)	{ return this.cells[x][y].hasTile(tile); }
 
-	tileFlags(x, y, limitToPlayerKnowledge)			{ return this.cell(x, y).tileFlags(limitToPlayerKnowledge); }
-	tileMechFlags(x, y, limitToPlayerKnowledge)	{ return this.cell(x, y).tileMechFlags(limitToPlayerKnowledge); }
+	tileFlags(x, y, limitToPlayerKnowledge)			{ return this.cells[x][y].tileFlags(limitToPlayerKnowledge); }
+	tileMechFlags(x, y, limitToPlayerKnowledge)	{ return this.cells[x][y].tileMechFlags(limitToPlayerKnowledge); }
 
-	tileWithFlag(x, y, flag) { return this.cell(x, y).tileWithFlag(flag); }
-	tileWithMechFlag(x, y, mechFlag) { return this.cell(x, y).tileWithMechFlag(mechFlag); }
+	tileWithFlag(x, y, flag) { return this.cells[x][y].tileWithFlag(flag); }
+	tileWithMechFlag(x, y, mechFlag) { return this.cells[x][y].tileWithMechFlag(mechFlag); }
 
-	hasKnownTileFlag(x, y, flagMask) { return this.cell(x, y).memory.tileFlags & flagMask; }
+	hasKnownTileFlag(x, y, flagMask) { return this.cells[x][y].memory.tileFlags & flagMask; }
 
-	hasTileInGroup(x, y, ...groups) { return this.cell(x, y).hasTileInGroup(...groups); }
+	// hasTileInGroup(x, y, ...groups) { return this.cells[x][y].hasTileInGroup(...groups); }
 
-	discoveredTileFlags(x, y) { return this.cell(x, y).discoveredTileFlags(); }
-	hasDiscoveredTileFlag(x, y, flag) { return this.cell(x, y).hasDiscoveredTileFlag(flag); }
+	discoveredTileFlags(x, y) { return this.cells[x][y].discoveredTileFlags(); }
+	hasDiscoveredTileFlag(x, y, flag) { return this.cells[x][y].hasDiscoveredTileFlag(flag); }
 
-	canBePassed(x, y, limitToPlayerKnowledge) { return this.cell(x, y).canBePassed(limitToPlayerKnowledge); }
-	isPassableNow(x, y, limitToPlayerKnowledge) { return this.cell(x, y).isPassableNow(limitToPlayerKnowledge); }
+	canBePassed(x, y, limitToPlayerKnowledge) { return this.cells[x][y].canBePassed(limitToPlayerKnowledge); }
+	isPassableNow(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isPassableNow(limitToPlayerKnowledge); }
 
-	highestPriorityLayer(x, y, skipGas) { return this.cell(x, y).highestPriorityLayer(x, y); }
-	highestPriorityTile(x, y, skipGas) { return this.cell(x, y).highestPriorityTile(x, y); }
+	isEmpty(x, y) { return this.cells[x][y].isEmpty(); }
+	isObstruction(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isObstruction(limitToPlayerKnowledge); }
+  isDoor(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isDoor(limitToPlayerKnowledge); }
+  blocksPathing(x, y, limitToPlayerKnowledge) { return this.cells[x][y].blocksPathing(limitToPlayerKnowledge); }
+  isLiquid(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isLiquid(limitToPlayerKnowledge); }
+  hasGas(x, y, limitToPlayerKnowledge) { return this.cells[x][y].hasGas(limitToPlayerKnowledge); }
 
-	tileFlavor(x, y) { return this.cell(x, y).tileFlavor(); }
-	tileText(x, y)   { return this.cell(x, y).tileText(); }
+	highestPriorityLayer(x, y, skipGas) { return this.cells[x][y].highestPriorityLayer(x, y); }
+	highestPriorityTile(x, y, skipGas) { return this.cells[x][y].highestPriorityTile(x, y); }
 
-	setTile(x, y, tileId, volume=0) {
+	tileFlavor(x, y) { return this.cells[x][y].tileFlavor(); }
+	tileText(x, y)   { return this.cells[x][y].tileText(); }
+
+	setTile(x, y, tileId, force) {
 		const cell = this.cell(x, y);
-		if (cell.setTile(tileId, volume)) {
+		if (cell.setTile(tileId, force)) {
 			this.flags &= ~(Flags.MAP_STABLE_GLOW_LIGHTS);
 		}
 		this.flags |= Flags.MAP_CHANGED;
 	  return true;
 	}
 
-	fill(tileId) {
+	fill(tileId, boundaryTile) {
 		let i, j;
+		if (boundaryTile === undefined) {
+			boundaryTile = tileId;
+		}
 		for(i=0; i < this.width; ++i) {
 			for(j = 0; j < this.height; ++j) {
-				this.setTile(i, j, tileId);
+				if (this.isBoundaryXY(i, j)) {
+					this.setTile(i, j, boundaryTile);
+				}
+				else {
+					this.setTile(i, j, tileId);
+				}
 			}
 		}
 	}
@@ -151,6 +170,16 @@ export class Map {
 	    return false;
 	}
 
+	fillBasicCostGrid(costGrid) {
+		this.cells.forEach( (cell, i, j) => {
+      if (cell.isEmpty()) {
+        costGrid[i][j] = def.PDS_OBSTRUCTION;
+      }
+      else {
+        costGrid[i][j] = cell.canBePassed() ? 1 : def.PDS_OBSTRUCTION;
+      }
+    });
+	}
 
 	// blockingMap is optional
 	matchingXYNear(x, y, matcher, opts={})
@@ -418,3 +447,13 @@ export function makeMap(w, h, opts={}) {
 }
 
 make.map = makeMap;
+
+
+export function getCellAppearance(map, x, y, dest) {
+	dest.clear();
+	if (!map.hasXY(x, y)) return;
+	const cell = map.cell(x, y);
+	cellGetAppearance(cell, dest);
+}
+
+map.getCellAppearance = getCellAppearance;

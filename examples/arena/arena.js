@@ -1,6 +1,6 @@
 
 let canvas = null;
-let SITE = null;
+const MAP = GW.make.map(80, 30);
 const TILES = GW.tiles;
 const startingXY = [40, 28];
 
@@ -24,12 +24,13 @@ function handleKey(e) {
 
 function drawMap() {
 	// dig a map
-	SITE = GW.dungeon.startDig(80, 30);
+	MAP.clear();
+	GW.dungeon.start(MAP);
 
 	let doors = [ startingXY ];
 	let roomCount = 0;
 
-	SITE.grid.fillRect(2, 2, 76, 26, 1);
+	MAP.cells.forRect(2, 2, 76, 26, (c) => c.setTile(1));
 	// TODO - GW.dungeon.digRoom({ digger: 'HUGE_ROOM', xy: [2,2], placeDoor: false });
 	// dig should slide the room around until any door site (not just random ones) fits at given xy
 
@@ -39,10 +40,10 @@ function drawMap() {
 	}
 
 	GW.dungeon.addBridges(40, 8);
-	GW.dungeon.finishDig();
+	GW.dungeon.finish();
 
-	SITE.grid.forEach( (v, i, j) => {
-		const tile = TILES[v];
+	MAP.cells.forEach( (c, i, j) => {
+		const tile = c.highestPriorityTile();
 		if (tile) {
 			canvas.plot(i, j, tile.sprite);
 		}

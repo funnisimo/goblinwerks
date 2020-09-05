@@ -14,6 +14,19 @@ describe('GW.digger', () => {
     GW.grid.free(grid);
   });
 
+  test('rectangularRoom', () => {
+  	GW.digger.rectangularRoom({ width: grid.width - 2, height: grid.height - 2 }, grid);
+
+    grid.forEach( (v, i, j) => {
+      if (grid.isBoundaryXY(i, j)) {
+        expect(v).toEqual(0);
+      }
+      else {
+        expect(v).toEqual(1);
+      }
+    });
+  });
+
   test('digCavern', () => {
     GW.random.seed(123456);
     expect(grid.count(1)).toEqual(0);

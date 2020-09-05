@@ -1,6 +1,6 @@
 
 let canvas = null;
-let SITE = null;
+let MAP = GW.make.map(80, 30);
 const startingXY = [40, 28];
 
 GW.random.seed(12345);
@@ -84,8 +84,11 @@ function drawMap(attempt=0) {
 		console.error('Failed to build map!');
 		return false;
 	}
+	const seed = GW.random._v - 1;
+
 	// dig a map
-	SITE = GW.dungeon.startDig(80, 30);
+	MAP.clear();
+	GW.dungeon.start(MAP);
 
 	let loc = [startingXY[0], startingXY[1]];
 	let roomCount = 0;
@@ -109,39 +112,17 @@ function drawMap(attempt=0) {
 
 	GW.dungeon.addBridges(40, 8);
 
-	GW.dungeon.removeDiagonalOpenings();
-	GW.dungeon.finishDoors();
-
-	loc = SITE.grid.matchingXYNear(startingXY[0], startingXY[1], GW.dungeon.isValidStairLoc);
-	if (loc && loc[0] > 0) {
-		GW.dungeon.addStairs(loc[0], loc[1], 4);	// UP_STAIRS
-		SITE.locations.start = loc;
-	}
-	else {
-		console.error('Failed to place up stairs.');
+	if (!GW.dungeon.addStairs(startingXY[0], startingXY[1], -1, -1)) {
+		console.error('Failed to place stairs.');
 		return drawMap(++attempt);
 	}
 
-	loc = SITE.grid.randomMatchingXY( (v, x, y) => {
-		if (GW.utils.distanceBetween(x, y, SITE.locations.start[0], SITE.locations.start[1]) < 30) return false;
-		return GW.dungeon.isValidStairLoc(v, x, y);
-	});
-
-	if (loc && loc[0] > 0) {
-		GW.dungeon.addStairs(loc[0], loc[1], 5);	// DOWN_STAIRS
-		SITE.locations.finish = loc;
-	}
-	else {
-		console.error('Failed to place down stairs.');
-		return drawMap(++attempt);
-	}
+	GW.dungeon.finish();
 
 	stopTimer('DIG');
 
-	GW.dungeon.finishDig();
-
-	SITE.grid.forEach( (v, i, j) => {
-		const tile = TILES[v];
+	MAP.cells.forEach( (c, i, j) => {
+		const tile = c.highestPriorityTile();
 		if (tile) {
 			canvas.plot(i, j, tile.sprite);
 		}
@@ -151,6 +132,8 @@ function drawMap(attempt=0) {
 	});
 
 	canvas.draw();
+
+	console.log('MAP SEED = ', seed);
 }
 
 function drawCanvas() {

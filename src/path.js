@@ -5,6 +5,7 @@ import { path as PATH, def } from './gw.js';
 
 const PDS_FORBIDDEN   = def.PDS_FORBIDDEN   = -1;
 const PDS_OBSTRUCTION = def.PDS_OBSTRUCTION = -2;
+const PDS_NO_PATH     = def.PDS_NO_PATH     = 30000;
 
 // GW.actor.avoidsCell = GW.actor.avoidsCell || GW.utils.FALSE;
 // GW.actor.canPass = GW.actor.canPass || ((a, b) => a === b);
@@ -251,7 +252,7 @@ export function dijkstraScan(distanceMap, costMap, useDiagonals) {
 	DIJKSTRA_MAP.width  = distanceMap.width;
 	DIJKSTRA_MAP.height = distanceMap.height;
 
-	pdsBatchInput(DIJKSTRA_MAP, distanceMap, costMap, 30000, useDiagonals);
+	pdsBatchInput(DIJKSTRA_MAP, distanceMap, costMap, PDS_NO_PATH, useDiagonals);
 	batchOutput(DIJKSTRA_MAP, distanceMap);
 }
 
@@ -329,7 +330,7 @@ export function calculateDistances(distanceMap,
 		}
 	}
 
-	clear(DIJKSTRA_MAP, 30000, eightWays);
+	clear(DIJKSTRA_MAP, PDS_NO_PATH, eightWays);
 	setDistance(DIJKSTRA_MAP, destinationX, destinationY, 0);
 	batchOutput(DIJKSTRA_MAP, distanceMap);
 	distanceMap.x = destinationX;
@@ -426,7 +427,7 @@ PATH.calculateDistances = calculateDistances;
 // 	lowestMapScore = 10000;
 // 	for (i=1; i<map.width-1; i++) {
 // 		for (j=1; j<map.height-1; j++) {
-// 			if (map[i][j] >= 0 && map[i][j] < 30000) {
+// 			if (map[i][j] >= 0 && map[i][j] < PDS_NO_PATH) {
 // 				dist = (i - x)*(i - x) + (j - y)*(j - y);
 // 				//hiliteCell(i, j, &purple, min(dist / 2, 100), false);
 // 				if (dist < closestDistance
@@ -455,7 +456,7 @@ PATH.calculateDistances = calculateDistances;
 // 	steps = 0;
 //
 //
-// 	if (distanceMap[x][y] < 0 || distanceMap[x][y] >= 30000) {
+// 	if (distanceMap[x][y] < 0 || distanceMap[x][y] >= PDS_NO_PATH) {
 // 		const loc = getClosestValidLocationOnMap(distanceMap, x, y);
 // 		if (loc) {
 // 			x = loc[0];

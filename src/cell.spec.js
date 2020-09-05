@@ -24,4 +24,17 @@ describe('CellMemory', () => {
     expect(a.tileFlags).toEqual(2);
     expect(a.tileFlags).toEqual(2);
   });
+
+  test('setTile', () => {
+    const c = GW.make.cell();
+    expect(c.layers).toEqual([0,0,0,0]);
+    c.setTile(1);
+    expect(c.layers).toEqual([1,0,0,0]);
+    c.setTile(2);
+    expect(c.layers).toEqual([2,0,0,0]);
+    c.setTile(1);
+    expect(c.layers).toEqual([2,0,0,0]);  // 2 has better priority
+    c.setTile(1, true);
+    expect(c.layers).toEqual([1,0,0,0]);  // 2 has better priority
+  });
 });

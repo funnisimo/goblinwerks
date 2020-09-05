@@ -621,23 +621,52 @@ GRID.floodFill = floodFill;
 
 
 
-export function offsetApply(destGrid, srcGrid, srcToDestX, srcToDestY, value) {
-    let newX, newY;
-    let dir;
-
-		value = value || ((v) => v);
-		const fn = (typeof value === 'function') ? value : (() => value);
-
-		srcGrid.forEach( (c, i, j) => {
-			const destX = i + srcToDestX;
-			const destY = j + srcToDestY;
-			if (!destGrid.hasXY(destX, destY)) return;
-			if (!c) return;
-			destGrid[destX][destY] = fn(c, i, j);
-		});
+export function offsetZip(destGrid, srcGrid, srcToDestX, srcToDestY, value) {
+	const fn = (typeof value === 'function') ? value : ((d, s, i, j) => destGrid[i][j] = value || s);
+	srcGrid.forEach( (c, i, j) => {
+		const destX = i + srcToDestX;
+		const destY = j + srcToDestY;
+		if (!destGrid.hasXY(destX, destY)) return;
+		if (!c) return;
+		fn(destGrid[destX][destY], c, i, j);
+	});
 }
 
-GRID.offsetApply = offsetApply;
+GRID.offsetZip = offsetZip;
+
+
+
+// If the indicated tile is a wall on the room stored in grid, and it could be the site of
+// a door out of that room, then return the outbound direction that the door faces.
+// Otherwise, return def.NO_DIRECTION.
+export function directionOfDoorSite(grid, x, y, isOpen=1) {
+    let dir, solutionDir;
+    let newX, newY, oppX, oppY;
+
+		const fnOpen = (typeof isOpen === 'function') ? isOpen : ((v) => v == isOpen);
+
+    solutionDir = def.NO_DIRECTION;
+    for (dir=0; dir<4; dir++) {
+        newX = x + DIRS[dir][0];
+        newY = y + DIRS[dir][1];
+        oppX = x - DIRS[dir][0];
+        oppY = y - DIRS[dir][1];
+        if (grid.hasXY(oppX, oppY)
+            && grid.hasXY(newX, newY)
+            && fnOpen(grid[oppX][oppY],oppX, oppY))
+        {
+            // This grid cell would be a valid tile on which to place a door that, facing outward, points dir.
+            if (solutionDir != def.NO_DIRECTION) {
+                // Already claimed by another direction; no doors here!
+                return def.NO_DIRECTION;
+            }
+            solutionDir = dir;
+        }
+    }
+    return solutionDir;
+}
+
+GRID.directionOfDoorSite = directionOfDoorSite;
 
 
 function cellularAutomataRound(grid, birthParameters /* char[9] */, survivalParameters /* char[9] */) {
