@@ -19,15 +19,11 @@
   var canvas = {};
   var io = {};
 
-  var dig = {};
-  var diggers = {};
-
   var path = {};
-  var map = {};
   var actor = {};
-  var MAP = null;
-  var PLAYER = null;
 
+  var config = {};
+  var data = {};
 
   def.dirs    = [[0,-1], [0,1],  [-1,0], [1,0],  [-1,-1], [-1,1], [1,-1], [1,1]];
   def.oppDirs = [[0,1],  [0,-1], [1,0],  [-1,0], [1,1],   [1,-1], [-1,1], [-1,-1]];
@@ -136,11 +132,14 @@
   function assignField(dest, src, key) {
     const current = dest[key];
     const updated = src[key];
-    if (current && current.copy) {
+    if (current && current.copy && updated) {
       current.copy(updated);
     }
-    else if (updated && updated.copy) {
-      dest[key] = updated;	// just use same object (shallow copy)
+    else if (current && current.clear && !updated) {
+      current.clear();
+    }
+    else if (updated && updated.clone) {
+      dest[key] = updated.clone();	// just use same object (shallow copy)
     }
     else if (updated && Array.isArray(updated)) {
       dest[key] = updated.slice();
@@ -240,6 +239,136 @@
   }
 
   utils.sequence = sequence;
+
+  var flag = {};
+  var flags = {};
+
+  ///////////////////////////////////
+  // FLAG
+
+  function Fl(N) { return (1 << N); }
+
+  flag.fl = Fl;
+
+  function flagToText(flagObj, value) {
+    const inverse = Object.entries(flagObj).reduce( (out, [key, value]) => {
+      out[value] = key;
+      return out;
+    }, {});
+
+    const out = [];
+    for(let index = 0; index < 32; ++index) {
+      const fl = (1 << index);
+      if (value & fl) {
+        out.push(inverse[fl]);
+      }
+    }
+    return out.join(' | ');
+  }
+
+  function makeFlag(obj, ...args) {
+    let result = 0;
+    for(let index = 0; index < args.length; ++index) {
+      let value = args[index];
+      if (value === undefined) continue;
+      if (typeof value == 'number') {
+        result |= value;
+        continue;	// next
+      }
+      else if (typeof value === 'string') {
+        value = value.split(/[,|]/).map( (t) => t.trim() );
+      }
+
+      if (Array.isArray(value)) {
+        value.forEach( (v) => {
+          if (typeof v == 'string') {
+            v = v.trim();
+            if (v.startsWith('!')) {
+              const f = obj[v.substring(1)];
+              result &= ~f;
+            }
+            else {
+              const f = obj[v];
+              if (f) { result |= f; }
+            }
+          }
+          else {
+            result |= v;
+          }
+        });
+      }
+    }
+    return result;
+  }
+
+
+  class Flag {
+    constructor(name) {
+    }
+    toString(v) {
+      return flagToText(this, v);
+    }
+    toFlag(...args) {
+      return makeFlag(this, ...args);
+    }
+    install(obj) {
+      Object.getOwnPropertyNames(this).forEach( (name) => {
+        obj[name] = this[name];
+      });
+    }
+  }
+
+  types.Flag = Flag;
+
+  function installFlag(flagName, values) {
+    const flag = new Flag(flagName);
+    Object.entries(values).forEach( ([key, value]) => {
+      if (Array.isArray(value)) {
+        value = value.reduce( (out, name) => {
+          return out | flag[name];
+        }, 0);
+      }
+      flag[key] = def[key] = value;
+    });
+
+    flags[flagName] = flag;
+    return flag;
+  }
+
+  flag.install = installFlag;
+
+  ///////////////////////////////////
+  // ENUM
+
+  // export var enums = {};
+  // export var enum = {};
+
+  class Enum {
+    constructor(...names) {
+      let offset = 0;
+      if (typeof names[0] === 'number') {
+        offset = names.shift();
+      }
+      names.forEach( (name, index) => {
+        this[name] = index + offset;
+      });
+    }
+
+    toString(v) {
+      if (v === undefined) return JSON.stringify(this);
+      return Object.entries(this).reduce( (out, [key, value]) => (value == v) ? key : out, '?' );
+    }
+  }
+
+  types.Enum = Enum;
+
+  // export function installEnum(enumName, ...names) {
+  //   const out = new types.Enum(...names);
+  //   enums[enumName] = out;
+  //   return out;
+  // }
+  //
+  // enum.install = installEnum;
 
   // Based on random numbers in umoria
   const RNG_M = 2**31 - 1;
@@ -1249,21 +1378,54 @@
   		return null; // should never reach this point
   	}
 
+
+  	// Rotates around the cell, counting up the number of distinct strings of neighbors with the same test result in a single revolution.
+  	//		Zero means there are no impassable tiles adjacent.
+  	//		One means it is adjacent to a wall.
+  	//		Two means it is in a hallway or something similar.
+  	//		Three means it is the center of a T-intersection or something similar.
+  	//		Four means it is in the intersection of two hallways.
+  	//		Five or more means there is a bug.
+  	arcCount(x, y, testFn) {
+  		let arcCount, dir, oldX, oldY, newX, newY;
+
+  	  // brogueAssert(grid.hasXY(x, y));
+
+  		testFn = testFn || IDENTITY;
+
+  		arcCount = 0;
+  		for (dir = 0; dir < CDIRS.length; dir++) {
+  			oldX = x + CDIRS[(dir + 7) % 8][0];
+  			oldY = y + CDIRS[(dir + 7) % 8][1];
+  			newX = x + CDIRS[dir][0];
+  			newY = y + CDIRS[dir][1];
+  			// Counts every transition from passable to impassable or vice-versa on the way around the cell:
+  			if ((this.hasXY(newX, newY) && testFn(this[newX][newY], newX, newY))
+  				!= (this.hasXY(oldX, oldY) && testFn(this[oldX][oldY], oldX, oldY)))
+  			{
+  				arcCount++;
+  			}
+  		}
+  		return Math.floor(arcCount / 2); // Since we added one when we entered a wall and another when we left.
+  	}
+
   }
 
   types.Grid = Grid;
 
 
   function makeGrid(w, h, v) {
-  	return new Grid(w, h, v);
+  	return new types.Grid(w, h, v);
   }
+
+  make.grid = makeGrid;
 
 
   // mallocing two-dimensional arrays! dun dun DUN!
   function allocGrid(w, h, v) {
 
-  	w = w || ( 100);
-  	h = h || ( 34);
+  	w = w || (data.map ? data.map.width : 100);
+  	h = h || (data.map ? data.map.height : 34);
   	v = v || 0;
 
   	let grid = GRID_CACHE.pop();
@@ -1520,40 +1682,6 @@
 
   grid$1.randomLeastPositiveLocation = randomLeastPositiveLocation;
 
-
-  // Rotates around the cell, counting up the number of distinct strings of neighbors with the same test result in a single revolution.
-  //		Zero means there are no impassable tiles adjacent.
-  //		One means it is adjacent to a wall.
-  //		Two means it is in a hallway or something similar.
-  //		Three means it is the center of a T-intersection or something similar.
-  //		Four means it is in the intersection of two hallways.
-  //		Five or more means there is a bug.
-  function arcCount(grid, x, y, testFn) {
-  	let arcCount, dir, oldX, oldY, newX, newY;
-
-    // brogueAssert(grid.hasXY(x, y));
-
-  	testFn = testFn || IDENTITY;
-
-  	arcCount = 0;
-  	for (dir = 0; dir < CDIRS.length; dir++) {
-  		oldX = x + CDIRS[(dir + 7) % 8][0];
-  		oldY = y + CDIRS[(dir + 7) % 8][1];
-  		newX = x + CDIRS[dir][0];
-  		newY = y + CDIRS[dir][1];
-  		// Counts every transition from passable to impassable or vice-versa on the way around the cell:
-  		if ((grid.hasXY(newX, newY) && testFn(grid[newX][newY], newX, newY))
-  			!= (grid.hasXY(oldX, oldY) && testFn(grid[oldX][oldY], oldX, oldY)))
-  		{
-  			arcCount++;
-  		}
-  	}
-  	return Math.floor(arcCount / 2); // Since we added one when we entered a wall and another when we left.
-  }
-
-  grid$1.arcCount = arcCount;
-
-
   // Marks a cell as being a member of blobNumber, then recursively iterates through the rest of the blob
   function floodFill(grid, x, y, matchValue, fillValue) {
     let dir;
@@ -1579,6 +1707,55 @@
   }
 
   grid$1.floodFill = floodFill;
+
+
+
+  function offsetZip(destGrid, srcGrid, srcToDestX, srcToDestY, value) {
+  	const fn = (typeof value === 'function') ? value : ((d, s, i, j) => destGrid[i][j] = value || s);
+  	srcGrid.forEach( (c, i, j) => {
+  		const destX = i + srcToDestX;
+  		const destY = j + srcToDestY;
+  		if (!destGrid.hasXY(destX, destY)) return;
+  		if (!c) return;
+  		fn(destGrid[destX][destY], c, i, j);
+  	});
+  }
+
+  grid$1.offsetZip = offsetZip;
+
+
+
+  // If the indicated tile is a wall on the room stored in grid, and it could be the site of
+  // a door out of that room, then return the outbound direction that the door faces.
+  // Otherwise, return def.NO_DIRECTION.
+  function directionOfDoorSite(grid, x, y, isOpen=1) {
+      let dir, solutionDir;
+      let newX, newY, oppX, oppY;
+
+  		const fnOpen = (typeof isOpen === 'function') ? isOpen : ((v) => v == isOpen);
+
+      solutionDir = def.NO_DIRECTION;
+      for (dir=0; dir<4; dir++) {
+          newX = x + DIRS[dir][0];
+          newY = y + DIRS[dir][1];
+          oppX = x - DIRS[dir][0];
+          oppY = y - DIRS[dir][1];
+          if (grid.hasXY(oppX, oppY)
+              && grid.hasXY(newX, newY)
+              && fnOpen(grid[oppX][oppY],oppX, oppY))
+          {
+              // This grid cell would be a valid tile on which to place a door that, facing outward, points dir.
+              if (solutionDir != def.NO_DIRECTION) {
+                  // Already claimed by another direction; no doors here!
+                  return def.NO_DIRECTION;
+              }
+              solutionDir = dir;
+          }
+      }
+      return solutionDir;
+  }
+
+  grid$1.directionOfDoorSite = directionOfDoorSite;
 
 
   function cellularAutomataRound(grid, birthParameters /* char[9] */, survivalParameters /* char[9] */) {
@@ -1629,7 +1806,16 @@
   	let blobNumber, blobSize, topBlobNumber, topBlobSize;
 
     let topBlobMinX, topBlobMinY, topBlobMaxX, topBlobMaxY, blobWidth, blobHeight;
-  		let foundACellThisLine;
+  	let foundACellThisLine;
+
+  	if (minBlobWidth >= maxBlobWidth) {
+  		minBlobWidth = Math.round(0.75 * maxBlobWidth);
+  		maxBlobWidth = Math.round(1.25 * maxBlobWidth);
+  	}
+  	if (minBlobHeight >= maxBlobHeight) {
+  		minBlobHeight = Math.round(0.75 * maxBlobHeight);
+  		maxBlobHeight = Math.round(1.25 * maxBlobHeight);
+  	}
 
   	const left = Math.floor((grid.width - maxBlobWidth) / 2);
   	const top  = Math.floor((grid.height - maxBlobHeight) / 2);
@@ -1656,9 +1842,9 @@
   		// Now to measure the result. These are best-of variables; start them out at worst-case values.
   		topBlobSize =   0;
   		topBlobNumber = 0;
-  		topBlobMinX =   maxBlobWidth;
+  		topBlobMinX =   grid.width;
   		topBlobMaxX =   0;
-  		topBlobMinY =   maxBlobHeight;
+  		topBlobMinY =   grid.height;
   		topBlobMaxY =   0;
 
   		// Fill each blob with its own number, starting with 2 (since 1 means floor), and keeping track of the biggest:
@@ -2306,6 +2492,7 @@
 
   const PDS_FORBIDDEN   = def.PDS_FORBIDDEN   = -1;
   const PDS_OBSTRUCTION = def.PDS_OBSTRUCTION = -2;
+  const PDS_NO_PATH     = def.PDS_NO_PATH     = 30000;
 
   // GW.actor.avoidsCell = GW.actor.avoidsCell || GW.utils.FALSE;
   // GW.actor.canPass = GW.actor.canPass || ((a, b) => a === b);
@@ -2538,7 +2725,7 @@
   	DIJKSTRA_MAP.width  = distanceMap.width;
   	DIJKSTRA_MAP.height = distanceMap.height;
 
-  	pdsBatchInput(DIJKSTRA_MAP, distanceMap, costMap, 30000, useDiagonals);
+  	pdsBatchInput(DIJKSTRA_MAP, distanceMap, costMap, PDS_NO_PATH, useDiagonals);
   	batchOutput(DIJKSTRA_MAP, distanceMap);
   }
 
@@ -2616,7 +2803,7 @@
   		}
   	}
 
-  	clear(DIJKSTRA_MAP, 30000, eightWays);
+  	clear(DIJKSTRA_MAP, PDS_NO_PATH, eightWays);
   	setDistance(DIJKSTRA_MAP, destinationX, destinationY, 0);
   	batchOutput(DIJKSTRA_MAP, distanceMap);
   	distanceMap.x = destinationX;
@@ -2713,7 +2900,7 @@
   // 	lowestMapScore = 10000;
   // 	for (i=1; i<map.width-1; i++) {
   // 		for (j=1; j<map.height-1; j++) {
-  // 			if (map[i][j] >= 0 && map[i][j] < 30000) {
+  // 			if (map[i][j] >= 0 && map[i][j] < PDS_NO_PATH) {
   // 				dist = (i - x)*(i - x) + (j - y)*(j - y);
   // 				//hiliteCell(i, j, &purple, min(dist / 2, 100), false);
   // 				if (dist < closestDistance
@@ -2742,7 +2929,7 @@
   // 	steps = 0;
   //
   //
-  // 	if (distanceMap[x][y] < 0 || distanceMap[x][y] >= 30000) {
+  // 	if (distanceMap[x][y] < 0 || distanceMap[x][y] >= PDS_NO_PATH) {
   // 		const loc = getClosestValidLocationOnMap(distanceMap, x, y);
   // 		if (loc) {
   // 			x = loc[0];
@@ -2770,102 +2957,411 @@
   //
   // GW.path.from = getMonsterPathOnMap;
 
-  var flag = {};
-  var flags = {};
+  var digger = {};
+  var diggers = {};
 
-  ///////////////////////////////////
-  // FLAG
+  const DIRS$2 = def.dirs;
 
-  function Fl(N) { return (1 << N); }
 
-  flag.fl = Fl;
+  const TILE = 1;
 
-  function flagToText(flagObj, value) {
-    const inverse = Object.entries(flagObj).reduce( (out, [key, value]) => {
-      out[value] = key;
-      return out;
-    }, {});
 
-    const out = [];
-    for(let index = 0; index < 32; ++index) {
-      const fl = (1 << index);
-      if (value & fl) {
-        out.push(inverse[fl]);
-      }
-    }
-    return out.join(' | ');
+  function installDigger(id, fn, config) {
+    config = fn(config || {});	// call to have function bind itself to the config
+    config.fn = fn;
+    config.id = id;
+    diggers[id] = config;
+    return config;
   }
 
-  function makeFlag(obj, ...args) {
-    let result = 0;
-    for(let index = 0; index < args.length; ++index) {
-      let value = args[index];
-      if (value === undefined) continue;
-      if (typeof value == 'number') {
-        result |= value;
-        continue;	// next
-      }
-      else if (typeof value === 'string') {
-        value = value.split(/[,|]/).map( (t) => t.trim() );
-      }
+  digger.install = installDigger;
 
-      if (Array.isArray(value)) {
-        value.forEach( (v) => {
-          if (typeof v == 'string') {
-            v = v.trim();
-            if (v.startsWith('!')) {
-              const f = obj[v.substring(1)];
-              result &= ~f;
-            }
-            else {
-              const f = obj[v];
-              if (f) { result |= f; }
-            }
+
+  function checkDiggerConfig(config, opts) {
+    config = config || {};
+    opts = opts || {};
+
+    Object.entries(opts).forEach( ([key,expect]) => {
+      const have = config[key];
+
+      if (expect === true) {	// needs to be a number > 0
+        if (typeof have !== 'number') {
+          ERROR('Invalid configuration for digger: ' + key + ' expected number received ' + typeof have);
+        }
+      }
+      else if (typeof expect === 'number') {	// needs to be a number, this is the default
+        const have = config[key];
+        if (typeof have !== 'number') {
+          config[key] = expect;	// provide default
+        }
+      }
+      else if (Array.isArray(expect)) {	// needs to be an array with this size, these are the defaults
+        if (typeof have === 'number') {
+          config[key] = new Array(expect.length).fill(have);
+        }
+        else if (!Array.isArray(have)) {
+          WARN('Received unexpected config for digger : ' + key + ' expected array, received ' + typeof have + ', using defaults.');
+          config[key] = expect.slice();
+        }
+        else if (expect.length > have.length) {
+          for(let i = have.length; i < expect.length; ++i) {
+            have[i] = expect[i];
           }
-          else {
-            result |= v;
-          }
-        });
+        }
       }
-    }
-    return result;
-  }
-
-
-  class Flag {
-    constructor(name) {
-    }
-    toString(v) {
-      return flagToText(this, v);
-    }
-    toFlag(...args) {
-      return makeFlag(this, ...args);
-    }
-    install(obj) {
-      Object.getOwnPropertyNames(this).forEach( (name) => {
-        obj[name] = this[name];
-      });
-    }
-  }
-
-  types.Flag = Flag;
-
-  function installFlag(flagName, values) {
-    const flag = new Flag(flagName);
-    Object.entries(values).forEach( ([key, value]) => {
-      if (Array.isArray(value)) {
-        value = value.reduce( (out, name) => {
-          return out | flag[name];
-        }, 0);
+      else {
+        WARN('Unexpected digger configuration parameter: ', key, expect);
       }
-      flag[key] = def[key] = value;
     });
 
-    flags[flagName] = flag;
-    return flag;
+    return config;
   }
 
-  flag.install = installFlag;
+  digger.checkConfig = checkDiggerConfig;
+
+
+  function digCavern(config, grid) {
+    config = digger.checkConfig(config, { width: [3,12], height: [4,8] });
+    if (!grid) return config;
+
+    let destX, destY;
+    let blobGrid;
+
+    blobGrid = allocGrid(grid.width, grid.height, 0);
+
+    const minWidth  = config.width[0];
+    const maxWidth  = config.width[1];
+    const minHeight = config.height[0];
+    const maxHeight = config.height[1];
+
+    grid.fill(0);
+    const bounds = fillBlob(blobGrid, 5, minWidth, minHeight, maxWidth, maxHeight, 55, "ffffffttt", "ffffttttt");
+
+    // Position the new cave in the middle of the grid...
+    destX = Math.floor((grid.width - bounds.width) / 2);
+    destY = Math.floor((grid.height - bounds.height) / 2);
+
+    // ...and copy it to the master grid.
+    offsetZip(grid, blobGrid, destX - bounds.x, destY - bounds.y, config.tile);
+    freeGrid(blobGrid);
+  }
+
+  digger.cavern = digCavern;
+
+
+  function digChoiceRoom(config, grid) {
+    config = config || {};
+    let choices;
+    if (Array.isArray(config.choices)) {
+      choices = config.choices;
+    }
+    else if (typeof config.choices == 'object') {
+      choices = Object.keys(config.choices);
+    }
+    else {
+      ERROR('Expected choices to be either array of choices or map { digger: weight }');
+    }
+    for(let choice of choices) {
+      if (!diggers[choice]) {
+        ERROR('Missing digger choice: ' + choice);
+      }
+    }
+
+    if (!grid) return config;
+
+    let id;
+    if (Array.isArray(config.choices)) {
+      id = random.item(config.choices);
+    }
+    else {
+      id = random.lottery(config.choices);
+    }
+    const digger = diggers[id];
+    debug$1.log('Choose room: ', id);
+    digger.fn(digger, grid);
+  }
+
+  digger.choiceRoom = digChoiceRoom;
+
+
+  // This is a special room that appears at the entrance to the dungeon on depth 1.
+  function digEntranceRoom(config, grid) {
+    config = digger.checkConfig(config, { width: [8,20], height: [10,5] });
+    if (!grid) return config;
+
+    const roomWidth = config.width[0];
+    const roomHeight = config.height[0];
+    const roomWidth2 = config.width[1];
+    const roomHeight2 = config.height[1];
+
+    // ALWAYS start at bottom+center of map
+    const roomX = Math.floor(grid.width/2 - roomWidth/2 - 1);
+    const roomY = grid.height - roomHeight - 2;
+    const roomX2 = Math.floor(grid.width/2 - roomWidth2/2 - 1);
+    const roomY2 = grid.height - roomHeight2 - 2;
+
+    grid.fill(0);
+    grid.fillRect(roomX, roomY, roomWidth, roomHeight, config.tile || TILE);
+    grid.fillRect(roomX2, roomY2, roomWidth2, roomHeight2, config.tile || TILE);
+  }
+
+
+  digger.entranceRoom = digEntranceRoom;
+
+
+  function digCrossRoom(config, grid) {
+    config = digger.checkConfig(config, { width: [3,12], height: [3,7], width2: [4,20], height2: [2,5] });
+    if (!grid) return config;
+
+    const roomWidth = random.range(config.width[0], config.width[1]);
+    const roomWidth2 = random.range(config.width2[0], config.width2[1]);
+    const roomHeight = random.range(config.height[0], config.height[1]);
+    const roomHeight2 = random.range(config.height2[0], config.height2[1]);
+
+    const roomX = random.range(Math.max(0, Math.floor(grid.width/2) - (roomWidth - 1)), Math.min(grid.width, Math.floor(grid.width/2)));
+    const roomX2 = (roomX + Math.floor(roomWidth / 2) + random.range(0, 2) + random.range(0, 2) - 3) - Math.floor(roomWidth2 / 2);
+    const roomY = Math.floor(grid.height/2 - roomHeight);
+    const roomY2 = Math.floor(grid.height/2 - roomHeight2 - (random.range(0, 2) + random.range(0, 1)));
+
+    grid.fill(0);
+
+    grid.fillRect(roomX - 5, roomY + 5, roomWidth, roomHeight, config.tile || TILE);
+    grid.fillRect(roomX2 - 5, roomY2 + 5, roomWidth2, roomHeight2, config.tile || TILE);
+  }
+
+  digger.crossRoom = digCrossRoom;
+
+
+  function digSymmetricalCrossRoom(config, grid) {
+    config = digger.checkConfig(config, { width: [4,8], height: [4,5], width2: [3,4], height2: [3,3] });
+    if (!grid) return config;
+
+    let majorWidth = random.range(config.width[0], config.width[1]);
+    let majorHeight = random.range(config.height[0], config.height[1]);
+
+    let minorWidth = random.range(config.width2[0], config.width2[1]);
+    if (majorHeight % 2 == 0) {
+        minorWidth -= 1;
+    }
+    let minorHeight = random.range(config.height2[0], config.height2[1]);	// originally 2,3?
+    if (majorWidth % 2 == 0) {
+        minorHeight -= 1;
+    }
+
+    grid.fill(0);
+    grid.fillRect(Math.floor((grid.width - majorWidth)/2), Math.floor((grid.height - minorHeight)/2), majorWidth, minorHeight, config.tile || TILE);
+    grid.fillRect(Math.floor((grid.width - minorWidth)/2), Math.floor((grid.height - majorHeight)/2), minorWidth, majorHeight, config.tile || TILE);
+  }
+
+  digger.symmetricalCrossRoom = digSymmetricalCrossRoom;
+
+
+  function digRectangularRoom(config, grid) {
+    config = digger.checkConfig(config, { width: [3,6], height: [2,4] });
+    if (!grid) return config;
+
+    const width = random.range(config.width[0], config.width[1]);
+    const height = random.range(config.height[0], config.height[1]);
+
+    grid.fill(0);
+    grid.fillRect(Math.floor((grid.width - width) / 2), Math.floor((grid.height - height) / 2), width, height, config.tile || TILE);
+  }
+
+  digger.rectangularRoom = digRectangularRoom;
+
+
+  function digCircularRoom(config, grid) {
+    config = digger.checkConfig(config, { radius: [2,4] });
+    if (!grid) return config;
+
+    const radius = random.range(config.radius[0], config.radius[1]);
+
+    grid.fill(0);
+    grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, config.tile || TILE);
+
+  }
+
+  digger.circularRoom = digCircularRoom;
+
+
+  function digBrogueCircularRoom(config, grid) {
+    config = digger.checkConfig(config, { radius: [2,4], radius2: [4,10], altChance: 5, ringMinWidth: 3, holeMinSize: 3, holeChance: 50 });
+    if (!grid) return config;
+
+    const params = random.percent(config.altChance || 5) ? config.radius2 : config.radius;
+    const radius = random.range(params[0], params[1]);
+
+    grid.fill(0);
+    grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, config.tile || TILE);
+
+    if (radius > config.ringMinWidth + config.holeMinSize
+        && random.percent(config.holeChance))
+    {
+        grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), random.range(config.holeMinSize, radius - config.holeMinSize), 0);
+    }
+  }
+
+  digger.brogueCircularRoom = digBrogueCircularRoom;
+
+
+  function digChunkyRoom(config, grid) {
+    config = digger.checkConfig(config, { count: [2,8] });
+    if (!grid) return config;
+
+    let i, x, y;
+    let minX, maxX, minY, maxY;
+    let chunkCount = random.range(config.count[0], config.count[1]);
+
+    grid.fill(0);
+    grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), 2, 1);
+    minX = Math.floor(grid.width/2) - 3;
+    maxX = Math.floor(grid.width/2) + 3;
+    minY = Math.floor(grid.height/2) - 3;
+    maxY = Math.floor(grid.height/2) + 3;
+
+    for (i=0; i<chunkCount;) {
+        x = random.range(minX, maxX);
+        y = random.range(minY, maxY);
+        if (grid[x][y]) {
+  //            colorOverDungeon(/* Color. */darkGray);
+  //            hiliteGrid(grid, /* Color. */white, 100);
+
+            grid.fillCircle(x, y, 2, config.tile || TILE);
+            i++;
+            minX = Math.max(1, Math.min(x - 3, minX));
+            maxX = Math.min(grid.width - 2, Math.max(x + 3, maxX));
+            minY = Math.max(1, Math.min(y - 3, minY));
+            maxY = Math.min(grid.height - 2, Math.max(y + 3, maxY));
+
+  //            hiliteGrid(grid, /* Color. */green, 50);
+  //            temporaryMessage("Added a chunk:", true);
+        }
+    }
+  }
+
+  digger.chunkyRoom = digChunkyRoom;
+
+
+
+  function chooseRandomDoorSites(sourceGrid) {
+    let i, j, k, newX, newY;
+    let dir;
+    let doorSiteFailed;
+
+    const grid = allocGrid(sourceGrid.width, sourceGrid.height);
+    grid.copy(sourceGrid);
+
+    for (i=0; i<grid.width; i++) {
+        for (j=0; j<grid.height; j++) {
+            if (!grid[i][j]) {
+                dir = directionOfDoorSite(grid, i, j);
+                if (dir != def.NO_DIRECTION) {
+                    // Trace a ray 10 spaces outward from the door site to make sure it doesn't intersect the room.
+                    // If it does, it's not a valid door site.
+                    newX = i + DIRS$2[dir][0];
+                    newY = j + DIRS$2[dir][1];
+                    doorSiteFailed = false;
+                    for (k=0; k<10 && grid.hasXY(newX, newY) && !doorSiteFailed; k++) {
+                        if (grid[newX][newY]) {
+                            doorSiteFailed = true;
+                        }
+                        newX += DIRS$2[dir][0];
+                        newY += DIRS$2[dir][1];
+                    }
+                    if (!doorSiteFailed) {
+                        grid[i][j] = dir + 10000; // So as not to conflict with other tiles.
+                    }
+                }
+            }
+        }
+    }
+
+    let doorSites = [];
+    // Pick four doors, one in each direction, and store them in doorSites[dir].
+    for (dir=0; dir<4; dir++) {
+        const loc = grid.randomMatchingXY(dir + 10000) || [-1, -1];
+        doorSites[dir] = loc.slice();
+    }
+
+    freeGrid(grid);
+    return doorSites;
+  }
+
+  digger.chooseRandomDoorSites = chooseRandomDoorSites;
+
+
+
+  function attachHallway(grid, doorSitesArray, opts) {
+      let i, x, y, newX, newY;
+      let length;
+      let dir, dir2;
+      let allowObliqueHallwayExit;
+
+      opts = opts || {};
+      const tile = opts.tile || 1;
+
+      const horizontalLength = first('horizontalHallLength', opts, [9,15]);
+      const verticalLength = first('verticalHallLength', opts, [2,9]);
+
+      // Pick a direction.
+      dir = opts.dir;
+      if (dir === undefined) {
+        const dirs = sequence(4);
+        random.shuffle(dirs);
+        for (i=0; i<4; i++) {
+            dir = dirs[i];
+            if (doorSitesArray[dir][0] != -1
+                && doorSitesArray[dir][1] != -1
+                && grid.hasXY(doorSitesArray[dir][0] + Math.floor(DIRS$2[dir][0] * horizontalLength[1]),
+                                       doorSitesArray[dir][1] + Math.floor(DIRS$2[dir][1] * verticalLength[1])) ) {
+                    break; // That's our direction!
+            }
+        }
+        if (i==4) {
+            return; // No valid direction for hallways.
+        }
+      }
+
+      if (dir == def.UP || dir == def.DOWN) {
+          length = random.range(...verticalLength);
+      } else {
+          length = random.range(...horizontalLength);
+      }
+
+      x = doorSitesArray[dir][0];
+      y = doorSitesArray[dir][1];
+
+      const attachLoc = [x - DIRS$2[dir][0], y - DIRS$2[dir][1]];
+      for (i = 0; i < length; i++) {
+          if (grid.hasXY(x, y)) {
+              grid[x][y] = tile;
+          }
+          x += DIRS$2[dir][0];
+          y += DIRS$2[dir][1];
+      }
+      x = clamp(x - DIRS$2[dir][0], 0, grid.width - 1);
+      y = clamp(y - DIRS$2[dir][1], 0, grid.height - 1); // Now (x, y) points at the last interior cell of the hallway.
+      allowObliqueHallwayExit = random.percent(15);
+      for (dir2 = 0; dir2 < 4; dir2++) {
+          newX = x + DIRS$2[dir2][0];
+          newY = y + DIRS$2[dir2][1];
+
+          if ((dir2 != dir && !allowObliqueHallwayExit)
+              || !grid.hasXY(newX, newY)
+              || grid[newX][newY])
+          {
+              doorSitesArray[dir2][0] = -1;
+              doorSitesArray[dir2][1] = -1;
+          } else {
+              doorSitesArray[dir2][0] = newX;
+              doorSitesArray[dir2][1] = newY;
+          }
+      }
+
+      return attachLoc;
+  }
+
+  digger.attachHallway = attachHallway;
 
   var tile = {};
   var tiles = [];
@@ -2875,18 +3371,18 @@
     T_OBSTRUCTS_PASSABILITY	: Fl(0),		// cannot be walked through
     T_OBSTRUCTS_VISION			: Fl(1),		// blocks line of sight
     T_OBSTRUCTS_ITEMS				: Fl(2),		// items can't be on this tile
-    T_OBSTRUCTS_SURFACE_EFFECTS		: Fl(3),		// grass, blood, etc. cannot exist on this tile
+    T_OBSTRUCTS_SURFACE		  : Fl(3),		// grass, blood, etc. cannot exist on this tile
     T_OBSTRUCTS_GAS					: Fl(4),		// blocks the permeation of gas
     T_OBSTRUCTS_DIAGONAL_MOVEMENT : Fl(5),    // can't step diagonally around this tile
 
     T_AUTO_DESCENT					: Fl(6),		// automatically drops creatures down a depth level and does some damage (2d6)
+    T_LAVA			            : Fl(7),		// kills any non-levitating non-fire-immune creature instantly
+    T_DEEP_WATER					  : Fl(8),		// steals items 50% of the time and moves them around randomly
 
-    T_SPONTANEOUSLY_IGNITES	: Fl(7),		// monsters avoid unless chasing player or immune to fire
-    T_LAVA_INSTA_DEATH			: Fl(8),		// kills any non-levitating non-fire-immune creature instantly
-    T_IS_FLAMMABLE					: Fl(9),		// terrain can catch fire
-    T_IS_FIRE								: Fl(10),		// terrain is a type of fire; ignites neighboring flammable cells
-    T_ENTANGLES							: Fl(11),		// entangles players and monsters like a spiderweb
-    T_IS_DEEP_WATER					: Fl(12),		// steals items 50% of the time and moves them around randomly
+    T_SPONTANEOUSLY_IGNITES	: Fl(9),		// monsters avoid unless chasing player or immune to fire
+    T_IS_FLAMMABLE					: Fl(10),		// terrain can catch fire
+    T_IS_FIRE								: Fl(11),		// terrain is a type of fire; ignites neighboring flammable cells
+    T_ENTANGLES							: Fl(12),		// entangles players and monsters like a spiderweb
 
     T_CAUSES_POISON					: Fl(13),		// any non-levitating creature gets 10 poison
     T_CAUSES_DAMAGE					: Fl(14),		// anything on the tile takes max(1-2, 10%) damage per turn
@@ -2900,19 +3396,21 @@
 
     T_UP_STAIRS							: Fl(22),
     T_DOWN_STAIRS						: Fl(23),
-    T_IS_DOOR								: Fl(24),
+    T_PORTAL                : Fl(24),
+    T_IS_DOOR								: Fl(25),
 
     T_HAS_STAIRS						: ['T_UP_STAIRS', 'T_DOWN_STAIRS'],
-    T_OBSTRUCTS_SCENT				: ['T_OBSTRUCTS_PASSABILITY', 'T_OBSTRUCTS_VISION', 'T_AUTO_DESCENT', 'T_LAVA_INSTA_DEATH', 'T_IS_DEEP_WATER', 'T_SPONTANEOUSLY_IGNITES', 'T_HAS_STAIRS'],
-    T_PATHING_BLOCKER				: ['T_OBSTRUCTS_PASSABILITY', 'T_AUTO_DESCENT', 'T_IS_TRAP', 'T_LAVA_INSTA_DEATH', 'T_IS_DEEP_WATER', 'T_IS_FIRE', 'T_SPONTANEOUSLY_IGNITES'],
-    T_DIVIDES_LEVEL       	: ['T_OBSTRUCTS_PASSABILITY', 'T_AUTO_DESCENT', 'T_IS_TRAP', 'T_LAVA_INSTA_DEATH', 'T_IS_DEEP_WATER'],
-    T_LAKE_PATHING_BLOCKER	: ['T_AUTO_DESCENT', 'T_LAVA_INSTA_DEATH', 'T_IS_DEEP_WATER', 'T_SPONTANEOUSLY_IGNITES'],
-    T_WAYPOINT_BLOCKER			: ['T_OBSTRUCTS_PASSABILITY', 'T_AUTO_DESCENT', 'T_IS_TRAP', 'T_LAVA_INSTA_DEATH', 'T_IS_DEEP_WATER', 'T_SPONTANEOUSLY_IGNITES'],
-    T_MOVES_ITEMS						: ['T_IS_DEEP_WATER', 'T_LAVA_INSTA_DEATH'],
+    T_OBSTRUCTS_SCENT				: ['T_OBSTRUCTS_PASSABILITY', 'T_OBSTRUCTS_VISION', 'T_AUTO_DESCENT', 'T_LAVA', 'T_DEEP_WATER', 'T_SPONTANEOUSLY_IGNITES', 'T_HAS_STAIRS'],
+    T_PATHING_BLOCKER				: ['T_OBSTRUCTS_PASSABILITY', 'T_AUTO_DESCENT', 'T_IS_TRAP', 'T_LAVA', 'T_DEEP_WATER', 'T_IS_FIRE', 'T_SPONTANEOUSLY_IGNITES', 'T_ENTANGLES'],
+    T_DIVIDES_LEVEL       	: ['T_OBSTRUCTS_PASSABILITY', 'T_AUTO_DESCENT', 'T_IS_TRAP', 'T_LAVA', 'T_DEEP_WATER'],
+    T_LAKE_PATHING_BLOCKER	: ['T_AUTO_DESCENT', 'T_LAVA', 'T_DEEP_WATER', 'T_SPONTANEOUSLY_IGNITES'],
+    T_WAYPOINT_BLOCKER			: ['T_OBSTRUCTS_PASSABILITY', 'T_AUTO_DESCENT', 'T_IS_TRAP', 'T_LAVA', 'T_DEEP_WATER', 'T_SPONTANEOUSLY_IGNITES'],
+    T_MOVES_ITEMS						: ['T_DEEP_WATER', 'T_LAVA'],
     T_CAN_BE_BRIDGED				: ['T_AUTO_DESCENT'],
-    T_OBSTRUCTS_EVERYTHING	: ['T_OBSTRUCTS_PASSABILITY', 'T_OBSTRUCTS_VISION', 'T_OBSTRUCTS_ITEMS', 'T_OBSTRUCTS_GAS', 'T_OBSTRUCTS_SURFACE_EFFECTS', 'T_OBSTRUCTS_DIAGONAL_MOVEMENT'],
+    T_OBSTRUCTS_EVERYTHING	: ['T_OBSTRUCTS_PASSABILITY', 'T_OBSTRUCTS_VISION', 'T_OBSTRUCTS_ITEMS', 'T_OBSTRUCTS_GAS', 'T_OBSTRUCTS_SURFACE',   'T_OBSTRUCTS_DIAGONAL_MOVEMENT'],
     T_HARMFUL_TERRAIN				: ['T_CAUSES_POISON', 'T_IS_FIRE', 'T_CAUSES_DAMAGE', 'T_CAUSES_PARALYSIS', 'T_CAUSES_CONFUSION', 'T_CAUSES_EXPLOSIVE_DAMAGE'],
     T_RESPIRATION_IMMUNITIES  : ['T_CAUSES_DAMAGE', 'T_CAUSES_CONFUSION', 'T_CAUSES_PARALYSIS', 'T_CAUSES_NAUSEA'],
+    T_IS_LIQUID               : ['T_LAVA', 'T_AUTO_DESCENT', 'T_DEEP_WATER'],
   });
 
   tile.flags = Flags;
@@ -3002,11 +3500,21 @@
 
       setFlags(this, allFlags);
     }
+
+    successorFlags(event) {
+      const e = this.events[event];
+      if (!e) return 0;
+      const feature = e.feature;
+      if (!feature) return 0;
+      // const tile = FEATURES[feature].tile;
+      // if (!tile) return 0;
+      // return tiles[tile].flags;
+    }
   }
 
   types.Tile = Tile;
 
-  function makeTile(ch, fg, bg, layer, priority, allFlags, desc, flavor, opts={}) {
+  function makeTile(ch, fg, bg, priority, layer, allFlags, desc, flavor, opts={}) {
     const tile = new types.Tile(ch, fg, bg, layer, priority, allFlags, desc, flavor);
     // TODO - tile.light = opts.light || null;
     // TODO - tile.events.fire = opts.fire
@@ -3035,15 +3543,14 @@
 
   // These are the minimal set of tiles to make the diggers work
   const NOTHING = def.NOTHING = 0;
-  installTile(NOTHING,       '\u2205', 'black', 'black', 0, 100, 0, "an eerie nothingness", "");
-  installTile('FLOOR',       '\u00b7', [40,40,40,15], [90,90,90]);	// FLOOR
-  installTile('DOOR',        '+', [100,40,40], [30,60,60]);	// DOOR
-  installTile('BRIDGE',      '=', [100,40,40], [60,40,0]);	// BRIDGE
-  installTile('UP_STAIRS',   '<', [100,40,40], [100,60,20]);	// UP
-  installTile('DOWN_STAIRS', '>', [100,40,40], [100,60,20]);	// DOWN
-  installTile('WALL',        '#', [50,50,50,10], [20,20,20,10]);	// WALL
-  installTile('LAKE',        '~', [0,80,100,10], [0,30,100,10,0,0,0,1]);	// LAKE
-  installTile('LAKE_FLOOR',  '\u00b7', [0,80,100, 10], [30,50,100,10,0,0,0,1]);	// LAKE_FLOOR
+  installTile(NOTHING,       '\u2205', 'black', 'black', 100, 0, 'T_OBSTRUCTS_PASSABILITY', "an eerie nothingness", "");
+  installTile('FLOOR',       '\u00b7', [40,40,40,15], [90,90,90], 90);	// FLOOR
+  installTile('DOOR',        '+', [100,40,40], [30,60,60], 50, 0, 'T_IS_DOOR');	// DOOR
+  installTile('BRIDGE',      '=', [100,40,40], [60,40,0], 30);	// BRIDGE
+  installTile('UP_STAIRS',   '<', [100,40,40], [100,60,20], 10);	// UP
+  installTile('DOWN_STAIRS', '>', [100,40,40], [100,60,20], 10);	// DOWN
+  installTile('WALL',        '#', [50,50,50,10], [20,20,20,10], 20, 0, 'T_OBSTRUCTS_EVERYTHING');	// WALL
+  installTile('LAKE',        '~', [0,80,100,10], [0,30,100,10,0,0,0,1], 40, 0, 'T_DEEP_WATER');	// LAKE
 
   function withName(name) {
     return tiles.find( (t) => t.name == name );
@@ -3051,8 +3558,10 @@
 
   tile.withName = withName;
 
-  const DIRS$2 = def.dirs;
+  const DIRS$3 = def.dirs;
   const OPP_DIRS = [def.DOWN, def.UP, def.RIGHT, def.LEFT];
+
+  var dungeon = {};
 
 
   const NOTHING$1 = 0;
@@ -3064,375 +3573,13 @@
   let WALL = 6;
 
   let LAKE = 7;
-  let LAKE_FLOOR = 8;
 
 
-  function installDigger(id, fn, config) {
-    config = fn(config || {});	// call to have function bind itself to the config
-    config.fn = fn;
-    config.id = id;
-    diggers[id] = config;
-    return config;
-  }
-
-  dig.installDigger = installDigger;
-
-  function _ensureBasicDiggerConfig(config, opts) {
-    config = config || {};
-    opts = opts || {};
-
-    Object.entries(opts).forEach( ([key,expect]) => {
-      const have = config[key];
-
-      if (expect === true) {	// needs to be a number > 0
-        if (typeof have !== 'number') {
-          ERROR('Invalid configuration for digger: ' + key + ' expected number received ' + typeof have);
-        }
-      }
-      else if (typeof expect === 'number') {	// needs to be a number, this is the default
-        const have = config[key];
-        if (typeof have !== 'number') {
-          config[key] = expect;	// provide default
-        }
-      }
-      else if (Array.isArray(expect)) {	// needs to be an array with this size, these are the defaults
-        if (typeof have === 'number') {
-          config[key] = new Array(expect.length).fill(have);
-        }
-        else if (!Array.isArray(have)) {
-          WARN('Received unexpected config for digger : ' + key + ' expected array, received ' + typeof have + ', using defaults.');
-          config[key] = expect.slice();
-        }
-        else if (expect.length > have.length) {
-          for(let i = have.length; i < expect.length; ++i) {
-            have[i] = expect[i];
-          }
-        }
-      }
-      else {
-        WARN('Unexpected digger configuration parameter: ', key, expect);
-      }
-    });
-
-    return config;
-  }
-
-
-  function designCavern(config, grid) {
-    config = _ensureBasicDiggerConfig(config, { width: [3,12], height: [4,8] });
-    if (!grid) return config;
-
-    let destX, destY;
-    let fillX, fillY;
-    let foundFillPoint = false;
-    let blobGrid;
-
-    blobGrid = allocGrid(grid.width, grid.height, 0);
-
-    const minWidth  = config.width[0];
-    const maxWidth  = config.width[1];
-    const minHeight = config.height[0];
-    const maxHeight = config.height[1];
-
-    grid.fill(NOTHING$1);
-    const bounds = GW.grid.fillBlob(blobGrid, 5, minWidth, minHeight, maxWidth, maxHeight, 55, "ffffffttt", "ffffttttt");
-
-  //    colorOverDungeon(/* Color. */darkGray);
-  //    hiliteGrid(blobGrid, /* Color. */tanColor, 80);
-  //    temporaryMessage("Here's the cave:", true);
-
-    // Position the new cave in the middle of the grid...
-    destX = Math.floor((grid.width - bounds.width) / 2);
-    destY = Math.floor((grid.height - bounds.height) / 2);
-
-    // ...pick a floodfill insertion point...
-    for (fillX = 0; fillX < grid.width && !foundFillPoint; fillX++) {
-        for (fillY = 0; fillY < grid.height && !foundFillPoint; fillY++) {
-            if (blobGrid[fillX][fillY]) {
-                foundFillPoint = true;
-            }
-        }
-    }
-    // ...and copy it to the master grid.
-    insertRoomAt(grid, blobGrid, destX - bounds.x, destY - bounds.y, fillX, fillY, FLOOR);
-    freeGrid(blobGrid);
-  }
-
-  dig.cavern = designCavern;
-
-
-  function designChoiceRoom(config, grid) {
-    config = config || {};
-    let diggers$1;
-    if (Array.isArray(config.choices)) {
-      diggers$1 = config.choices;
-    }
-    else if (typeof config.choices == 'object') {
-      diggers$1 = Object.keys(config.choices);
-    }
-    else {
-      ERROR('Expected choices to be either array of diggers or map { digger: weight }');
-    }
-    for(let choice of diggers$1) {
-      if (!diggers[choice]) {
-        ERROR('Missing digger choice: ' + choice);
-      }
-    }
-
-    if (!grid) return config;
-
-    let id;
-    if (Array.isArray(config.choices)) {
-      id = random.item(config.choices);
-    }
-    else {
-      id = random.lottery(config.choices);
-    }
-    const digger = diggers[id];
-    debug$1.log('Choose room: ', id);
-    digger.fn(digger, grid);
-  }
-
-  dig.choiceRoom = designChoiceRoom;
-
-
-  // This is a special room that appears at the entrance to the dungeon on depth 1.
-  function designEntranceRoom(config, grid) {
-    config = _ensureBasicDiggerConfig(config, { width: [8,20], height: [10,5] });
-    if (!grid) return config;
-
-    let roomWidth, roomHeight, roomWidth2, roomHeight2, roomX, roomY, roomX2, roomY2;
-
-    grid.fill(NOTHING$1);
-
-    roomWidth = config.width[0];
-    roomHeight = config.height[0];
-    roomWidth2 = config.width[1];
-    roomHeight2 = config.height[1];
-
-    // ALWAYS start at bottom+center of map
-    roomX = Math.floor(grid.width/2 - roomWidth/2 - 1);
-    roomY = grid.height - roomHeight - 2;
-    roomX2 = Math.floor(grid.width/2 - roomWidth2/2 - 1);
-    roomY2 = grid.height - roomHeight2 - 2;
-
-    grid.fillRect(roomX, roomY, roomWidth, roomHeight, FLOOR);
-    grid.fillRect(roomX2, roomY2, roomWidth2, roomHeight2, FLOOR);
-  }
-
-
-  dig.entranceRoom = designEntranceRoom;
-
-
-  function designCrossRoom(config, grid) {
-    config = _ensureBasicDiggerConfig(config, { width: [3,12], height: [3,7], width2: [4,20], height2: [2,5] });
-    if (!grid) return config;
-
-    let roomWidth, roomHeight, roomWidth2, roomHeight2, roomX, roomY, roomX2, roomY2;
-
-    grid.fill(NOTHING$1);
-
-    roomWidth = random.range(config.width[0], config.width[1]);
-    roomX = random.range(Math.max(0, Math.floor(grid.width/2) - (roomWidth - 1)), Math.min(grid.width, Math.floor(grid.width/2)));
-    roomWidth2 = random.range(config.width2[0], config.width2[1]);
-    roomX2 = (roomX + Math.floor(roomWidth / 2) + random.range(0, 2) + random.range(0, 2) - 3) - Math.floor(roomWidth2 / 2);
-
-    roomHeight = random.range(config.height[0], config.height[1]);
-    roomY = Math.floor(grid.height/2 - roomHeight);
-
-    roomHeight2 = random.range(config.height2[0], config.height2[1]);
-    roomY2 = Math.floor(grid.height/2 - roomHeight2 - (random.range(0, 2) + random.range(0, 1)));
-
-    grid.fillRect(roomX - 5, roomY + 5, roomWidth, roomHeight, FLOOR);
-    grid.fillRect(roomX2 - 5, roomY2 + 5, roomWidth2, roomHeight2, FLOOR);
-  }
-
-  dig.crossRoom = designCrossRoom;
-
-
-  function designSymmetricalCrossRoom(config, grid) {
-    config = _ensureBasicDiggerConfig(config, { width: [4,8], height: [4,5], width2: [3,4], height2: [3,3] });
-    if (!grid) return config;
-
-    let majorWidth, majorHeight, minorWidth, minorHeight;
-
-    grid.fill(NOTHING$1);
-
-    majorWidth = random.range(config.width[0], config.width[1]);
-    majorHeight = random.range(config.height[0], config.height[1]);
-
-    minorWidth = random.range(config.width2[0], config.width2[1]);
-    if (majorHeight % 2 == 0) {
-        minorWidth -= 1;
-    }
-    minorHeight = random.range(config.height2[0], config.height2[1]);	// originally 2,3?
-    if (majorWidth % 2 == 0) {
-        minorHeight -= 1;
-    }
-
-    grid.fillRect(Math.floor((grid.width - majorWidth)/2), Math.floor((grid.height - minorHeight)/2), majorWidth, minorHeight, FLOOR);
-    grid.fillRect(Math.floor((grid.width - minorWidth)/2), Math.floor((grid.height - majorHeight)/2), minorWidth, majorHeight, FLOOR);
-  }
-
-  dig.symmetricalCrossRoom = designSymmetricalCrossRoom;
-
-
-  function designRectangularRoom(config, grid) {
-    config = _ensureBasicDiggerConfig(config, { width: [3,6], height: [2,4] });
-    if (!grid) return config;
-
-    let width, height;
-
-    grid.fill(NOTHING$1);
-    width = random.range(config.width[0], config.width[1]);
-    height = random.range(config.height[0], config.height[1]);
-    grid.fillRect(Math.floor((grid.width - width) / 2), Math.floor((grid.height - height) / 2), width, height, FLOOR);
-  }
-
-  dig.rectangularRoom = designRectangularRoom;
-
-
-  function designCircularRoom(config, grid) {
-    config = _ensureBasicDiggerConfig(config, { radius: [2,4] });
-    if (!grid) return config;
-
-    let radius = random.range(config.radius[0], config.radius[1]);
-
-    grid.fill(NOTHING$1);
-    grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, FLOOR);
-
-  }
-
-  dig.circularRoom = designCircularRoom;
-
-
-  function designBrogueCircularRoom(config, grid) {
-    config = _ensureBasicDiggerConfig(config, { radius: [2,4], radius2: [4,10], altChance: 5, ringMinWidth: 3, holeMinSize: 3, holeChance: 50 });
-    if (!grid) return config;
-
-    let radius;
-
-    let params = random.percent(config.altChance || 5) ? config.radius2 : config.radius;
-    radius = random.range(params[0], params[1]);
-
-    grid.fill(NOTHING$1);
-    grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, FLOOR);
-
-    if (radius > config.ringMinWidth + config.holeMinSize
-        && random.percent(config.holeChance))
-    {
-        grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), random.range(config.holeMinSize, radius - config.holeMinSize), NOTHING$1);
-    }
-  }
-
-  dig.brogueCircularRoom = designBrogueCircularRoom;
-
-
-  function designChunkyRoom(config, grid) {
-    config = _ensureBasicDiggerConfig(config, { count: [2,8] });
-    if (!grid) return config;
-
-    let i, x, y;
-    let minX, maxX, minY, maxY;
-    let chunkCount = random.range(config.count[0], config.count[1]);
-
-    grid.fill(NOTHING$1);
-    grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), 2, 1);
-    minX = Math.floor(grid.width/2) - 3;
-    maxX = Math.floor(grid.width/2) + 3;
-    minY = Math.floor(grid.height/2) - 3;
-    maxY = Math.floor(grid.height/2) + 3;
-
-    for (i=0; i<chunkCount;) {
-        x = random.range(minX, maxX);
-        y = random.range(minY, maxY);
-        if (grid[x][y]) {
-  //            colorOverDungeon(/* Color. */darkGray);
-  //            hiliteGrid(grid, /* Color. */white, 100);
-
-            grid.fillCircle(x, y, 2, FLOOR);
-            i++;
-            minX = Math.max(1, Math.min(x - 3, minX));
-            maxX = Math.min(grid.width - 2, Math.max(x + 3, maxX));
-            minY = Math.max(1, Math.min(y - 3, minY));
-            maxY = Math.min(grid.height - 2, Math.max(y + 3, maxY));
-
-  //            hiliteGrid(grid, /* Color. */green, 50);
-  //            temporaryMessage("Added a chunk:", true);
-        }
-    }
-  }
-
-  dig.chunkyRoom = designChunkyRoom;
-
-
-  class DigSite {
-    constructor(w, h, opts={}) {
-      Object.assign(this, opts);
-      this.width = w;
-      this.height = h;
-      this.grid = allocGrid(w, h, NOTHING$1);
-      this.locations = {};
-    }
-
-    isPassable(x, y) {
-      if (!this.grid.hasXY(x, y)) return false;
-      const v = this.grid[x][y];
-      return v == FLOOR || v == DOOR || v == BRIDGE;
-    }
-
-    isObstruction(x, y) {
-      if (!this.grid.hasXY(x, y)) return true;
-      const v = this.grid[x][y];
-      return v == WALL;
-    }
-
-    isDoor(x, y) {
-      if (!this.grid.hasXY(x, y)) return true;
-      const v = this.grid[x][y];
-      return v == DOOR;
-    }
-
-    isBlocked(x, y) {
-      if (!this.grid.hasXY(x, y)) return false;
-      const v = this.grid[x][y];
-      return v == WALL || v == LAKE || v == LAKE_FLOOR || v == UP_STAIRS || v == DOWN_STAIRS;
-    }
-
-    isLake(x, y) {
-      if (!this.grid.hasXY(x, y)) return false;
-      const v = this.grid[x][y];
-      return v == LAKE || v == LAKE_FLOOR;
-    }
-
-  }
-
-
-
-
-  let SITE = {};
+  let SITE = null;
   let LOCS;
 
-  function startDig(opts={}) {
-    if (arguments.length == 2) {
-      opts = {
-        w: arguments[0], h: arguments[1]
-      };
-    }
-    else if (arguments.length == 3) {
-      opts = arguments[2];
-      opts.w = arguments[0];
-      opts.h = arguments[1];
-    }
-    const width = opts.w || opts.width || GW.CONFIG.DEFAULT_MAP_WIDTH || GW.ui.display.width || 80;
-    const height = opts.h || opts.height || GW.CONFIG.DEFAULT_MAP_HEIGHT || GW.ui.display.height || 30;
 
-    const startX = opts.x || -1;
-    const startY = opts.y || -1;
-
-    if (SITE) {
-      freeGrid(SITE.grid);
-    }
+  function start(map, opts={}) {
 
     FLOOR       = withName('FLOOR')       ? withName('FLOOR').id        : FLOOR;
     DOOR        = withName('DOOR')        ? withName('DOOR').id         : DOOR;
@@ -3441,48 +3588,34 @@
     DOWN_STAIRS = withName('DOWN_STAIRS') ? withName('DOWN_STAIRS').id  : DOWN_STAIRS;
     WALL        = withName('WALL')        ? withName('WALL').id         : WALL;
     LAKE        = withName('LAKE')        ? withName('LAKE').id         : LAKE;
-    LAKE_FLOOR  = withName('LAKE_FLOOR')  ? withName('LAKE_FLOOR').id   : LAKE_FLOOR;
 
-    LOCS = sequence(width * height);
+    LOCS = sequence(map.width * map.height);
     random.shuffle(LOCS);
 
-    SITE = new DigSite(width, height, opts);
-    SITE.locations.start = [startX, startY];
+    const startX = opts.x || -1;
+    const startY = opts.y || -1;
+    if (startX > 0) {
+      map.locations.start = [startX, startY];
+    }
 
-    return SITE;
+    SITE = map;
   }
 
-  dig.startDig = startDig;
+  dungeon.start = start;
 
 
-  function finishDig(tileFn) {
-    // const map = GW.make.map(SITE.width, SITE.height);
-    //
-    // // convert grid to map
-    // tileFn = tileFn || mapGridToTile;
-    //
-    // SITE.grid.forEach( (v, x, y) => {
-    //   const tile = tileFn(v);
-    //   map.cells[x][y].layers[0] = tile || 'FLOOR';
-    // });
-
+  function finish() {
     removeDiagonalOpenings();
+    finishWalls();
     finishDoors();
-
-    SITE.grid.update( (v) => v || WALL );
-
-    // freeGrid(SITE.grid);
-    // SITE.grid = null;
-
-    // return map;
   }
 
-  dig.finishDig = finishDig;
+  dungeon.finish = finish;
 
 
   // Returns an array of door sites if successful
   function digRoom(opts={}) {
-    const hallChance = first('hallChance', opts, SITE, 0);
+    const hallChance = first('hallChance', opts, SITE.config, 0);
     const diggerId = opts.digger || opts.id || 'SMALL'; // TODO - get random id
 
     const digger = diggers[diggerId];
@@ -3512,7 +3645,7 @@
       digger.fn(config, grid);
       const doors = chooseRandomDoorSites(grid);
       if (random.percent(hallChance)) {
-        attachHallway(grid, doors);
+        attachHallway(grid, doors, SITE.config);
       }
 
       if (locs) {
@@ -3534,229 +3667,53 @@
     }
 
     freeGrid(grid);
-
     return result;
   }
 
-  dig.digRoom = digRoom;
+  dungeon.digRoom = digRoom;
 
 
-  function isValidStairLoc(v, x, y) {
+  function isValidStairLoc(c, x, y) {
     let count = 0;
-    if (v && v !== WALL) return false;
+    if (!c.isEmpty()) return false;
 
     for(let i = 0; i < 4; ++i) {
       const dir = def.dirs[i];
-      if (!SITE.grid.hasXY(x + dir[0], y + dir[1])) return false;
-      const tile = SITE.grid[x + dir[0]][y + dir[1]];
-      if (tile == FLOOR) {
+      if (!SITE.hasXY(x + dir[0], y + dir[1])) return false;
+      const cell = SITE.cell(x + dir[0], y + dir[1]);
+      if (cell.hasTile(FLOOR) && !cell.isLiquid()) {
         count += 1;
-        const va = SITE.grid[x - dir[0] + dir[1]][y - dir[1] + dir[0]];
-        if (va && va != WALL) return false;
-        const vb = SITE.grid[x - dir[0] - dir[1]][y - dir[1] - dir[0]];
-        if (vb && vb != WALL) return false;
+        const va = SITE.cell(x - dir[0] + dir[1], y - dir[1] + dir[0]);
+        if (!va.isEmpty()) return false;
+        const vb = SITE.cell(x - dir[0] - dir[1], y - dir[1] - dir[0]);
+        if (!vb.isEmpty()) return false;
       }
-      else if (tile && tile != WALL) {
+      else if (!cell.isEmpty()) {
         return false;
       }
     }
     return count == 1;
   }
 
-  dig.isValidStairLoc = isValidStairLoc;
-
-
-  function addStairs(x,y, stairTile) {
-    SITE.grid[x][y] = stairTile;  // assume everything is ok
-  }
-
-  dig.addStairs = addStairs;
-
-
-  function randomDoor(sites, matchFn) {
-    matchFn = matchFn || GW.utils.TRUE;
-    const s = sequence(sites.length);
-    random.shuffle(s);
-
-    for(let dir of s) {
-      if (sites[dir][0] >= 0
-        && matchFn(sites[dir][0], sites[dir][1], SITE.grid))
-      {
-        return sites[dir];
-      }
-    }
-    return null;
-  }
-
-  dig.randomDoor = randomDoor;
-
-
-  function chooseRandomDoorSites(sourceGrid) {
-      let i, j, k, newX, newY;
-      let dir;
-      let doorSiteFailed;
-
-      const grid = allocGrid(sourceGrid.width, sourceGrid.height);
-      grid.copy(sourceGrid);
-
-      for (i=0; i<grid.width; i++) {
-          for (j=0; j<grid.height; j++) {
-              if (!grid[i][j]) {
-                  dir = directionOfDoorSite(grid, i, j);
-                  if (dir != def.NO_DIRECTION) {
-                      // Trace a ray 10 spaces outward from the door site to make sure it doesn't intersect the room.
-                      // If it does, it's not a valid door site.
-                      newX = i + DIRS$2[dir][0];
-                      newY = j + DIRS$2[dir][1];
-                      doorSiteFailed = false;
-                      for (k=0; k<10 && grid.hasXY(newX, newY) && !doorSiteFailed; k++) {
-                          if (grid[newX][newY]) {
-                              doorSiteFailed = true;
-                          }
-                          newX += DIRS$2[dir][0];
-                          newY += DIRS$2[dir][1];
-                      }
-                      if (!doorSiteFailed) {
-                          grid[i][j] = dir + 10000; // So as not to conflict with other tiles.
-                      }
-                  }
-              }
-          }
-      }
-
-    let doorSites = [];
-    // Pick four doors, one in each direction, and store them in doorSites[dir].
-    for (dir=0; dir<4; dir++) {
-        const loc = grid.randomMatchingXY(dir + 10000) || [-1, -1];
-        doorSites[dir] = loc.slice();
-    }
-
-    freeGrid(grid);
-    return doorSites;
-  }
+  dungeon.isValidStairLoc = isValidStairLoc;
 
 
 
-  function attachHallway(grid, doorSitesArray, opts) {
-      let i, x, y, newX, newY;
-      let length;
-      let dir, dir2;
-      let allowObliqueHallwayExit;
 
-      opts = opts || {};
-      const tile = opts.tile || SITE.hallTile || 1;
-
-      const horizontalLength = first('horizontalHallLength', opts, SITE, [9,15]);
-      const verticalLength = first('verticalHallLength', opts, SITE, [2,9]);
-
-      // Pick a direction.
-      dir = opts.dir;
-      if (dir === undefined) {
-        const dirs = sequence(4);
-        random.shuffle(dirs);
-        for (i=0; i<4; i++) {
-            dir = dirs[i];
-            if (doorSitesArray[dir][0] != -1
-                && doorSitesArray[dir][1] != -1
-                && grid.hasXY(doorSitesArray[dir][0] + Math.floor(DIRS$2[dir][0] * horizontalLength[1]),
-                                       doorSitesArray[dir][1] + Math.floor(DIRS$2[dir][1] * verticalLength[1])) ) {
-                    break; // That's our direction!
-            }
-        }
-        if (i==4) {
-            return; // No valid direction for hallways.
-        }
-      }
-
-      if (dir == def.UP || dir == def.DOWN) {
-          length = random.range(...verticalLength);
-      } else {
-          length = random.range(...horizontalLength);
-      }
-
-      x = doorSitesArray[dir][0];
-      y = doorSitesArray[dir][1];
-
-      const attachLoc = [x - DIRS$2[dir][0], y - DIRS$2[dir][1]];
-      for (i = 0; i < length; i++) {
-          if (grid.hasXY(x, y)) {
-              grid[x][y] = tile;
-          }
-          x += DIRS$2[dir][0];
-          y += DIRS$2[dir][1];
-      }
-      x = GW.utils.clamp(x - DIRS$2[dir][0], 0, grid.width - 1);
-      y = GW.utils.clamp(y - DIRS$2[dir][1], 0, grid.height - 1); // Now (x, y) points at the last interior cell of the hallway.
-      allowObliqueHallwayExit = random.percent(15);
-      for (dir2 = 0; dir2 < 4; dir2++) {
-          newX = x + DIRS$2[dir2][0];
-          newY = y + DIRS$2[dir2][1];
-
-          if ((dir2 != dir && !allowObliqueHallwayExit)
-              || !grid.hasXY(newX, newY)
-              || grid[newX][newY])
-          {
-              doorSitesArray[dir2][0] = -1;
-              doorSitesArray[dir2][1] = -1;
-          } else {
-              doorSitesArray[dir2][0] = newX;
-              doorSitesArray[dir2][1] = newY;
-          }
-      }
-
-      return attachLoc;
-  }
-
-
-
-  // If the indicated tile is a wall on the room stored in grid, and it could be the site of
-  // a door out of that room, then return the outbound direction that the door faces.
-  // Otherwise, return def.NO_DIRECTION.
-  function directionOfDoorSite(grid, x, y) {
-      let dir, solutionDir;
-      let newX, newY, oppX, oppY;
-
-      if (grid[x][y]) { // Already occupied
-          return def.NO_DIRECTION;
-      }
-
-      solutionDir = def.NO_DIRECTION;
-      for (dir=0; dir<4; dir++) {
-          newX = x + DIRS$2[dir][0];
-          newY = y + DIRS$2[dir][1];
-          oppX = x - DIRS$2[dir][0];
-          oppY = y - DIRS$2[dir][1];
-          if (grid.hasXY(oppX, oppY)
-              && grid.hasXY(newX, newY)
-              && grid[oppX][oppY] == 1)
-          {
-              // This grid cell would be a valid tile on which to place a door that, facing outward, points dir.
-              if (solutionDir != def.NO_DIRECTION) {
-                  // Already claimed by another direction; no doors here!
-                  return def.NO_DIRECTION;
-              }
-              solutionDir = dir;
-          }
-      }
-      return solutionDir;
-  }
-
-
-
-  function roomAttachesAt(roomGrid, roomToDungeonX, roomToDungeonY) {
-      let xRoom, yRoom, xDungeon, yDungeon, i, j;
+  function roomAttachesAt(roomGrid, roomToSiteX, roomToSiteY) {
+      let xRoom, yRoom, xSite, ySite, i, j;
 
       for (xRoom = 0; xRoom < roomGrid.width; xRoom++) {
           for (yRoom = 0; yRoom < roomGrid.height; yRoom++) {
               if (roomGrid[xRoom][yRoom]) {
-                  xDungeon = xRoom + roomToDungeonX;
-                  yDungeon = yRoom + roomToDungeonY;
+                  xSite = xRoom + roomToSiteX;
+                  ySite = yRoom + roomToSiteY;
 
-                  for (i = xDungeon - 1; i <= xDungeon + 1; i++) {
-                      for (j = yDungeon - 1; j <= yDungeon + 1; j++) {
-                          if (!SITE.grid.hasXY(i, j)
-                              || SITE.grid.isBoundaryXY(i, j)
-                              || SITE.grid[i][j] > 0)
+                  for (i = xSite - 1; i <= xSite + 1; i++) {
+                      for (j = ySite - 1; j <= ySite + 1; j++) {
+                          if (!SITE.hasXY(i, j)
+                              || SITE.isBoundaryXY(i, j)
+                              || !SITE.cell(i, j).isEmpty())
                           {
                               return false;
                           }
@@ -3770,36 +3727,16 @@
 
 
 
-  function insertRoomAt(destGrid, roomGrid, roomToDungeonX, roomToDungeonY, xRoom, yRoom, tile) {
-      let newX, newY;
-      let dir;
 
-      // GW.debug.log("insertRoomAt: ", xRoom + roomToDungeonX, yRoom + roomToDungeonY);
-
-      destGrid[xRoom + roomToDungeonX][yRoom + roomToDungeonY] = roomGrid[xRoom][yRoom] ? (tile || roomGrid[xRoom][yRoom]) : 0;
-      for (dir = 0; dir < 4; dir++) {
-          newX = xRoom + DIRS$2[dir][0];
-          newY = yRoom + DIRS$2[dir][1];
-          if (roomGrid.hasXY(newX, newY)
-              && roomGrid[newX][newY]
-              && destGrid.hasXY(newX + roomToDungeonX, newY + roomToDungeonY)
-              && (destGrid[newX + roomToDungeonX][newY + roomToDungeonY] == NOTHING$1))
-          {
-            insertRoomAt(destGrid, roomGrid, roomToDungeonX, roomToDungeonY, newX, newY, tile);
-          }
-      }
-  }
-
-
-
-  function attachRoomToDungeon(roomMap, doorSites, placeDoor) {
+  function attachRoomToDungeon(roomGrid, doorSites, placeDoor) {
 
     // Slide hyperspace across real space, in a random but predetermined order, until the room matches up with a wall.
     for (let i = 0; i < LOCS.length; i++) {
         const x = Math.floor(LOCS[i] / SITE.height);
         const y = LOCS[i] % SITE.height;
 
-        const dir = directionOfDoorSite(SITE.grid, x, y);
+        if (!SITE.cell(x, y).isEmpty()) continue;
+        const dir = directionOfDoorSite(SITE.cells, x, y, (c) => (c.hasTile(FLOOR) && !c.isLiquid()) );
         if (dir != def.NO_DIRECTION) {
           const oppDir = OPP_DIRS[dir];
 
@@ -3807,14 +3744,14 @@
           const offsetY = y - doorSites[oppDir][1];
 
           if (doorSites[oppDir][0] != -1
-              && roomAttachesAt(roomMap, offsetX, offsetY))
+              && roomAttachesAt(roomGrid, offsetX, offsetY))
           {
             // GW.debug.log("attachRoom: ", x, y, oppDir);
 
             // Room fits here.
-            insertRoomAt(SITE.grid, roomMap, offsetX, offsetY, doorSites[oppDir][0], doorSites[oppDir][1]);
+            offsetZip(SITE.cells, roomGrid, offsetX, offsetY, (d, s, i, j) => d.setTile(s) );
             if (placeDoor !== false) {
-              SITE.grid[x][y] = (typeof placeDoor === 'number') ? placeDoor : DOOR; // Door site.
+              SITE.setTile(x, y, (typeof placeDoor === 'number') ? placeDoor : DOOR); // Door site.
             }
             doorSites[oppDir][0] = -1;
             doorSites[oppDir][1] = -1;
@@ -3840,13 +3777,15 @@
         const x = Math.floor(LOCS[i] / SITE.height);
         const y = LOCS[i] % SITE.height;
 
+        if (roomGrid[x][y]) continue;
+
         const dir = directionOfDoorSite(roomGrid, x, y);
         if (dir != def.NO_DIRECTION) {
-          const d = DIRS$2[dir];
+          const d = DIRS$3[dir];
           if (roomAttachesAt(roomGrid, xy[0] - x, xy[1] - y)) {
-            insertRoomAt(SITE.grid, roomGrid, xy[0] - x, xy[1] - y, x, y);
+            offsetZip(SITE.cells, roomGrid, xy[0] - x, xy[1] - y, (d, s, i, j) => d.setTile(s) );
             if (placeDoor !== false) {
-              SITE.grid[xy[0]][xy[1]] = (typeof placeDoor === 'number') ? placeDoor : DOOR; // Door site.
+              SITE.setTile(xy[0], xy[1], (typeof placeDoor === 'number') ? placeDoor : DOOR); // Door site.
             }
             doors[dir][0] = -1;
             doors[dir][1] = -1;
@@ -3866,7 +3805,7 @@
 
 
 
-  function insertRoomAtXY(x, y, roomMap, doorSites, placeDoor) {
+  function insertRoomAtXY(x, y, roomGrid, doorSites, placeDoor) {
 
     const dirs = sequence(4);
     random.shuffle(dirs);
@@ -3875,16 +3814,16 @@
       const oppDir = OPP_DIRS[dir];
 
       if (doorSites[oppDir][0] != -1
-          && roomAttachesAt(roomMap, x - doorSites[oppDir][0], y - doorSites[oppDir][1]))
+          && roomAttachesAt(roomGrid, x - doorSites[oppDir][0], y - doorSites[oppDir][1]))
       {
         // GW.debug.log("attachRoom: ", x, y, oppDir);
 
         // Room fits here.
         const offX = x - doorSites[oppDir][0];
         const offY = y - doorSites[oppDir][1];
-        insertRoomAt(SITE.grid, roomMap, offX, offY, doorSites[oppDir][0], doorSites[oppDir][1]);
+        offsetZip(SITE.cells, roomGrid, offX, offY, (d, s, i, j) => d.setTile(s) );
         if (placeDoor !== false) {
-          SITE.grid[x][y] = (typeof placeDoor === 'number') ? placeDoor : DOOR; // Door site.
+          SITE.setTile(x, y, (typeof placeDoor === 'number') ? placeDoor : DOOR); // Door site.
         }
         const newDoors = doorSites.map( (site) => {
           const x0 = site[0] + offX;
@@ -3899,7 +3838,7 @@
   }
 
 
-  function attachRoomAtDoors(roomMap, roomDoors, siteDoors, placeDoor) {
+  function attachRoomAtDoors(roomGrid, roomDoors, siteDoors, placeDoor) {
 
     const doorIndexes = sequence(siteDoors.length);
     random.shuffle(doorIndexes);
@@ -3910,7 +3849,7 @@
       const x = siteDoors[index][0];
       const y = siteDoors[index][1];
 
-      const doors = insertRoomAtXY(x, y, roomMap, roomDoors, placeDoor);
+      const doors = insertRoomAtXY(x, y, roomGrid, roomDoors, placeDoor);
       if (doors) return doors;
     }
 
@@ -3936,7 +3875,7 @@
     for (; lakeMaxHeight >= lakeMinSize && lakeMaxWidth >= lakeMinSize && count < maxCount; lakeMaxHeight--, lakeMaxWidth -= 2) { // lake generations
 
       lakeGrid.fill(NOTHING$1);
-      const bounds = GW.grid.fillBlob(lakeGrid, 5, 4, 4, lakeMaxWidth, lakeMaxHeight, 55, "ffffftttt", "ffffttttt");
+      const bounds = fillBlob(lakeGrid, 5, 4, 4, lakeMaxWidth, lakeMaxHeight, 55, "ffffftttt", "ffffttttt");
 
       for (k=0; k < tries && count < maxCount; k++) { // placement attempts
           // propose a position for the top-left of the lakeGrid in the dungeon
@@ -3950,16 +3889,11 @@
           // copy in lake
           for (i = 0; i < bounds.width; i++) {  // skip boundary
             for (j = 0; j < bounds.height; j++) { // skip boundary
-                if (lakeGrid[i + bounds.x][j + bounds.y]) {
-                  const sx = i + bounds.x + x;
-                  const sy = j + bounds.y + y;
-                  if (!SITE.isLake(sx, sy)) {
-                    if (SITE.grid[sx][sy] == BRIDGE || SITE.grid[sx][sy] == DOOR) {
-                      SITE.grid[sx][sy] = FLOOR;
-                    }
-                    SITE.grid[sx][sy] += LAKE;
-                  }
-                }
+              if (lakeGrid[i + bounds.x][j + bounds.y]) {
+                const sx = i + bounds.x + x;
+                const sy = j + bounds.y + y;
+                SITE.setTile(sx, sy, opts.tile || LAKE);
+              }
             }
           }
           break;
@@ -3971,7 +3905,7 @@
 
   }
 
-  dig.digLake = digLake;
+  dungeon.digLake = digLake;
 
 
   function lakeDisruptsPassability(lakeGrid, dungeonToGridX, dungeonToGridY) {
@@ -3979,19 +3913,22 @@
       const walkableGrid = allocGrid(lakeGrid.width, lakeGrid.height, 0);
       let disrupts = false;
       // Get all walkable locations after lake added
-      SITE.grid.forEach( (v, i, j) => {
+      SITE.cells.forEach( (cell, i, j) => {
         const lakeX = i + dungeonToGridX;
         const lakeY = j + dungeonToGridY;
-        if (v == FLOOR || v == DOOR || v == BRIDGE) {
-          if (lakeGrid.hasXY(lakeX, lakeY) && lakeGrid[lakeX][lakeY]) return;
-          walkableGrid[i][j] = FLOOR;
+        if (cell.isEmpty()) {
+          return; // do nothing
         }
-        else if (v == UP_STAIRS || v == DOWN_STAIRS) {
+        else if (cell.canBePassed()) {
+          if (lakeGrid.hasXY(lakeX, lakeY) && lakeGrid[lakeX][lakeY]) return;
+          walkableGrid[i][j] = 1;
+        }
+        else if (cell.hasTileFlag(Flags.T_HAS_STAIRS)) {
           if (lakeGrid.hasXY(lakeX, lakeY) && lakeGrid[lakeX][lakeY]) {
             disrupts = true;
           }
           else {
-            walkableGrid[i][j] = FLOOR;
+            walkableGrid[i][j] = 1;
           }
         }
       });
@@ -3999,9 +3936,9 @@
       let first = true;
       for(let i = 0; i < walkableGrid.width && !disrupts; ++i) {
         for(let j = 0; j < walkableGrid.height && !disrupts; ++j) {
-          if (walkableGrid[i][j] == FLOOR) {
+          if (walkableGrid[i][j] == 1) {
             if (first) {
-              GW.grid.floodFill(walkableGrid, i, j, FLOOR, DOOR);
+              floodFill(walkableGrid, i, j, 1, 2);
               first = false;
             }
             else {
@@ -4011,7 +3948,7 @@
         }
       }
 
-      GW.grid.free(walkableGrid);
+      freeGrid(walkableGrid);
       return disrupts;
   }
 
@@ -4022,24 +3959,23 @@
       let newX, newY, oppX, oppY;
       let i, j, d, x, y;
 
+      minimumPathingDistance = minimumPathingDistance || Math.floor(Math.min(SITE.width,SITE.height)/2);
       maxConnectionLength = maxConnectionLength || 1; // by default only break walls down
 
-      const siteGrid = SITE.grid;
+      const siteGrid = SITE.cells;
       const pathGrid = allocGrid(SITE.width, SITE.height);
       const costGrid = allocGrid(SITE.width, SITE.height);
 
       const dirCoords = [[1, 0], [0, 1]];
 
-      siteGrid.forEach( (v, i, j) => {
-        costGrid[i][j] = SITE.isPassable(i, j) ? 1 : def.PDS_OBSTRUCTION;
-      });
+      SITE.fillBasicCostGrid(costGrid);
 
       for (i = 0; i < LOCS.length; i++) {
           x = Math.floor(LOCS[i] / siteGrid.height);
           y = LOCS[i] % siteGrid.height;
 
-          const tile = siteGrid[x][y];
-          if (!tile || tile == WALL) {
+          const cell = siteGrid[x][y];
+          if (cell.isEmpty()) {
               for (d=0; d <= 1; d++) { // Try a horizontal door, and then a vertical door.
                   newX = x + dirCoords[d][0];
                   newY = y + dirCoords[d][1];
@@ -4048,7 +3984,7 @@
                   j = maxConnectionLength;
 
                   // check up/left
-                  if (SITE.isPassable(newX, newY)) {
+                  if (SITE.hasXY(newX, newY) && !SITE.cell(newX, newY).isEmpty()) {
                     oppX = x;
                     oppY = y;
 
@@ -4056,12 +3992,12 @@
                       oppX -= dirCoords[d][0];
                       oppY -= dirCoords[d][1];
 
-                      if (SITE.isPassable(oppX, oppY)) {
+                      if (SITE.hasXY(oppX, oppY) && !SITE.cell(oppX, oppY).isEmpty()) {
                         break;
                       }
                     }
                   }
-                  else if (SITE.isPassable(oppX, oppY)) {
+                  else if (SITE.hasXY(oppX, oppY) && !SITE.cell(oppX, oppY).isEmpty()) {
                     newX = x;
                     newY = y;
 
@@ -4069,7 +4005,7 @@
                       newX += dirCoords[d][0];
                       newY += dirCoords[d][1];
 
-                      if (SITE.isPassable(newX, newY)) {
+                      if (SITE.hasXY(newX, newY) && !SITE.cell(newX, newY).isEmpty()) {
                         break;
                       }
                     }
@@ -4085,15 +4021,14 @@
                         debug$1.log('Adding Loop', newX, newY, ' => ', oppX, oppY);
 
                         while(oppX !== newX || oppY !== newY) {
-                          const siteTile = siteGrid[oppX][oppY];
-                          if (!siteTile || siteTile == WALL) {
-                            siteGrid[oppX][oppY] = FLOOR;
+                          if (SITE.cell(oppX, oppY).isEmpty()) {
+                            SITE.setTile(oppX, oppY, FLOOR);
                             costGrid[oppX][oppY] = 1;          // (Cost map also needs updating.)
                           }
                           oppX += dirCoords[d][0];
                           oppY += dirCoords[d][1];
                         }
-                        siteGrid[x][y] = DOOR;             // then turn the tile into a doorway.
+                        SITE.setTile(x, y, DOOR);             // then turn the tile into a doorway.
                         break;
                     }
                   }
@@ -4104,13 +4039,14 @@
       freeGrid(costGrid);
   }
 
-  dig.addLoops = addLoops;
+  dungeon.addLoops = addLoops;
 
 
   function isBridgeCandidate(x, y, bridgeDir) {
-    if (!SITE.isLake(x, y)) return false;
-    if (!SITE.isLake(x + bridgeDir[1], y + bridgeDir[0])) return false;
-    if (!SITE.isLake(x - bridgeDir[1], y - bridgeDir[0])) return false;
+    if (SITE.hasTile(x, y, BRIDGE)) return true;
+    if (!SITE.isLiquid(x, y)) return false;
+    if (!SITE.isLiquid(x + bridgeDir[1], y + bridgeDir[0])) return false;
+    if (!SITE.isLiquid(x - bridgeDir[1], y - bridgeDir[0])) return false;
     return true;
   }
 
@@ -4121,57 +4057,57 @@
 
       maxConnectionLength = maxConnectionLength || 1; // by default only break walls down
 
-      const siteGrid = SITE.grid;
+      const siteGrid = SITE.cells;
       const pathGrid = allocGrid(SITE.width, SITE.height);
       const costGrid = allocGrid(SITE.width, SITE.height);
 
       const dirCoords = [[1, 0], [0, 1]];
 
-      siteGrid.forEach( (v, i, j) => {
-        costGrid[i][j] = SITE.isPassable(i, j) ? 1 : def.PDS_OBSTRUCTION;
-      });
+      SITE.fillBasicCostGrid(costGrid);
 
       for (i = 0; i < LOCS.length; i++) {
           x = Math.floor(LOCS[i] / siteGrid.height);
           y = LOCS[i] % siteGrid.height;
 
-          if (SITE.isPassable(x, y)) {
+          if (SITE.hasXY(x, y) && (!SITE.isEmpty(x, y)) && SITE.canBePassed(x, y)) {
               for (d=0; d <= 1; d++) { // Try right, then down
                   const bridgeDir = dirCoords[d];
                   newX = x + bridgeDir[0];
                   newY = y + bridgeDir[1];
                   j = maxConnectionLength;
 
+                  if (!SITE.hasXY(newX, newY)) continue;
+
                   // check for line of lake tiles
                   // if (isBridgeCandidate(newX, newY, bridgeDir)) {
-                  if (SITE.isLake(newX, newY, bridgeDir)) {
+                  if (SITE.isLiquid(newX, newY)) {
                     for(j = 0; j < maxConnectionLength; ++j) {
                       newX += bridgeDir[0];
                       newY += bridgeDir[1];
 
                       // if (!isBridgeCandidate(newX, newY, bridgeDir)) {
-                      if (!SITE.isLake(newX, newY, bridgeDir)) {
+                      if (!SITE.isLiquid(newX, newY)) {
                         break;
                       }
                     }
                   }
 
-                  if (SITE.isPassable(newX, newY) && j < maxConnectionLength) {
+                  if ((!SITE.isEmpty(newX, newY)) && SITE.canBePassed(newX, newY) && (j < maxConnectionLength)) {
                     calculateDistances(pathGrid, newX, newY, costGrid, false);
                     // pathGrid.fill(30000);
                     // pathGrid[newX][newY] = 0;
                     // dijkstraScan(pathGrid, costGrid, false);
-                    if (pathGrid[x][y] > minimumPathingDistance) { // and if the pathing distance between the two flanking floor tiles exceeds minimumPathingDistance,
+                    if (pathGrid[x][y] > minimumPathingDistance && pathGrid[x][y] < def.PDS_NO_PATH) { // and if the pathing distance between the two flanking floor tiles exceeds minimumPathingDistance,
 
                         debug$1.log('Adding Bridge', x, y, ' => ', newX, newY);
 
                         while(x !== newX || y !== newY) {
                           if (isBridgeCandidate(x, y, bridgeDir)) {
-                            siteGrid[x][y] = BRIDGE;
+                            SITE.setTile(x, y, BRIDGE, true);
                             costGrid[x][y] = 1;          // (Cost map also needs updating.)
                           }
                           else {
-                            siteGrid[x][y] = FLOOR;
+                            SITE.setTile(x, y, FLOOR, true);
                             costGrid[x][y] = 1;
                           }
                           x += bridgeDir[0];
@@ -4187,12 +4123,12 @@
       freeGrid(costGrid);
   }
 
-  dig.addBridges = addBridges;
+  dungeon.addBridges = addBridges;
 
 
 
   function removeDiagonalOpenings() {
-    let i, j, k, x1, y1, x2;
+    let i, j, k, x1, y1;
     let diagonalCornerRemoved;
 
   	do {
@@ -4200,24 +4136,22 @@
   		for (i=0; i<SITE.width-1; i++) {
   			for (j=0; j<SITE.height-1; j++) {
   				for (k=0; k<=1; k++) {
-  					if ((SITE.isPassable(i + k, j))
-  						&& (!SITE.isPassable(i + (1-k), j))
+  					if ((SITE.canBePassed(i + k, j))
+  						&& (!SITE.canBePassed(i + (1-k), j))
   						&& (SITE.isObstruction(i + (1-k), j))
-  						&& (!SITE.isPassable(i + k, j+1))
+  						&& (!SITE.canBePassed(i + k, j+1))
   						&& (SITE.isObstruction(i + k, j+1))
-  						&& (SITE.isPassable(i + (1-k), j+1)))
+  						&& (SITE.canBePassed(i + (1-k), j+1)))
             {
   						if (random.percent(50)) {
   							x1 = i + (1-k);
-  							x2 = i + k;
   							y1 = j;
   						} else {
   							x1 = i + k;
-  							x2 = i + (1-k);
   							y1 = j + 1;
   						}
               diagonalCornerRemoved = true;
-              SITE.grid[x1][y1] = SITE.grid[x2][y1];
+              SITE.setTile(x1, y1, FLOOR, true);
               debug$1.log('Removed diagonal opening', x1, y1);
   					}
   				}
@@ -4226,29 +4160,29 @@
   	} while (diagonalCornerRemoved == true);
   }
 
-  dig.removeDiagonalOpenings = removeDiagonalOpenings;
+  dungeon.removeDiagonalOpenings = removeDiagonalOpenings;
 
 
-  function finishDoors(doorTile, floorTile, secretDoorChance, secretDoorTile) {
+  function finishDoors() {
     let i, j;
 
   	for (i=1; i<SITE.width-1; i++) {
   		for (j=1; j<SITE.height-1; j++) {
   			if (SITE.isDoor(i, j))
   			{
-  				if ((SITE.isPassable(i+1, j) || SITE.isPassable(i-1, j))
-  					&& (SITE.isPassable(i, j+1) || SITE.isPassable(i, j-1))) {
+  				if ((SITE.canBePassed(i+1, j) || SITE.canBePassed(i-1, j))
+  					&& (SITE.canBePassed(i, j+1) || SITE.canBePassed(i, j-1))) {
   					// If there's passable terrain to the left or right, and there's passable terrain
   					// above or below, then the door is orphaned and must be removed.
-  					SITE.grid[i][j] = FLOOR;
+  					SITE.setTile(i, j, FLOOR, true);
             debug$1.log('Removed orphan door', i, j);
-  				} else if ((SITE.isBlocked(i+1, j) ? 1 : 0)
-  						   + (SITE.isBlocked(i-1, j) ? 1 : 0)
-  						   + (SITE.isBlocked(i, j+1) ? 1 : 0)
-  						   + (SITE.isBlocked(i, j-1) ? 1 : 0) >= 3) {
+  				} else if ((SITE.blocksPathing(i+1, j) ? 1 : 0)
+  						   + (SITE.blocksPathing(i-1, j) ? 1 : 0)
+  						   + (SITE.blocksPathing(i, j+1) ? 1 : 0)
+  						   + (SITE.blocksPathing(i, j-1) ? 1 : 0) >= 3) {
   					// If the door has three or more pathing blocker neighbors in the four cardinal directions,
   					// then the door is orphaned and must be removed.
-            SITE.grid[i][j] = FLOOR;
+            SITE.setTile(i, j, FLOOR, true);
             debug$1.log('Removed blocked door', i, j);
   				}
   			}
@@ -4256,20 +4190,917 @@
   	}
   }
 
-  dig.finishDoors = finishDoors;
+  dungeon.finishDoors = finishDoors;
 
-  exports.MAP = MAP;
-  exports.PLAYER = PLAYER;
+  function finishWalls() {
+    SITE.cells.forEach( (cell, i, j) => {
+      if (cell.isEmpty()) {
+        cell.setTile(WALL);
+      }
+    });
+  }
+
+  dungeon.finishWalls = finishWalls;
+
+
+  function addStairs(upX, upY, downX, downY, minDistance) {
+
+    upX = upX || random.number(SITE.width);
+    upY = upY || random.number(SITE.height);
+    downX = downX || -1;
+    downY = downY || -1;
+    minDistance = minDistance || Math.floor(Math.max(SITE.width,SITE.height)/2);
+
+    const upLoc = SITE.cells.matchingXYNear(upX, upY, dungeon.isValidStairLoc);
+  	if (!upLoc || upLoc[0] < 0) {
+      return false;
+    }
+
+    let downLoc;
+    if (downX < 0) {
+      downLoc = SITE.cells.randomMatchingXY( (v, x, y) => {
+    		if (distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
+    		return dungeon.isValidStairLoc(v, x, y);
+    	});
+    }
+    else {
+      downLoc = SITE.cells.matchingXYNear(downX, downY, dungeon.isValidStairLoc);
+    }
+
+    if (!downLoc || downLoc[0] < 0) {
+      return false;
+    }
+
+    SITE.setTile(upLoc[0], upLoc[1], UP_STAIRS);
+  	SITE.locations.start = upLoc.slice();
+    SITE.setTile(downLoc[0], downLoc[1], DOWN_STAIRS);
+  	SITE.locations.finish = downLoc.slice();
+
+    return true;
+  }
+
+  dungeon.addStairs = addStairs;
+
+  var cell$1 = {};
+
+
+  const Layers = new Enum(-1,
+    'NO_LAYER',
+    'GROUND',		// dungeon-level tile	(e.g. walls)
+    'LIQUID',				// liquid-level tile	(e.g. lava)
+    'GAS',				// gas-level tile		(e.g. fire, smoke, swamp gas)
+    'SURFACE',			// surface-level tile	(e.g. grass)
+    'NUMBER_TERRAIN_LAYERS'
+  );
+
+  def.layers = Layers;
+  cell$1.layers = Layers;
+
+
+  const Flags$1 = installFlag('cell', {
+    REVEALED					: Fl(0),
+    VISIBLE							: Fl(1),	// cell has sufficient light and is in field of view, ready to draw.
+    WAS_VISIBLE					: Fl(2),
+    IN_FIELD_OF_VIEW		: Fl(3),	// player has unobstructed line of sight whether or not there is enough light
+
+    HAS_PLAYER					: Fl(4),
+    HAS_MONSTER					: Fl(5),
+    HAS_DORMANT_MONSTER	: Fl(6),	// hidden monster on the square
+    HAS_ITEM						: Fl(7),
+    HAS_STAIRS					: Fl(8),
+
+    IS_IN_PATH					: Fl(9),	// the yellow trail leading to the cursor
+    IS_CURSOR						: Fl(10),	// the current cursor
+
+    MAGIC_MAPPED				: Fl(11),
+    ITEM_DETECTED				: Fl(12),
+
+    STABLE_MEMORY						: Fl(13),	// redraws will simply be pulled from the memory array, not recalculated
+
+    CLAIRVOYANT_VISIBLE			: Fl(14),
+    WAS_CLAIRVOYANT_VISIBLE	: Fl(15),
+    CLAIRVOYANT_DARKENED		: Fl(16),	// magical blindness from a cursed ring of clairvoyance
+
+    IMPREGNABLE							: Fl(17),	// no tunneling allowed!
+    TERRAIN_COLORS_DANCING	: Fl(18),	// colors here will sparkle when the game is idle
+
+    TELEPATHIC_VISIBLE			: Fl(19),	// potions of telepathy let you see through other creatures' eyes
+    WAS_TELEPATHIC_VISIBLE	: Fl(20),	// potions of telepathy let you see through other creatures' eyes
+
+    MONSTER_DETECTED				: Fl(21),
+    WAS_MONSTER_DETECTED		: Fl(22),
+
+    NEEDS_REDRAW            : Fl(23),	// needs to be redrawn (maybe in path, etc...)
+    TILE_CHANGED						: Fl(24),	// one of the tiles changed
+
+    CELL_LIT                : Fl(25),
+    IS_IN_SHADOW				    : Fl(26),	// so that a player gains an automatic stealth bonus
+    CELL_DARK               : Fl(27),
+
+    PERMANENT_CELL_FLAGS : ['REVEALED', 'MAGIC_MAPPED', 'ITEM_DETECTED', 'HAS_ITEM', 'HAS_DORMANT_MONSTER',
+                'HAS_STAIRS', 'STABLE_MEMORY', 'IMPREGNABLE'],
+
+    ANY_KIND_OF_VISIBLE			: ['VISIBLE', 'CLAIRVOYANT_VISIBLE', 'TELEPATHIC_VISIBLE'],
+    HAS_ACTOR               : ['HAS_PLAYER', 'HAS_MONSTER'],
+  });
+
+  cell$1.flags = Flags$1;
+
+  ///////////////////////////////////////////////////////
+  // CELL MECH
+
+  const MechFlags$1 = installFlag('cellMech', {
+    SEARCHED_FROM_HERE				: Fl(0),	// Player already auto-searched from here; can't auto search here again
+    CAUGHT_FIRE_THIS_TURN			: Fl(1),	// so that fire does not spread asymmetrically
+    PRESSURE_PLATE_DEPRESSED	: Fl(2),	// so that traps do not trigger repeatedly while you stand on them
+    KNOWN_TO_BE_TRAP_FREE			: Fl(3),	// keep track of where the player has stepped as he knows no traps are there
+
+    IS_IN_LOOP					: Fl(5),	// this cell is part of a terrain loop
+    IS_CHOKEPOINT				: Fl(6),	// if this cell is blocked, part of the map will be rendered inaccessible
+    IS_GATE_SITE				: Fl(7),	// consider placing a locked door here
+    IS_IN_ROOM_MACHINE	: Fl(8),
+    IS_IN_AREA_MACHINE	: Fl(9),
+    IS_POWERED					: Fl(10),	// has been activated by machine power this turn (can probably be eliminate if needed)
+
+    IS_IN_MACHINE				: ['IS_IN_ROOM_MACHINE', 'IS_IN_AREA_MACHINE'], 	// sacred ground; don't generate items here, or teleport randomly to it
+
+    PERMANENT_MECH_FLAGS : ['SEARCHED_FROM_HERE', 'PRESSURE_PLATE_DEPRESSED', 'KNOWN_TO_BE_TRAP_FREE', 'IS_IN_LOOP',
+                            'IS_CHOKEPOINT', 'IS_GATE_SITE', 'IS_IN_MACHINE', ],
+  });
+
+  cell$1.mechFlags = MechFlags$1;
+
+
+  class CellMemory {
+    constructor() {
+      this.sprite = makeSprite();
+      this.clear();
+    }
+
+    clear() {
+      this.sprite.clear();
+      this.itemKind = null;
+      this.itemQuantity = 0;
+      this.tile = null;
+      this.cellFlags = 0;
+      this.cellMechFlags = 0;
+      this.tileFlags = 0;
+      this.tileMechFlags = 0;
+    }
+
+    copy(other) {
+      copyObject(this, other);
+    }
+  }
+
+  types.CellMemory = CellMemory;
+
+  class Cell {
+    constructor() {
+      this.layers = [0, 0, 0, 0]; // [NUMBER_TERRAIN_LAYERS];	// terrain  /* ENUM tileType */
+      this.memory = new types.CellMemory();
+      this.clear();
+    }
+
+    copy(other) {
+      copyObject(this, other);
+      const app = this.memory;
+      super.copy(other);
+      this.layers = other.layers.slice();
+      this.memory = app;
+      this.memory.copy(other.memory);			// how the player remembers the cell to look
+    }
+
+    clear() {
+      for(let i = 0; i < 4; ++i) {
+        this.layers[i] = 0;
+      }
+      this.flags = 0;							// non-terrain cell flags
+      this.mechFlags = 0;
+      this.volume = 0;						// quantity of gas in cell
+      this.machineNumber = 0;
+      this.memory.clear();
+    }
+    dump() { return tiles[this.layers[0]].sprite.ch; }
+    isVisible() { return this.flags & Flags$1.VISIBLE; }
+    isAnyKindOfVisible() { return (this.flags & Flags$1.ANY_KIND_OF_VISIBLE) || config.playbackOmniscience; }
+
+    *tiles() {
+      for(let i = 0; i < this.layers.length; ++i) {
+        const t = this.layers[i];
+        if (t) {
+          yield tiles[t];
+        }
+      }
+    }
+
+    tileFlags(limitToPlayerKnowledge) {
+      if (limitToPlayerKnowledge && !this.isVisible()) {
+        return this.memory.tileFlags;
+      }
+      return this.layers.reduce( (out, t) => {
+        if (!t) return out;
+        return out | tiles[t].flags;
+      }, 0);
+    }
+
+    tileMechFlags(limitToPlayerKnowledge)	{
+      if (limitToPlayerKnowledge && !this.isVisible()) {
+        return this.memory.tileMechFlags;
+      }
+      return this.layers.reduce( (out, t) => {
+        if (!t) return out;
+        return out | tiles[t].mechFlags;
+      }, 0);
+    }
+
+    hasTileFlag(flagMask)	{
+      return !!(flagMask & this.tileFlags());
+    }
+
+    hasTileMechFlag(flagMask) {
+      return !!(flagMask & this.tileMechFlags());
+    }
+
+    setFlags(cellFlag, cellMechFlag) {
+      if ((this.flags & cellFlag) !== cellFlag) {
+        this.flags |= (cellFlag | Flags$1.NEEDS_REDRAW);
+      }
+      if ((this.mechFlags & cellMechFlag) !== cellMechFlag) {
+        this.mechFlags |= cellMechFlag;
+        this.flags |= Flags$1.NEEDS_REDRAW;
+      }
+    }
+
+    clearFlags(cellFlag, cellMechFlag) {
+      if (this.flags & cellFlag) {
+        this.flags &= ~cellFlag;
+        this.flags |= Flags$1.NEEDS_REDRAW;
+      }
+      if (this.mechFlags & cellMechFlag) {
+        this.mechFlags &= ~cellMechFlag;
+        this.flags |= Flags$1.NEEDS_REDRAW;
+      }
+    }
+
+    hasTile(tile) {
+      return this.layers.includes(tile);
+    }
+
+    // hasTileInGroup(...groups) {
+    //   if (groups.length == 1 && Array.isArray(groups[0])) {
+    //     groups = groups[0];
+    //   }
+    //   return this.layers.some( (tileId) => {
+    //     const tile = TILES[tileId] || TILES.NOTHING;
+    //     return GW.utils.intersect(groups, tile.groups);
+    //   });
+    // }
+
+    successorTileFlags(event) {
+      return this.layers.reduce( (out, t) => {
+        if (!t) return out;
+        return out | tiles[t].successorFlags(event);
+      }, 0);
+    }
+
+    promotedTileFlags() {
+      return this.successorTileFlags('promote');
+    }
+
+    discoveredTileFlags() {
+      return this.successorTileFlags('discover');
+    }
+
+    hasDiscoveredTileFlag(flag) {
+      // if (!this.hasTileMechFlag(TM_IS_SECRET)) return false;
+      return this.discoveredTileFlags() & flag;
+    }
+
+    highestPriorityLayer(skipGas) {	// enum dungeonLayers
+      let bestPriority = 10000;
+      let tt, best = 0;
+
+      for (tt = 0; tt < this.layers.length; tt++) {
+        if (tt == Layers.GAS && skipGas) {
+          continue;
+        }
+        if (this.layers[tt] && tiles[this.layers[tt]].priority < bestPriority) {
+          bestPriority = tiles[this.layers[tt]].priority;
+          best = tt;
+        }
+      }
+      return best;
+    }
+
+    highestPriorityTile(skipGas) {
+      const layer = this.highestPriorityLayer(skipGas);
+      return tiles[this.layers[layer]];
+    }
+
+    tileWithFlag(tileFlag) {
+      return this.layers.find( (t) => t && (tiles[t].flags & tileFlag) );
+    }
+
+    tileWithMechFlag(mechFlag) {
+      return this.layers.find( (t) => t && (tiles[t].mechFlags & mechFlag) );
+    }
+
+    // Retrieves a pointer to the flavor text of the highest-priority terrain at the given location
+    tileFlavor() {
+      return this.highestPriorityTile(false).flavor;
+    }
+
+    // Retrieves a pointer to the description text of the highest-priority terrain at the given location
+    tileText() {
+      return this.highestPriorityTile(false).desc;
+    }
+
+    isEmpty() {
+      return this.layers[0] == 0;
+    }
+
+    isPassableNow(limitToPlayerKnowledge) {
+      const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
+      const tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
+      if (!(tileFlags & Flags.T_PATHING_BLOCKER)) return true;
+
+      let tileMechFlags = (useMemory) ? this.memory.tileMechFlags : this.tileMechFlags();
+      return limitToPlayerKnowledge ? false : this.isSecretDoor();
+    }
+
+    canBePassed(limitToPlayerKnowledge) {
+      if (this.isPassableNow(limitToPlayerKnowledge)) return true;
+      const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
+      let tileMechFlags = (useMemory) ? this.memory.tileMechFlags : this.tileMechFlags();
+      if (tileMechFlags & MechFlags.TM_CONNECTS_LEVEL) return true;
+      return ((tileMechFlags & MechFlags.TM_PROMOTES) && !(this.promotedTileFlags() & Flags.T_PATHING_BLOCKER));
+    }
+
+    isObstruction(limitToPlayerKnowledge) {
+      const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
+      let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
+      return tileFlags & Flags.T_OBSTRUCTS_DIAGONAL_MOVEMENT;
+    }
+
+    isDoor(limitToPlayerKnowledge) {
+      const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
+      let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
+      return tileFlags & Flags.T_IS_DOOR;
+    }
+
+    isSecretDoor(limitToPlayerKnowledge) {
+      if (limitToPlayerKnowledge) return false;
+      const tileMechFlags = this.tileMechFlags();
+      return (tileMechFlags & MechFlags.TM_IS_SECRET) && !(this.discoveredTileFlags() & Flags.T_PATHING_BLOCKER)
+    }
+
+    blocksPathing(limitToPlayerKnowledge) {
+      const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
+      let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
+      return tileFlags & Flags.T_PATHING_BLOCKER;
+    }
+
+    isLiquid(limitToPlayerKnowledge) {
+      const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
+      let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
+      return tileFlags & Flags.T_IS_LIQUID;
+    }
+
+    markRevealed() {
+      this.flags &= ~Flags$1.STABLE_MEMORY;
+      if (!(this.flags & Flags$1.REVEALED)) {
+        this.flags |= Flags$1.REVEALED;
+        if (!this.hasTileFlag(Flags.T_PATHING_BLOCKER)) {
+          data.xpxpThisTurn++;
+        }
+      }
+    }
+
+    setTile(tileId, force) {
+      let tile;
+      if (typeof tileId === 'string') {
+        tile = withName(tileId);
+      }
+      else {
+        tile = tiles[tileId];
+      }
+
+      if (!tile) {
+        tile = tiles[0];
+      }
+
+      const oldTileId = this.layers[tile.layer] || 0;
+      const oldTile = tiles[oldTileId] || tiles[0];
+
+      if (!force && oldTile.priority < tile.priority) return false;
+
+      this.layers[tile.layer] = tile.id;
+      this.flags |= (Flags$1.NEEDS_REDRAW | Flags$1.TILE_CHANGED);
+      return (oldTile.glowLight !== tile.glowLight);
+    }
+
+    storeMemory(item) {
+      const memory = this.memory;
+      memory.tileFlags = this.tileFlags();
+      memory.tileMechFlags = this.tileMechFlags();
+      memory.cellFlags = this.flags;
+  		memory.cellMechFlags = this.mechFlags;
+      memory.tile = this.layers[this.highestPriorityLayer(false)];	// id
+  		if (item) {
+  			memory.itemKind = item.kind;
+  			memory.itemQuantity = item.quantity || 1;
+  		}
+  		else {
+  			memory.itemKind = null;
+  			memory.itemQuantity = 0;
+  		}
+    }
+
+  }
+
+  types.Cell = Cell;
+
+
+  function makeCell(...args) {
+    const cell = new types.Cell(...args);
+    return cell;
+  }
+
+
+  make.cell = makeCell;
+
+
+  function getAppearance(cell, dest) {
+  	dest.clear();
+    const tile = cell.highestPriorityTile();
+    dest.copy(tile.sprite);
+    return true;
+  }
+
+  cell$1.getAppearance = getAppearance;
+
+  var map = {};
+
+
+  const Flags$2 = installFlag('map', {
+  	MAP_CHANGED: Fl(0),
+  	MAP_STABLE_GLOW_LIGHTS:  Fl(1),
+  	MAP_STABLE_LIGHTS: Fl(2),
+  });
+
+
+
+  class Map {
+  	constructor(w, h, opts={}) {
+  		Object.assign(this, opts);
+  		this.width = w;
+  		this.height = h;
+  		this.cells = make.grid(w, h, () => new types.Cell() );
+  		this.locations = {};
+  		this.config = {};
+  	}
+
+  	clear() { this.cells.forEach( (c) => c.clear() ); }
+  	dump() { this.cells.dump((c) => c.dump()); }
+  	cell(x, y)   { return this.cells[x][y]; }
+  	eachCell(fn) { this.cells.forEach(fn); }
+
+  	hasXY(x, y)    		 { return this.cells.hasXY(x, y); }
+  	isBoundaryXY(x, y) { return this.cells.isBoundaryXY(x, y); }
+
+  	changed(v) {
+  		if (arguments.length == 1) {
+  			if (v) {
+  				this.flags |= Flags$2.MAP_CHANGED;
+  			}
+  			else {
+  				this.flags &= ~MAP_CHANGED;
+  			}
+  		}
+  		return (this.flags & MAP_CHANGED);
+  	}
+
+  	hasCellFlag(x, y, flag) 		{ return this.cell(x, y).flags & flag; }
+  	hasCellMechFlag(x, y, flag) { return this.cell(x, y).mechFlags & flag; }
+  	hasTileFlag(x, y, flag) 		{ return this.cell(x, y).hasTileFlag(flag); }
+  	hasTileMechFlag(x, y, flag) { return this.cell(x, y).hasTileMechFlag(flag); }
+
+  	redrawCell(x, y) {
+  		this.cell(x, y).flags |= Flags$1.NEEDS_REDRAW;
+  		this.flags |= Flags$2.MAP_CHANGED;
+  	}
+
+  	markRevealed(x, y) { return this.cell(x, y).markRevealed(); }
+  	isVisible(x, y)    { return this.cell(x, y).isVisible(); }
+  	isAnyKindOfVisible(x, y) { return this.cell(x, y).isAnyKindOfVisible(); }
+
+  	setFlags(mapFlag, cellFlag, cellMechFlag) {
+  		if (mapFlag) {
+  			this.flags |= mapFlag;
+  		}
+  		if (cellFlag || cellMechFlag) {
+  			this.eachCell( (c) => c.setFlags(cellFlag, cellMechFlag) );
+  		}
+  		this.flags |= Flags$2.MAP_CHANGED;
+  	}
+
+  	clearFlags(mapFlag, cellFlag, cellMechFlag) {
+  		if (mapFlag) {
+  			this.flags &= ~mapFlag;
+  		}
+  		if (cellFlag || cellMechFlag) {
+  			this.eachCell( (cell) => cell.clearFlags(cellFlag, cellMechFlag) );
+  		}
+  		this.flags |= Flags$2.MAP_CHANGED;
+  	}
+
+  	setCellFlags(x, y, cellFlag, cellMechFlag) {
+  		this.cell(x, y).setFlags(cellFlag, cellMechFlag);
+  		this.flags |= Flags$2.MAP_CHANGED;
+  	}
+
+  	clearCellFlags(x, y, cellFlags, cellMechFlags) {
+  		this.cell(x, y).clearFlags(cellFlags, cellMechFlags);
+  		this.flags |= Flags$2.MAP_CHANGED;
+  	}
+
+  	hasTile(x, y, tile)	{ return this.cells[x][y].hasTile(tile); }
+
+  	tileFlags(x, y, limitToPlayerKnowledge)			{ return this.cells[x][y].tileFlags(limitToPlayerKnowledge); }
+  	tileMechFlags(x, y, limitToPlayerKnowledge)	{ return this.cells[x][y].tileMechFlags(limitToPlayerKnowledge); }
+
+  	tileWithFlag(x, y, flag) { return this.cells[x][y].tileWithFlag(flag); }
+  	tileWithMechFlag(x, y, mechFlag) { return this.cells[x][y].tileWithMechFlag(mechFlag); }
+
+  	hasKnownTileFlag(x, y, flagMask) { return this.cells[x][y].memory.tileFlags & flagMask; }
+
+  	// hasTileInGroup(x, y, ...groups) { return this.cells[x][y].hasTileInGroup(...groups); }
+
+  	discoveredTileFlags(x, y) { return this.cells[x][y].discoveredTileFlags(); }
+  	hasDiscoveredTileFlag(x, y, flag) { return this.cells[x][y].hasDiscoveredTileFlag(flag); }
+
+  	canBePassed(x, y, limitToPlayerKnowledge) { return this.cells[x][y].canBePassed(limitToPlayerKnowledge); }
+  	isPassableNow(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isPassableNow(limitToPlayerKnowledge); }
+
+  	isEmpty(x, y) { return this.cells[x][y].isEmpty(); }
+  	isObstruction(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isObstruction(limitToPlayerKnowledge); }
+    isDoor(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isDoor(limitToPlayerKnowledge); }
+    blocksPathing(x, y, limitToPlayerKnowledge) { return this.cells[x][y].blocksPathing(limitToPlayerKnowledge); }
+    isLiquid(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isLiquid(limitToPlayerKnowledge); }
+    hasGas(x, y, limitToPlayerKnowledge) { return this.cells[x][y].hasGas(limitToPlayerKnowledge); }
+
+  	highestPriorityLayer(x, y, skipGas) { return this.cells[x][y].highestPriorityLayer(x, y); }
+  	highestPriorityTile(x, y, skipGas) { return this.cells[x][y].highestPriorityTile(x, y); }
+
+  	tileFlavor(x, y) { return this.cells[x][y].tileFlavor(); }
+  	tileText(x, y)   { return this.cells[x][y].tileText(); }
+
+  	setTile(x, y, tileId, force) {
+  		const cell = this.cell(x, y);
+  		if (cell.setTile(tileId, force)) {
+  			this.flags &= ~(Flags$2.MAP_STABLE_GLOW_LIGHTS);
+  		}
+  		this.flags |= Flags$2.MAP_CHANGED;
+  	  return true;
+  	}
+
+  	fill(tileId, boundaryTile) {
+  		let i, j;
+  		if (boundaryTile === undefined) {
+  			boundaryTile = tileId;
+  		}
+  		for(i=0; i < this.width; ++i) {
+  			for(j = 0; j < this.height; ++j) {
+  				if (this.isBoundaryXY(i, j)) {
+  					this.setTile(i, j, boundaryTile);
+  				}
+  				else {
+  					this.setTile(i, j, tileId);
+  				}
+  			}
+  		}
+  	}
+
+  	passableArcCount(x, y) {
+  		if (!this.hasXY(x, y)) return -1;
+  		return this.cells.arcCount(x, y, (c) => c.isPassableNow() );
+  	}
+
+  	diagonalBlocked(x1, y1, x2, y2, limitToPlayerKnowledge) {
+  	    if (x1 == x2 || y1 == y2) {
+  	      return false; // If it's not a diagonal, it's not diagonally blocked.
+  	    }
+  	    const locFlags1 = this.tileFlags(x1, y2, limitToPlayerKnowledge);
+  	    if (locFlags1 & TileFlags.T_OBSTRUCTS_DIAGONAL_MOVEMENT) {
+  	        return true;
+  	    }
+  	    const locFlags2 = this.tileFlags(x2, y1, limitToPlayerKnowledge);
+  	    if (locFlags2 & TileFlags.T_OBSTRUCTS_DIAGONAL_MOVEMENT) {
+  	        return true;
+  	    }
+  	    return false;
+  	}
+
+  	fillBasicCostGrid(costGrid) {
+  		this.cells.forEach( (cell, i, j) => {
+        if (cell.isEmpty()) {
+          costGrid[i][j] = def.PDS_OBSTRUCTION;
+        }
+        else {
+          costGrid[i][j] = cell.canBePassed() ? 1 : def.PDS_OBSTRUCTION;
+        }
+      });
+  	}
+
+  	// blockingMap is optional
+  	matchingXYNear(x, y, matcher, opts={})
+  	{
+  		let i, j, k;
+
+  		const hallwaysAllowed = opts.hallwaysAllowed || opts.hallways || false;
+  		const blockingMap = opts.blockingMap || null;
+  		const forbidLiquid = opts.forbidLiquid || opts.forbidLiquids || false;
+  		const deterministic = opts.deterministic || false;
+
+  		const candidateLocs = [];
+
+  		// count up the number of candidate locations
+  		for (k=0; k<Math.max(this.width, this.height) && !candidateLocs.length; k++) {
+  			for (i = x-k; i <= x+k; i++) {
+  				for (j = y-k; j <= y+k; j++) {
+  					if (!this.hasXY(i, j)) continue;
+  					const cell = this.cell(i, j);
+  					// if ((i == x-k || i == x+k || j == y-k || j == y+k)
+  					if ((Math.floor(distanceBetween(x, y, i, j)) == k)
+  							&& (!blockingMap || !blockingMap[i][j])
+  							&& matcher(cell, i, j)
+  							&& (!forbidLiquid || cell.layers[Layers.LIQUID] == def.NOTHING)
+  							&& (hallwaysAllowed || this.passableArcCount(i, j) < 2))
+  	        {
+  						candidateLocs.push([i, j]);
+  					}
+  				}
+  			}
+  		}
+
+  		if (candidateLocs.length == 0) {
+  			return null;
+  		}
+
+  		// and pick one
+  		let randIndex = 0;
+  		if (deterministic) {
+  	    randIndex = Math.floor(candidateLocs.length / 2);
+  		} else {
+  			randIndex = random.number(candidateLocs.length) - 1;
+  		}
+  		return candidateLocs[randIndex];
+  	}
+
+
+
+  	// fills (*x, *y) with the coordinates of a random cell with
+  	// no creatures, items or stairs and with either a matching liquid and dungeon type
+  	// or at least one layer of type terrainType.
+  	// A dungeon, liquid type of -1 will match anything.
+  	randomMatchingXY(matcher, opts={}) {
+  		let failsafeCount = 0;
+  		let x;
+  		let y;
+  		let cell;
+
+  		// dungeonType -1 => ignore, otherwise match with 0 = NOTHING, 'string' = MATCH
+  		// liquidType  -1 => ignore, otherwise match with 0 = NOTHING, 'string' = MATCH
+
+  		let retry = true;
+  		while(retry) {
+  			failsafeCount++;
+  			if (failsafeCount >= 500) break;
+
+  			x = random.range(0, this.width - 1);
+  			y = random.range(0, this.height - 1);
+  			cell = this.cell(x, y);
+
+  			if (matcher(cell, x, y)) {
+  				retry = false;
+  			}
+  		}
+  		if (failsafeCount >= 500) {
+  			// GW.debug.log('randomMatchingLocation', dungeonType, liquidType, terrainType, ' => FAIL');
+  			return false;
+  		}
+
+  		// GW.debug.log('randomMatchingLocation', dungeonType, liquidType, terrainType, ' => ', x, y);
+  		return [ x, y ];
+  	}
+
+  	// ACTORS
+
+  	// will return the PLAYER if the PLAYER is at (x, y).
+  	actorAt(x, y) { // creature *
+  		if (!(this.cell(x, y).flags & Flags$1.HAS_ACTOR)) {
+  			return null;
+  		}
+  		if (data.player && data.player.x == x && data.player.y == y) {
+  			return data.player;
+  		}
+  	  return this.actors.find( (m) => m.x == x && m.y == y );
+  	}
+
+  	addActor(x, y, theActor) {
+  		if (!this.hasXY(x, y)) return false;
+  		const cell = this.cell(x, y);
+  		if (cell.flags & Flags$1.HAS_ACTOR) {
+  			// GW.ui.message(colors.badMessageColor, 'There is already an actor there.');
+  			return false;
+  		}
+  		theActor.x = x;
+  		theActor.y = y;
+  		this.actors.add(theActor);
+  		cell.flags |= (Flags$1.HAS_MONSTER | Flags$1.NEEDS_REDRAW);
+
+  		this.flags |= Flags$2.MAP_CHANGED;
+  		if (theActor.flags & ActorFlags.MK_DETECTED)
+  		{
+  			cell.flags |= Flags$1.MONSTER_DETECTED;
+  		}
+
+  		return true;
+  	}
+
+  	addActorNear(x, y, theActor) {
+  		const forbidTileFlags = GW.actor.avoidedFlags(theActor);
+  		const loc = this.getMatchingLocNear(x, y, (cell, i, j) => {
+  			if (cell.flags & (Flags$1.HAS_ACTOR)) return false;
+  			return !cell.hasTileFlag(forbidTileFlags);
+  		});
+  		if (!loc || loc[0] < 0) {
+  			// GW.ui.message(colors.badMessageColor, 'There is no place to put the actor.');
+  			return false;
+  		}
+
+  		return this.addActor(loc[0], loc[1], theActor);
+  	}
+
+  	removeActor(actor) {
+  		const cell = this.cell(actor.x, actor.y);
+  		cell.flags &= ~(Flags$1.HAS_PLAYER | Flags$1.HAS_MONSTER);
+  		cell.flags |= Flags$1.NEEDS_REDRAW;
+  		this.flags |= Flags$2.MAP_CHANGED;
+  		this.actors.remove(actor);
+  	}
+
+  	dormantAt(x, y) {  // creature *
+  		if (!(this.cell(x, y).flags & Flags$1.HAS_DORMANT_MONSTER)) {
+  			return null;
+  		}
+  		return this.dormantActors.find( (m) => m.x == x && m.y == y );
+  	}
+
+  	addDormant(x, y, theActor) {
+  		theActor.x = x;
+  		theActor.y = y;
+  		this.dormant.add(theActor);
+  		cell.flags |= (Flags$1.HAS_DORMANT_MONSTER);
+  		this.flags |= Flags$2.MAP_CHANGED;
+  		return true;
+  	}
+
+  	removeDormant(actor) {
+  		const cell = this.cell(actor.x, actor.y);
+  		cell.flags &= ~(Flags$1.HAS_DORMANT_MONSTER);
+  		cell.flags |= Flags$1.NEEDS_REDRAW;
+  		this.flags |= Flags$2.MAP_CHANGED;
+  		this.dormant.remove(actor);
+  	}
+
+  	// ITEMS
+
+  	itemAt(x, y) {
+  		if (!(this.cell(x, y).flags & Flags$1.HAS_ITEM)) {
+  			return null;
+  		}
+  		return this.items.find( (i) => i.x == x && i.y == y );
+  	}
+
+  	addItem(x, y, theItem) {
+  		if (!this.hasXY(x, y)) return false;
+  		const cell = this.cell(x, y);
+  		if (cell.flags & Flags$1.HAS_ITEM) {
+  			// GW.ui.message(colors.badMessageColor, 'There is already an item there.');
+  			return false;
+  		}
+  		theItem.x = x;
+  		theItem.y = y;
+  		this.items.add(theItem);
+  		cell.flags |= (Flags$1.HAS_ITEM | Flags$1.NEEDS_REDRAW);
+
+  		this.flags |= Flags$2.MAP_CHANGED;
+  		if ( ((theItem.flags & ItemFlags.ITEM_MAGIC_DETECTED) && GW.item.magicChar(theItem)) ||
+  					config.D_ITEM_OMNISCIENCE)
+  		{
+  			cell.flags |= Flags$1.ITEM_DETECTED;
+  		}
+
+  		return true;
+  	}
+
+  	addItemNear(x, y, theItem) {
+  		const loc = this.getMatchingLocNear(x, y, (cell, i, j) => {
+  			if (cell.flags & Flags$1.HAS_ITEM) return false;
+  			return !cell.hasTileFlag(TileFlags.T_OBSTRUCTS_ITEMS);
+  		});
+  		if (!loc || loc[0] < 0) {
+  			// GW.ui.message(colors.badMessageColor, 'There is no place to put the item.');
+  			return false;
+  		}
+
+  		return this.addItem(loc[0], loc[1], theItem);
+  	}
+
+
+  	removeItem(theItem, skipRefresh) {
+  		const x = theItem.x;
+  		const y = theItem.y;
+  		if (this.items.remove(theItem)) {
+  			this.flags |= Flags$2.MAP_CHANGED;
+  			const cell = this.cell(x, y);
+  			cell.flags &= ~(Flags$1.HAS_ITEM | Flags$1.ITEM_DETECTED);
+  			cell.flags |= Flags$1.NEEDS_REDRAW;
+  			return true;
+  		}
+  		return false;
+  	}
+
+  	// // PROMOTE
+  	//
+  	// async promote(x, y, mechFlag) {
+  	// 	if (this.hasTileMechFlag(x, y, mechFlag)) {
+  	// 		const cell = this.cell(x, y);
+  	// 		for (layer = 0; layer < NUMBER_TERRAIN_LAYERS; layer++) {
+  	// 			if (GW.tiles[cell.layers[layer]].mechFlags & mechFlag) {
+  	// 				await GW.tile.promote(this, x, y, layer, false);
+  	// 			}
+  	// 		}
+  	// 	}
+  	// }
+
+  	// MEMORIES
+
+  	storeMemory(x, y) {
+  		const cell = this.cell(x, y);
+  		cell.storeMemory(this.itemAt(x, y));
+  	}
+
+  	storeMemories() {
+  		let x, y;
+  		for(x = 0; x < this.width; ++x) {
+  			for(y = 0; y < this.height; ++y) {
+  				const cell = this.cell(x, y);
+  				if (cell.flags & Flags$1.ANY_KIND_OF_VISIBLE) {
+  					this.storeMemory(x, y);
+  				}
+  				cell.flags &= Flags$1.PERMANENT_CELL_FLAGS | config.PERMANENT_CELL_FLAGS;
+  				cell.mechFlags &= Flags$1.PERMANENT_MECH_FLAGS | config.PERMANENT_MECH_FLAGS;
+  			}
+  		}
+  	}
+  }
+
+  types.Map = Map;
+
+
+  function makeMap(w, h, opts={}) {
+  	return new types.Map(w, h, opts);
+  }
+
+  make.map = makeMap;
+
+
+  function getCellAppearance(map, x, y, dest) {
+  	dest.clear();
+  	if (!map.hasXY(x, y)) return;
+  	const cell = map.cell(x, y);
+  	getAppearance(cell, dest);
+  }
+
+  map.getCellAppearance = getCellAppearance;
+
   exports.actor = actor;
   exports.buffer = buffer;
   exports.canvas = canvas;
+  exports.cell = cell$1;
   exports.color = color;
   exports.colors = colors;
+  exports.config = config;
   exports.cosmetic = cosmetic;
+  exports.data = data;
   exports.debug = debug$1;
   exports.def = def;
-  exports.dig = dig;
+  exports.digger = digger;
   exports.diggers = diggers;
+  exports.dungeon = dungeon;
   exports.flag = flag;
   exports.flags = flags;
   exports.grid = grid$1;

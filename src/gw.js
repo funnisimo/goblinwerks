@@ -1,7 +1,5 @@
 
 
-
-
 export var def = {};
 export var utils = {};
 export var types = {};
@@ -17,18 +15,12 @@ export var buffer = {};
 export var canvas = {};
 export var io = {};
 
-export var dig = {};
-export var diggers = {};
-
 export var path = {};
 export var map = {};
 export var actor = {};
 
-export var random = null;
-export var cosmetic = null;
-export var MAP = null;
-export var PLAYER = null;
-
+export var config = {};
+export var data = {};
 
 def.dirs    = [[0,-1], [0,1],  [-1,0], [1,0],  [-1,-1], [-1,1], [1,-1], [1,1]];
 def.oppDirs = [[0,1],  [0,-1], [1,0],  [-1,0], [1,1],   [1,-1], [-1,1], [-1,-1]];

@@ -1,7 +1,7 @@
 
 import * as utils from './utils.js';
 import { random } from './random.js';
-import { grid as GRID, def, MAP, types, debug, make } from './gw.js';
+import { grid as GRID, def, data as DATA, types, debug, make } from './gw.js';
 
 
 const GRID_CACHE = [];
@@ -282,21 +282,54 @@ export class Grid extends Array {
 		return null; // should never reach this point
 	}
 
+
+	// Rotates around the cell, counting up the number of distinct strings of neighbors with the same test result in a single revolution.
+	//		Zero means there are no impassable tiles adjacent.
+	//		One means it is adjacent to a wall.
+	//		Two means it is in a hallway or something similar.
+	//		Three means it is the center of a T-intersection or something similar.
+	//		Four means it is in the intersection of two hallways.
+	//		Five or more means there is a bug.
+	arcCount(x, y, testFn) {
+		let arcCount, dir, oldX, oldY, newX, newY;
+
+	  // brogueAssert(grid.hasXY(x, y));
+
+		testFn = testFn || utils.IDENTITY;
+
+		arcCount = 0;
+		for (dir = 0; dir < CDIRS.length; dir++) {
+			oldX = x + CDIRS[(dir + 7) % 8][0];
+			oldY = y + CDIRS[(dir + 7) % 8][1];
+			newX = x + CDIRS[dir][0];
+			newY = y + CDIRS[dir][1];
+			// Counts every transition from passable to impassable or vice-versa on the way around the cell:
+			if ((this.hasXY(newX, newY) && testFn(this[newX][newY], newX, newY))
+				!= (this.hasXY(oldX, oldY) && testFn(this[oldX][oldY], oldX, oldY)))
+			{
+				arcCount++;
+			}
+		}
+		return Math.floor(arcCount / 2); // Since we added one when we entered a wall and another when we left.
+	}
+
 }
 
 types.Grid = Grid;
 
 
 export function makeGrid(w, h, v) {
-	return new Grid(w, h, v);
+	return new types.Grid(w, h, v);
 }
+
+make.grid = makeGrid;
 
 
 // mallocing two-dimensional arrays! dun dun DUN!
 export function allocGrid(w, h, v) {
 
-	w = w || (MAP ? MAP.width : 100);
-	h = h || (MAP ? MAP.height : 34);
+	w = w || (DATA.map ? DATA.map.width : 100);
+	h = h || (DATA.map ? DATA.map.height : 34);
 	v = v || 0;
 
 	++GRID_ACTIVE_COUNT;
@@ -560,40 +593,6 @@ export function randomLeastPositiveLocation(grid, deterministic) {
 
 GRID.randomLeastPositiveLocation = randomLeastPositiveLocation;
 
-
-// Rotates around the cell, counting up the number of distinct strings of neighbors with the same test result in a single revolution.
-//		Zero means there are no impassable tiles adjacent.
-//		One means it is adjacent to a wall.
-//		Two means it is in a hallway or something similar.
-//		Three means it is the center of a T-intersection or something similar.
-//		Four means it is in the intersection of two hallways.
-//		Five or more means there is a bug.
-export function arcCount(grid, x, y, testFn) {
-	let arcCount, dir, oldX, oldY, newX, newY;
-
-  // brogueAssert(grid.hasXY(x, y));
-
-	testFn = testFn || utils.IDENTITY;
-
-	arcCount = 0;
-	for (dir = 0; dir < CDIRS.length; dir++) {
-		oldX = x + CDIRS[(dir + 7) % 8][0];
-		oldY = y + CDIRS[(dir + 7) % 8][1];
-		newX = x + CDIRS[dir][0];
-		newY = y + CDIRS[dir][1];
-		// Counts every transition from passable to impassable or vice-versa on the way around the cell:
-		if ((grid.hasXY(newX, newY) && testFn(grid[newX][newY], newX, newY))
-			!= (grid.hasXY(oldX, oldY) && testFn(grid[oldX][oldY], oldX, oldY)))
-		{
-			arcCount++;
-		}
-	}
-	return Math.floor(arcCount / 2); // Since we added one when we entered a wall and another when we left.
-}
-
-GRID.arcCount = arcCount;
-
-
 // Marks a cell as being a member of blobNumber, then recursively iterates through the rest of the blob
 export function floodFill(grid, x, y, matchValue, fillValue) {
   let dir;
@@ -619,6 +618,55 @@ export function floodFill(grid, x, y, matchValue, fillValue) {
 }
 
 GRID.floodFill = floodFill;
+
+
+
+export function offsetZip(destGrid, srcGrid, srcToDestX, srcToDestY, value) {
+	const fn = (typeof value === 'function') ? value : ((d, s, i, j) => destGrid[i][j] = value || s);
+	srcGrid.forEach( (c, i, j) => {
+		const destX = i + srcToDestX;
+		const destY = j + srcToDestY;
+		if (!destGrid.hasXY(destX, destY)) return;
+		if (!c) return;
+		fn(destGrid[destX][destY], c, i, j);
+	});
+}
+
+GRID.offsetZip = offsetZip;
+
+
+
+// If the indicated tile is a wall on the room stored in grid, and it could be the site of
+// a door out of that room, then return the outbound direction that the door faces.
+// Otherwise, return def.NO_DIRECTION.
+export function directionOfDoorSite(grid, x, y, isOpen=1) {
+    let dir, solutionDir;
+    let newX, newY, oppX, oppY;
+
+		const fnOpen = (typeof isOpen === 'function') ? isOpen : ((v) => v == isOpen);
+
+    solutionDir = def.NO_DIRECTION;
+    for (dir=0; dir<4; dir++) {
+        newX = x + DIRS[dir][0];
+        newY = y + DIRS[dir][1];
+        oppX = x - DIRS[dir][0];
+        oppY = y - DIRS[dir][1];
+        if (grid.hasXY(oppX, oppY)
+            && grid.hasXY(newX, newY)
+            && fnOpen(grid[oppX][oppY],oppX, oppY))
+        {
+            // This grid cell would be a valid tile on which to place a door that, facing outward, points dir.
+            if (solutionDir != def.NO_DIRECTION) {
+                // Already claimed by another direction; no doors here!
+                return def.NO_DIRECTION;
+            }
+            solutionDir = dir;
+        }
+    }
+    return solutionDir;
+}
+
+GRID.directionOfDoorSite = directionOfDoorSite;
 
 
 function cellularAutomataRound(grid, birthParameters /* char[9] */, survivalParameters /* char[9] */) {
@@ -671,7 +719,16 @@ export function fillBlob(grid,
 	let blobNumber, blobSize, topBlobNumber, topBlobSize;
 
   let topBlobMinX, topBlobMinY, topBlobMaxX, topBlobMaxY, blobWidth, blobHeight;
-		let foundACellThisLine;
+	let foundACellThisLine;
+
+	if (minBlobWidth >= maxBlobWidth) {
+		minBlobWidth = Math.round(0.75 * maxBlobWidth);
+		maxBlobWidth = Math.round(1.25 * maxBlobWidth);
+	}
+	if (minBlobHeight >= maxBlobHeight) {
+		minBlobHeight = Math.round(0.75 * maxBlobHeight);
+		maxBlobHeight = Math.round(1.25 * maxBlobHeight);
+	}
 
 	const left = Math.floor((grid.width - maxBlobWidth) / 2);
 	const top  = Math.floor((grid.height - maxBlobHeight) / 2);
@@ -698,9 +755,9 @@ export function fillBlob(grid,
 		// Now to measure the result. These are best-of variables; start them out at worst-case values.
 		topBlobSize =   0;
 		topBlobNumber = 0;
-		topBlobMinX =   maxBlobWidth;
+		topBlobMinX =   grid.width;
 		topBlobMaxX =   0;
-		topBlobMinY =   maxBlobHeight;
+		topBlobMinY =   grid.height;
 		topBlobMaxY =   0;
 
 		// Fill each blob with its own number, starting with 2 (since 1 means floor), and keeping track of the biggest:

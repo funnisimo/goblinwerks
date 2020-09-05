@@ -92,11 +92,14 @@ utils.cloneObject = cloneObject;
 function assignField(dest, src, key) {
   const current = dest[key];
   const updated = src[key];
-  if (current && current.copy) {
+  if (current && current.copy && updated) {
     current.copy(updated);
   }
-  else if (updated && updated.copy) {
-    dest[key] = updated;	// just use same object (shallow copy)
+  else if (current && current.clear && !updated) {
+    current.clear();
+  }
+  else if (updated && updated.clone) {
+    dest[key] = updated.clone();	// just use same object (shallow copy)
   }
   else if (updated && Array.isArray(updated)) {
     dest[key] = updated.slice();
