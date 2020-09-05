@@ -4,13 +4,39 @@
 let data = GW.grid.alloc(100, 34);
 let canvas = null;
 
+const DEAD = GW.make.sprite(' ', [0], [0]);
+const ALIVE = GW.make.sprite(' ', [0], [100, 50, 50]);
+
 // when you click a cell, you make it alive
 function handleClick(e) {
 	const x = canvas.toX(e.clientX);
 	const y = canvas.toY(e.clientY);
 
+	lastX = x;
+	lastY = y;
+
 	console.log('click', x, y);
-	data[x][y] = 1;
+	data[x][y] = (data[x][y] + 1) % 2;
+	draw();
+}
+
+let lastX = -1;
+let lastY = -1;
+// when you click a cell, you make it alive
+function handleMove(e) {
+	if (!e.buttons) {
+		lastX = lastY = -1;
+		return;
+	}
+	const x = canvas.toX(e.clientX);
+	const y = canvas.toY(e.clientY);
+
+	if (x == lastX && y == lastY) return;
+	lastX = x;
+	lastY = y;
+
+	console.log('click', x, y);
+	data[x][y] = (data[x][y] + 1) % 2;
 	draw();
 }
 
@@ -18,12 +44,7 @@ function handleClick(e) {
 // alive = @, dead = ' '
 function draw() {
 	data.forEach( (v, x, y) => {
-		if (v) {
-			canvas.plotChar(x, y, ' ', [0], [100, 50, 50]);
-		}
-		else {
-			canvas.plotChar(x, y, ' ', [0], [0]);
-		}
+		canvas.plot(x, y, v ? ALIVE : DEAD);
 	});
 	canvas.draw();
 }
@@ -67,7 +88,12 @@ function runSim() {
 function start() {
 	canvas = new GW.types.Canvas(100, 34, 'game', { tileSize: 11 });
 	game.onmousedown = handleClick;
+	game.onmousemove = handleMove;
 	document.onkeydown = runSim;
+
+	canvas.plotText(20, 15, 'Click to Turn on/off some cells.', [100,50,0]);
+	canvas.plotText(20, 17, 'Press any key to run simulation.', [100,50,0]);
+	canvas.draw();
 }
 
 window.onload = start;

@@ -92,11 +92,14 @@ utils.cloneObject = cloneObject;
 function assignField(dest, src, key) {
   const current = dest[key];
   const updated = src[key];
-  if (current && current.copy) {
+  if (current && current.copy && updated) {
     current.copy(updated);
   }
-  else if (updated && updated.copy) {
-    dest[key] = updated;	// just use same object (shallow copy)
+  else if (current && current.clear && !updated) {
+    current.clear();
+  }
+  else if (updated && updated.clone) {
+    dest[key] = updated.clone();	// just use same object (shallow copy)
   }
   else if (updated && Array.isArray(updated)) {
     dest[key] = updated.slice();
@@ -167,7 +170,7 @@ utils.getOpt = getOpt;
 
 export function first(field, ...args) {
   for(let arg of args) {
-    if (typeof arg === 'string' || typeof arg === 'number') {
+    if (typeof arg !== 'object' || Array.isArray(arg)) {
       return arg;
     }
     if (arg[field] !== undefined) {

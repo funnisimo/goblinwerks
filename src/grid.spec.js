@@ -46,11 +46,28 @@ describe('GW.grid', () => {
     expect(a.isBoundaryXY(0, 10)).toBeFalsy();
   });
 
-  test('zero', () => {
+  test('fill', () => {
     a = GW.grid.alloc(10, 10, 10);
     expect(a.count(0)).toEqual(0);
-    GW.grid.zero(a);
+    a.fill(0);
     expect(a.count(0)).toEqual(100);
+  });
+
+  test('fillBlob', () => {
+    a = GW.grid.alloc(80, 30);
+    expect(a.count(1)).toEqual(0);
+
+    GW.grid.fillBlob(a, 5, 4, 4, 30, 15, 55, "ffffftttt", "ffffttttt");
+    expect(a.count(1)).toBeGreaterThan(10);
+  });
+
+  test.only('fillBlob - can handle min >= max', () => {
+    GW.random.seed(123456);
+    a = GW.grid.alloc(50, 30);
+    expect(a.count(1)).toEqual(0);
+
+    GW.grid.fillBlob(a, 5, 12, 12, 10, 10, 55, "ffffftttt", "ffffttttt");
+    expect(a.count(1)).toBeGreaterThan(10);
   });
 
 });
