@@ -295,37 +295,37 @@ digger.chunkyRoom = digChunkyRoom;
 
 
 export function chooseRandomDoorSites(sourceGrid) {
-    let i, j, k, newX, newY;
-    let dir;
-    let doorSiteFailed;
+  let i, j, k, newX, newY;
+  let dir;
+  let doorSiteFailed;
 
-    const grid = allocGrid(sourceGrid.width, sourceGrid.height);
-    grid.copy(sourceGrid);
+  const grid = allocGrid(sourceGrid.width, sourceGrid.height);
+  grid.copy(sourceGrid);
 
-    for (i=0; i<grid.width; i++) {
-        for (j=0; j<grid.height; j++) {
-            if (!grid[i][j]) {
-                dir = directionOfDoorSite(grid, i, j);
-                if (dir != def.NO_DIRECTION) {
-                    // Trace a ray 10 spaces outward from the door site to make sure it doesn't intersect the room.
-                    // If it does, it's not a valid door site.
-                    newX = i + DIRS[dir][0];
-                    newY = j + DIRS[dir][1];
-                    doorSiteFailed = false;
-                    for (k=0; k<10 && grid.hasXY(newX, newY) && !doorSiteFailed; k++) {
-                        if (grid[newX][newY]) {
-                            doorSiteFailed = true;
-                        }
-                        newX += DIRS[dir][0];
-                        newY += DIRS[dir][1];
-                    }
-                    if (!doorSiteFailed) {
-                        grid[i][j] = dir + 10000; // So as not to conflict with other tiles.
-                    }
-                }
-            }
-        }
-    }
+  for (i=0; i<grid.width; i++) {
+      for (j=0; j<grid.height; j++) {
+          if (!grid[i][j]) {
+              dir = directionOfDoorSite(grid, i, j);
+              if (dir != def.NO_DIRECTION) {
+                  // Trace a ray 10 spaces outward from the door site to make sure it doesn't intersect the room.
+                  // If it does, it's not a valid door site.
+                  newX = i + DIRS[dir][0];
+                  newY = j + DIRS[dir][1];
+                  doorSiteFailed = false;
+                  for (k=0; k<10 && grid.hasXY(newX, newY) && !doorSiteFailed; k++) {
+                      if (grid[newX][newY]) {
+                          doorSiteFailed = true;
+                      }
+                      newX += DIRS[dir][0];
+                      newY += DIRS[dir][1];
+                  }
+                  if (!doorSiteFailed) {
+                      grid[i][j] = dir + 10000; // So as not to conflict with other tiles.
+                  }
+              }
+          }
+      }
+  }
 
   let doorSites = [];
   // Pick four doors, one in each direction, and store them in doorSites[dir].

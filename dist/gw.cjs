@@ -3240,37 +3240,37 @@ digger.chunkyRoom = digChunkyRoom;
 
 
 function chooseRandomDoorSites(sourceGrid) {
-    let i, j, k, newX, newY;
-    let dir;
-    let doorSiteFailed;
+  let i, j, k, newX, newY;
+  let dir;
+  let doorSiteFailed;
 
-    const grid = allocGrid(sourceGrid.width, sourceGrid.height);
-    grid.copy(sourceGrid);
+  const grid = allocGrid(sourceGrid.width, sourceGrid.height);
+  grid.copy(sourceGrid);
 
-    for (i=0; i<grid.width; i++) {
-        for (j=0; j<grid.height; j++) {
-            if (!grid[i][j]) {
-                dir = directionOfDoorSite(grid, i, j);
-                if (dir != def.NO_DIRECTION) {
-                    // Trace a ray 10 spaces outward from the door site to make sure it doesn't intersect the room.
-                    // If it does, it's not a valid door site.
-                    newX = i + DIRS$2[dir][0];
-                    newY = j + DIRS$2[dir][1];
-                    doorSiteFailed = false;
-                    for (k=0; k<10 && grid.hasXY(newX, newY) && !doorSiteFailed; k++) {
-                        if (grid[newX][newY]) {
-                            doorSiteFailed = true;
-                        }
-                        newX += DIRS$2[dir][0];
-                        newY += DIRS$2[dir][1];
-                    }
-                    if (!doorSiteFailed) {
-                        grid[i][j] = dir + 10000; // So as not to conflict with other tiles.
-                    }
-                }
-            }
-        }
-    }
+  for (i=0; i<grid.width; i++) {
+      for (j=0; j<grid.height; j++) {
+          if (!grid[i][j]) {
+              dir = directionOfDoorSite(grid, i, j);
+              if (dir != def.NO_DIRECTION) {
+                  // Trace a ray 10 spaces outward from the door site to make sure it doesn't intersect the room.
+                  // If it does, it's not a valid door site.
+                  newX = i + DIRS$2[dir][0];
+                  newY = j + DIRS$2[dir][1];
+                  doorSiteFailed = false;
+                  for (k=0; k<10 && grid.hasXY(newX, newY) && !doorSiteFailed; k++) {
+                      if (grid[newX][newY]) {
+                          doorSiteFailed = true;
+                      }
+                      newX += DIRS$2[dir][0];
+                      newY += DIRS$2[dir][1];
+                  }
+                  if (!doorSiteFailed) {
+                      grid[i][j] = dir + 10000; // So as not to conflict with other tiles.
+                  }
+              }
+          }
+      }
+  }
 
   let doorSites = [];
   // Pick four doors, one in each direction, and store them in doorSites[dir].
@@ -3694,39 +3694,19 @@ function isValidStairLoc(c, x, y) {
 dungeon.isValidStairLoc = isValidStairLoc;
 
 
-//
-// export function randomDoor(sites, matchFn) {
-//   matchFn = matchFn || TRUE;
-//   const s = sequence(sites.length);
-//   random.shuffle(s);
-//
-//   for(let dir of s) {
-//     if (sites[dir][0] >= 0
-//       && matchFn(sites[dir][0], sites[dir][1], SITE.grid))
-//     {
-//       return sites[dir];
-//     }
-//   }
-//   return null;
-// }
-//
-// dungeon.randomDoor = randomDoor;
 
 
-
-
-
-function roomAttachesAt(roomGrid, roomToDungeonX, roomToDungeonY) {
-    let xRoom, yRoom, xDungeon, yDungeon, i, j;
+function roomAttachesAt(roomGrid, roomToSiteX, roomToSiteY) {
+    let xRoom, yRoom, xSite, ySite, i, j;
 
     for (xRoom = 0; xRoom < roomGrid.width; xRoom++) {
         for (yRoom = 0; yRoom < roomGrid.height; yRoom++) {
             if (roomGrid[xRoom][yRoom]) {
-                xDungeon = xRoom + roomToDungeonX;
-                yDungeon = yRoom + roomToDungeonY;
+                xSite = xRoom + roomToSiteX;
+                ySite = yRoom + roomToSiteY;
 
-                for (i = xDungeon - 1; i <= xDungeon + 1; i++) {
-                    for (j = yDungeon - 1; j <= yDungeon + 1; j++) {
+                for (i = xSite - 1; i <= xSite + 1; i++) {
+                    for (j = ySite - 1; j <= ySite + 1; j++) {
                         if (!SITE.hasXY(i, j)
                             || SITE.isBoundaryXY(i, j)
                             || !SITE.cell(i, j).isEmpty())
@@ -3741,27 +3721,6 @@ function roomAttachesAt(roomGrid, roomToDungeonX, roomToDungeonY) {
     return true;
 }
 
-
-//
-// function insertRoomAt(destGrid, roomGrid, roomToDungeonX, roomToDungeonY, xRoom, yRoom, tile) {
-//     let newX, newY;
-//     let dir;
-//
-//     // GW.debug.log("insertRoomAt: ", xRoom + roomToDungeonX, yRoom + roomToDungeonY);
-//
-//     destGrid[xRoom + roomToDungeonX][yRoom + roomToDungeonY] = roomGrid[xRoom][yRoom] ? (tile || roomGrid[xRoom][yRoom]) : 0;
-//     for (dir = 0; dir < 4; dir++) {
-//         newX = xRoom + DIRS[dir][0];
-//         newY = yRoom + DIRS[dir][1];
-//         if (roomGrid.hasXY(newX, newY)
-//             && roomGrid[newX][newY]
-//             && destGrid.hasXY(newX + roomToDungeonX, newY + roomToDungeonY)
-//             && (destGrid[newX + roomToDungeonX][newY + roomToDungeonY] == NOTHING))
-//         {
-//           insertRoomAt(destGrid, roomGrid, roomToDungeonX, roomToDungeonY, newX, newY, tile);
-//         }
-//     }
-// }
 
 
 
