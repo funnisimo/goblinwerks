@@ -120,7 +120,7 @@ class Cell {
   }
 
   clear() {
-    this.tile = 0;
+    this.base = 0;
     this.surface = 0;
     this.gas = 0;
     this.liquid = 0;
@@ -132,12 +132,12 @@ class Cell {
     this.memory.clear();
   }
 
-  dump() { return TILES[this.tile].sprite.ch; }
+  dump() { return TILES[this.base].sprite.ch; }
   isVisible() { return this.flags & Flags.VISIBLE; }
   isAnyKindOfVisible() { return (this.flags & Flags.ANY_KIND_OF_VISIBLE) || CONFIG.playbackOmniscience; }
 
   *tiles() {
-    if (this.tile) yield TILES[this.tile];
+    if (this.base) yield TILES[this.base];
     if (this.surface) yield TILES[this.surface];
     if (this.liquid) yield TILES[this.liquid];
     if (this.gas) yield TILES[this.gas];
@@ -195,7 +195,7 @@ class Cell {
   }
 
   hasTile(id) {
-    return this.tile === id || this.surface === id || this.gas === id || this.liquid === id;
+    return this.base === id || this.surface === id || this.gas === id || this.liquid === id;
   }
 
   // hasTileInGroup(...groups) {
@@ -266,7 +266,7 @@ class Cell {
   }
 
   isEmpty() {
-    return this.tile == 0;
+    return this.base == 0;
   }
 
   isPassableNow(limitToPlayerKnowledge) {
@@ -339,12 +339,12 @@ class Cell {
       tile = TILES[0];
     }
 
-    const oldTileId = this.tile || 0;
+    const oldTileId = this.base || 0;
     const oldTile = TILES[oldTileId] || TILES[0];
 
     if (!force && oldTile.priority < tile.priority) return false;
 
-    this.tile = tile.id;
+    this.base = tile.id;
     this.flags |= (Flags.NEEDS_REDRAW | Flags.TILE_CHANGED);
     return (oldTile.glowLight !== tile.glowLight);
   }
