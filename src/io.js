@@ -1,8 +1,9 @@
 
 import { NOOP, TRUE, FALSE } from './utils.js';
-import { io, def } from './gw.js';
+import { io, def, commands as COMMANDS } from './gw.js';
 
 
+const KEYMAPS = [];
 const EVENTS = [];
 const DEAD_EVENTS = [];
 const TIMERS = [];
@@ -20,6 +21,19 @@ const CONTROL_CODES = [
 ];
 
 var CURRENT_HANDLER = null;
+
+
+export function addKeymap(keymap) {
+	KEYMAPS.push(keymap);
+}
+
+io.addKeymap = addKeymap;
+
+export function busy() {
+	return EVENTS.length > 0;
+}
+
+io.busy = busy;
 
 export function clearEvents() {
 	while (EVENTS.length) {
@@ -50,6 +64,44 @@ export function pushEvent(ev) {
 }
 
 io.pushEvent = pushEvent;
+
+
+export function dispatchEvent(ev) {
+	for(let i = KEYMAPS.length - 1; i >= 0; --i) {
+		const km = KEYMAPS[i];
+		let command;
+		if (ev.dir) {
+			command = km.dir;
+		}
+		else if (ev.type === KEYPRESS) {
+			command = km[ev.key] || km[ev.code];
+		}
+		else if (km[ev.type]) {
+			command = km[ev.type];
+		}
+
+		if (command) {
+			if (typeof command === 'function') {
+				return command(ev);
+			}
+			else if (COMMANDS[command]) {
+				return COMMANDS[command](ev);
+			}
+		}
+
+		if (km.next === false) return false;
+	}
+	return false;
+}
+
+io.dispatchEvent = dispatchEvent;
+
+function recycleEvent(ev) {
+	DEAD_EVENTS.push(ev);
+}
+
+io.recycleEvent = recycleEvent;
+
 
 // TIMERS
 
@@ -90,42 +142,68 @@ export function clearTimeout(promise) {
 
 io.clearTimeout = clearTimeout;
 
+// TICK
+
+export function makeTickEvent(dt) {
+
+	const ev = DEAD_EVENTS.pop() || {};
+
+	ev.shiftKey = false;
+	ev.ctrlKey = false;
+	ev.altKey = false;
+	ev.metaKey = false;
+
+  ev.type = TICK;
+  ev.key = null;
+  ev.code = null;
+  ev.x = -1;
+  ev.y = -1;
+	ev.dir = null;
+	ev.dt = dt;
+
+  return ev;
+}
+
+io.makeTickEvent = makeTickEvent;
 
 // KEYBOARD
 
 export function makeKeyEvent(e) {
-	let ev;
-
-	let flags = 0;
   let key = e.key;
+	let code = e.code.toLowerCase();
 
   if (e.shiftKey) {
     key = key.toUpperCase();
+		code = code.toUpperCase();
   }
   if (e.ctrlKey) 	{
     key = '^' + key;
+		code = '^' + code;
   }
   if (e.metaKey) 	{
     key = '#' + key;
+		code = '#' + code;
   }
+	if (e.altKey) {
+		code = '/' + code;
+	}
 
-	if (DEAD_EVENTS.length) {
-  	ev = DEAD_EVENTS.pop();
+	const ev = DEAD_EVENTS.pop() || {};
 
-		ev.shiftKey = e.shiftKey;
-		ev.ctrlKey = e.ctrlKey;
-		ev.altKey = e.altKey;
-		ev.metaKey = e.metaKey;
+	ev.shiftKey = e.shiftKey;
+	ev.ctrlKey = e.ctrlKey;
+	ev.altKey = e.altKey;
+	ev.metaKey = e.metaKey;
 
-    ev.type = KEYPRESS;
-    ev.key = key;
-    ev.code = e.code;
-    ev.x = -1;
-    ev.y = -1;
+  ev.type = KEYPRESS;
+  ev.key = key;
+  ev.code = code;
+  ev.x = -1;
+  ev.y = -1;
+	ev.dir = io.keyCodeDirection(e.code);
+	ev.dt = 0;
 
-    return ev;
-  }
-  return { type: KEYPRESS, key: key, code: e.code, x: -1, y: -1, shiftKey: e.shiftKey, altKey: e.altKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey };
+  return ev;
 }
 
 io.makeKeyEvent = makeKeyEvent;
@@ -171,46 +249,43 @@ io.mouse = mouse;
 
 export function makeMouseEvent(e, x, y) {
 
-  let event = e.buttons ? CLICK : MOUSEMOVE;
+	const ev = DEAD_EVENTS.pop() || {};
 
-	if (DEAD_EVENTS.length) {
-  	ev = DEAD_EVENTS.pop();
+	ev.shiftKey = e.shiftKey;
+	ev.ctrlKey = e.ctrlKey;
+	ev.altKey = e.altKey;
+	ev.metaKey = e.metaKey;
 
-		ev.shiftKey = e.shiftKey;
-		ev.ctrlKey = e.ctrlKey;
-		ev.altKey = e.altKey;
-		ev.metaKey = e.metaKey;
+  ev.type = e.buttons ? CLICK : MOUSEMOVE;
+  ev.key = null;
+  ev.code = null;
+  ev.x = x;
+  ev.y = y;
+	ev.dir = null;
+	ev.dt = 0;
 
-    ev.type = event;
-    ev.key = null;
-    ev.code = null;
-    ev.x = x;
-    ev.y = y;
-
-    return ev;
-  }
-  return { type: event, key: null, code: null, x: x, y: y, shiftKey: e.shiftKey, altKey: e.altKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey };
+  return ev;
 }
 
 io.makeMouseEvent = makeMouseEvent;
 
-// export function onmousemove(e) {
-// 	const x = canvas.toX(e.clientX);
-// 	const y = canvas.toy(e.clientY);
-// 	const ev = makeMouseEvent(e, x, y);
-// 	io.pushEvent(ev);
-// }
-//
-// io.onmousemove = onmousemove;
-//
-// export function onmousedown(e) {
-// 	const x = canvas.toX(e.clientX);
-// 	const y = canvas.toy(e.clientY);
-// 	const ev = makeMouseEvent(e, x, y);
-// 	io.pushEvent(ev);
-// }
-//
-// io.onmousedown = onmousedown;
+export function onmousemove(e) {
+	const x = canvas.toX(e.clientX);
+	const y = canvas.toY(e.clientY);
+	const ev = makeMouseEvent(e, x, y);
+	io.pushEvent(ev);
+}
+
+io.onmousemove = onmousemove;
+
+export function onmousedown(e) {
+	const x = canvas.toX(e.clientX);
+	const y = canvas.toY(e.clientY);
+	const ev = makeMouseEvent(e, x, y);
+	io.pushEvent(ev);
+}
+
+io.onmousedown = onmousedown;
 
 // IO
 
@@ -247,6 +322,7 @@ export function nextEvent(ms, match) {
       }
     }
     else if (!match(e)) return;
+
     CURRENT_HANDLER = null;
     e.dt = elapsed;
   	done(e);
@@ -290,11 +366,3 @@ export function waitForAck() {
 }
 
 io.waitForAck = waitForAck;
-
-export async function dispatchEvent(h, e) {
-	if (!e || !h) return;
-  const fn = h[e.type] || FALSE;
-  return await fn.call(h, e);
-}
-
-io.dispatchEvent = dispatchEvent;

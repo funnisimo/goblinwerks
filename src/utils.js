@@ -52,6 +52,33 @@ export function distanceBetween(x1, y1, x2, y2) {
 
 utils.distanceBetween = distanceBetween;
 
+export function distanceFromTo(a, b) {
+  return distanceBetween(a.x || a[0] || 0, a.y || a[1] || 0, b.x || b[0] || 0, b.y || b[1] || 0);
+}
+
+utils.distanceFromTo = distanceFromTo;
+
+export function dirBetween(x, y, toX, toY) {
+	let diffX = toX - x;
+	let diffY = toY - y;
+	if (diffX && diffY) {
+		const absX = Math.abs(diffX);
+		const absY = Math.abs(diffY);
+		if (absX >= 2 * absY) { diffY = 0; }
+		else if (absY >= 2 * absX) { diffX = 0; }
+	}
+	return [Math.sign(diffX), Math.sign(diffY)];
+}
+
+utils.dirBetween = dirBetween;
+
+export function dirFromTo(a, b) {
+  return dirBetween(a.x || a[0] || 0, a.y || a[1] || 0, b.x || b[0] || 0, b.y || b[1] || 0);
+}
+
+utils.dirFromTo = dirFromTo;
+
+
 export function extend(obj, name, fn) {
   const base = obj[name] || NOOP;
   const newFn = fn.bind(obj, base.bind(obj));

@@ -15,41 +15,41 @@ export const Flags = installFlag('cell', {
   REVEALED					: Fl(0),
   VISIBLE							: Fl(1),	// cell has sufficient light and is in field of view, ready to draw.
   WAS_VISIBLE					: Fl(2),
-  IN_FIELD_OF_VIEW		: Fl(3),	// player has unobstructed line of sight whether or not there is enough light
+  IN_FOV		          : Fl(3),	// player has unobstructed line of sight whether or not there is enough light
 
   HAS_PLAYER					: Fl(4),
   HAS_MONSTER					: Fl(5),
   HAS_DORMANT_MONSTER	: Fl(6),	// hidden monster on the square
   HAS_ITEM						: Fl(7),
   HAS_STAIRS					: Fl(8),
+  HAS_FX              : Fl(9),
 
-  IS_IN_PATH					: Fl(9),	// the yellow trail leading to the cursor
-  IS_CURSOR						: Fl(10),	// the current cursor
+  IS_IN_PATH					: Fl(12),	// the yellow trail leading to the cursor
+  IS_CURSOR						: Fl(13),	// the current cursor
 
-  MAGIC_MAPPED				: Fl(11),
-  ITEM_DETECTED				: Fl(12),
+  MAGIC_MAPPED				: Fl(14),
+  ITEM_DETECTED				: Fl(15),
 
-  STABLE_MEMORY						: Fl(13),	// redraws will simply be pulled from the memory array, not recalculated
+  STABLE_MEMORY						: Fl(16),	// redraws will simply be pulled from the memory array, not recalculated
 
-  CLAIRVOYANT_VISIBLE			: Fl(14),
-  WAS_CLAIRVOYANT_VISIBLE	: Fl(15),
-  CLAIRVOYANT_DARKENED		: Fl(16),	// magical blindness from a cursed ring of clairvoyance
+  CLAIRVOYANT_VISIBLE			: Fl(17),
+  WAS_CLAIRVOYANT_VISIBLE	: Fl(18),
+  CLAIRVOYANT_DARKENED		: Fl(19),	// magical blindness from a cursed ring of clairvoyance
 
-  IMPREGNABLE							: Fl(17),	// no tunneling allowed!
-  TERRAIN_COLORS_DANCING	: Fl(18),	// colors here will sparkle when the game is idle
+  IMPREGNABLE							: Fl(20),	// no tunneling allowed!
 
-  TELEPATHIC_VISIBLE			: Fl(19),	// potions of telepathy let you see through other creatures' eyes
-  WAS_TELEPATHIC_VISIBLE	: Fl(20),	// potions of telepathy let you see through other creatures' eyes
+  TELEPATHIC_VISIBLE			: Fl(22),	// potions of telepathy let you see through other creatures' eyes
+  WAS_TELEPATHIC_VISIBLE	: Fl(23),	// potions of telepathy let you see through other creatures' eyes
 
-  MONSTER_DETECTED				: Fl(21),
-  WAS_MONSTER_DETECTED		: Fl(22),
+  MONSTER_DETECTED				: Fl(24),
+  WAS_MONSTER_DETECTED		: Fl(25),
 
-  NEEDS_REDRAW            : Fl(23),	// needs to be redrawn (maybe in path, etc...)
-  TILE_CHANGED						: Fl(24),	// one of the tiles changed
+  NEEDS_REDRAW            : Fl(26),	// needs to be redrawn (maybe in path, etc...)
+  TILE_CHANGED						: Fl(27),	// one of the tiles changed
 
-  CELL_LIT                : Fl(25),
-  IS_IN_SHADOW				    : Fl(26),	// so that a player gains an automatic stealth bonus
-  CELL_DARK               : Fl(27),
+  CELL_LIT                : Fl(28),
+  IS_IN_SHADOW				    : Fl(29),	// so that a player gains an automatic stealth bonus
+  CELL_DARK               : Fl(30),
 
   PERMANENT_CELL_FLAGS : ['REVEALED', 'MAGIC_MAPPED', 'ITEM_DETECTED', 'HAS_ITEM', 'HAS_DORMANT_MONSTER',
               'HAS_STAIRS', 'STABLE_MEMORY', 'IMPREGNABLE'],

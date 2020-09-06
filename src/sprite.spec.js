@@ -35,6 +35,12 @@ describe('Sprite', () => {
     expect(CSS(e.bg)).toEqual('#00ff00');
     expect(e.opacity).toEqual(50);
 
+    const f = GW.make.sprite('@', null, null, 50);
+    expect(f.ch).toEqual('@');
+    expect(f.fg).toBeNull();
+    expect(f.bg).toBeNull();
+    expect(f.opacity).toEqual(50);
+
   });
 
   test('plot', () => {

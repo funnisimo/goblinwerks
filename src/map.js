@@ -20,12 +20,12 @@ export const Flags = installFlag('map', {
 
 export class Map {
 	constructor(w, h, opts={}) {
-		Object.assign(this, opts);
 		this.width = w;
 		this.height = h;
 		this.cells = make.grid(w, h, () => new types.Cell() );
-		this.locations = {};
-		this.config = {};
+		this.locations = opts.locations || {};
+		this.config = Object.assign({}, opts);
+		this.fx = [];
 	}
 
 	clear() { this.cells.forEach( (c) => c.clear() ); }
@@ -265,6 +265,38 @@ export class Map {
 		return [ x, y ];
 	}
 
+	// FX
+
+	addFx(x, y, anim) {
+		if (!this.hasXY(x, y)) return false;
+		const cell = this.cell(x, y);
+		cell.setFlags(CellFlags.HAS_FX);
+		anim.x = x;
+		anim.y = y;
+		this.fx.push(anim);
+		return true;
+	}
+
+	moveFx(x, y, anim) {
+		if (!this.hasXY(x, y)) return false;
+		const cell = this.cell(x, y);
+		const oldCell = this.cell(anim.x, anim.y);
+		oldCell.clearFlags(CellFlags.HAS_FX);
+		cell.setFlags(CellFlags.HAS_FX);
+		anim.x = x;
+		anim.y = y;
+		return true;
+	}
+
+	removeFx(anim) {
+		const oldCell = this.cell(anim.x, anim.y);
+		oldCell.clearFlags(CellFlags.HAS_FX);
+		anim.x = -1;
+		anim.y = -1;
+		this.fx = this.fx.filter( (a) => a !== anim );
+		return true;
+	}
+
 	// ACTORS
 
 	// will return the PLAYER if the PLAYER is at (x, y).
@@ -443,7 +475,11 @@ types.Map = Map;
 
 
 export function makeMap(w, h, opts={}) {
-	return new types.Map(w, h, opts);
+	const map = new types.Map(w, h, opts);
+	if (opts.tile) {
+		map.fill(opts.tile, opts.boundary);
+	}
+	return map;
 }
 
 make.map = makeMap;
@@ -454,6 +490,14 @@ export function getCellAppearance(map, x, y, dest) {
 	if (!map.hasXY(x, y)) return;
 	const cell = map.cell(x, y);
 	cellGetAppearance(cell, dest);
+
+	// add fx (if any)
+	if (cell.flags & CellFlags.HAS_FX) {
+		map.fx.forEach( (a) => {
+			if (a.x != x || a.y != y) return;
+			dest.plot(a.sprite);
+		});
+	}
 }
 
 map.getCellAppearance = getCellAppearance;

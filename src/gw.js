@@ -19,6 +19,7 @@ export var path = {};
 export var map = {};
 export var actor = {};
 
+export var commands = {};
 export var config = {};
 export var data = {};
 

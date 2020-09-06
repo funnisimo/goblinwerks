@@ -4,6 +4,9 @@ import { types, make } from './gw.js';
 
 const TEMP_BG = new Color();
 
+export var sprites = {};
+export var sprite = {};
+
 export class Sprite {
 	constructor(ch, fg, bg, opacity) {
 		const args = Array.prototype.filter.call(arguments, (v) => v !== undefined );
@@ -109,3 +112,11 @@ export function makeSprite(ch, fg, bg, opacity) {
 }
 
 make.sprite = makeSprite;
+
+export function installSprite(name, ch, fg, bg, opacity) {
+	const sprite = make.sprite(ch, fg, bg, opacity);
+	sprites[name] = sprite;
+	return sprite;
+}
+
+sprite.installSprite = installSprite;

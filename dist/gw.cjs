@@ -7,17 +7,16 @@ var debug$1 = {};
 
 var make = {};
 var install = {};
-
-var sprite = {};
 var grid$1 = {};
 
 var buffer = {};
-var canvas = {};
+var canvas$1 = {};
 var io = {};
 
 var path = {};
 var actor = {};
 
+var commands = {};
 var config = {};
 var data = {};
 
@@ -87,6 +86,33 @@ function distanceBetween(x1, y1, x2, y2) {
 }
 
 utils.distanceBetween = distanceBetween;
+
+function distanceFromTo(a, b) {
+  return distanceBetween(a.x || a[0] || 0, a.y || a[1] || 0, b.x || b[0] || 0, b.y || b[1] || 0);
+}
+
+utils.distanceFromTo = distanceFromTo;
+
+function dirBetween(x, y, toX, toY) {
+	let diffX = toX - x;
+	let diffY = toY - y;
+	if (diffX && diffY) {
+		const absX = Math.abs(diffX);
+		const absY = Math.abs(diffY);
+		if (absX >= 2 * absY) { diffY = 0; }
+		else if (absY >= 2 * absX) { diffX = 0; }
+	}
+	return [Math.sign(diffX), Math.sign(diffY)];
+}
+
+utils.dirBetween = dirBetween;
+
+function dirFromTo(a, b) {
+  return dirBetween(a.x || a[0] || 0, a.y || a[1] || 0, b.x || b[0] || 0, b.y || b[1] || 0);
+}
+
+utils.dirFromTo = dirFromTo;
+
 
 function extend(obj, name, fn) {
   const base = obj[name] || NOOP;
@@ -1018,12 +1044,46 @@ installColorSpread('azure', 			0,    50,   100);
 
 const TEMP_BG = new Color();
 
+var sprites = {};
+var sprite = {};
+
 class Sprite {
-	constructor(ch, fg, bg, opacity=100) {
-		this.ch = ch || ' ';
-		this.fg = makeColor(fg || 'white');
-		this.bg = makeColor(bg || 'black');
-		this.opacity = opacity;
+	constructor(ch, fg, bg, opacity) {
+		const args = Array.prototype.filter.call(arguments, (v) => v !== undefined );
+
+		let argCount = args.length;
+		const opIndex = args.findIndex( (v) => typeof v === 'number' );
+		if (opIndex >= 0) {
+			--argCount;
+			opacity = args[opIndex];
+		}
+		if (argCount == 0) {
+			ch = ' ';
+			fg = 'white';
+			bg = 'black';
+		}
+		else if (argCount == 1) {
+			if (typeof args[0] === 'string' && args[0].length == 1) {
+				ch = args[0];
+				fg = 'white';
+				bg = null;
+			}
+			else {
+				ch = null;
+				fg = null;
+				bg = args[0];
+			}
+		}
+		else if (argCount == 2) {
+			ch = args[0];
+			fg = args[1];
+			bg = null;
+		}
+
+		this.ch = ch !== null ? (ch || ' ') : null;
+		this.fg = fg !== null ? makeColor(fg || 'white') : null;
+		this.bg = bg !== null ? makeColor(bg || 'black') : null;
+		this.opacity = opacity || 100;
 		this.needsUpdate = true;
 	}
 
@@ -1065,34 +1125,22 @@ class Sprite {
       return true;
     }
 
-    let ch, fg;
-    TEMP_BG.copy(sprite.bg);
-
     // ch and fore color:
-    if (sprite.ch == ' ') { // Blank cells in the overbuf take the ch from the screen.
-      ch = this.ch;
-      fg = this.fg;
-      // applyMix(fg, sprite.bg, sprite.opacity);
-    } else {
-      ch = sprite.ch;
-      fg = sprite.fg;
+    if (sprite.ch && sprite.ch != ' ') { // Blank cells in the overbuf take the ch from the screen.
+      this.ch = sprite.ch;
+      this.fg.copy(sprite.fg);
     }
 
-    applyMix(TEMP_BG, this.bg, 100 - sprite.opacity);
+		if (sprite.bg) {
+			applyMix(this.bg, sprite.bg, sprite.opacity);
+		}
 
-    if (ch != ' ' && equals(fg, TEMP_BG))
+    if (this.ch != ' ' && equals(this.fg, this.bg))
     {
-      ch = ' ';
+      this.ch = ' ';
     }
-
-    if (ch !== this.ch
-      || !equals(fg, this.fg)
-      || !equals(TEMP_BG, this.bg))
-    {
-      this.plotChar(ch, fg, TEMP_BG);
-    }
-
-		return this.needsUpdate;
+		this.needsUpdate = true;
+		return true;
 	}
 
 }
@@ -1104,6 +1152,14 @@ function makeSprite(ch, fg, bg, opacity) {
 }
 
 make.sprite = makeSprite;
+
+function installSprite(name, ch, fg, bg, opacity) {
+	const sprite = make.sprite(ch, fg, bg, opacity);
+	sprites[name] = sprite;
+	return sprite;
+}
+
+sprite.installSprite = installSprite;
 
 const GRID_CACHE = [];
 
@@ -2198,6 +2254,7 @@ class Canvas {
 
 types.Canvas = Canvas;
 
+const KEYMAPS = [];
 const EVENTS = [];
 const DEAD_EVENTS = [];
 const TIMERS = [];
@@ -2215,6 +2272,19 @@ const CONTROL_CODES = [
 ];
 
 var CURRENT_HANDLER = null;
+
+
+function addKeymap(keymap) {
+	KEYMAPS.push(keymap);
+}
+
+io.addKeymap = addKeymap;
+
+function busy() {
+	return EVENTS.length > 0;
+}
+
+io.busy = busy;
 
 function clearEvents() {
 	while (EVENTS.length) {
@@ -2245,6 +2315,44 @@ function pushEvent(ev) {
 }
 
 io.pushEvent = pushEvent;
+
+
+function dispatchEvent(ev) {
+	for(let i = KEYMAPS.length - 1; i >= 0; --i) {
+		const km = KEYMAPS[i];
+		let command;
+		if (ev.dir) {
+			command = km.dir;
+		}
+		else if (ev.type === KEYPRESS) {
+			command = km[ev.key] || km[ev.code];
+		}
+		else if (km[ev.type]) {
+			command = km[ev.type];
+		}
+
+		if (command) {
+			if (typeof command === 'function') {
+				return command(ev);
+			}
+			else if (commands[command]) {
+				return commands[command](ev);
+			}
+		}
+
+		if (km.next === false) return false;
+	}
+	return false;
+}
+
+io.dispatchEvent = dispatchEvent;
+
+function recycleEvent(ev) {
+	DEAD_EVENTS.push(ev);
+}
+
+io.recycleEvent = recycleEvent;
+
 
 // TIMERS
 
@@ -2285,40 +2393,68 @@ function clearTimeout(promise) {
 
 io.clearTimeout = clearTimeout;
 
+// TICK
+
+function makeTickEvent(dt) {
+
+	const ev = DEAD_EVENTS.pop() || {};
+
+	ev.shiftKey = false;
+	ev.ctrlKey = false;
+	ev.altKey = false;
+	ev.metaKey = false;
+
+  ev.type = TICK;
+  ev.key = null;
+  ev.code = null;
+  ev.x = -1;
+  ev.y = -1;
+	ev.dir = null;
+	ev.dt = dt;
+
+  return ev;
+}
+
+io.makeTickEvent = makeTickEvent;
 
 // KEYBOARD
 
 function makeKeyEvent(e) {
-	let ev;
   let key = e.key;
+	let code = e.code.toLowerCase();
 
   if (e.shiftKey) {
     key = key.toUpperCase();
+		code = code.toUpperCase();
   }
   if (e.ctrlKey) 	{
     key = '^' + key;
+		code = '^' + code;
   }
   if (e.metaKey) 	{
     key = '#' + key;
+		code = '#' + code;
   }
+	if (e.altKey) {
+		code = '/' + code;
+	}
 
-	if (DEAD_EVENTS.length) {
-  	ev = DEAD_EVENTS.pop();
+	const ev = DEAD_EVENTS.pop() || {};
 
-		ev.shiftKey = e.shiftKey;
-		ev.ctrlKey = e.ctrlKey;
-		ev.altKey = e.altKey;
-		ev.metaKey = e.metaKey;
+	ev.shiftKey = e.shiftKey;
+	ev.ctrlKey = e.ctrlKey;
+	ev.altKey = e.altKey;
+	ev.metaKey = e.metaKey;
 
-    ev.type = KEYPRESS;
-    ev.key = key;
-    ev.code = e.code;
-    ev.x = -1;
-    ev.y = -1;
+  ev.type = KEYPRESS;
+  ev.key = key;
+  ev.code = code;
+  ev.x = -1;
+  ev.y = -1;
+	ev.dir = io.keyCodeDirection(e.code);
+	ev.dt = 0;
 
-    return ev;
-  }
-  return { type: KEYPRESS, key: key, code: e.code, x: -1, y: -1, shiftKey: e.shiftKey, altKey: e.altKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey };
+  return ev;
 }
 
 io.makeKeyEvent = makeKeyEvent;
@@ -2364,46 +2500,43 @@ io.mouse = mouse;
 
 function makeMouseEvent(e, x, y) {
 
-  let event = e.buttons ? CLICK : MOUSEMOVE;
+	const ev = DEAD_EVENTS.pop() || {};
 
-	if (DEAD_EVENTS.length) {
-  	ev = DEAD_EVENTS.pop();
+	ev.shiftKey = e.shiftKey;
+	ev.ctrlKey = e.ctrlKey;
+	ev.altKey = e.altKey;
+	ev.metaKey = e.metaKey;
 
-		ev.shiftKey = e.shiftKey;
-		ev.ctrlKey = e.ctrlKey;
-		ev.altKey = e.altKey;
-		ev.metaKey = e.metaKey;
+  ev.type = e.buttons ? CLICK : MOUSEMOVE;
+  ev.key = null;
+  ev.code = null;
+  ev.x = x;
+  ev.y = y;
+	ev.dir = null;
+	ev.dt = 0;
 
-    ev.type = event;
-    ev.key = null;
-    ev.code = null;
-    ev.x = x;
-    ev.y = y;
-
-    return ev;
-  }
-  return { type: event, key: null, code: null, x: x, y: y, shiftKey: e.shiftKey, altKey: e.altKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey };
+  return ev;
 }
 
 io.makeMouseEvent = makeMouseEvent;
 
-// export function onmousemove(e) {
-// 	const x = canvas.toX(e.clientX);
-// 	const y = canvas.toy(e.clientY);
-// 	const ev = makeMouseEvent(e, x, y);
-// 	io.pushEvent(ev);
-// }
-//
-// io.onmousemove = onmousemove;
-//
-// export function onmousedown(e) {
-// 	const x = canvas.toX(e.clientX);
-// 	const y = canvas.toy(e.clientY);
-// 	const ev = makeMouseEvent(e, x, y);
-// 	io.pushEvent(ev);
-// }
-//
-// io.onmousedown = onmousedown;
+function onmousemove(e) {
+	const x = canvas.toX(e.clientX);
+	const y = canvas.toY(e.clientY);
+	const ev = makeMouseEvent(e, x, y);
+	io.pushEvent(ev);
+}
+
+io.onmousemove = onmousemove;
+
+function onmousedown(e) {
+	const x = canvas.toX(e.clientX);
+	const y = canvas.toY(e.clientY);
+	const ev = makeMouseEvent(e, x, y);
+	io.pushEvent(ev);
+}
+
+io.onmousedown = onmousedown;
 
 // IO
 
@@ -2440,6 +2573,7 @@ function nextEvent(ms, match) {
       }
     }
     else if (!match(e)) return;
+
     CURRENT_HANDLER = null;
     e.dt = elapsed;
   	done(e);
@@ -2483,14 +2617,6 @@ function waitForAck() {
 }
 
 io.waitForAck = waitForAck;
-
-async function dispatchEvent(h, e) {
-	if (!e || !h) return;
-  const fn = h[e.type] || FALSE;
-  return await fn.call(h, e);
-}
-
-io.dispatchEvent = dispatchEvent;
 
 const PDS_FORBIDDEN   = def.PDS_FORBIDDEN   = -1;
 const PDS_OBSTRUCTION = def.PDS_OBSTRUCTION = -2;
@@ -4252,41 +4378,41 @@ const Flags$1 = installFlag('cell', {
   REVEALED					: Fl(0),
   VISIBLE							: Fl(1),	// cell has sufficient light and is in field of view, ready to draw.
   WAS_VISIBLE					: Fl(2),
-  IN_FIELD_OF_VIEW		: Fl(3),	// player has unobstructed line of sight whether or not there is enough light
+  IN_FOV		          : Fl(3),	// player has unobstructed line of sight whether or not there is enough light
 
   HAS_PLAYER					: Fl(4),
   HAS_MONSTER					: Fl(5),
   HAS_DORMANT_MONSTER	: Fl(6),	// hidden monster on the square
   HAS_ITEM						: Fl(7),
   HAS_STAIRS					: Fl(8),
+  HAS_FX              : Fl(9),
 
-  IS_IN_PATH					: Fl(9),	// the yellow trail leading to the cursor
-  IS_CURSOR						: Fl(10),	// the current cursor
+  IS_IN_PATH					: Fl(12),	// the yellow trail leading to the cursor
+  IS_CURSOR						: Fl(13),	// the current cursor
 
-  MAGIC_MAPPED				: Fl(11),
-  ITEM_DETECTED				: Fl(12),
+  MAGIC_MAPPED				: Fl(14),
+  ITEM_DETECTED				: Fl(15),
 
-  STABLE_MEMORY						: Fl(13),	// redraws will simply be pulled from the memory array, not recalculated
+  STABLE_MEMORY						: Fl(16),	// redraws will simply be pulled from the memory array, not recalculated
 
-  CLAIRVOYANT_VISIBLE			: Fl(14),
-  WAS_CLAIRVOYANT_VISIBLE	: Fl(15),
-  CLAIRVOYANT_DARKENED		: Fl(16),	// magical blindness from a cursed ring of clairvoyance
+  CLAIRVOYANT_VISIBLE			: Fl(17),
+  WAS_CLAIRVOYANT_VISIBLE	: Fl(18),
+  CLAIRVOYANT_DARKENED		: Fl(19),	// magical blindness from a cursed ring of clairvoyance
 
-  IMPREGNABLE							: Fl(17),	// no tunneling allowed!
-  TERRAIN_COLORS_DANCING	: Fl(18),	// colors here will sparkle when the game is idle
+  IMPREGNABLE							: Fl(20),	// no tunneling allowed!
 
-  TELEPATHIC_VISIBLE			: Fl(19),	// potions of telepathy let you see through other creatures' eyes
-  WAS_TELEPATHIC_VISIBLE	: Fl(20),	// potions of telepathy let you see through other creatures' eyes
+  TELEPATHIC_VISIBLE			: Fl(22),	// potions of telepathy let you see through other creatures' eyes
+  WAS_TELEPATHIC_VISIBLE	: Fl(23),	// potions of telepathy let you see through other creatures' eyes
 
-  MONSTER_DETECTED				: Fl(21),
-  WAS_MONSTER_DETECTED		: Fl(22),
+  MONSTER_DETECTED				: Fl(24),
+  WAS_MONSTER_DETECTED		: Fl(25),
 
-  NEEDS_REDRAW            : Fl(23),	// needs to be redrawn (maybe in path, etc...)
-  TILE_CHANGED						: Fl(24),	// one of the tiles changed
+  NEEDS_REDRAW            : Fl(26),	// needs to be redrawn (maybe in path, etc...)
+  TILE_CHANGED						: Fl(27),	// one of the tiles changed
 
-  CELL_LIT                : Fl(25),
-  IS_IN_SHADOW				    : Fl(26),	// so that a player gains an automatic stealth bonus
-  CELL_DARK               : Fl(27),
+  CELL_LIT                : Fl(28),
+  IS_IN_SHADOW				    : Fl(29),	// so that a player gains an automatic stealth bonus
+  CELL_DARK               : Fl(30),
 
   PERMANENT_CELL_FLAGS : ['REVEALED', 'MAGIC_MAPPED', 'ITEM_DETECTED', 'HAS_ITEM', 'HAS_DORMANT_MONSTER',
               'HAS_STAIRS', 'STABLE_MEMORY', 'IMPREGNABLE'],
@@ -4644,12 +4770,12 @@ const Flags$2 = installFlag('map', {
 
 class Map {
 	constructor(w, h, opts={}) {
-		Object.assign(this, opts);
 		this.width = w;
 		this.height = h;
 		this.cells = make.grid(w, h, () => new types.Cell() );
-		this.locations = {};
-		this.config = {};
+		this.locations = opts.locations || {};
+		this.config = Object.assign({}, opts);
+		this.fx = [];
 	}
 
 	clear() { this.cells.forEach( (c) => c.clear() ); }
@@ -4886,6 +5012,38 @@ class Map {
 		return [ x, y ];
 	}
 
+	// FX
+
+	addFx(x, y, anim) {
+		if (!this.hasXY(x, y)) return false;
+		const cell = this.cell(x, y);
+		cell.setFlags(Flags$1.HAS_FX);
+		anim.x = x;
+		anim.y = y;
+		this.fx.push(anim);
+		return true;
+	}
+
+	moveFx(x, y, anim) {
+		if (!this.hasXY(x, y)) return false;
+		const cell = this.cell(x, y);
+		const oldCell = this.cell(anim.x, anim.y);
+		oldCell.clearFlags(Flags$1.HAS_FX);
+		cell.setFlags(Flags$1.HAS_FX);
+		anim.x = x;
+		anim.y = y;
+		return true;
+	}
+
+	removeFx(anim) {
+		const oldCell = this.cell(anim.x, anim.y);
+		oldCell.clearFlags(Flags$1.HAS_FX);
+		anim.x = -1;
+		anim.y = -1;
+		this.fx = this.fx.filter( (a) => a !== anim );
+		return true;
+	}
+
 	// ACTORS
 
 	// will return the PLAYER if the PLAYER is at (x, y).
@@ -5063,7 +5221,11 @@ types.Map = Map;
 
 
 function makeMap(w, h, opts={}) {
-	return new types.Map(w, h, opts);
+	const map = new types.Map(w, h, opts);
+	if (opts.tile) {
+		map.fill(opts.tile, opts.boundary);
+	}
+	return map;
 }
 
 make.map = makeMap;
@@ -5074,16 +5236,532 @@ function getCellAppearance(map, x, y, dest) {
 	if (!map.hasXY(x, y)) return;
 	const cell = map.cell(x, y);
 	getAppearance(cell, dest);
+
+	// add fx (if any)
+	if (cell.flags & Flags$1.HAS_FX) {
+		map.fx.forEach( (a) => {
+			if (a.x != x || a.y != y) return;
+			dest.plot(a.sprite);
+		});
+	}
 }
 
 map.getCellAppearance = getCellAppearance;
 
+var game = {};
+data.time = performance.now();
+
+function setTime(t) {
+  const dt = t - data.time;
+  data.time = t;
+  return Math.max(0, dt);
+}
+
+game.setTime = setTime;
+
+//
+//
+//
+// export class Game {
+//   constructor(opts={}) {
+//     this.environmentUpdateTicks = opts.encironmentUpdateTicks || 100;
+//
+//     this.currentIndex = -1;
+//     this.currentActor = undefined;
+//     this.timeDelta = opts.timeDelta || 10;
+//     this.newTurn = true;
+//     this.lastTurnTime = 0;
+//   }
+//
+//   beginLoop(time, dt) {
+//     if (this.newTurn) {
+//       debug.log('New Turn', Math.floor(time - this.lastTurnTime));
+//       this.lastTurnTime = time;
+//       // this.mapUpdater.tick(this.timeDelta);
+//       this.newTurn = false;
+//     }
+//   }
+//
+//   update(dt) {
+//     let actor = this.currentActor || this.nextActor();
+//     while (actor && !this.newTurn) {
+//       // We want all animations to end before anybody gets to act, so we
+//       // need to process then until they are all gone before moving on to the
+//       // next step.
+//       this.updateAll(this.fx.animations, dt);
+//       if (this.map.animations.length) {
+//         return;
+//       }
+//
+//       // process all the input
+//       while (RUT.Keyboard.busy()) {
+//         if (!RUT.Keyboard.process(dt)) return;
+//       }
+//
+//       this.updateActor(actor);
+//       actor = this.nextActor();
+//     }
+//
+//   }
+//
+//   // if you want to do something before or after the update, do it here...
+//   // return false if you want to pause on this actor for some reason...
+//   updateActor(actor) {
+//     if (RUT.App._debug) console.log('TICK : ', actor.toString());
+//     RUT.active.actor = actor;
+//     actor.tick(this.timeDelta);
+//   }
+//
+//   updateAll(actors, dt) {
+//     let index = 0;
+//     while ( index < actors.length) {
+//       const current = actors[index];
+//       current.tick(dt); // Really only have to deal with removing self (I think)
+//       if (actors[index] === current) {
+//         index += 1;
+//       }
+//     }
+//   }
+//
+//   nextActor() {
+//     const actors = this.map.beings;
+//     if (!this.currentActor) {
+//       this.currentIndex = 0;
+//     }
+//     else if (actors[this.currentIndex] === this.currentActor) {
+//       this.currentIndex += 1;
+//     }
+//     else {
+//       const index = actors.indexOf(this.currentActor);
+//       if (index >= 0) {
+//         this.currentIndex = index + 1;
+//       }
+//     }
+//
+//     if (this.currentIndex >= actors.length) {
+//       this.currentIndex = 0;
+//       this.newTurn = true;
+//     }
+//     this.currentActor = actors[this.currentIndex];
+//     return this.currentActor;
+//   }
+//
+//   draw() {
+//     // RUT.Light.updateLighting(this.map);
+//     // RUT.FOV.calcFor(this.player);
+//     // this.display.draw(this.map, this.player.fov);
+//   }
+//
+//   end(fps, panic) {
+//     this.mapUpdater.updateDancingLights = (fps >= 30);
+//
+//     RUT.Map.clearChanged(this.map);
+//   }
+//
+// }
+//
+
+var fx = {};
+
+let ANIMATIONS = [];
+
+function busy$1() {
+  return (ANIMATIONS.length > 0);
+}
+
+fx.busy = busy$1;
+
+
+function tick(dt) {
+  ANIMATIONS.forEach( (a) => a.tick(dt) );
+  ANIMATIONS = ANIMATIONS.filter( (a) => !a.done );
+  return fx.busy();
+}
+
+fx.tick = tick;
+
+
+
+
+class FX {
+  constructor(map, callback, opts={}) {
+    if (typeof callback != 'function' && arguments.length == 1) {
+      opts = callback || {};
+      callback = NOOP;
+    }
+
+    this.map = map;
+    this.x = -1;
+    this.y = -1;
+    this.sprite = opts.sprite;
+    this.tilNextTurn = opts.speed || opts.duration || 1000;
+    this.speed = opts.speed || opts.duration || 1000;
+    this.callback = callback || RUT.NOOP;
+    this.done = false;
+  }
+
+  tick(dt) {
+    if (this.done) return;
+    this.tilNextTurn -= dt;
+    if (this.tilNextTurn < 0) {
+      this.step();
+      this.tilNextTurn += this.speed;
+    }
+  }
+
+  step() {
+    this.stop();
+  }
+
+  start(x, y) {
+    this.map.addFx(x, y, this);
+  }
+
+  stop(result) {
+    if (this.done) return;
+    this.done = true;
+    this.map.removeFx(this);
+    this.callback(result);
+  }
+
+  moveDir(dir) {
+    return this.moveTo(this.x + dir[0], this.y + dir[1]);
+  }
+
+  moveTo(newXy) {
+    this.map.moveFx(newXy.x, newXy.y, this);
+    return true;
+  }
+
+}
+
+types.FX = FX;
+
+
+// export class XYAnimation extends FX {
+//   constructor(sprite, from, dest, callback, speed=10) {
+//     super(callback, { speed, sprite });
+//     this.from = from;
+//     this.dest = dest;
+//     this.distance = distanceFromTo(from, dest);
+//   }
+//
+//   start() {
+//     return super.start(this.from.x, this.from.y);
+//   }
+//
+//   step() {
+//     const dest = (typeof this.dest == 'function') ? this.dest() : this.dest;
+//     const distance = distanceFromTo(this.xy, dest);
+//
+//     if (distance == 0) {
+//       this.stop(this);
+//       return;
+//     }
+//
+//     const dir = dirFromTo(this, dest);
+//     DATA.map.moveAnimation(this.x + dir[0], this.y + dir[1], this);
+//   }
+// }
+
+
+
+// export class DirAnimation extends FX {
+//   constructor(sprite, from, dir, callback, opts={}) {
+//     const speed = opts.speed || 10;
+//     super(callback, { sprite, speed });
+//     this.from = from;
+//     this.dir = dir;
+//     this.stopCell = opts.stopCell;
+//     this.stopTile = opts.stopTile;
+//     this.stepFn = opts.stepFn || TRUE;
+//     this.range = opts.range || 99;
+//   }
+//
+//   start() {
+//     return super.start(this.from.x, this.from.y);
+//   }
+//
+//   step() {
+//     let dist = distanceFromTo(this.from, this.xy);
+//     if (dist >= this.range) {
+//       return this.stop(this.xy);
+//     }
+//
+//     const newXy = this.xy.plus(this.dir);
+//
+//     const cell = DATA.map.cell(newXy.x, newXy.y);
+//     if (!cell) {
+//       return this.stop(this.xy);
+//     }
+//     else if (this.stopCell && RUT.Cell.hasAllFlags(cell, this.stopCell)) {
+//       return this.stop(this.xy);
+//     }
+//     else if (this.stopTile && RUT.Cell.hasTileFlag(cell, this.stopTile)) {
+//       return this.stop(this.xy);
+//     }
+//
+//     DATA.map.moveAnimation(this.map, newXy.x, newXy.y, this);
+//     if (this.stepFn(this.map, this.xy.x, this.xy.y)) {
+//       return this.stop(this.xy);
+//     }
+//   }
+// }
+
+
+
+// RUT.Animations.Explosion = class Explosion extends FX {
+//   constructor(map, grid, sprite, x, y, radius, callback, opts={}) {
+//     if (opts === true) opts = {};
+//     Object.defaults(opts, { speed:100, duration:300, sprite });
+//     super(map, callback, opts);
+//     this.center = { x, y };
+//     this.max_radius = radius;
+//     this.duration = opts.duration;
+//     this.stepFn = opts.stepFn;
+//
+//     this.grid = RUT.Grid.allocCopy(grid);
+//
+//     this.add(x, y);
+//     this.grid[x][y] = 2;
+//     this.radius = 1;
+//   }
+//
+//   step() {
+//     this.radius = Math.min(this.radius + 1, this.max_radius);
+//
+//     let done = true;
+//     let x = Math.max(0, Math.floor(this.center.x - this.max_radius));
+//     const maxX = Math.min(this.grid.width - 1, Math.ceil(this.center.x + this.max_radius));
+//     let minY = Math.max(0, Math.floor(this.center.y - this.max_radius));
+//     const maxY = Math.min(this.grid.height - 1, Math.ceil(this.center.y + this.max_radius));
+//     let col;
+//     let dist;
+//
+//     for(; x <= maxX; ++x) {
+//       col = this.grid[x];
+//       for(let y = minY; y <= maxY; ++y) {
+//         if (!(col[y] & FovFlags.IN_FOV)) continue;
+//         dist = distanceFromTo(this.center.x, this.center.y, x, y);
+//         if (dist <= this.radius) {
+//           this.add(x, y);
+//           col[y] = 2;
+//         }
+//         else if (dist <= this.max_radius) {
+//           done = false;
+//         }
+//         else {
+//           console.log('weird dist', dist, this.center, x, y);
+//         }
+//       }
+//     }
+//     // console.log('returning...', done);
+//     if (done) {
+//       RUT.Grid.free(this.grid);
+//       return this.stop(this.center); // xy of explosion is callback value
+//     }
+//     return false;
+//   }
+//
+//   add(x, y) {
+//     RUT.Animations.flashSprite(this.map, x, y, this.sprite, this.duration);
+//
+//     if (this.stepFn) {
+//       this.stepFn(this.map, x, y);
+//     }
+//   }
+// }
+
+
+
+async function flashSprite(map, x, y, sprite, duration) {
+
+  if (typeof sprite === 'string') {
+    sprite = sprites[sprite];
+  }
+
+  return new Promise( (resolve) => {
+    const animation = new FX(map, resolve, { sprite, duration });
+    animation.start(x, y);
+    ANIMATIONS.push(animation);
+  });
+}
+
+fx.flashSprite = flashSprite;
+
+installSprite('hit', 'red', 50);
+installSprite('miss', '!', 'green');
+
+// RUT.Animations.hit = function hit(defender, callback, opts) {
+//   if (typeof callback != 'function' && opts === undefined) {
+//     opts = callback;
+//     callback = RUT.NOOP;
+//   }
+//   if (opts === true) opts = {};
+//   if (opts === false) return;
+//   opts = opts || {};
+//   if (typeof opts == 'string') opts = { sprite: opts };
+//   if (typeof opts == 'number') opts = { duration: opts };
+//   Object.defaults(opts, RUT.Config.Animations.hit);
+//
+//   if (!defender.map || !defender.xy) {
+//     console.warn('map and xy required for RUT.Animations.hit::defender');
+//     return callback();
+//   }
+//
+//   const map = defender.map;
+//   const x = defender.xy.x;
+//   const y = defender.xy.y;
+//   const spriteName = opts.sprite;
+//
+//   if (RUT.Animations._debug) console.log('hit animation - added', x, y, RUT.App.time);
+//   return RUT.Animations.flashSprite(map, x, y, spriteName, opts.duration, callback);
+// }
+// RUT.Config.Animations.hit = { duration:200, sprite: 'effect.hit' };
+// RUT.Sprite.add('effect.hit', { ch: '*', fg: 'red' });
+//
+//
+// RUT.Animations.miss = function miss(defender, callback, opts) {
+//   if (typeof callback != 'function' && opts === undefined) {
+//     opts = callback;
+//     callback = RUT.NOOP;
+//   }
+//   if (opts === true) opts = {};
+//   if (opts === false) return;
+//   opts = opts || {};
+//   if (typeof opts == 'string') opts = { sprite: opts };
+//   if (typeof opts == 'number') opts = { duration: opts };
+//   Object.defaults(opts, RUT.Config.Animations.miss);
+//
+//   if (!defender.map || !defender.xy) {
+//     console.warn('map and xy required for RUT.Animations.miss::defender');
+//     return callback();
+//   }
+//   // if (!RUT.FOV.isVisible(defender)) { return Promise.resolve(); }
+//
+//   const map = defender.map;
+//   const x = defender.xy.x;
+//   const y = defender.xy.y;
+//   const spriteName = opts.sprite;
+//
+//   if (RUT.Animations._debug) console.log('miss animation - added', x, y, RUT.App.time);
+//   return RUT.Animations.flashSprite(map, x, y, spriteName, opts.duration, callback);
+// }
+// RUT.Config.Animations.miss = { duration:200, sprite: 'effect.miss' };
+// RUT.Sprite.add('effect.miss', { ch: '*', fg: 'green' });
+//
+//
+//
+// RUT.Animations.projectileTo = function projectileTo(map, from, to, callback, opts) {
+//   if (typeof callback != 'Function' && opts === undefined) {
+//     opts = callback;
+//     callback = RUT.NOOP;
+//   }
+//   if (opts === true) opts = {};
+//   if (opts === false) return;
+//   opts = opts || {};
+//   if (typeof opts === 'string') opts = { sprite: opts };
+//
+//   Object.defaults(opts, RUT.Config.Animations.projectile);
+//   // if (!RUT.FOV.isVisible(shooter) && !RUT.FOV.isVisible(to)) { return Promise.resolve(); }
+//   const sprite = opts.sprite;
+//   const anim = new RUT.Animations.XYAnimation(map, sprite, from, to, callback, opts.speed);
+//   anim.start();
+//   return anim;
+// }
+// RUT.Config.Animations.projectile = {
+//   speed: 50,
+//   sprite: 'projectile',
+//   stopCell: 0,
+//   stopTile: TileFlags.T_OBSTRUCTS_PASSABILITY,
+//   stepFn: undefined
+// };
+//
+// RUT.Sprite.add('projectile', { ch: '|', fg: 'orange' });
+//
+// RUT.Animations.projectileToTarget = function projectileTo(map, from, target, callback, opts) {
+//   if (typeof callback != 'function' && opts === undefined) {
+//     opts = callback;
+//     callback = RUT.NOOP;
+//   }
+//   if (opts === true) opts = {};
+//   if (opts === false) return;
+//   opts = opts || {};
+//   if (typeof opts === 'string') opts = { sprite: opts };
+//
+//   Object.defaults(opts, RUT.Config.Animations.projectile);
+//   // if (!RUT.FOV.isVisible(shooter) && !RUT.FOV.isVisible(to)) { return Promise.resolve(); }
+//   const sprite = opts.sprite;
+//   let anim = new RUT.Animations.XYAnimation(map, sprite, from, () => target.xy, callback, opts.speed);
+//   anim.start(); // .then( () => target.xy );
+//   return anim;
+// }
+//
+//
+// RUT.Animations.projectileDir = function projectileTo(map, xy, dir, callback, opts) {
+//   if (typeof callback != 'function' && opts === undefined) {
+//     opts = callback;
+//     callback = RUT.NOOP;
+//   }
+//   if (opts === true) opts = {};
+//   if (opts === false) return;
+//   opts = opts || {};
+//   if (typeof opts === 'string') opts = { sprite: opts };
+//   if (opts.sprite === true) opts.sprite = RUT.Config.Animations.projectile.sprite;
+//
+//   Object.defaults(opts, RUT.Config.Animations.projectile);
+//   let anim = new RUT.Animations.DirAnimation(map, opts.sprite, xy, dir, callback, opts);
+//   anim.start(); // .then( () => anim.xy );
+//   return anim;
+// }
+//
+//
+// RUT.Animations.explosionAt = function explosionAt(map, x, y, radius, callback, opts) {
+//   if (typeof callback != 'function' && opts === undefined) {
+//     opts = callback;
+//     callback = RUT.NOOP;
+//   }
+//   opts = opts || {};
+//   if (typeof opts == 'string') opts = { sprite: opts };
+//   Object.defaults(opts, RUT.Config.Animations.explosion);
+//
+//   const fov = RUT.FOV.getFovMask(map, x, y, radius, 0, opts.blocks);
+//   return RUT.Animations.explosionFor(map, fov, x, y, radius, callback, opts);
+// }
+//
+// RUT.Config.Animations.explosion = {
+//   sprite: 'effect.hit',
+//   speed:100,
+//   duration:300,
+//   blocks: TileFlags.T_OBSTRUCTS_PASSABILITY
+// }
+//
+//
+// RUT.Animations.explosionFor = function explosionFor(map, grid, x, y, radius, callback, opts) {
+//   if (typeof callback != 'function' && arguments.length == 6) {
+//     opts = callback;
+//     callback = RUT.NOOP;
+//   }
+//   if (opts === true) opts = {};
+//   opts = opts || {};
+//   if (typeof opts == 'string') opts = { sprite: opts };
+//   Object.defaults(opts, RUT.Config.Animations.explosion);
+//
+//   // TODO - Check edges of explosion
+//   // if (!RUT.FOV.isVisible(xy)) { return Promise.resolve(); }
+//   const sprite = opts.sprite;
+//   let anim = new RUT.Animations.Explosion(map, grid, sprite, x, y, radius, callback, opts);
+//   anim.start();
+//   return anim;
+// }
+
 exports.actor = actor;
 exports.buffer = buffer;
-exports.canvas = canvas;
+exports.canvas = canvas$1;
 exports.cell = cell$1;
 exports.color = color;
 exports.colors = colors;
+exports.commands = commands;
 exports.config = config;
 exports.cosmetic = cosmetic;
 exports.data = data;
@@ -5094,6 +5772,8 @@ exports.diggers = diggers;
 exports.dungeon = dungeon;
 exports.flag = flag;
 exports.flags = flags;
+exports.fx = fx;
+exports.game = game;
 exports.grid = grid$1;
 exports.install = install;
 exports.io = io;
@@ -5102,6 +5782,7 @@ exports.map = map;
 exports.path = path;
 exports.random = random;
 exports.sprite = sprite;
+exports.sprites = sprites;
 exports.tile = tile;
 exports.tiles = tiles;
 exports.types = types;
