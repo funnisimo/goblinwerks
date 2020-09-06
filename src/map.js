@@ -3,7 +3,7 @@ import { distanceBetween } from './utils.js';
 import { installFlag, Fl } from './flag.js';
 import { random } from './random.js';
 import { colors } from './color.js';
-import { Flags as CellFlags, MechFlags as CellMechFlags, Layers as CellLayers, getAppearance as cellGetAppearance } from './cell.js';
+import { Flags as CellFlags, MechFlags as CellMechFlags, getAppearance as cellGetAppearance } from './cell.js';
 import { types, def, make, data as DATA, config as CONFIG } from './gw.js';
 
 
@@ -204,7 +204,7 @@ export class Map {
 					if ((Math.floor(distanceBetween(x, y, i, j)) == k)
 							&& (!blockingMap || !blockingMap[i][j])
 							&& matcher(cell, i, j)
-							&& (!forbidLiquid || cell.layers[CellLayers.LIQUID] == def.NOTHING)
+							&& (!forbidLiquid || cell.liquid == def.NOTHING)
 							&& (hallwaysAllowed || this.passableArcCount(i, j) < 2))
 	        {
 						candidateLocs.push([i, j]);
@@ -409,9 +409,9 @@ export class Map {
 	// async promote(x, y, mechFlag) {
 	// 	if (this.hasTileMechFlag(x, y, mechFlag)) {
 	// 		const cell = this.cell(x, y);
-	// 		for (layer = 0; layer < NUMBER_TERRAIN_LAYERS; layer++) {
-	// 			if (GW.tiles[cell.layers[layer]].mechFlags & mechFlag) {
-	// 				await GW.tile.promote(this, x, y, layer, false);
+	// 		for (let tile of cell.tiles()) {
+	// 			if (tile.mechFlags & mechFlag) {
+	// 				await tile.promote(this, x, y, false);
 	// 			}
 	// 		}
 	// 	}

@@ -11,19 +11,6 @@ import { types, make, def, config as CONFIG, data as DATA } from './gw.js';
 export var cell = {};
 
 
-export const Layers = new Enum(-1,
-  'NO_LAYER',
-  'GROUND',		// dungeon-level tile	(e.g. walls)
-  'LIQUID',				// liquid-level tile	(e.g. lava)
-  'GAS',				// gas-level tile		(e.g. fire, smoke, swamp gas)
-  'SURFACE',			// surface-level tile	(e.g. grass)
-  'NUMBER_TERRAIN_LAYERS'
-);
-
-def.layers = Layers;
-cell.layers = Layers;
-
-
 export const Flags = installFlag('cell', {
   REVEALED					: Fl(0),
   VISIBLE							: Fl(1),	// cell has sufficient light and is in field of view, ready to draw.
@@ -124,61 +111,58 @@ types.CellMemory = CellMemory;
 
 class Cell {
   constructor() {
-    this.layers = [0, 0, 0, 0]; // [NUMBER_TERRAIN_LAYERS];	// terrain  /* ENUM tileType */
     this.memory = new types.CellMemory();
     this.clear();
   }
 
   copy(other) {
     copyObject(this, other);
-    const app = this.memory;
-    super.copy(other);
-    this.layers = other.layers.slice();
-    this.memory = app;
-    this.memory.copy(other.memory);			// how the player remembers the cell to look
   }
 
   clear() {
-    for(let i = 0; i < 4; ++i) {
-      this.layers[i] = 0;
-    }
+    this.tile = 0;
+    this.surface = 0;
+    this.gas = 0;
+    this.liquid = 0;
     this.flags = 0;							// non-terrain cell flags
     this.mechFlags = 0;
-    this.volume = 0;						// quantity of gas in cell
+    this.gasVolume = 0;						// quantity of gas in cell
+    this.liquidVolume = 0;
     this.machineNumber = 0;
     this.memory.clear();
   }
-  dump() { return TILES[this.layers[0]].sprite.ch; }
+
+  dump() { return TILES[this.tile].sprite.ch; }
   isVisible() { return this.flags & Flags.VISIBLE; }
   isAnyKindOfVisible() { return (this.flags & Flags.ANY_KIND_OF_VISIBLE) || CONFIG.playbackOmniscience; }
 
   *tiles() {
-    for(let i = 0; i < this.layers.length; ++i) {
-      const t = this.layers[i];
-      if (t) {
-        yield TILES[t];
-      }
-    }
+    if (this.tile) yield TILES[this.tile];
+    if (this.surface) yield TILES[this.surface];
+    if (this.liquid) yield TILES[this.liquid];
+    if (this.gas) yield TILES[this.gas];
   }
 
   tileFlags(limitToPlayerKnowledge) {
     if (limitToPlayerKnowledge && !this.isVisible()) {
       return this.memory.tileFlags;
     }
-    return this.layers.reduce( (out, t) => {
-      if (!t) return out;
-      return out | TILES[t].flags;
-    }, 0);
+    let flags = 0;
+    for( let tile of this.tiles()) {
+      flags |= tile.flags;
+    }
+    return flags;
   }
 
   tileMechFlags(limitToPlayerKnowledge)	{
     if (limitToPlayerKnowledge && !this.isVisible()) {
       return this.memory.tileMechFlags;
     }
-    return this.layers.reduce( (out, t) => {
-      if (!t) return out;
-      return out | TILES[t].mechFlags;
-    }, 0);
+    let flags = 0;
+    for( let tile of this.tiles()) {
+      flags |= tile.mechFlags;
+    }
+    return flags;
   }
 
   hasTileFlag(flagMask)	{
@@ -210,8 +194,8 @@ class Cell {
     }
   }
 
-  hasTile(tile) {
-    return this.layers.includes(tile);
+  hasTile(id) {
+    return this.tile === id || this.surface === id || this.gas === id || this.liquid === id;
   }
 
   // hasTileInGroup(...groups) {
@@ -225,10 +209,11 @@ class Cell {
   // }
 
   successorTileFlags(event) {
-    return this.layers.reduce( (out, t) => {
-      if (!t) return out;
-      return out | TILES[t].successorFlags(event);
-    }, 0);
+    let flags = 0;
+    for( let tile of this.tiles()) {
+      flags |= tile.successorFlags(event);
+    }
+    return flags;
   }
 
   promotedTileFlags() {
@@ -244,47 +229,44 @@ class Cell {
     return this.discoveredTileFlags() & flag;
   }
 
-  highestPriorityLayer(skipGas) {	// enum dungeonLayers
+  highestPriorityTile() {
+    let best = TILES[0];
     let bestPriority = 10000;
-    let tt, best = 0;
-
-    for (tt = 0; tt < this.layers.length; tt++) {
-      if (tt == Layers.GAS && skipGas) {
-        continue;
-      }
-      if (this.layers[tt] && TILES[this.layers[tt]].priority < bestPriority) {
-        bestPriority = TILES[this.layers[tt]].priority;
-        best = tt;
+    for(let tile of this.tiles()) {
+      if (tile.priority < bestPriority) {
+        best = tile;
+        bestPriority = tile.priority;
       }
     }
     return best;
   }
 
-  highestPriorityTile(skipGas) {
-    const layer = this.highestPriorityLayer(skipGas);
-    return TILES[this.layers[layer]];
-  }
-
   tileWithFlag(tileFlag) {
-    return this.layers.find( (t) => t && (TILES[t].flags & tileFlag) );
+    for(let tile of this.tiles()) {
+      if (tile.flags & tileFlags) return tile;
+    }
+    return null;
   }
 
   tileWithMechFlag(mechFlag) {
-    return this.layers.find( (t) => t && (TILES[t].mechFlags & mechFlag) );
+    for(let tile of this.tiles()) {
+      if (tile.mechFlags & mechFlags) return tile;
+    }
+    return null;
   }
 
   // Retrieves a pointer to the flavor text of the highest-priority terrain at the given location
   tileFlavor() {
-    return this.highestPriorityTile(false).flavor;
+    return this.highestPriorityTile().flavor;
   }
 
   // Retrieves a pointer to the description text of the highest-priority terrain at the given location
   tileText() {
-    return this.highestPriorityTile(false).desc;
+    return this.highestPriorityTile().desc;
   }
 
   isEmpty() {
-    return this.layers[0] == 0;
+    return this.tile == 0;
   }
 
   isPassableNow(limitToPlayerKnowledge) {
@@ -357,14 +339,26 @@ class Cell {
       tile = TILES[0];
     }
 
-    const oldTileId = this.layers[tile.layer] || 0;
+    const oldTileId = this.tile || 0;
     const oldTile = TILES[oldTileId] || TILES[0];
 
     if (!force && oldTile.priority < tile.priority) return false;
 
-    this.layers[tile.layer] = tile.id;
+    this.tile = tile.id;
     this.flags |= (Flags.NEEDS_REDRAW | Flags.TILE_CHANGED);
     return (oldTile.glowLight !== tile.glowLight);
+  }
+
+  setSurface(tileId, force) {
+
+  }
+
+  setGas(tileId, volume, force) {
+
+  }
+
+  setLiquid(tileId, volume, force) {
+
   }
 
   storeMemory(item) {
@@ -373,7 +367,7 @@ class Cell {
     memory.tileMechFlags = this.tileMechFlags();
     memory.cellFlags = this.flags;
 		memory.cellMechFlags = this.mechFlags;
-    memory.tile = this.layers[this.highestPriorityLayer(false)];	// id
+    memory.tile = this.highestPriorityTile().id;
 		if (item) {
 			memory.itemKind = item.kind;
 			memory.itemQuantity = item.quantity || 1;

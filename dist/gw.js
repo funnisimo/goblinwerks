@@ -1170,6 +1170,12 @@
   		}
   	}
 
+  	map(fn) {
+  		return super.map( (col, x) => {
+  			return col.map( (v, y) => fn(v, x, y) );
+  		});
+  	}
+
   	forCircle(x, y, radius, fn) {
   		let i, j;
 
@@ -3681,7 +3687,7 @@
       const dir = def.dirs[i];
       if (!SITE.hasXY(x + dir[0], y + dir[1])) return false;
       const cell = SITE.cell(x + dir[0], y + dir[1]);
-      if (cell.hasTile(FLOOR) && !cell.isLiquid()) {
+      if (cell.hasTile(FLOOR)) {
         count += 1;
         const va = SITE.cell(x - dir[0] + dir[1], y - dir[1] + dir[0]);
         if (!va.isEmpty()) return false;
@@ -4213,6 +4219,7 @@
 
     const upLoc = SITE.cells.matchingXYNear(upX, upY, dungeon.isValidStairLoc);
   	if (!upLoc || upLoc[0] < 0) {
+      console.log('no up location');
       return false;
     }
 
@@ -4228,6 +4235,7 @@
     }
 
     if (!downLoc || downLoc[0] < 0) {
+      console.log('No down location');
       return false;
     }
 
@@ -4242,19 +4250,6 @@
   dungeon.addStairs = addStairs;
 
   var cell$1 = {};
-
-
-  const Layers = new Enum(-1,
-    'NO_LAYER',
-    'GROUND',		// dungeon-level tile	(e.g. walls)
-    'LIQUID',				// liquid-level tile	(e.g. lava)
-    'GAS',				// gas-level tile		(e.g. fire, smoke, swamp gas)
-    'SURFACE',			// surface-level tile	(e.g. grass)
-    'NUMBER_TERRAIN_LAYERS'
-  );
-
-  def.layers = Layers;
-  cell$1.layers = Layers;
 
 
   const Flags$1 = installFlag('cell', {
@@ -4357,61 +4352,58 @@
 
   class Cell {
     constructor() {
-      this.layers = [0, 0, 0, 0]; // [NUMBER_TERRAIN_LAYERS];	// terrain  /* ENUM tileType */
       this.memory = new types.CellMemory();
       this.clear();
     }
 
     copy(other) {
       copyObject(this, other);
-      const app = this.memory;
-      super.copy(other);
-      this.layers = other.layers.slice();
-      this.memory = app;
-      this.memory.copy(other.memory);			// how the player remembers the cell to look
     }
 
     clear() {
-      for(let i = 0; i < 4; ++i) {
-        this.layers[i] = 0;
-      }
+      this.tile = 0;
+      this.surface = 0;
+      this.gas = 0;
+      this.liquid = 0;
       this.flags = 0;							// non-terrain cell flags
       this.mechFlags = 0;
-      this.volume = 0;						// quantity of gas in cell
+      this.gasVolume = 0;						// quantity of gas in cell
+      this.liquidVolume = 0;
       this.machineNumber = 0;
       this.memory.clear();
     }
-    dump() { return tiles[this.layers[0]].sprite.ch; }
+
+    dump() { return tiles[this.tile].sprite.ch; }
     isVisible() { return this.flags & Flags$1.VISIBLE; }
     isAnyKindOfVisible() { return (this.flags & Flags$1.ANY_KIND_OF_VISIBLE) || config.playbackOmniscience; }
 
     *tiles() {
-      for(let i = 0; i < this.layers.length; ++i) {
-        const t = this.layers[i];
-        if (t) {
-          yield tiles[t];
-        }
-      }
+      if (this.tile) yield tiles[this.tile];
+      if (this.surface) yield tiles[this.surface];
+      if (this.liquid) yield tiles[this.liquid];
+      if (this.gas) yield tiles[this.gas];
     }
 
     tileFlags(limitToPlayerKnowledge) {
       if (limitToPlayerKnowledge && !this.isVisible()) {
         return this.memory.tileFlags;
       }
-      return this.layers.reduce( (out, t) => {
-        if (!t) return out;
-        return out | tiles[t].flags;
-      }, 0);
+      let flags = 0;
+      for( let tile of this.tiles()) {
+        flags |= tile.flags;
+      }
+      return flags;
     }
 
     tileMechFlags(limitToPlayerKnowledge)	{
       if (limitToPlayerKnowledge && !this.isVisible()) {
         return this.memory.tileMechFlags;
       }
-      return this.layers.reduce( (out, t) => {
-        if (!t) return out;
-        return out | tiles[t].mechFlags;
-      }, 0);
+      let flags = 0;
+      for( let tile of this.tiles()) {
+        flags |= tile.mechFlags;
+      }
+      return flags;
     }
 
     hasTileFlag(flagMask)	{
@@ -4443,8 +4435,8 @@
       }
     }
 
-    hasTile(tile) {
-      return this.layers.includes(tile);
+    hasTile(id) {
+      return this.tile === id || this.surface === id || this.gas === id || this.liquid === id;
     }
 
     // hasTileInGroup(...groups) {
@@ -4458,10 +4450,11 @@
     // }
 
     successorTileFlags(event) {
-      return this.layers.reduce( (out, t) => {
-        if (!t) return out;
-        return out | tiles[t].successorFlags(event);
-      }, 0);
+      let flags = 0;
+      for( let tile of this.tiles()) {
+        flags |= tile.successorFlags(event);
+      }
+      return flags;
     }
 
     promotedTileFlags() {
@@ -4477,47 +4470,44 @@
       return this.discoveredTileFlags() & flag;
     }
 
-    highestPriorityLayer(skipGas) {	// enum dungeonLayers
+    highestPriorityTile() {
+      let best = tiles[0];
       let bestPriority = 10000;
-      let tt, best = 0;
-
-      for (tt = 0; tt < this.layers.length; tt++) {
-        if (tt == Layers.GAS && skipGas) {
-          continue;
-        }
-        if (this.layers[tt] && tiles[this.layers[tt]].priority < bestPriority) {
-          bestPriority = tiles[this.layers[tt]].priority;
-          best = tt;
+      for(let tile of this.tiles()) {
+        if (tile.priority < bestPriority) {
+          best = tile;
+          bestPriority = tile.priority;
         }
       }
       return best;
     }
 
-    highestPriorityTile(skipGas) {
-      const layer = this.highestPriorityLayer(skipGas);
-      return tiles[this.layers[layer]];
-    }
-
     tileWithFlag(tileFlag) {
-      return this.layers.find( (t) => t && (tiles[t].flags & tileFlag) );
+      for(let tile of this.tiles()) {
+        if (tile.flags & tileFlags) return tile;
+      }
+      return null;
     }
 
     tileWithMechFlag(mechFlag) {
-      return this.layers.find( (t) => t && (tiles[t].mechFlags & mechFlag) );
+      for(let tile of this.tiles()) {
+        if (tile.mechFlags & mechFlags) return tile;
+      }
+      return null;
     }
 
     // Retrieves a pointer to the flavor text of the highest-priority terrain at the given location
     tileFlavor() {
-      return this.highestPriorityTile(false).flavor;
+      return this.highestPriorityTile().flavor;
     }
 
     // Retrieves a pointer to the description text of the highest-priority terrain at the given location
     tileText() {
-      return this.highestPriorityTile(false).desc;
+      return this.highestPriorityTile().desc;
     }
 
     isEmpty() {
-      return this.layers[0] == 0;
+      return this.tile == 0;
     }
 
     isPassableNow(limitToPlayerKnowledge) {
@@ -4590,14 +4580,26 @@
         tile = tiles[0];
       }
 
-      const oldTileId = this.layers[tile.layer] || 0;
+      const oldTileId = this.tile || 0;
       const oldTile = tiles[oldTileId] || tiles[0];
 
       if (!force && oldTile.priority < tile.priority) return false;
 
-      this.layers[tile.layer] = tile.id;
+      this.tile = tile.id;
       this.flags |= (Flags$1.NEEDS_REDRAW | Flags$1.TILE_CHANGED);
       return (oldTile.glowLight !== tile.glowLight);
+    }
+
+    setSurface(tileId, force) {
+
+    }
+
+    setGas(tileId, volume, force) {
+
+    }
+
+    setLiquid(tileId, volume, force) {
+
     }
 
     storeMemory(item) {
@@ -4606,7 +4608,7 @@
       memory.tileMechFlags = this.tileMechFlags();
       memory.cellFlags = this.flags;
   		memory.cellMechFlags = this.mechFlags;
-      memory.tile = this.layers[this.highestPriorityLayer(false)];	// id
+      memory.tile = this.highestPriorityTile().id;
   		if (item) {
   			memory.itemKind = item.kind;
   			memory.itemQuantity = item.quantity || 1;
@@ -4835,7 +4837,7 @@
   					if ((Math.floor(distanceBetween(x, y, i, j)) == k)
   							&& (!blockingMap || !blockingMap[i][j])
   							&& matcher(cell, i, j)
-  							&& (!forbidLiquid || cell.layers[Layers.LIQUID] == def.NOTHING)
+  							&& (!forbidLiquid || cell.liquid == def.NOTHING)
   							&& (hallwaysAllowed || this.passableArcCount(i, j) < 2))
   	        {
   						candidateLocs.push([i, j]);
@@ -5038,9 +5040,9 @@
   	// async promote(x, y, mechFlag) {
   	// 	if (this.hasTileMechFlag(x, y, mechFlag)) {
   	// 		const cell = this.cell(x, y);
-  	// 		for (layer = 0; layer < NUMBER_TERRAIN_LAYERS; layer++) {
-  	// 			if (GW.tiles[cell.layers[layer]].mechFlags & mechFlag) {
-  	// 				await GW.tile.promote(this, x, y, layer, false);
+  	// 		for (let tile of cell.tiles()) {
+  	// 			if (tile.mechFlags & mechFlag) {
+  	// 				await tile.promote(this, x, y, false);
   	// 			}
   	// 		}
   	// 	}

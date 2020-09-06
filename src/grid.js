@@ -70,6 +70,12 @@ export class Grid extends Array {
 		}
 	}
 
+	map(fn) {
+		return super.map( (col, x) => {
+			return col.map( (v, y) => fn(v, x, y) );
+		});
+	}
+
 	forCircle(x, y, radius, fn) {
 		let i, j;
 
