@@ -61,7 +61,7 @@ describe('GW.dungeon', () => {
   });
 
   function tileAt(x, y) {
-    return map.cell(x, y).layers[0];
+    return map.cell(x, y).base;
   }
 
   test('can randomly attach rooms', () => {

@@ -130,7 +130,7 @@ export function isValidStairLoc(c, x, y) {
     const dir = def.dirs[i];
     if (!SITE.hasXY(x + dir[0], y + dir[1])) return false;
     const cell = SITE.cell(x + dir[0], y + dir[1]);
-    if (cell.hasTile(FLOOR) && !cell.isLiquid()) {
+    if (cell.hasTile(FLOOR)) {
       count += 1;
       const va = SITE.cell(x - dir[0] + dir[1], y - dir[1] + dir[0]);
       if (!va.isEmpty()) return false;
@@ -668,6 +668,7 @@ export function addStairs(upX, upY, downX, downY, minDistance) {
 
   const upLoc = SITE.cells.matchingXYNear(upX, upY, dungeon.isValidStairLoc);
 	if (!upLoc || upLoc[0] < 0) {
+    console.log('no up location');
     return false;
   }
 
@@ -683,6 +684,7 @@ export function addStairs(upX, upY, downX, downY, minDistance) {
   }
 
   if (!downLoc || downLoc[0] < 0) {
+    console.log('No down location');
     return false;
   }
 
