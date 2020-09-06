@@ -5,11 +5,37 @@ import { types, make } from './gw.js';
 const TEMP_BG = new Color();
 
 export class Sprite {
-	constructor(ch, fg, bg, opacity=100) {
-		this.ch = ch || ' ';
-		this.fg = makeColor(fg || 'white');
-		this.bg = makeColor(bg || 'black');
-		this.opacity = opacity;
+	constructor(ch, fg, bg, opacity) {
+		const args = Array.prototype.slice.call(arguments);
+		this.ch = null;
+		this.fg = null;
+		this.bg = null;
+		this.opacity = 100;
+
+		let i = 0;
+		if (typeof args[i] === 'string' && args[i].length == 1) {
+			this.ch = args[i++];
+			if (args[i] && (Array.isArray(args[i]) || typeof args[i] == 'string')) {
+				this.fg = makeColor(args[i++]);
+			}
+			else {
+				this.fg = makeColor('white');
+			}
+		}
+		if (args[i] && (Array.isArray(args[i]) || typeof args[i] == 'string')) {
+			this.bg = makeColor(args[i++]);
+		}
+
+		if (args[i] && typeof args[i] === 'number') {
+			this.opacity = args[i++];
+		}
+
+		if (this.ch === null && this.fg === null && this.bg === null) {
+			this.ch = ' ';
+			this.fg = makeColor('white');
+			this.bg = makeColor('black');
+		}
+
 		this.needsUpdate = true;
 	}
 
@@ -51,34 +77,22 @@ export class Sprite {
       return true;
     }
 
-    let ch, fg;
-    TEMP_BG.copy(sprite.bg);
-
     // ch and fore color:
-    if (sprite.ch == ' ') { // Blank cells in the overbuf take the ch from the screen.
-      ch = this.ch;
-      fg = this.fg;
-      // applyMix(fg, sprite.bg, sprite.opacity);
-    } else {
-      ch = sprite.ch;
-      fg = sprite.fg;
+    if (sprite.ch && sprite.ch != ' ') { // Blank cells in the overbuf take the ch from the screen.
+      this.ch = sprite.ch;
+      this.fg.copy(sprite.fg);
     }
 
-    applyMix(TEMP_BG, this.bg, 100 - sprite.opacity);
+		if (sprite.bg) {
+			applyMix(this.bg, sprite.bg, sprite.opacity);
+		}
 
-    if (ch != ' ' && equals(fg, TEMP_BG))
+    if (this.ch != ' ' && equals(this.fg, this.bg))
     {
-      ch = ' ';
+      this.ch = ' ';
     }
-
-    if (ch !== this.ch
-      || !equals(fg, this.fg)
-      || !equals(TEMP_BG, this.bg))
-    {
-      this.plotChar(ch, fg, TEMP_BG);
-    }
-
-		return this.needsUpdate;
+		this.needsUpdate = true;
+		return true;
 	}
 
 }
