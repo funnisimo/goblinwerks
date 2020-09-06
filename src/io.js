@@ -144,7 +144,7 @@ export function onkeydown(e) {
 io.onkeydown = onkeydown;
 
 
-export function keyDirection(key) {
+export function keyCodeDirection(key) {
 	const lowerKey = key.toLowerCase();
 
 	if (lowerKey === 'arrowup') {
@@ -162,7 +162,7 @@ export function keyDirection(key) {
 	return null;
 }
 
-io.keyDirection = keyDirection;
+io.keyCodeDirection = keyCodeDirection;
 
 // MOUSE
 

@@ -173,23 +173,16 @@ class Cell {
     return !!(flagMask & this.tileMechFlags());
   }
 
-  setFlags(cellFlag, cellMechFlag) {
-    if ((this.flags & cellFlag) !== cellFlag) {
-      this.flags |= (cellFlag | Flags.NEEDS_REDRAW);
-    }
-    if ((this.mechFlags & cellMechFlag) !== cellMechFlag) {
-      this.mechFlags |= cellMechFlag;
-      this.flags |= Flags.NEEDS_REDRAW;
-    }
+  setFlags(cellFlag=0, cellMechFlag=0) {
+    this.flags |= cellFlag;
+    this.mechFlags |= cellMechFlag;
+    this.flags |= Flags.NEEDS_REDRAW;
   }
 
-  clearFlags(cellFlag, cellMechFlag) {
-    if (this.flags & cellFlag) {
-      this.flags &= ~cellFlag;
-      this.flags |= Flags.NEEDS_REDRAW;
-    }
-    if (this.mechFlags & cellMechFlag) {
-      this.mechFlags &= ~cellMechFlag;
+  clearFlags(cellFlag=0, cellMechFlag=0) {
+    this.flags &= ~cellFlag;
+    this.mechFlags &= ~cellMechFlag;
+    if (~cellFlag & Flags.NEEDS_REDRAW) {
       this.flags |= Flags.NEEDS_REDRAW;
     }
   }

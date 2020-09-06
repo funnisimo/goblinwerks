@@ -2337,7 +2337,7 @@ function onkeydown(e) {
 io.onkeydown = onkeydown;
 
 
-function keyDirection(key) {
+function keyCodeDirection(key) {
 	const lowerKey = key.toLowerCase();
 
 	if (lowerKey === 'arrowup') {
@@ -2355,7 +2355,7 @@ function keyDirection(key) {
 	return null;
 }
 
-io.keyDirection = keyDirection;
+io.keyCodeDirection = keyCodeDirection;
 
 // MOUSE
 
@@ -3546,13 +3546,13 @@ tile.install = installTile;
 // These are the minimal set of tiles to make the diggers work
 const NOTHING = def.NOTHING = 0;
 installTile(NOTHING,       '\u2205', 'black', 'black', 100, 0, 'T_OBSTRUCTS_PASSABILITY', "an eerie nothingness", "");
-installTile('FLOOR',       '\u00b7', [40,40,40,15], [90,90,90], 90);	// FLOOR
+installTile('FLOOR',       '\u00b7', [30,30,30,20], [2,2,10,0,2,2,0], 90);	// FLOOR
 installTile('DOOR',        '+', [100,40,40], [30,60,60], 50, 0, 'T_IS_DOOR');	// DOOR
 installTile('BRIDGE',      '=', [100,40,40], [60,40,0], 30);	// BRIDGE
 installTile('UP_STAIRS',   '<', [100,40,40], [100,60,20], 10);	// UP
 installTile('DOWN_STAIRS', '>', [100,40,40], [100,60,20], 10);	// DOWN
-installTile('WALL',        '#', [50,50,50,10], [20,20,20,10], 20, 0, 'T_OBSTRUCTS_EVERYTHING');	// WALL
-installTile('LAKE',        '~', [0,80,100,10], [0,30,100,10,0,0,0,1], 40, 0, 'T_DEEP_WATER');	// LAKE
+installTile('WALL',        '#', [7,7,7,0,3,3,3],  [40,40,40,10,10,0,5], 20, 0, 'T_OBSTRUCTS_EVERYTHING');	// WALL
+installTile('LAKE',        '~', [5,8,20,10,0,4,15,1], [10,15,41,6,5,5,5,1], 40, 0, 'T_DEEP_WATER');	// LAKE
 
 function withName(name) {
   return tiles.find( (t) => t.name == name );
@@ -4410,23 +4410,16 @@ class Cell {
     return !!(flagMask & this.tileMechFlags());
   }
 
-  setFlags(cellFlag, cellMechFlag) {
-    if ((this.flags & cellFlag) !== cellFlag) {
-      this.flags |= (cellFlag | Flags$1.NEEDS_REDRAW);
-    }
-    if ((this.mechFlags & cellMechFlag) !== cellMechFlag) {
-      this.mechFlags |= cellMechFlag;
-      this.flags |= Flags$1.NEEDS_REDRAW;
-    }
+  setFlags(cellFlag=0, cellMechFlag=0) {
+    this.flags |= cellFlag;
+    this.mechFlags |= cellMechFlag;
+    this.flags |= Flags$1.NEEDS_REDRAW;
   }
 
-  clearFlags(cellFlag, cellMechFlag) {
-    if (this.flags & cellFlag) {
-      this.flags &= ~cellFlag;
-      this.flags |= Flags$1.NEEDS_REDRAW;
-    }
-    if (this.mechFlags & cellMechFlag) {
-      this.mechFlags &= ~cellMechFlag;
+  clearFlags(cellFlag=0, cellMechFlag=0) {
+    this.flags &= ~cellFlag;
+    this.mechFlags &= ~cellMechFlag;
+    if (~cellFlag & Flags$1.NEEDS_REDRAW) {
       this.flags |= Flags$1.NEEDS_REDRAW;
     }
   }
