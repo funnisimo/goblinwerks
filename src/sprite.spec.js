@@ -23,19 +23,13 @@ describe('Sprite', () => {
     expect(b.opacity).toEqual(50);
     expect(b.needsUpdate).toBeTruthy();
 
-    const c = GW.make.sprite('@', 50);
-    expect(c.ch).toEqual('@');
-    expect(CSS(c.fg)).toEqual('#ffffff');
-    expect(c.bg).toBeNull();
-    expect(c.opacity).toEqual(50);
-
-    const d = GW.make.sprite('@', [100,0,0], 50);
+    const d = GW.make.sprite('@', [100,0,0], null, 50);
     expect(d.ch).toEqual('@');
     expect(CSS(d.fg)).toEqual('#ff0000');
     expect(d.bg).toBeNull();
     expect(d.opacity).toEqual(50);
 
-    const e = GW.make.sprite('green', 50);
+    const e = GW.make.sprite(null, null, 'green', 50);
     expect(e.ch).toBeNull();
     expect(e.fg).toBeNull();
     expect(CSS(e.bg)).toEqual('#00ff00');
@@ -60,8 +54,8 @@ describe('Sprite', () => {
 
   test('plotting w/o fg/bg', () => {
     const dest = GW.make.sprite();
-    const tile = GW.make.sprite('green'); // bg
-    const player = GW.make.sprite('@', 'white');
+    const tile = GW.make.sprite(null, null, 'green'); // bg
+    const player = GW.make.sprite('@', 'white', null);
 
     dest.plot(tile);
     dest.plot(player);
@@ -75,9 +69,9 @@ describe('Sprite', () => {
 
   test('plotting with opacity', () => {
     const dest = GW.make.sprite();
-    const tile = GW.make.sprite('green'); // bg
-    const player = GW.make.sprite('@', 'white');
-    const fx = GW.make.sprite('red', 50);
+    const tile = GW.make.sprite(null, null, 'green'); // bg
+    const player = GW.make.sprite('@', 'white', null);
+    const fx = GW.make.sprite(null, null, 'red', 50);
 
     dest.plot(tile);
     dest.plot(player);
