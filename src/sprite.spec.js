@@ -69,9 +69,9 @@ describe('Sprite', () => {
 
   test('plotting with opacity', () => {
     const dest = GW.make.sprite();
-    const tile = GW.make.sprite(null, null, 'green'); // bg
-    const player = GW.make.sprite('@', 'white', null);
-    const fx = GW.make.sprite(null, null, 'red', 50);
+    const tile = GW.make.sprite('green'); // bg
+    const player = GW.make.sprite('@');
+    const fx = GW.make.sprite('red', 50);
 
     dest.plot(tile);
     dest.plot(player);

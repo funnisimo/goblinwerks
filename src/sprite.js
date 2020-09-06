@@ -6,6 +6,37 @@ const TEMP_BG = new Color();
 
 export class Sprite {
 	constructor(ch, fg, bg, opacity) {
+		const args = Array.prototype.filter.call(arguments, (v) => v !== undefined );
+
+		let argCount = args.length;
+		const opIndex = args.findIndex( (v) => typeof v === 'number' );
+		if (opIndex >= 0) {
+			--argCount;
+			opacity = args[opIndex];
+		}
+		if (argCount == 0) {
+			ch = ' ';
+			fg = 'white';
+			bg = 'black';
+		}
+		else if (argCount == 1) {
+			if (typeof args[0] === 'string' && args[0].length == 1) {
+				ch = args[0];
+				fg = 'white';
+				bg = null;
+			}
+			else {
+				ch = null;
+				fg = null;
+				bg = args[0];
+			}
+		}
+		else if (argCount == 2) {
+			ch = args[0];
+			fg = args[1];
+			bg = null;
+		}
+
 		this.ch = ch !== null ? (ch || ' ') : null;
 		this.fg = fg !== null ? makeColor(fg || 'white') : null;
 		this.bg = bg !== null ? makeColor(bg || 'black') : null;
