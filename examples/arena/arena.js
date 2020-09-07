@@ -6,27 +6,6 @@ const CellFlags = GW.flags.cell;
 GW.random.seed(12345);
 GW.digger.install('HUGE_ROOM',     GW.digger.rectangularRoom,  { width: [50,76], height: [15,28] });
 
-function showHit(e) {
-	console.log('click', e.x, e.y);
-	GW.fx.flashSprite(MAP, e.x, e.y, 'hit', 200);
-}
-
-GW.commands.showHit = showHit;
-
-function handleKey(e) {
-	if (e.key == 'Shift') return;
-	console.log('key', e.key, e.code);
-
-	if (e.code == 'Space') {
-		makeMap();
-	}
-	const dir = GW.io.keyCodeDirection(e.code);
-	if (dir) {
-		moveDir(dir);
-	}
-}
-
-
 const PLAYER = {
 	x: 40,
 	y: 27,
@@ -35,6 +14,13 @@ const PLAYER = {
 		name: 'you'
 	}
 }
+
+function showHit(e) {
+	console.log('click', e.x, e.y);
+	GW.fx.flashSprite(MAP, e.x, e.y, 'hit', 200);
+}
+
+GW.commands.showHit = showHit;
 
 
 function moveDir(e) {
@@ -72,15 +58,8 @@ function makeMap() {
 	drawMap();
 }
 
-
 GW.commands.makeMap = makeMap;
 
-
-function tick(e) {
-	// console.log('tick', Math.floor(e.dt));
-}
-
-GW.commands.tick = tick;
 
 function drawMap() {
 	MAP.cells.forEach( (c, i, j) => {
@@ -136,7 +115,7 @@ function start() {
 	makeMap();
 	game.onmousedown = GW.io.onmousedown;
 	document.onkeydown = GW.io.onkeydown;
-	GW.io.addKeymap({ dir: 'moveDir', space: 'makeMap', click: 'showHit', tick: 'tick' })
+	GW.io.addKeymap({ dir: 'moveDir', space: 'makeMap', click: 'showHit' });
 
 	startLoop();
 }

@@ -5593,8 +5593,9 @@
 
   fx.flashSprite = flashSprite;
 
-  installSprite('hit', 'red', 50);
+  installSprite('hit', 'x', 'red');
   installSprite('miss', '!', 'green');
+  installSprite('bump', 'white', 50);
 
   // RUT.Animations.hit = function hit(defender, callback, opts) {
   //   if (typeof callback != 'function' && opts === undefined) {
