@@ -17,7 +17,7 @@ const PLAYER = {
 
 function showHit(e) {
 	console.log('click', e.x, e.y);
-	GW.fx.flashSprite(MAP, e.x, e.y, 'hit', 200);
+	return GW.fx.flashSprite(MAP, e.x, e.y, 'hit', 2000, 3);
 }
 
 GW.commands.showHit = showHit;
@@ -29,7 +29,7 @@ function moveDir(e) {
 	PLAYER.x += dir[0];
 	PLAYER.y += dir[1];
 	MAP.setCellFlags(PLAYER.x, PLAYER.y, CellFlags.HAS_PLAYER);
-	drawMap();
+	// drawMap();
 }
 
 GW.commands.moveDir = moveDir;
@@ -55,69 +55,29 @@ function makeMap() {
 	GW.dungeon.addBridges(40, 8);
 	GW.dungeon.finish();
 
-	drawMap();
-}
-
-GW.commands.makeMap = makeMap;
-
-
-function drawMap() {
-	MAP.cells.forEach( (c, i, j) => {
-		if (c.flags & CellFlags.NEEDS_REDRAW) {
-			GW.map.getCellAppearance(MAP, i, j, canvas.buffer[i][j]);
-			c.clearFlags(CellFlags.NEEDS_REDRAW);
-		}
-		if (i == PLAYER.x && j == PLAYER.y) {
-			const sprite = PLAYER.kind.sprite;
-			canvas.plotChar(i, j, sprite.ch, sprite.fg);
-		}
-	});
-
-}
-
-function startLoop(t) {
-	t = t || performance.now();
-
-	requestAnimationFrame(startLoop);
-
-	gameLoop(t);
-
-	canvas.draw();
+	return MAP;
+	// drawMap();
 }
 
 
-async function gameLoop(t) {
-	const dt = GW.game.setTime(t);
-	GW.fx.tick(dt)
-	if (GW.fx.busy()) {
-		drawMap();
-		return;
-	}
-
-	let ev;
-	while (ev = GW.io.nextEvent()) {
-		await GW.io.dispatchEvent(ev);
-		GW.io.recycleEvent(ev);
-	}
-
-	ev = GW.io.makeTickEvent(dt);
-	GW.io.dispatchEvent(ev);
-	GW.io.recycleEvent(ev);
-
-	drawMap();
-
+function newMap() {
+	const map = makeMap();
+	GW.game.startMap(map);
 }
+
+GW.commands.newMap = newMap;
+
+
 
 // start the environment
 function start() {
-	canvas = new GW.types.Canvas(80, 30, 'game');
 
-	makeMap();
 	game.onmousedown = GW.io.onmousedown;
 	document.onkeydown = GW.io.onkeydown;
-	GW.io.addKeymap({ dir: 'moveDir', space: 'makeMap', click: 'showHit' });
+	GW.io.addKeymap({ dir: 'moveDir', space: 'newMap', click: 'showHit' });
 
-	startLoop();
+	makeMap();
+	GW.game.start({ player: PLAYER, map: MAP, width: 80, height: 30 });
 }
 
 window.onload = start;

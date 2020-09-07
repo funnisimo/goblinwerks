@@ -1,6 +1,6 @@
 
 import { NOOP, TRUE, FALSE } from './utils.js';
-import { io, def, commands as COMMANDS } from './gw.js';
+import { io, def, commands as COMMANDS, data as DATA } from './gw.js';
 
 
 const KEYMAPS = [];
@@ -30,10 +30,17 @@ export function addKeymap(keymap) {
 io.addKeymap = addKeymap;
 
 export function busy() {
-	return EVENTS.length > 0;
+	return KEYMAPS.length && KEYMAPS[KEYMAPS.length - 1].busy;
 }
 
 io.busy = busy;
+
+export function hasEvents() {
+	return EVENTS.length;
+}
+
+io.hasEvents = hasEvents;
+
 
 export function clearEvents() {
 	while (EVENTS.length) {
@@ -67,7 +74,8 @@ io.pushEvent = pushEvent;
 
 
 export function dispatchEvent(ev) {
-	for(let i = KEYMAPS.length - 1; i >= 0; --i) {
+	let result;
+	for(let i = KEYMAPS.length - 1 && (result === undefined); i >= 0; --i) {
 		const km = KEYMAPS[i];
 		let command;
 		if (ev.dir) {
@@ -82,16 +90,24 @@ export function dispatchEvent(ev) {
 
 		if (command) {
 			if (typeof command === 'function') {
-				return command(ev);
+				result = command(ev);
 			}
 			else if (COMMANDS[command]) {
-				return COMMANDS[command](ev);
+				result = COMMANDS[command](ev);
 			}
 		}
 
-		if (km.next === false) return false;
+		if (km.next === false) {
+			result = false;
+		}
 	}
-	return false;
+	io.recycleEvent(ev);
+	if (result && result.then) {
+		const km = KEYMAPS[KEYMAPS.length - 1];
+		km.busy = true;
+		result = result.then( () => km.busy = false );
+	}
+	return result;
 }
 
 io.dispatchEvent = dispatchEvent;
@@ -270,8 +286,8 @@ export function makeMouseEvent(e, x, y) {
 io.makeMouseEvent = makeMouseEvent;
 
 export function onmousemove(e) {
-	const x = canvas.toX(e.clientX);
-	const y = canvas.toY(e.clientY);
+	const x = DATA.canvas.toX(e.clientX);
+	const y = DATA.canvas.toY(e.clientY);
 	const ev = makeMouseEvent(e, x, y);
 	io.pushEvent(ev);
 }
@@ -279,8 +295,8 @@ export function onmousemove(e) {
 io.onmousemove = onmousemove;
 
 export function onmousedown(e) {
-	const x = canvas.toX(e.clientX);
-	const y = canvas.toY(e.clientY);
+	const x = DATA.canvas.toX(e.clientX);
+	const y = DATA.canvas.toY(e.clientY);
 	const ev = makeMouseEvent(e, x, y);
 	io.pushEvent(ev);
 }

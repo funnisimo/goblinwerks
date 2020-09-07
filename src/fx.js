@@ -8,7 +8,7 @@ export var fx = {};
 let ANIMATIONS = [];
 
 export function busy() {
-  return (ANIMATIONS.length > 0);
+  return ANIMATIONS.some( (a) => a );
 }
 
 fx.busy = busy;
@@ -16,7 +16,7 @@ fx.busy = busy;
 
 export function tick(dt) {
   ANIMATIONS.forEach( (a) => a.tick(dt) );
-  ANIMATIONS = ANIMATIONS.filter( (a) => !a.done );
+  ANIMATIONS = ANIMATIONS.filter( (a) => a && !a.done );
   return fx.busy();
 }
 
@@ -24,21 +24,19 @@ fx.tick = tick;
 
 
 
+function lerp(from, to, pct) {
+	if (pct > 1) pct = 1;
+  if (pct < 0) pct = 0;
+	return Math.floor(from + (to - from) * pct);
+}
+
 
 export class FX {
-  constructor(map, callback, opts={}) {
-    if (typeof callback != 'function' && arguments.length == 1) {
-      opts = callback || {};
-      callback = NOOP;
-    }
-
+  constructor(map, opts={}) {
     this.map = map;
-    this.x = -1;
-    this.y = -1;
-    this.sprite = opts.sprite;
     this.tilNextTurn = opts.speed || opts.duration || 1000;
     this.speed = opts.speed || opts.duration || 1000;
-    this.callback = callback || RUT.NOOP;
+    this.callback = NOOP;
     this.done = false;
   }
 
@@ -55,15 +53,56 @@ export class FX {
     this.stop();
   }
 
-  start(x, y) {
-    this.map.addFx(x, y, this);
+  start() {
+    ANIMATIONS.push(this);
+    return new Promise( (resolve) => this.callback = resolve );
   }
 
   stop(result) {
     if (this.done) return;
     this.done = true;
-    this.map.removeFx(this);
     this.callback(result);
+  }
+
+}
+
+types.FX = FX;
+
+
+export class SpriteFX extends FX {
+  constructor(map, sprite, x, y, opts={}) {
+    const count = opts.blink || 1;
+    const duration = opts.duration || 1000;
+    opts.speed = opts.speed || (duration / (2*count-1));
+    super(map, opts);
+    if (typeof sprite === 'string') {
+      sprite = SPRITES[sprite];
+    }
+    this.sprite = sprite;
+    this.x = x || -1;
+    this.y = y || -1;
+    this.count = 2*count - 1;
+  }
+
+  start() {
+    this.map.addFx(this.x, this.y, this);
+    return super.start();
+  }
+
+  step() {
+    --this.count;
+    if (this.count <= 0) return this.stop();
+    if (this.count % 2 == 0) {
+      this.map.removeFx(this);
+    }
+    else {
+      this.map.addFx(this.x, this.y, this);
+    }
+  }
+
+  stop(result) {
+    this.map.removeFx(this);
+    return super.stop(result);
   }
 
   moveDir(dir) {
@@ -76,9 +115,6 @@ export class FX {
   }
 
 }
-
-types.FX = FX;
-
 
 // export class XYAnimation extends FX {
 //   constructor(sprite, from, dest, callback, speed=10) {
@@ -216,17 +252,9 @@ types.FX = FX;
 
 
 
-export async function flashSprite(map, x, y, sprite, duration) {
-
-  if (typeof sprite === 'string') {
-    sprite = SPRITES[sprite];
-  }
-
-  return new Promise( (resolve) => {
-    const animation = new FX(map, resolve, { sprite, duration });
-    animation.start(x, y);
-    ANIMATIONS.push(animation);
-  });
+export async function flashSprite(map, x, y, sprite, duration, count=1) {
+  const animation = new SpriteFX(map, sprite, x, y, { duration, blink: count });
+  return animation.start();
 }
 
 fx.flashSprite = flashSprite;

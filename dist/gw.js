@@ -14,7 +14,7 @@
   var grid$1 = {};
 
   var buffer = {};
-  var canvas$1 = {};
+  var canvas = {};
   var io = {};
 
   var path = {};
@@ -2285,10 +2285,17 @@
   io.addKeymap = addKeymap;
 
   function busy() {
-  	return EVENTS.length > 0;
+  	return KEYMAPS.length && KEYMAPS[KEYMAPS.length - 1].busy;
   }
 
   io.busy = busy;
+
+  function hasEvents() {
+  	return EVENTS.length;
+  }
+
+  io.hasEvents = hasEvents;
+
 
   function clearEvents() {
   	while (EVENTS.length) {
@@ -2322,7 +2329,8 @@
 
 
   function dispatchEvent(ev) {
-  	for(let i = KEYMAPS.length - 1; i >= 0; --i) {
+  	let result;
+  	for(let i = KEYMAPS.length - 1 && (result === undefined); i >= 0; --i) {
   		const km = KEYMAPS[i];
   		let command;
   		if (ev.dir) {
@@ -2337,16 +2345,24 @@
 
   		if (command) {
   			if (typeof command === 'function') {
-  				return command(ev);
+  				result = command(ev);
   			}
   			else if (commands[command]) {
-  				return commands[command](ev);
+  				result = commands[command](ev);
   			}
   		}
 
-  		if (km.next === false) return false;
+  		if (km.next === false) {
+  			result = false;
+  		}
   	}
-  	return false;
+  	io.recycleEvent(ev);
+  	if (result && result.then) {
+  		const km = KEYMAPS[KEYMAPS.length - 1];
+  		km.busy = true;
+  		result = result.then( () => km.busy = false );
+  	}
+  	return result;
   }
 
   io.dispatchEvent = dispatchEvent;
@@ -2525,8 +2541,8 @@
   io.makeMouseEvent = makeMouseEvent;
 
   function onmousemove(e) {
-  	const x = canvas.toX(e.clientX);
-  	const y = canvas.toY(e.clientY);
+  	const x = data.canvas.toX(e.clientX);
+  	const y = data.canvas.toY(e.clientY);
   	const ev = makeMouseEvent(e, x, y);
   	io.pushEvent(ev);
   }
@@ -2534,8 +2550,8 @@
   io.onmousemove = onmousemove;
 
   function onmousedown(e) {
-  	const x = canvas.toX(e.clientX);
-  	const y = canvas.toY(e.clientY);
+  	const x = data.canvas.toX(e.clientX);
+  	const y = data.canvas.toY(e.clientY);
   	const ev = makeMouseEvent(e, x, y);
   	io.pushEvent(ev);
   }
@@ -4502,6 +4518,7 @@
     dump() { return tiles[this.base].sprite.ch; }
     isVisible() { return this.flags & Flags$1.VISIBLE; }
     isAnyKindOfVisible() { return (this.flags & Flags$1.ANY_KIND_OF_VISIBLE) || config.playbackOmniscience; }
+    redraw() { this.flags |= Flags$1.NEEDS_REDRAW; }
 
     *tiles() {
       if (this.base) yield tiles[this.base];
@@ -4761,7 +4778,7 @@
 
   cell$1.getAppearance = getAppearance;
 
-  var map = {};
+  var map$1 = {};
 
 
   const Flags$2 = installFlag('map', {
@@ -4808,7 +4825,7 @@
   	hasTileMechFlag(x, y, flag) { return this.cell(x, y).hasTileMechFlag(flag); }
 
   	redrawCell(x, y) {
-  		this.cell(x, y).flags |= Flags$1.NEEDS_REDRAW;
+  		this.cell(x, y).redraw();
   		this.flags |= Flags$2.MAP_CHANGED;
   	}
 
@@ -5042,8 +5059,6 @@
   	removeFx(anim) {
   		const oldCell = this.cell(anim.x, anim.y);
   		oldCell.clearFlags(Flags$1.HAS_FX);
-  		anim.x = -1;
-  		anim.y = -1;
   		this.fx = this.fx.filter( (a) => a !== anim );
   		return true;
   	}
@@ -5068,16 +5083,22 @@
   			// GW.ui.message(colors.badMessageColor, 'There is already an actor there.');
   			return false;
   		}
+
   		theActor.x = x;
   		theActor.y = y;
-  		this.actors.add(theActor);
-  		cell.flags |= (Flags$1.HAS_MONSTER | Flags$1.NEEDS_REDRAW);
+
+  		let flag = Flags$1.HAS_PLAYER;
+  		if (theActor !== data.player) {
+  			this.actors.add(theActor);
+  			flag = Flags$1.HAS_MONSTER;
+  		}
+  		cell.flags |= (flag | Flags$1.NEEDS_REDRAW);
 
   		this.flags |= Flags$2.MAP_CHANGED;
-  		if (theActor.flags & ActorFlags.MK_DETECTED)
-  		{
-  			cell.flags |= Flags$1.MONSTER_DETECTED;
-  		}
+  		// if (theActor.flags & ActorFlags.MK_DETECTED)
+  		// {
+  		// 	cell.flags |= CellFlags.MONSTER_DETECTED;
+  		// }
 
   		return true;
   	}
@@ -5098,10 +5119,12 @@
 
   	removeActor(actor) {
   		const cell = this.cell(actor.x, actor.y);
-  		cell.flags &= ~(Flags$1.HAS_PLAYER | Flags$1.HAS_MONSTER);
+  		cell.flags &= ~Flags$1.HAS_ACTOR;
   		cell.flags |= Flags$1.NEEDS_REDRAW;
   		this.flags |= Flags$2.MAP_CHANGED;
-  		this.actors.remove(actor);
+  		if (actor !== data.player) {
+  			this.actors.remove(actor);
+  		}
   	}
 
   	dormantAt(x, y) {  // creature *
@@ -5250,7 +5273,7 @@
   	}
   }
 
-  map.getCellAppearance = getCellAppearance;
+  map$1.getCellAppearance = getCellAppearance;
 
   var game = {};
   data.time = performance.now();
@@ -5262,6 +5285,91 @@
   }
 
   game.setTime = setTime;
+
+
+  function startGame(opts={}) {
+    if (!opts.map) ERROR('map is required.');
+
+    const width = opts.width || 100;
+    const height = opts.height || 34;
+
+    data.canvas = new types.Canvas(80, 30, 'game');
+    data.player = opts.player || null;
+    data.map = opts.map;
+
+    if (data.player) {
+      let x = opts.x || data.player.x || 0;
+      let y = opts.y || data.player.y || 0;
+      if (x <= 0) {
+        const start = map.locations.start;
+        if (!start) ERROR('Need x,y or start location.');
+        x = start[0];
+        y = start[1];
+      }
+      data.map.addActor(x, y, data.player);
+    }
+    startLoop();
+  }
+
+  game.start = startGame;
+
+
+  function startMap(map) {
+    data.map = map;
+    map.forEach( (c) => c.redraw() );
+    map.flag |= MapFlags.MAP_CHANGED;
+  }
+
+  game.startMap = startMap;
+
+
+  function drawMap() {
+  	data.map.cells.forEach( (c, i, j) => {
+  		if (c.flags & CellFlags.NEEDS_REDRAW) {
+  			GW.map.getCellAppearance(data.map, i, j, data.canvas.buffer[i][j]);
+  			c.clearFlags(CellFlags.NEEDS_REDRAW);
+  		}
+  		if (i == data.player.x && j == data.player.y) {
+  			const sprite = data.player.kind.sprite;
+  			data.canvas.plotChar(i, j, sprite.ch, sprite.fg);
+  		}
+  	});
+  }
+
+  function startLoop(t) {
+  	t = t || performance.now();
+
+  	requestAnimationFrame(startLoop);
+
+  	gameLoop(t);
+
+  	data.canvas.draw();
+  }
+
+
+  async function gameLoop(t) {
+  	const dt = GW.game.setTime(t);
+  	GW.fx.tick(dt);
+  	if (GW.fx.busy()) {
+  		drawMap();
+  		return;
+  	}
+
+  	let ev = GW.io.makeTickEvent(dt);
+  	GW.io.pushEvent(ev);
+
+  	while (GW.io.hasEvents() && !GW.io.busy()) {
+  		ev = GW.io.nextEvent();
+  		GW.io.dispatchEvent(ev);
+  	}
+
+  	if (GW.io.busy()) {
+  		return;
+  	}
+
+  	drawMap();
+  }
+
 
   //
   //
@@ -5370,7 +5478,7 @@
   let ANIMATIONS = [];
 
   function busy$1() {
-    return (ANIMATIONS.length > 0);
+    return ANIMATIONS.some( (a) => a );
   }
 
   fx.busy = busy$1;
@@ -5378,29 +5486,19 @@
 
   function tick(dt) {
     ANIMATIONS.forEach( (a) => a.tick(dt) );
-    ANIMATIONS = ANIMATIONS.filter( (a) => !a.done );
+    ANIMATIONS = ANIMATIONS.filter( (a) => a && !a.done );
     return fx.busy();
   }
 
   fx.tick = tick;
 
 
-
-
   class FX {
-    constructor(map, callback, opts={}) {
-      if (typeof callback != 'function' && arguments.length == 1) {
-        opts = callback || {};
-        callback = NOOP;
-      }
-
+    constructor(map, opts={}) {
       this.map = map;
-      this.x = -1;
-      this.y = -1;
-      this.sprite = opts.sprite;
       this.tilNextTurn = opts.speed || opts.duration || 1000;
       this.speed = opts.speed || opts.duration || 1000;
-      this.callback = callback || RUT.NOOP;
+      this.callback = NOOP;
       this.done = false;
     }
 
@@ -5417,15 +5515,56 @@
       this.stop();
     }
 
-    start(x, y) {
-      this.map.addFx(x, y, this);
+    start() {
+      ANIMATIONS.push(this);
+      return new Promise( (resolve) => this.callback = resolve );
     }
 
     stop(result) {
       if (this.done) return;
       this.done = true;
-      this.map.removeFx(this);
       this.callback(result);
+    }
+
+  }
+
+  types.FX = FX;
+
+
+  class SpriteFX extends FX {
+    constructor(map, sprite, x, y, opts={}) {
+      const count = opts.blink || 1;
+      const duration = opts.duration || 1000;
+      opts.speed = opts.speed || (duration / (2*count-1));
+      super(map, opts);
+      if (typeof sprite === 'string') {
+        sprite = sprites[sprite];
+      }
+      this.sprite = sprite;
+      this.x = x || -1;
+      this.y = y || -1;
+      this.count = 2*count - 1;
+    }
+
+    start() {
+      this.map.addFx(this.x, this.y, this);
+      return super.start();
+    }
+
+    step() {
+      --this.count;
+      if (this.count <= 0) return this.stop();
+      if (this.count % 2 == 0) {
+        this.map.removeFx(this);
+      }
+      else {
+        this.map.addFx(this.x, this.y, this);
+      }
+    }
+
+    stop(result) {
+      this.map.removeFx(this);
+      return super.stop(result);
     }
 
     moveDir(dir) {
@@ -5438,9 +5577,6 @@
     }
 
   }
-
-  types.FX = FX;
-
 
   // export class XYAnimation extends FX {
   //   constructor(sprite, from, dest, callback, speed=10) {
@@ -5578,17 +5714,9 @@
 
 
 
-  async function flashSprite(map, x, y, sprite, duration) {
-
-    if (typeof sprite === 'string') {
-      sprite = sprites[sprite];
-    }
-
-    return new Promise( (resolve) => {
-      const animation = new FX(map, resolve, { sprite, duration });
-      animation.start(x, y);
-      ANIMATIONS.push(animation);
-    });
+  async function flashSprite(map, x, y, sprite, duration, count=1) {
+    const animation = new SpriteFX(map, sprite, x, y, { duration, blink: count });
+    return animation.start();
   }
 
   fx.flashSprite = flashSprite;
@@ -5762,7 +5890,7 @@
 
   exports.actor = actor;
   exports.buffer = buffer;
-  exports.canvas = canvas$1;
+  exports.canvas = canvas;
   exports.cell = cell$1;
   exports.color = color;
   exports.colors = colors;
@@ -5783,7 +5911,7 @@
   exports.install = install;
   exports.io = io;
   exports.make = make;
-  exports.map = map;
+  exports.map = map$1;
   exports.path = path;
   exports.random = random;
   exports.sprite = sprite;

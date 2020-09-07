@@ -1,6 +1,7 @@
 
 
-import { data as DATA } from './gw.js';
+import { ERROR } from './utils.js';
+import { data as DATA, types } from './gw.js';
 
 export var game = {};
 DATA.time = performance.now();
@@ -12,6 +13,91 @@ export function setTime(t) {
 }
 
 game.setTime = setTime;
+
+
+export function startGame(opts={}) {
+  if (!opts.map) ERROR('map is required.');
+
+  const width = opts.width || 100;
+  const height = opts.height || 34;
+
+  DATA.canvas = new types.Canvas(80, 30, 'game');
+  DATA.player = opts.player || null;
+  DATA.map = opts.map;
+
+  if (DATA.player) {
+    let x = opts.x || DATA.player.x || 0;
+    let y = opts.y || DATA.player.y || 0;
+    if (x <= 0) {
+      const start = map.locations.start;
+      if (!start) ERROR('Need x,y or start location.');
+      x = start[0];
+      y = start[1];
+    }
+    DATA.map.addActor(x, y, DATA.player);
+  }
+  startLoop();
+}
+
+game.start = startGame;
+
+
+export function startMap(map) {
+  DATA.map = map;
+  map.forEach( (c) => c.redraw() );
+  map.flag |= MapFlags.MAP_CHANGED;
+}
+
+game.startMap = startMap;
+
+
+function drawMap() {
+	DATA.map.cells.forEach( (c, i, j) => {
+		if (c.flags & CellFlags.NEEDS_REDRAW) {
+			GW.map.getCellAppearance(DATA.map, i, j, DATA.canvas.buffer[i][j]);
+			c.clearFlags(CellFlags.NEEDS_REDRAW);
+		}
+		if (i == DATA.player.x && j == DATA.player.y) {
+			const sprite = DATA.player.kind.sprite;
+			DATA.canvas.plotChar(i, j, sprite.ch, sprite.fg);
+		}
+	});
+}
+
+function startLoop(t) {
+	t = t || performance.now();
+
+	requestAnimationFrame(startLoop);
+
+	gameLoop(t);
+
+	DATA.canvas.draw();
+}
+
+
+async function gameLoop(t) {
+	const dt = GW.game.setTime(t);
+	GW.fx.tick(dt)
+	if (GW.fx.busy()) {
+		drawMap();
+		return;
+	}
+
+	let ev = GW.io.makeTickEvent(dt);
+	GW.io.pushEvent(ev);
+
+	while (GW.io.hasEvents() && !GW.io.busy()) {
+		ev = GW.io.nextEvent();
+		GW.io.dispatchEvent(ev);
+	}
+
+	if (GW.io.busy()) {
+		return;
+	}
+
+	drawMap();
+}
+
 
 //
 //

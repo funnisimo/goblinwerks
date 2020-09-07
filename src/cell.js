@@ -135,6 +135,7 @@ class Cell {
   dump() { return TILES[this.base].sprite.ch; }
   isVisible() { return this.flags & Flags.VISIBLE; }
   isAnyKindOfVisible() { return (this.flags & Flags.ANY_KIND_OF_VISIBLE) || CONFIG.playbackOmniscience; }
+  redraw() { this.flags |= Flags.NEEDS_REDRAW; }
 
   *tiles() {
     if (this.base) yield TILES[this.base];

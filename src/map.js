@@ -54,7 +54,7 @@ export class Map {
 	hasTileMechFlag(x, y, flag) { return this.cell(x, y).hasTileMechFlag(flag); }
 
 	redrawCell(x, y) {
-		this.cell(x, y).flags |= CellFlags.NEEDS_REDRAW;
+		this.cell(x, y).redraw();
 		this.flags |= Flags.MAP_CHANGED;
 	}
 
@@ -291,8 +291,6 @@ export class Map {
 	removeFx(anim) {
 		const oldCell = this.cell(anim.x, anim.y);
 		oldCell.clearFlags(CellFlags.HAS_FX);
-		anim.x = -1;
-		anim.y = -1;
 		this.fx = this.fx.filter( (a) => a !== anim );
 		return true;
 	}
@@ -318,16 +316,22 @@ export class Map {
 			// GW.ui.message(colors.badMessageColor, 'There is already an actor there.');
 			return false;
 		}
+
 		theActor.x = x;
 		theActor.y = y;
-		this.actors.add(theActor);
-		cell.flags |= (CellFlags.HAS_MONSTER | CellFlags.NEEDS_REDRAW);
+
+		let flag = CellFlags.HAS_PLAYER;
+		if (theActor !== DATA.player) {
+			this.actors.add(theActor);
+			flag = CellFlags.HAS_MONSTER;
+		}
+		cell.flags |= (flag | CellFlags.NEEDS_REDRAW);
 
 		this.flags |= Flags.MAP_CHANGED;
-		if (theActor.flags & ActorFlags.MK_DETECTED)
-		{
-			cell.flags |= CellFlags.MONSTER_DETECTED;
-		}
+		// if (theActor.flags & ActorFlags.MK_DETECTED)
+		// {
+		// 	cell.flags |= CellFlags.MONSTER_DETECTED;
+		// }
 
 		return true;
 	}
@@ -348,10 +352,12 @@ export class Map {
 
 	removeActor(actor) {
 		const cell = this.cell(actor.x, actor.y);
-		cell.flags &= ~(CellFlags.HAS_PLAYER | CellFlags.HAS_MONSTER);
+		cell.flags &= ~CellFlags.HAS_ACTOR;
 		cell.flags |= CellFlags.NEEDS_REDRAW;
 		this.flags |= Flags.MAP_CHANGED;
-		this.actors.remove(actor);
+		if (actor !== DATA.player) {
+			this.actors.remove(actor);
+		}
 	}
 
 	dormantAt(x, y) {  // creature *
