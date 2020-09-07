@@ -6,14 +6,16 @@ describe('FX', () => {
 
   test('will show up in a cell', async () => {
 
+    GW.cosmetic.seed(12345);
+
     const m = GW.make.map(20, 20, { tile: 1, boundary: 6 });
 
     const sprite = GW.make.sprite();
 
     GW.map.getCellAppearance(m, 2, 2, sprite);
     expect(sprite.ch).toEqual(GW.tiles[1].sprite.ch);
-    expect(sprite.fg).toEqual(GW.tiles[1].sprite.fg);
-    expect(sprite.bg).toEqual(GW.tiles[1].sprite.bg);
+    expect(GW.color.css(sprite.fg)).toEqual('#5c5c5c');
+    expect(GW.color.css(sprite.bg)).toEqual('#08081a');
 
     const hit = GW.make.sprite('!', 'red');
     let resolved = false;
@@ -28,7 +30,7 @@ describe('FX', () => {
     GW.map.getCellAppearance(m, 2, 2, sprite);
     expect(sprite.ch).toEqual(hit.ch);
     expect(sprite.fg).toEqual(hit.fg);
-    expect(sprite.bg).toEqual(GW.tiles[1].sprite.bg);
+    expect(GW.color.css(sprite.bg)).toEqual('#05051a');
 
     m.fx[0].tick(101);
     expect(cell.flags & GW.flags.cell.HAS_FX).toBeFalsy();
@@ -36,8 +38,8 @@ describe('FX', () => {
 
     GW.map.getCellAppearance(m, 2, 2, sprite);
     expect(sprite.ch).toEqual(GW.tiles[1].sprite.ch);
-    expect(sprite.fg).toEqual(GW.tiles[1].sprite.fg);
-    expect(sprite.bg).toEqual(GW.tiles[1].sprite.bg);
+    expect(GW.color.css(sprite.fg)).toEqual('#525252'); // cosmetic difference
+    expect(GW.color.css(sprite.bg)).toEqual('#05081a'); // cosmetic difference
 
     expect(resolved).toBeFalsy();
     await p;

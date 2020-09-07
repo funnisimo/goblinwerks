@@ -835,9 +835,9 @@
   function bakeColor(/* color */theColor) {
     let rand;
     rand = cosmetic.range(0, theColor.rand);
-    theColor.red   += Math.round(GW.random.cosmetic.range(0, theColor.redRand) + rand);
-    theColor.green += Math.round(GW.random.cosmetic.range(0, theColor.greenRand) + rand);
-    theColor.blue  += Math.round(GW.random.cosmetic.range(0, theColor.blueRand) + rand);
+    theColor.red   += Math.round(cosmetic.range(0, theColor.redRand) + rand);
+    theColor.green += Math.round(cosmetic.range(0, theColor.greenRand) + rand);
+    theColor.blue  += Math.round(cosmetic.range(0, theColor.blueRand) + rand);
     theColor.redRand = theColor.greenRand = theColor.blueRand = theColor.rand = 0;
   }
 
@@ -1150,6 +1150,14 @@
   		return true;
   	}
 
+  	bake() {
+  		if (this.fg && !this.fg.dances) {
+  			bakeColor(this.fg);
+  		}
+  		if (this.bg && !this.bg.dances) {
+  			bakeColor(this.bg);
+  		}
+  	}
   }
 
   types.Sprite = Sprite;
@@ -2058,6 +2066,12 @@
       }
     }
 
+    fillRect(x, y, w, h, ch, fg, bg) {
+      this.forRect(x, y, w, h, (v, i, j) => {
+        this.plotChar(i, j, ch, fg, bg);
+      });
+    }
+
   }
 
   types.Buffer = Buffer;
@@ -2210,11 +2224,33 @@
     }
 
     plotChar(x, y, ch, fg, bg) {
+      if (typeof fg === 'string') {
+        fg = colors[fg];
+      }
+      if (typeof bg === 'string') {
+        bg = colors[bg];
+      }
       this.buffer.plotChar(x, y, ch, fg, bg);
     }
 
     plotText(x, y, text, fg, bg) {
+      if (typeof fg === 'string') {
+        fg = colors[fg];
+      }
+      if (typeof bg === 'string') {
+        bg = colors[bg];
+      }
       this.buffer.plotText(x, y, text, fg, bg);
+    }
+
+    fillRect(x, y, w, h, ch, fg, bg) {
+      if (typeof fg === 'string') {
+        fg = colors[fg];
+      }
+      if (typeof bg === 'string') {
+        bg = colors[bg];
+      }
+      this.buffer.fillRect(x, y, w, h, ch, fg, bg);
     }
 
     allocBuffer() {
@@ -2241,7 +2277,7 @@
       if (previousBuf) {
         previousBuf.copy(this.buffer);
       }
-      overlayRect(overBuf, 0, 0, this.buffer.width, this.buffer.height);
+      this.overlayRect(overBuf, 0, 0, this.buffer.width, this.buffer.height);
     }
 
     // draws overBuf over the current canvas with per-cell pseudotransparency as specified in overBuf.
@@ -2568,7 +2604,7 @@
   	match = match || TRUE;
   	let elapsed = 0;
 
-  	if (EVENTS.length) {
+  	while (EVENTS.length) {
     	const e = EVENTS.shift();
       e.dt = 0;
   		if (e.type === MOUSEMOVE) {
@@ -2576,7 +2612,10 @@
   			io.mouse.y = e.y;
   		}
 
-      return e;
+  		if (match(e)) {
+  			return e;
+  		}
+  		io.recycleEvent(e);
     }
 
     let done;
@@ -5120,6 +5159,27 @@
   		return this.addActor(loc[0], loc[1], theActor);
   	}
 
+  	moveActor(x, y, actor) {
+  		if (!this.hasXY(x, y)) return false;
+
+  		const flag = (actor === data.player) ? Flags$1.HAS_PLAYER : Flags$1.HAS_MONSTER;
+  		if (actor.x >= 0) {
+  			const oldCell = this.cell(actor.x, actor.y);
+  			oldCell.clearFlags(flag | Flags$1.MONSTER_DETECTED);
+  		}
+
+  		actor.x = x;
+  		actor.y = y;
+  		const cell = this.cell(x, y);
+  		cell.flags |= (flag | Flags$1.NEEDS_REDRAW);
+  		this.flags |= Flags$2.MAP_CHANGED;
+  		// if (theActor.flags & ActorFlags.MK_DETECTED)
+  		// {
+  		// 	cell.flags |= CellFlags.MONSTER_DETECTED;
+  		// }
+  		return true;
+  	}
+
   	removeActor(actor) {
   		const cell = this.cell(actor.x, actor.y);
   		cell.flags &= ~Flags$1.HAS_ACTOR;
@@ -5284,6 +5344,7 @@
   			dest.plot(a.sprite);
   		});
   	}
+  	dest.bake();
   }
 
   map.getCellAppearance = getCellAppearance;
@@ -5343,10 +5404,13 @@
 
 
   function drawMap() {
+    const buffer = data.canvas.buffer;
   	data.map.cells.forEach( (c, i, j) => {
   		if (c.flags & Flags$1.NEEDS_REDRAW) {
-  			GW.map.getCellAppearance(data.map, i, j, data.canvas.buffer[i][j]);
+        const buf = buffer[i][j];
+  			GW.map.getCellAppearance(data.map, i, j, buf);
   			c.clearFlags(Flags$1.NEEDS_REDRAW);
+        buffer.needsUpdate = true;
   		}
   	});
   }
@@ -5903,6 +5967,52 @@
   //   return anim;
   // }
 
+  var player = {};
+
+
+  function makePlayer(kind) {
+
+    return {
+      x: -1,
+      y: -1,
+      flags: 0,
+      kind
+    };
+
+  }
+
+  make.player = makePlayer;
+
+
+  function moveDir(dir) {
+    const map = data.map;
+    const player = data.player;
+    return map.moveActor(player.x + dir[0], player.y + dir[1], player);
+  }
+
+  player.moveDir = moveDir;
+
+  var ui = {};
+
+  async function messageBox(text, fg, duration) {
+
+    const canvas = data.canvas;
+    const base = GW.data.canvas.allocBuffer();
+
+    const len = text.length;
+    const x = Math.floor((canvas.width - len - 4) / 2) - 2;
+    const y = Math.floor(canvas.height / 2) - 1;
+    canvas.fillRect(x, y, len + 4, 3, ' ', 'black', 'black');
+  	canvas.plotText(x + 2, y + 1, text, fg || 'white');
+  	canvas.draw();
+
+  	await pause(duration || 30 * 1000);
+
+  	canvas.overlay(base);
+  }
+
+  ui.messageBox = messageBox;
+
   exports.actor = actor;
   exports.buffer = buffer;
   exports.canvas = canvas;
@@ -5928,12 +6038,14 @@
   exports.make = make;
   exports.map = map;
   exports.path = path;
+  exports.player = player;
   exports.random = random;
   exports.sprite = sprite;
   exports.sprites = sprites;
   exports.tile = tile;
   exports.tiles = tiles;
   exports.types = types;
+  exports.ui = ui;
   exports.utils = utils;
 
 })));

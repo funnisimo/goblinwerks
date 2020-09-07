@@ -169,9 +169,9 @@ color.clamp = clampColor;
 export function bakeColor(/* color */theColor) {
   let rand;
   rand = cosmetic.range(0, theColor.rand);
-  theColor.red   += Math.round(GW.random.cosmetic.range(0, theColor.redRand) + rand);
-  theColor.green += Math.round(GW.random.cosmetic.range(0, theColor.greenRand) + rand);
-  theColor.blue  += Math.round(GW.random.cosmetic.range(0, theColor.blueRand) + rand);
+  theColor.red   += Math.round(cosmetic.range(0, theColor.redRand) + rand);
+  theColor.green += Math.round(cosmetic.range(0, theColor.greenRand) + rand);
+  theColor.blue  += Math.round(cosmetic.range(0, theColor.blueRand) + rand);
   theColor.redRand = theColor.greenRand = theColor.blueRand = theColor.rand = 0;
 }
 

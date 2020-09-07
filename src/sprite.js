@@ -1,5 +1,5 @@
 
-import { Color, applyMix, equals, makeColor } from './color.js';
+import { Color, applyMix, equals, makeColor, bakeColor } from './color.js';
 import { types, make } from './gw.js';
 
 const TEMP_BG = new Color();
@@ -106,6 +106,14 @@ export class Sprite {
 		return true;
 	}
 
+	bake() {
+		if (this.fg && !this.fg.dances) {
+			bakeColor(this.fg);
+		}
+		if (this.bg && !this.bg.dances) {
+			bakeColor(this.bg);
+		}
+	}
 }
 
 types.Sprite = Sprite;

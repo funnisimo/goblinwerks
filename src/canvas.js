@@ -1,5 +1,5 @@
 
-import { css } from './color.js';
+import { css, colors } from './color.js';
 import { Sprite } from './sprite.js';
 import { Grid } from './grid.js';
 import { cosmetic } from './random.js';
@@ -71,6 +71,12 @@ class Buffer extends Grid {
     for(let i = 0; i < len; ++i) {
       this.plotChar(i + x, y, text[i], fg, bg);
     }
+  }
+
+  fillRect(x, y, w, h, ch, fg, bg) {
+    this.forRect(x, y, w, h, (v, i, j) => {
+      this.plotChar(i, j, ch, fg, bg);
+    });
   }
 
 }
@@ -238,11 +244,33 @@ class Canvas {
   }
 
   plotChar(x, y, ch, fg, bg) {
+    if (typeof fg === 'string') {
+      fg = colors[fg];
+    }
+    if (typeof bg === 'string') {
+      bg = colors[bg];
+    }
     this.buffer.plotChar(x, y, ch, fg, bg);
   }
 
   plotText(x, y, text, fg, bg) {
+    if (typeof fg === 'string') {
+      fg = colors[fg];
+    }
+    if (typeof bg === 'string') {
+      bg = colors[bg];
+    }
     this.buffer.plotText(x, y, text, fg, bg);
+  }
+
+  fillRect(x, y, w, h, ch, fg, bg) {
+    if (typeof fg === 'string') {
+      fg = colors[fg];
+    }
+    if (typeof bg === 'string') {
+      bg = colors[bg];
+    }
+    this.buffer.fillRect(x, y, w, h, ch, fg, bg);
   }
 
   allocBuffer() {
@@ -269,7 +297,7 @@ class Canvas {
     if (previousBuf) {
       previousBuf.copy(this.buffer);
     }
-    overlayRect(overBuf, 0, 0, this.buffer.width, this.buffer.height);
+    this.overlayRect(overBuf, 0, 0, this.buffer.width, this.buffer.height);
   }
 
   // draws overBuf over the current canvas with per-cell pseudotransparency as specified in overBuf.

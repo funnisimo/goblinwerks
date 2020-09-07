@@ -61,10 +61,13 @@ game.startMap = startMap;
 
 
 function drawMap() {
+  const buffer = DATA.canvas.buffer;
 	DATA.map.cells.forEach( (c, i, j) => {
 		if (c.flags & CellFlags.NEEDS_REDRAW) {
-			GW.map.getCellAppearance(DATA.map, i, j, DATA.canvas.buffer[i][j]);
+      const buf = buffer[i][j];
+			GW.map.getCellAppearance(DATA.map, i, j, buf);
 			c.clearFlags(CellFlags.NEEDS_REDRAW);
+      buffer.needsUpdate = true;
 		}
 	});
 }

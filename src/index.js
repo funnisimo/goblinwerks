@@ -16,5 +16,7 @@ export { cell } from './cell.js';
 export { map } from './map.js';
 export { game } from './game.js';
 export { fx } from './fx.js';
+export { player } from './player.js';
+export { ui } from './ui.js';
 
 export * from './gw.js';

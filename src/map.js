@@ -350,6 +350,27 @@ export class Map {
 		return this.addActor(loc[0], loc[1], theActor);
 	}
 
+	moveActor(x, y, actor) {
+		if (!this.hasXY(x, y)) return false;
+
+		const flag = (actor === DATA.player) ? CellFlags.HAS_PLAYER : CellFlags.HAS_MONSTER;
+		if (actor.x >= 0) {
+			const oldCell = this.cell(actor.x, actor.y);
+			oldCell.clearFlags(flag | CellFlags.MONSTER_DETECTED);
+		}
+
+		actor.x = x;
+		actor.y = y;
+		const cell = this.cell(x, y);
+		cell.flags |= (flag | CellFlags.NEEDS_REDRAW);
+		this.flags |= Flags.MAP_CHANGED;
+		// if (theActor.flags & ActorFlags.MK_DETECTED)
+		// {
+		// 	cell.flags |= CellFlags.MONSTER_DETECTED;
+		// }
+		return true;
+	}
+
 	removeActor(actor) {
 		const cell = this.cell(actor.x, actor.y);
 		cell.flags &= ~CellFlags.HAS_ACTOR;
@@ -514,6 +535,7 @@ export function getCellAppearance(map, x, y, dest) {
 			dest.plot(a.sprite);
 		});
 	}
+	dest.bake();
 }
 
 map.getCellAppearance = getCellAppearance;

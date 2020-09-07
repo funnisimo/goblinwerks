@@ -310,7 +310,7 @@ export function nextEvent(ms, match) {
 	match = match || TRUE;
 	let elapsed = 0;
 
-	if (EVENTS.length) {
+	while (EVENTS.length) {
   	const e = EVENTS.shift();
     e.dt = 0;
 		if (e.type === MOUSEMOVE) {
@@ -318,7 +318,10 @@ export function nextEvent(ms, match) {
 			io.mouse.y = e.y;
 		}
 
-    return e;
+		if (match(e)) {
+			return e;
+		}
+		io.recycleEvent(e);
   }
 
   let done;
