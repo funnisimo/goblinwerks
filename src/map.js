@@ -497,6 +497,16 @@ export function getCellAppearance(map, x, y, dest) {
 	const cell = map.cell(x, y);
 	cellGetAppearance(cell, dest);
 
+	if (cell.flags & CellFlags.HAS_PLAYER) {
+		dest.plot(DATA.player.kind.sprite);
+	}
+	else if (cell.flags & CellFlags.HAS_MONSTER) {
+		const monst = map.actorAt(x, y);
+		if (monst) {
+			dest.plot(monst.kind.sprite);
+		}
+	}
+
 	// add fx (if any)
 	if (cell.flags & CellFlags.HAS_FX) {
 		map.fx.forEach( (a) => {

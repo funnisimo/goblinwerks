@@ -53,7 +53,7 @@ describe('Sprite', () => {
     expect(s.needsUpdate).toBeTruthy();
 
     expect(s.ch).toEqual('$');
-    expect(CSS(s.fg)).toEqual('#00ff00');  // takes new fg
+    expect(CSS(s.fg)).toEqual('#808000');  // mixes fgs
     expect(CSS(s.bg)).toEqual('#40bf80');  // mixes bgs
 
   });
@@ -90,4 +90,20 @@ describe('Sprite', () => {
     expect(dest.needsUpdate).toBeTruthy();
   });
 
+  test('plotting just fg', () => {
+    const dest = GW.make.sprite();
+    const tile = GW.make.sprite('green'); // bg
+    const player = GW.make.sprite('@');
+    const fx = GW.make.sprite(null, 'red', 50);
+
+    dest.plot(tile);
+    dest.plot(player);
+    dest.plot(fx);
+
+    expect(dest.ch).toEqual('@');
+    expect(CSS(dest.fg)).toEqual('#ff8080');  // (white + red) / 2
+    expect(CSS(dest.bg)).toEqual('#00ff00');
+    expect(dest.opacity).toEqual(100);
+    expect(dest.needsUpdate).toBeTruthy();
+  });
 });

@@ -1,6 +1,9 @@
 
 
 import { ERROR } from './utils.js';
+import { Flags as CellFlags } from './cell.js';
+import { Flags as MapFlags } from './map.js';
+
 import { data as DATA, types } from './gw.js';
 
 export var game = {};
@@ -23,11 +26,27 @@ export function startGame(opts={}) {
 
   DATA.canvas = new types.Canvas(80, 30, 'game');
   DATA.player = opts.player || null;
-  DATA.map = opts.map;
+
+  game.startMap(opts.map, opts.x, opts.y);
+  startLoop();
+}
+
+game.start = startGame;
+
+
+export function startMap(map, playerX, playerY) {
+
+  if (DATA.map && DATA.player) {
+    DATA.map.removeActor(DATA.player);
+  }
+
+  map.cells.forEach( (c) => c.redraw() );
+  map.flag |= MapFlags.MAP_CHANGED;
+  DATA.map = map;
 
   if (DATA.player) {
-    let x = opts.x || DATA.player.x || 0;
-    let y = opts.y || DATA.player.y || 0;
+    let x = playerX || DATA.player.x || 0;
+    let y = playerY || DATA.player.y || 0;
     if (x <= 0) {
       const start = map.locations.start;
       if (!start) ERROR('Need x,y or start location.');
@@ -36,16 +55,6 @@ export function startGame(opts={}) {
     }
     DATA.map.addActor(x, y, DATA.player);
   }
-  startLoop();
-}
-
-game.start = startGame;
-
-
-export function startMap(map) {
-  DATA.map = map;
-  map.forEach( (c) => c.redraw() );
-  map.flag |= MapFlags.MAP_CHANGED;
 }
 
 game.startMap = startMap;
@@ -56,10 +65,6 @@ function drawMap() {
 		if (c.flags & CellFlags.NEEDS_REDRAW) {
 			GW.map.getCellAppearance(DATA.map, i, j, DATA.canvas.buffer[i][j]);
 			c.clearFlags(CellFlags.NEEDS_REDRAW);
-		}
-		if (i == DATA.player.x && j == DATA.player.y) {
-			const sprite = DATA.player.kind.sprite;
-			DATA.canvas.plotChar(i, j, sprite.ch, sprite.fg);
 		}
 	});
 }

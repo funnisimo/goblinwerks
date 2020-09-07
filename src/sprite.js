@@ -88,8 +88,11 @@ export class Sprite {
     // ch and fore color:
     if (sprite.ch && sprite.ch != ' ') { // Blank cells in the overbuf take the ch from the screen.
       this.ch = sprite.ch;
-      this.fg.copy(sprite.fg);
     }
+
+		if (sprite.fg && sprite.ch != ' ') {
+			applyMix(this.fg, sprite.fg, sprite.opacity);
+		}
 
 		if (sprite.bg) {
 			applyMix(this.bg, sprite.bg, sprite.opacity);

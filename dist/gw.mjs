@@ -1126,8 +1126,11 @@ class Sprite {
     // ch and fore color:
     if (sprite.ch && sprite.ch != ' ') { // Blank cells in the overbuf take the ch from the screen.
       this.ch = sprite.ch;
-      this.fg.copy(sprite.fg);
     }
+
+		if (sprite.fg && sprite.ch != ' ') {
+			applyMix(this.fg, sprite.fg, sprite.opacity);
+		}
 
 		if (sprite.bg) {
 			applyMix(this.bg, sprite.bg, sprite.opacity);
@@ -4772,7 +4775,7 @@ function getAppearance(cell, dest) {
 
 cell$1.getAppearance = getAppearance;
 
-var map$1 = {};
+var map = {};
 
 
 const Flags$2 = installFlag('map', {
@@ -5258,6 +5261,16 @@ function getCellAppearance(map, x, y, dest) {
 	const cell = map.cell(x, y);
 	getAppearance(cell, dest);
 
+	if (cell.flags & Flags$1.HAS_PLAYER) {
+		dest.plot(data.player.kind.sprite);
+	}
+	else if (cell.flags & Flags$1.HAS_MONSTER) {
+		const monst = map.actorAt(x, y);
+		if (monst) {
+			dest.plot(monst.kind.sprite);
+		}
+	}
+
 	// add fx (if any)
 	if (cell.flags & Flags$1.HAS_FX) {
 		map.fx.forEach( (a) => {
@@ -5267,7 +5280,7 @@ function getCellAppearance(map, x, y, dest) {
 	}
 }
 
-map$1.getCellAppearance = getCellAppearance;
+map.getCellAppearance = getCellAppearance;
 
 var game = {};
 data.time = performance.now();
@@ -5289,11 +5302,27 @@ function startGame(opts={}) {
 
   data.canvas = new types.Canvas(80, 30, 'game');
   data.player = opts.player || null;
-  data.map = opts.map;
+
+  game.startMap(opts.map, opts.x, opts.y);
+  startLoop();
+}
+
+game.start = startGame;
+
+
+function startMap(map, playerX, playerY) {
+
+  if (data.map && data.player) {
+    data.map.removeActor(data.player);
+  }
+
+  map.cells.forEach( (c) => c.redraw() );
+  map.flag |= Flags$2.MAP_CHANGED;
+  data.map = map;
 
   if (data.player) {
-    let x = opts.x || data.player.x || 0;
-    let y = opts.y || data.player.y || 0;
+    let x = playerX || data.player.x || 0;
+    let y = playerY || data.player.y || 0;
     if (x <= 0) {
       const start = map.locations.start;
       if (!start) ERROR('Need x,y or start location.');
@@ -5302,16 +5331,6 @@ function startGame(opts={}) {
     }
     data.map.addActor(x, y, data.player);
   }
-  startLoop();
-}
-
-game.start = startGame;
-
-
-function startMap(map) {
-  data.map = map;
-  map.forEach( (c) => c.redraw() );
-  map.flag |= MapFlags.MAP_CHANGED;
 }
 
 game.startMap = startMap;
@@ -5319,13 +5338,9 @@ game.startMap = startMap;
 
 function drawMap() {
 	data.map.cells.forEach( (c, i, j) => {
-		if (c.flags & CellFlags.NEEDS_REDRAW) {
+		if (c.flags & Flags$1.NEEDS_REDRAW) {
 			GW.map.getCellAppearance(data.map, i, j, data.canvas.buffer[i][j]);
-			c.clearFlags(CellFlags.NEEDS_REDRAW);
-		}
-		if (i == data.player.x && j == data.player.y) {
-			const sprite = data.player.kind.sprite;
-			data.canvas.plotChar(i, j, sprite.ch, sprite.fg);
+			c.clearFlags(Flags$1.NEEDS_REDRAW);
 		}
 	});
 }
@@ -5715,8 +5730,8 @@ async function flashSprite(map, x, y, sprite, duration, count=1) {
 
 fx.flashSprite = flashSprite;
 
-installSprite('hit', 'x', 'red');
-installSprite('miss', '!', 'green');
+installSprite('hit', 'red', 50);
+installSprite('miss', 'green', 50);
 installSprite('bump', 'white', 50);
 
 // RUT.Animations.hit = function hit(defender, callback, opts) {
@@ -5882,4 +5897,4 @@ installSprite('bump', 'white', 50);
 //   return anim;
 // }
 
-export { actor, buffer, canvas, cell$1 as cell, color, colors, commands, config, cosmetic, data, debug$1 as debug, def, digger, diggers, dungeon, flag, flags, fx, game, grid$1 as grid, install, io, make, map$1 as map, path, random, sprite, sprites, tile, tiles, types, utils };
+export { actor, buffer, canvas, cell$1 as cell, color, colors, commands, config, cosmetic, data, debug$1 as debug, def, digger, diggers, dungeon, flag, flags, fx, game, grid$1 as grid, install, io, make, map, path, random, sprite, sprites, tile, tiles, types, utils };

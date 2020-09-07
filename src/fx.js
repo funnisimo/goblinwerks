@@ -259,8 +259,8 @@ export async function flashSprite(map, x, y, sprite, duration, count=1) {
 
 fx.flashSprite = flashSprite;
 
-installSprite('hit', 'x', 'red');
-installSprite('miss', '!', 'green');
+installSprite('hit', 'red', 50);
+installSprite('miss', 'green', 50);
 installSprite('bump', 'white', 50);
 
 // RUT.Animations.hit = function hit(defender, callback, opts) {

@@ -17,7 +17,7 @@ describe('FX', () => {
 
     const hit = GW.make.sprite('!', 'red');
     let resolved = false;
-    const p = GW.fx.flashSprite(m, hit, 2, 2, hit, 100).then( () => resolved = true );
+    const p = GW.fx.flashSprite(m, 2, 2, hit, 100).then( () => resolved = true );
 
     const cell = m.cell(2, 2);
     expect(cell.flags & GW.flags.cell.HAS_FX).toBeTruthy();
@@ -39,6 +39,7 @@ describe('FX', () => {
     expect(sprite.fg).toEqual(GW.tiles[1].sprite.fg);
     expect(sprite.bg).toEqual(GW.tiles[1].sprite.bg);
 
+    expect(resolved).toBeFalsy();
     await p;
     expect(resolved).toBeTruthy();
 
