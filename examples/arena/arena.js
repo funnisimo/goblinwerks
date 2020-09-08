@@ -12,18 +12,67 @@ const PLAYER = GW.make.player({
 
 let command = 'showHit';
 
-async function selectBeam() {
-	await GW.ui.messageBox('Selected BEAM.', 'red', 5000);
+function selectFlash() {
+	command = 'showFlash';
+	return GW.ui.messageBox('Selected FLASH.', 'red', 5000);
 }
 
-GW.commands.selectBeam = selectBeam;
+GW.commands.selectFlash = selectFlash;
+
+function selectBolt() {
+	command = 'showBolt';
+	return GW.ui.messageBox('Selected BOLT.', 'red', 5000);
+}
+
+GW.commands.selectBolt = selectBolt;
+
+async function selectHit() {
+	command = 'showHit';
+	await GW.ui.messageBox('Selected HIT.', 'red', 5000);
+}
+
+GW.commands.selectHit = selectHit;
+
+async function selectProjectile() {
+	command = 'showProjectile';
+	await GW.ui.messageBox('Selected PROJECTILE.', 'red', 5000);
+}
+
+GW.commands.selectProjectile = selectProjectile;
+
+
+function showFX(e) {
+	console.log('click', e.x, e.y, command);
+	return GW.commands[command](e);
+}
+
+GW.commands.showFX = showFX;
+
+function showFlash(e) {
+	return GW.fx.flashSprite(MAP, e.x, e.y, 'bump', 500, 3);
+}
+
+GW.commands.showFlash = showFlash;
 
 function showHit(e) {
-	console.log('click', e.x, e.y);
-	return GW.fx.flashSprite(MAP, e.x, e.y, 'hit', 2000, 3);
+	return GW.fx.hit(MAP, e);
 }
 
 GW.commands.showHit = showHit;
+
+async function showBolt(e) {
+	await GW.fx.bolt(MAP, GW.data.player, { x: e.x, y: e.y }, 'magic', 20);
+}
+
+GW.sprite.install('magic', '*', 'purple');
+
+GW.commands.showBolt = showBolt;
+
+async function showProjectile(e) {
+	await GW.fx.projectile(MAP, GW.data.player, { x: e.x, y: e.y }, '|-\\/', 'orange', 20);
+}
+
+GW.commands.showProjectile = showProjectile;
 
 
 function moveDir(e) {
@@ -42,8 +91,7 @@ function makeMap() {
 	GW.dungeon.start(MAP);
 
 	MAP.cells.forRect(2, 2, 76, 26, (c) => c.setTile(1));
-	// TODO - GW.dungeon.digRoom({ digger: 'HUGE_ROOM', xy: [2,2], placeDoor: false });
-	// dig should slide the room around until any door site (not just random ones) fits at given xy
+	// TODO - GW.dungeon.digRoom({ digger: 'HUGE_ROOM', center: true, placeDoor: false });
 
 	let lakeCount = GW.random.number(5);
 	for(let i = 0; i < lakeCount; ++i) {
@@ -71,15 +119,15 @@ GW.commands.newMap = newMap;
 // start the environment
 function start() {
 
-	game.onmousedown = GW.io.onmousedown;
-	document.onkeydown = GW.io.onkeydown;
-	GW.io.addKeymap({ dir: 'moveDir', space: 'newMap', click: 'showHit', m: 'selectBeam' });
+	const canvas = GW.ui.init({ width: 80, height: 30, div: 'game' });
+	GW.io.addKeymap({ dir: 'moveDir', space: 'newMap', click: 'showFX',
+			b: 'selectBolt', h: 'selectHit', f: 'selectFlash', p: 'selectProjectile' });
 
 	PLAYER.x = 40;
 	PLAYER.y = 27;
 
 	makeMap();
-	GW.game.start({ player: PLAYER, map: MAP, width: 80, height: 30 });
+	GW.game.start({ player: PLAYER, map: MAP });
 }
 
 window.onload = start;

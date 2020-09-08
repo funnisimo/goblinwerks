@@ -539,3 +539,77 @@ export function getCellAppearance(map, x, y, dest) {
 }
 
 map.getCellAppearance = getCellAppearance;
+
+
+
+const FP_BASE = 16;
+const FP_FACTOR = (1<<16);
+
+// Simple line algorithm (maybe this is Bresenham?) that returns a list of coordinates
+// that extends all the way to the edge of the map based on an originLoc (which is not included
+// in the list of coordinates) and a targetLoc.
+// Returns the number of entries in the list, and includes (-1, -1) as an additional
+// terminus indicator after the end of the list.
+export function getLine(map, fromX, fromY, toX, toY) {
+	let targetVector = [], error = [], currentVector = [], previousVector = [], quadrantTransform = [];
+	let largerTargetComponent, i;
+	let currentLoc = [], previousLoc = [];
+	let cellNumber = 0;
+
+	const line = [];
+
+	if (fromX == toX && fromY == toY) {
+		return line;
+	}
+
+	const originLoc = [fromX, fromY];
+	const targetLoc = [toX, toY];
+
+	// Neither vector is negative. We keep track of negatives with quadrantTransform.
+	for (i=0; i<= 1; i++) {
+		targetVector[i] = (targetLoc[i] - originLoc[i]) << FP_BASE;	// FIXME: should use parens?
+		if (targetVector[i] < 0) {
+			targetVector[i] *= -1;
+			quadrantTransform[i] = -1;
+		} else {
+			quadrantTransform[i] = 1;
+		}
+		currentVector[i] = previousVector[i] = error[i] = 0;
+		currentLoc[i] = originLoc[i];
+	}
+
+	// normalize target vector such that one dimension equals 1 and the other is in [0, 1].
+	largerTargetComponent = Math.max(targetVector[0], targetVector[1]);
+	// targetVector[0] = Math.floor( (targetVector[0] << FP_BASE) / largerTargetComponent);
+	// targetVector[1] = Math.floor( (targetVector[1] << FP_BASE) / largerTargetComponent);
+	targetVector[0] = Math.floor(targetVector[0] * FP_FACTOR / largerTargetComponent);
+	targetVector[1] = Math.floor(targetVector[1] * FP_FACTOR / largerTargetComponent);
+
+	do {
+		for (i=0; i<= 1; i++) {
+
+			previousLoc[i] = currentLoc[i];
+
+			currentVector[i] += targetVector[i] >> FP_BASE;
+			error[i] += (targetVector[i] == FP_FACTOR ? 0 : targetVector[i]);
+
+			if (error[i] >= Math.floor(FP_FACTOR / 2) ) {
+				currentVector[i]++;
+				error[i] -= FP_FACTOR;
+			}
+
+			currentLoc[i] = Math.floor(quadrantTransform[i]*currentVector[i] + originLoc[i]);
+
+		}
+
+		line.push(currentLoc.slice());
+
+		//DEBUG printf("\ncell %i: (%i, %i)", cellNumber, listOfCoordinates[cellNumber][0], listOfCoordinates[cellNumber][1]);
+		cellNumber++;
+
+	} while (map.hasXY(currentLoc[0], currentLoc[1]));
+
+	return line;
+}
+
+map.getLine = getLine;

@@ -1,7 +1,6 @@
 'use strict';
 
 var def = {};
-var utils = {};
 var types = {};
 var debug$1 = {};
 
@@ -11,17 +10,18 @@ var grid$1 = {};
 
 var buffer = {};
 var canvas = {};
-var io = {};
 
 var path = {};
 var actor = {};
 
 var commands = {};
-var config = {};
+var config = {
+  fx: {},
+};
 var data = {};
 
-def.dirs    = [[0,-1], [0,1],  [-1,0], [1,0],  [-1,-1], [-1,1], [1,-1], [1,1]];
-def.oppDirs = [[0,1],  [0,-1], [1,0],  [-1,0], [1,1],   [1,-1], [-1,1], [-1,-1]];
+def.dirs    = [[0,-1], [0,1],  [-1,0], [1,0],  [-1,-1], [1,1],   [-1,1], [1,-1]];
+def.oppDirs = [[0,1],  [0,-1], [1,0],  [-1,0], [1,1],   [-1,-1], [1,-1], [-1,1]];
 def.clockDirs = [[0, 1], [1, 1], [1, 0], [1, -1], [0, -1], [-1, -1], [-1, 0], [-1, 1]];
 
 def.NO_DIRECTION = -1;
@@ -30,11 +30,13 @@ def.DOWN = 1;
 def.LEFT = 2;
 def.RIGHT = 3;
 def.LEFT_UP = 4;
-def.LEFT_DOWN = 5;
-def.RIGHT_UP = 6;
-def.RIGHT_DOWN = 7;
+def.RIGHT_DOWN = 5;
+def.LEFT_DOWN = 6;
+def.RIGHT_UP = 7;
 
 debug$1.log = console.log;
+
+var utils = {};
 
 function NOOP()  {}
 utils.NOOP = NOOP;
@@ -112,6 +114,12 @@ function dirFromTo(a, b) {
 }
 
 utils.dirFromTo = dirFromTo;
+
+function dirIndex(dir) {
+  return def.dirs.findIndex( (a) => a[0] == dir[0] && a[1] == dir[1] );
+}
+
+utils.dirIndex = dirIndex;
 
 
 function extend(obj, name, fn) {
@@ -1047,6 +1055,8 @@ const TEMP_BG = new Color();
 var sprites = {};
 var sprite = {};
 
+const HANGING_LETTERS = ['y', 'p', 'g', 'j', 'q', '[', ']', '(', ')', '{', '}', '|'];
+
 class Sprite {
 	constructor(ch, fg, bg, opacity) {
 		const args = Array.prototype.filter.call(arguments, (v) => v !== undefined );
@@ -1085,31 +1095,45 @@ class Sprite {
 		this.bg = bg !== null ? makeColor(bg || 'black') : null;
 		this.opacity = opacity || 100;
 		this.needsUpdate = true;
+		this.wasHanging = false;
 	}
 
 	copy(other) {
 		this.ch = other.ch;
-		this.fg.copy(other.fg);
-		this.bg.copy(other.bg);
+
+		if (this.fg && this.bg) { this.fg.copy(other.fg); }
+		else if (this.fg) { this.fg.clear(); }
+		else { this.fg = other.fg.clone(); }
+
+		if (this.bg && other.bg) { this.bg.copy(other.bg); }
+		else if (this.bg) { this.bg.clear(); }
+		else { this.bg = other.bg.clone(); }
+
 		this.opacity = other.opacity || 0;
 		this.needsUpdate = other.needsUpdate || false;
+		this.wasHanging = other.wasHanging || false;
 	}
 
 	clear() {
+		if (HANGING_LETTERS.includes(this.ch)) {
+			this.wasHanging = true;
+		}
 		this.ch = ' ';
-		this.fg.clear();
-		this.bg.clear();
+		if (this.fg) this.fg.clear();
+		if (this.bg) this.bg.clear();
 		this.opacity = 0;
-		this.needsUpdate = false;
+		// this.needsUpdate = false;
 	}
 
 	erase() {
 		this.clear();
 		this.opacity = 100;
 		this.needsUpdate = true;
+		this.wasHanging = false;
 	}
 
 	plotChar(ch, fg, bg) {
+		this.wasHanging = this.wasHanging || (ch && HANGING_LETTERS.includes(ch));
     if (ch) { this.ch = ch; }
 		if (fg) { this.fg.copy(fg); }
     if (bg) { this.bg.copy(bg); }
@@ -1124,6 +1148,8 @@ class Sprite {
       this.plotChar(sprite.ch, sprite.fg, sprite.bg);
       return true;
     }
+
+		this.wasHanging = this.wasHanging || (sprite.ch && HANGING_LETTERS.includes(sprite.ch));
 
     // ch and fore color:
     if (sprite.ch && sprite.ch != ' ') { // Blank cells in the overbuf take the ch from the screen.
@@ -1170,7 +1196,7 @@ function installSprite(name, ch, fg, bg, opacity) {
 	return sprite;
 }
 
-sprite.installSprite = installSprite;
+sprite.install = installSprite;
 
 const GRID_CACHE = [];
 
@@ -1996,7 +2022,6 @@ function fillBlob(grid,
 
 grid$1.fillBlob = fillBlob;
 
-const HANGING_LETTERS = ['y', 'p', 'g', 'j', 'q', '[', ']', '(', ')', '{', '}'];
 const DEFAULT_FONT = 'monospace';
 
 
@@ -2174,8 +2199,9 @@ class Canvas {
         }
 
         if (cell.needsUpdate) {
-          if (HANGING_LETTERS.includes(cell.ch) && j < buffer.height - 1) {
+          if (cell.wasHanging && j < this.buffer.height - 1) {
             this.buffer[i][j + 1].needsUpdate = true;	// redraw the row below any hanging letters that changed
+            cell.wasHanging = false;
           }
 
           this.drawCell(cell, i, j);
@@ -2293,6 +2319,8 @@ class Canvas {
 
 types.Canvas = Canvas;
 
+var io = {};
+
 const KEYMAPS = [];
 const EVENTS = [];
 const DEAD_EVENTS = [];
@@ -2344,7 +2372,7 @@ io.clearEvents = clearEvents;
 
 function pushEvent(ev) {
   if (EVENTS.length && ev.type === MOUSEMOVE) {
-  	last = EVENTS[EVENTS.length - 1];
+  	const last = EVENTS[EVENTS.length - 1];
     if (last.type === MOUSEMOVE) {
 			last.x = ev.x;
 		  last.y = ev.y;
@@ -2514,18 +2542,6 @@ function makeKeyEvent(e) {
 
 io.makeKeyEvent = makeKeyEvent;
 
-function onkeydown(e) {
-	if (CONTROL_CODES.includes(e.code)) return;
-
-	if (e.code === 'Escape') {
-		io.clearEvents();	// clear all current events, then push on the escape
-  }
-
-	const ev = makeKeyEvent(e);
-	io.pushEvent(ev);
-}
-
-io.onkeydown = onkeydown;
 
 
 function keyCodeDirection(key) {
@@ -2547,6 +2563,13 @@ function keyCodeDirection(key) {
 }
 
 io.keyCodeDirection = keyCodeDirection;
+
+function ignoreKeyEvent(e) {
+	return CONTROL_CODES.includes(e.code);
+}
+
+io.ignoreKeyEvent = ignoreKeyEvent;
+
 
 // MOUSE
 
@@ -2575,23 +2598,6 @@ function makeMouseEvent(e, x, y) {
 
 io.makeMouseEvent = makeMouseEvent;
 
-function onmousemove(e) {
-	const x = data.canvas.toX(e.clientX);
-	const y = data.canvas.toY(e.clientY);
-	const ev = makeMouseEvent(e, x, y);
-	io.pushEvent(ev);
-}
-
-io.onmousemove = onmousemove;
-
-function onmousedown(e) {
-	const x = data.canvas.toX(e.clientX);
-	const y = data.canvas.toY(e.clientY);
-	const ev = makeMouseEvent(e, x, y);
-	io.pushEvent(ev);
-}
-
-io.onmousedown = onmousedown;
 
 // IO
 
@@ -5345,6 +5351,165 @@ function getCellAppearance(map, x, y, dest) {
 
 map.getCellAppearance = getCellAppearance;
 
+
+
+const FP_BASE = 16;
+const FP_FACTOR = (1<<16);
+
+// Simple line algorithm (maybe this is Bresenham?) that returns a list of coordinates
+// that extends all the way to the edge of the map based on an originLoc (which is not included
+// in the list of coordinates) and a targetLoc.
+// Returns the number of entries in the list, and includes (-1, -1) as an additional
+// terminus indicator after the end of the list.
+function getLine(map, fromX, fromY, toX, toY) {
+	let targetVector = [], error = [], currentVector = [], previousVector = [], quadrantTransform = [];
+	let largerTargetComponent, i;
+	let currentLoc = [], previousLoc = [];
+
+	const line = [];
+
+	if (fromX == toX && fromY == toY) {
+		return line;
+	}
+
+	const originLoc = [fromX, fromY];
+	const targetLoc = [toX, toY];
+
+	// Neither vector is negative. We keep track of negatives with quadrantTransform.
+	for (i=0; i<= 1; i++) {
+		targetVector[i] = (targetLoc[i] - originLoc[i]) << FP_BASE;	// FIXME: should use parens?
+		if (targetVector[i] < 0) {
+			targetVector[i] *= -1;
+			quadrantTransform[i] = -1;
+		} else {
+			quadrantTransform[i] = 1;
+		}
+		currentVector[i] = previousVector[i] = error[i] = 0;
+		currentLoc[i] = originLoc[i];
+	}
+
+	// normalize target vector such that one dimension equals 1 and the other is in [0, 1].
+	largerTargetComponent = Math.max(targetVector[0], targetVector[1]);
+	// targetVector[0] = Math.floor( (targetVector[0] << FP_BASE) / largerTargetComponent);
+	// targetVector[1] = Math.floor( (targetVector[1] << FP_BASE) / largerTargetComponent);
+	targetVector[0] = Math.floor(targetVector[0] * FP_FACTOR / largerTargetComponent);
+	targetVector[1] = Math.floor(targetVector[1] * FP_FACTOR / largerTargetComponent);
+
+	do {
+		for (i=0; i<= 1; i++) {
+
+			previousLoc[i] = currentLoc[i];
+
+			currentVector[i] += targetVector[i] >> FP_BASE;
+			error[i] += (targetVector[i] == FP_FACTOR ? 0 : targetVector[i]);
+
+			if (error[i] >= Math.floor(FP_FACTOR / 2) ) {
+				currentVector[i]++;
+				error[i] -= FP_FACTOR;
+			}
+
+			currentLoc[i] = Math.floor(quadrantTransform[i]*currentVector[i] + originLoc[i]);
+
+		}
+
+		line.push(currentLoc.slice());
+
+	} while (map.hasXY(currentLoc[0], currentLoc[1]));
+
+	return line;
+}
+
+map.getLine = getLine;
+
+var ui = {};
+
+
+function init(opts={}) {
+
+  setDefaults(opts, {
+    width: 100,
+    height: 34,
+    bg: 'black',
+    sidebar: false,
+    messages: false,
+    flavor: false,
+    menu: false,
+    div: 'canvas',
+    io: true,
+  });
+
+
+  if (!ui.canvas) {
+    ui.canvas = new types.Canvas(opts.width, opts.height, opts.div, opts);
+
+    if (opts.io && typeof document !== 'undefined') {
+      ui.canvas.element.onmousedown = ui.onmousedown;
+      ui.canvas.element.onmousemove = ui.onmousemove;
+    	document.onkeydown = ui.onkeydown;
+    }
+  }
+
+  // TODO - init sidebar, messages, flavor, menu
+
+  ui.buffer = ui.canvas.buffer;
+  return ui.canvas;
+}
+
+ui.init = init;
+
+
+function onkeydown(e) {
+	if (io.ignoreKeyEvent(e)) return;
+
+	if (e.code === 'Escape') {
+		io.clearEvents();	// clear all current events, then push on the escape
+  }
+
+	const ev = io.makeKeyEvent(e);
+	io.pushEvent(ev);
+}
+
+ui.onkeydown = onkeydown;
+
+function onmousemove(e) {
+	const x = ui.canvas.toX(e.clientX);
+	const y = ui.canvas.toY(e.clientY);
+	const ev = io.makeMouseEvent(e, x, y);
+	io.pushEvent(ev);
+}
+
+ui.onmousemove = onmousemove;
+
+function onmousedown(e) {
+	const x = ui.canvas.toX(e.clientX);
+	const y = ui.canvas.toY(e.clientY);
+	const ev = io.makeMouseEvent(e, x, y);
+	io.pushEvent(ev);
+}
+
+ui.onmousedown = onmousedown;
+
+
+
+async function messageBox(text, fg, duration) {
+
+  const canvas = ui.canvas;
+  const base = canvas.allocBuffer();
+
+  const len = text.length;
+  const x = Math.floor((canvas.width - len - 4) / 2) - 2;
+  const y = Math.floor(canvas.height / 2) - 1;
+  canvas.fillRect(x, y, len + 4, 3, ' ', 'black', 'black');
+	canvas.plotText(x + 2, y + 1, text, fg || 'white');
+	canvas.draw();
+
+	await io.pause(duration || 30 * 1000);
+
+	canvas.overlay(base);
+}
+
+ui.messageBox = messageBox;
+
 var game = {};
 data.time = performance.now();
 
@@ -5360,10 +5525,6 @@ game.setTime = setTime;
 function startGame(opts={}) {
   if (!opts.map) ERROR('map is required.');
 
-  const width = opts.width || 100;
-  const height = opts.height || 34;
-
-  data.canvas = new types.Canvas(80, 30, 'game');
   data.player = opts.player || null;
 
   game.startMap(opts.map, opts.x, opts.y);
@@ -5400,7 +5561,7 @@ game.startMap = startMap;
 
 
 function drawMap() {
-  const buffer = data.canvas.buffer;
+  const buffer = ui.canvas.buffer;
 	data.map.cells.forEach( (c, i, j) => {
 		if (c.flags & Flags$1.NEEDS_REDRAW) {
       const buf = buffer[i][j];
@@ -5418,7 +5579,7 @@ function startLoop(t) {
 
 	gameLoop(t);
 
-	data.canvas.draw();
+	ui.canvas.draw();
 }
 
 
@@ -5642,42 +5803,16 @@ class SpriteFX extends FX {
     return super.stop(result);
   }
 
-  moveDir(dir) {
-    return this.moveTo(this.x + dir[0], this.y + dir[1]);
+  moveDir(dx, dy) {
+    return this.moveTo(this.x + dx, this.y + dy);
   }
 
-  moveTo(newXy) {
-    this.map.moveFx(newXy.x, newXy.y, this);
+  moveTo(x, y) {
+    this.map.moveFx(x, y, this);
     return true;
   }
 
 }
-
-// export class XYAnimation extends FX {
-//   constructor(sprite, from, dest, callback, speed=10) {
-//     super(callback, { speed, sprite });
-//     this.from = from;
-//     this.dest = dest;
-//     this.distance = distanceFromTo(from, dest);
-//   }
-//
-//   start() {
-//     return super.start(this.from.x, this.from.y);
-//   }
-//
-//   step() {
-//     const dest = (typeof this.dest == 'function') ? this.dest() : this.dest;
-//     const distance = distanceFromTo(this.xy, dest);
-//
-//     if (distance == 0) {
-//       this.stop(this);
-//       return;
-//     }
-//
-//     const dir = dirFromTo(this, dest);
-//     DATA.map.moveAnimation(this.x + dir[0], this.y + dir[1], this);
-//   }
-// }
 
 
 
@@ -5796,9 +5931,21 @@ async function flashSprite(map, x, y, sprite, duration, count=1) {
 
 fx.flashSprite = flashSprite;
 
+installSprite('bump', 'white', 50);
+
+
+async function hit(map, target, sprite, duration) {
+  sprite = sprite || config.fx.hitSprite || 'hit';
+  duration = duration || config.fx.hitFlashTime || 200;
+  const animation = new SpriteFX(map, sprite, target.x, target.y, { duration });
+  return animation.start();
+}
+
+fx.hit = hit;
+
 installSprite('hit', 'red', 50);
 installSprite('miss', 'green', 50);
-installSprite('bump', 'white', 50);
+
 
 // RUT.Animations.hit = function hit(defender, callback, opts) {
 //   if (typeof callback != 'function' && opts === undefined) {
@@ -5859,6 +6006,72 @@ installSprite('bump', 'white', 50);
 // RUT.Sprite.add('effect.miss', { ch: '*', fg: 'green' });
 //
 //
+
+class MovingSpriteFX extends SpriteFX {
+  constructor(map$1, source, target, sprite, speed) {
+    super(map$1, sprite, source.x, source.y, { speed });
+    this.target = target;
+    this.path = map.getLine(this.map, source.x, source.y, this.target.x, this.target.y);
+  }
+
+  step() {
+    if (this.x == this.target.x && this.y == this.target.y) return this.stop(this.target);
+    if (!this.path.find( (loc) => loc[0] == this.target.x && loc[1] == this.target.y)) {
+      this.path = map.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
+    }
+    const next = this.path.shift();
+    return this.moveTo(next[0], next[1]);
+  }
+}
+
+// export class XYAnimation extends FX {
+//   constructor(sprite, from, dest, callback, speed=10) {
+//     super(callback, { speed, sprite });
+//     this.from = from;
+//     this.dest = dest;
+//     this.distance = distanceFromTo(from, dest);
+//   }
+//
+//   start() {
+//     return super.start(this.from.x, this.from.y);
+//   }
+//
+//   step() {
+//     const dest = (typeof this.dest == 'function') ? this.dest() : this.dest;
+//     const distance = distanceFromTo(this.xy, dest);
+//
+//     if (distance == 0) {
+//       this.stop(this);
+//       return;
+//     }
+//
+//     const dir = dirFromTo(this, dest);
+//     DATA.map.moveAnimation(this.x + dir[0], this.y + dir[1], this);
+//   }
+// }
+
+
+async function bolt(map, source, target, sprite, speed) {
+  const animation = new MovingSpriteFX(map, source, target, sprite, speed);
+  return animation.start();
+}
+
+fx.bolt = bolt;
+
+async function projectile(map, source, target, chs, fg, speed) {
+  if (chs.length != 4) ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
+  const dir = dirFromTo(source, target);
+  const dIndex = dirIndex(dir);
+  const index = Math.floor(dIndex / 2);
+  const ch = chs[index];
+  const sprite = GW.make.sprite(ch, fg);
+  const animation = new MovingSpriteFX(map, source, target, sprite, speed);
+  return animation.start();
+}
+
+fx.projectile = projectile;
+
+
 //
 // RUT.Animations.projectileTo = function projectileTo(map, from, to, callback, opts) {
 //   if (typeof callback != 'Function' && opts === undefined) {
@@ -5987,27 +6200,6 @@ function moveDir(dir) {
 }
 
 player.moveDir = moveDir;
-
-var ui = {};
-
-async function messageBox(text, fg, duration) {
-
-  const canvas = data.canvas;
-  const base = GW.data.canvas.allocBuffer();
-
-  const len = text.length;
-  const x = Math.floor((canvas.width - len - 4) / 2) - 2;
-  const y = Math.floor(canvas.height / 2) - 1;
-  canvas.fillRect(x, y, len + 4, 3, ' ', 'black', 'black');
-	canvas.plotText(x + 2, y + 1, text, fg || 'white');
-	canvas.draw();
-
-	await pause(duration || 30 * 1000);
-
-	canvas.overlay(base);
-}
-
-ui.messageBox = messageBox;
 
 exports.actor = actor;
 exports.buffer = buffer;

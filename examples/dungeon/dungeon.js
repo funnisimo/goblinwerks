@@ -143,7 +143,7 @@ function drawCanvas() {
 
 // start the environment
 function start() {
-	canvas = new GW.types.Canvas(80, 30, 'game');
+	canvas = GW.ui.init({ width: 80, height: 30, div: 'game', io: false });
 	game.onmousedown = handleClick;
 	document.onkeydown = handleKey;
 

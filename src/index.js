@@ -1,5 +1,5 @@
 
-import './utils.js';
+export { utils } from './utils.js';
 export { flag, flags } from './flag.js';
 import './enum.js';
 export { random, cosmetic } from './random.js';
@@ -7,7 +7,7 @@ export { color, colors } from './color.js';
 export { sprite, sprites } from './sprite.js';
 import './grid.js';
 import './canvas.js';
-import './io.js';
+export { io } from './io.js';
 import './path.js';
 export { digger, diggers } from './digger.js';
 export { dungeon } from './dungeon.js';

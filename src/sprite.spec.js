@@ -106,4 +106,40 @@ describe('Sprite', () => {
     expect(dest.opacity).toEqual(100);
     expect(dest.needsUpdate).toBeTruthy();
   });
+
+  test('will track hanging letter changes in plotChar', () => {
+    const s = GW.make.sprite('@', 'red');
+    expect(s.wasHanging).toBeFalsy();
+    s.plotChar('|');
+    expect(s.wasHanging).toBeTruthy();
+    s.plotChar('@');
+    expect(s.wasHanging).toBeTruthy();
+    s.plotChar('o');
+    expect(s.wasHanging).toBeTruthy();  // does not get turned off automatically
+    s.clear();
+    expect(s.wasHanging).toBeTruthy();  // does not get cleared
+
+    s.wasHanging = false;
+    s.plotChar('|');
+    expect(s.wasHanging).toBeTruthy();
+    s.clear();
+    expect(s.wasHanging).toBeTruthy();  // gets set
+  });
+
+  test('will track hanging letter changes in plot', () => {
+    const s = GW.make.sprite('@', 'red');
+    const t = GW.make.sprite('|', 'blue');
+    const u = GW.make.sprite('o', 'orange');
+
+    expect(s.wasHanging).toBeFalsy();
+    s.plot(t);
+    expect(s.wasHanging).toBeTruthy();
+    s.plot(u);
+    expect(s.wasHanging).toBeTruthy();
+    s.plot(u);
+    expect(s.wasHanging).toBeTruthy();  // Not auto turned off
+    s.clear();
+    expect(s.wasHanging).toBeTruthy();  // does not get cleared
+  });
+
 });

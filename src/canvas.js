@@ -7,7 +7,6 @@ import { cosmetic } from './random.js';
 import { canvas, buffer, types, debug } from './gw.js';
 
 
-const HANGING_LETTERS = ['y', 'p', 'g', 'j', 'q', '[', ']', '(', ')', '{', '}'];
 const DEFAULT_FONT = 'monospace';
 
 
@@ -198,8 +197,9 @@ class Canvas {
         }
 
         if (cell.needsUpdate) {
-          if (HANGING_LETTERS.includes(cell.ch) && j < buffer.height - 1) {
+          if (cell.wasHanging && j < this.buffer.height - 1) {
             this.buffer[i][j + 1].needsUpdate = true;	// redraw the row below any hanging letters that changed
+            cell.wasHanging = false;
           }
 
           this.drawCell(cell, i, j);

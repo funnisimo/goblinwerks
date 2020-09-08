@@ -1,7 +1,9 @@
 
 import { NOOP, TRUE, FALSE } from './utils.js';
-import { io, def, commands as COMMANDS, data as DATA } from './gw.js';
+import { def, commands as COMMANDS, data as DATA } from './gw.js';
 
+
+export var io = {};
 
 const KEYMAPS = [];
 const EVENTS = [];
@@ -54,7 +56,7 @@ io.clearEvents = clearEvents;
 
 export function pushEvent(ev) {
   if (EVENTS.length && ev.type === MOUSEMOVE) {
-  	last = EVENTS[EVENTS.length - 1];
+  	const last = EVENTS[EVENTS.length - 1];
     if (last.type === MOUSEMOVE) {
 			last.x = ev.x;
 		  last.y = ev.y;
@@ -224,18 +226,6 @@ export function makeKeyEvent(e) {
 
 io.makeKeyEvent = makeKeyEvent;
 
-export function onkeydown(e) {
-	if (CONTROL_CODES.includes(e.code)) return;
-
-	if (e.code === 'Escape') {
-		io.clearEvents();	// clear all current events, then push on the escape
-  }
-
-	const ev = makeKeyEvent(e);
-	io.pushEvent(ev);
-}
-
-io.onkeydown = onkeydown;
 
 
 export function keyCodeDirection(key) {
@@ -257,6 +247,13 @@ export function keyCodeDirection(key) {
 }
 
 io.keyCodeDirection = keyCodeDirection;
+
+export function ignoreKeyEvent(e) {
+	return CONTROL_CODES.includes(e.code);
+}
+
+io.ignoreKeyEvent = ignoreKeyEvent;
+
 
 // MOUSE
 
@@ -285,23 +282,6 @@ export function makeMouseEvent(e, x, y) {
 
 io.makeMouseEvent = makeMouseEvent;
 
-export function onmousemove(e) {
-	const x = DATA.canvas.toX(e.clientX);
-	const y = DATA.canvas.toY(e.clientY);
-	const ev = makeMouseEvent(e, x, y);
-	io.pushEvent(ev);
-}
-
-io.onmousemove = onmousemove;
-
-export function onmousedown(e) {
-	const x = DATA.canvas.toX(e.clientX);
-	const y = DATA.canvas.toY(e.clientY);
-	const ev = makeMouseEvent(e, x, y);
-	io.pushEvent(ev);
-}
-
-io.onmousedown = onmousedown;
 
 // IO
 

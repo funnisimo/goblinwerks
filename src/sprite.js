@@ -7,6 +7,8 @@ const TEMP_BG = new Color();
 export var sprites = {};
 export var sprite = {};
 
+const HANGING_LETTERS = ['y', 'p', 'g', 'j', 'q', '[', ']', '(', ')', '{', '}', '|'];
+
 export class Sprite {
 	constructor(ch, fg, bg, opacity) {
 		const args = Array.prototype.filter.call(arguments, (v) => v !== undefined );
@@ -45,31 +47,45 @@ export class Sprite {
 		this.bg = bg !== null ? makeColor(bg || 'black') : null;
 		this.opacity = opacity || 100;
 		this.needsUpdate = true;
+		this.wasHanging = false;
 	}
 
 	copy(other) {
 		this.ch = other.ch;
-		this.fg.copy(other.fg);
-		this.bg.copy(other.bg);
+
+		if (this.fg && this.bg) { this.fg.copy(other.fg); }
+		else if (this.fg) { this.fg.clear(); }
+		else { this.fg = other.fg.clone(); }
+
+		if (this.bg && other.bg) { this.bg.copy(other.bg); }
+		else if (this.bg) { this.bg.clear(); }
+		else { this.bg = other.bg.clone(); }
+
 		this.opacity = other.opacity || 0;
 		this.needsUpdate = other.needsUpdate || false;
+		this.wasHanging = other.wasHanging || false;
 	}
 
 	clear() {
+		if (HANGING_LETTERS.includes(this.ch)) {
+			this.wasHanging = true;
+		}
 		this.ch = ' ';
-		this.fg.clear();
-		this.bg.clear();
+		if (this.fg) this.fg.clear();
+		if (this.bg) this.bg.clear();
 		this.opacity = 0;
-		this.needsUpdate = false;
+		// this.needsUpdate = false;
 	}
 
 	erase() {
 		this.clear();
 		this.opacity = 100;
 		this.needsUpdate = true;
+		this.wasHanging = false;
 	}
 
 	plotChar(ch, fg, bg) {
+		this.wasHanging = this.wasHanging || (ch && HANGING_LETTERS.includes(ch));
     if (ch) { this.ch = ch; }
 		if (fg) { this.fg.copy(fg); }
     if (bg) { this.bg.copy(bg); }
@@ -84,6 +100,8 @@ export class Sprite {
       this.plotChar(sprite.ch, sprite.fg, sprite.bg);
       return true;
     }
+
+		this.wasHanging = this.wasHanging || (sprite.ch && HANGING_LETTERS.includes(sprite.ch));
 
     // ch and fore color:
     if (sprite.ch && sprite.ch != ' ') { // Blank cells in the overbuf take the ch from the screen.
@@ -130,4 +148,4 @@ export function installSprite(name, ch, fg, bg, opacity) {
 	return sprite;
 }
 
-sprite.installSprite = installSprite;
+sprite.install = installSprite;

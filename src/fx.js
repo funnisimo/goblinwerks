@@ -1,7 +1,8 @@
 
-import { NOOP, TRUE, distanceFromTo, dirFromTo, ERROR } from './utils.js';
+import { NOOP, TRUE, distanceFromTo, dirFromTo, ERROR, dirIndex } from './utils.js';
 import { sprites as SPRITES, installSprite } from './sprite.js';
-import { data as DATA, types, make } from './gw.js';
+import { map as MAP } from './map.js';
+import { data as DATA, types, make, config as CONFIG } from './gw.js';
 
 export var fx = {};
 
@@ -105,42 +106,16 @@ export class SpriteFX extends FX {
     return super.stop(result);
   }
 
-  moveDir(dir) {
-    return this.moveTo(this.x + dir[0], this.y + dir[1]);
+  moveDir(dx, dy) {
+    return this.moveTo(this.x + dx, this.y + dy);
   }
 
-  moveTo(newXy) {
-    this.map.moveFx(newXy.x, newXy.y, this);
+  moveTo(x, y) {
+    this.map.moveFx(x, y, this);
     return true;
   }
 
 }
-
-// export class XYAnimation extends FX {
-//   constructor(sprite, from, dest, callback, speed=10) {
-//     super(callback, { speed, sprite });
-//     this.from = from;
-//     this.dest = dest;
-//     this.distance = distanceFromTo(from, dest);
-//   }
-//
-//   start() {
-//     return super.start(this.from.x, this.from.y);
-//   }
-//
-//   step() {
-//     const dest = (typeof this.dest == 'function') ? this.dest() : this.dest;
-//     const distance = distanceFromTo(this.xy, dest);
-//
-//     if (distance == 0) {
-//       this.stop(this);
-//       return;
-//     }
-//
-//     const dir = dirFromTo(this, dest);
-//     DATA.map.moveAnimation(this.x + dir[0], this.y + dir[1], this);
-//   }
-// }
 
 
 
@@ -259,9 +234,21 @@ export async function flashSprite(map, x, y, sprite, duration, count=1) {
 
 fx.flashSprite = flashSprite;
 
+installSprite('bump', 'white', 50);
+
+
+export async function hit(map, target, sprite, duration) {
+  sprite = sprite || CONFIG.fx.hitSprite || 'hit';
+  duration = duration || CONFIG.fx.hitFlashTime || 200;
+  const animation = new SpriteFX(map, sprite, target.x, target.y, { duration });
+  return animation.start();
+}
+
+fx.hit = hit;
+
 installSprite('hit', 'red', 50);
 installSprite('miss', 'green', 50);
-installSprite('bump', 'white', 50);
+
 
 // RUT.Animations.hit = function hit(defender, callback, opts) {
 //   if (typeof callback != 'function' && opts === undefined) {
@@ -322,6 +309,72 @@ installSprite('bump', 'white', 50);
 // RUT.Sprite.add('effect.miss', { ch: '*', fg: 'green' });
 //
 //
+
+export class MovingSpriteFX extends SpriteFX {
+  constructor(map, source, target, sprite, speed) {
+    super(map, sprite, source.x, source.y, { speed });
+    this.target = target;
+    this.path = MAP.getLine(this.map, source.x, source.y, this.target.x, this.target.y);
+  }
+
+  step() {
+    if (this.x == this.target.x && this.y == this.target.y) return this.stop(this.target);
+    if (!this.path.find( (loc) => loc[0] == this.target.x && loc[1] == this.target.y)) {
+      this.path = MAP.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
+    }
+    const next = this.path.shift();
+    return this.moveTo(next[0], next[1]);
+  }
+}
+
+// export class XYAnimation extends FX {
+//   constructor(sprite, from, dest, callback, speed=10) {
+//     super(callback, { speed, sprite });
+//     this.from = from;
+//     this.dest = dest;
+//     this.distance = distanceFromTo(from, dest);
+//   }
+//
+//   start() {
+//     return super.start(this.from.x, this.from.y);
+//   }
+//
+//   step() {
+//     const dest = (typeof this.dest == 'function') ? this.dest() : this.dest;
+//     const distance = distanceFromTo(this.xy, dest);
+//
+//     if (distance == 0) {
+//       this.stop(this);
+//       return;
+//     }
+//
+//     const dir = dirFromTo(this, dest);
+//     DATA.map.moveAnimation(this.x + dir[0], this.y + dir[1], this);
+//   }
+// }
+
+
+export async function bolt(map, source, target, sprite, speed) {
+  const animation = new MovingSpriteFX(map, source, target, sprite, speed);
+  return animation.start();
+}
+
+fx.bolt = bolt;
+
+export async function projectile(map, source, target, chs, fg, speed) {
+  if (chs.length != 4) ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
+  const dir = dirFromTo(source, target);
+  const dIndex = dirIndex(dir);
+  const index = Math.floor(dIndex / 2);
+  const ch = chs[index];
+  const sprite = GW.make.sprite(ch, fg);
+  const animation = new MovingSpriteFX(map, source, target, sprite, speed);
+  return animation.start();
+}
+
+fx.projectile = projectile;
+
+
 //
 // RUT.Animations.projectileTo = function projectileTo(map, from, to, callback, opts) {
 //   if (typeof callback != 'Function' && opts === undefined) {

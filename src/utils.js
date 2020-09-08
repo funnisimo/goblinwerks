@@ -1,5 +1,7 @@
 
-import { utils } from './gw.js';
+import { def } from './gw.js';
+
+export var utils = {};
 
 export function NOOP()  {}
 utils.NOOP = NOOP;
@@ -77,6 +79,12 @@ export function dirFromTo(a, b) {
 }
 
 utils.dirFromTo = dirFromTo;
+
+export function dirIndex(dir) {
+  return def.dirs.findIndex( (a) => a[0] == dir[0] && a[1] == dir[1] );
+}
+
+utils.dirIndex = dirIndex;
 
 
 export function extend(obj, name, fn) {
