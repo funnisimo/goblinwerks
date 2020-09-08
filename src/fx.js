@@ -44,7 +44,7 @@ export class FX {
   tick(dt) {
     if (this.done) return;
     this.tilNextTurn -= dt;
-    if (this.tilNextTurn < 0) {
+    while (this.tilNextTurn < 0) {
       this.step();
       this.tilNextTurn += this.speed;
     }
@@ -439,6 +439,39 @@ fx.projectile = projectile;
 //   return anim;
 // }
 //
+
+export class BeamFX extends FX {
+  constructor(map, from, target, sprite, speed, fade) {
+    speed = speed || 20;
+    super(map, { speed });
+    this.x = from.x;
+    this.y = from.y;
+    this.target = target;
+    this.sprite = sprite;
+    this.fade = fade || speed;
+    this.path = MAP.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
+  }
+
+  step() {
+    if (this.x == this.target.x && this.y == this.target.y) return this.stop(this.target);
+    if (!this.path.find( (loc) => loc[0] == this.target.x && loc[1] == this.target.y)) {
+      this.path = MAP.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
+    }
+    const next = this.path.shift();
+    this.x = next[0];
+    this.y = next[1];
+    fx.flashSprite(this.map, this.x, this.y, this.sprite, this.fade);
+  }
+
+}
+
+export function beam(map, from, to, sprite, speed, fade) {
+  const animation = new BeamFX(map, from, to, sprite, speed, fade);
+  return animation.start();
+}
+
+fx.beam = beam;
+
 //
 // RUT.Animations.explosionAt = function explosionAt(map, x, y, radius, callback, opts) {
 //   if (typeof callback != 'function' && opts === undefined) {

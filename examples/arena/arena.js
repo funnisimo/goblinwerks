@@ -12,6 +12,13 @@ const PLAYER = GW.make.player({
 
 let command = 'showHit';
 
+function selectBeam() {
+	command = 'showBeam';
+	return GW.ui.messageBox('Selected BEAM.', 'red', 5000);
+}
+
+GW.commands.selectBeam = selectBeam;
+
 function selectFlash() {
 	command = 'showFlash';
 	return GW.ui.messageBox('Selected FLASH.', 'red', 5000);
@@ -60,8 +67,16 @@ function showHit(e) {
 
 GW.commands.showHit = showHit;
 
+async function showBeam(e) {
+	await GW.fx.beam(MAP, GW.data.player, { x: e.x, y: e.y }, 'lightning', 5, 100);
+}
+
+GW.sprite.install('lightning', '\u16f6', [200,200,200]);
+
+GW.commands.showBeam = showBeam;
+
 async function showBolt(e) {
-	await GW.fx.bolt(MAP, GW.data.player, { x: e.x, y: e.y }, 'magic', 20);
+	await GW.fx.bolt(MAP, GW.data.player, { x: e.x, y: e.y }, 'magic', 10);
 }
 
 GW.sprite.install('magic', '*', 'purple');
@@ -121,7 +136,8 @@ function start() {
 
 	const canvas = GW.ui.init({ width: 80, height: 30, div: 'game' });
 	GW.io.addKeymap({ dir: 'moveDir', space: 'newMap', click: 'showFX',
-			b: 'selectBolt', h: 'selectHit', f: 'selectFlash', p: 'selectProjectile' });
+			b: 'selectBolt', h: 'selectHit', f: 'selectFlash', p: 'selectProjectile',
+		 	m: 'selectBeam' });
 
 	PLAYER.x = 40;
 	PLAYER.y = 27;
