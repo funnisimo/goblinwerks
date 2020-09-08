@@ -7,16 +7,6 @@ export var debug = {};
 export var make = {};
 export var install = {};
 
-export var sprite = {};
-export var grid = {};
-
-export var buffer = {};
-export var canvas = {};
-
-export var path = {};
-export var map = {};
-export var actor = {};
-
 export var commands = {};
 export var config = {
   fx: {},

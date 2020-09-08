@@ -12,37 +12,44 @@ const PLAYER = GW.make.player({
 
 let command = 'showHit';
 
+function selectWall() {
+	command = 'toggleWall';
+	return GW.ui.messageBox('Selected WALL.', 'red', 500);
+}
+
+GW.commands.selectWall = selectWall;
+
 function selectBeam() {
 	command = 'showBeam';
-	return GW.ui.messageBox('Selected BEAM.', 'red', 5000);
+	return GW.ui.messageBox('Selected BEAM.', 'red', 500);
 }
 
 GW.commands.selectBeam = selectBeam;
 
 function selectFlash() {
 	command = 'showFlash';
-	return GW.ui.messageBox('Selected FLASH.', 'red', 5000);
+	return GW.ui.messageBox('Selected FLASH.', 'red', 500);
 }
 
 GW.commands.selectFlash = selectFlash;
 
 function selectBolt() {
 	command = 'showBolt';
-	return GW.ui.messageBox('Selected BOLT.', 'red', 5000);
+	return GW.ui.messageBox('Selected BOLT.', 'red', 500);
 }
 
 GW.commands.selectBolt = selectBolt;
 
 async function selectHit() {
 	command = 'showHit';
-	await GW.ui.messageBox('Selected HIT.', 'red', 5000);
+	await GW.ui.messageBox('Selected HIT.', 'red', 500);
 }
 
 GW.commands.selectHit = selectHit;
 
 async function selectProjectile() {
 	command = 'showProjectile';
-	await GW.ui.messageBox('Selected PROJECTILE.', 'red', 5000);
+	await GW.ui.messageBox('Selected PROJECTILE.', 'red', 500);
 }
 
 GW.commands.selectProjectile = selectProjectile;
@@ -88,6 +95,18 @@ async function showProjectile(e) {
 }
 
 GW.commands.showProjectile = showProjectile;
+
+async function toggleWall(e) {
+	const cell = MAP.cell(e.x, e.y);
+	if (cell.base === 6) {
+		MAP.setTile(e.x, e.y, 1, true);
+	}
+	else {
+		MAP.setTile(e.x, e.y, 6, true);
+	}
+}
+
+GW.commands.toggleWall = toggleWall;
 
 
 function moveDir(e) {
@@ -137,7 +156,7 @@ function start() {
 	const canvas = GW.ui.init({ width: 80, height: 30, div: 'game' });
 	GW.io.addKeymap({ dir: 'moveDir', space: 'newMap', click: 'showFX',
 			b: 'selectBolt', h: 'selectHit', f: 'selectFlash', p: 'selectProjectile',
-		 	m: 'selectBeam' });
+		 	m: 'selectBeam', w: 'selectWall' });
 
 	PLAYER.x = 40;
 	PLAYER.y = 27;

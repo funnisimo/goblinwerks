@@ -4,11 +4,13 @@ import { Sprite } from './sprite.js';
 import { Grid } from './grid.js';
 import { cosmetic } from './random.js';
 
-import { canvas, buffer, types, debug } from './gw.js';
+import { types, debug } from './gw.js';
 
 
 const DEFAULT_FONT = 'monospace';
 
+
+export var canvas = {};
 
 
 class Buffer extends Grid {

@@ -6,13 +6,6 @@ var debug$1 = {};
 
 var make = {};
 var install = {};
-var grid$1 = {};
-
-var buffer = {};
-var canvas = {};
-
-var path = {};
-var actor = {};
 
 var commands = {};
 var config = {
@@ -1203,6 +1196,8 @@ const GRID_CACHE = [];
 const DIRS = def.dirs;
 const CDIRS = def.clockDirs;
 
+var GRID = {};
+
 
 function makeArray(l, fn) {
 	fn = fn || (() => 0);
@@ -1350,7 +1345,7 @@ class Grid extends Array {
 
 	closestMatchingXY(x, y, fn) {
 		let bestLoc = [-1, -1];
-	  let bestDistance = grid.width + grid.height;
+	  let bestDistance = this.width + this.height;
 
 		this.forEach( (v, i, j) => {
 			if (fn(v, i, j)) {
@@ -1530,7 +1525,7 @@ function allocGrid(w, h, v) {
   return resizeAndClearGrid(grid, w, h, v);
 }
 
-grid$1.alloc = allocGrid;
+GRID.alloc = allocGrid;
 
 
 function freeGrid(grid) {
@@ -1539,7 +1534,7 @@ function freeGrid(grid) {
 	}
 }
 
-grid$1.free = freeGrid;
+GRID.free = freeGrid;
 
 
 function resizeAndClearGrid(grid, width, height, value=0) {
@@ -1599,7 +1594,7 @@ function dumpGrid(grid, fmtFn) {
 	gridDumpRect(grid, 0, 0, grid.width, grid.height, fmtFn);
 }
 
-grid$1.dump = dumpGrid;
+GRID.dump = dumpGrid;
 
 
 function _formatGridValue(v) {
@@ -1653,14 +1648,14 @@ function gridDumpRect(grid, left, top, width, height, fmtFn) {
 	console.log(output.join('\n'));
 }
 
-grid$1.dumpRect = gridDumpRect;
+GRID.dumpRect = gridDumpRect;
 
 
 function dumpGridAround(grid, x, y, radius) {
 	gridDumpRect(grid, x - radius, y - radius, 2 * radius, 2 * radius);
 }
 
-grid$1.dumpAround = dumpGridAround;
+GRID.dumpAround = dumpGridAround;
 
 
 
@@ -1676,7 +1671,7 @@ function findAndReplace(grid, findValueMin, findValueMax, fillValue)
 	});
 }
 
-grid$1.findAndReplace = findAndReplace;
+GRID.findAndReplace = findAndReplace;
 
 
 // Flood-fills the grid from (x, y) along cells that are within the eligible range.
@@ -1704,14 +1699,14 @@ function floodFillRange(grid, x, y, eligibleValueMin, eligibleValueMax, fillValu
   return fillCount;
 }
 
-grid$1.floodFillRange = floodFillRange;
+GRID.floodFillRange = floodFillRange;
 
 
 function invert(grid) {
 	grid.update((v, i, j) => !v );
 }
 
-grid$1.invert = invert;
+GRID.invert = invert;
 
 
 function intersection(onto, a, b) {
@@ -1719,7 +1714,7 @@ function intersection(onto, a, b) {
 	onto.update((v, i, j) => a[i][j] && b[i][j] );
 }
 
-grid$1.intersection = intersection;
+GRID.intersection = intersection;
 
 
 function unite(onto, a, b) {
@@ -1727,7 +1722,7 @@ function unite(onto, a, b) {
 	onto.update((v, i, j) => b[i][j] || a[i][j] );
 }
 
-grid$1.unite = unite;
+GRID.unite = unite;
 
 
 
@@ -1737,7 +1732,7 @@ function closestLocationWithValue(grid, x, y, value)
 	return grid.closestMatchingXY(x, y, (v) => v == value);
 }
 
-grid$1.closestLocationWithValue = closestLocationWithValue;
+GRID.closestLocationWithValue = closestLocationWithValue;
 
 
 // Takes a grid as a mask of valid locations, chooses one randomly and returns it as (x, y).
@@ -1746,7 +1741,7 @@ function randomLocationWithValue(grid, validValue) {
 	return grid.randomMatchingXY( (v, i, j) => v == validValue );
 }
 
-grid$1.randomLocationWithValue = randomLocationWithValue;
+GRID.randomLocationWithValue = randomLocationWithValue;
 
 
 function getQualifyingLocNear(grid, x, y, deterministic)
@@ -1754,7 +1749,7 @@ function getQualifyingLocNear(grid, x, y, deterministic)
 	return grid.matchingXYNear(x, y, (v, i, j) => !!v);
 }
 
-grid$1.getQualifyingLocNear = getQualifyingLocNear;
+GRID.getQualifyingLocNear = getQualifyingLocNear;
 
 function leastPositiveValue(grid) {
 	let least = Number.MAX_SAFE_INTEGER;
@@ -1766,16 +1761,16 @@ function leastPositiveValue(grid) {
 	return least;
 }
 
-grid$1.leastPositiveValue = leastPositiveValue;
+GRID.leastPositiveValue = leastPositiveValue;
 
 // Finds the lowest positive number in a grid, chooses one location with that number randomly and returns it as (x, y).
 // If there are no valid locations, returns (-1, -1).
 function randomLeastPositiveLocation(grid, deterministic) {
-  const targetValue = grid$1.leastPositiveValue(grid);
+  const targetValue = GRID.leastPositiveValue(grid);
 	return grid.randomMatchingXY( (v) => v == targetValue );
 }
 
-grid$1.randomLeastPositiveLocation = randomLeastPositiveLocation;
+GRID.randomLeastPositiveLocation = randomLeastPositiveLocation;
 
 // Marks a cell as being a member of blobNumber, then recursively iterates through the rest of the blob
 function floodFill(grid, x, y, matchValue, fillValue) {
@@ -1801,7 +1796,7 @@ function floodFill(grid, x, y, matchValue, fillValue) {
 	return numberOfCells;
 }
 
-grid$1.floodFill = floodFill;
+GRID.floodFill = floodFill;
 
 
 
@@ -1816,7 +1811,7 @@ function offsetZip(destGrid, srcGrid, srcToDestX, srcToDestY, value) {
 	});
 }
 
-grid$1.offsetZip = offsetZip;
+GRID.offsetZip = offsetZip;
 
 
 
@@ -1850,7 +1845,7 @@ function directionOfDoorSite(grid, x, y, isOpen=1) {
     return solutionDir;
 }
 
-grid$1.directionOfDoorSite = directionOfDoorSite;
+GRID.directionOfDoorSite = directionOfDoorSite;
 
 
 function cellularAutomataRound(grid, birthParameters /* char[9] */, survivalParameters /* char[9] */) {
@@ -2020,10 +2015,12 @@ function fillBlob(grid,
 	return { x: topBlobMinX, y: topBlobMinY, width: blobWidth, height: blobHeight };
 }
 
-grid$1.fillBlob = fillBlob;
+GRID.fillBlob = fillBlob;
 
 const DEFAULT_FONT = 'monospace';
 
+
+var canvas = {};
 
 
 class Buffer extends Grid {
@@ -2682,6 +2679,9 @@ function waitForAck() {
 
 io.waitForAck = waitForAck;
 
+var PATH = {};
+
+
 const PDS_FORBIDDEN   = def.PDS_FORBIDDEN   = -1;
 const PDS_OBSTRUCTION = def.PDS_OBSTRUCTION = -2;
 const PDS_NO_PATH     = def.PDS_NO_PATH     = 30000;
@@ -2702,7 +2702,7 @@ function makeDijkstraMap(w, h) {
 	return {
 		eightWays: false,
 		front: makeCostLink(-1),
-		links: makeArray(w * h, (i) => makeCostLink(i) ),
+		links: make.array(w * h, (i) => makeCostLink(i) ),
 		width: w,
 		height: h,
 	};
@@ -2921,7 +2921,7 @@ function dijkstraScan(distanceMap, costMap, useDiagonals) {
 	batchOutput(DIJKSTRA_MAP, distanceMap);
 }
 
-path.dijkstraScan = dijkstraScan;
+PATH.dijkstraScan = dijkstraScan;
 
 //
 // function populateGenericCostMap(costMap, map) {
@@ -3002,7 +3002,7 @@ function calculateDistances(distanceMap,
 	distanceMap.y = destinationY;
 }
 
-path.calculateDistances = calculateDistances;
+PATH.calculateDistances = calculateDistances;
 
 // function pathingDistance(x1, y1, x2, y2, blockingTerrainFlags, actor) {
 // 	let retval;
@@ -5356,6 +5356,7 @@ map.getCellAppearance = getCellAppearance;
 const FP_BASE = 16;
 const FP_FACTOR = (1<<16);
 
+// ADAPTED FROM BROGUE 1.7.5
 // Simple line algorithm (maybe this is Bresenham?) that returns a list of coordinates
 // that extends all the way to the edge of the map based on an originLoc (which is not included
 // in the list of coordinates) and a targetLoc.
@@ -6234,8 +6235,6 @@ function moveDir(dir) {
 
 player.moveDir = moveDir;
 
-exports.actor = actor;
-exports.buffer = buffer;
 exports.canvas = canvas;
 exports.cell = cell$1;
 exports.color = color;
@@ -6253,12 +6252,12 @@ exports.flag = flag;
 exports.flags = flags;
 exports.fx = fx;
 exports.game = game;
-exports.grid = grid$1;
+exports.grid = GRID;
 exports.install = install;
 exports.io = io;
 exports.make = make;
 exports.map = map;
-exports.path = path;
+exports.path = PATH;
 exports.player = player;
 exports.random = random;
 exports.sprite = sprite;

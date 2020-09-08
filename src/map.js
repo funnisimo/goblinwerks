@@ -545,6 +545,7 @@ map.getCellAppearance = getCellAppearance;
 const FP_BASE = 16;
 const FP_FACTOR = (1<<16);
 
+// ADAPTED FROM BROGUE 1.7.5
 // Simple line algorithm (maybe this is Bresenham?) that returns a list of coordinates
 // that extends all the way to the edge of the map based on an originLoc (which is not included
 // in the list of coordinates) and a targetLoc.

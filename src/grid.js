@@ -1,7 +1,7 @@
 
 import * as utils from './utils.js';
 import { random } from './random.js';
-import { grid as GRID, def, data as DATA, types, debug, make } from './gw.js';
+import { def, data as DATA, types, debug, make } from './gw.js';
 
 
 const GRID_CACHE = [];
@@ -12,6 +12,9 @@ var   GRID_CREATE_COUNT = 0;
 
 const DIRS = def.dirs;
 const CDIRS = def.clockDirs;
+
+var GRID = {};
+export { GRID as grid };
 
 
 export function makeArray(l, fn) {
@@ -161,7 +164,7 @@ export class Grid extends Array {
 
 	closestMatchingXY(x, y, fn) {
 		let bestLoc = [-1, -1];
-	  let bestDistance = grid.width + grid.height;
+	  let bestDistance = this.width + this.height;
 
 		this.forEach( (v, i, j) => {
 			if (fn(v, i, j)) {
