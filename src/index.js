@@ -18,5 +18,6 @@ export { game } from './game.js';
 export { fx } from './fx.js';
 export { player } from './player.js';
 export { ui } from './ui.js';
+export { fov } from './fov.js';
 
 export * from './gw.js';

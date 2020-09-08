@@ -14,6 +14,7 @@ export const Flags = installFlag('map', {
 	MAP_CHANGED: Fl(0),
 	MAP_STABLE_GLOW_LIGHTS:  Fl(1),
 	MAP_STABLE_LIGHTS: Fl(2),
+	MAP_ALWAYS_LIT:	Fl(3),
 });
 
 
@@ -42,10 +43,10 @@ export class Map {
 				this.flags |= Flags.MAP_CHANGED;
 			}
 			else {
-				this.flags &= ~MAP_CHANGED;
+				this.flags &= ~Flags.MAP_CHANGED;
 			}
 		}
-		return (this.flags & MAP_CHANGED);
+		return (this.flags & Flags.MAP_CHANGED);
 	}
 
 	hasCellFlag(x, y, flag) 		{ return this.cell(x, y).flags & flag; }
@@ -61,6 +62,7 @@ export class Map {
 	markRevealed(x, y) { return this.cell(x, y).markRevealed(); }
 	isVisible(x, y)    { return this.cell(x, y).isVisible(); }
 	isAnyKindOfVisible(x, y) { return this.cell(x, y).isAnyKindOfVisible(); }
+	hasVisibleLight(x, y) { return (this.flags & Flags.MAP_ALWAYS_LIT) || this.cell(x, y).hasVisibleLight(); }
 
 	setFlags(mapFlag, cellFlag, cellMechFlag) {
 		if (mapFlag) {

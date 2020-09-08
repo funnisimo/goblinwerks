@@ -26,3 +26,10 @@ export function moveDir(dir) {
 }
 
 player.moveDir = moveDir;
+
+
+export function visionRadius() {
+	return CONFIG.MAX_FOV_RADIUS || (DATA.map.width + DATA.map.height);
+}
+
+player.visionRadius = visionRadius;
