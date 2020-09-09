@@ -1,7 +1,5 @@
 
-import { css, colors } from './color.js';
-import { Sprite } from './sprite.js';
-import { Grid } from './grid.js';
+import { color as COLOR, colors as COLORS } from './color.js';
 import { cosmetic } from './random.js';
 
 import { types, debug } from './gw.js';
@@ -13,9 +11,9 @@ const DEFAULT_FONT = 'monospace';
 export var canvas = {};
 
 
-class Buffer extends Grid {
+class Buffer extends types.Grid {
   constructor(w, h) {
-    super(w, h, () => new Sprite() );
+    super(w, h, () => new types.Sprite() );
     this.needsUpdate = true;
   }
 
@@ -216,7 +214,7 @@ class Canvas {
     const ctx = this.ctx;
     const tileSize = this.tileSize;// * this.displayRatio;
 
-    const backCss = css(cell.bg);
+    const backCss = COLOR.css(cell.bg);
     ctx.fillStyle = backCss;
 
     ctx.fillRect(
@@ -227,7 +225,7 @@ class Canvas {
     );
 
     if (cell.ch && cell.ch !== ' ') {
-      const foreCss = css(cell.fg);
+      const foreCss = COLOR.css(cell.fg);
       ctx.fillStyle = foreCss;
 
       const textX = x * tileSize + Math.floor(tileSize * 0.5);
@@ -247,30 +245,30 @@ class Canvas {
 
   plotChar(x, y, ch, fg, bg) {
     if (typeof fg === 'string') {
-      fg = colors[fg];
+      fg = COLORS[fg];
     }
     if (typeof bg === 'string') {
-      bg = colors[bg];
+      bg = COLORS[bg];
     }
     this.buffer.plotChar(x, y, ch, fg, bg);
   }
 
   plotText(x, y, text, fg, bg) {
     if (typeof fg === 'string') {
-      fg = colors[fg];
+      fg = COLORS[fg];
     }
     if (typeof bg === 'string') {
-      bg = colors[bg];
+      bg = COLORS[bg];
     }
     this.buffer.plotText(x, y, text, fg, bg);
   }
 
   fillRect(x, y, w, h, ch, fg, bg) {
     if (typeof fg === 'string') {
-      fg = colors[fg];
+      fg = COLORS[fg];
     }
     if (typeof bg === 'string') {
-      bg = colors[bg];
+      bg = COLORS[bg];
     }
     this.buffer.fillRect(x, y, w, h, ch, fg, bg);
   }

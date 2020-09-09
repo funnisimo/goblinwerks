@@ -47,6 +47,34 @@ async function selectHit() {
 
 GW.commands.selectHit = selectHit;
 
+async function selectExplosion() {
+	command = 'showExplosion';
+	await GW.ui.messageBox('Selected EXPLOSION.', 'red', 500);
+}
+
+GW.commands.selectExplosion = selectExplosion;
+
+async function selectExplosionStar() {
+	command = 'showExplosionStar';
+	await GW.ui.messageBox('Selected STAR.', 'red', 500);
+}
+
+GW.commands.selectExplosionStar = selectExplosionStar;
+
+async function selectExplosionPlus() {
+	command = 'showExplosionPlus';
+	await GW.ui.messageBox('Selected PLUS.', 'red', 500);
+}
+
+GW.commands.selectExplosionPlus = selectExplosionPlus;
+
+async function selectExplosionX() {
+	command = 'showExplosionX';
+	await GW.ui.messageBox('Selected X.', 'red', 500);
+}
+
+GW.commands.selectExplosionX = selectExplosionX;
+
 async function selectProjectile() {
 	command = 'showProjectile';
 	await GW.ui.messageBox('Selected PROJECTILE.', 'red', 500);
@@ -95,6 +123,33 @@ async function showProjectile(e) {
 }
 
 GW.commands.showProjectile = showProjectile;
+
+async function showExplosion(e) {
+	await GW.fx.explosion(MAP, e.x, e.y, 7, 'fireball', 50, 200);
+}
+
+GW.sprite.install('fireball', '&', 'dark_red', 50);
+
+GW.commands.showExplosion = showExplosion;
+
+
+async function showExplosionPlus(e) {
+	await GW.fx.explosion(MAP, e.x, e.y, 7, 'fireball', 50, 200, '+');
+}
+
+GW.commands.showExplosionPlus = showExplosionPlus;
+
+async function showExplosionX(e) {
+	await GW.fx.explosion(MAP, e.x, e.y, 7, 'fireball', 50, 200, 'x');
+}
+
+GW.commands.showExplosionX = showExplosionX;
+
+async function showExplosionStar(e) {
+	await GW.fx.explosion(MAP, e.x, e.y, 7, 'fireball', 50, 200, '*');
+}
+
+GW.commands.showExplosionStar = showExplosionStar;
 
 async function toggleWall(e) {
 	const cell = MAP.cell(e.x, e.y);
@@ -156,7 +211,11 @@ function start() {
 	const canvas = GW.ui.init({ width: 80, height: 30, div: 'game' });
 	GW.io.addKeymap({ dir: 'moveDir', space: 'newMap', click: 'showFX',
 			b: 'selectBolt', h: 'selectHit', f: 'selectFlash', p: 'selectProjectile',
-		 	m: 'selectBeam', w: 'selectWall' });
+		 	m: 'selectBeam', w: 'selectWall',
+			o: 'selectExplosion', '+': 'selectExplosionPlus', '=': 'selectExplosionPlus',
+		 	x: 'selectExplosionX', '8': 'selectExplosionStar', '*': 'selectExplosionStar',
+			'?': 'showHelp'
+	});
 
 	PLAYER.x = 40;
 	PLAYER.y = 27;

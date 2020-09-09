@@ -1,5 +1,5 @@
 
-import { NOOP, TRUE, FALSE } from './utils.js';
+import { utils as UTILS } from './utils.js';
 import { def, commands as COMMANDS, data as DATA } from './gw.js';
 
 
@@ -124,7 +124,7 @@ io.recycleEvent = recycleEvent;
 // TIMERS
 
 export function setTimeout(delay, fn) {
-	fn = fn || NOOP;
+	fn = fn || UTILS.NOOP;
 	const h = { delay, fn, resolve: null, promise: null };
 
 	const p = new Promise( (resolve) => {
@@ -287,7 +287,7 @@ io.makeMouseEvent = makeMouseEvent;
 
 
 export function nextEvent(ms, match) {
-	match = match || TRUE;
+	match = match || UTILS.TRUE;
 	let elapsed = 0;
 
 	while (EVENTS.length) {
@@ -333,7 +333,7 @@ export function nextEvent(ms, match) {
 io.nextEvent = nextEvent;
 
 export async function nextKeypress(ms, match) {
-	match = match || TRUE;
+	match = match || UTILS.TRUE;
 	function matchingKey(e) {
   	if (e.type !== KEYPRESS) return false;
     return match(e);

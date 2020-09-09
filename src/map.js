@@ -1,16 +1,17 @@
 
-import { distanceBetween } from './utils.js';
-import { installFlag, Fl } from './flag.js';
+import { utils as UTILS } from './utils.js';
+import { flag as FLAG } from './flag.js';
 import { random } from './random.js';
-import { colors } from './color.js';
-import { Flags as CellFlags, MechFlags as CellMechFlags, getAppearance as cellGetAppearance } from './cell.js';
+import { Flags as TileFlags } from './tile.js';
+import { Flags as CellFlags, MechFlags as CellMechFlags, cell as CELL } from './cell.js';
 import { types, def, make, data as DATA, config as CONFIG } from './gw.js';
 
 
 export var map = {};
 
+const Fl = FLAG.fl;
 
-export const Flags = installFlag('map', {
+export const Flags = FLAG.install('map', {
 	MAP_CHANGED: Fl(0),
 	MAP_STABLE_GLOW_LIGHTS:  Fl(1),
 	MAP_STABLE_LIGHTS: Fl(2),
@@ -203,7 +204,7 @@ export class Map {
 					if (!this.hasXY(i, j)) continue;
 					const cell = this.cell(i, j);
 					// if ((i == x-k || i == x+k || j == y-k || j == y+k)
-					if ((Math.floor(distanceBetween(x, y, i, j)) == k)
+					if ((Math.floor(UTILS.distanceBetween(x, y, i, j)) == k)
 							&& (!blockingMap || !blockingMap[i][j])
 							&& matcher(cell, i, j)
 							&& (!forbidLiquid || cell.liquid == def.NOTHING)
@@ -478,6 +479,22 @@ export class Map {
 	// 	}
 	// }
 
+
+	// FOV
+
+	// Returns a boolean grid indicating whether each square is in the field of view of (xLoc, yLoc).
+	// forbiddenTerrain is the set of terrain flags that will block vision (but the blocking cell itself is
+	// illuminated); forbiddenFlags is the set of map flags that will block vision.
+	// If cautiousOnWalls is set, we will not illuminate blocking tiles unless the tile one space closer to the origin
+	// is visible to the player; this is to prevent lights from illuminating a wall when the player is on the other
+	// side of the wall.
+	calcFov(grid, x, y, maxRadius, forbiddenFlags=0, forbiddenTerrain=TileFlags.T_OBSTRUCTS_VISION, cautiousOnWalls=true) {
+	  const FOV = new types.FOV(grid, (i, j) => {
+	    return (!this.hasXY(i, j)) || this.hasCellFlag(i, j, forbiddenFlags) || this.hasTileFlag(i, j, forbiddenTerrain) ;
+	  });
+	  return FOV.calculate(x, y, maxRadius, cautiousOnWalls);
+	}
+
 	// MEMORIES
 
 	storeMemory(x, y) {
@@ -518,7 +535,7 @@ export function getCellAppearance(map, x, y, dest) {
 	dest.clear();
 	if (!map.hasXY(x, y)) return;
 	const cell = map.cell(x, y);
-	cellGetAppearance(cell, dest);
+	CELL.getAppearance(cell, dest);
 
 	if (cell.flags & CellFlags.HAS_PLAYER) {
 		dest.plot(DATA.player.kind.sprite);

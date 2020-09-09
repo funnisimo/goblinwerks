@@ -13,9 +13,9 @@ describe('FOV', () => {
 
     const grid = GW.grid.alloc(map.width, map.height);
 
-    GW.fov.getMask(map, grid, 25, 25, 10, GW.flags.tile.T_OBSTRUCTS_PASSABILITY);
+    map.calcFov(grid, 25, 25, 10);
 
-    expect(grid[25][25]).toEqual(0);  // center is 0 for some reason
+    expect(grid[25][25]).toEqual(1);  // center is always visible
     expect(grid[20][25]).toEqual(1);
     expect(grid[19][25]).toEqual(0);
     expect(grid[25][20]).toEqual(1);

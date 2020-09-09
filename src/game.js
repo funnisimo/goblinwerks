@@ -1,9 +1,9 @@
 
 
-import { ERROR } from './utils.js';
+import { utils as UTILS } from './utils.js';
 import { Flags as CellFlags } from './cell.js';
 import { Flags as MapFlags } from './map.js';
-import { ui } from './ui.js';
+import { ui as UI } from './ui.js';
 
 import { data as DATA, types } from './gw.js';
 
@@ -20,7 +20,7 @@ game.setTime = setTime;
 
 
 export function startGame(opts={}) {
-  if (!opts.map) ERROR('map is required.');
+  if (!opts.map) UTILS.ERROR('map is required.');
 
   DATA.player = opts.player || null;
 
@@ -46,7 +46,7 @@ export function startMap(map, playerX, playerY) {
     let y = playerY || DATA.player.y || 0;
     if (x <= 0) {
       const start = map.locations.start;
-      if (!start) ERROR('Need x,y or start location.');
+      if (!start) UTILS.ERROR('Need x,y or start location.');
       x = start[0];
       y = start[1];
     }
@@ -58,7 +58,7 @@ game.startMap = startMap;
 
 
 function drawMap() {
-  const buffer = ui.canvas.buffer;
+  const buffer = UI.canvas.buffer;
 	DATA.map.cells.forEach( (c, i, j) => {
 		if (c.flags & CellFlags.NEEDS_REDRAW) {
       const buf = buffer[i][j];
@@ -76,7 +76,7 @@ function startLoop(t) {
 
 	gameLoop(t);
 
-	ui.canvas.draw();
+	UI.canvas.draw();
 }
 
 

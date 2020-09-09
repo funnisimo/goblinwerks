@@ -4,7 +4,7 @@
 
 import { Flags as CellFlags, MechFlags as CellMechFlags } from './cell.js';
 import { MechFlags as TileMechFlags } from './tile.js';
-import { config as CONFIG, data as DATA } from './gw.js';
+import { config as CONFIG, data as DATA, types } from './gw.js';
 
 
 export var fov = {};
@@ -284,130 +284,123 @@ function betweenOctant1andN(x, y, x0, y0, n) {
 	}
 }
 
-// Returns a boolean grid indicating whether each square is in the field of view of (xLoc, yLoc).
-// forbiddenTerrain is the set of terrain flags that will block vision (but the blocking cell itself is
-// illuminated); forbiddenFlags is the set of map flags that will block vision.
-// If cautiousOnWalls is set, we will not illuminate blocking tiles unless the tile one space closer to the origin
-// is visible to the player; this is to prevent lights from illuminating a wall when the player is on the other
-// side of the wall.
-function getFOVMask( map, grid, xLoc, yLoc, maxRadius,
-				forbiddenTerrain,	forbiddenFlags, cautiousOnWalls)
-{
-	let i;
 
-	for (i=1; i<=8; i++) {
-		scanOctantFOV(map, grid, xLoc, yLoc, i, maxRadius << FP_BASE, 1, LOS_SLOPE_GRANULARITY * -1, 0,
-					  forbiddenTerrain, forbiddenFlags, cautiousOnWalls);
-	}
+export class FOV {
+  constructor(grid, isBlocked) {
+    this.grid = grid;
+    this.isBlocked = isBlocked;
+  }
+
+  isVisible(x, y) { return this.grid.hasXY(x, y) && this.grid[x][y]; }
+  setVisible(x, y) { this.grid[x][y] = 1; }
+
+  calculate(x, y, maxRadius, cautiousOnWalls) {
+    this.grid.fill(0);
+    this.grid[x][y] = 1;
+    for (let i=1; i<=8; i++) {
+  		this._scanOctant(x, y, i, maxRadius << FP_BASE, 1, LOS_SLOPE_GRANULARITY * -1, 0, cautiousOnWalls);
+  	}
+  }
+
+  // This is a custom implementation of recursive shadowcasting.
+  _scanOctant(xLoc, yLoc, octant, maxRadius,
+  				   columnsRightFromOrigin, startSlope, endSlope, cautiousOnWalls)
+  {
+  	// GW.debug.log('scanOctantFOV', xLoc, yLoc, octant, maxRadius, columnsRightFromOrigin, startSlope, endSlope);
+  	if ((columnsRightFromOrigin << FP_BASE) >= maxRadius) {
+  		// GW.debug.log(' - columnsRightFromOrigin >= maxRadius', columnsRightFromOrigin << FP_BASE, maxRadius);
+  		return;
+  	}
+
+  	let i, a, b, iStart, iEnd, x, y, x2, y2; // x and y are temporary variables on which we do the octant transform
+  	let newStartSlope, newEndSlope;
+  	let cellObstructed;
+  	let loc;
+
+  	// if (Math.floor(maxRadius) != maxRadius) {
+  	// 		maxRadius = Math.floor(maxRadius);
+  	// }
+  	newStartSlope = startSlope;
+
+  	a = (((LOS_SLOPE_GRANULARITY / -2 + 1) + startSlope * columnsRightFromOrigin) / LOS_SLOPE_GRANULARITY) >> 0;
+  	b = (((LOS_SLOPE_GRANULARITY / -2 + 1) + endSlope * columnsRightFromOrigin) / LOS_SLOPE_GRANULARITY) >> 0;
+
+  	iStart = Math.min(a, b);
+  	iEnd = Math.max(a, b);
+
+  	// restrict vision to a circle of radius maxRadius
+
+  	let radiusSquared = Number(BigInt(maxRadius*maxRadius) >> (BIG_BASE*2n));
+  	radiusSquared += (maxRadius >> FP_BASE);
+  	if ((columnsRightFromOrigin*columnsRightFromOrigin + iEnd*iEnd) >= radiusSquared ) {
+  		// GW.debug.log(' - columnsRightFromOrigin^2 + iEnd^2 >= radiusSquared', columnsRightFromOrigin, iEnd, radiusSquared);
+  		return;
+  	}
+  	if ((columnsRightFromOrigin*columnsRightFromOrigin + iStart*iStart) >= radiusSquared ) {
+  		const bigRadiusSquared = Number(BigInt(maxRadius*maxRadius) >> BIG_BASE); // (maxRadius*maxRadius >> FP_BASE)
+  		const bigColumsRightFromOriginSquared = Number(BigInt(columnsRightFromOrigin*columnsRightFromOrigin) << BIG_BASE);	// (columnsRightFromOrigin*columnsRightFromOrigin << FP_BASE)
+  		iStart = Math.floor(-1 * fp_sqrt(bigRadiusSquared - bigColumsRightFromOriginSquared) >> FP_BASE);
+  	}
+
+  	x = xLoc + columnsRightFromOrigin;
+  	y = yLoc + iStart;
+  	loc = betweenOctant1andN(x, y, xLoc, yLoc, octant);
+  	x = loc[0];
+  	y = loc[1];
+  	let currentlyLit = this.isBlocked(x, y);
+
+  	// GW.debug.log(' - scan', iStart, iEnd);
+  	for (i = iStart; i <= iEnd; i++) {
+  		x = xLoc + columnsRightFromOrigin;
+  		y = yLoc + i;
+  		loc = betweenOctant1andN(x, y, xLoc, yLoc, octant);
+  		x = loc[0];
+  		y = loc[1];
+
+  		cellObstructed = this.isBlocked(x, y);
+  		// if we're cautious on walls and this is a wall:
+  		if (cautiousOnWalls && cellObstructed) {
+  			// (x2, y2) is the tile one space closer to the origin from the tile we're on:
+  			x2 = xLoc + columnsRightFromOrigin - 1;
+  			y2 = yLoc + i;
+  			if (i < 0) {
+  				y2++;
+  			} else if (i > 0) {
+  				y2--;
+  			}
+  			loc = betweenOctant1andN(x2, y2, xLoc, yLoc, octant);
+  			x2 = loc[0];
+  			y2 = loc[1];
+
+  			if (this.isVisible(x2, y2)) {
+  				// previous tile is visible, so illuminate
+  				this.setVisible(x, y);
+  			}
+  		} else {
+  			// illuminate
+        this.setVisible(x, y);
+  		}
+  		if (!cellObstructed && !currentlyLit) { // next column slope starts here
+  			newStartSlope = ((LOS_SLOPE_GRANULARITY * (i) - LOS_SLOPE_GRANULARITY / 2) / (columnsRightFromOrigin * 2 + 1) * 2) >> 0;
+  			currentlyLit = true;
+  		} else if (cellObstructed && currentlyLit) { // next column slope ends here
+  			newEndSlope = ((LOS_SLOPE_GRANULARITY * (i) - LOS_SLOPE_GRANULARITY / 2)
+  							/ (columnsRightFromOrigin * 2 - 1) * 2) >> 0;
+  			if (newStartSlope <= newEndSlope) {
+  				// run next column
+  				this._scanOctant(xLoc, yLoc, octant, maxRadius, columnsRightFromOrigin + 1, newStartSlope, newEndSlope, cautiousOnWalls);
+  			}
+  			currentlyLit = false;
+  		}
+  	}
+  	if (currentlyLit) { // got to the bottom of the scan while lit
+  		newEndSlope = endSlope;
+  		if (newStartSlope <= newEndSlope) {
+  			// run next column
+  			this._scanOctant(xLoc, yLoc, octant, maxRadius, columnsRightFromOrigin + 1, newStartSlope, newEndSlope, cautiousOnWalls);
+  		}
+  	}
+  }
 }
 
-fov.getMask = getFOVMask;
-
-// Number.parseInt((t * t).toString(16).padStart(16, '0').substring(0, 8), 16)
-
-// This is a custom implementation of recursive shadowcasting.
-function scanOctantFOV( map, grid, xLoc, yLoc, octant, maxRadius,
-				   columnsRightFromOrigin, startSlope, endSlope, forbiddenTerrain,
-				   forbiddenFlags, cautiousOnWalls)
-{
-	// GW.debug.log('scanOctantFOV', xLoc, yLoc, octant, maxRadius, columnsRightFromOrigin, startSlope, endSlope);
-	if ((columnsRightFromOrigin << FP_BASE) >= maxRadius) {
-		// GW.debug.log(' - columnsRightFromOrigin >= maxRadius', columnsRightFromOrigin << FP_BASE, maxRadius);
-		return;
-	}
-
-	let i, a, b, iStart, iEnd, x, y, x2, y2; // x and y are temporary variables on which we do the octant transform
-	let newStartSlope, newEndSlope;
-	let cellObstructed;
-	let loc;
-
-	// if (Math.floor(maxRadius) != maxRadius) {
-	// 		maxRadius = Math.floor(maxRadius);
-	// }
-	newStartSlope = startSlope;
-
-	a = (((LOS_SLOPE_GRANULARITY / -2 + 1) + startSlope * columnsRightFromOrigin) / LOS_SLOPE_GRANULARITY) >> 0;
-	b = (((LOS_SLOPE_GRANULARITY / -2 + 1) + endSlope * columnsRightFromOrigin) / LOS_SLOPE_GRANULARITY) >> 0;
-
-	iStart = Math.min(a, b);
-	iEnd = Math.max(a, b);
-
-	// restrict vision to a circle of radius maxRadius
-
-	let radiusSquared = Number(BigInt(maxRadius*maxRadius) >> (BIG_BASE*2n));
-	radiusSquared += (maxRadius >> FP_BASE);
-	if ((columnsRightFromOrigin*columnsRightFromOrigin + iEnd*iEnd) >= radiusSquared ) {
-		// GW.debug.log(' - columnsRightFromOrigin^2 + iEnd^2 >= radiusSquared', columnsRightFromOrigin, iEnd, radiusSquared);
-		return;
-	}
-	if ((columnsRightFromOrigin*columnsRightFromOrigin + iStart*iStart) >= radiusSquared ) {
-		const bigRadiusSquared = Number(BigInt(maxRadius*maxRadius) >> BIG_BASE); // (maxRadius*maxRadius >> FP_BASE)
-		const bigColumsRightFromOriginSquared = Number(BigInt(columnsRightFromOrigin*columnsRightFromOrigin) << BIG_BASE);	// (columnsRightFromOrigin*columnsRightFromOrigin << FP_BASE)
-		iStart = Math.floor(-1 * fp_sqrt(bigRadiusSquared - bigColumsRightFromOriginSquared) >> FP_BASE);
-	}
-
-	x = xLoc + columnsRightFromOrigin;
-	y = yLoc + iStart;
-	loc = betweenOctant1andN(x, y, xLoc, yLoc, octant);
-	x = loc[0];
-	y = loc[1];
-	let currentlyLit = map.hasXY(x, y) && !(map.hasTileFlag(x, y, forbiddenTerrain) || map.hasCellFlag(x, y, forbiddenFlags));
-
-	// GW.debug.log(' - scan', iStart, iEnd);
-	for (i = iStart; i <= iEnd; i++) {
-		x = xLoc + columnsRightFromOrigin;
-		y = yLoc + i;
-		loc = betweenOctant1andN(x, y, xLoc, yLoc, octant);
-		x = loc[0];
-		y = loc[1];
-		if (!map.hasXY(x, y)) {
-			// We're off the map -- here there be memory corruption.
-			continue;
-		}
-    const cell = map.cell(x, y);
-		cellObstructed = (cell.hasTileFlag(forbiddenTerrain) || (cell.flags & forbiddenFlags));
-		// if we're cautious on walls and this is a wall:
-		if (cautiousOnWalls && cellObstructed) {
-			// (x2, y2) is the tile one space closer to the origin from the tile we're on:
-			x2 = xLoc + columnsRightFromOrigin - 1;
-			y2 = yLoc + i;
-			if (i < 0) {
-				y2++;
-			} else if (i > 0) {
-				y2--;
-			}
-			loc = betweenOctant1andN(x2, y2, xLoc, yLoc, octant);
-			x2 = loc[0];
-			y2 = loc[1];
-
-			if (cell.flags & CellFlags.IN_FIELD_OF_VIEW) {
-				// previous tile is visible, so illuminate
-				grid[x][y] = 1;
-			}
-		} else {
-			// illuminate
-			grid[x][y] = 1;
-		}
-		if (!cellObstructed && !currentlyLit) { // next column slope starts here
-			newStartSlope = ((LOS_SLOPE_GRANULARITY * (i) - LOS_SLOPE_GRANULARITY / 2) / (columnsRightFromOrigin * 2 + 1) * 2) >> 0;
-			currentlyLit = true;
-		} else if (cellObstructed && currentlyLit) { // next column slope ends here
-			newEndSlope = ((LOS_SLOPE_GRANULARITY * (i) - LOS_SLOPE_GRANULARITY / 2)
-							/ (columnsRightFromOrigin * 2 - 1) * 2) >> 0;
-			if (newStartSlope <= newEndSlope) {
-				// run next column
-				scanOctantFOV(map, grid, xLoc, yLoc, octant, maxRadius, columnsRightFromOrigin + 1, newStartSlope, newEndSlope,
-							  forbiddenTerrain, forbiddenFlags, cautiousOnWalls);
-			}
-			currentlyLit = false;
-		}
-	}
-	if (currentlyLit) { // got to the bottom of the scan while lit
-		newEndSlope = endSlope;
-		if (newStartSlope <= newEndSlope) {
-			// run next column
-			scanOctantFOV(map, grid, xLoc, yLoc, octant, maxRadius, columnsRightFromOrigin + 1, newStartSlope, newEndSlope,
-						  forbiddenTerrain, forbiddenFlags, cautiousOnWalls);
-		}
-	}
-}
+types.FOV = FOV;

@@ -1,6 +1,6 @@
 
-import { setDefaults } from './utils.js';
-import { io } from './io.js';
+import { utils as UTILS } from './utils.js';
+import { io as IO } from './io.js';
 import { data as DATA, types } from './gw.js';
 
 
@@ -9,7 +9,7 @@ export var ui = {};
 
 export function init(opts={}) {
 
-  setDefaults(opts, {
+  UTILS.setDefaults(opts, {
     width: 100,
     height: 34,
     bg: 'black',
@@ -42,14 +42,14 @@ ui.init = init;
 
 
 export function onkeydown(e) {
-	if (io.ignoreKeyEvent(e)) return;
+	if (IO.ignoreKeyEvent(e)) return;
 
 	if (e.code === 'Escape') {
-		io.clearEvents();	// clear all current events, then push on the escape
+		IO.clearEvents();	// clear all current events, then push on the escape
   }
 
-	const ev = io.makeKeyEvent(e);
-	io.pushEvent(ev);
+	const ev = IO.makeKeyEvent(e);
+	IO.pushEvent(ev);
 }
 
 ui.onkeydown = onkeydown;
@@ -57,8 +57,8 @@ ui.onkeydown = onkeydown;
 export function onmousemove(e) {
 	const x = ui.canvas.toX(e.clientX);
 	const y = ui.canvas.toY(e.clientY);
-	const ev = io.makeMouseEvent(e, x, y);
-	io.pushEvent(ev);
+	const ev = IO.makeMouseEvent(e, x, y);
+	IO.pushEvent(ev);
 }
 
 ui.onmousemove = onmousemove;
@@ -66,8 +66,8 @@ ui.onmousemove = onmousemove;
 export function onmousedown(e) {
 	const x = ui.canvas.toX(e.clientX);
 	const y = ui.canvas.toY(e.clientY);
-	const ev = io.makeMouseEvent(e, x, y);
-	io.pushEvent(ev);
+	const ev = IO.makeMouseEvent(e, x, y);
+	IO.pushEvent(ev);
 }
 
 ui.onmousedown = onmousedown;
@@ -86,7 +86,7 @@ export async function messageBox(text, fg, duration) {
 	canvas.plotText(x + 2, y + 1, text, fg || 'white');
 	canvas.draw();
 
-	await io.pause(duration || 30 * 1000);
+	await IO.pause(duration || 30 * 1000);
 
 	canvas.overlay(base);
 }

@@ -1,14 +1,14 @@
 
-import { WARN } from './utils.js';
-import { installFlag, Fl } from './flag.js';
-import { makeSprite } from './sprite.js';
+import { utils as UTILS } from './utils.js';
+import { flag as FLAG } from './flag.js';
 import { types, def, make } from './gw.js';
 
 export var tile = {};
 export var tiles = [];
 
+const Fl = FLAG.fl;
 
-export const Flags = installFlag('tile', {
+export const Flags = FLAG.install('tile', {
   T_OBSTRUCTS_PASSABILITY	: Fl(0),		// cannot be walked through
   T_OBSTRUCTS_VISION			: Fl(1),		// blocks line of sight
   T_OBSTRUCTS_ITEMS				: Fl(2),		// items can't be on this tile
@@ -60,7 +60,7 @@ tile.flags = Flags;
 // TILE MECH
 
 
-export const MechFlags = installFlag('tileMech', {
+export const MechFlags = FLAG.install('tileMech', {
   TM_IS_SECRET							: Fl(0),		// successful search or being stepped on while visible transforms it into discoverType
   TM_PROMOTES_WITH_KEY			: Fl(1),		// promotes if the key is present on the tile (in your pack, carried by monster, or lying on the ground)
   TM_PROMOTES_WITHOUT_KEY		: Fl(2),		// promotes if the key is NOT present on the tile (in your pack, carried by monster, or lying on the ground)
@@ -99,7 +99,7 @@ function setFlags(tile, allFlags) {
     flags = allFlags.split(/[,|]/).map( (t) => t.trim() );
   }
   else if (!Array.isArray(allFlags)) {
-    return WARN('Invalid tile flags: ' + allFlags);
+    return UTILS.WARN('Invalid tile flags: ' + allFlags);
   }
   else if (allFlags.length <= 2) {
     if (typeof allFlags[0] === 'number') {
@@ -111,7 +111,7 @@ function setFlags(tile, allFlags) {
 
   flags.forEach((f) => {
     if (typeof f !== 'string') {
-      WARN('Invalid tile flag: ' + f);
+      UTILS.WARN('Invalid tile flag: ' + f);
     }
     else if (Flags[f]) {
       tile.flags |= Flags[f];
@@ -120,7 +120,7 @@ function setFlags(tile, allFlags) {
       tile.mechFlags |= MechFlags[f];
     }
     else {
-      WARN('Invalid tile flag: ' + f);
+      UTILS.WARN('Invalid tile flag: ' + f);
     }
   });
 }
@@ -132,7 +132,7 @@ export class Tile {
     this.mechFlags = 0;
     this.layer = layer || 0;
     this.priority = priority || 50; // lower means higher priority (50 = average)
-    this.sprite = makeSprite(ch, fg, bg);
+    this.sprite = make.sprite(ch, fg, bg);
     this.events = {};
     this.light = null;
     this.desc = desc || '';

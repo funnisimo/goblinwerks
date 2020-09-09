@@ -790,7 +790,7 @@ color.applyAverage = applyMix;
 
 
 function toRGB(v, vr) {
-  return clamp(Math.round(2.551 * (v + cosmetic.value() * vr) ), 0, 255);
+  return utils.clamp(Math.round(2.551 * (v + cosmetic.value() * vr) ), 0, 255);
 }
 
 const V_TO_CSS = [];
@@ -819,9 +819,9 @@ function equals(a, b) {
 color.equals = equals;
 
 function clampColor(theColor) {
-  theColor.red		= clamp(theColor.red, 0, 100);
-  theColor.green	= clamp(theColor.green, 0, 100);
-  theColor.blue		= clamp(theColor.blue, 0, 100);
+  theColor.red		= utils.clamp(theColor.red, 0, 100);
+  theColor.green	= utils.clamp(theColor.green, 0, 100);
+  theColor.blue		= utils.clamp(theColor.blue, 0, 100);
 }
 
 color.clamp = clampColor;
@@ -840,6 +840,7 @@ color.bake = bakeColor;
 
 
 function lightenColor(destColor, percent) {
+  utils.clamp(percent, 0, 100);
   destColor.red =    Math.round(destColor.red + (100 - destColor.red) * percent / 100);
   destColor.green =  Math.round(destColor.green + (100 - destColor.green) * percent / 100);
   destColor.blue =   Math.round(destColor.blue + (100 - destColor.blue) * percent / 100);
@@ -851,6 +852,7 @@ function lightenColor(destColor, percent) {
 color.lighten = lightenColor;
 
 function darkenColor(destColor, percent) {
+  utils.clamp(percent, 0, 100);
   destColor.red =    Math.round(destColor.red * (100 - percent) / 100);
   destColor.green =  Math.round(destColor.green * (100 - percent) / 100);
   destColor.blue =   Math.round(destColor.blue * (100 - percent) / 100);
@@ -964,12 +966,12 @@ function separateColors(/* color */ fore, /* color */ back) {
   f = fore.clone();
   b = back.clone();
 
-  f.red			= clamp(f.red, 0, 100);
-  f.green		= clamp(f.green, 0, 100);
-  f.blue		= clamp(f.blue, 0, 100);
-  b.red			= clamp(b.red, 0, 100);
-  b.green		= clamp(b.green, 0, 100);
-  b.blue		= clamp(b.blue, 0, 100);
+  f.red			= utils.clamp(f.red, 0, 100);
+  f.green		= utils.clamp(f.green, 0, 100);
+  f.blue		= utils.clamp(f.blue, 0, 100);
+  b.red			= utils.clamp(b.red, 0, 100);
+  b.green		= utils.clamp(b.green, 0, 100);
+  b.blue		= utils.clamp(b.blue, 0, 100);
 
   if (f.red + f.blue + f.green > 50 * 3) {
     modifier = colors.black;
@@ -1041,7 +1043,7 @@ installColorSpread('sea', 				0,    100,  50);
 installColorSpread('sky', 				0,    75,   100);
 installColorSpread('azure', 			0,    50,   100);
 
-const TEMP_BG = new Color();
+const TEMP_BG = new types.Color();
 
 var sprites = {};
 var sprite = {};
@@ -1082,8 +1084,8 @@ class Sprite {
 		}
 
 		this.ch = ch !== null ? (ch || ' ') : null;
-		this.fg = fg !== null ? makeColor(fg || 'white') : null;
-		this.bg = bg !== null ? makeColor(bg || 'black') : null;
+		this.fg = fg !== null ? make.color(fg || 'white') : null;
+		this.bg = bg !== null ? make.color(bg || 'black') : null;
 		this.opacity = opacity || 100;
 		this.needsUpdate = true;
 		this.wasHanging = false;
@@ -1148,14 +1150,14 @@ class Sprite {
     }
 
 		if (sprite.fg && sprite.ch != ' ') {
-			applyMix(this.fg, sprite.fg, sprite.opacity);
+			color.applyMix(this.fg, sprite.fg, sprite.opacity);
 		}
 
 		if (sprite.bg) {
-			applyMix(this.bg, sprite.bg, sprite.opacity);
+			color.applyMix(this.bg, sprite.bg, sprite.opacity);
 		}
 
-    if (this.ch != ' ' && equals(this.fg, this.bg))
+    if (this.ch != ' ' && color.equals(this.fg, this.bg))
     {
       this.ch = ' ';
     }
@@ -1165,10 +1167,10 @@ class Sprite {
 
 	bake() {
 		if (this.fg && !this.fg.dances) {
-			bakeColor(this.fg);
+			color.bake(this.fg);
 		}
 		if (this.bg && !this.bg.dances) {
-			bakeColor(this.bg);
+			color.bake(this.bg);
 		}
 	}
 }
@@ -1347,7 +1349,7 @@ class Grid extends Array {
 
 		this.forEach( (v, i, j) => {
 			if (fn(v, i, j)) {
-				const dist = distanceBetween(x, y, i, j);
+				const dist = utils.distanceBetween(x, y, i, j);
 				if (dist < bestDistance) {
 					bestLoc[0] = i;
 					bestLoc[1] = j;
@@ -1479,7 +1481,7 @@ class Grid extends Array {
 
 	  // brogueAssert(grid.hasXY(x, y));
 
-		testFn = testFn || IDENTITY;
+		testFn = testFn || utils.IDENTITY;
 
 		arcCount = 0;
 		for (dir = 0; dir < CDIRS.length; dir++) {
@@ -1624,10 +1626,10 @@ function gridDumpRect(grid, left, top, width, height, fmtFn) {
 
 	fmtFn = fmtFn || _formatGridValue;
 
-	left = clamp(left, 0, grid.width - 2);
-	top = clamp(top, 0, grid.height - 2);
-	const right = clamp(left + width, 1, grid.width - 1);
-	const bottom = clamp(top + height, 1, grid.height - 1);
+	left = utils.clamp(left, 0, grid.width - 2);
+	top = utils.clamp(top, 0, grid.height - 2);
+	const right = utils.clamp(left + width, 1, grid.width - 1);
+	const bottom = utils.clamp(top + height, 1, grid.height - 1);
 
 	let output = [];
 
@@ -2021,9 +2023,9 @@ const DEFAULT_FONT = 'monospace';
 var canvas = {};
 
 
-class Buffer extends Grid {
+class Buffer extends types.Grid {
   constructor(w, h) {
-    super(w, h, () => new Sprite() );
+    super(w, h, () => new types.Sprite() );
     this.needsUpdate = true;
   }
 
@@ -2211,7 +2213,7 @@ class Canvas {
     const ctx = this.ctx;
     const tileSize = this.tileSize;// * this.displayRatio;
 
-    const backCss = css(cell.bg);
+    const backCss = color.css(cell.bg);
     ctx.fillStyle = backCss;
 
     ctx.fillRect(
@@ -2222,7 +2224,7 @@ class Canvas {
     );
 
     if (cell.ch && cell.ch !== ' ') {
-      const foreCss = css(cell.fg);
+      const foreCss = color.css(cell.fg);
       ctx.fillStyle = foreCss;
 
       const textX = x * tileSize + Math.floor(tileSize * 0.5);
@@ -2435,7 +2437,7 @@ io.recycleEvent = recycleEvent;
 // TIMERS
 
 function setTimeout(delay, fn) {
-	fn = fn || NOOP;
+	fn = fn || utils.NOOP;
 	const h = { delay, fn, resolve: null, promise: null };
 
 	const p = new Promise( (resolve) => {
@@ -2598,7 +2600,7 @@ io.makeMouseEvent = makeMouseEvent;
 
 
 function nextEvent(ms, match) {
-	match = match || TRUE;
+	match = match || utils.TRUE;
 	let elapsed = 0;
 
 	while (EVENTS.length) {
@@ -2644,7 +2646,7 @@ function nextEvent(ms, match) {
 io.nextEvent = nextEvent;
 
 async function nextKeypress(ms, match) {
-	match = match || TRUE;
+	match = match || utils.TRUE;
 	function matchingKey(e) {
   	if (e.type !== KEYPRESS) return false;
     return match(e);
@@ -3176,7 +3178,7 @@ function checkDiggerConfig(config, opts) {
 
     if (expect === true) {	// needs to be a number > 0
       if (typeof have !== 'number') {
-        ERROR('Invalid configuration for digger: ' + key + ' expected number received ' + typeof have);
+        utils.ERROR('Invalid configuration for digger: ' + key + ' expected number received ' + typeof have);
       }
     }
     else if (typeof expect === 'number') {	// needs to be a number, this is the default
@@ -3190,7 +3192,7 @@ function checkDiggerConfig(config, opts) {
         config[key] = new Array(expect.length).fill(have);
       }
       else if (!Array.isArray(have)) {
-        WARN('Received unexpected config for digger : ' + key + ' expected array, received ' + typeof have + ', using defaults.');
+        utils.WARN('Received unexpected config for digger : ' + key + ' expected array, received ' + typeof have + ', using defaults.');
         config[key] = expect.slice();
       }
       else if (expect.length > have.length) {
@@ -3200,7 +3202,7 @@ function checkDiggerConfig(config, opts) {
       }
     }
     else {
-      WARN('Unexpected digger configuration parameter: ', key, expect);
+      utils.WARN('Unexpected digger configuration parameter: ', key, expect);
     }
   });
 
@@ -3217,7 +3219,7 @@ function digCavern(config, grid) {
   let destX, destY;
   let blobGrid;
 
-  blobGrid = allocGrid(grid.width, grid.height, 0);
+  blobGrid = GRID.alloc(grid.width, grid.height, 0);
 
   const minWidth  = config.width[0];
   const maxWidth  = config.width[1];
@@ -3225,15 +3227,15 @@ function digCavern(config, grid) {
   const maxHeight = config.height[1];
 
   grid.fill(0);
-  const bounds = fillBlob(blobGrid, 5, minWidth, minHeight, maxWidth, maxHeight, 55, "ffffffttt", "ffffttttt");
+  const bounds = GRID.fillBlob(blobGrid, 5, minWidth, minHeight, maxWidth, maxHeight, 55, "ffffffttt", "ffffttttt");
 
   // Position the new cave in the middle of the grid...
   destX = Math.floor((grid.width - bounds.width) / 2);
   destY = Math.floor((grid.height - bounds.height) / 2);
 
   // ...and copy it to the master grid.
-  offsetZip(grid, blobGrid, destX - bounds.x, destY - bounds.y, config.tile);
-  freeGrid(blobGrid);
+  GRID.offsetZip(grid, blobGrid, destX - bounds.x, destY - bounds.y, config.tile);
+  GRID.free(blobGrid);
 }
 
 digger.cavern = digCavern;
@@ -3249,11 +3251,11 @@ function digChoiceRoom(config, grid) {
     choices = Object.keys(config.choices);
   }
   else {
-    ERROR('Expected choices to be either array of choices or map { digger: weight }');
+    utils.ERROR('Expected choices to be either array of choices or map { digger: weight }');
   }
   for(let choice of choices) {
     if (!diggers[choice]) {
-      ERROR('Missing digger choice: ' + choice);
+      utils.ERROR('Missing digger choice: ' + choice);
     }
   }
 
@@ -3438,13 +3440,13 @@ function chooseRandomDoorSites(sourceGrid) {
   let dir;
   let doorSiteFailed;
 
-  const grid = allocGrid(sourceGrid.width, sourceGrid.height);
+  const grid = GRID.alloc(sourceGrid.width, sourceGrid.height);
   grid.copy(sourceGrid);
 
   for (i=0; i<grid.width; i++) {
       for (j=0; j<grid.height; j++) {
           if (!grid[i][j]) {
-              dir = directionOfDoorSite(grid, i, j);
+              dir = GRID.directionOfDoorSite(grid, i, j);
               if (dir != def.NO_DIRECTION) {
                   // Trace a ray 10 spaces outward from the door site to make sure it doesn't intersect the room.
                   // If it does, it's not a valid door site.
@@ -3473,7 +3475,7 @@ function chooseRandomDoorSites(sourceGrid) {
       doorSites[dir] = loc.slice();
   }
 
-  freeGrid(grid);
+  GRID.free(grid);
   return doorSites;
 }
 
@@ -3490,13 +3492,13 @@ function attachHallway(grid, doorSitesArray, opts) {
     opts = opts || {};
     const tile = opts.tile || 1;
 
-    const horizontalLength = first('horizontalHallLength', opts, [9,15]);
-    const verticalLength = first('verticalHallLength', opts, [2,9]);
+    const horizontalLength = utils.first('horizontalHallLength', opts, [9,15]);
+    const verticalLength = utils.first('verticalHallLength', opts, [2,9]);
 
     // Pick a direction.
     dir = opts.dir;
     if (dir === undefined) {
-      const dirs = sequence(4);
+      const dirs = utils.sequence(4);
       random.shuffle(dirs);
       for (i=0; i<4; i++) {
           dir = dirs[i];
@@ -3529,8 +3531,8 @@ function attachHallway(grid, doorSitesArray, opts) {
         x += DIRS$2[dir][0];
         y += DIRS$2[dir][1];
     }
-    x = clamp(x - DIRS$2[dir][0], 0, grid.width - 1);
-    y = clamp(y - DIRS$2[dir][1], 0, grid.height - 1); // Now (x, y) points at the last interior cell of the hallway.
+    x = utils.clamp(x - DIRS$2[dir][0], 0, grid.width - 1);
+    y = utils.clamp(y - DIRS$2[dir][1], 0, grid.height - 1); // Now (x, y) points at the last interior cell of the hallway.
     allowObliqueHallwayExit = random.percent(15);
     for (dir2 = 0; dir2 < 4; dir2++) {
         newX = x + DIRS$2[dir2][0];
@@ -3556,38 +3558,39 @@ digger.attachHallway = attachHallway;
 var tile = {};
 var tiles = [];
 
+const Fl$1 = flag.fl;
 
-const Flags = installFlag('tile', {
-  T_OBSTRUCTS_PASSABILITY	: Fl(0),		// cannot be walked through
-  T_OBSTRUCTS_VISION			: Fl(1),		// blocks line of sight
-  T_OBSTRUCTS_ITEMS				: Fl(2),		// items can't be on this tile
-  T_OBSTRUCTS_SURFACE		  : Fl(3),		// grass, blood, etc. cannot exist on this tile
-  T_OBSTRUCTS_GAS					: Fl(4),		// blocks the permeation of gas
-  T_OBSTRUCTS_DIAGONAL_MOVEMENT : Fl(5),    // can't step diagonally around this tile
+const Flags = flag.install('tile', {
+  T_OBSTRUCTS_PASSABILITY	: Fl$1(0),		// cannot be walked through
+  T_OBSTRUCTS_VISION			: Fl$1(1),		// blocks line of sight
+  T_OBSTRUCTS_ITEMS				: Fl$1(2),		// items can't be on this tile
+  T_OBSTRUCTS_SURFACE		  : Fl$1(3),		// grass, blood, etc. cannot exist on this tile
+  T_OBSTRUCTS_GAS					: Fl$1(4),		// blocks the permeation of gas
+  T_OBSTRUCTS_DIAGONAL_MOVEMENT : Fl$1(5),    // can't step diagonally around this tile
 
-  T_AUTO_DESCENT					: Fl(6),		// automatically drops creatures down a depth level and does some damage (2d6)
-  T_LAVA			            : Fl(7),		// kills any non-levitating non-fire-immune creature instantly
-  T_DEEP_WATER					  : Fl(8),		// steals items 50% of the time and moves them around randomly
+  T_AUTO_DESCENT					: Fl$1(6),		// automatically drops creatures down a depth level and does some damage (2d6)
+  T_LAVA			            : Fl$1(7),		// kills any non-levitating non-fire-immune creature instantly
+  T_DEEP_WATER					  : Fl$1(8),		// steals items 50% of the time and moves them around randomly
 
-  T_SPONTANEOUSLY_IGNITES	: Fl(9),		// monsters avoid unless chasing player or immune to fire
-  T_IS_FLAMMABLE					: Fl(10),		// terrain can catch fire
-  T_IS_FIRE								: Fl(11),		// terrain is a type of fire; ignites neighboring flammable cells
-  T_ENTANGLES							: Fl(12),		// entangles players and monsters like a spiderweb
+  T_SPONTANEOUSLY_IGNITES	: Fl$1(9),		// monsters avoid unless chasing player or immune to fire
+  T_IS_FLAMMABLE					: Fl$1(10),		// terrain can catch fire
+  T_IS_FIRE								: Fl$1(11),		// terrain is a type of fire; ignites neighboring flammable cells
+  T_ENTANGLES							: Fl$1(12),		// entangles players and monsters like a spiderweb
 
-  T_CAUSES_POISON					: Fl(13),		// any non-levitating creature gets 10 poison
-  T_CAUSES_DAMAGE					: Fl(14),		// anything on the tile takes max(1-2, 10%) damage per turn
-  T_CAUSES_NAUSEA					: Fl(15),		// any creature on the tile becomes nauseous
-  T_CAUSES_PARALYSIS			: Fl(16),		// anything caught on this tile is paralyzed
-  T_CAUSES_CONFUSION			: Fl(17),		// causes creatures on this tile to become confused
-  T_CAUSES_HEALING   	    : Fl(18),   // heals 20% max HP per turn for any player or non-inanimate monsters
-  T_IS_TRAP								: Fl(19),		// spews gas of type specified in fireType when stepped on
-  T_CAUSES_EXPLOSIVE_DAMAGE		: Fl(20),		// is an explosion; deals higher of 15-20 or 50% damage instantly, but not again for five turns
-  T_SACRED                : Fl(21),   // monsters that aren't allies of the player will avoid stepping here
+  T_CAUSES_POISON					: Fl$1(13),		// any non-levitating creature gets 10 poison
+  T_CAUSES_DAMAGE					: Fl$1(14),		// anything on the tile takes max(1-2, 10%) damage per turn
+  T_CAUSES_NAUSEA					: Fl$1(15),		// any creature on the tile becomes nauseous
+  T_CAUSES_PARALYSIS			: Fl$1(16),		// anything caught on this tile is paralyzed
+  T_CAUSES_CONFUSION			: Fl$1(17),		// causes creatures on this tile to become confused
+  T_CAUSES_HEALING   	    : Fl$1(18),   // heals 20% max HP per turn for any player or non-inanimate monsters
+  T_IS_TRAP								: Fl$1(19),		// spews gas of type specified in fireType when stepped on
+  T_CAUSES_EXPLOSIVE_DAMAGE		: Fl$1(20),		// is an explosion; deals higher of 15-20 or 50% damage instantly, but not again for five turns
+  T_SACRED                : Fl$1(21),   // monsters that aren't allies of the player will avoid stepping here
 
-  T_UP_STAIRS							: Fl(22),
-  T_DOWN_STAIRS						: Fl(23),
-  T_PORTAL                : Fl(24),
-  T_IS_DOOR								: Fl(25),
+  T_UP_STAIRS							: Fl$1(22),
+  T_DOWN_STAIRS						: Fl$1(23),
+  T_PORTAL                : Fl$1(24),
+  T_IS_DOOR								: Fl$1(25),
 
   T_HAS_STAIRS						: ['T_UP_STAIRS', 'T_DOWN_STAIRS'],
   T_OBSTRUCTS_SCENT				: ['T_OBSTRUCTS_PASSABILITY', 'T_OBSTRUCTS_VISION', 'T_AUTO_DESCENT', 'T_LAVA', 'T_DEEP_WATER', 'T_SPONTANEOUSLY_IGNITES', 'T_HAS_STAIRS'],
@@ -3609,32 +3612,32 @@ tile.flags = Flags;
 // TILE MECH
 
 
-const MechFlags = installFlag('tileMech', {
-  TM_IS_SECRET							: Fl(0),		// successful search or being stepped on while visible transforms it into discoverType
-  TM_PROMOTES_WITH_KEY			: Fl(1),		// promotes if the key is present on the tile (in your pack, carried by monster, or lying on the ground)
-  TM_PROMOTES_WITHOUT_KEY		: Fl(2),		// promotes if the key is NOT present on the tile (in your pack, carried by monster, or lying on the ground)
-  TM_PROMOTES_ON_STEP				: Fl(3),		// promotes when a creature, player or item is on the tile (whether or not levitating)
-  TM_PROMOTES_ON_ITEM_REMOVE		: Fl(4),		// promotes when an item is lifted from the tile (primarily for altars)
-  TM_PROMOTES_ON_PLAYER_ENTRY		: Fl(5),		// promotes when the player enters the tile (whether or not levitating)
-  TM_PROMOTES_ON_SACRIFICE_ENTRY: Fl(6),		// promotes when the sacrifice target enters the tile (whether or not levitating)
-  TM_PROMOTES_ON_ELECTRICITY    : Fl(7),    // promotes when hit by a lightning bolt
-  TM_ALLOWS_SUBMERGING					: Fl(8),		// allows submersible monsters to submerge in this terrain
-  TM_IS_WIRED										: Fl(9),		// if wired, promotes when powered, and sends power when promoting
-  TM_IS_CIRCUIT_BREAKER 				: Fl(10),        // prevents power from circulating in its machine
-  TM_GAS_DISSIPATES							: Fl(11),		// does not just hang in the air forever
-  TM_GAS_DISSIPATES_QUICKLY			: Fl(12),		// dissipates quickly
-  TM_EXTINGUISHES_FIRE					: Fl(13),		// extinguishes burning terrain or creatures
-  TM_VANISHES_UPON_PROMOTION		: Fl(14),		// vanishes when creating promotion dungeon feature, even if the replacement terrain priority doesn't require it
-  TM_REFLECTS_BOLTS           	: Fl(15),       // magic bolts reflect off of its surface randomly (similar to ACTIVE_CELLS flag IMPREGNABLE)
-  TM_STAND_IN_TILE            	: Fl(16),		// earthbound creatures will be said to stand "in" the tile, not on it
-  TM_LIST_IN_SIDEBAR          	: Fl(17),       // terrain will be listed in the sidebar with a description of the terrain type
-  TM_VISUALLY_DISTINCT        	: Fl(18),       // terrain will be color-adjusted if necessary so the character stands out from the background
-  TM_BRIGHT_MEMORY            	: Fl(19),       // no blue fade when this tile is out of sight
-  TM_EXPLOSIVE_PROMOTE        	: Fl(20),       // when burned, will promote to promoteType instead of burningType if surrounded by tiles with T_IS_FIRE or TM_EXPLOSIVE_PROMOTE
-  TM_CONNECTS_LEVEL           	: Fl(21),       // will be treated as passable for purposes of calculating level connectedness, irrespective of other aspects of this terrain layer
-  TM_INTERRUPT_EXPLORATION_WHEN_SEEN : Fl(22),    // will generate a message when discovered during exploration to interrupt exploration
-  TM_INVERT_WHEN_HIGHLIGHTED  	: Fl(23),       // will flip fore and back colors when highlighted with pathing
-  TM_SWAP_ENCHANTS_ACTIVATION 	: Fl(24),       // in machine, swap item enchantments when two suitable items are on this terrain, and activate the machine when that happens
+const MechFlags = flag.install('tileMech', {
+  TM_IS_SECRET							: Fl$1(0),		// successful search or being stepped on while visible transforms it into discoverType
+  TM_PROMOTES_WITH_KEY			: Fl$1(1),		// promotes if the key is present on the tile (in your pack, carried by monster, or lying on the ground)
+  TM_PROMOTES_WITHOUT_KEY		: Fl$1(2),		// promotes if the key is NOT present on the tile (in your pack, carried by monster, or lying on the ground)
+  TM_PROMOTES_ON_STEP				: Fl$1(3),		// promotes when a creature, player or item is on the tile (whether or not levitating)
+  TM_PROMOTES_ON_ITEM_REMOVE		: Fl$1(4),		// promotes when an item is lifted from the tile (primarily for altars)
+  TM_PROMOTES_ON_PLAYER_ENTRY		: Fl$1(5),		// promotes when the player enters the tile (whether or not levitating)
+  TM_PROMOTES_ON_SACRIFICE_ENTRY: Fl$1(6),		// promotes when the sacrifice target enters the tile (whether or not levitating)
+  TM_PROMOTES_ON_ELECTRICITY    : Fl$1(7),    // promotes when hit by a lightning bolt
+  TM_ALLOWS_SUBMERGING					: Fl$1(8),		// allows submersible monsters to submerge in this terrain
+  TM_IS_WIRED										: Fl$1(9),		// if wired, promotes when powered, and sends power when promoting
+  TM_IS_CIRCUIT_BREAKER 				: Fl$1(10),        // prevents power from circulating in its machine
+  TM_GAS_DISSIPATES							: Fl$1(11),		// does not just hang in the air forever
+  TM_GAS_DISSIPATES_QUICKLY			: Fl$1(12),		// dissipates quickly
+  TM_EXTINGUISHES_FIRE					: Fl$1(13),		// extinguishes burning terrain or creatures
+  TM_VANISHES_UPON_PROMOTION		: Fl$1(14),		// vanishes when creating promotion dungeon feature, even if the replacement terrain priority doesn't require it
+  TM_REFLECTS_BOLTS           	: Fl$1(15),       // magic bolts reflect off of its surface randomly (similar to ACTIVE_CELLS flag IMPREGNABLE)
+  TM_STAND_IN_TILE            	: Fl$1(16),		// earthbound creatures will be said to stand "in" the tile, not on it
+  TM_LIST_IN_SIDEBAR          	: Fl$1(17),       // terrain will be listed in the sidebar with a description of the terrain type
+  TM_VISUALLY_DISTINCT        	: Fl$1(18),       // terrain will be color-adjusted if necessary so the character stands out from the background
+  TM_BRIGHT_MEMORY            	: Fl$1(19),       // no blue fade when this tile is out of sight
+  TM_EXPLOSIVE_PROMOTE        	: Fl$1(20),       // when burned, will promote to promoteType instead of burningType if surrounded by tiles with T_IS_FIRE or TM_EXPLOSIVE_PROMOTE
+  TM_CONNECTS_LEVEL           	: Fl$1(21),       // will be treated as passable for purposes of calculating level connectedness, irrespective of other aspects of this terrain layer
+  TM_INTERRUPT_EXPLORATION_WHEN_SEEN : Fl$1(22),    // will generate a message when discovered during exploration to interrupt exploration
+  TM_INVERT_WHEN_HIGHLIGHTED  	: Fl$1(23),       // will flip fore and back colors when highlighted with pathing
+  TM_SWAP_ENCHANTS_ACTIVATION 	: Fl$1(24),       // in machine, swap item enchantments when two suitable items are on this terrain, and activate the machine when that happens
   TM_PROMOTES										: 'TM_PROMOTES_WITH_KEY | TM_PROMOTES_WITHOUT_KEY | TM_PROMOTES_ON_STEP | TM_PROMOTES_ON_ITEM_REMOVE | TM_PROMOTES_ON_SACRIFICE_ENTRY | TM_PROMOTES_ON_ELECTRICITY | TM_PROMOTES_ON_PLAYER_ENTRY',
 });
 
@@ -3648,7 +3651,7 @@ function setFlags(tile, allFlags) {
     flags = allFlags.split(/[,|]/).map( (t) => t.trim() );
   }
   else if (!Array.isArray(allFlags)) {
-    return WARN('Invalid tile flags: ' + allFlags);
+    return utils.WARN('Invalid tile flags: ' + allFlags);
   }
   else if (allFlags.length <= 2) {
     if (typeof allFlags[0] === 'number') {
@@ -3660,7 +3663,7 @@ function setFlags(tile, allFlags) {
 
   flags.forEach((f) => {
     if (typeof f !== 'string') {
-      WARN('Invalid tile flag: ' + f);
+      utils.WARN('Invalid tile flag: ' + f);
     }
     else if (Flags[f]) {
       tile.flags |= Flags[f];
@@ -3669,7 +3672,7 @@ function setFlags(tile, allFlags) {
       tile.mechFlags |= MechFlags[f];
     }
     else {
-      WARN('Invalid tile flag: ' + f);
+      utils.WARN('Invalid tile flag: ' + f);
     }
   });
 }
@@ -3681,7 +3684,7 @@ class Tile {
     this.mechFlags = 0;
     this.layer = layer || 0;
     this.priority = priority || 50; // lower means higher priority (50 = average)
-    this.sprite = makeSprite(ch, fg, bg);
+    this.sprite = make.sprite(ch, fg, bg);
     this.events = {};
     this.light = null;
     this.desc = desc || '';
@@ -3771,15 +3774,15 @@ let LOCS;
 
 function start(map, opts={}) {
 
-  FLOOR       = withName('FLOOR')       ? withName('FLOOR').id        : FLOOR;
-  DOOR        = withName('DOOR')        ? withName('DOOR').id         : DOOR;
-  BRIDGE      = withName('BRIDGE')      ? withName('BRIDGE').id       : BRIDGE;
-  UP_STAIRS   = withName('UP_STAIRS')   ? withName('UP_STAIRS').id    : UP_STAIRS;
-  DOWN_STAIRS = withName('DOWN_STAIRS') ? withName('DOWN_STAIRS').id  : DOWN_STAIRS;
-  WALL        = withName('WALL')        ? withName('WALL').id         : WALL;
-  LAKE        = withName('LAKE')        ? withName('LAKE').id         : LAKE;
+  FLOOR       = tile.withName('FLOOR')       ? tile.withName('FLOOR').id        : FLOOR;
+  DOOR        = tile.withName('DOOR')        ? tile.withName('DOOR').id         : DOOR;
+  BRIDGE      = tile.withName('BRIDGE')      ? tile.withName('BRIDGE').id       : BRIDGE;
+  UP_STAIRS   = tile.withName('UP_STAIRS')   ? tile.withName('UP_STAIRS').id    : UP_STAIRS;
+  DOWN_STAIRS = tile.withName('DOWN_STAIRS') ? tile.withName('DOWN_STAIRS').id  : DOWN_STAIRS;
+  WALL        = tile.withName('WALL')        ? tile.withName('WALL').id         : WALL;
+  LAKE        = tile.withName('LAKE')        ? tile.withName('LAKE').id         : LAKE;
 
-  LOCS = sequence(map.width * map.height);
+  LOCS = utils.sequence(map.width * map.height);
   random.shuffle(LOCS);
 
   const startX = opts.x || -1;
@@ -3805,15 +3808,15 @@ dungeon.finish = finish;
 
 // Returns an array of door sites if successful
 function digRoom(opts={}) {
-  const hallChance = first('hallChance', opts, SITE.config, 0);
+  const hallChance = utils.first('hallChance', opts, SITE.config, 0);
   const diggerId = opts.digger || opts.id || 'SMALL'; // TODO - get random id
 
-  const digger = diggers[diggerId];
-  if (!digger) {
+  const digger$1 = diggers[diggerId];
+  if (!digger$1) {
     throw new Error('Failed to find digger: ' + diggerId);
   }
 
-  const config = Object.assign({}, digger, opts);
+  const config = Object.assign({}, digger$1, opts);
   let locs = opts.locs || opts.loc || null;
   if (!Array.isArray(locs)) {
     locs = null;
@@ -3825,17 +3828,17 @@ function digRoom(opts={}) {
     locs = null;
   }
 
-  const grid = allocGrid(SITE.width, SITE.height);
+  const grid = GRID.alloc(SITE.width, SITE.height);
 
   let result = false;
   let tries = opts.tries || 10;
   while(--tries >= 0 && !result) {
     grid.fill(NOTHING$1);
 
-    digger.fn(config, grid);
-    const doors = chooseRandomDoorSites(grid);
+    digger$1.fn(config, grid);
+    const doors = digger.chooseRandomDoorSites(grid);
     if (random.percent(hallChance)) {
-      attachHallway(grid, doors, SITE.config);
+      digger.attachHallway(grid, doors, SITE.config);
     }
 
     if (locs) {
@@ -3856,7 +3859,7 @@ function digRoom(opts={}) {
 
   }
 
-  freeGrid(grid);
+  GRID.free(grid);
   return result;
 }
 
@@ -3926,7 +3929,7 @@ function attachRoomToDungeon(roomGrid, doorSites, placeDoor) {
       const y = LOCS[i] % SITE.height;
 
       if (!SITE.cell(x, y).isEmpty()) continue;
-      const dir = directionOfDoorSite(SITE.cells, x, y, (c) => (c.hasTile(FLOOR) && !c.isLiquid()) );
+      const dir = GRID.directionOfDoorSite(SITE.cells, x, y, (c) => (c.hasTile(FLOOR) && !c.isLiquid()) );
       if (dir != def.NO_DIRECTION) {
         const oppDir = OPP_DIRS[dir];
 
@@ -3939,7 +3942,7 @@ function attachRoomToDungeon(roomGrid, doorSites, placeDoor) {
           // GW.debug.log("attachRoom: ", x, y, oppDir);
 
           // Room fits here.
-          offsetZip(SITE.cells, roomGrid, offsetX, offsetY, (d, s, i, j) => d.setTile(s) );
+          GRID.offsetZip(SITE.cells, roomGrid, offsetX, offsetY, (d, s, i, j) => d.setTile(s) );
           if (placeDoor !== false) {
             SITE.setTile(x, y, (typeof placeDoor === 'number') ? placeDoor : DOOR); // Door site.
           }
@@ -3969,11 +3972,11 @@ function attachRoomAtXY(roomGrid, xy, doors, placeDoor) {
 
       if (roomGrid[x][y]) continue;
 
-      const dir = directionOfDoorSite(roomGrid, x, y);
+      const dir = GRID.directionOfDoorSite(roomGrid, x, y);
       if (dir != def.NO_DIRECTION) {
         const d = DIRS$3[dir];
         if (roomAttachesAt(roomGrid, xy[0] - x, xy[1] - y)) {
-          offsetZip(SITE.cells, roomGrid, xy[0] - x, xy[1] - y, (d, s, i, j) => d.setTile(s) );
+          GRID.offsetZip(SITE.cells, roomGrid, xy[0] - x, xy[1] - y, (d, s, i, j) => d.setTile(s) );
           if (placeDoor !== false) {
             SITE.setTile(xy[0], xy[1], (typeof placeDoor === 'number') ? placeDoor : DOOR); // Door site.
           }
@@ -3997,7 +4000,7 @@ function attachRoomAtXY(roomGrid, xy, doors, placeDoor) {
 
 function insertRoomAtXY(x, y, roomGrid, doorSites, placeDoor) {
 
-  const dirs = sequence(4);
+  const dirs = utils.sequence(4);
   random.shuffle(dirs);
 
   for(let dir of dirs) {
@@ -4011,7 +4014,7 @@ function insertRoomAtXY(x, y, roomGrid, doorSites, placeDoor) {
       // Room fits here.
       const offX = x - doorSites[oppDir][0];
       const offY = y - doorSites[oppDir][1];
-      offsetZip(SITE.cells, roomGrid, offX, offY, (d, s, i, j) => d.setTile(s) );
+      GRID.offsetZip(SITE.cells, roomGrid, offX, offY, (d, s, i, j) => d.setTile(s) );
       if (placeDoor !== false) {
         SITE.setTile(x, y, (typeof placeDoor === 'number') ? placeDoor : DOOR); // Door site.
       }
@@ -4030,7 +4033,7 @@ function insertRoomAtXY(x, y, roomGrid, doorSites, placeDoor) {
 
 function attachRoomAtDoors(roomGrid, roomDoors, siteDoors, placeDoor) {
 
-  const doorIndexes = sequence(siteDoors.length);
+  const doorIndexes = utils.sequence(siteDoors.length);
   random.shuffle(doorIndexes);
 
   // Slide hyperspace across real space, in a random but predetermined order, until the room matches up with a wall.
@@ -4060,12 +4063,12 @@ function digLake(opts={}) {
   maxCount = 1; // opts.count || tries;
   canDisrupt = opts.canDisrupt || false;
 
-  const lakeGrid = allocGrid(SITE.width, SITE.height, 0);
+  const lakeGrid = GRID.alloc(SITE.width, SITE.height, 0);
 
   for (; lakeMaxHeight >= lakeMinSize && lakeMaxWidth >= lakeMinSize && count < maxCount; lakeMaxHeight--, lakeMaxWidth -= 2) { // lake generations
 
     lakeGrid.fill(NOTHING$1);
-    const bounds = fillBlob(lakeGrid, 5, 4, 4, lakeMaxWidth, lakeMaxHeight, 55, "ffffftttt", "ffffttttt");
+    const bounds = GRID.fillBlob(lakeGrid, 5, 4, 4, lakeMaxWidth, lakeMaxHeight, 55, "ffffftttt", "ffffttttt");
 
     for (k=0; k < tries && count < maxCount; k++) { // placement attempts
         // propose a position for the top-left of the lakeGrid in the dungeon
@@ -4090,7 +4093,7 @@ function digLake(opts={}) {
       }
     }
   }
-  freeGrid(lakeGrid);
+  GRID.free(lakeGrid);
   return count;
 
 }
@@ -4100,7 +4103,7 @@ dungeon.digLake = digLake;
 
 function lakeDisruptsPassability(lakeGrid, dungeonToGridX, dungeonToGridY) {
 
-    const walkableGrid = allocGrid(lakeGrid.width, lakeGrid.height, 0);
+    const walkableGrid = GRID.alloc(lakeGrid.width, lakeGrid.height, 0);
     let disrupts = false;
     // Get all walkable locations after lake added
     SITE.cells.forEach( (cell, i, j) => {
@@ -4128,7 +4131,7 @@ function lakeDisruptsPassability(lakeGrid, dungeonToGridX, dungeonToGridY) {
       for(let j = 0; j < walkableGrid.height && !disrupts; ++j) {
         if (walkableGrid[i][j] == 1) {
           if (first) {
-            floodFill(walkableGrid, i, j, 1, 2);
+            GRID.floodFill(walkableGrid, i, j, 1, 2);
             first = false;
           }
           else {
@@ -4138,7 +4141,7 @@ function lakeDisruptsPassability(lakeGrid, dungeonToGridX, dungeonToGridY) {
       }
     }
 
-    freeGrid(walkableGrid);
+    GRID.free(walkableGrid);
     return disrupts;
 }
 
@@ -4153,8 +4156,8 @@ function addLoops(minimumPathingDistance, maxConnectionLength) {
     maxConnectionLength = maxConnectionLength || 1; // by default only break walls down
 
     const siteGrid = SITE.cells;
-    const pathGrid = allocGrid(SITE.width, SITE.height);
-    const costGrid = allocGrid(SITE.width, SITE.height);
+    const pathGrid = GRID.alloc(SITE.width, SITE.height);
+    const costGrid = GRID.alloc(SITE.width, SITE.height);
 
     const dirCoords = [[1, 0], [0, 1]];
 
@@ -4202,7 +4205,7 @@ function addLoops(minimumPathingDistance, maxConnectionLength) {
                 }
 
                 if (j < maxConnectionLength) {
-                  calculateDistances(pathGrid, newX, newY, costGrid, false);
+                  PATH.calculateDistances(pathGrid, newX, newY, costGrid, false);
                   // pathGrid.fill(30000);
                   // pathGrid[newX][newY] = 0;
                   // dijkstraScan(pathGrid, costGrid, false);
@@ -4225,8 +4228,8 @@ function addLoops(minimumPathingDistance, maxConnectionLength) {
             }
         }
     }
-    freeGrid(pathGrid);
-    freeGrid(costGrid);
+    GRID.free(pathGrid);
+    GRID.free(costGrid);
 }
 
 dungeon.addLoops = addLoops;
@@ -4248,8 +4251,8 @@ function addBridges(minimumPathingDistance, maxConnectionLength) {
     maxConnectionLength = maxConnectionLength || 1; // by default only break walls down
 
     const siteGrid = SITE.cells;
-    const pathGrid = allocGrid(SITE.width, SITE.height);
-    const costGrid = allocGrid(SITE.width, SITE.height);
+    const pathGrid = GRID.alloc(SITE.width, SITE.height);
+    const costGrid = GRID.alloc(SITE.width, SITE.height);
 
     const dirCoords = [[1, 0], [0, 1]];
 
@@ -4283,7 +4286,7 @@ function addBridges(minimumPathingDistance, maxConnectionLength) {
                 }
 
                 if ((!SITE.isEmpty(newX, newY)) && SITE.canBePassed(newX, newY) && (j < maxConnectionLength)) {
-                  calculateDistances(pathGrid, newX, newY, costGrid, false);
+                  PATH.calculateDistances(pathGrid, newX, newY, costGrid, false);
                   // pathGrid.fill(30000);
                   // pathGrid[newX][newY] = 0;
                   // dijkstraScan(pathGrid, costGrid, false);
@@ -4309,8 +4312,8 @@ function addBridges(minimumPathingDistance, maxConnectionLength) {
             }
         }
     }
-    freeGrid(pathGrid);
-    freeGrid(costGrid);
+    GRID.free(pathGrid);
+    GRID.free(costGrid);
 }
 
 dungeon.addBridges = addBridges;
@@ -4410,7 +4413,7 @@ function addStairs(upX, upY, downX, downY, minDistance) {
   let downLoc;
   if (downX < 0) {
     downLoc = SITE.cells.randomMatchingXY( (v, x, y) => {
-  		if (distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
+  		if (utils.distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
   		return dungeon.isValidStairLoc(v, x, y);
   	});
   }
@@ -4435,46 +4438,47 @@ dungeon.addStairs = addStairs;
 
 var cell$1 = {};
 
+const Fl$2 = flag.fl;
 
-const Flags$1 = installFlag('cell', {
-  REVEALED					: Fl(0),
-  VISIBLE							: Fl(1),	// cell has sufficient light and is in field of view, ready to draw.
-  WAS_VISIBLE					: Fl(2),
-  IN_FOV		          : Fl(3),	// player has unobstructed line of sight whether or not there is enough light
+const Flags$1 = flag.install('cell', {
+  REVEALED					: Fl$2(0),
+  VISIBLE							: Fl$2(1),	// cell has sufficient light and is in field of view, ready to draw.
+  WAS_VISIBLE					: Fl$2(2),
+  IN_FOV		          : Fl$2(3),	// player has unobstructed line of sight whether or not there is enough light
 
-  HAS_PLAYER					: Fl(4),
-  HAS_MONSTER					: Fl(5),
-  HAS_DORMANT_MONSTER	: Fl(6),	// hidden monster on the square
-  HAS_ITEM						: Fl(7),
-  HAS_STAIRS					: Fl(8),
-  HAS_FX              : Fl(9),
+  HAS_PLAYER					: Fl$2(4),
+  HAS_MONSTER					: Fl$2(5),
+  HAS_DORMANT_MONSTER	: Fl$2(6),	// hidden monster on the square
+  HAS_ITEM						: Fl$2(7),
+  HAS_STAIRS					: Fl$2(8),
+  HAS_FX              : Fl$2(9),
 
-  IS_IN_PATH					: Fl(12),	// the yellow trail leading to the cursor
-  IS_CURSOR						: Fl(13),	// the current cursor
+  IS_IN_PATH					: Fl$2(12),	// the yellow trail leading to the cursor
+  IS_CURSOR						: Fl$2(13),	// the current cursor
 
-  MAGIC_MAPPED				: Fl(14),
-  ITEM_DETECTED				: Fl(15),
+  MAGIC_MAPPED				: Fl$2(14),
+  ITEM_DETECTED				: Fl$2(15),
 
-  STABLE_MEMORY						: Fl(16),	// redraws will simply be pulled from the memory array, not recalculated
+  STABLE_MEMORY						: Fl$2(16),	// redraws will simply be pulled from the memory array, not recalculated
 
-  CLAIRVOYANT_VISIBLE			: Fl(17),
-  WAS_CLAIRVOYANT_VISIBLE	: Fl(18),
-  CLAIRVOYANT_DARKENED		: Fl(19),	// magical blindness from a cursed ring of clairvoyance
+  CLAIRVOYANT_VISIBLE			: Fl$2(17),
+  WAS_CLAIRVOYANT_VISIBLE	: Fl$2(18),
+  CLAIRVOYANT_DARKENED		: Fl$2(19),	// magical blindness from a cursed ring of clairvoyance
 
-  IMPREGNABLE							: Fl(20),	// no tunneling allowed!
+  IMPREGNABLE							: Fl$2(20),	// no tunneling allowed!
 
-  TELEPATHIC_VISIBLE			: Fl(22),	// potions of telepathy let you see through other creatures' eyes
-  WAS_TELEPATHIC_VISIBLE	: Fl(23),	// potions of telepathy let you see through other creatures' eyes
+  TELEPATHIC_VISIBLE			: Fl$2(22),	// potions of telepathy let you see through other creatures' eyes
+  WAS_TELEPATHIC_VISIBLE	: Fl$2(23),	// potions of telepathy let you see through other creatures' eyes
 
-  MONSTER_DETECTED				: Fl(24),
-  WAS_MONSTER_DETECTED		: Fl(25),
+  MONSTER_DETECTED				: Fl$2(24),
+  WAS_MONSTER_DETECTED		: Fl$2(25),
 
-  NEEDS_REDRAW            : Fl(26),	// needs to be redrawn (maybe in path, etc...)
-  TILE_CHANGED						: Fl(27),	// one of the tiles changed
+  NEEDS_REDRAW            : Fl$2(26),	// needs to be redrawn (maybe in path, etc...)
+  TILE_CHANGED						: Fl$2(27),	// one of the tiles changed
 
-  CELL_LIT                : Fl(28),
-  IS_IN_SHADOW				    : Fl(29),	// so that a player gains an automatic stealth bonus
-  CELL_DARK               : Fl(30),
+  CELL_LIT                : Fl$2(28),
+  IS_IN_SHADOW				    : Fl$2(29),	// so that a player gains an automatic stealth bonus
+  CELL_DARK               : Fl$2(30),
 
   PERMANENT_CELL_FLAGS : ['REVEALED', 'MAGIC_MAPPED', 'ITEM_DETECTED', 'HAS_ITEM', 'HAS_DORMANT_MONSTER',
               'HAS_STAIRS', 'STABLE_MEMORY', 'IMPREGNABLE'],
@@ -4488,18 +4492,18 @@ cell$1.flags = Flags$1;
 ///////////////////////////////////////////////////////
 // CELL MECH
 
-const MechFlags$1 = installFlag('cellMech', {
-  SEARCHED_FROM_HERE				: Fl(0),	// Player already auto-searched from here; can't auto search here again
-  CAUGHT_FIRE_THIS_TURN			: Fl(1),	// so that fire does not spread asymmetrically
-  PRESSURE_PLATE_DEPRESSED	: Fl(2),	// so that traps do not trigger repeatedly while you stand on them
-  KNOWN_TO_BE_TRAP_FREE			: Fl(3),	// keep track of where the player has stepped as he knows no traps are there
+const MechFlags$1 = flag.install('cellMech', {
+  SEARCHED_FROM_HERE				: Fl$2(0),	// Player already auto-searched from here; can't auto search here again
+  CAUGHT_FIRE_THIS_TURN			: Fl$2(1),	// so that fire does not spread asymmetrically
+  PRESSURE_PLATE_DEPRESSED	: Fl$2(2),	// so that traps do not trigger repeatedly while you stand on them
+  KNOWN_TO_BE_TRAP_FREE			: Fl$2(3),	// keep track of where the player has stepped as he knows no traps are there
 
-  IS_IN_LOOP					: Fl(5),	// this cell is part of a terrain loop
-  IS_CHOKEPOINT				: Fl(6),	// if this cell is blocked, part of the map will be rendered inaccessible
-  IS_GATE_SITE				: Fl(7),	// consider placing a locked door here
-  IS_IN_ROOM_MACHINE	: Fl(8),
-  IS_IN_AREA_MACHINE	: Fl(9),
-  IS_POWERED					: Fl(10),	// has been activated by machine power this turn (can probably be eliminate if needed)
+  IS_IN_LOOP					: Fl$2(5),	// this cell is part of a terrain loop
+  IS_CHOKEPOINT				: Fl$2(6),	// if this cell is blocked, part of the map will be rendered inaccessible
+  IS_GATE_SITE				: Fl$2(7),	// consider placing a locked door here
+  IS_IN_ROOM_MACHINE	: Fl$2(8),
+  IS_IN_AREA_MACHINE	: Fl$2(9),
+  IS_POWERED					: Fl$2(10),	// has been activated by machine power this turn (can probably be eliminate if needed)
 
   IS_IN_MACHINE				: ['IS_IN_ROOM_MACHINE', 'IS_IN_AREA_MACHINE'], 	// sacred ground; don't generate items here, or teleport randomly to it
 
@@ -4512,7 +4516,7 @@ cell$1.mechFlags = MechFlags$1;
 
 class CellMemory {
   constructor() {
-    this.sprite = makeSprite();
+    this.sprite = make.sprite();
     this.clear();
   }
 
@@ -4528,7 +4532,7 @@ class CellMemory {
   }
 
   copy(other) {
-    copyObject(this, other);
+    utils.copyObject(this, other);
   }
 }
 
@@ -4541,7 +4545,7 @@ class Cell {
   }
 
   copy(other) {
-    copyObject(this, other);
+    utils.copyObject(this, other);
   }
 
   clear() {
@@ -4824,12 +4828,13 @@ cell$1.getAppearance = getAppearance;
 
 var map = {};
 
+const Fl$3 = flag.fl;
 
-const Flags$2 = installFlag('map', {
-	MAP_CHANGED: Fl(0),
-	MAP_STABLE_GLOW_LIGHTS:  Fl(1),
-	MAP_STABLE_LIGHTS: Fl(2),
-	MAP_ALWAYS_LIT:	Fl(3),
+const Flags$2 = flag.install('map', {
+	MAP_CHANGED: Fl$3(0),
+	MAP_STABLE_GLOW_LIGHTS:  Fl$3(1),
+	MAP_STABLE_LIGHTS: Fl$3(2),
+	MAP_ALWAYS_LIT:	Fl$3(3),
 });
 
 
@@ -4976,11 +4981,11 @@ class Map {
 	      return false; // If it's not a diagonal, it's not diagonally blocked.
 	    }
 	    const locFlags1 = this.tileFlags(x1, y2, limitToPlayerKnowledge);
-	    if (locFlags1 & TileFlags.T_OBSTRUCTS_DIAGONAL_MOVEMENT) {
+	    if (locFlags1 & Flags.T_OBSTRUCTS_DIAGONAL_MOVEMENT) {
 	        return true;
 	    }
 	    const locFlags2 = this.tileFlags(x2, y1, limitToPlayerKnowledge);
-	    if (locFlags2 & TileFlags.T_OBSTRUCTS_DIAGONAL_MOVEMENT) {
+	    if (locFlags2 & Flags.T_OBSTRUCTS_DIAGONAL_MOVEMENT) {
 	        return true;
 	    }
 	    return false;
@@ -5016,7 +5021,7 @@ class Map {
 					if (!this.hasXY(i, j)) continue;
 					const cell = this.cell(i, j);
 					// if ((i == x-k || i == x+k || j == y-k || j == y+k)
-					if ((Math.floor(distanceBetween(x, y, i, j)) == k)
+					if ((Math.floor(utils.distanceBetween(x, y, i, j)) == k)
 							&& (!blockingMap || !blockingMap[i][j])
 							&& matcher(cell, i, j)
 							&& (!forbidLiquid || cell.liquid == def.NOTHING)
@@ -5252,7 +5257,7 @@ class Map {
 	addItemNear(x, y, theItem) {
 		const loc = this.getMatchingLocNear(x, y, (cell, i, j) => {
 			if (cell.flags & Flags$1.HAS_ITEM) return false;
-			return !cell.hasTileFlag(TileFlags.T_OBSTRUCTS_ITEMS);
+			return !cell.hasTileFlag(Flags.T_OBSTRUCTS_ITEMS);
 		});
 		if (!loc || loc[0] < 0) {
 			// GW.ui.message(colors.badMessageColor, 'There is no place to put the item.');
@@ -5288,6 +5293,22 @@ class Map {
 	// 		}
 	// 	}
 	// }
+
+
+	// FOV
+
+	// Returns a boolean grid indicating whether each square is in the field of view of (xLoc, yLoc).
+	// forbiddenTerrain is the set of terrain flags that will block vision (but the blocking cell itself is
+	// illuminated); forbiddenFlags is the set of map flags that will block vision.
+	// If cautiousOnWalls is set, we will not illuminate blocking tiles unless the tile one space closer to the origin
+	// is visible to the player; this is to prevent lights from illuminating a wall when the player is on the other
+	// side of the wall.
+	calcFov(grid, x, y, maxRadius, forbiddenFlags=0, forbiddenTerrain=Flags.T_OBSTRUCTS_VISION, cautiousOnWalls=true) {
+	  const FOV = new types.FOV(grid, (i, j) => {
+	    return (!this.hasXY(i, j)) || this.hasCellFlag(i, j, forbiddenFlags) || this.hasTileFlag(i, j, forbiddenTerrain) ;
+	  });
+	  return FOV.calculate(x, y, maxRadius, cautiousOnWalls);
+	}
 
 	// MEMORIES
 
@@ -5329,7 +5350,7 @@ function getCellAppearance(map, x, y, dest) {
 	dest.clear();
 	if (!map.hasXY(x, y)) return;
 	const cell = map.cell(x, y);
-	getAppearance(cell, dest);
+	cell$1.getAppearance(cell, dest);
 
 	if (cell.flags & Flags$1.HAS_PLAYER) {
 		dest.plot(data.player.kind.sprite);
@@ -5429,7 +5450,7 @@ var ui = {};
 
 function init(opts={}) {
 
-  setDefaults(opts, {
+  utils.setDefaults(opts, {
     width: 100,
     height: 34,
     bg: 'black',
@@ -5526,7 +5547,7 @@ game.setTime = setTime;
 
 
 function startGame(opts={}) {
-  if (!opts.map) ERROR('map is required.');
+  if (!opts.map) utils.ERROR('map is required.');
 
   data.player = opts.player || null;
 
@@ -5552,7 +5573,7 @@ function startMap(map, playerX, playerY) {
     let y = playerY || data.player.y || 0;
     if (x <= 0) {
       const start = map.locations.start;
-      if (!start) ERROR('Need x,y or start location.');
+      if (!start) utils.ERROR('Need x,y or start location.');
       x = start[0];
       y = start[1];
     }
@@ -5733,11 +5754,10 @@ fx.tick = tick;
 
 
 class FX {
-  constructor(map, opts={}) {
-    this.map = map;
+  constructor(opts={}) {
     this.tilNextTurn = opts.speed || opts.duration || 1000;
     this.speed = opts.speed || opts.duration || 1000;
-    this.callback = NOOP;
+    this.callback = utils.NOOP;
     this.done = false;
   }
 
@@ -5775,10 +5795,11 @@ class SpriteFX extends FX {
     const count = opts.blink || 1;
     const duration = opts.duration || 1000;
     opts.speed = opts.speed || (duration / (2*count-1));
-    super(map, opts);
+    super(opts);
     if (typeof sprite === 'string') {
       sprite = sprites[sprite];
     }
+    this.map = map;
     this.sprite = sprite;
     this.x = x || -1;
     this.y = y || -1;
@@ -5818,6 +5839,119 @@ class SpriteFX extends FX {
 }
 
 
+
+
+
+async function flashSprite(map, x, y, sprite, duration, count=1) {
+  const animation = new SpriteFX(map, sprite, x, y, { duration, blink: count });
+  return animation.start();
+}
+
+fx.flashSprite = flashSprite;
+
+installSprite('bump', 'white', 50);
+
+
+async function hit(map, target, sprite, duration) {
+  sprite = sprite || config.fx.hitSprite || 'hit';
+  duration = duration || config.fx.hitFlashTime || 200;
+  const animation = new SpriteFX(map, sprite, target.x, target.y, { duration });
+  return animation.start();
+}
+
+fx.hit = hit;
+
+installSprite('hit', 'red', 50);
+
+async function miss(map, target, sprite, duration) {
+  sprite = sprite || config.fx.missSprite || 'miss';
+  duration = duration || config.fx.missFlashTime || 200;
+  const animation = new SpriteFX(map, sprite, target.x, target.y, { duration });
+  return animation.start();
+}
+
+fx.miss = miss;
+
+installSprite('miss', 'green', 50);
+
+
+class MovingSpriteFX extends SpriteFX {
+  constructor(map$1, source, target, sprite, speed, stepFn) {
+    super(map$1, sprite, source.x, source.y, { speed });
+    this.target = target;
+    this.path = map.getLine(this.map, source.x, source.y, this.target.x, this.target.y);
+    this.stepFn = stepFn || utils.TRUE;
+  }
+
+  step() {
+    if (this.x == this.target.x && this.y == this.target.y) return this.stop(this);
+    if (!this.path.find( (loc) => loc[0] == this.target.x && loc[1] == this.target.y)) {
+      this.path = map.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
+    }
+    const next = this.path.shift();
+    const r = this.stepFn(next[0], next[1]);
+    if (r < 0) {
+      return this.stop(this);
+    }
+    else if (r) {
+      return this.moveTo(next[0], next[1]);
+    }
+    else {
+      this.moveTo(next[0], next[1]);
+      this.target.x = this.x;
+      this.target.y = this.y;
+    }
+  }
+}
+
+types.MovingSpriteFX = MovingSpriteFX;
+
+
+
+
+async function bolt(map, source, target, sprite, speed, stepFn) {
+  stepFn = stepFn || ((x, y) => !map.isObstruction(x, y));
+  const animation = new MovingSpriteFX(map, source, target, sprite, speed, stepFn );
+  return animation.start();
+}
+
+fx.bolt = bolt;
+
+async function projectile(map, source, target, chs, fg, speed, stepFn) {
+  if (chs.length != 4) utils.ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
+  stepFn = stepFn || ((x, y) => !map.isObstruction(x, y));
+
+  const dir = utils.dirFromTo(source, target);
+  const dIndex = utils.dirIndex(dir);
+  const index = Math.floor(dIndex / 2);
+  const ch = chs[index];
+  const sprite = GW.make.sprite(ch, fg);
+  const animation = new MovingSpriteFX(map, source, target, sprite, speed, stepFn);
+  return animation.start();
+}
+
+fx.projectile = projectile;
+
+
+//
+// RUT.Animations.projectileToTarget = function projectileTo(map, from, target, callback, opts) {
+//   if (typeof callback != 'function' && opts === undefined) {
+//     opts = callback;
+//     callback = RUT.NOOP;
+//   }
+//   if (opts === true) opts = {};
+//   if (opts === false) return;
+//   opts = opts || {};
+//   if (typeof opts === 'string') opts = { sprite: opts };
+//
+//   Object.defaults(opts, RUT.Config.Animations.projectile);
+//   // if (!RUT.FOV.isVisible(shooter) && !RUT.FOV.isVisible(to)) { return Promise.resolve(); }
+//   const sprite = opts.sprite;
+//   let anim = new RUT.Animations.XYAnimation(map, sprite, from, () => target.xy, callback, opts.speed);
+//   anim.start(); // .then( () => target.xy );
+//   return anim;
+// }
+//
 
 // export class DirAnimation extends FX {
 //   constructor(sprite, from, dir, callback, opts={}) {
@@ -5861,266 +5995,6 @@ class SpriteFX extends FX {
 //   }
 // }
 
-
-
-// RUT.Animations.Explosion = class Explosion extends FX {
-//   constructor(map, grid, sprite, x, y, radius, callback, opts={}) {
-//     if (opts === true) opts = {};
-//     Object.defaults(opts, { speed:100, duration:300, sprite });
-//     super(map, callback, opts);
-//     this.center = { x, y };
-//     this.max_radius = radius;
-//     this.duration = opts.duration;
-//     this.stepFn = opts.stepFn;
-//
-//     this.grid = RUT.Grid.allocCopy(grid);
-//
-//     this.add(x, y);
-//     this.grid[x][y] = 2;
-//     this.radius = 1;
-//   }
-//
-//   step() {
-//     this.radius = Math.min(this.radius + 1, this.max_radius);
-//
-//     let done = true;
-//     let x = Math.max(0, Math.floor(this.center.x - this.max_radius));
-//     const maxX = Math.min(this.grid.width - 1, Math.ceil(this.center.x + this.max_radius));
-//     let minY = Math.max(0, Math.floor(this.center.y - this.max_radius));
-//     const maxY = Math.min(this.grid.height - 1, Math.ceil(this.center.y + this.max_radius));
-//     let col;
-//     let dist;
-//
-//     for(; x <= maxX; ++x) {
-//       col = this.grid[x];
-//       for(let y = minY; y <= maxY; ++y) {
-//         if (!(col[y] & FovFlags.IN_FOV)) continue;
-//         dist = distanceFromTo(this.center.x, this.center.y, x, y);
-//         if (dist <= this.radius) {
-//           this.add(x, y);
-//           col[y] = 2;
-//         }
-//         else if (dist <= this.max_radius) {
-//           done = false;
-//         }
-//         else {
-//           console.log('weird dist', dist, this.center, x, y);
-//         }
-//       }
-//     }
-//     // console.log('returning...', done);
-//     if (done) {
-//       RUT.Grid.free(this.grid);
-//       return this.stop(this.center); // xy of explosion is callback value
-//     }
-//     return false;
-//   }
-//
-//   add(x, y) {
-//     RUT.Animations.flashSprite(this.map, x, y, this.sprite, this.duration);
-//
-//     if (this.stepFn) {
-//       this.stepFn(this.map, x, y);
-//     }
-//   }
-// }
-
-
-
-async function flashSprite(map, x, y, sprite, duration, count=1) {
-  const animation = new SpriteFX(map, sprite, x, y, { duration, blink: count });
-  return animation.start();
-}
-
-fx.flashSprite = flashSprite;
-
-installSprite('bump', 'white', 50);
-
-
-async function hit(map, target, sprite, duration) {
-  sprite = sprite || config.fx.hitSprite || 'hit';
-  duration = duration || config.fx.hitFlashTime || 200;
-  const animation = new SpriteFX(map, sprite, target.x, target.y, { duration });
-  return animation.start();
-}
-
-fx.hit = hit;
-
-installSprite('hit', 'red', 50);
-installSprite('miss', 'green', 50);
-
-
-// RUT.Animations.hit = function hit(defender, callback, opts) {
-//   if (typeof callback != 'function' && opts === undefined) {
-//     opts = callback;
-//     callback = RUT.NOOP;
-//   }
-//   if (opts === true) opts = {};
-//   if (opts === false) return;
-//   opts = opts || {};
-//   if (typeof opts == 'string') opts = { sprite: opts };
-//   if (typeof opts == 'number') opts = { duration: opts };
-//   Object.defaults(opts, RUT.Config.Animations.hit);
-//
-//   if (!defender.map || !defender.xy) {
-//     console.warn('map and xy required for RUT.Animations.hit::defender');
-//     return callback();
-//   }
-//
-//   const map = defender.map;
-//   const x = defender.xy.x;
-//   const y = defender.xy.y;
-//   const spriteName = opts.sprite;
-//
-//   if (RUT.Animations._debug) console.log('hit animation - added', x, y, RUT.App.time);
-//   return RUT.Animations.flashSprite(map, x, y, spriteName, opts.duration, callback);
-// }
-// RUT.Config.Animations.hit = { duration:200, sprite: 'effect.hit' };
-// RUT.Sprite.add('effect.hit', { ch: '*', fg: 'red' });
-//
-//
-// RUT.Animations.miss = function miss(defender, callback, opts) {
-//   if (typeof callback != 'function' && opts === undefined) {
-//     opts = callback;
-//     callback = RUT.NOOP;
-//   }
-//   if (opts === true) opts = {};
-//   if (opts === false) return;
-//   opts = opts || {};
-//   if (typeof opts == 'string') opts = { sprite: opts };
-//   if (typeof opts == 'number') opts = { duration: opts };
-//   Object.defaults(opts, RUT.Config.Animations.miss);
-//
-//   if (!defender.map || !defender.xy) {
-//     console.warn('map and xy required for RUT.Animations.miss::defender');
-//     return callback();
-//   }
-//   // if (!RUT.FOV.isVisible(defender)) { return Promise.resolve(); }
-//
-//   const map = defender.map;
-//   const x = defender.xy.x;
-//   const y = defender.xy.y;
-//   const spriteName = opts.sprite;
-//
-//   if (RUT.Animations._debug) console.log('miss animation - added', x, y, RUT.App.time);
-//   return RUT.Animations.flashSprite(map, x, y, spriteName, opts.duration, callback);
-// }
-// RUT.Config.Animations.miss = { duration:200, sprite: 'effect.miss' };
-// RUT.Sprite.add('effect.miss', { ch: '*', fg: 'green' });
-//
-//
-
-class MovingSpriteFX extends SpriteFX {
-  constructor(map$1, source, target, sprite, speed) {
-    super(map$1, sprite, source.x, source.y, { speed });
-    this.target = target;
-    this.path = map.getLine(this.map, source.x, source.y, this.target.x, this.target.y);
-  }
-
-  step() {
-    if (this.x == this.target.x && this.y == this.target.y) return this.stop(this.target);
-    if (!this.path.find( (loc) => loc[0] == this.target.x && loc[1] == this.target.y)) {
-      this.path = map.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
-    }
-    const next = this.path.shift();
-    return this.moveTo(next[0], next[1]);
-  }
-}
-
-// export class XYAnimation extends FX {
-//   constructor(sprite, from, dest, callback, speed=10) {
-//     super(callback, { speed, sprite });
-//     this.from = from;
-//     this.dest = dest;
-//     this.distance = distanceFromTo(from, dest);
-//   }
-//
-//   start() {
-//     return super.start(this.from.x, this.from.y);
-//   }
-//
-//   step() {
-//     const dest = (typeof this.dest == 'function') ? this.dest() : this.dest;
-//     const distance = distanceFromTo(this.xy, dest);
-//
-//     if (distance == 0) {
-//       this.stop(this);
-//       return;
-//     }
-//
-//     const dir = dirFromTo(this, dest);
-//     DATA.map.moveAnimation(this.x + dir[0], this.y + dir[1], this);
-//   }
-// }
-
-
-async function bolt(map, source, target, sprite, speed) {
-  const animation = new MovingSpriteFX(map, source, target, sprite, speed);
-  return animation.start();
-}
-
-fx.bolt = bolt;
-
-async function projectile(map, source, target, chs, fg, speed) {
-  if (chs.length != 4) ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
-  const dir = dirFromTo(source, target);
-  const dIndex = dirIndex(dir);
-  const index = Math.floor(dIndex / 2);
-  const ch = chs[index];
-  const sprite = GW.make.sprite(ch, fg);
-  const animation = new MovingSpriteFX(map, source, target, sprite, speed);
-  return animation.start();
-}
-
-fx.projectile = projectile;
-
-
-//
-// RUT.Animations.projectileTo = function projectileTo(map, from, to, callback, opts) {
-//   if (typeof callback != 'Function' && opts === undefined) {
-//     opts = callback;
-//     callback = RUT.NOOP;
-//   }
-//   if (opts === true) opts = {};
-//   if (opts === false) return;
-//   opts = opts || {};
-//   if (typeof opts === 'string') opts = { sprite: opts };
-//
-//   Object.defaults(opts, RUT.Config.Animations.projectile);
-//   // if (!RUT.FOV.isVisible(shooter) && !RUT.FOV.isVisible(to)) { return Promise.resolve(); }
-//   const sprite = opts.sprite;
-//   const anim = new RUT.Animations.XYAnimation(map, sprite, from, to, callback, opts.speed);
-//   anim.start();
-//   return anim;
-// }
-// RUT.Config.Animations.projectile = {
-//   speed: 50,
-//   sprite: 'projectile',
-//   stopCell: 0,
-//   stopTile: TileFlags.T_OBSTRUCTS_PASSABILITY,
-//   stepFn: undefined
-// };
-//
-// RUT.Sprite.add('projectile', { ch: '|', fg: 'orange' });
-//
-// RUT.Animations.projectileToTarget = function projectileTo(map, from, target, callback, opts) {
-//   if (typeof callback != 'function' && opts === undefined) {
-//     opts = callback;
-//     callback = RUT.NOOP;
-//   }
-//   if (opts === true) opts = {};
-//   if (opts === false) return;
-//   opts = opts || {};
-//   if (typeof opts === 'string') opts = { sprite: opts };
-//
-//   Object.defaults(opts, RUT.Config.Animations.projectile);
-//   // if (!RUT.FOV.isVisible(shooter) && !RUT.FOV.isVisible(to)) { return Promise.resolve(); }
-//   const sprite = opts.sprite;
-//   let anim = new RUT.Animations.XYAnimation(map, sprite, from, () => target.xy, callback, opts.speed);
-//   anim.start(); // .then( () => target.xy );
-//   return anim;
-// }
-//
 //
 // RUT.Animations.projectileDir = function projectileTo(map, xy, dir, callback, opts) {
 //   if (typeof callback != 'function' && opts === undefined) {
@@ -6143,7 +6017,8 @@ fx.projectile = projectile;
 class BeamFX extends FX {
   constructor(map$1, from, target, sprite, speed, fade) {
     speed = speed || 20;
-    super(map$1, { speed });
+    super({ speed });
+    this.map = map$1;
     this.x = from.x;
     this.y = from.y;
     this.target = target;
@@ -6158,59 +6033,130 @@ class BeamFX extends FX {
       this.path = map.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
     }
     const next = this.path.shift();
-    this.x = next[0];
-    this.y = next[1];
-    fx.flashSprite(this.map, this.x, this.y, this.sprite, this.fade);
+    const r = this.stepFn(next[0], next[1]);
+    if (r < 0) {
+      return this.stop(this);
+    }
+    else if (r) {
+      return this.moveTo(next[0], next[1]);
+    }
+    else {
+      this.moveTo(next[0], next[1]);
+      this.target.x = this.x;
+      this.target.y = this.y;
+    }
+  }
+
+  moveTo(x, y) {
+    this.x = x;
+    this.y = y;
   }
 
 }
 
-function beam(map, from, to, sprite, speed, fade) {
-  const animation = new BeamFX(map, from, to, sprite, speed, fade);
+types.BeamFX = BeamFX;
+
+function beam(map, from, to, sprite, speed, fade, stepFn) {
+  stepFn = stepFn || ((x, y) => !map.isObstruction(x, y));
+  const animation = new BeamFX(map, from, to, sprite, speed, fade, stepFn);
   return animation.start();
 }
 
 fx.beam = beam;
 
-//
-// RUT.Animations.explosionAt = function explosionAt(map, x, y, radius, callback, opts) {
-//   if (typeof callback != 'function' && opts === undefined) {
-//     opts = callback;
-//     callback = RUT.NOOP;
-//   }
-//   opts = opts || {};
-//   if (typeof opts == 'string') opts = { sprite: opts };
-//   Object.defaults(opts, RUT.Config.Animations.explosion);
-//
-//   const fov = RUT.FOV.getFovMask(map, x, y, radius, 0, opts.blocks);
-//   return RUT.Animations.explosionFor(map, fov, x, y, radius, callback, opts);
-// }
-//
-// RUT.Config.Animations.explosion = {
-//   sprite: 'effect.hit',
-//   speed:100,
-//   duration:300,
-//   blocks: TileFlags.T_OBSTRUCTS_PASSABILITY
-// }
-//
-//
-// RUT.Animations.explosionFor = function explosionFor(map, grid, x, y, radius, callback, opts) {
-//   if (typeof callback != 'function' && arguments.length == 6) {
-//     opts = callback;
-//     callback = RUT.NOOP;
-//   }
-//   if (opts === true) opts = {};
-//   opts = opts || {};
-//   if (typeof opts == 'string') opts = { sprite: opts };
-//   Object.defaults(opts, RUT.Config.Animations.explosion);
-//
-//   // TODO - Check edges of explosion
-//   // if (!RUT.FOV.isVisible(xy)) { return Promise.resolve(); }
-//   const sprite = opts.sprite;
-//   let anim = new RUT.Animations.Explosion(map, grid, sprite, x, y, radius, callback, opts);
-//   anim.start();
-//   return anim;
-// }
+
+
+class ExplosionFX extends FX {
+  constructor(map, fovGrid, x, y, radius, sprite, speed, fade, shape) {
+    speed = speed || 20;
+    super({ speed });
+    this.map = map;
+    this.grid = GRID.alloc(map.width, map.height);
+    if (fovGrid) {
+      this.grid.copy(fovGrid);
+    }
+    else {
+      this.grid.fill(1);
+    }
+    this.x = x;
+    this.y = y;
+    this.radius = 0;
+    this.maxRadius = radius;
+    this.sprite = sprite;
+    this.fade = fade || 100;
+    this.shape = shape || 'o';
+  }
+
+  step() {
+    this.radius = Math.min(this.radius + 1, this.maxRadius);
+
+    let done = true;
+    let x = Math.max(0, Math.floor(this.x - this.maxRadius));
+    const maxX = Math.min(this.grid.width - 1, Math.ceil(this.x + this.maxRadius));
+    let minY = Math.max(0, Math.floor(this.y - this.maxRadius));
+    const maxY = Math.min(this.grid.height - 1, Math.ceil(this.y + this.maxRadius));
+    let col;
+    let dist;
+
+    for(; x <= maxX; ++x) {
+      col = this.grid[x];
+      for(let y = minY; y <= maxY; ++y) {
+        if (col[y] != 1) continue;  // not in FOV
+        dist = utils.distanceBetween(this.x, this.y, x, y);
+        if (dist <= this.radius) {
+          this.visit(x, y);
+        }
+        else if (dist <= this.maxRadius) {
+          done = false;
+        }
+      }
+    }
+    // console.log('returning...', done);
+    if (done) {
+      return this.stop(this); // xy of explosion is callback value
+    }
+    return false;
+  }
+
+  visit(x, y) {
+    if (this.isInShape(x, y)) {
+      fx.flashSprite(this.map, x, y, this.sprite, this.fade);
+    }
+    this.grid[x][y] = 2;
+    // TODO - this.stepFn??
+  }
+
+  isInShape(x, y) {
+    const sx = Math.abs(x - this.x);
+    const sy = Math.abs(y - this.y);
+    switch(this.shape) {
+      case '+': return sx == 0 || sy == 0;
+      case 'x': return sx == sy;
+      case '*': return (sx == 0 || sy == 0 || sx == sy);
+      default: return true;
+    }
+  }
+
+  stop(result) {
+    this.grid = GRID.free(this.grid);
+    return super.stop(result);
+  }
+}
+
+function explosion(map, x, y, radius, sprite, speed, fade, shape) {
+  const animation = new ExplosionFX(map, null, x, y, radius, sprite, speed, fade, shape);
+  map.calcFov(animation.grid, x, y, radius);
+  return animation.start();
+}
+
+fx.explosion = explosion;
+
+function explosionFor(map, grid, x, y, radius, sprite, speed, fade, shape) {
+  const animation = new ExplosionFX(map, grid, x, y, radius, sprite, speed, fade, shape);
+  return animation.start();
+}
+
+fx.explosionFor = explosionFor;
 
 var player = {};
 
@@ -6521,132 +6467,125 @@ function betweenOctant1andN(x, y, x0, y0, n) {
 	}
 }
 
-// Returns a boolean grid indicating whether each square is in the field of view of (xLoc, yLoc).
-// forbiddenTerrain is the set of terrain flags that will block vision (but the blocking cell itself is
-// illuminated); forbiddenFlags is the set of map flags that will block vision.
-// If cautiousOnWalls is set, we will not illuminate blocking tiles unless the tile one space closer to the origin
-// is visible to the player; this is to prevent lights from illuminating a wall when the player is on the other
-// side of the wall.
-function getFOVMask( map, grid, xLoc, yLoc, maxRadius,
-				forbiddenTerrain,	forbiddenFlags, cautiousOnWalls)
-{
-	let i;
 
-	for (i=1; i<=8; i++) {
-		scanOctantFOV(map, grid, xLoc, yLoc, i, maxRadius << FP_BASE$1, 1, LOS_SLOPE_GRANULARITY * -1, 0,
-					  forbiddenTerrain, forbiddenFlags, cautiousOnWalls);
-	}
+class FOV {
+  constructor(grid, isBlocked) {
+    this.grid = grid;
+    this.isBlocked = isBlocked;
+  }
+
+  isVisible(x, y) { return this.grid.hasXY(x, y) && this.grid[x][y]; }
+  setVisible(x, y) { this.grid[x][y] = 1; }
+
+  calculate(x, y, maxRadius, cautiousOnWalls) {
+    this.grid.fill(0);
+    this.grid[x][y] = 1;
+    for (let i=1; i<=8; i++) {
+  		this._scanOctant(x, y, i, maxRadius << FP_BASE$1, 1, LOS_SLOPE_GRANULARITY * -1, 0, cautiousOnWalls);
+  	}
+  }
+
+  // This is a custom implementation of recursive shadowcasting.
+  _scanOctant(xLoc, yLoc, octant, maxRadius,
+  				   columnsRightFromOrigin, startSlope, endSlope, cautiousOnWalls)
+  {
+  	// GW.debug.log('scanOctantFOV', xLoc, yLoc, octant, maxRadius, columnsRightFromOrigin, startSlope, endSlope);
+  	if ((columnsRightFromOrigin << FP_BASE$1) >= maxRadius) {
+  		// GW.debug.log(' - columnsRightFromOrigin >= maxRadius', columnsRightFromOrigin << FP_BASE, maxRadius);
+  		return;
+  	}
+
+  	let i, a, b, iStart, iEnd, x, y, x2, y2; // x and y are temporary variables on which we do the octant transform
+  	let newStartSlope, newEndSlope;
+  	let cellObstructed;
+  	let loc;
+
+  	// if (Math.floor(maxRadius) != maxRadius) {
+  	// 		maxRadius = Math.floor(maxRadius);
+  	// }
+  	newStartSlope = startSlope;
+
+  	a = (((LOS_SLOPE_GRANULARITY / -2 + 1) + startSlope * columnsRightFromOrigin) / LOS_SLOPE_GRANULARITY) >> 0;
+  	b = (((LOS_SLOPE_GRANULARITY / -2 + 1) + endSlope * columnsRightFromOrigin) / LOS_SLOPE_GRANULARITY) >> 0;
+
+  	iStart = Math.min(a, b);
+  	iEnd = Math.max(a, b);
+
+  	// restrict vision to a circle of radius maxRadius
+
+  	let radiusSquared = Number(BigInt(maxRadius*maxRadius) >> (BIG_BASE*2n));
+  	radiusSquared += (maxRadius >> FP_BASE$1);
+  	if ((columnsRightFromOrigin*columnsRightFromOrigin + iEnd*iEnd) >= radiusSquared ) {
+  		// GW.debug.log(' - columnsRightFromOrigin^2 + iEnd^2 >= radiusSquared', columnsRightFromOrigin, iEnd, radiusSquared);
+  		return;
+  	}
+  	if ((columnsRightFromOrigin*columnsRightFromOrigin + iStart*iStart) >= radiusSquared ) {
+  		const bigRadiusSquared = Number(BigInt(maxRadius*maxRadius) >> BIG_BASE); // (maxRadius*maxRadius >> FP_BASE)
+  		const bigColumsRightFromOriginSquared = Number(BigInt(columnsRightFromOrigin*columnsRightFromOrigin) << BIG_BASE);	// (columnsRightFromOrigin*columnsRightFromOrigin << FP_BASE)
+  		iStart = Math.floor(-1 * fp_sqrt(bigRadiusSquared - bigColumsRightFromOriginSquared) >> FP_BASE$1);
+  	}
+
+  	x = xLoc + columnsRightFromOrigin;
+  	y = yLoc + iStart;
+  	loc = betweenOctant1andN(x, y, xLoc, yLoc, octant);
+  	x = loc[0];
+  	y = loc[1];
+  	let currentlyLit = this.isBlocked(x, y);
+
+  	// GW.debug.log(' - scan', iStart, iEnd);
+  	for (i = iStart; i <= iEnd; i++) {
+  		x = xLoc + columnsRightFromOrigin;
+  		y = yLoc + i;
+  		loc = betweenOctant1andN(x, y, xLoc, yLoc, octant);
+  		x = loc[0];
+  		y = loc[1];
+
+  		cellObstructed = this.isBlocked(x, y);
+  		// if we're cautious on walls and this is a wall:
+  		if (cautiousOnWalls && cellObstructed) {
+  			// (x2, y2) is the tile one space closer to the origin from the tile we're on:
+  			x2 = xLoc + columnsRightFromOrigin - 1;
+  			y2 = yLoc + i;
+  			if (i < 0) {
+  				y2++;
+  			} else if (i > 0) {
+  				y2--;
+  			}
+  			loc = betweenOctant1andN(x2, y2, xLoc, yLoc, octant);
+  			x2 = loc[0];
+  			y2 = loc[1];
+
+  			if (this.isVisible(x2, y2)) {
+  				// previous tile is visible, so illuminate
+  				this.setVisible(x, y);
+  			}
+  		} else {
+  			// illuminate
+        this.setVisible(x, y);
+  		}
+  		if (!cellObstructed && !currentlyLit) { // next column slope starts here
+  			newStartSlope = ((LOS_SLOPE_GRANULARITY * (i) - LOS_SLOPE_GRANULARITY / 2) / (columnsRightFromOrigin * 2 + 1) * 2) >> 0;
+  			currentlyLit = true;
+  		} else if (cellObstructed && currentlyLit) { // next column slope ends here
+  			newEndSlope = ((LOS_SLOPE_GRANULARITY * (i) - LOS_SLOPE_GRANULARITY / 2)
+  							/ (columnsRightFromOrigin * 2 - 1) * 2) >> 0;
+  			if (newStartSlope <= newEndSlope) {
+  				// run next column
+  				this._scanOctant(xLoc, yLoc, octant, maxRadius, columnsRightFromOrigin + 1, newStartSlope, newEndSlope, cautiousOnWalls);
+  			}
+  			currentlyLit = false;
+  		}
+  	}
+  	if (currentlyLit) { // got to the bottom of the scan while lit
+  		newEndSlope = endSlope;
+  		if (newStartSlope <= newEndSlope) {
+  			// run next column
+  			this._scanOctant(xLoc, yLoc, octant, maxRadius, columnsRightFromOrigin + 1, newStartSlope, newEndSlope, cautiousOnWalls);
+  		}
+  	}
+  }
 }
 
-fov.getMask = getFOVMask;
-
-// Number.parseInt((t * t).toString(16).padStart(16, '0').substring(0, 8), 16)
-
-// This is a custom implementation of recursive shadowcasting.
-function scanOctantFOV( map, grid, xLoc, yLoc, octant, maxRadius,
-				   columnsRightFromOrigin, startSlope, endSlope, forbiddenTerrain,
-				   forbiddenFlags, cautiousOnWalls)
-{
-	// GW.debug.log('scanOctantFOV', xLoc, yLoc, octant, maxRadius, columnsRightFromOrigin, startSlope, endSlope);
-	if ((columnsRightFromOrigin << FP_BASE$1) >= maxRadius) {
-		// GW.debug.log(' - columnsRightFromOrigin >= maxRadius', columnsRightFromOrigin << FP_BASE, maxRadius);
-		return;
-	}
-
-	let i, a, b, iStart, iEnd, x, y, x2, y2; // x and y are temporary variables on which we do the octant transform
-	let newStartSlope, newEndSlope;
-	let cellObstructed;
-	let loc;
-
-	// if (Math.floor(maxRadius) != maxRadius) {
-	// 		maxRadius = Math.floor(maxRadius);
-	// }
-	newStartSlope = startSlope;
-
-	a = (((LOS_SLOPE_GRANULARITY / -2 + 1) + startSlope * columnsRightFromOrigin) / LOS_SLOPE_GRANULARITY) >> 0;
-	b = (((LOS_SLOPE_GRANULARITY / -2 + 1) + endSlope * columnsRightFromOrigin) / LOS_SLOPE_GRANULARITY) >> 0;
-
-	iStart = Math.min(a, b);
-	iEnd = Math.max(a, b);
-
-	// restrict vision to a circle of radius maxRadius
-
-	let radiusSquared = Number(BigInt(maxRadius*maxRadius) >> (BIG_BASE*2n));
-	radiusSquared += (maxRadius >> FP_BASE$1);
-	if ((columnsRightFromOrigin*columnsRightFromOrigin + iEnd*iEnd) >= radiusSquared ) {
-		// GW.debug.log(' - columnsRightFromOrigin^2 + iEnd^2 >= radiusSquared', columnsRightFromOrigin, iEnd, radiusSquared);
-		return;
-	}
-	if ((columnsRightFromOrigin*columnsRightFromOrigin + iStart*iStart) >= radiusSquared ) {
-		const bigRadiusSquared = Number(BigInt(maxRadius*maxRadius) >> BIG_BASE); // (maxRadius*maxRadius >> FP_BASE)
-		const bigColumsRightFromOriginSquared = Number(BigInt(columnsRightFromOrigin*columnsRightFromOrigin) << BIG_BASE);	// (columnsRightFromOrigin*columnsRightFromOrigin << FP_BASE)
-		iStart = Math.floor(-1 * fp_sqrt(bigRadiusSquared - bigColumsRightFromOriginSquared) >> FP_BASE$1);
-	}
-
-	x = xLoc + columnsRightFromOrigin;
-	y = yLoc + iStart;
-	loc = betweenOctant1andN(x, y, xLoc, yLoc, octant);
-	x = loc[0];
-	y = loc[1];
-	let currentlyLit = map.hasXY(x, y) && !(map.hasTileFlag(x, y, forbiddenTerrain) || map.hasCellFlag(x, y, forbiddenFlags));
-
-	// GW.debug.log(' - scan', iStart, iEnd);
-	for (i = iStart; i <= iEnd; i++) {
-		x = xLoc + columnsRightFromOrigin;
-		y = yLoc + i;
-		loc = betweenOctant1andN(x, y, xLoc, yLoc, octant);
-		x = loc[0];
-		y = loc[1];
-		if (!map.hasXY(x, y)) {
-			// We're off the map -- here there be memory corruption.
-			continue;
-		}
-    const cell = map.cell(x, y);
-		cellObstructed = (cell.hasTileFlag(forbiddenTerrain) || (cell.flags & forbiddenFlags));
-		// if we're cautious on walls and this is a wall:
-		if (cautiousOnWalls && cellObstructed) {
-			// (x2, y2) is the tile one space closer to the origin from the tile we're on:
-			x2 = xLoc + columnsRightFromOrigin - 1;
-			y2 = yLoc + i;
-			if (i < 0) {
-				y2++;
-			} else if (i > 0) {
-				y2--;
-			}
-			loc = betweenOctant1andN(x2, y2, xLoc, yLoc, octant);
-			x2 = loc[0];
-			y2 = loc[1];
-
-			if (cell.flags & Flags$1.IN_FIELD_OF_VIEW) {
-				// previous tile is visible, so illuminate
-				grid[x][y] = 1;
-			}
-		} else {
-			// illuminate
-			grid[x][y] = 1;
-		}
-		if (!cellObstructed && !currentlyLit) { // next column slope starts here
-			newStartSlope = ((LOS_SLOPE_GRANULARITY * (i) - LOS_SLOPE_GRANULARITY / 2) / (columnsRightFromOrigin * 2 + 1) * 2) >> 0;
-			currentlyLit = true;
-		} else if (cellObstructed && currentlyLit) { // next column slope ends here
-			newEndSlope = ((LOS_SLOPE_GRANULARITY * (i) - LOS_SLOPE_GRANULARITY / 2)
-							/ (columnsRightFromOrigin * 2 - 1) * 2) >> 0;
-			if (newStartSlope <= newEndSlope) {
-				// run next column
-				scanOctantFOV(map, grid, xLoc, yLoc, octant, maxRadius, columnsRightFromOrigin + 1, newStartSlope, newEndSlope,
-							  forbiddenTerrain, forbiddenFlags, cautiousOnWalls);
-			}
-			currentlyLit = false;
-		}
-	}
-	if (currentlyLit) { // got to the bottom of the scan while lit
-		newEndSlope = endSlope;
-		if (newStartSlope <= newEndSlope) {
-			// run next column
-			scanOctantFOV(map, grid, xLoc, yLoc, octant, maxRadius, columnsRightFromOrigin + 1, newStartSlope, newEndSlope,
-						  forbiddenTerrain, forbiddenFlags, cautiousOnWalls);
-		}
-	}
-}
+types.FOV = FOV;
 
 export { canvas, cell$1 as cell, color, colors, commands, config, cosmetic, data, debug$1 as debug, def, digger, diggers, dungeon, flag, flags, fov, fx, game, GRID as grid, install, io, make, map, PATH as path, player, random, sprite, sprites, tile, tiles, types, ui, utils };

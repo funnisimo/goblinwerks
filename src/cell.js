@@ -1,8 +1,6 @@
 
-import { copyObject } from './utils.js';
-import { Enum } from './enum.js';
-import { installFlag, Fl } from './flag.js';
-import { makeSprite } from './sprite.js';
+import { utils as UTILS } from './utils.js';
+import { flag as FLAG } from './flag.js';
 import { tiles as TILES, Flags as TileFlags, MechFlags as TileMechFlags, withName } from './tile.js';
 
 import { types, make, def, config as CONFIG, data as DATA } from './gw.js';
@@ -10,8 +8,9 @@ import { types, make, def, config as CONFIG, data as DATA } from './gw.js';
 
 export var cell = {};
 
+const Fl = FLAG.fl;
 
-export const Flags = installFlag('cell', {
+export const Flags = FLAG.install('cell', {
   REVEALED					: Fl(0),
   VISIBLE							: Fl(1),	// cell has sufficient light and is in field of view, ready to draw.
   WAS_VISIBLE					: Fl(2),
@@ -63,7 +62,7 @@ cell.flags = Flags;
 ///////////////////////////////////////////////////////
 // CELL MECH
 
-export const MechFlags = installFlag('cellMech', {
+export const MechFlags = FLAG.install('cellMech', {
   SEARCHED_FROM_HERE				: Fl(0),	// Player already auto-searched from here; can't auto search here again
   CAUGHT_FIRE_THIS_TURN			: Fl(1),	// so that fire does not spread asymmetrically
   PRESSURE_PLATE_DEPRESSED	: Fl(2),	// so that traps do not trigger repeatedly while you stand on them
@@ -87,7 +86,7 @@ cell.mechFlags = MechFlags;
 
 class CellMemory {
   constructor() {
-    this.sprite = makeSprite();
+    this.sprite = make.sprite();
     this.clear();
   }
 
@@ -103,7 +102,7 @@ class CellMemory {
   }
 
   copy(other) {
-    copyObject(this, other);
+    UTILS.copyObject(this, other);
   }
 }
 
@@ -116,7 +115,7 @@ class Cell {
   }
 
   copy(other) {
-    copyObject(this, other);
+    UTILS.copyObject(this, other);
   }
 
   clear() {

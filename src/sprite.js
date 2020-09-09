@@ -1,8 +1,8 @@
 
-import { Color, applyMix, equals, makeColor, bakeColor } from './color.js';
+import { color as COLOR } from './color.js';
 import { types, make } from './gw.js';
 
-const TEMP_BG = new Color();
+const TEMP_BG = new types.Color();
 
 export var sprites = {};
 export var sprite = {};
@@ -43,8 +43,8 @@ export class Sprite {
 		}
 
 		this.ch = ch !== null ? (ch || ' ') : null;
-		this.fg = fg !== null ? makeColor(fg || 'white') : null;
-		this.bg = bg !== null ? makeColor(bg || 'black') : null;
+		this.fg = fg !== null ? make.color(fg || 'white') : null;
+		this.bg = bg !== null ? make.color(bg || 'black') : null;
 		this.opacity = opacity || 100;
 		this.needsUpdate = true;
 		this.wasHanging = false;
@@ -109,14 +109,14 @@ export class Sprite {
     }
 
 		if (sprite.fg && sprite.ch != ' ') {
-			applyMix(this.fg, sprite.fg, sprite.opacity);
+			COLOR.applyMix(this.fg, sprite.fg, sprite.opacity);
 		}
 
 		if (sprite.bg) {
-			applyMix(this.bg, sprite.bg, sprite.opacity);
+			COLOR.applyMix(this.bg, sprite.bg, sprite.opacity);
 		}
 
-    if (this.ch != ' ' && equals(this.fg, this.bg))
+    if (this.ch != ' ' && COLOR.equals(this.fg, this.bg))
     {
       this.ch = ' ';
     }
@@ -126,10 +126,10 @@ export class Sprite {
 
 	bake() {
 		if (this.fg && !this.fg.dances) {
-			bakeColor(this.fg);
+			COLOR.bake(this.fg);
 		}
 		if (this.bg && !this.bg.dances) {
-			bakeColor(this.bg);
+			COLOR.bake(this.bg);
 		}
 	}
 }
