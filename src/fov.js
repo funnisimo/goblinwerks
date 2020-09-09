@@ -298,7 +298,7 @@ export class FOV {
     this.grid.fill(0);
     this.grid[x][y] = 1;
     for (let i=1; i<=8; i++) {
-  		this._scanOctant(x, y, i, maxRadius << FP_BASE, 1, LOS_SLOPE_GRANULARITY * -1, 0, cautiousOnWalls);
+  		this._scanOctant(x, y, i, (maxRadius + 1) << FP_BASE, 1, LOS_SLOPE_GRANULARITY * -1, 0, cautiousOnWalls);
   	}
   }
 

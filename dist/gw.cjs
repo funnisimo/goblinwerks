@@ -6017,7 +6017,7 @@ fx.projectile = projectile;
 //
 
 class BeamFX extends FX {
-  constructor(map$1, from, target, sprite, speed, fade) {
+  constructor(map$1, from, target, sprite, speed, fade, stepFn) {
     speed = speed || 20;
     super({ speed });
     this.map = map$1;
@@ -6027,6 +6027,7 @@ class BeamFX extends FX {
     this.sprite = sprite;
     this.fade = fade || speed;
     this.path = map.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
+    this.stepFn = stepFn || utils.TRUE;
   }
 
   step() {
@@ -6052,6 +6053,7 @@ class BeamFX extends FX {
   moveTo(x, y) {
     this.x = x;
     this.y = y;
+    fx.flashSprite(this.map, x, y, this.sprite, this.fade);
   }
 
 }
@@ -6069,7 +6071,7 @@ fx.beam = beam;
 
 
 class ExplosionFX extends FX {
-  constructor(map, fovGrid, x, y, radius, sprite, speed, fade, shape) {
+  constructor(map, fovGrid, x, y, radius, sprite, speed, fade, shape, center, stepFn) {
     speed = speed || 20;
     super({ speed });
     this.map = map;
@@ -6087,6 +6089,8 @@ class ExplosionFX extends FX {
     this.sprite = sprite;
     this.fade = fade || 100;
     this.shape = shape || 'o';
+    this.center = (center === undefined) ? true : center;
+    this.stepFn = stepFn || utils.TRUE;
   }
 
   step() {
@@ -6121,16 +6125,16 @@ class ExplosionFX extends FX {
   }
 
   visit(x, y) {
-    if (this.isInShape(x, y)) {
+    if (this.isInShape(x, y) && this.stepFn(x, y)) {
       fx.flashSprite(this.map, x, y, this.sprite, this.fade);
     }
     this.grid[x][y] = 2;
-    // TODO - this.stepFn??
   }
 
   isInShape(x, y) {
     const sx = Math.abs(x - this.x);
     const sy = Math.abs(y - this.y);
+    if (sx == 0 && sy == 0 && !this.center) return false;
     switch(this.shape) {
       case '+': return sx == 0 || sy == 0;
       case 'x': return sx == sy;
@@ -6145,16 +6149,16 @@ class ExplosionFX extends FX {
   }
 }
 
-function explosion(map, x, y, radius, sprite, speed, fade, shape) {
-  const animation = new ExplosionFX(map, null, x, y, radius, sprite, speed, fade, shape);
+function explosion(map, x, y, radius, sprite, speed, fade, shape, center, stepFn) {
+  const animation = new ExplosionFX(map, null, x, y, radius, sprite, speed, fade, shape, center, stepFn);
   map.calcFov(animation.grid, x, y, radius);
   return animation.start();
 }
 
 fx.explosion = explosion;
 
-function explosionFor(map, grid, x, y, radius, sprite, speed, fade, shape) {
-  const animation = new ExplosionFX(map, grid, x, y, radius, sprite, speed, fade, shape);
+function explosionFor(map, grid, x, y, radius, sprite, speed, fade, shape, center, stepFn) {
+  const animation = new ExplosionFX(map, grid, x, y, radius, sprite, speed, fade, shape, center, stepFn);
   return animation.start();
 }
 
@@ -6483,7 +6487,7 @@ class FOV {
     this.grid.fill(0);
     this.grid[x][y] = 1;
     for (let i=1; i<=8; i++) {
-  		this._scanOctant(x, y, i, maxRadius << FP_BASE$1, 1, LOS_SLOPE_GRANULARITY * -1, 0, cautiousOnWalls);
+  		this._scanOctant(x, y, i, (maxRadius + 1) << FP_BASE$1, 1, LOS_SLOPE_GRANULARITY * -1, 0, cautiousOnWalls);
   	}
   }
 

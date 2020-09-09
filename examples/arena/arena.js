@@ -47,6 +47,13 @@ async function selectHit() {
 
 GW.commands.selectHit = selectHit;
 
+async function selectAura() {
+	command = 'showAura';
+	await GW.ui.messageBox('Selected AURA.', 'red', 500);
+}
+
+GW.commands.selectAura = selectAura;
+
 async function selectExplosion() {
 	command = 'showExplosion';
 	await GW.ui.messageBox('Selected EXPLOSION.', 'red', 500);
@@ -123,6 +130,13 @@ async function showProjectile(e) {
 }
 
 GW.commands.showProjectile = showProjectile;
+
+async function showAura(e) {
+	await GW.fx.explosion(MAP, e.x, e.y, 3, 'magic', 50, 200, 'o', false);
+}
+
+GW.commands.showAura = showAura;
+
 
 async function showExplosion(e) {
 	await GW.fx.explosion(MAP, e.x, e.y, 7, 'fireball', 50, 200);
@@ -214,6 +228,7 @@ function start() {
 		 	m: 'selectBeam', w: 'selectWall',
 			o: 'selectExplosion', '+': 'selectExplosionPlus', '=': 'selectExplosionPlus',
 		 	x: 'selectExplosionX', '8': 'selectExplosionStar', '*': 'selectExplosionStar',
+			a: 'selectAura',
 			'?': 'showHelp'
 	});
 

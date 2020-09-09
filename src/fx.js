@@ -295,7 +295,7 @@ fx.projectile = projectile;
 //
 
 export class BeamFX extends FX {
-  constructor(map, from, target, sprite, speed, fade) {
+  constructor(map, from, target, sprite, speed, fade, stepFn) {
     speed = speed || 20;
     super({ speed });
     this.map = map;
@@ -305,6 +305,7 @@ export class BeamFX extends FX {
     this.sprite = sprite;
     this.fade = fade || speed;
     this.path = MAP.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
+    this.stepFn = stepFn || UTILS.TRUE;
   }
 
   step() {
@@ -330,6 +331,7 @@ export class BeamFX extends FX {
   moveTo(x, y) {
     this.x = x;
     this.y = y;
+    fx.flashSprite(this.map, x, y, this.sprite, this.fade);
   }
 
 }
@@ -347,7 +349,7 @@ fx.beam = beam;
 
 
 class ExplosionFX extends FX {
-  constructor(map, fovGrid, x, y, radius, sprite, speed, fade, shape) {
+  constructor(map, fovGrid, x, y, radius, sprite, speed, fade, shape, center, stepFn) {
     speed = speed || 20;
     super({ speed });
     this.map = map;
@@ -365,6 +367,8 @@ class ExplosionFX extends FX {
     this.sprite = sprite;
     this.fade = fade || 100;
     this.shape = shape || 'o';
+    this.center = (center === undefined) ? true : center;
+    this.stepFn = stepFn || UTILS.TRUE;
   }
 
   step() {
@@ -399,16 +403,16 @@ class ExplosionFX extends FX {
   }
 
   visit(x, y) {
-    if (this.isInShape(x, y)) {
+    if (this.isInShape(x, y) && this.stepFn(x, y)) {
       fx.flashSprite(this.map, x, y, this.sprite, this.fade);
     }
     this.grid[x][y] = 2;
-    // TODO - this.stepFn??
   }
 
   isInShape(x, y) {
     const sx = Math.abs(x - this.x);
     const sy = Math.abs(y - this.y);
+    if (sx == 0 && sy == 0 && !this.center) return false;
     switch(this.shape) {
       case '+': return sx == 0 || sy == 0;
       case 'x': return sx == sy;
@@ -423,16 +427,16 @@ class ExplosionFX extends FX {
   }
 }
 
-export function explosion(map, x, y, radius, sprite, speed, fade, shape) {
-  const animation = new ExplosionFX(map, null, x, y, radius, sprite, speed, fade, shape);
+export function explosion(map, x, y, radius, sprite, speed, fade, shape, center, stepFn) {
+  const animation = new ExplosionFX(map, null, x, y, radius, sprite, speed, fade, shape, center, stepFn);
   map.calcFov(animation.grid, x, y, radius);
   return animation.start();
 }
 
 fx.explosion = explosion;
 
-export function explosionFor(map, grid, x, y, radius, sprite, speed, fade, shape) {
-  const animation = new ExplosionFX(map, grid, x, y, radius, sprite, speed, fade, shape);
+export function explosionFor(map, grid, x, y, radius, sprite, speed, fade, shape, center, stepFn) {
+  const animation = new ExplosionFX(map, grid, x, y, radius, sprite, speed, fade, shape, center, stepFn);
   return animation.start();
 }
 

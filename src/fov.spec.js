@@ -21,6 +21,11 @@ describe('FOV', () => {
     expect(grid[25][20]).toEqual(1);
     expect(grid[25][19]).toEqual(0);
 
+    // grid[25][25] = 2;
+    // grid.dump();
+
+    expect(grid[25][35]).toEqual(1);  // 10 away
+
     GW.grid.free(grid);
   });
 });
