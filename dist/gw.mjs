@@ -813,7 +813,9 @@ function css(color) {
 color.css = css;
 
 function equals(a, b) {
-  return a.every( (v, i) => v == b[i] ) && a.dances == b.dances;
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  return a.every( (v, i) => v === b[i] ) && a.dances === b.dances;
 }
 
 color.equals = equals;
@@ -1163,6 +1165,10 @@ class Sprite {
     }
 		this.needsUpdate = true;
 		return true;
+	}
+
+	equals(other) {
+		return this.ch == other.ch && color.equals(this.fg, other.fg) && color.equals(this.bg, other.bg);
 	}
 
 	bake() {
@@ -2055,6 +2061,8 @@ class Buffer extends types.Grid {
   }
 
   plot(x, y, sprite) {
+    if (sprite.opacity <= 0) return;
+
     if (!this.hasXY(x, y)) {
       debug$1.log('invalid coordinates: ' + x + ', ' + y);
       return false;
@@ -2072,12 +2080,25 @@ class Buffer extends types.Grid {
       return;
     }
 
+    if (typeof fg === 'string') {
+      fg = colors[fg];
+    }
+    if (typeof bg === 'string') {
+      bg = colors[bg];
+    }
+
     const destCell = this[x][y];
     destCell.plotChar(ch, fg, bg);
     this.needsUpdate = true;
   }
 
   plotText(x, y, text, fg, bg) {
+    if (typeof fg === 'string') {
+      fg = colors[fg];
+    }
+    if (typeof bg === 'string') {
+      bg = colors[bg];
+    }
     let len = text.length;
     for(let i = 0; i < len; ++i) {
       this.plotChar(i + x, y, text[i], fg, bg);
@@ -2085,6 +2106,13 @@ class Buffer extends types.Grid {
   }
 
   fillRect(x, y, w, h, ch, fg, bg) {
+    if (typeof fg === 'string') {
+      fg = colors[fg];
+    }
+    if (typeof bg === 'string') {
+      bg = colors[bg];
+    }
+
     this.forRect(x, y, w, h, (v, i, j) => {
       this.plotChar(i, j, ch, fg, bg);
     });
@@ -2243,32 +2271,14 @@ class Canvas {
   }
 
   plotChar(x, y, ch, fg, bg) {
-    if (typeof fg === 'string') {
-      fg = colors[fg];
-    }
-    if (typeof bg === 'string') {
-      bg = colors[bg];
-    }
     this.buffer.plotChar(x, y, ch, fg, bg);
   }
 
   plotText(x, y, text, fg, bg) {
-    if (typeof fg === 'string') {
-      fg = colors[fg];
-    }
-    if (typeof bg === 'string') {
-      bg = colors[bg];
-    }
     this.buffer.plotText(x, y, text, fg, bg);
   }
 
   fillRect(x, y, w, h, ch, fg, bg) {
-    if (typeof fg === 'string') {
-      fg = colors[fg];
-    }
-    if (typeof bg === 'string') {
-      bg = colors[bg];
-    }
     this.buffer.fillRect(x, y, w, h, ch, fg, bg);
   }
 
@@ -2289,6 +2299,9 @@ class Canvas {
     bufs.forEach( (buf) => this.dead.push(buf) );
   }
 
+  copyBuffer(dest) {
+    dest.copy(this.buffer);
+  }
 
   // draws overBuf over the current canvas with per-cell pseudotransparency as specified in overBuf.
   // If previousBuf is not null, it gets filled with the preexisting canvas for reversion purposes.
@@ -2306,7 +2319,15 @@ class Canvas {
 
     for (i=x; i<x + w; i++) {
       for (j=y; j<y + h; j++) {
-        this.buffer.plot(i, j, overBuf[i][j]);
+        const src = overBuf[i][j];
+        if (src.opacity) {
+          const dest = this.buffer[i][j];
+          if (!dest.equals(src)) {
+            dest.copy(src);
+            dest.needsUpdate = true;
+            this.buffer.needsUpdate = true;
+          }
+        }
       }
     }
 
@@ -2321,7 +2342,6 @@ var io = {};
 const KEYMAPS = [];
 const EVENTS = [];
 const DEAD_EVENTS = [];
-const TIMERS = [];
 
 const KEYPRESS  = def.KEYPRESS  = 'keypress';
 const MOUSEMOVE = def.MOUSEMOVE = 'mousemove';
@@ -2368,13 +2388,19 @@ io.clearEvents = clearEvents;
 
 
 function pushEvent(ev) {
-  if (EVENTS.length && ev.type === MOUSEMOVE) {
+  if (EVENTS.length) {
   	const last = EVENTS[EVENTS.length - 1];
-    if (last.type === MOUSEMOVE) {
-			last.x = ev.x;
-		  last.y = ev.y;
-      return;
-    }
+    if (last.type === ev.type) {
+			if (last.type === MOUSEMOVE) {
+				last.x = ev.x;
+			  last.y = ev.y;
+	      return;
+	    }
+			else if (last.type === TICK) {
+				last.dt += ev.dt;
+				return;
+			}
+		}
   }
 
 	if (CURRENT_HANDLER) {
@@ -2382,6 +2408,9 @@ function pushEvent(ev) {
   }
   else {
   	EVENTS.push(ev);
+		while(EVENTS.length > 20) {
+			io.recycleEvent(EVENTS.shift());
+		}
   }
 }
 
@@ -2432,46 +2461,6 @@ function recycleEvent(ev) {
 }
 
 io.recycleEvent = recycleEvent;
-
-
-// TIMERS
-
-function setTimeout(delay, fn) {
-	fn = fn || utils.NOOP;
-	const h = { delay, fn, resolve: null, promise: null };
-
-	const p = new Promise( (resolve) => {
-		h.resolve = resolve;
-	});
-
-	h.promise = p;
-
-	for(let i = 0; i < TIMERS.length; ++i) {
-		if (!TIMERS[i]) {
-			TIMERS[i] = h;
-			return p;
-		}
-	}
-
-	TIMERS.push(h);
-	return p;
-}
-
-io.setTimeout = setTimeout;
-
-function clearTimeout(promise) {
-	for(let i = 0; i < TIMERS.length; ++i) {
-		const timer = TIMERS[i];
-		if (timer && timer.promise === promise) {
-			TIMERS[i] = null;
-			timer.resolve(false);
-			return true;
-		}
-	}
-	return false;
-}
-
-io.clearTimeout = clearTimeout;
 
 // TICK
 
@@ -2605,7 +2594,6 @@ function nextEvent(ms, match) {
 
 	while (EVENTS.length) {
   	const e = EVENTS.shift();
-    e.dt = 0;
 		if (e.type === MOUSEMOVE) {
 			io.mouse.x = e.x;
 			io.mouse.y = e.y;
@@ -2651,7 +2639,7 @@ async function nextKeypress(ms, match) {
   	if (e.type !== KEYPRESS) return false;
     return match(e);
   }
-  return nextEvent(ms, matchingKey);
+  return io.nextEvent(ms, matchingKey);
 }
 
 io.nextKeypress = nextKeypress;
@@ -2661,17 +2649,24 @@ async function nextKeyOrClick(ms) {
   	if (e.type !== KEYPRESS && e.type !== CLICK) return false;
     return true;
   }
-  return nextEvent(ms, match);
+  return io.nextEvent(ms, match);
 }
 
 io.nextKeyOrClick = nextKeyOrClick;
 
 async function pause(ms) {
-	const e = await nextKeyOrClick(ms);
+	const e = await io.nextKeyOrClick(ms);
   return (e.type !== TICK);
 }
 
 io.pause = pause;
+
+async function nextTick() {
+	const e = await io.nextEvent(1);
+  return (e.type === TICK) ? e.dt : -1;
+}
+
+io.nextTick = nextTick;
 
 function waitForAck() {
 	return io.pause(5 * 60 * 1000);	// 5 min
@@ -4614,7 +4609,7 @@ class Cell {
   clearFlags(cellFlag=0, cellMechFlag=0) {
     this.flags &= ~cellFlag;
     this.mechFlags &= ~cellMechFlag;
-    if (~cellFlag & Flags$1.NEEDS_REDRAW) {
+    if ((~cellFlag) & Flags$1.NEEDS_REDRAW) {
       this.flags |= Flags$1.NEEDS_REDRAW;
     }
   }
@@ -5093,6 +5088,7 @@ class Map {
 		anim.x = x;
 		anim.y = y;
 		this.fx.push(anim);
+		this.flags |= Flags$2.MAP_CHANGED;
 		return true;
 	}
 
@@ -5102,6 +5098,7 @@ class Map {
 		const oldCell = this.cell(anim.x, anim.y);
 		oldCell.clearFlags(Flags$1.HAS_FX);
 		cell.setFlags(Flags$1.HAS_FX);
+		this.flags |= Flags$2.MAP_CHANGED;
 		anim.x = x;
 		anim.y = y;
 		return true;
@@ -5111,6 +5108,7 @@ class Map {
 		const oldCell = this.cell(anim.x, anim.y);
 		oldCell.clearFlags(Flags$1.HAS_FX);
 		this.fx = this.fx.filter( (a) => a !== anim );
+		this.flags |= Flags$2.MAP_CHANGED;
 		return true;
 	}
 
@@ -5330,6 +5328,24 @@ class Map {
 			}
 		}
 	}
+
+	// DRAW
+
+	draw(buffer) {
+		if (!this.flags & Flags$2.MAP_CHANGED) return;
+
+		this.cells.forEach( (c, i, j) => {
+			if (c.flags & Flags$1.NEEDS_REDRAW) {
+	      const buf = buffer[i][j];
+				GW.map.getCellAppearance(this, i, j, buf);
+				c.clearFlags(Flags$1.NEEDS_REDRAW);
+	      buffer.needsUpdate = true;
+			}
+		});
+
+		this.flags &= ~Flags$2.MAP_CHANGED;
+	}
+
 }
 
 types.Map = Map;
@@ -5445,294 +5461,6 @@ function getLine(map, fromX, fromY, toX, toY) {
 
 map.getLine = getLine;
 
-var ui = {};
-
-
-function init(opts={}) {
-
-  utils.setDefaults(opts, {
-    width: 100,
-    height: 34,
-    bg: 'black',
-    sidebar: false,
-    messages: false,
-    flavor: false,
-    menu: false,
-    div: 'canvas',
-    io: true,
-  });
-
-
-  if (!ui.canvas) {
-    ui.canvas = new types.Canvas(opts.width, opts.height, opts.div, opts);
-
-    if (opts.io && typeof document !== 'undefined') {
-      ui.canvas.element.onmousedown = ui.onmousedown;
-      ui.canvas.element.onmousemove = ui.onmousemove;
-    	document.onkeydown = ui.onkeydown;
-    }
-  }
-
-  // TODO - init sidebar, messages, flavor, menu
-
-  ui.buffer = ui.canvas.buffer;
-  return ui.canvas;
-}
-
-ui.init = init;
-
-
-function onkeydown(e) {
-	if (io.ignoreKeyEvent(e)) return;
-
-	if (e.code === 'Escape') {
-		io.clearEvents();	// clear all current events, then push on the escape
-  }
-
-	const ev = io.makeKeyEvent(e);
-	io.pushEvent(ev);
-}
-
-ui.onkeydown = onkeydown;
-
-function onmousemove(e) {
-	const x = ui.canvas.toX(e.clientX);
-	const y = ui.canvas.toY(e.clientY);
-	const ev = io.makeMouseEvent(e, x, y);
-	io.pushEvent(ev);
-}
-
-ui.onmousemove = onmousemove;
-
-function onmousedown(e) {
-	const x = ui.canvas.toX(e.clientX);
-	const y = ui.canvas.toY(e.clientY);
-	const ev = io.makeMouseEvent(e, x, y);
-	io.pushEvent(ev);
-}
-
-ui.onmousedown = onmousedown;
-
-
-
-async function messageBox(text, fg, duration) {
-
-  const canvas = ui.canvas;
-  const base = canvas.allocBuffer();
-
-  const len = text.length;
-  const x = Math.floor((canvas.width - len - 4) / 2) - 2;
-  const y = Math.floor(canvas.height / 2) - 1;
-  canvas.fillRect(x, y, len + 4, 3, ' ', 'black', 'black');
-	canvas.plotText(x + 2, y + 1, text, fg || 'white');
-	canvas.draw();
-
-	await io.pause(duration || 30 * 1000);
-
-	canvas.overlay(base);
-}
-
-ui.messageBox = messageBox;
-
-var game = {};
-data.time = performance.now();
-
-function setTime(t) {
-  const dt = t - data.time;
-  data.time = t;
-  return Math.max(0, dt);
-}
-
-game.setTime = setTime;
-
-
-function startGame(opts={}) {
-  if (!opts.map) utils.ERROR('map is required.');
-
-  data.player = opts.player || null;
-
-  game.startMap(opts.map, opts.x, opts.y);
-  startLoop();
-}
-
-game.start = startGame;
-
-
-function startMap(map, playerX, playerY) {
-
-  if (data.map && data.player) {
-    data.map.removeActor(data.player);
-  }
-
-  map.cells.forEach( (c) => c.redraw() );
-  map.flag |= Flags$2.MAP_CHANGED;
-  data.map = map;
-
-  if (data.player) {
-    let x = playerX || data.player.x || 0;
-    let y = playerY || data.player.y || 0;
-    if (x <= 0) {
-      const start = map.locations.start;
-      if (!start) utils.ERROR('Need x,y or start location.');
-      x = start[0];
-      y = start[1];
-    }
-    data.map.addActor(x, y, data.player);
-  }
-}
-
-game.startMap = startMap;
-
-
-function drawMap() {
-  const buffer = ui.canvas.buffer;
-	data.map.cells.forEach( (c, i, j) => {
-		if (c.flags & Flags$1.NEEDS_REDRAW) {
-      const buf = buffer[i][j];
-			GW.map.getCellAppearance(data.map, i, j, buf);
-			c.clearFlags(Flags$1.NEEDS_REDRAW);
-      buffer.needsUpdate = true;
-		}
-	});
-}
-
-function startLoop(t) {
-	t = t || performance.now();
-
-	requestAnimationFrame(startLoop);
-
-	gameLoop(t);
-
-	ui.canvas.draw();
-}
-
-
-async function gameLoop(t) {
-	const dt = GW.game.setTime(t);
-	GW.fx.tick(dt);
-	if (GW.fx.busy()) {
-		drawMap();
-		return;
-	}
-
-	let ev = GW.io.makeTickEvent(dt);
-	GW.io.pushEvent(ev);
-
-	while (GW.io.hasEvents() && !GW.io.busy()) {
-		ev = GW.io.nextEvent();
-		GW.io.dispatchEvent(ev);
-	}
-
-	if (GW.io.busy()) {
-		return;
-	}
-
-	drawMap();
-}
-
-
-//
-//
-//
-// export class Game {
-//   constructor(opts={}) {
-//     this.environmentUpdateTicks = opts.encironmentUpdateTicks || 100;
-//
-//     this.currentIndex = -1;
-//     this.currentActor = undefined;
-//     this.timeDelta = opts.timeDelta || 10;
-//     this.newTurn = true;
-//     this.lastTurnTime = 0;
-//   }
-//
-//   beginLoop(time, dt) {
-//     if (this.newTurn) {
-//       debug.log('New Turn', Math.floor(time - this.lastTurnTime));
-//       this.lastTurnTime = time;
-//       // this.mapUpdater.tick(this.timeDelta);
-//       this.newTurn = false;
-//     }
-//   }
-//
-//   update(dt) {
-//     let actor = this.currentActor || this.nextActor();
-//     while (actor && !this.newTurn) {
-//       // We want all animations to end before anybody gets to act, so we
-//       // need to process then until they are all gone before moving on to the
-//       // next step.
-//       this.updateAll(this.fx.animations, dt);
-//       if (this.map.animations.length) {
-//         return;
-//       }
-//
-//       // process all the input
-//       while (RUT.Keyboard.busy()) {
-//         if (!RUT.Keyboard.process(dt)) return;
-//       }
-//
-//       this.updateActor(actor);
-//       actor = this.nextActor();
-//     }
-//
-//   }
-//
-//   // if you want to do something before or after the update, do it here...
-//   // return false if you want to pause on this actor for some reason...
-//   updateActor(actor) {
-//     if (RUT.App._debug) console.log('TICK : ', actor.toString());
-//     RUT.active.actor = actor;
-//     actor.tick(this.timeDelta);
-//   }
-//
-//   updateAll(actors, dt) {
-//     let index = 0;
-//     while ( index < actors.length) {
-//       const current = actors[index];
-//       current.tick(dt); // Really only have to deal with removing self (I think)
-//       if (actors[index] === current) {
-//         index += 1;
-//       }
-//     }
-//   }
-//
-//   nextActor() {
-//     const actors = this.map.beings;
-//     if (!this.currentActor) {
-//       this.currentIndex = 0;
-//     }
-//     else if (actors[this.currentIndex] === this.currentActor) {
-//       this.currentIndex += 1;
-//     }
-//     else {
-//       const index = actors.indexOf(this.currentActor);
-//       if (index >= 0) {
-//         this.currentIndex = index + 1;
-//       }
-//     }
-//
-//     if (this.currentIndex >= actors.length) {
-//       this.currentIndex = 0;
-//       this.newTurn = true;
-//     }
-//     this.currentActor = actors[this.currentIndex];
-//     return this.currentActor;
-//   }
-//
-//   draw() {
-//     // RUT.Light.updateLighting(this.map);
-//     // RUT.FOV.calcFor(this.player);
-//     // this.display.draw(this.map, this.player.fov);
-//   }
-//
-//   end(fps, panic) {
-//     this.mapUpdater.updateDancingLights = (fps >= 30);
-//
-//     RUT.Map.clearChanged(this.map);
-//   }
-//
-// }
-//
-
 var fx = {};
 
 let ANIMATIONS = [];
@@ -5744,13 +5472,31 @@ function busy$1() {
 fx.busy = busy$1;
 
 
+function fastForward() {
+  let current = ANIMATIONS.slice();
+  while(current.length) {
+    current.forEach( (a) => a && a.step() );
+    current = current.filter( (a) => a && !a.done );
+  }
+}
+
+fx.fastForward = fastForward;
+
 function tick(dt) {
-  ANIMATIONS.forEach( (a) => a.tick(dt) );
+  const didSomething = ANIMATIONS.length;
+  ANIMATIONS.forEach( (a) => a && a.tick(dt) );
   ANIMATIONS = ANIMATIONS.filter( (a) => a && !a.done );
-  return fx.busy();
+  return didSomething;
 }
 
 fx.tick = tick;
+
+async function play(animation) {
+  ANIMATIONS.push(animation);
+  return new Promise( (resolve) => animation.callback = resolve );
+}
+
+fx.play = play;
 
 
 class FX {
@@ -5764,7 +5510,7 @@ class FX {
   tick(dt) {
     if (this.done) return;
     this.tilNextTurn -= dt;
-    while (this.tilNextTurn < 0) {
+    while (this.tilNextTurn < 0 && !this.done) {
       this.step();
       this.tilNextTurn += this.speed;
     }
@@ -5775,8 +5521,7 @@ class FX {
   }
 
   start() {
-    ANIMATIONS.push(this);
-    return new Promise( (resolve) => this.callback = resolve );
+    return fx.play(this);
   }
 
   stop(result) {
@@ -5910,7 +5655,7 @@ types.MovingSpriteFX = MovingSpriteFX;
 
 
 async function bolt(map, source, target, sprite, speed, stepFn) {
-  stepFn = stepFn || ((x, y) => !map.isObstruction(x, y));
+  stepFn = stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
   const animation = new MovingSpriteFX(map, source, target, sprite, speed, stepFn );
   return animation.start();
 }
@@ -5919,7 +5664,7 @@ fx.bolt = bolt;
 
 async function projectile(map, source, target, chs, fg, speed, stepFn) {
   if (chs.length != 4) utils.ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
-  stepFn = stepFn || ((x, y) => !map.isObstruction(x, y));
+  stepFn = stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
 
   const dir = utils.dirFromTo(source, target);
   const dIndex = utils.dirIndex(dir);
@@ -6148,6 +5893,7 @@ class ExplosionFX extends FX {
 }
 
 function explosion(map, x, y, radius, sprite, speed, fade, shape, center, stepFn) {
+  stepFn = stepFn || ((x, y) => !map.isObstruction(x, y));
   const animation = new ExplosionFX(map, null, x, y, radius, sprite, speed, fade, shape, center, stepFn);
   map.calcFov(animation.grid, x, y, radius);
   return animation.start();
@@ -6156,43 +5902,417 @@ function explosion(map, x, y, radius, sprite, speed, fade, shape, center, stepFn
 fx.explosion = explosion;
 
 function explosionFor(map, grid, x, y, radius, sprite, speed, fade, shape, center, stepFn) {
+  stepFn = stepFn || ((x, y) => !map.isObstruction(x, y));
   const animation = new ExplosionFX(map, grid, x, y, radius, sprite, speed, fade, shape, center, stepFn);
   return animation.start();
 }
 
 fx.explosionFor = explosionFor;
 
+var ui = {};
+
+let UI_BUFFER = null;
+let UI_BASE = null;
+let UI_OVERLAY = null;
+let IN_DIALOG = false;
+
+let time = performance.now();
+
+let RUNNING = false;
+
+function uiLoop(t) {
+	t = t || performance.now();
+
+  if (RUNNING) {
+    requestAnimationFrame(uiLoop);
+  }
+
+	const dt = Math.floor(t - time);
+	time = t;
+
+	if (fx.tick(dt)) {
+		ui.draw();
+	}
+	else {
+		const ev = io.makeTickEvent(dt);
+		io.pushEvent(ev);
+	}
+
+	ui.canvas.draw();
+}
+
+
+function start$1(opts={}) {
+
+  utils.setDefaults(opts, {
+    width: 100,
+    height: 34,
+    bg: 'black',
+    sidebar: false,
+    messages: false,
+    flavor: false,
+    menu: false,
+    div: 'canvas',
+    io: true,
+  });
+
+
+  if (!ui.canvas) {
+    ui.canvas = new types.Canvas(opts.width, opts.height, opts.div, opts);
+
+    if (opts.io && typeof document !== 'undefined') {
+      ui.canvas.element.onmousedown = ui.onmousedown;
+      ui.canvas.element.onmousemove = ui.onmousemove;
+    	document.onkeydown = ui.onkeydown;
+    }
+  }
+
+  // TODO - init sidebar, messages, flavor, menu
+  UI_BUFFER = UI_BUFFER || ui.canvas.allocBuffer();
+  UI_BASE = UI_BASE || ui.canvas.allocBuffer();
+  UI_OVERLAY = UI_OVERLAY || ui.canvas.allocBuffer();
+  UI_BASE.clear();
+  UI_OVERLAY.clear();
+
+  IN_DIALOG = false;
+
+  ui.blackOutDisplay();
+	RUNNING = true;
+	uiLoop();
+
+  return ui.canvas;
+}
+
+ui.start = start$1;
+
+
+function stop() {
+	RUNNING = false;
+}
+
+ui.stop = stop;
+
+
+// EVENTS
+
+function onkeydown(e) {
+	if (io.ignoreKeyEvent(e)) return;
+
+	if (e.code === 'Escape') {
+		io.clearEvents();	// clear all current events, then push on the escape
+  }
+
+	const ev = io.makeKeyEvent(e);
+	io.pushEvent(ev);
+}
+
+ui.onkeydown = onkeydown;
+
+function onmousemove(e) {
+	const x = ui.canvas.toX(e.clientX);
+	const y = ui.canvas.toY(e.clientY);
+	const ev = io.makeMouseEvent(e, x, y);
+	io.pushEvent(ev);
+}
+
+ui.onmousemove = onmousemove;
+
+function onmousedown(e) {
+	const x = ui.canvas.toX(e.clientX);
+	const y = ui.canvas.toY(e.clientY);
+	const ev = io.makeMouseEvent(e, x, y);
+	io.pushEvent(ev);
+}
+
+ui.onmousedown = onmousedown;
+
+// FUNCS
+
+async function messageBox(text, fg, duration) {
+
+  const buffer = ui.startDialog();
+
+  const len = text.length;
+  const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
+  const y = Math.floor(ui.canvas.height / 2) - 1;
+  buffer.fillRect(x, y, len + 4, 3, ' ', 'black', 'black');
+	buffer.plotText(x + 2, y + 1, text, fg || 'white');
+	ui.draw();
+
+	await io.pause(duration || 30 * 1000);
+
+	ui.finishDialog();
+}
+
+ui.messageBox = messageBox;
+
+
+function blackOutDisplay() {
+	UI_BUFFER.erase();
+}
+
+ui.blackOutDisplay = blackOutDisplay;
+
+
+// DIALOG
+
+function startDialog() {
+  IN_DIALOG = true;
+  ui.canvas.copyBuffer(UI_BASE);
+  UI_OVERLAY.clear();
+  return UI_OVERLAY;
+}
+
+ui.startDialog = startDialog;
+
+
+function finishDialog() {
+  IN_DIALOG = false;
+  ui.canvas.overlay(UI_BASE);
+  UI_OVERLAY.clear();
+}
+
+ui.finishDialog = finishDialog;
+
+// DRAW
+
+function draw() {
+  if (IN_DIALOG) {
+    ui.canvas.overlay(UI_BASE);
+    ui.canvas.overlay(UI_OVERLAY);
+  }
+  else if (ui.canvas) {
+    // const side = GW.sidebar.draw(UI_BUFFER);
+    if (data.map) data.map.draw(ui.canvas.buffer);
+    // }
+  }
+}
+
+ui.draw = draw;
+
+var game = {};
+
+data.time = 0;
+data.running = false;
+data.turnTime = 10;
+
+
+function setTime(t) {
+  const dt = t - data.time;
+  data.time = t;
+  return Math.max(0, dt);
+}
+
+game.setTime = setTime;
+
+
+function startGame(opts={}) {
+  if (!opts.map) utils.ERROR('map is required.');
+
+  data.time = 0;
+  data.running = true;
+  data.player = opts.player || null;
+
+  game.startMap(opts.map, opts.x, opts.y);
+  return game.loop();
+}
+
+game.start = startGame;
+
+
+function startMap(map, playerX, playerY) {
+
+  if (data.map && data.player) {
+    data.map.removeActor(data.player);
+  }
+
+  map.cells.forEach( (c) => c.redraw() );
+  map.flag |= Flags$2.MAP_CHANGED;
+  data.map = map;
+
+  if (data.player) {
+    let x = playerX || data.player.x || 0;
+    let y = playerY || data.player.y || 0;
+    if (x <= 0) {
+      const start = map.locations.start;
+      if (!start) utils.ERROR('Need x,y or start location.');
+      x = start[0];
+      y = start[1];
+    }
+    data.map.addActor(x, y, data.player);
+  }
+}
+
+game.startMap = startMap;
+
+
+
+async function gameLoop() {
+
+  ui.draw();
+
+  while (data.running) {
+    data.time += data.turnTime;
+    await game.startTurn();
+    if (data.player) {
+      await game.playerTurn(data.turnTime);
+    }
+    if (data.actors) {
+      for(let actor of data.actors) {
+        await game.actorTurn(actor, data.turnTime);
+      }
+    }
+    await game.turnEnded();
+  }
+
+}
+
+game.loop = gameLoop;
+
+async function startTurn() {
+  // FIRE TIMERS
+  await game.fireTimers(data.turnTime);
+}
+
+game.startTurn = startTurn;
+
+
+async function turnEnded() {
+  // update environment
+
+  if (!data.player && (!data.actors || data.actors.length == 0)) {
+    await io.pause(1);  // to keep from spinning
+  }
+}
+
+game.turnEnded = turnEnded;
+
+
+async function playerTurn(dt) {
+
+  const player = data.player;
+
+  player.elapsed += dt;
+  if (player.elapsed >= player.speed) {
+    console.log('player turn...', data.time);
+    player.elapsed -= player.speed;
+
+    player.startTurn();
+
+    while(!player.acted) {
+      const ev = await io.nextEvent(1000);
+      await io.dispatchEvent(ev);
+    }
+
+    player.endTurn();
+
+    console.log('...end turn', data.time);
+
+    ui.draw();
+  }
+
+}
+
+game.playerTurn = playerTurn;
+
+async function actorTurn(actor) {
+  ui.draw();
+}
+
+game.actorTurn = actorTurn;
+
+
+// TIMERS
+
+const TIMERS = [];
+
+function delay(delay, fn) {
+	const timer = { delay, fn };
+
+	for(let i = 0; i < TIMERS.length; ++i) {
+		if (!TIMERS[i]) {
+			TIMERS[i] = timer;
+			return timer;
+		}
+	}
+
+	TIMERS.push(timer);
+	return timer;
+}
+
+game.delay = delay;
+
+async function cancelDelay(timer) {
+	for(let i = 0; i < TIMERS.length; ++i) {
+		const timer = TIMERS[i];
+		if (timer && timer === timer) {
+			TIMERS[i] = null;
+			await timer.fn(false);
+			return true;
+		}
+	}
+	return false;
+}
+
+game.cancelDelay = cancelDelay;
+
+
+async function fireTimers(dt) {
+  for( let i = 0; i < TIMERS.length; ++i) {
+    const timer = TIMERS[i];
+    if (!timer) continue;
+    timer.delay -= dt;
+    if (timer.delay <= 0) {
+      TIMERS[i] = null;
+      await timer.fn(true);
+    }
+  }
+}
+
+game.fireTimers = fireTimers;
+
 var player = {};
 
 
+class Player {
+  constructor(kind) {
+    this.x = -1;
+    this.y = -1;
+    this.flags = 0;
+    this.kind = kind;
+    this.acted = false;
+    this.speed = 50;
+    this.elapsed = 0;
+  }
+
+  startTurn() {
+    this.acted = false;
+  }
+
+  moveDir(dir) {
+    const map = data.map;
+    this.acted = true;
+    return map.moveActor(this.x + dir[0], this.y + dir[1], this);
+  }
+
+  endTurn() {
+
+  }
+
+  visionRadius() {
+  	return CONFIG.MAX_FOV_RADIUS || (data.map.width + data.map.height);
+  }
+
+}
+
+types.Player = Player;
+
+
 function makePlayer(kind) {
-
-  return {
-    x: -1,
-    y: -1,
-    flags: 0,
-    kind
-  };
-
+  return new types.Player(kind);
 }
 
 make.player = makePlayer;
-
-
-function moveDir(dir) {
-  const map = data.map;
-  const player = data.player;
-  return map.moveActor(player.x + dir[0], player.y + dir[1], player);
-}
-
-player.moveDir = moveDir;
-
-
-function visionRadius() {
-	return CONFIG.MAX_FOV_RADIUS || (data.map.width + data.map.height);
-}
-
-player.visionRadius = visionRadius;
 
 var fov = {};
 

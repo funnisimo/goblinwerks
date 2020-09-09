@@ -43,6 +43,8 @@ class Buffer extends types.Grid {
   }
 
   plot(x, y, sprite) {
+    if (sprite.opacity <= 0) return;
+
     if (!this.hasXY(x, y)) {
       debug.log('invalid coordinates: ' + x + ', ' + y);
       return false;
@@ -60,12 +62,25 @@ class Buffer extends types.Grid {
       return;
     }
 
+    if (typeof fg === 'string') {
+      fg = COLORS[fg];
+    }
+    if (typeof bg === 'string') {
+      bg = COLORS[bg];
+    }
+
     const destCell = this[x][y];
     destCell.plotChar(ch, fg, bg);
     this.needsUpdate = true;
   }
 
   plotText(x, y, text, fg, bg) {
+    if (typeof fg === 'string') {
+      fg = COLORS[fg];
+    }
+    if (typeof bg === 'string') {
+      bg = COLORS[bg];
+    }
     let len = text.length;
     for(let i = 0; i < len; ++i) {
       this.plotChar(i + x, y, text[i], fg, bg);
@@ -73,6 +88,13 @@ class Buffer extends types.Grid {
   }
 
   fillRect(x, y, w, h, ch, fg, bg) {
+    if (typeof fg === 'string') {
+      fg = COLORS[fg];
+    }
+    if (typeof bg === 'string') {
+      bg = COLORS[bg];
+    }
+
     this.forRect(x, y, w, h, (v, i, j) => {
       this.plotChar(i, j, ch, fg, bg);
     });
@@ -244,32 +266,14 @@ class Canvas {
   }
 
   plotChar(x, y, ch, fg, bg) {
-    if (typeof fg === 'string') {
-      fg = COLORS[fg];
-    }
-    if (typeof bg === 'string') {
-      bg = COLORS[bg];
-    }
     this.buffer.plotChar(x, y, ch, fg, bg);
   }
 
   plotText(x, y, text, fg, bg) {
-    if (typeof fg === 'string') {
-      fg = COLORS[fg];
-    }
-    if (typeof bg === 'string') {
-      bg = COLORS[bg];
-    }
     this.buffer.plotText(x, y, text, fg, bg);
   }
 
   fillRect(x, y, w, h, ch, fg, bg) {
-    if (typeof fg === 'string') {
-      fg = COLORS[fg];
-    }
-    if (typeof bg === 'string') {
-      bg = COLORS[bg];
-    }
     this.buffer.fillRect(x, y, w, h, ch, fg, bg);
   }
 
@@ -290,6 +294,9 @@ class Canvas {
     bufs.forEach( (buf) => this.dead.push(buf) );
   }
 
+  copyBuffer(dest) {
+    dest.copy(this.buffer);
+  }
 
   // draws overBuf over the current canvas with per-cell pseudotransparency as specified in overBuf.
   // If previousBuf is not null, it gets filled with the preexisting canvas for reversion purposes.
@@ -307,7 +314,15 @@ class Canvas {
 
     for (i=x; i<x + w; i++) {
       for (j=y; j<y + h; j++) {
-        this.buffer.plot(i, j, overBuf[i][j]);
+        const src = overBuf[i][j];
+        if (src.opacity) {
+          const dest = this.buffer[i][j];
+          if (!dest.equals(src)) {
+            dest.copy(src);
+            dest.needsUpdate = true;
+            this.buffer.needsUpdate = true;
+          }
+        }
       }
     }
 

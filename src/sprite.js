@@ -124,6 +124,10 @@ export class Sprite {
 		return true;
 	}
 
+	equals(other) {
+		return this.ch == other.ch && COLOR.equals(this.fg, other.fg) && COLOR.equals(this.bg, other.bg);
+	}
+
 	bake() {
 		if (this.fg && !this.fg.dances) {
 			COLOR.bake(this.fg);

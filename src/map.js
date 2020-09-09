@@ -277,6 +277,7 @@ export class Map {
 		anim.x = x;
 		anim.y = y;
 		this.fx.push(anim);
+		this.flags |= Flags.MAP_CHANGED;
 		return true;
 	}
 
@@ -286,6 +287,7 @@ export class Map {
 		const oldCell = this.cell(anim.x, anim.y);
 		oldCell.clearFlags(CellFlags.HAS_FX);
 		cell.setFlags(CellFlags.HAS_FX);
+		this.flags |= Flags.MAP_CHANGED;
 		anim.x = x;
 		anim.y = y;
 		return true;
@@ -295,6 +297,7 @@ export class Map {
 		const oldCell = this.cell(anim.x, anim.y);
 		oldCell.clearFlags(CellFlags.HAS_FX);
 		this.fx = this.fx.filter( (a) => a !== anim );
+		this.flags |= Flags.MAP_CHANGED;
 		return true;
 	}
 
@@ -515,6 +518,24 @@ export class Map {
 			}
 		}
 	}
+
+	// DRAW
+
+	draw(buffer) {
+		if (!this.flags & Flags.MAP_CHANGED) return;
+
+		this.cells.forEach( (c, i, j) => {
+			if (c.flags & CellFlags.NEEDS_REDRAW) {
+	      const buf = buffer[i][j];
+				GW.map.getCellAppearance(this, i, j, buf);
+				c.clearFlags(CellFlags.NEEDS_REDRAW);
+	      buffer.needsUpdate = true;
+			}
+		});
+
+		this.flags &= ~Flags.MAP_CHANGED;
+	}
+
 }
 
 types.Map = Map;

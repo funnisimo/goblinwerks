@@ -184,7 +184,7 @@ class Cell {
   clearFlags(cellFlag=0, cellMechFlag=0) {
     this.flags &= ~cellFlag;
     this.mechFlags &= ~cellMechFlag;
-    if (~cellFlag & Flags.NEEDS_REDRAW) {
+    if ((~cellFlag) & Flags.NEEDS_REDRAW) {
       this.flags |= Flags.NEEDS_REDRAW;
     }
   }

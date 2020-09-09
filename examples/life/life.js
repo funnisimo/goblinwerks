@@ -46,7 +46,7 @@ function draw() {
 	data.forEach( (v, x, y) => {
 		canvas.plot(x, y, v ? ALIVE : DEAD);
 	});
-	canvas.draw();
+	// canvas.draw();
 }
 
 
@@ -86,14 +86,14 @@ function runSim() {
 
 // start the environment
 function start() {
-	canvas = GW.ui.init({ tileSize: 11, div: 'game', io: false });
+	canvas = GW.ui.start({ tileSize: 11, div: 'game', io: false });
 	game.onmousedown = handleClick;
 	game.onmousemove = handleMove;
 	document.onkeydown = runSim;
 
 	canvas.plotText(20, 15, 'Click to Turn on/off some cells.', [100,50,0]);
 	canvas.plotText(20, 17, 'Press any key to run simulation.', [100,50,0]);
-	canvas.draw();
+	// canvas.draw();
 }
 
 window.onload = start;

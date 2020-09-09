@@ -103,8 +103,9 @@ function showFlash(e) {
 
 GW.commands.showFlash = showFlash;
 
-function showHit(e) {
-	return GW.fx.hit(MAP, e);
+async function showHit(e) {
+	await GW.fx.hit(MAP, e);
+	console.log('done');
 }
 
 GW.commands.showHit = showHit;
@@ -173,17 +174,27 @@ async function toggleWall(e) {
 	else {
 		MAP.setTile(e.x, e.y, 6, true);
 	}
+	GW.ui.draw();
 }
 
 GW.commands.toggleWall = toggleWall;
 
 
-function moveDir(e) {
+async function moveDir(e) {
 	const dir = e.dir || [0,0];
-	GW.player.moveDir(dir);
+	await GW.data.player.moveDir(dir);
 }
 
 GW.commands.moveDir = moveDir;
+
+
+function quitGame(e) {
+	DATA.running = false;
+	console.log('quit game');
+}
+
+GW.commands.quitGame = quitGame;
+
 
 let mapCount = 0;
 
@@ -222,13 +233,14 @@ GW.commands.newMap = newMap;
 // start the environment
 function start() {
 
-	const canvas = GW.ui.init({ width: 80, height: 30, div: 'game' });
+	const canvas = GW.ui.start({ width: 80, height: 30, div: 'game' });
 	GW.io.addKeymap({ dir: 'moveDir', space: 'newMap', click: 'showFX',
 			b: 'selectBolt', h: 'selectHit', f: 'selectFlash', p: 'selectProjectile',
 		 	m: 'selectBeam', w: 'selectWall',
 			o: 'selectExplosion', '+': 'selectExplosionPlus', '=': 'selectExplosionPlus',
 		 	x: 'selectExplosionX', '8': 'selectExplosionStar', '*': 'selectExplosionStar',
 			a: 'selectAura',
+			q: 'quitGame',
 			'?': 'showHelp'
 	});
 

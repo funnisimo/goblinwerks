@@ -152,7 +152,9 @@ export function css(color) {
 color.css = css;
 
 export function equals(a, b) {
-  return a.every( (v, i) => v == b[i] ) && a.dances == b.dances;
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  return a.every( (v, i) => v === b[i] ) && a.dances === b.dances;
 }
 
 color.equals = equals;

@@ -1,13 +1,45 @@
 
 import { utils as UTILS } from './utils.js';
 import { io as IO } from './io.js';
+import { fx as FX } from './fx.js';
 import { data as DATA, types } from './gw.js';
 
 
 export var ui = {};
 
+let UI_BUFFER = null;
+let UI_BASE = null;
+let UI_OVERLAY = null;
+let IN_DIALOG = false;
+let REDRAW_UI = false;
 
-export function init(opts={}) {
+let time = performance.now();
+
+let RUNNING = false;
+
+function uiLoop(t) {
+	t = t || performance.now();
+
+  if (RUNNING) {
+    requestAnimationFrame(uiLoop);
+  }
+
+	const dt = Math.floor(t - time);
+	time = t;
+
+	if (FX.tick(dt)) {
+		ui.draw();
+	}
+	else {
+		const ev = IO.makeTickEvent(dt);
+		IO.pushEvent(ev);
+	}
+
+	ui.canvas.draw();
+}
+
+
+export function start(opts={}) {
 
   UTILS.setDefaults(opts, {
     width: 100,
@@ -33,13 +65,33 @@ export function init(opts={}) {
   }
 
   // TODO - init sidebar, messages, flavor, menu
+  UI_BUFFER = UI_BUFFER || ui.canvas.allocBuffer();
+  UI_BASE = UI_BASE || ui.canvas.allocBuffer();
+  UI_OVERLAY = UI_OVERLAY || ui.canvas.allocBuffer();
+  UI_BASE.clear();
+  UI_OVERLAY.clear();
 
-  ui.buffer = ui.canvas.buffer;
+  IN_DIALOG = false;
+  REDRAW_UI = false;
+
+  ui.blackOutDisplay();
+	RUNNING = true;
+	uiLoop();
+
   return ui.canvas;
 }
 
-ui.init = init;
+ui.start = start;
 
+
+export function stop() {
+	RUNNING = false;
+}
+
+ui.stop = stop;
+
+
+// EVENTS
 
 export function onkeydown(e) {
 	if (IO.ignoreKeyEvent(e)) return;
@@ -72,23 +124,71 @@ export function onmousedown(e) {
 
 ui.onmousedown = onmousedown;
 
-
+// FUNCS
 
 export async function messageBox(text, fg, duration) {
 
-  const canvas = ui.canvas;
-  const base = canvas.allocBuffer();
+  const buffer = ui.startDialog();
 
   const len = text.length;
-  const x = Math.floor((canvas.width - len - 4) / 2) - 2;
-  const y = Math.floor(canvas.height / 2) - 1;
-  canvas.fillRect(x, y, len + 4, 3, ' ', 'black', 'black');
-	canvas.plotText(x + 2, y + 1, text, fg || 'white');
-	canvas.draw();
+  const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
+  const y = Math.floor(ui.canvas.height / 2) - 1;
+  buffer.fillRect(x, y, len + 4, 3, ' ', 'black', 'black');
+	buffer.plotText(x + 2, y + 1, text, fg || 'white');
+	ui.draw();
 
 	await IO.pause(duration || 30 * 1000);
 
-	canvas.overlay(base);
+	ui.finishDialog();
 }
 
 ui.messageBox = messageBox;
+
+
+function blackOutDisplay() {
+	UI_BUFFER.erase();
+	REDRAW_UI = true;
+}
+
+ui.blackOutDisplay = blackOutDisplay;
+
+
+// DIALOG
+
+function startDialog() {
+  IN_DIALOG = true;
+  ui.canvas.copyBuffer(UI_BASE);
+  UI_OVERLAY.clear();
+  return UI_OVERLAY;
+}
+
+ui.startDialog = startDialog;
+
+
+function finishDialog() {
+  IN_DIALOG = false;
+  ui.canvas.overlay(UI_BASE);
+  UI_OVERLAY.clear();
+}
+
+ui.finishDialog = finishDialog;
+
+// DRAW
+
+function draw() {
+  if (IN_DIALOG) {
+    ui.canvas.overlay(UI_BASE);
+    ui.canvas.overlay(UI_OVERLAY);
+  }
+  else if (ui.canvas) {
+    // const side = GW.sidebar.draw(UI_BUFFER);
+    if (DATA.map) DATA.map.draw(ui.canvas.buffer);
+    // if (commitCombatMessage() || REDRAW_UI || side || map) {
+    // ui.canvas.overlay(UI_BUFFER);
+    // ui.canvas.overlay(UI_OVERLAY);
+      REDRAW_UI = false;
+    // }
+  }
+}
+
+ui.draw = draw;

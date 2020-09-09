@@ -16,14 +16,33 @@ export function busy() {
 fx.busy = busy;
 
 
+export function fastForward() {
+  let current = ANIMATIONS.slice();
+  while(current.length) {
+    current.forEach( (a) => a && a.step() );
+    current = current.filter( (a) => a && !a.done );
+  }
+}
+
+fx.fastForward = fastForward;
+
 export function tick(dt) {
-  ANIMATIONS.forEach( (a) => a.tick(dt) );
+  const didSomething = ANIMATIONS.length;
+  ANIMATIONS.forEach( (a) => a && a.tick(dt) );
   ANIMATIONS = ANIMATIONS.filter( (a) => a && !a.done );
-  return fx.busy();
+  return didSomething;
 }
 
 fx.tick = tick;
 
+let BUSY = false;
+
+export async function play(animation) {
+  ANIMATIONS.push(animation);
+  return new Promise( (resolve) => animation.callback = resolve );
+}
+
+fx.play = play;
 
 
 function lerp(from, to, pct) {
@@ -44,7 +63,7 @@ export class FX {
   tick(dt) {
     if (this.done) return;
     this.tilNextTurn -= dt;
-    while (this.tilNextTurn < 0) {
+    while (this.tilNextTurn < 0 && !this.done) {
       this.step();
       this.tilNextTurn += this.speed;
     }
@@ -55,8 +74,7 @@ export class FX {
   }
 
   start() {
-    ANIMATIONS.push(this);
-    return new Promise( (resolve) => this.callback = resolve );
+    return fx.play(this);
   }
 
   stop(result) {
@@ -190,7 +208,7 @@ types.MovingSpriteFX = MovingSpriteFX;
 
 
 export async function bolt(map, source, target, sprite, speed, stepFn) {
-  stepFn = stepFn || ((x, y) => !map.isObstruction(x, y));
+  stepFn = stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
   const animation = new MovingSpriteFX(map, source, target, sprite, speed, stepFn );
   return animation.start();
 }
@@ -199,7 +217,7 @@ fx.bolt = bolt;
 
 export async function projectile(map, source, target, chs, fg, speed, stepFn) {
   if (chs.length != 4) UTILS.ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
-  stepFn = stepFn || ((x, y) => !map.isObstruction(x, y));
+  stepFn = stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
 
   const dir = UTILS.dirFromTo(source, target);
   const dIndex = UTILS.dirIndex(dir);
@@ -428,6 +446,7 @@ class ExplosionFX extends FX {
 }
 
 export function explosion(map, x, y, radius, sprite, speed, fade, shape, center, stepFn) {
+  stepFn = stepFn || ((x, y) => !map.isObstruction(x, y));
   const animation = new ExplosionFX(map, null, x, y, radius, sprite, speed, fade, shape, center, stepFn);
   map.calcFov(animation.grid, x, y, radius);
   return animation.start();
@@ -436,6 +455,7 @@ export function explosion(map, x, y, radius, sprite, speed, fade, shape, center,
 fx.explosion = explosion;
 
 export function explosionFor(map, grid, x, y, radius, sprite, speed, fade, shape, center, stepFn) {
+  stepFn = stepFn || ((x, y) => !map.isObstruction(x, y));
   const animation = new ExplosionFX(map, grid, x, y, radius, sprite, speed, fade, shape, center, stepFn);
   return animation.start();
 }

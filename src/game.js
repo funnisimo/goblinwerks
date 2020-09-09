@@ -3,12 +3,18 @@
 import { utils as UTILS } from './utils.js';
 import { Flags as CellFlags } from './cell.js';
 import { Flags as MapFlags } from './map.js';
+import { io as IO } from './io.js';
 import { ui as UI } from './ui.js';
+import { fx as FX } from './fx.js';
 
 import { data as DATA, types } from './gw.js';
 
 export var game = {};
-DATA.time = performance.now();
+
+DATA.time = 0;
+DATA.running = false;
+DATA.turnTime = 10;
+
 
 export function setTime(t) {
   const dt = t - DATA.time;
@@ -22,10 +28,12 @@ game.setTime = setTime;
 export function startGame(opts={}) {
   if (!opts.map) UTILS.ERROR('map is required.');
 
+  DATA.time = 0;
+  DATA.running = true;
   DATA.player = opts.player || null;
 
   game.startMap(opts.map, opts.x, opts.y);
-  startLoop();
+  return game.loop();
 }
 
 game.start = startGame;
@@ -57,151 +65,127 @@ export function startMap(map, playerX, playerY) {
 game.startMap = startMap;
 
 
-function drawMap() {
-  const buffer = UI.canvas.buffer;
-	DATA.map.cells.forEach( (c, i, j) => {
-		if (c.flags & CellFlags.NEEDS_REDRAW) {
-      const buf = buffer[i][j];
-			GW.map.getCellAppearance(DATA.map, i, j, buf);
-			c.clearFlags(CellFlags.NEEDS_REDRAW);
-      buffer.needsUpdate = true;
+
+async function gameLoop() {
+
+  UI.draw();
+
+  while (DATA.running) {
+    DATA.time += DATA.turnTime;
+    await game.startTurn();
+    if (DATA.player) {
+      await game.playerTurn(DATA.turnTime);
+    }
+    if (DATA.actors) {
+      for(let actor of DATA.actors) {
+        await game.actorTurn(actor, DATA.turnTime);
+      }
+    }
+    await game.turnEnded();
+  }
+
+}
+
+game.loop = gameLoop;
+
+async function startTurn() {
+  // FIRE TIMERS
+  await game.fireTimers(DATA.turnTime);
+}
+
+game.startTurn = startTurn;
+
+
+async function turnEnded() {
+  // update environment
+
+  if (!DATA.player && (!DATA.actors || DATA.actors.length == 0)) {
+    await IO.pause(1);  // to keep from spinning
+  }
+}
+
+game.turnEnded = turnEnded;
+
+
+export async function playerTurn(dt) {
+
+  const player = DATA.player;
+
+  player.elapsed += dt;
+  if (player.elapsed >= player.speed) {
+    console.log('player turn...', DATA.time);
+    player.elapsed -= player.speed;
+
+    player.startTurn();
+
+    while(!player.acted) {
+      const ev = await IO.nextEvent(1000);
+      await IO.dispatchEvent(ev);
+    }
+
+    player.endTurn();
+
+    console.log('...end turn', DATA.time);
+
+    UI.draw();
+  }
+
+}
+
+game.playerTurn = playerTurn;
+
+export async function actorTurn(actor) {
+  UI.draw();
+}
+
+game.actorTurn = actorTurn;
+
+
+// TIMERS
+
+const TIMERS = [];
+
+export function delay(delay, fn) {
+	const timer = { delay, fn };
+
+	for(let i = 0; i < TIMERS.length; ++i) {
+		if (!TIMERS[i]) {
+			TIMERS[i] = timer;
+			return timer;
 		}
-	});
-}
-
-function startLoop(t) {
-	t = t || performance.now();
-
-	requestAnimationFrame(startLoop);
-
-	gameLoop(t);
-
-	UI.canvas.draw();
-}
-
-
-async function gameLoop(t) {
-	const dt = GW.game.setTime(t);
-	GW.fx.tick(dt)
-	if (GW.fx.busy()) {
-		drawMap();
-		return;
 	}
 
-	let ev = GW.io.makeTickEvent(dt);
-	GW.io.pushEvent(ev);
-
-	while (GW.io.hasEvents() && !GW.io.busy()) {
-		ev = GW.io.nextEvent();
-		GW.io.dispatchEvent(ev);
-	}
-
-	if (GW.io.busy()) {
-		return;
-	}
-
-	drawMap();
+	TIMERS.push(timer);
+	return timer;
 }
 
+game.delay = delay;
 
-//
-//
-//
-// export class Game {
-//   constructor(opts={}) {
-//     this.environmentUpdateTicks = opts.encironmentUpdateTicks || 100;
-//
-//     this.currentIndex = -1;
-//     this.currentActor = undefined;
-//     this.timeDelta = opts.timeDelta || 10;
-//     this.newTurn = true;
-//     this.lastTurnTime = 0;
-//   }
-//
-//   beginLoop(time, dt) {
-//     if (this.newTurn) {
-//       debug.log('New Turn', Math.floor(time - this.lastTurnTime));
-//       this.lastTurnTime = time;
-//       // this.mapUpdater.tick(this.timeDelta);
-//       this.newTurn = false;
-//     }
-//   }
-//
-//   update(dt) {
-//     let actor = this.currentActor || this.nextActor();
-//     while (actor && !this.newTurn) {
-//       // We want all animations to end before anybody gets to act, so we
-//       // need to process then until they are all gone before moving on to the
-//       // next step.
-//       this.updateAll(this.fx.animations, dt);
-//       if (this.map.animations.length) {
-//         return;
-//       }
-//
-//       // process all the input
-//       while (RUT.Keyboard.busy()) {
-//         if (!RUT.Keyboard.process(dt)) return;
-//       }
-//
-//       this.updateActor(actor);
-//       actor = this.nextActor();
-//     }
-//
-//   }
-//
-//   // if you want to do something before or after the update, do it here...
-//   // return false if you want to pause on this actor for some reason...
-//   updateActor(actor) {
-//     if (RUT.App._debug) console.log('TICK : ', actor.toString());
-//     RUT.active.actor = actor;
-//     actor.tick(this.timeDelta);
-//   }
-//
-//   updateAll(actors, dt) {
-//     let index = 0;
-//     while ( index < actors.length) {
-//       const current = actors[index];
-//       current.tick(dt); // Really only have to deal with removing self (I think)
-//       if (actors[index] === current) {
-//         index += 1;
-//       }
-//     }
-//   }
-//
-//   nextActor() {
-//     const actors = this.map.beings;
-//     if (!this.currentActor) {
-//       this.currentIndex = 0;
-//     }
-//     else if (actors[this.currentIndex] === this.currentActor) {
-//       this.currentIndex += 1;
-//     }
-//     else {
-//       const index = actors.indexOf(this.currentActor);
-//       if (index >= 0) {
-//         this.currentIndex = index + 1;
-//       }
-//     }
-//
-//     if (this.currentIndex >= actors.length) {
-//       this.currentIndex = 0;
-//       this.newTurn = true;
-//     }
-//     this.currentActor = actors[this.currentIndex];
-//     return this.currentActor;
-//   }
-//
-//   draw() {
-//     // RUT.Light.updateLighting(this.map);
-//     // RUT.FOV.calcFor(this.player);
-//     // this.display.draw(this.map, this.player.fov);
-//   }
-//
-//   end(fps, panic) {
-//     this.mapUpdater.updateDancingLights = (fps >= 30);
-//
-//     RUT.Map.clearChanged(this.map);
-//   }
-//
-// }
-//
+export async function cancelDelay(timer) {
+	for(let i = 0; i < TIMERS.length; ++i) {
+		const timer = TIMERS[i];
+		if (timer && timer === timer) {
+			TIMERS[i] = null;
+			await timer.fn(false);
+			return true;
+		}
+	}
+	return false;
+}
+
+game.cancelDelay = cancelDelay;
+
+
+export async function fireTimers(dt) {
+  for( let i = 0; i < TIMERS.length; ++i) {
+    const timer = TIMERS[i];
+    if (!timer) continue;
+    timer.delay -= dt;
+    if (timer.delay <= 0) {
+      TIMERS[i] = null;
+      await timer.fn(true);
+    }
+  }
+}
+
+game.fireTimers = fireTimers;
