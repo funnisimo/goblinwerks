@@ -6113,7 +6113,7 @@
   	const dt = Math.floor(t - time);
   	time = t;
 
-  	if (fx.tick(dt)) {
+  	if ((!IN_DIALOG) && fx.tick(dt)) {
   		ui.draw();
   	}
   	// else {
@@ -6186,11 +6186,12 @@
   async function updateNow(t=1) {
   	t = Math.max(t, UPDATE_REQUESTED, 1);
   	UPDATE_REQUESTED = 0;
+
+  	console.log('updating with timeout...', t);
   	ui.draw();
   	ui.canvas.draw();
   	if (t) {
   		const now = performance.now();
-  		console.log('paused...', t);
   		const r = await io.tickMs(t);
   		console.log('- done', r, Math.floor(performance.now() - now));
   	}
@@ -6408,7 +6409,7 @@
     }
 
     await player.endTurn();
-    console.log('...end turn', data.time);
+    console.log('...end turn', PLAYER.turnTime);
     return PLAYER.turnTime;
   }
 
@@ -6462,6 +6463,8 @@
     data.player = opts.player || null;
 
     game.startMap(opts.map, opts.x, opts.y);
+    game.queuePlayer();
+
     return game.loop();
   }
 
@@ -6492,9 +6495,10 @@
         y = start[1];
       }
       data.map.addActor(x, y, data.player);
-      game.queuePlayer();
 
     }
+
+    ui.draw();
   }
 
   game.startMap = startMap;
@@ -6519,6 +6523,7 @@
         }
         const turnTime = await fn();
         if (turnTime) {
+          console.log('- push actor', turnTime, scheduler.time);
           scheduler.push(fn, turnTime);
         }
       }

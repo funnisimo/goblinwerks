@@ -40,7 +40,7 @@ export async function takeTurn() {
   }
 
   await player.endTurn();
-  console.log('...end turn', DATA.time);
+  console.log('...end turn', PLAYER.turnTime);
   return PLAYER.turnTime;
 }
 

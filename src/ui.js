@@ -27,7 +27,7 @@ function uiLoop(t) {
 	const dt = Math.floor(t - time);
 	time = t;
 
-	if (FX.tick(dt)) {
+	if ((!IN_DIALOG) && FX.tick(dt)) {
 		ui.draw();
 	}
 	// else {
@@ -101,11 +101,12 @@ ui.requestUpdate = requestUpdate;
 export async function updateNow(t=1) {
 	t = Math.max(t, UPDATE_REQUESTED, 1);
 	UPDATE_REQUESTED = 0;
+
+	console.log('updating with timeout...', t);
 	ui.draw();
 	ui.canvas.draw();
 	if (t) {
 		const now = performance.now();
-		console.log('paused...', t);
 		const r = await IO.tickMs(t);
 		console.log('- done', r, Math.floor(performance.now() - now));
 	}

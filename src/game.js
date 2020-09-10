@@ -36,6 +36,8 @@ export function startGame(opts={}) {
   DATA.player = opts.player || null;
 
   game.startMap(opts.map, opts.x, opts.y);
+  game.queuePlayer();
+
   return game.loop();
 }
 
@@ -66,9 +68,10 @@ export function startMap(map, playerX, playerY) {
       y = start[1];
     }
     DATA.map.addActor(x, y, DATA.player);
-    game.queuePlayer();
 
   }
+
+  UI.draw();
 }
 
 game.startMap = startMap;
@@ -93,6 +96,7 @@ async function gameLoop() {
       }
       const turnTime = await fn();
       if (turnTime) {
+        console.log('- push actor', turnTime, scheduler.time);
         scheduler.push(fn, turnTime);
       }
     }
