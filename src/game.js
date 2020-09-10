@@ -31,6 +31,7 @@ export function startGame(opts={}) {
   DATA.time = 0;
   DATA.running = true;
   DATA.player = opts.player || null;
+  DATA.engine = new types.Scheduler();
 
   game.startMap(opts.map, opts.x, opts.y);
   return game.loop();
@@ -41,6 +42,8 @@ game.start = startGame;
 
 export function startMap(map, playerX, playerY) {
 
+  DATA.engine.clear();
+
   if (DATA.map && DATA.player) {
     DATA.map.removeActor(DATA.player);
   }
@@ -48,6 +51,8 @@ export function startMap(map, playerX, playerY) {
   map.cells.forEach( (c) => c.redraw() );
   map.flag |= MapFlags.MAP_CHANGED;
   DATA.map = map;
+
+  // TODO - Add Map/Environment Updater
 
   if (DATA.player) {
     let x = playerX || DATA.player.x || 0;
@@ -59,6 +64,8 @@ export function startMap(map, playerX, playerY) {
       y = start[1];
     }
     DATA.map.addActor(x, y, DATA.player);
+    game.queuePlayer();
+
   }
 }
 
@@ -71,121 +78,89 @@ async function gameLoop() {
   UI.draw();
 
   while (DATA.running) {
-    DATA.time += DATA.turnTime;
-    await game.startTurn();
-    if (DATA.player) {
-      await game.playerTurn(DATA.turnTime);
+
+    const fn = DATA.engine.pop();
+    if (!fn) {
+      utils.WARN('NO ACTORS! STOPPING GAME!');
+      DATA.running = false;
     }
-    if (DATA.actors) {
-      for(let actor of DATA.actors) {
-        await game.actorTurn(actor, DATA.turnTime);
+    else {
+      DATA.time = DATA.engine.time;
+      const turnTime = await fn();
+      if (turnTime) {
+        DATA.engine.push(fn, turnTime);
       }
     }
-    await game.turnEnded();
+
   }
 
 }
 
 game.loop = gameLoop;
 
-async function startTurn() {
-  // FIRE TIMERS
-  await game.fireTimers(DATA.turnTime);
+function queuePlayer() {
+  DATA.engine.push(game.playerTurn.bind(game, DATA.player), DATA.player.speed);
 }
 
-game.startTurn = startTurn;
+game.queuePlayer = queuePlayer;
 
-
-async function turnEnded() {
-  // update environment
-
-  if (!DATA.player && (!DATA.actors || DATA.actors.length == 0)) {
-    await IO.pause(1);  // to keep from spinning
-  }
+function queueActor(actor) {
+  DATA.engine.push(game.actorTurn.bind(game, actor), actor.speed);
 }
 
-game.turnEnded = turnEnded;
+game.queueActor = queueActor;
 
 
-export async function playerTurn(dt) {
+export async function playerTurn() {
 
   const player = DATA.player;
 
-  player.elapsed += dt;
-  if (player.elapsed >= player.speed) {
-    console.log('player turn...', DATA.time);
-    player.elapsed -= player.speed;
+  console.log('player turn...', DATA.time);
+  player.elapsed -= player.speed;
 
-    player.startTurn();
+  await player.startTurn();
 
-    while(!player.acted) {
-      const ev = await IO.nextEvent(1000);
-      await IO.dispatchEvent(ev);
-    }
-
-    player.endTurn();
-
-    console.log('...end turn', DATA.time);
-
-    UI.draw();
+  while(!player.turnTime) {
+    const ev = await IO.nextEvent(1000);
+    await IO.dispatchEvent(ev);
   }
 
+  await player.endTurn();
+
+  console.log('...end turn', DATA.time);
+
+  UI.draw();
+
+  return player.turnTime;
 }
 
 game.playerTurn = playerTurn;
 
 export async function actorTurn(actor) {
-  UI.draw();
+  console.log('actor turn...', DATA.time);
+  const turnTime = await actor.act();
+  if (actor.isOrWasVisible()) {
+    UI.draw();
+    await IO.pause(16);
+  }
+  return turnTime;
 }
 
 game.actorTurn = actorTurn;
 
 
-// TIMERS
+// TIMERS - Do something in future game time
 
 const TIMERS = [];
 
 export function delay(delay, fn) {
-	const timer = { delay, fn };
-
-	for(let i = 0; i < TIMERS.length; ++i) {
-		if (!TIMERS[i]) {
-			TIMERS[i] = timer;
-			return timer;
-		}
-	}
-
-	TIMERS.push(timer);
-	return timer;
+  return DATA.engine.push(fn, delay);
 }
 
 game.delay = delay;
 
 export async function cancelDelay(timer) {
-	for(let i = 0; i < TIMERS.length; ++i) {
-		const timer = TIMERS[i];
-		if (timer && timer === timer) {
-			TIMERS[i] = null;
-			await timer.fn(false);
-			return true;
-		}
-	}
-	return false;
+  return DATA.engine.remove(timer);
 }
 
 game.cancelDelay = cancelDelay;
-
-
-export async function fireTimers(dt) {
-  for( let i = 0; i < TIMERS.length; ++i) {
-    const timer = TIMERS[i];
-    if (!timer) continue;
-    timer.delay -= dt;
-    if (timer.delay <= 0) {
-      TIMERS[i] = null;
-      await timer.fn(true);
-    }
-  }
-}
-
-game.fireTimers = fireTimers;

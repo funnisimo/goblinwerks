@@ -5,25 +5,13 @@ import { make, data as DATA, types } from './gw.js';
 export var player = {};
 
 
-export class Player {
+export class Player extends types.Actor {
   constructor(kind) {
-    this.x = -1;
-    this.y = -1;
-    this.flags = 0;
-    this.kind = kind;
-    this.acted = false;
-    this.speed = 50;
-    this.elapsed = 0;
+    super(kind);
   }
 
   startTurn() {
-    this.acted = false;
-  }
-
-  moveDir(dir) {
-    const map = DATA.map;
-    this.acted = true;
-    return map.moveActor(this.x + dir[0], this.y + dir[1], this);
+    this.turnTime = 0;
   }
 
   endTurn() {

@@ -27,19 +27,19 @@ def.RIGHT_UP = 7;
 
 debug$1.log = console.log;
 
-var utils = {};
+var utils$1 = {};
 
 function NOOP()  {}
-utils.NOOP = NOOP;
+utils$1.NOOP = NOOP;
 
 function TRUE()  { return true; }
-utils.TRUE = TRUE;
+utils$1.TRUE = TRUE;
 
 function FALSE() { return false; }
-utils.FALSE = FALSE;
+utils$1.FALSE = FALSE;
 
 function IDENTITY(x) { return x; }
-utils.IDENTITY = IDENTITY;
+utils$1.IDENTITY = IDENTITY;
 
 
 function clamp(v, min, max) {
@@ -48,28 +48,28 @@ function clamp(v, min, max) {
   return v;
 }
 
-utils.clamp = clamp;
+utils$1.clamp = clamp;
 
 function copyXY(dest, src) {
   dest.x = src.x || src[0] || 0;
   dest.y = src.y || src[1] || 0;
 }
 
-utils.copyXY = copyXY;
+utils$1.copyXY = copyXY;
 
 function addXY(dest, src) {
   dest.x += src.x || src[0] || 0;
   dest.y += src.y || src[1] || 0;
 }
 
-utils.addXY = addXY;
+utils$1.addXY = addXY;
 
 function equalsXY(dest, src) {
   return (dest.x == (src.x || src[0] || 0))
   && (dest.y == (src.y || src[1] || 0));
 }
 
-utils.equalsXY = equalsXY;
+utils$1.equalsXY = equalsXY;
 
 function distanceBetween(x1, y1, x2, y2) {
   const x = Math.abs(x1 - x2);
@@ -78,13 +78,13 @@ function distanceBetween(x1, y1, x2, y2) {
   return x + y - (0.6 * min);
 }
 
-utils.distanceBetween = distanceBetween;
+utils$1.distanceBetween = distanceBetween;
 
 function distanceFromTo(a, b) {
   return distanceBetween(a.x || a[0] || 0, a.y || a[1] || 0, b.x || b[0] || 0, b.y || b[1] || 0);
 }
 
-utils.distanceFromTo = distanceFromTo;
+utils$1.distanceFromTo = distanceFromTo;
 
 function dirBetween(x, y, toX, toY) {
 	let diffX = toX - x;
@@ -98,19 +98,19 @@ function dirBetween(x, y, toX, toY) {
 	return [Math.sign(diffX), Math.sign(diffY)];
 }
 
-utils.dirBetween = dirBetween;
+utils$1.dirBetween = dirBetween;
 
 function dirFromTo(a, b) {
   return dirBetween(a.x || a[0] || 0, a.y || a[1] || 0, b.x || b[0] || 0, b.y || b[1] || 0);
 }
 
-utils.dirFromTo = dirFromTo;
+utils$1.dirFromTo = dirFromTo;
 
 function dirIndex(dir) {
   return def.dirs.findIndex( (a) => a[0] == dir[0] && a[1] == dir[1] );
 }
 
-utils.dirIndex = dirIndex;
+utils$1.dirIndex = dirIndex;
 
 
 function extend(obj, name, fn) {
@@ -121,7 +121,7 @@ function extend(obj, name, fn) {
   obj[name] = newFn;
 }
 
-utils.extend = extend;
+utils$1.extend = extend;
 
 function rebase(obj, name, newBase) {
   const fns = [];
@@ -140,15 +140,15 @@ function rebase(obj, name, newBase) {
   }
 }
 
-utils.rebase = rebase;
+utils$1.rebase = rebase;
 
 function cloneObject(obj) {
   const other = Object.create(obj.__proto__);
-  utils.assignObject(other, obj);
+  utils$1.assignObject(other, obj);
   return other;
 }
 
-utils.cloneObject = cloneObject;
+utils$1.cloneObject = cloneObject;
 
 function assignField(dest, src, key) {
   const current = dest[key];
@@ -179,7 +179,7 @@ function copyObject(dest, src) {
   });
 }
 
-utils.copyObject = copyObject;
+utils$1.copyObject = copyObject;
 
 function assignObject(dest, src) {
   Object.keys(src).forEach( (key) => {
@@ -187,7 +187,7 @@ function assignObject(dest, src) {
   });
 }
 
-utils.assignObject = assignObject;
+utils$1.assignObject = assignObject;
 
 function setDefault(obj, field, val) {
   if (obj[field] === undefined) {
@@ -195,7 +195,7 @@ function setDefault(obj, field, val) {
   }
 }
 
-utils.setDefault = setDefault;
+utils$1.setDefault = setDefault;
 
 function setDefaults(obj, def) {
   Object.keys(def).forEach( (key) => {
@@ -206,19 +206,19 @@ function setDefaults(obj, def) {
   });
 }
 
-utils.setDefaults = setDefaults;
+utils$1.setDefaults = setDefaults;
 
 function ERROR(message) {
   throw new Error(message);
 }
 
-utils.ERROR = ERROR;
+utils$1.ERROR = ERROR;
 
 function WARN(...args) {
   console.warn(...args);
 }
 
-utils.WARN = WARN;
+utils$1.WARN = WARN;
 
 function getOpt(obj, member, _default) {
   const v = obj[member];
@@ -226,7 +226,7 @@ function getOpt(obj, member, _default) {
   return v;
 }
 
-utils.getOpt = getOpt;
+utils$1.getOpt = getOpt;
 
 
 function first(field, ...args) {
@@ -241,13 +241,13 @@ function first(field, ...args) {
   return undefined;
 }
 
-utils.first = first;
+utils$1.first = first;
 
 function arraysIntersect(a, b) {
   return a.some( (av) => b.includes(av) );
 }
 
-utils.arraysIntersect = arraysIntersect;
+utils$1.arraysIntersect = arraysIntersect;
 
 
 function sequence(listLength) {
@@ -259,7 +259,7 @@ function sequence(listLength) {
   return list;
 }
 
-utils.sequence = sequence;
+utils$1.sequence = sequence;
 
 var flag = {};
 var flags = {};
@@ -615,12 +615,12 @@ function makeRange(config, rng) {
   if (config instanceof Range) return config; // you can supply a custom range object
   if (config.value) return config;  // calc or damage
 
-  if (typeof config == 'function') utils.ERROR('Custom range functions not supported - extend Range');
+  if (typeof config == 'function') utils$1.ERROR('Custom range functions not supported - extend Range');
 
   if (config === undefined || config === null) return new Range(0, 0, 0, rng);
   if (typeof config == 'number') return new Range(config, config, 1, rng);
 
-  if (config === true || config === false) utils.ERROR('Invalid random config: ' + config);
+  if (config === true || config === false) utils$1.ERROR('Invalid random config: ' + config);
 
   if (Array.isArray(config)) {
 		return new Range(config[0], config[1], config[2], rng);
@@ -629,7 +629,7 @@ function makeRange(config, rng) {
     return new Range(config.lo, config.hi, config.clumps, rng);
   }
   if (typeof config !== 'string') {
-    utils.ERROR('Calculations must be strings.  Received: ' + JSON.stringify(config));
+    utils$1.ERROR('Calculations must be strings.  Received: ' + JSON.stringify(config));
   }
   if (config.length == 0) return new Range(0);
 
@@ -790,7 +790,7 @@ color.applyAverage = applyMix;
 
 
 function toRGB(v, vr) {
-  return utils.clamp(Math.round(2.551 * (v + cosmetic.value() * vr) ), 0, 255);
+  return utils$1.clamp(Math.round(2.551 * (v + cosmetic.value() * vr) ), 0, 255);
 }
 
 const V_TO_CSS = [];
@@ -821,9 +821,9 @@ function equals(a, b) {
 color.equals = equals;
 
 function clampColor(theColor) {
-  theColor.red		= utils.clamp(theColor.red, 0, 100);
-  theColor.green	= utils.clamp(theColor.green, 0, 100);
-  theColor.blue		= utils.clamp(theColor.blue, 0, 100);
+  theColor.red		= utils$1.clamp(theColor.red, 0, 100);
+  theColor.green	= utils$1.clamp(theColor.green, 0, 100);
+  theColor.blue		= utils$1.clamp(theColor.blue, 0, 100);
 }
 
 color.clamp = clampColor;
@@ -842,7 +842,7 @@ color.bake = bakeColor;
 
 
 function lightenColor(destColor, percent) {
-  utils.clamp(percent, 0, 100);
+  utils$1.clamp(percent, 0, 100);
   destColor.red =    Math.round(destColor.red + (100 - destColor.red) * percent / 100);
   destColor.green =  Math.round(destColor.green + (100 - destColor.green) * percent / 100);
   destColor.blue =   Math.round(destColor.blue + (100 - destColor.blue) * percent / 100);
@@ -854,7 +854,7 @@ function lightenColor(destColor, percent) {
 color.lighten = lightenColor;
 
 function darkenColor(destColor, percent) {
-  utils.clamp(percent, 0, 100);
+  utils$1.clamp(percent, 0, 100);
   destColor.red =    Math.round(destColor.red * (100 - percent) / 100);
   destColor.green =  Math.round(destColor.green * (100 - percent) / 100);
   destColor.blue =   Math.round(destColor.blue * (100 - percent) / 100);
@@ -968,12 +968,12 @@ function separateColors(/* color */ fore, /* color */ back) {
   f = fore.clone();
   b = back.clone();
 
-  f.red			= utils.clamp(f.red, 0, 100);
-  f.green		= utils.clamp(f.green, 0, 100);
-  f.blue		= utils.clamp(f.blue, 0, 100);
-  b.red			= utils.clamp(b.red, 0, 100);
-  b.green		= utils.clamp(b.green, 0, 100);
-  b.blue		= utils.clamp(b.blue, 0, 100);
+  f.red			= utils$1.clamp(f.red, 0, 100);
+  f.green		= utils$1.clamp(f.green, 0, 100);
+  f.blue		= utils$1.clamp(f.blue, 0, 100);
+  b.red			= utils$1.clamp(b.red, 0, 100);
+  b.green		= utils$1.clamp(b.green, 0, 100);
+  b.blue		= utils$1.clamp(b.blue, 0, 100);
 
   if (f.red + f.blue + f.green > 50 * 3) {
     modifier = colors.black;
@@ -1355,7 +1355,7 @@ class Grid extends Array {
 
 		this.forEach( (v, i, j) => {
 			if (fn(v, i, j)) {
-				const dist = utils.distanceBetween(x, y, i, j);
+				const dist = utils$1.distanceBetween(x, y, i, j);
 				if (dist < bestDistance) {
 					bestLoc[0] = i;
 					bestLoc[1] = j;
@@ -1487,7 +1487,7 @@ class Grid extends Array {
 
 	  // brogueAssert(grid.hasXY(x, y));
 
-		testFn = testFn || utils.IDENTITY;
+		testFn = testFn || utils$1.IDENTITY;
 
 		arcCount = 0;
 		for (dir = 0; dir < CDIRS.length; dir++) {
@@ -1632,10 +1632,10 @@ function gridDumpRect(grid, left, top, width, height, fmtFn) {
 
 	fmtFn = fmtFn || _formatGridValue;
 
-	left = utils.clamp(left, 0, grid.width - 2);
-	top = utils.clamp(top, 0, grid.height - 2);
-	const right = utils.clamp(left + width, 1, grid.width - 1);
-	const bottom = utils.clamp(top + height, 1, grid.height - 1);
+	left = utils$1.clamp(left, 0, grid.width - 2);
+	top = utils$1.clamp(top, 0, grid.height - 2);
+	const right = utils$1.clamp(left + width, 1, grid.width - 1);
+	const bottom = utils$1.clamp(top + height, 1, grid.height - 1);
 
 	let output = [];
 
@@ -2589,7 +2589,7 @@ io.makeMouseEvent = makeMouseEvent;
 
 
 function nextEvent(ms, match) {
-	match = match || utils.TRUE;
+	match = match || utils$1.TRUE;
 	let elapsed = 0;
 
 	while (EVENTS.length) {
@@ -2634,7 +2634,7 @@ function nextEvent(ms, match) {
 io.nextEvent = nextEvent;
 
 async function nextKeypress(ms, match) {
-	match = match || utils.TRUE;
+	match = match || utils$1.TRUE;
 	function matchingKey(e) {
   	if (e.type !== KEYPRESS) return false;
     return match(e);
@@ -3173,7 +3173,7 @@ function checkDiggerConfig(config, opts) {
 
     if (expect === true) {	// needs to be a number > 0
       if (typeof have !== 'number') {
-        utils.ERROR('Invalid configuration for digger: ' + key + ' expected number received ' + typeof have);
+        utils$1.ERROR('Invalid configuration for digger: ' + key + ' expected number received ' + typeof have);
       }
     }
     else if (typeof expect === 'number') {	// needs to be a number, this is the default
@@ -3187,7 +3187,7 @@ function checkDiggerConfig(config, opts) {
         config[key] = new Array(expect.length).fill(have);
       }
       else if (!Array.isArray(have)) {
-        utils.WARN('Received unexpected config for digger : ' + key + ' expected array, received ' + typeof have + ', using defaults.');
+        utils$1.WARN('Received unexpected config for digger : ' + key + ' expected array, received ' + typeof have + ', using defaults.');
         config[key] = expect.slice();
       }
       else if (expect.length > have.length) {
@@ -3197,7 +3197,7 @@ function checkDiggerConfig(config, opts) {
       }
     }
     else {
-      utils.WARN('Unexpected digger configuration parameter: ', key, expect);
+      utils$1.WARN('Unexpected digger configuration parameter: ', key, expect);
     }
   });
 
@@ -3246,11 +3246,11 @@ function digChoiceRoom(config, grid) {
     choices = Object.keys(config.choices);
   }
   else {
-    utils.ERROR('Expected choices to be either array of choices or map { digger: weight }');
+    utils$1.ERROR('Expected choices to be either array of choices or map { digger: weight }');
   }
   for(let choice of choices) {
     if (!diggers[choice]) {
-      utils.ERROR('Missing digger choice: ' + choice);
+      utils$1.ERROR('Missing digger choice: ' + choice);
     }
   }
 
@@ -3487,13 +3487,13 @@ function attachHallway(grid, doorSitesArray, opts) {
     opts = opts || {};
     const tile = opts.tile || 1;
 
-    const horizontalLength = utils.first('horizontalHallLength', opts, [9,15]);
-    const verticalLength = utils.first('verticalHallLength', opts, [2,9]);
+    const horizontalLength = utils$1.first('horizontalHallLength', opts, [9,15]);
+    const verticalLength = utils$1.first('verticalHallLength', opts, [2,9]);
 
     // Pick a direction.
     dir = opts.dir;
     if (dir === undefined) {
-      const dirs = utils.sequence(4);
+      const dirs = utils$1.sequence(4);
       random.shuffle(dirs);
       for (i=0; i<4; i++) {
           dir = dirs[i];
@@ -3526,8 +3526,8 @@ function attachHallway(grid, doorSitesArray, opts) {
         x += DIRS$2[dir][0];
         y += DIRS$2[dir][1];
     }
-    x = utils.clamp(x - DIRS$2[dir][0], 0, grid.width - 1);
-    y = utils.clamp(y - DIRS$2[dir][1], 0, grid.height - 1); // Now (x, y) points at the last interior cell of the hallway.
+    x = utils$1.clamp(x - DIRS$2[dir][0], 0, grid.width - 1);
+    y = utils$1.clamp(y - DIRS$2[dir][1], 0, grid.height - 1); // Now (x, y) points at the last interior cell of the hallway.
     allowObliqueHallwayExit = random.percent(15);
     for (dir2 = 0; dir2 < 4; dir2++) {
         newX = x + DIRS$2[dir2][0];
@@ -3646,7 +3646,7 @@ function setFlags(tile, allFlags) {
     flags = allFlags.split(/[,|]/).map( (t) => t.trim() );
   }
   else if (!Array.isArray(allFlags)) {
-    return utils.WARN('Invalid tile flags: ' + allFlags);
+    return utils$1.WARN('Invalid tile flags: ' + allFlags);
   }
   else if (allFlags.length <= 2) {
     if (typeof allFlags[0] === 'number') {
@@ -3658,7 +3658,7 @@ function setFlags(tile, allFlags) {
 
   flags.forEach((f) => {
     if (typeof f !== 'string') {
-      utils.WARN('Invalid tile flag: ' + f);
+      utils$1.WARN('Invalid tile flag: ' + f);
     }
     else if (Flags[f]) {
       tile.flags |= Flags[f];
@@ -3667,7 +3667,7 @@ function setFlags(tile, allFlags) {
       tile.mechFlags |= MechFlags[f];
     }
     else {
-      utils.WARN('Invalid tile flag: ' + f);
+      utils$1.WARN('Invalid tile flag: ' + f);
     }
   });
 }
@@ -3777,7 +3777,7 @@ function start(map, opts={}) {
   WALL        = tile.withName('WALL')        ? tile.withName('WALL').id         : WALL;
   LAKE        = tile.withName('LAKE')        ? tile.withName('LAKE').id         : LAKE;
 
-  LOCS = utils.sequence(map.width * map.height);
+  LOCS = utils$1.sequence(map.width * map.height);
   random.shuffle(LOCS);
 
   const startX = opts.x || -1;
@@ -3803,7 +3803,7 @@ dungeon.finish = finish;
 
 // Returns an array of door sites if successful
 function digRoom(opts={}) {
-  const hallChance = utils.first('hallChance', opts, SITE.config, 0);
+  const hallChance = utils$1.first('hallChance', opts, SITE.config, 0);
   const diggerId = opts.digger || opts.id || 'SMALL'; // TODO - get random id
 
   const digger$1 = diggers[diggerId];
@@ -3995,7 +3995,7 @@ function attachRoomAtXY(roomGrid, xy, doors, placeDoor) {
 
 function insertRoomAtXY(x, y, roomGrid, doorSites, placeDoor) {
 
-  const dirs = utils.sequence(4);
+  const dirs = utils$1.sequence(4);
   random.shuffle(dirs);
 
   for(let dir of dirs) {
@@ -4028,7 +4028,7 @@ function insertRoomAtXY(x, y, roomGrid, doorSites, placeDoor) {
 
 function attachRoomAtDoors(roomGrid, roomDoors, siteDoors, placeDoor) {
 
-  const doorIndexes = utils.sequence(siteDoors.length);
+  const doorIndexes = utils$1.sequence(siteDoors.length);
   random.shuffle(doorIndexes);
 
   // Slide hyperspace across real space, in a random but predetermined order, until the room matches up with a wall.
@@ -4408,7 +4408,7 @@ function addStairs(upX, upY, downX, downY, minDistance) {
   let downLoc;
   if (downX < 0) {
     downLoc = SITE.cells.randomMatchingXY( (v, x, y) => {
-  		if (utils.distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
+  		if (utils$1.distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
   		return dungeon.isValidStairLoc(v, x, y);
   	});
   }
@@ -4527,7 +4527,7 @@ class CellMemory {
   }
 
   copy(other) {
-    utils.copyObject(this, other);
+    utils$1.copyObject(this, other);
   }
 }
 
@@ -4540,7 +4540,7 @@ class Cell {
   }
 
   copy(other) {
-    utils.copyObject(this, other);
+    utils$1.copyObject(this, other);
   }
 
   clear() {
@@ -5016,7 +5016,7 @@ class Map {
 					if (!this.hasXY(i, j)) continue;
 					const cell = this.cell(i, j);
 					// if ((i == x-k || i == x+k || j == y-k || j == y+k)
-					if ((Math.floor(utils.distanceBetween(x, y, i, j)) == k)
+					if ((Math.floor(utils$1.distanceBetween(x, y, i, j)) == k)
 							&& (!blockingMap || !blockingMap[i][j])
 							&& matcher(cell, i, j)
 							&& (!forbidLiquid || cell.liquid == def.NOTHING)
@@ -5461,6 +5461,81 @@ function getLine(map, fromX, fromY, toX, toY) {
 
 map.getLine = getLine;
 
+class Scheduler {
+	constructor() {
+  	this.next = null;
+    this.time = 0;
+    this.cache = null;
+  }
+
+	clear() {
+		while(this.next) {
+			const current = this.next;
+			this.next = current.next;
+			current.next = this.cache;
+			this.cache = current;
+		}
+	}
+
+  push(fn, delay=1) {
+    let item;
+    if (this.cache) {
+    	item = this.cache;
+      this.cache = this.cache.next;
+    }
+    else {
+    	item = { fn: null, time: 0, next: null };
+    }
+		item.fn = fn;
+    item.time = this.time + delay;
+    if (!this.next) {
+	    this.next = item;
+    }
+    else {
+    	let current = this;
+      let next = current.next;
+    	while(next && next.time <= item.time) {
+      	current = next;
+        next = current.next;
+      }
+      item.next = current.next;
+      current.next = item;
+    }
+		return item;
+  }
+
+  pop() {
+  	const n = this.next;
+		if (!n) return n;
+
+    this.next = n.next;
+    this.time = Math.max(n.time, this.time);	// so you can schedule -1 as a time uint
+    const fn = n.fn;
+    n.next = this.cache;
+    this.cache = n;
+    return fn;
+  }
+
+	remove(item) {
+		if (this.next === item) {
+			this.next = item.next;
+			return;
+		}
+		prev = this.next;
+		current = prev.next;
+		while( current && current !== item ) {
+			prev = current;
+			current = current.next;
+		}
+
+		if (current === item) {
+			prev.next = current.next;
+		}
+	}
+}
+
+types.Scheduler = Scheduler;
+
 var fx = {};
 
 let ANIMATIONS = [];
@@ -5503,7 +5578,7 @@ class FX {
   constructor(opts={}) {
     this.tilNextTurn = opts.speed || opts.duration || 1000;
     this.speed = opts.speed || opts.duration || 1000;
-    this.callback = utils.NOOP;
+    this.callback = utils$1.NOOP;
     this.done = false;
   }
 
@@ -5625,7 +5700,7 @@ class MovingSpriteFX extends SpriteFX {
     super(map$1, sprite, source.x, source.y, { speed });
     this.target = target;
     this.path = map.getLine(this.map, source.x, source.y, this.target.x, this.target.y);
-    this.stepFn = stepFn || utils.TRUE;
+    this.stepFn = stepFn || utils$1.TRUE;
   }
 
   step() {
@@ -5663,11 +5738,11 @@ async function bolt(map, source, target, sprite, speed, stepFn) {
 fx.bolt = bolt;
 
 async function projectile(map, source, target, chs, fg, speed, stepFn) {
-  if (chs.length != 4) utils.ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
+  if (chs.length != 4) utils$1.ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
   stepFn = stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
 
-  const dir = utils.dirFromTo(source, target);
-  const dIndex = utils.dirIndex(dir);
+  const dir = utils$1.dirFromTo(source, target);
+  const dIndex = utils$1.dirIndex(dir);
   const index = Math.floor(dIndex / 2);
   const ch = chs[index];
   const sprite = GW.make.sprite(ch, fg);
@@ -5770,7 +5845,7 @@ class BeamFX extends FX {
     this.sprite = sprite;
     this.fade = fade || speed;
     this.path = map.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
-    this.stepFn = stepFn || utils.TRUE;
+    this.stepFn = stepFn || utils$1.TRUE;
   }
 
   step() {
@@ -5833,7 +5908,7 @@ class ExplosionFX extends FX {
     this.fade = fade || 100;
     this.shape = shape || 'o';
     this.center = (center === undefined) ? true : center;
-    this.stepFn = stepFn || utils.TRUE;
+    this.stepFn = stepFn || utils$1.TRUE;
   }
 
   step() {
@@ -5851,7 +5926,7 @@ class ExplosionFX extends FX {
       col = this.grid[x];
       for(let y = minY; y <= maxY; ++y) {
         if (col[y] != 1) continue;  // not in FOV
-        dist = utils.distanceBetween(this.x, this.y, x, y);
+        dist = utils$1.distanceBetween(this.x, this.y, x, y);
         if (dist <= this.radius) {
           this.visit(x, y);
         }
@@ -5944,7 +6019,7 @@ function uiLoop(t) {
 
 function start$1(opts={}) {
 
-  utils.setDefaults(opts, {
+  utils$1.setDefaults(opts, {
     width: 100,
     height: 34,
     bg: 'black',
@@ -6107,11 +6182,12 @@ game.setTime = setTime;
 
 
 function startGame(opts={}) {
-  if (!opts.map) utils.ERROR('map is required.');
+  if (!opts.map) utils$1.ERROR('map is required.');
 
   data.time = 0;
   data.running = true;
   data.player = opts.player || null;
+  data.engine = new types.Scheduler();
 
   game.startMap(opts.map, opts.x, opts.y);
   return game.loop();
@@ -6122,6 +6198,8 @@ game.start = startGame;
 
 function startMap(map, playerX, playerY) {
 
+  data.engine.clear();
+
   if (data.map && data.player) {
     data.map.removeActor(data.player);
   }
@@ -6130,16 +6208,20 @@ function startMap(map, playerX, playerY) {
   map.flag |= Flags$2.MAP_CHANGED;
   data.map = map;
 
+  // TODO - Add Map/Environment Updater
+
   if (data.player) {
     let x = playerX || data.player.x || 0;
     let y = playerY || data.player.y || 0;
     if (x <= 0) {
       const start = map.locations.start;
-      if (!start) utils.ERROR('Need x,y or start location.');
+      if (!start) utils$1.ERROR('Need x,y or start location.');
       x = start[0];
       y = start[1];
     }
     data.map.addActor(x, y, data.player);
+    game.queuePlayer();
+
   }
 }
 
@@ -6152,147 +6234,137 @@ async function gameLoop() {
   ui.draw();
 
   while (data.running) {
-    data.time += data.turnTime;
-    await game.startTurn();
-    if (data.player) {
-      await game.playerTurn(data.turnTime);
+
+    const fn = data.engine.pop();
+    if (!fn) {
+      utils.WARN('NO ACTORS! STOPPING GAME!');
+      data.running = false;
     }
-    if (data.actors) {
-      for(let actor of data.actors) {
-        await game.actorTurn(actor, data.turnTime);
+    else {
+      data.time = data.engine.time;
+      const turnTime = await fn();
+      if (turnTime) {
+        data.engine.push(fn, turnTime);
       }
     }
-    await game.turnEnded();
+
   }
 
 }
 
 game.loop = gameLoop;
 
-async function startTurn() {
-  // FIRE TIMERS
-  await game.fireTimers(data.turnTime);
+function queuePlayer() {
+  data.engine.push(game.playerTurn.bind(game, data.player), data.player.speed);
 }
 
-game.startTurn = startTurn;
+game.queuePlayer = queuePlayer;
 
-
-async function turnEnded() {
-  // update environment
-
-  if (!data.player && (!data.actors || data.actors.length == 0)) {
-    await io.pause(1);  // to keep from spinning
-  }
+function queueActor(actor) {
+  data.engine.push(game.actorTurn.bind(game, actor), actor.speed);
 }
 
-game.turnEnded = turnEnded;
+game.queueActor = queueActor;
 
 
-async function playerTurn(dt) {
+async function playerTurn() {
 
   const player = data.player;
 
-  player.elapsed += dt;
-  if (player.elapsed >= player.speed) {
-    console.log('player turn...', data.time);
-    player.elapsed -= player.speed;
+  console.log('player turn...', data.time);
+  player.elapsed -= player.speed;
 
-    player.startTurn();
+  await player.startTurn();
 
-    while(!player.acted) {
-      const ev = await io.nextEvent(1000);
-      await io.dispatchEvent(ev);
-    }
-
-    player.endTurn();
-
-    console.log('...end turn', data.time);
-
-    ui.draw();
+  while(!player.turnTime) {
+    const ev = await io.nextEvent(1000);
+    await io.dispatchEvent(ev);
   }
 
+  await player.endTurn();
+
+  console.log('...end turn', data.time);
+
+  ui.draw();
+
+  return player.turnTime;
 }
 
 game.playerTurn = playerTurn;
 
 async function actorTurn(actor) {
-  ui.draw();
+  console.log('actor turn...', data.time);
+  const turnTime = await actor.act();
+  if (actor.isOrWasVisible()) {
+    ui.draw();
+    await io.pause(16);
+  }
+  return turnTime;
 }
 
 game.actorTurn = actorTurn;
 
-
-// TIMERS
-
-const TIMERS = [];
-
 function delay(delay, fn) {
-	const timer = { delay, fn };
-
-	for(let i = 0; i < TIMERS.length; ++i) {
-		if (!TIMERS[i]) {
-			TIMERS[i] = timer;
-			return timer;
-		}
-	}
-
-	TIMERS.push(timer);
-	return timer;
+  return data.engine.push(fn, delay);
 }
 
 game.delay = delay;
 
 async function cancelDelay(timer) {
-	for(let i = 0; i < TIMERS.length; ++i) {
-		const timer = TIMERS[i];
-		if (timer && timer === timer) {
-			TIMERS[i] = null;
-			await timer.fn(false);
-			return true;
-		}
-	}
-	return false;
+  return data.engine.remove(timer);
 }
 
 game.cancelDelay = cancelDelay;
 
+var actor = {};
 
-async function fireTimers(dt) {
-  for( let i = 0; i < TIMERS.length; ++i) {
-    const timer = TIMERS[i];
-    if (!timer) continue;
-    timer.delay -= dt;
-    if (timer.delay <= 0) {
-      TIMERS[i] = null;
-      await timer.fn(true);
-    }
+class Actor {
+	constructor(kind) {
+		this.x = -1;
+    this.y = -1;
+    this.flags = 0;
+    this.kind = kind;
+    this.turnTime = 0;
+    this.speed = 50;
   }
+
+  act() {
+		// Idle
+  	return this.turnTime || this.speed;
+  }
+
+	// TODO - This is a command/task
+	moveDir(dir) {
+    const map = data.map;
+    this.turnTime = this.speed;
+    return map.moveActor(this.x + dir[0], this.y + dir[1], this);
+  }
+
+	isOrWasVisible() {
+		return true;
+	}
+
 }
 
-game.fireTimers = fireTimers;
+types.Actor = Actor;
+
+
+function makeActor(kind) {
+  return new types.Actor(kind);
+}
+
+make.actor = makeActor;
 
 var player = {};
 
 
-class Player {
+class Player extends types.Actor {
   constructor(kind) {
-    this.x = -1;
-    this.y = -1;
-    this.flags = 0;
-    this.kind = kind;
-    this.acted = false;
-    this.speed = 50;
-    this.elapsed = 0;
+    super(kind);
   }
 
   startTurn() {
-    this.acted = false;
-  }
-
-  moveDir(dir) {
-    const map = data.map;
-    this.acted = true;
-    return map.moveActor(this.x + dir[0], this.y + dir[1], this);
+    this.turnTime = 0;
   }
 
   endTurn() {
@@ -6712,4 +6784,4 @@ class FOV {
 
 types.FOV = FOV;
 
-export { canvas, cell$1 as cell, color, colors, commands, config, cosmetic, data, debug$1 as debug, def, digger, diggers, dungeon, flag, flags, fov, fx, game, GRID as grid, install, io, make, map, PATH as path, player, random, sprite, sprites, tile, tiles, types, ui, utils };
+export { actor, canvas, cell$1 as cell, color, colors, commands, config, cosmetic, data, debug$1 as debug, def, digger, diggers, dungeon, flag, flags, fov, fx, game, GRID as grid, install, io, make, map, PATH as path, player, random, sprite, sprites, tile, tiles, types, ui, utils$1 as utils };
