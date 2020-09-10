@@ -1109,6 +1109,11 @@ class Sprite {
 		this.wasHanging = other.wasHanging || false;
 	}
 
+	clone() {
+		const other = new types.Sprite(this.ch, this.fg, this.bg, this.opacity);
+		return other;
+	}
+
 	clear() {
 		if (HANGING_LETTERS.includes(this.ch)) {
 			this.wasHanging = true;
@@ -2389,17 +2394,14 @@ io.clearEvents = clearEvents;
 
 function pushEvent(ev) {
   if (EVENTS.length) {
-  	const last = EVENTS[EVENTS.length - 1];
-    if (last.type === ev.type) {
-			if (last.type === MOUSEMOVE) {
+		const last = EVENTS[EVENTS.length - 1];
+		if (last.type === MOUSEMOVE) {
+	    if (last.type === ev.type) {
 				last.x = ev.x;
 			  last.y = ev.y;
+				io.recycleEvent(ev);
 	      return;
 	    }
-			else if (last.type === TICK) {
-				last.dt += ev.dt;
-				return;
-			}
 		}
   }
 
@@ -2407,9 +2409,17 @@ function pushEvent(ev) {
   	CURRENT_HANDLER(ev);
   }
   else {
-  	EVENTS.push(ev);
-		while(EVENTS.length > 20) {
-			io.recycleEvent(EVENTS.shift());
+		if (ev.type === TICK) {
+			const first = EVENTS[0];
+			if (first && first.type === TICK) {
+				first.dt += ev.dt;
+				io.recycleEvent(ev);
+				return;
+			}
+			EVENTS.unshift(ev);	// ticks go first
+		}
+		else {
+			EVENTS.push(ev);
 		}
   }
 }
@@ -2417,7 +2427,7 @@ function pushEvent(ev) {
 io.pushEvent = pushEvent;
 
 
-function dispatchEvent(ev) {
+async function dispatchEvent(ev) {
 	let result;
 	for(let i = KEYMAPS.length - 1 && (result === undefined); i >= 0; --i) {
 		const km = KEYMAPS[i];
@@ -2434,10 +2444,10 @@ function dispatchEvent(ev) {
 
 		if (command) {
 			if (typeof command === 'function') {
-				result = command(ev);
+				result = await command(ev);
 			}
 			else if (commands[command]) {
-				result = commands[command](ev);
+				result = await commands[command](ev);
 			}
 		}
 
@@ -2446,11 +2456,6 @@ function dispatchEvent(ev) {
 		}
 	}
 	io.recycleEvent(ev);
-	if (result && result.then) {
-		const km = KEYMAPS[KEYMAPS.length - 1];
-		km.busy = true;
-		result = result.then( () => km.busy = false );
-	}
 	return result;
 }
 
@@ -2633,6 +2638,30 @@ function nextEvent(ms, match) {
 
 io.nextEvent = nextEvent;
 
+async function tickMs(ms=1) {
+	let done;
+	let elapsed = 0;
+
+	CURRENT_HANDLER = ((e) => {
+  	if (e.type !== TICK) {
+			EVENTS.push(e);
+    	return;
+    }
+		elapsed += e.dt;
+		if (elapsed >= ms) {
+			CURRENT_HANDLER = null;
+			done(elapsed);
+		}
+  });
+
+  return new Promise( (resolve) => done = resolve );
+}
+
+io.tickMs = tickMs;
+
+
+// TODO - io.tickMs(ms)
+
 async function nextKeypress(ms, match) {
 	match = match || utils$1.TRUE;
 	function matchingKey(e) {
@@ -2660,13 +2689,6 @@ async function pause(ms) {
 }
 
 io.pause = pause;
-
-async function nextTick() {
-	const e = await io.nextEvent(1);
-  return (e.type === TICK) ? e.dt : -1;
-}
-
-io.nextTick = nextTick;
 
 function waitForAck() {
 	return io.pause(5 * 60 * 1000);	// 5 min
@@ -5481,7 +5503,8 @@ class Scheduler {
     let item;
     if (this.cache) {
     	item = this.cache;
-      this.cache = this.cache.next;
+      this.cache = item.next;
+			item.next = null;
     }
     else {
     	item = { fn: null, time: 0, next: null };
@@ -5506,14 +5529,14 @@ class Scheduler {
 
   pop() {
   	const n = this.next;
-		if (!n) return n;
+		if (!n) return null;
 
     this.next = n.next;
-    this.time = Math.max(n.time, this.time);	// so you can schedule -1 as a time uint
-    const fn = n.fn;
     n.next = this.cache;
     this.cache = n;
-    return fn;
+
+		this.time = Math.max(n.time, this.time);	// so you can schedule -1 as a time uint
+    return n.fn;
   }
 
 	remove(item) {
@@ -5534,7 +5557,7 @@ class Scheduler {
 	}
 }
 
-types.Scheduler = Scheduler;
+const scheduler = new Scheduler();
 
 var fx = {};
 
@@ -5547,15 +5570,16 @@ function busy$1() {
 fx.busy = busy$1;
 
 
-function fastForward() {
-  let current = ANIMATIONS.slice();
-  while(current.length) {
-    current.forEach( (a) => a && a.step() );
-    current = current.filter( (a) => a && !a.done );
+async function playAll() {
+  while(fx.busy()) {
+    const dt = await io.nextTick();
+    ANIMATIONS.forEach( (a) => a && a.tick(dt) );
+    ANIMATIONS = ANIMATIONS.filter( (a) => a && !a.done );
   }
 }
 
-fx.fastForward = fastForward;
+fx.playAll = playAll;
+
 
 function tick(dt) {
   const didSomething = ANIMATIONS.length;
@@ -5566,12 +5590,30 @@ function tick(dt) {
 
 fx.tick = tick;
 
-async function play(animation) {
+async function playRealTime(animation) {
+  animation.playFx = fx.playRealTime;
+
+  animation.start();
   ANIMATIONS.push(animation);
   return new Promise( (resolve) => animation.callback = resolve );
 }
 
-fx.play = play;
+fx.playRealTime = playRealTime;
+
+async function playGameTime(anim) {
+  anim.playFx = fx.playGameTime;
+
+  anim.start();
+  scheduler.push(() => {
+    anim.step();
+    ui.requestUpdate(1);
+    return anim.done ? 0 : anim.speed;
+  },  anim.speed);
+
+  return new Promise( (resolve) => anim.callback = resolve );
+}
+
+fx.playGameTime = playGameTime;
 
 
 class FX {
@@ -5595,9 +5637,7 @@ class FX {
     this.stop();
   }
 
-  start() {
-    return fx.play(this);
-  }
+  start() {}
 
   stop(result) {
     if (this.done) return;
@@ -5660,11 +5700,9 @@ class SpriteFX extends FX {
 
 
 
-
-
-async function flashSprite(map, x, y, sprite, duration, count=1) {
-  const animation = new SpriteFX(map, sprite, x, y, { duration, blink: count });
-  return animation.start();
+async function flashSprite(map, x, y, sprite, duration=100, count=1) {
+  const anim = new SpriteFX(map, sprite, x, y, { duration, blink: count });
+  return fx.playRealTime(anim);
 }
 
 fx.flashSprite = flashSprite;
@@ -5675,8 +5713,7 @@ installSprite('bump', 'white', 50);
 async function hit(map, target, sprite, duration) {
   sprite = sprite || config.fx.hitSprite || 'hit';
   duration = duration || config.fx.hitFlashTime || 200;
-  const animation = new SpriteFX(map, sprite, target.x, target.y, { duration });
-  return animation.start();
+  await fx.flashSprite(map, target.x, target.y, sprite, duration, 1);
 }
 
 fx.hit = hit;
@@ -5686,8 +5723,7 @@ installSprite('hit', 'red', 50);
 async function miss(map, target, sprite, duration) {
   sprite = sprite || config.fx.missSprite || 'miss';
   duration = duration || config.fx.missFlashTime || 200;
-  const animation = new SpriteFX(map, sprite, target.x, target.y, { duration });
-  return animation.start();
+  await fx.flashSprite(map, target.x, target.y, sprite, duration, 1);
 }
 
 fx.miss = miss;
@@ -5728,26 +5764,78 @@ types.MovingSpriteFX = MovingSpriteFX;
 
 
 
+//
+// export async function bolt(map, source, target, sprite, speed, stepFn) {
+//   if (typeof sprite === 'string') {
+//     sprite = SPRITES[sprite];
+//   }
+//   stepFn = stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
+//
+//   let path = MAP.getLine(map, source.x, source.y, target.x, target.y);
+//   const anim = { sprite, x: -1, y: -1, targetX: target.x, targetY: target.y };
+//
+//   map.addFx(source.x, source.y, anim);
+//   UI.requestUpdate(16);
+//   let done;
+//
+//   function moveFx() {
+//     if (anim.x == anim.targetX && anim.y == anim.targetY) {
+//       map.removeFx(anim);
+//       UI.requestUpdate(0);
+//       done(anim);
+//       return 0;
+//     }
+//     if (!path.find( (loc) => loc[0] == anim.targetX && loc[1] == anim.targetY)) {
+//       path = MAP.getLine(map, anim.x, anim.y, anim.targetX, anim.targetY);
+//     }
+//     const next = path.shift();
+//     const r = stepFn(next[0], next[1]);
+//     if (r < 0) {
+//       map.removeFx(anim);
+//       UI.requestUpdate(0);
+//       done(anim);
+//       return 0;
+//     }
+//     else if (r) {
+//       map.moveFx(next[0], next[1], anim);
+//       UI.requestUpdate(10);
+//     }
+//     else {
+//       map.moveFx(next[0], next[1], anim);
+//       UI.requestUpdate(10);
+//       anim.targetX = anim.x;
+//       anim.targetY = anim.y;
+//     }
+//     return speed;
+//   }
+//
+//   scheduler.push(moveFx,  speed);
+//   return new Promise( (resolve) => done = resolve );
+// }
+
 
 async function bolt(map, source, target, sprite, speed, stepFn) {
+  if (typeof sprite === 'string') {
+    sprite = sprites[sprite];
+  }
   stepFn = stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
-  const animation = new MovingSpriteFX(map, source, target, sprite, speed, stepFn );
-  return animation.start();
+
+  const anim = new MovingSpriteFX(map, source, target, sprite, speed, stepFn);
+  return fx.playGameTime(anim);
 }
 
 fx.bolt = bolt;
 
 async function projectile(map, source, target, chs, fg, speed, stepFn) {
   if (chs.length != 4) utils$1.ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
-  stepFn = stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
 
   const dir = utils$1.dirFromTo(source, target);
   const dIndex = utils$1.dirIndex(dir);
   const index = Math.floor(dIndex / 2);
   const ch = chs[index];
   const sprite = GW.make.sprite(ch, fg);
-  const animation = new MovingSpriteFX(map, source, target, sprite, speed, stepFn);
-  return animation.start();
+
+  return fx.bolt(map, source, target, sprite, speed, stepFn);
 }
 
 fx.projectile = projectile;
@@ -5849,7 +5937,7 @@ class BeamFX extends FX {
   }
 
   step() {
-    if (this.x == this.target.x && this.y == this.target.y) return this.stop(this.target);
+    if (this.x == this.target.x && this.y == this.target.y) return this.stop(this);
     if (!this.path.find( (loc) => loc[0] == this.target.x && loc[1] == this.target.y)) {
       this.path = map.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
     }
@@ -5871,7 +5959,10 @@ class BeamFX extends FX {
   moveTo(x, y) {
     this.x = x;
     this.y = y;
-    fx.flashSprite(this.map, x, y, this.sprite, this.fade);
+    // fx.flashSprite(this.map, x, y, this.sprite, this.fade);
+
+    const anim = new SpriteFX(this.map, this.sprite, x, y, { duration: this.fade });
+    this.playFx(anim);
   }
 
 }
@@ -5881,7 +5972,7 @@ types.BeamFX = BeamFX;
 function beam(map, from, to, sprite, speed, fade, stepFn) {
   stepFn = stepFn || ((x, y) => !map.isObstruction(x, y));
   const animation = new BeamFX(map, from, to, sprite, speed, fade, stepFn);
-  return animation.start();
+  return fx.playGameTime(animation);
 }
 
 fx.beam = beam;
@@ -5909,6 +6000,15 @@ class ExplosionFX extends FX {
     this.shape = shape || 'o';
     this.center = (center === undefined) ? true : center;
     this.stepFn = stepFn || utils$1.TRUE;
+  }
+
+  start() {
+    if (this.center) {
+      this.visit(this.x, this.y);
+    }
+    else {
+      this.step();
+    }
   }
 
   step() {
@@ -5944,7 +6044,9 @@ class ExplosionFX extends FX {
 
   visit(x, y) {
     if (this.isInShape(x, y) && this.stepFn(x, y)) {
-      fx.flashSprite(this.map, x, y, this.sprite, this.fade);
+      const anim = new SpriteFX(this.map, this.sprite, x, y, { duration: this.fade });
+      this.playFx(anim);
+      // fx.flashSprite(this.map, x, y, this.sprite, this.fade);
     }
     this.grid[x][y] = 2;
   }
@@ -5971,7 +6073,7 @@ function explosion(map, x, y, radius, sprite, speed, fade, shape, center, stepFn
   stepFn = stepFn || ((x, y) => !map.isObstruction(x, y));
   const animation = new ExplosionFX(map, null, x, y, radius, sprite, speed, fade, shape, center, stepFn);
   map.calcFov(animation.grid, x, y, radius);
-  return animation.start();
+  return fx.playGameTime(animation);
 }
 
 fx.explosion = explosion;
@@ -5979,7 +6081,7 @@ fx.explosion = explosion;
 function explosionFor(map, grid, x, y, radius, sprite, speed, fade, shape, center, stepFn) {
   stepFn = stepFn || ((x, y) => !map.isObstruction(x, y));
   const animation = new ExplosionFX(map, grid, x, y, radius, sprite, speed, fade, shape, center, stepFn);
-  return animation.start();
+  return fx.playGameTime(animation);
 }
 
 fx.explosionFor = explosionFor;
@@ -6008,10 +6110,10 @@ function uiLoop(t) {
 	if (fx.tick(dt)) {
 		ui.draw();
 	}
-	else {
+	// else {
 		const ev = io.makeTickEvent(dt);
 		io.pushEvent(ev);
-	}
+	// }
 
 	ui.canvas.draw();
 }
@@ -6067,6 +6169,36 @@ function stop() {
 
 ui.stop = stop;
 
+
+let UPDATE_REQUESTED = 0;
+function requestUpdate(t=1) {
+	UPDATE_REQUESTED = Math.max(UPDATE_REQUESTED, t, 1);
+}
+
+ui.requestUpdate = requestUpdate;
+
+async function updateNow(t=1) {
+	t = Math.max(t, UPDATE_REQUESTED, 1);
+	UPDATE_REQUESTED = 0;
+	ui.draw();
+	ui.canvas.draw();
+	if (t) {
+		const now = performance.now();
+		console.log('paused...', t);
+		const r = await io.tickMs(t);
+		console.log('- done', r, Math.floor(performance.now() - now));
+	}
+}
+
+ui.updateNow = updateNow;
+
+async function updateIfRequested() {
+	if (UPDATE_REQUESTED) {
+		await ui.updateNow(UPDATE_REQUESTED);
+	}
+}
+
+ui.updateIfRequested = updateIfRequested;
 
 // EVENTS
 
@@ -6165,6 +6297,141 @@ function draw() {
 
 ui.draw = draw;
 
+var actor = {};
+
+class Actor {
+	constructor(kind) {
+		this.x = -1;
+    this.y = -1;
+    this.flags = 0;
+    this.kind = kind;
+    this.turnTime = 0;
+    this.speed = 50;
+  }
+
+
+	// TODO - This is a command/task
+	moveDir(dir) {
+    const map = data.map;
+    this.turnTime = this.speed;
+    return map.moveActor(this.x + dir[0], this.y + dir[1], this);
+  }
+
+	isOrWasVisible() {
+		return true;
+	}
+
+}
+
+types.Actor = Actor;
+
+
+function makeActor(kind) {
+  return new types.Actor(kind);
+}
+
+make.actor = makeActor;
+
+
+// TODO - move back to game??
+async function takeTurn(theActor) {
+  console.log('actor turn...', data.time);
+  await actor.startTurn(theActor);
+  await actor.act(theActor);
+  await actor.endTurn(theActor);
+  return theActor.turnTime;	// actual or idle time
+}
+
+actor.takeTurn = takeTurn;
+
+
+function startTurn(theActor) {
+	theActor.turnTime = Math.foor(theActor.speed/2);
+}
+
+actor.startTurn = startTurn;
+
+
+function act(theActor) {
+	return true;
+}
+
+actor.act = act;
+
+function endTurn(theActor) {
+	if (theActor.isOrWasVisible() && theActor.turnTime) {
+		ui.requestUpdate();
+	}
+}
+
+actor.endTurn = endTurn;
+
+var player = {};
+
+
+class Player extends types.Actor {
+  constructor(kind) {
+    super(kind);
+  }
+
+  visionRadius() {
+  	return CONFIG.MAX_FOV_RADIUS || (data.map.width + data.map.height);
+  }
+
+}
+
+types.Player = Player;
+
+
+function makePlayer(kind) {
+  return new types.Player(kind);
+}
+
+make.player = makePlayer;
+
+
+
+async function takeTurn$1() {
+  const PLAYER = data.player;
+  console.log('player turn...', data.time);
+  await player.startTurn();
+
+  while(!PLAYER.turnTime) {
+    const ev = await io.nextEvent(1000);
+    await io.dispatchEvent(ev);
+  }
+
+  await player.endTurn();
+  console.log('...end turn', data.time);
+  return PLAYER.turnTime;
+}
+
+player.takeTurn = takeTurn$1;
+
+
+function startTurn$1() {
+  const PLAYER = data.player;
+	PLAYER.turnTime = 0;
+}
+
+player.startTurn = startTurn$1;
+
+
+function act$1() {
+	return true;
+}
+
+player.act = act$1;
+
+function endTurn$1() {
+  const PLAYER = data.player;
+	if (PLAYER.isOrWasVisible() && PLAYER.turnTime) {
+		ui.requestUpdate();
+	}
+}
+
+player.endTurn = endTurn$1;
+
 var game = {};
 
 data.time = 0;
@@ -6187,7 +6454,6 @@ function startGame(opts={}) {
   data.time = 0;
   data.running = true;
   data.player = opts.player || null;
-  data.engine = new types.Scheduler();
 
   game.startMap(opts.map, opts.x, opts.y);
   return game.loop();
@@ -6198,7 +6464,7 @@ game.start = startGame;
 
 function startMap(map, playerX, playerY) {
 
-  data.engine.clear();
+  scheduler.clear();
 
   if (data.map && data.player) {
     data.map.removeActor(data.player);
@@ -6235,16 +6501,19 @@ async function gameLoop() {
 
   while (data.running) {
 
-    const fn = data.engine.pop();
+    const fn = scheduler.pop();
     if (!fn) {
       utils.WARN('NO ACTORS! STOPPING GAME!');
       data.running = false;
     }
     else {
-      data.time = data.engine.time;
+      if (scheduler.time > data.time) {
+        data.time = scheduler.time;
+        await ui.updateIfRequested();
+      }
       const turnTime = await fn();
       if (turnTime) {
-        data.engine.push(fn, turnTime);
+        scheduler.push(fn, turnTime);
       }
     }
 
@@ -6254,137 +6523,30 @@ async function gameLoop() {
 
 game.loop = gameLoop;
 
+
 function queuePlayer() {
-  data.engine.push(game.playerTurn.bind(game, data.player), data.player.speed);
+  scheduler.push(player.takeTurn, data.player.speed);
 }
 
 game.queuePlayer = queuePlayer;
 
-function queueActor(actor) {
-  data.engine.push(game.actorTurn.bind(game, actor), actor.speed);
+function queueActor(actor$1) {
+  scheduler.push(actor.takeTurn.bind(null, actor$1), actor$1.speed);
 }
 
 game.queueActor = queueActor;
 
-
-async function playerTurn() {
-
-  const player = data.player;
-
-  console.log('player turn...', data.time);
-  player.elapsed -= player.speed;
-
-  await player.startTurn();
-
-  while(!player.turnTime) {
-    const ev = await io.nextEvent(1000);
-    await io.dispatchEvent(ev);
-  }
-
-  await player.endTurn();
-
-  console.log('...end turn', data.time);
-
-  ui.draw();
-
-  return player.turnTime;
-}
-
-game.playerTurn = playerTurn;
-
-async function actorTurn(actor) {
-  console.log('actor turn...', data.time);
-  const turnTime = await actor.act();
-  if (actor.isOrWasVisible()) {
-    ui.draw();
-    await io.pause(16);
-  }
-  return turnTime;
-}
-
-game.actorTurn = actorTurn;
-
 function delay(delay, fn) {
-  return data.engine.push(fn, delay);
+  return scheduler.push(fn, delay);
 }
 
 game.delay = delay;
 
 async function cancelDelay(timer) {
-  return data.engine.remove(timer);
+  return scheduler.remove(timer);
 }
 
 game.cancelDelay = cancelDelay;
-
-var actor = {};
-
-class Actor {
-	constructor(kind) {
-		this.x = -1;
-    this.y = -1;
-    this.flags = 0;
-    this.kind = kind;
-    this.turnTime = 0;
-    this.speed = 50;
-  }
-
-  act() {
-		// Idle
-  	return this.turnTime || this.speed;
-  }
-
-	// TODO - This is a command/task
-	moveDir(dir) {
-    const map = data.map;
-    this.turnTime = this.speed;
-    return map.moveActor(this.x + dir[0], this.y + dir[1], this);
-  }
-
-	isOrWasVisible() {
-		return true;
-	}
-
-}
-
-types.Actor = Actor;
-
-
-function makeActor(kind) {
-  return new types.Actor(kind);
-}
-
-make.actor = makeActor;
-
-var player = {};
-
-
-class Player extends types.Actor {
-  constructor(kind) {
-    super(kind);
-  }
-
-  startTurn() {
-    this.turnTime = 0;
-  }
-
-  endTurn() {
-
-  }
-
-  visionRadius() {
-  	return CONFIG.MAX_FOV_RADIUS || (data.map.width + data.map.height);
-  }
-
-}
-
-types.Player = Player;
-
-
-function makePlayer(kind) {
-  return new types.Player(kind);
-}
-
-make.player = makePlayer;
 
 var fov = {};
 
@@ -6784,4 +6946,4 @@ class FOV {
 
 types.FOV = FOV;
 
-export { actor, canvas, cell$1 as cell, color, colors, commands, config, cosmetic, data, debug$1 as debug, def, digger, diggers, dungeon, flag, flags, fov, fx, game, GRID as grid, install, io, make, map, PATH as path, player, random, sprite, sprites, tile, tiles, types, ui, utils$1 as utils };
+export { actor, canvas, cell$1 as cell, color, colors, commands, config, cosmetic, data, debug$1 as debug, def, digger, diggers, dungeon, flag, flags, fov, fx, game, GRID as grid, install, io, make, map, PATH as path, player, random, scheduler, sprite, sprites, tile, tiles, types, ui, utils$1 as utils };

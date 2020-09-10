@@ -3,6 +3,10 @@ import { utils as UTILS } from './utils.js';
 import { grid as GRID } from './grid.js';
 import { sprites as SPRITES, installSprite } from './sprite.js';
 import { map as MAP } from './map.js';
+import { ui as UI } from './ui.js';
+import { io as IO } from './io.js';
+import { scheduler } from './scheduler.js';
+
 import { data as DATA, types, make, config as CONFIG } from './gw.js';
 
 export var fx = {};
@@ -16,15 +20,16 @@ export function busy() {
 fx.busy = busy;
 
 
-export function fastForward() {
-  let current = ANIMATIONS.slice();
-  while(current.length) {
-    current.forEach( (a) => a && a.step() );
-    current = current.filter( (a) => a && !a.done );
+export async function playAll() {
+  while(fx.busy()) {
+    const dt = await IO.nextTick();
+    ANIMATIONS.forEach( (a) => a && a.tick(dt) );
+    ANIMATIONS = ANIMATIONS.filter( (a) => a && !a.done );
   }
 }
 
-fx.fastForward = fastForward;
+fx.playAll = playAll;
+
 
 export function tick(dt) {
   const didSomething = ANIMATIONS.length;
@@ -37,13 +42,30 @@ fx.tick = tick;
 
 let BUSY = false;
 
-export async function play(animation) {
+export async function playRealTime(animation) {
+  animation.playFx = fx.playRealTime;
+
+  animation.start();
   ANIMATIONS.push(animation);
   return new Promise( (resolve) => animation.callback = resolve );
 }
 
-fx.play = play;
+fx.playRealTime = playRealTime;
 
+export async function playGameTime(anim) {
+  anim.playFx = fx.playGameTime;
+
+  anim.start();
+  scheduler.push(() => {
+    anim.step();
+    UI.requestUpdate(1);
+    return anim.done ? 0 : anim.speed;
+  },  anim.speed);
+
+  return new Promise( (resolve) => anim.callback = resolve );
+}
+
+fx.playGameTime = playGameTime;
 
 function lerp(from, to, pct) {
 	if (pct > 1) pct = 1;
@@ -73,9 +95,7 @@ export class FX {
     this.stop();
   }
 
-  start() {
-    return fx.play(this);
-  }
+  start() {}
 
   stop(result) {
     if (this.done) return;
@@ -138,11 +158,9 @@ export class SpriteFX extends FX {
 
 
 
-
-
-export async function flashSprite(map, x, y, sprite, duration, count=1) {
-  const animation = new SpriteFX(map, sprite, x, y, { duration, blink: count });
-  return animation.start();
+export async function flashSprite(map, x, y, sprite, duration=100, count=1) {
+  const anim = new SpriteFX(map, sprite, x, y, { duration, blink: count });
+  return fx.playRealTime(anim);
 }
 
 fx.flashSprite = flashSprite;
@@ -153,8 +171,7 @@ installSprite('bump', 'white', 50);
 export async function hit(map, target, sprite, duration) {
   sprite = sprite || CONFIG.fx.hitSprite || 'hit';
   duration = duration || CONFIG.fx.hitFlashTime || 200;
-  const animation = new SpriteFX(map, sprite, target.x, target.y, { duration });
-  return animation.start();
+  await fx.flashSprite(map, target.x, target.y, sprite, duration, 1);
 }
 
 fx.hit = hit;
@@ -164,8 +181,7 @@ installSprite('hit', 'red', 50);
 export async function miss(map, target, sprite, duration) {
   sprite = sprite || CONFIG.fx.missSprite || 'miss';
   duration = duration || CONFIG.fx.missFlashTime || 200;
-  const animation = new SpriteFX(map, sprite, target.x, target.y, { duration });
-  return animation.start();
+  await fx.flashSprite(map, target.x, target.y, sprite, duration, 1);
 }
 
 fx.miss = miss;
@@ -206,26 +222,78 @@ types.MovingSpriteFX = MovingSpriteFX;
 
 
 
+//
+// export async function bolt(map, source, target, sprite, speed, stepFn) {
+//   if (typeof sprite === 'string') {
+//     sprite = SPRITES[sprite];
+//   }
+//   stepFn = stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
+//
+//   let path = MAP.getLine(map, source.x, source.y, target.x, target.y);
+//   const anim = { sprite, x: -1, y: -1, targetX: target.x, targetY: target.y };
+//
+//   map.addFx(source.x, source.y, anim);
+//   UI.requestUpdate(16);
+//   let done;
+//
+//   function moveFx() {
+//     if (anim.x == anim.targetX && anim.y == anim.targetY) {
+//       map.removeFx(anim);
+//       UI.requestUpdate(0);
+//       done(anim);
+//       return 0;
+//     }
+//     if (!path.find( (loc) => loc[0] == anim.targetX && loc[1] == anim.targetY)) {
+//       path = MAP.getLine(map, anim.x, anim.y, anim.targetX, anim.targetY);
+//     }
+//     const next = path.shift();
+//     const r = stepFn(next[0], next[1]);
+//     if (r < 0) {
+//       map.removeFx(anim);
+//       UI.requestUpdate(0);
+//       done(anim);
+//       return 0;
+//     }
+//     else if (r) {
+//       map.moveFx(next[0], next[1], anim);
+//       UI.requestUpdate(10);
+//     }
+//     else {
+//       map.moveFx(next[0], next[1], anim);
+//       UI.requestUpdate(10);
+//       anim.targetX = anim.x;
+//       anim.targetY = anim.y;
+//     }
+//     return speed;
+//   }
+//
+//   scheduler.push(moveFx,  speed);
+//   return new Promise( (resolve) => done = resolve );
+// }
+
 
 export async function bolt(map, source, target, sprite, speed, stepFn) {
+  if (typeof sprite === 'string') {
+    sprite = SPRITES[sprite];
+  }
   stepFn = stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
-  const animation = new MovingSpriteFX(map, source, target, sprite, speed, stepFn );
-  return animation.start();
+
+  const anim = new MovingSpriteFX(map, source, target, sprite, speed, stepFn);
+  return fx.playGameTime(anim);
 }
 
 fx.bolt = bolt;
 
 export async function projectile(map, source, target, chs, fg, speed, stepFn) {
   if (chs.length != 4) UTILS.ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
-  stepFn = stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
 
   const dir = UTILS.dirFromTo(source, target);
   const dIndex = UTILS.dirIndex(dir);
   const index = Math.floor(dIndex / 2);
   const ch = chs[index];
   const sprite = GW.make.sprite(ch, fg);
-  const animation = new MovingSpriteFX(map, source, target, sprite, speed, stepFn);
-  return animation.start();
+
+  return fx.bolt(map, source, target, sprite, speed, stepFn);
 }
 
 fx.projectile = projectile;
@@ -327,7 +395,7 @@ export class BeamFX extends FX {
   }
 
   step() {
-    if (this.x == this.target.x && this.y == this.target.y) return this.stop(this.target);
+    if (this.x == this.target.x && this.y == this.target.y) return this.stop(this);
     if (!this.path.find( (loc) => loc[0] == this.target.x && loc[1] == this.target.y)) {
       this.path = MAP.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
     }
@@ -349,7 +417,10 @@ export class BeamFX extends FX {
   moveTo(x, y) {
     this.x = x;
     this.y = y;
-    fx.flashSprite(this.map, x, y, this.sprite, this.fade);
+    // fx.flashSprite(this.map, x, y, this.sprite, this.fade);
+
+    const anim = new SpriteFX(this.map, this.sprite, x, y, { duration: this.fade });
+    this.playFx(anim);
   }
 
 }
@@ -359,7 +430,7 @@ types.BeamFX = BeamFX;
 export function beam(map, from, to, sprite, speed, fade, stepFn) {
   stepFn = stepFn || ((x, y) => !map.isObstruction(x, y));
   const animation = new BeamFX(map, from, to, sprite, speed, fade, stepFn);
-  return animation.start();
+  return fx.playGameTime(animation);
 }
 
 fx.beam = beam;
@@ -387,6 +458,15 @@ class ExplosionFX extends FX {
     this.shape = shape || 'o';
     this.center = (center === undefined) ? true : center;
     this.stepFn = stepFn || UTILS.TRUE;
+  }
+
+  start() {
+    if (this.center) {
+      this.visit(this.x, this.y);
+    }
+    else {
+      this.step();
+    }
   }
 
   step() {
@@ -422,7 +502,9 @@ class ExplosionFX extends FX {
 
   visit(x, y) {
     if (this.isInShape(x, y) && this.stepFn(x, y)) {
-      fx.flashSprite(this.map, x, y, this.sprite, this.fade);
+      const anim = new SpriteFX(this.map, this.sprite, x, y, { duration: this.fade });
+      this.playFx(anim);
+      // fx.flashSprite(this.map, x, y, this.sprite, this.fade);
     }
     this.grid[x][y] = 2;
   }
@@ -449,7 +531,7 @@ export function explosion(map, x, y, radius, sprite, speed, fade, shape, center,
   stepFn = stepFn || ((x, y) => !map.isObstruction(x, y));
   const animation = new ExplosionFX(map, null, x, y, radius, sprite, speed, fade, shape, center, stepFn);
   map.calcFov(animation.grid, x, y, radius);
-  return animation.start();
+  return fx.playGameTime(animation);
 }
 
 fx.explosion = explosion;
@@ -457,7 +539,7 @@ fx.explosion = explosion;
 export function explosionFor(map, grid, x, y, radius, sprite, speed, fade, shape, center, stepFn) {
   stepFn = stepFn || ((x, y) => !map.isObstruction(x, y));
   const animation = new ExplosionFX(map, grid, x, y, radius, sprite, speed, fade, shape, center, stepFn);
-  return animation.start();
+  return fx.playGameTime(animation);
 }
 
 fx.explosionFor = explosionFor;

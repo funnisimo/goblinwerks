@@ -30,10 +30,10 @@ function uiLoop(t) {
 	if (FX.tick(dt)) {
 		ui.draw();
 	}
-	else {
+	// else {
 		const ev = IO.makeTickEvent(dt);
 		IO.pushEvent(ev);
-	}
+	// }
 
 	ui.canvas.draw();
 }
@@ -90,6 +90,36 @@ export function stop() {
 
 ui.stop = stop;
 
+
+let UPDATE_REQUESTED = 0;
+export function requestUpdate(t=1) {
+	UPDATE_REQUESTED = Math.max(UPDATE_REQUESTED, t, 1);
+}
+
+ui.requestUpdate = requestUpdate;
+
+export async function updateNow(t=1) {
+	t = Math.max(t, UPDATE_REQUESTED, 1);
+	UPDATE_REQUESTED = 0;
+	ui.draw();
+	ui.canvas.draw();
+	if (t) {
+		const now = performance.now();
+		console.log('paused...', t);
+		const r = await IO.tickMs(t);
+		console.log('- done', r, Math.floor(performance.now() - now));
+	}
+}
+
+ui.updateNow = updateNow;
+
+export async function updateIfRequested() {
+	if (UPDATE_REQUESTED) {
+		await ui.updateNow(UPDATE_REQUESTED);
+	}
+}
+
+ui.updateIfRequested = updateIfRequested;
 
 // EVENTS
 

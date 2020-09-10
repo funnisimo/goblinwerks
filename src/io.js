@@ -55,17 +55,14 @@ io.clearEvents = clearEvents;
 
 export function pushEvent(ev) {
   if (EVENTS.length) {
-  	const last = EVENTS[EVENTS.length - 1];
-    if (last.type === ev.type) {
-			if (last.type === MOUSEMOVE) {
+		const last = EVENTS[EVENTS.length - 1];
+		if (last.type === MOUSEMOVE) {
+	    if (last.type === ev.type) {
 				last.x = ev.x;
 			  last.y = ev.y;
+				io.recycleEvent(ev);
 	      return;
 	    }
-			else if (last.type === TICK) {
-				last.dt += ev.dt;
-				return;
-			}
 		}
   }
 
@@ -73,9 +70,17 @@ export function pushEvent(ev) {
   	CURRENT_HANDLER(ev);
   }
   else {
-  	EVENTS.push(ev);
-		while(EVENTS.length > 20) {
-			io.recycleEvent(EVENTS.shift());
+		if (ev.type === TICK) {
+			const first = EVENTS[0];
+			if (first && first.type === TICK) {
+				first.dt += ev.dt;
+				io.recycleEvent(ev);
+				return;
+			}
+			EVENTS.unshift(ev);	// ticks go first
+		}
+		else {
+			EVENTS.push(ev);
 		}
   }
 }
@@ -83,7 +88,7 @@ export function pushEvent(ev) {
 io.pushEvent = pushEvent;
 
 
-export function dispatchEvent(ev) {
+export async function dispatchEvent(ev) {
 	let result;
 	for(let i = KEYMAPS.length - 1 && (result === undefined); i >= 0; --i) {
 		const km = KEYMAPS[i];
@@ -100,10 +105,10 @@ export function dispatchEvent(ev) {
 
 		if (command) {
 			if (typeof command === 'function') {
-				result = command(ev);
+				result = await command(ev);
 			}
 			else if (COMMANDS[command]) {
-				result = COMMANDS[command](ev);
+				result = await COMMANDS[command](ev);
 			}
 		}
 
@@ -112,11 +117,6 @@ export function dispatchEvent(ev) {
 		}
 	}
 	io.recycleEvent(ev);
-	if (result && result.then) {
-		const km = KEYMAPS[KEYMAPS.length - 1];
-		km.busy = true;
-		result = result.then( () => km.busy = false );
-	}
 	return result;
 }
 
@@ -299,6 +299,30 @@ export function nextEvent(ms, match) {
 
 io.nextEvent = nextEvent;
 
+export async function tickMs(ms=1) {
+	let done;
+	let elapsed = 0;
+
+	CURRENT_HANDLER = ((e) => {
+  	if (e.type !== TICK) {
+			EVENTS.push(e);
+    	return;
+    }
+		elapsed += e.dt;
+		if (elapsed >= ms) {
+			CURRENT_HANDLER = null;
+			done(elapsed);
+		}
+  });
+
+  return new Promise( (resolve) => done = resolve );
+}
+
+io.tickMs = tickMs;
+
+
+// TODO - io.tickMs(ms)
+
 export async function nextKeypress(ms, match) {
 	match = match || UTILS.TRUE;
 	function matchingKey(e) {
@@ -326,13 +350,6 @@ export async function pause(ms) {
 }
 
 io.pause = pause;
-
-export async function nextTick() {
-	const e = await io.nextEvent(1);
-  return (e.type === TICK) ? e.dt : -1;
-}
-
-io.nextTick = nextTick;
 
 export function waitForAck() {
 	return io.pause(5 * 60 * 1000);	// 5 min

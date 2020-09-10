@@ -6,6 +6,9 @@ import { Flags as MapFlags } from './map.js';
 import { io as IO } from './io.js';
 import { ui as UI } from './ui.js';
 import { fx as FX } from './fx.js';
+import { actor as ACTOR } from './actor.js';
+import { player as PLAYER } from './player.js';
+import { scheduler } from './scheduler.js';
 
 import { data as DATA, types } from './gw.js';
 
@@ -31,7 +34,6 @@ export function startGame(opts={}) {
   DATA.time = 0;
   DATA.running = true;
   DATA.player = opts.player || null;
-  DATA.engine = new types.Scheduler();
 
   game.startMap(opts.map, opts.x, opts.y);
   return game.loop();
@@ -42,7 +44,7 @@ game.start = startGame;
 
 export function startMap(map, playerX, playerY) {
 
-  DATA.engine.clear();
+  scheduler.clear();
 
   if (DATA.map && DATA.player) {
     DATA.map.removeActor(DATA.player);
@@ -79,16 +81,19 @@ async function gameLoop() {
 
   while (DATA.running) {
 
-    const fn = DATA.engine.pop();
+    const fn = scheduler.pop();
     if (!fn) {
       utils.WARN('NO ACTORS! STOPPING GAME!');
       DATA.running = false;
     }
     else {
-      DATA.time = DATA.engine.time;
+      if (scheduler.time > DATA.time) {
+        DATA.time = scheduler.time;
+        await UI.updateIfRequested();
+      }
       const turnTime = await fn();
       if (turnTime) {
-        DATA.engine.push(fn, turnTime);
+        scheduler.push(fn, turnTime);
       }
     }
 
@@ -98,69 +103,31 @@ async function gameLoop() {
 
 game.loop = gameLoop;
 
+
 function queuePlayer() {
-  DATA.engine.push(game.playerTurn.bind(game, DATA.player), DATA.player.speed);
+  scheduler.push(PLAYER.takeTurn, DATA.player.speed);
 }
 
 game.queuePlayer = queuePlayer;
 
 function queueActor(actor) {
-  DATA.engine.push(game.actorTurn.bind(game, actor), actor.speed);
+  scheduler.push(ACTOR.takeTurn.bind(null, actor), actor.speed);
 }
 
 game.queueActor = queueActor;
-
-
-export async function playerTurn() {
-
-  const player = DATA.player;
-
-  console.log('player turn...', DATA.time);
-  player.elapsed -= player.speed;
-
-  await player.startTurn();
-
-  while(!player.turnTime) {
-    const ev = await IO.nextEvent(1000);
-    await IO.dispatchEvent(ev);
-  }
-
-  await player.endTurn();
-
-  console.log('...end turn', DATA.time);
-
-  UI.draw();
-
-  return player.turnTime;
-}
-
-game.playerTurn = playerTurn;
-
-export async function actorTurn(actor) {
-  console.log('actor turn...', DATA.time);
-  const turnTime = await actor.act();
-  if (actor.isOrWasVisible()) {
-    UI.draw();
-    await IO.pause(16);
-  }
-  return turnTime;
-}
-
-game.actorTurn = actorTurn;
-
 
 // TIMERS - Do something in future game time
 
 const TIMERS = [];
 
 export function delay(delay, fn) {
-  return DATA.engine.push(fn, delay);
+  return scheduler.push(fn, delay);
 }
 
 game.delay = delay;
 
 export async function cancelDelay(timer) {
-  return DATA.engine.remove(timer);
+  return scheduler.remove(timer);
 }
 
 game.cancelDelay = cancelDelay;

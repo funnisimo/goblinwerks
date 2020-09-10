@@ -66,6 +66,11 @@ export class Sprite {
 		this.wasHanging = other.wasHanging || false;
 	}
 
+	clone() {
+		const other = new types.Sprite(this.ch, this.fg, this.bg, this.opacity);
+		return other;
+	}
+
 	clear() {
 		if (HANGING_LETTERS.includes(this.ch)) {
 			this.wasHanging = true;

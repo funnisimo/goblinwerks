@@ -14,7 +14,7 @@ export { dungeon } from './dungeon.js';
 export { tile, tiles } from './tile.js';
 export { cell } from './cell.js';
 export { map } from './map.js';
-import './scheduler.js';
+export { scheduler } from  './scheduler.js';
 export { game } from './game.js';
 export { fx } from './fx.js';
 export { actor } from './actor.js';

@@ -1,4 +1,5 @@
 
+import { ui as UI } from './ui.js';
 
 import { types, make, data as DATA } from './gw.js';
 
@@ -14,10 +15,6 @@ export class Actor {
     this.speed = 50;
   }
 
-  act() {
-		// Idle
-  	return this.turnTime || this.speed;
-  }
 
 	// TODO - This is a command/task
 	moveDir(dir) {
@@ -40,3 +37,37 @@ export function makeActor(kind) {
 }
 
 make.actor = makeActor;
+
+
+// TODO - move back to game??
+export async function takeTurn(theActor) {
+  console.log('actor turn...', DATA.time);
+  await actor.startTurn(theActor);
+  await actor.act(theActor);
+  await actor.endTurn(theActor);
+  return theActor.turnTime;	// actual or idle time
+}
+
+actor.takeTurn = takeTurn;
+
+
+function startTurn(theActor) {
+	theActor.turnTime = Math.foor(theActor.speed/2);
+}
+
+actor.startTurn = startTurn;
+
+
+function act(theActor) {
+	return true;
+}
+
+actor.act = act;
+
+function endTurn(theActor) {
+	if (theActor.isOrWasVisible() && theActor.turnTime) {
+		UI.requestUpdate();
+	}
+}
+
+actor.endTurn = endTurn;

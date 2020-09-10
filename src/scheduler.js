@@ -1,5 +1,4 @@
 
-import { types } from './gw.js';
 
 
 export class Scheduler {
@@ -22,7 +21,8 @@ export class Scheduler {
     let item;
     if (this.cache) {
     	item = this.cache;
-      this.cache = this.cache.next;
+      this.cache = item.next;
+			item.next = null;
     }
     else {
     	item = { fn: null, time: 0, next: null };
@@ -47,14 +47,14 @@ export class Scheduler {
 
   pop() {
   	const n = this.next;
-		if (!n) return n;
+		if (!n) return null;
 
     this.next = n.next;
-    this.time = Math.max(n.time, this.time);	// so you can schedule -1 as a time uint
-    const fn = n.fn;
     n.next = this.cache;
     this.cache = n;
-    return fn;
+
+		this.time = Math.max(n.time, this.time);	// so you can schedule -1 as a time uint
+    return n.fn;
   }
 
 	remove(item) {
@@ -75,4 +75,4 @@ export class Scheduler {
 	}
 }
 
-types.Scheduler = Scheduler;
+export const scheduler = new Scheduler();
