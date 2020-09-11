@@ -12,6 +12,14 @@ const PLAYER = GW.make.player({
 });
 
 let command = 'showHit';
+let fxTime = 0;
+
+function toggleGameTime() {
+	fxTime = (fxTime + 1) % 2;
+	console.log('toggled gameTime', fxTime);
+}
+
+GW.commands.toggleGameTime = toggleGameTime;
 
 function selectWall() {
 	command = 'toggleWall';
@@ -93,7 +101,9 @@ GW.commands.selectProjectile = selectProjectile;
 
 function showFX(e) {
 	console.log('click', e.x, e.y, command);
-	return GW.commands[command](e);
+	if (e.x != PLAYER.x || e.y != PLAYER.y) {
+		return GW.commands[command](e);
+	}
 }
 
 GW.commands.showFX = showFX;
@@ -111,7 +121,7 @@ async function showHit(e) {
 GW.commands.showHit = showHit;
 
 async function showBeam(e) {
-	GW.fx.beam(MAP, PLAYER, { x: e.x, y: e.y }, 'lightning', 1, 5).then( async (anim) => {
+	GW.fx.beam(MAP, PLAYER, { x: e.x, y: e.y }, 'lightning', { gameTime: fxTime }).then( async (anim) => {
 		console.log('beam end: ', anim.x, anim.y);
 		await GW.fx.hit(MAP, anim);
 		console.log('- beam hit done');
@@ -124,7 +134,7 @@ GW.sprite.install('lightning', '\u16f6', [200,200,200]);
 GW.commands.showBeam = showBeam;
 
 function showBolt(e) {
-	GW.fx.bolt(MAP, PLAYER, { x: e.x, y: e.y }, 'magic', 5).then( async (result) => {
+	GW.fx.bolt(MAP, PLAYER, { x: e.x, y: e.y }, 'magic', { gameTime: fxTime }).then( async (result) => {
 		console.log('bolt hit:', result.x, result.y);
 		await GW.fx.flashSprite(MAP, result.x, result.y, 'hit', 500, 3);
 		console.log('- hit done.');
@@ -137,7 +147,7 @@ GW.sprite.install('magic', '*', 'purple');
 GW.commands.showBolt = showBolt;
 
 async function showProjectile(e) {
-	GW.fx.projectile(MAP, PLAYER, { x: e.x, y: e.y }, '|-\\/', 'orange', 5).then( (anim) => {
+	GW.fx.projectile(MAP, PLAYER, { x: e.x, y: e.y }, '|-\\/', 'orange', { gameTime: fxTime }).then( (anim) => {
 		console.log('projectile hit:', anim.x, anim.y);
 		GW.fx.flashSprite(MAP, anim.x, anim.y, 'hit', 500, 1);
 	});
@@ -148,16 +158,17 @@ async function showProjectile(e) {
 GW.commands.showProjectile = showProjectile;
 
 async function showAura(e) {
-	GW.fx.explosion(MAP, e.x, e.y, 3, 'magic', 10, 20, 'o', false);
-	PLAYER.endTurn();
+
+	GW.fx.explosion(MAP, e.x, e.y, 3, 'magic', { shape: 'o', center: false, gameTime: fxTime });
+	if (fxTime) PLAYER.endTurn();
 }
 
 GW.commands.showAura = showAura;
 
 
 async function showExplosion(e) {
-	GW.fx.explosion(MAP, e.x, e.y, 7, 'fireball', 1, 5);
-	PLAYER.endTurn();
+	GW.fx.explosion(MAP, e.x, e.y, 7, 'fireball', { gameTime: fxTime });
+	if (fxTime) PLAYER.endTurn();
 }
 
 GW.sprite.install('fireball', '&', 'dark_red', 50);
@@ -166,22 +177,22 @@ GW.commands.showExplosion = showExplosion;
 
 
 async function showExplosionPlus(e) {
-	GW.fx.explosion(MAP, e.x, e.y, 7, 'fireball', 2, 10, '+');
-	PLAYER.endTurn();
+	GW.fx.explosion(MAP, e.x, e.y, 7, 'fireball', { gameTime: fxTime, shape: '+' });
+	if (fxTime) PLAYER.endTurn();
 }
 
 GW.commands.showExplosionPlus = showExplosionPlus;
 
 async function showExplosionX(e) {
-	GW.fx.explosion(MAP, e.x, e.y, 7, 'fireball', 3, 15, 'x');
-	PLAYER.endTurn();
+	GW.fx.explosion(MAP, e.x, e.y, 7, 'fireball', { gameTime: fxTime, shape: 'x' });
+	if (fxTime) PLAYER.endTurn();
 }
 
 GW.commands.showExplosionX = showExplosionX;
 
 async function showExplosionStar(e) {
-	GW.fx.explosion(MAP, e.x, e.y, 7, 'fireball', 4, 20, '*');
-	PLAYER.endTurn();
+	GW.fx.explosion(MAP, e.x, e.y, 7, 'fireball', { gameTime: fxTime, shape: '*' });
+	if (fxTime) PLAYER.endTurn();
 }
 
 GW.commands.showExplosionStar = showExplosionStar;
@@ -266,7 +277,7 @@ function start() {
 			o: 'selectExplosion', '+': 'selectExplosionPlus', '=': 'selectExplosionPlus',
 		 	x: 'selectExplosionX', '8': 'selectExplosionStar', '*': 'selectExplosionStar',
 			a: 'selectAura',
-			q: 'quitGame', g: 'newMap',
+			q: 'quitGame', g: 'toggleGameTime', '>': 'newMap', '<': 'newMap',
 			'?': 'showHelp'
 	});
 

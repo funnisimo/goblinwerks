@@ -2451,6 +2451,9 @@ async function dispatchEvent(ev) {
 			else if (commands[command]) {
 				result = await commands[command](ev);
 			}
+			else {
+				utils$1.WARN('No command found: ' + command);
+			}
 		}
 
 		if (km.next === false) {
@@ -2593,6 +2596,32 @@ io.makeMouseEvent = makeMouseEvent;
 
 
 // IO
+
+let PAUSED = null;
+
+function pauseEvents() {
+	if (PAUSED) return;
+	PAUSED = CURRENT_HANDLER;
+	// console.log('events paused');
+}
+
+io.pauseEvents = pauseEvents;
+
+function resumeEvents() {
+	CURRENT_HANDLER = PAUSED;
+	PAUSED = null;
+	// console.log('resuming events');
+
+	if (EVENTS.length && CURRENT_HANDLER) {
+		const e = EVENTS.shift();
+		// console.log('- processing paused event', e.type);
+		CURRENT_HANDLER(e);
+		// io.recycleEvent(e);	// DO NOT DO THIS B/C THE HANDLER MAY PUT IT BACK ON THE QUEUE (see tickMs)
+	}
+	// console.log('events resumed');
+}
+
+io.resumeEvents = resumeEvents;
 
 
 function nextEvent(ms, match) {
@@ -5584,10 +5613,14 @@ fx.playAll = playAll;
 
 
 function tick(dt) {
-  const didSomething = ANIMATIONS.length;
+  if (!ANIMATIONS.length) return false;
+
+  io.pauseEvents();
   ANIMATIONS.forEach( (a) => a && a.tick(dt) );
   ANIMATIONS = ANIMATIONS.filter( (a) => a && !a.done );
-  return didSomething;
+  io.resumeEvents();
+
+  return true;
 }
 
 fx.tick = tick;
@@ -5765,70 +5798,25 @@ class MovingSpriteFX extends SpriteFX {
 types.MovingSpriteFX = MovingSpriteFX;
 
 
-
-//
-// export async function bolt(map, source, target, sprite, speed, stepFn) {
-//   if (typeof sprite === 'string') {
-//     sprite = SPRITES[sprite];
-//   }
-//   stepFn = stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
-//
-//   let path = MAP.getLine(map, source.x, source.y, target.x, target.y);
-//   const anim = { sprite, x: -1, y: -1, targetX: target.x, targetY: target.y };
-//
-//   map.addFx(source.x, source.y, anim);
-//   UI.requestUpdate(16);
-//   let done;
-//
-//   function moveFx() {
-//     if (anim.x == anim.targetX && anim.y == anim.targetY) {
-//       map.removeFx(anim);
-//       UI.requestUpdate(0);
-//       done(anim);
-//       return 0;
-//     }
-//     if (!path.find( (loc) => loc[0] == anim.targetX && loc[1] == anim.targetY)) {
-//       path = MAP.getLine(map, anim.x, anim.y, anim.targetX, anim.targetY);
-//     }
-//     const next = path.shift();
-//     const r = stepFn(next[0], next[1]);
-//     if (r < 0) {
-//       map.removeFx(anim);
-//       UI.requestUpdate(0);
-//       done(anim);
-//       return 0;
-//     }
-//     else if (r) {
-//       map.moveFx(next[0], next[1], anim);
-//       UI.requestUpdate(10);
-//     }
-//     else {
-//       map.moveFx(next[0], next[1], anim);
-//       UI.requestUpdate(10);
-//       anim.targetX = anim.x;
-//       anim.targetY = anim.y;
-//     }
-//     return speed;
-//   }
-//
-//   scheduler.push(moveFx,  speed);
-//   return new Promise( (resolve) => done = resolve );
-// }
-
-
-async function bolt(map, source, target, sprite, speed, stepFn) {
+async function bolt(map, source, target, sprite, opts={}) {
   if (typeof sprite === 'string') {
     sprite = sprites[sprite];
   }
-  stepFn = stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
+  opts.speed = opts.speed || 3;
+  opts.stepFn = opts.stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
+  opts.playFn = fx.playGameTime;
+  if (opts.realTime || (!opts.gameTime)) {
+    opts.speed *= 16;
+    opts.playFn = fx.playRealTime;
+  }
 
-  const anim = new MovingSpriteFX(map, source, target, sprite, speed, stepFn);
-  return fx.playGameTime(anim);
+  const anim = new MovingSpriteFX(map, source, target, sprite, opts.speed, opts.stepFn);
+  return opts.playFn(anim);
 }
 
 fx.bolt = bolt;
 
-async function projectile(map, source, target, chs, fg, speed, stepFn) {
+async function projectile(map, source, target, chs, fg, opts) {
   if (chs.length != 4) utils$1.ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
 
   const dir = utils$1.dirFromTo(source, target);
@@ -5837,7 +5825,7 @@ async function projectile(map, source, target, chs, fg, speed, stepFn) {
   const ch = chs[index];
   const sprite = GW.make.sprite(ch, fg);
 
-  return fx.bolt(map, source, target, sprite, speed, stepFn);
+  return fx.bolt(map, source, target, sprite, opts);
 }
 
 fx.projectile = projectile;
@@ -5971,10 +5959,19 @@ class BeamFX extends FX {
 
 types.BeamFX = BeamFX;
 
-function beam(map, from, to, sprite, speed, fade, stepFn) {
-  stepFn = stepFn || ((x, y) => !map.isObstruction(x, y));
-  const animation = new BeamFX(map, from, to, sprite, speed, fade, stepFn);
-  return fx.playGameTime(animation);
+function beam(map, from, to, sprite, opts={}) {
+  opts.fade = opts.fade || 5;
+  opts.speed = opts.speed || 1;
+  opts.stepFn = opts.stepFn || ((x, y) => !map.isObstruction(x, y));
+  opts.playFn = fx.playGameTime;
+  if (opts.realTime || (!opts.gameTime)) {
+    opts.speed *= 16;
+    opts.fade *= 16;
+    opts.playFn = fx.playRealTime;
+  }
+
+  const animation = new BeamFX(map, from, to, sprite, opts.speed, opts.fade, opts.stepFn);
+  return opts.playFn(animation);
 }
 
 fx.beam = beam;
@@ -5982,6 +5979,7 @@ fx.beam = beam;
 
 
 class ExplosionFX extends FX {
+  // TODO - take opts instead of individual params (do opts setup here)
   constructor(map, fovGrid, x, y, radius, sprite, speed, fade, shape, center, stepFn) {
     speed = speed || 20;
     super({ speed });
@@ -6071,19 +6069,35 @@ class ExplosionFX extends FX {
   }
 }
 
-function explosion(map, x, y, radius, sprite, speed, fade, shape, center, stepFn) {
-  stepFn = stepFn || ((x, y) => !map.isObstruction(x, y));
-  const animation = new ExplosionFX(map, null, x, y, radius, sprite, speed, fade, shape, center, stepFn);
+function checkExplosionOpts(opts) {
+  opts.speed = opts.speed || 3;
+  opts.fade = opts.fade || 5;
+  opts.playFn = fx.playGameTime;
+  opts.shape = opts.shape || 'o';
+  if (opts.center === undefined) { opts.center = true; }
+
+  if (opts.realTime || (!opts.gameTime)) {
+    opts.speed = opts.speed * 16;
+    opts.fade = opts.fade * 16;
+    opts.playFn = fx.playRealTime;
+  }
+}
+
+function explosion(map, x, y, radius, sprite, opts={}) {
+  checkExplosionOpts(opts);
+  opts.stepFn = opts.stepFn || ((x, y) => !map.isObstruction(x, y));
+  const animation = new ExplosionFX(map, null, x, y, radius, sprite, opts.speed, opts.fade, opts.shape, opts.center, opts.stepFn);
   map.calcFov(animation.grid, x, y, radius);
-  return fx.playGameTime(animation);
+  return opts.playFn(animation);
 }
 
 fx.explosion = explosion;
 
-function explosionFor(map, grid, x, y, radius, sprite, speed, fade, shape, center, stepFn) {
-  stepFn = stepFn || ((x, y) => !map.isObstruction(x, y));
-  const animation = new ExplosionFX(map, grid, x, y, radius, sprite, speed, fade, shape, center, stepFn);
-  return fx.playGameTime(animation);
+function explosionFor(map, grid, x, y, radius, sprite, opts={}) {
+  checkExplosionOpts(opts);
+  opts.stepFn = opts.stepFn || ((x, y) => !map.isObstruction(x, y));
+  const animation = new ExplosionFX(map, grid, x, y, radius, sprite, opts.speed, opts.fade, opts.shape, opts.center, opts.stepFn);
+  return opts.playFn(animation);
 }
 
 fx.explosionFor = explosionFor;
@@ -6112,10 +6126,10 @@ function uiLoop(t) {
 	if ((!IN_DIALOG) && fx.tick(dt)) {
 		ui.draw();
 	}
-	// else {
+	else {
 		const ev = io.makeTickEvent(dt);
 		io.pushEvent(ev);
-	// }
+	}
 
 	ui.canvas.draw();
 }
@@ -6183,13 +6197,13 @@ async function updateNow(t=1) {
 	t = Math.max(t, UPDATE_REQUESTED, 1);
 	UPDATE_REQUESTED = 0;
 
-	console.log('updating with timeout...', t);
+	// console.log('updating UI with timeout...', t);
 	ui.draw();
 	ui.canvas.draw();
 	if (t) {
 		const now = performance.now();
 		const r = await io.tickMs(t);
-		console.log('- done', r, Math.floor(performance.now() - now));
+		// console.log('- done', r, Math.floor(performance.now() - now));
 	}
 }
 
@@ -6317,6 +6331,10 @@ class Actor {
 		actor.startTurn(this);
 	}
 
+	act() {
+		actor.act(this);
+	}
+
 	// TODO - This is a command/task
 	async moveDir(dir) {
     const map = data.map;
@@ -6347,8 +6365,8 @@ make.actor = makeActor;
 // TODO - move back to game??
 async function takeTurn(theActor) {
   console.log('actor turn...', data.time);
-  await actor.startTurn(theActor);
-  await actor.act(theActor);
+	theActor.startTurn();
+	await theActor.act();
   return theActor.turnTime;	// actual or idle time
 }
 
@@ -6369,7 +6387,7 @@ function act(theActor) {
 actor.act = act;
 
 function endTurn(theActor, turnTime) {
-	theActor.turnTime = turnTime || theActor.kind.speed;
+	theActor.turnTime = turnTime || Math.floor(theActor.kind.speed/2);	// doing nothing takes time
 	if (theActor.isOrWasVisible() && theActor.turnTime) {
 		ui.requestUpdate();
 	}
@@ -6441,7 +6459,7 @@ function act$1() {
 player.act = act$1;
 
 function endTurn$1(PLAYER, turnTime) {
-  PLAYER.turnTime = turnTime || PLAYER.kind.speed;
+  PLAYER.turnTime = turnTime || Math.floor(PLAYER.kind.speed/2);  // doing nothing takes time
   ui.requestUpdate();
 }
 

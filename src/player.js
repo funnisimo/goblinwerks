@@ -68,7 +68,7 @@ function act() {
 player.act = act;
 
 function endTurn(PLAYER, turnTime) {
-  PLAYER.turnTime = turnTime || PLAYER.kind.speed;
+  PLAYER.turnTime = turnTime || Math.floor(PLAYER.kind.speed/2);  // doing nothing takes time
   UI.requestUpdate();
 }
 

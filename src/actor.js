@@ -20,6 +20,10 @@ export class Actor {
 		actor.startTurn(this);
 	}
 
+	act() {
+		actor.act(this);
+	}
+
 	// TODO - This is a command/task
 	async moveDir(dir) {
     const map = DATA.map;
@@ -50,8 +54,8 @@ make.actor = makeActor;
 // TODO - move back to game??
 export async function takeTurn(theActor) {
   console.log('actor turn...', DATA.time);
-  await actor.startTurn(theActor);
-  await actor.act(theActor);
+	theActor.startTurn();
+	await theActor.act();
   return theActor.turnTime;	// actual or idle time
 }
 
@@ -65,14 +69,14 @@ actor.startTurn = startTurn;
 
 
 function act(theActor) {
-	theActor.endTurn();
+	theActor.endTurn()
 	return true;
 }
 
 actor.act = act;
 
 function endTurn(theActor, turnTime) {
-	theActor.turnTime = turnTime || theActor.kind.speed;
+	theActor.turnTime = turnTime || Math.floor(theActor.kind.speed/2);	// doing nothing takes time
 	if (theActor.isOrWasVisible() && theActor.turnTime) {
 		UI.requestUpdate();
 	}

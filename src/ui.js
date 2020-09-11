@@ -30,10 +30,10 @@ function uiLoop(t) {
 	if ((!IN_DIALOG) && FX.tick(dt)) {
 		ui.draw();
 	}
-	// else {
+	else {
 		const ev = IO.makeTickEvent(dt);
 		IO.pushEvent(ev);
-	// }
+	}
 
 	ui.canvas.draw();
 }
@@ -102,13 +102,13 @@ export async function updateNow(t=1) {
 	t = Math.max(t, UPDATE_REQUESTED, 1);
 	UPDATE_REQUESTED = 0;
 
-	console.log('updating with timeout...', t);
+	// console.log('updating UI with timeout...', t);
 	ui.draw();
 	ui.canvas.draw();
 	if (t) {
 		const now = performance.now();
 		const r = await IO.tickMs(t);
-		console.log('- done', r, Math.floor(performance.now() - now));
+		// console.log('- done', r, Math.floor(performance.now() - now));
 	}
 }
 

@@ -110,6 +110,9 @@ export async function dispatchEvent(ev) {
 			else if (COMMANDS[command]) {
 				result = await COMMANDS[command](ev);
 			}
+			else {
+				UTILS.WARN('No command found: ' + command);
+			}
 		}
 
 		if (km.next === false) {
@@ -252,6 +255,32 @@ io.makeMouseEvent = makeMouseEvent;
 
 
 // IO
+
+let PAUSED = null;
+
+export function pauseEvents() {
+	if (PAUSED) return;
+	PAUSED = CURRENT_HANDLER;
+	// console.log('events paused');
+}
+
+io.pauseEvents = pauseEvents;
+
+export function resumeEvents() {
+	CURRENT_HANDLER = PAUSED;
+	PAUSED = null;
+	// console.log('resuming events');
+
+	if (EVENTS.length && CURRENT_HANDLER) {
+		const e = EVENTS.shift();
+		// console.log('- processing paused event', e.type);
+		CURRENT_HANDLER(e);
+		// io.recycleEvent(e);	// DO NOT DO THIS B/C THE HANDLER MAY PUT IT BACK ON THE QUEUE (see tickMs)
+	}
+	// console.log('events resumed');
+}
+
+io.resumeEvents = resumeEvents;
 
 
 export function nextEvent(ms, match) {
