@@ -1,5 +1,5 @@
 
-import { clamp } from './utils.js';
+import { utils as UTILS } from './utils.js';
 import { cosmetic } from './random.js';
 import { types, make } from './gw.js';
 
@@ -129,7 +129,7 @@ color.applyAverage = applyMix;
 
 
 function toRGB(v, vr) {
-  return clamp(Math.round(2.551 * (v + cosmetic.value() * vr) ), 0, 255);
+  return UTILS.clamp(Math.round(2.551 * (v + cosmetic.value() * vr) ), 0, 255);
 }
 
 const V_TO_CSS = [];
@@ -152,15 +152,17 @@ export function css(color) {
 color.css = css;
 
 export function equals(a, b) {
-  return a.every( (v, i) => v == b[i] ) && a.dances == b.dances;
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  return a.every( (v, i) => v === b[i] ) && a.dances === b.dances;
 }
 
 color.equals = equals;
 
 export function clampColor(theColor) {
-  theColor.red		= clamp(theColor.red, 0, 100);
-  theColor.green	= clamp(theColor.green, 0, 100);
-  theColor.blue		= clamp(theColor.blue, 0, 100);
+  theColor.red		= UTILS.clamp(theColor.red, 0, 100);
+  theColor.green	= UTILS.clamp(theColor.green, 0, 100);
+  theColor.blue		= UTILS.clamp(theColor.blue, 0, 100);
 }
 
 color.clamp = clampColor;
@@ -169,9 +171,9 @@ color.clamp = clampColor;
 export function bakeColor(/* color */theColor) {
   let rand;
   rand = cosmetic.range(0, theColor.rand);
-  theColor.red   += Math.round(GW.random.cosmetic.range(0, theColor.redRand) + rand);
-  theColor.green += Math.round(GW.random.cosmetic.range(0, theColor.greenRand) + rand);
-  theColor.blue  += Math.round(GW.random.cosmetic.range(0, theColor.blueRand) + rand);
+  theColor.red   += Math.round(cosmetic.range(0, theColor.redRand) + rand);
+  theColor.green += Math.round(cosmetic.range(0, theColor.greenRand) + rand);
+  theColor.blue  += Math.round(cosmetic.range(0, theColor.blueRand) + rand);
   theColor.redRand = theColor.greenRand = theColor.blueRand = theColor.rand = 0;
 }
 
@@ -179,7 +181,7 @@ color.bake = bakeColor;
 
 
 export function lightenColor(destColor, percent) {
-  clamp(percent, 0, 100);
+  UTILS.clamp(percent, 0, 100);
   destColor.red =    Math.round(destColor.red + (100 - destColor.red) * percent / 100);
   destColor.green =  Math.round(destColor.green + (100 - destColor.green) * percent / 100);
   destColor.blue =   Math.round(destColor.blue + (100 - destColor.blue) * percent / 100);
@@ -191,7 +193,7 @@ export function lightenColor(destColor, percent) {
 color.lighten = lightenColor;
 
 export function darkenColor(destColor, percent) {
-  clamp(percent, 0, 100);
+  UTILS.clamp(percent, 0, 100);
   destColor.red =    Math.round(destColor.red * (100 - percent) / 100);
   destColor.green =  Math.round(destColor.green * (100 - percent) / 100);
   destColor.blue =   Math.round(destColor.blue * (100 - percent) / 100);
@@ -305,12 +307,12 @@ function separateColors(/* color */ fore, /* color */ back) {
   f = fore.clone();
   b = back.clone();
 
-  f.red			= clamp(f.red, 0, 100);
-  f.green		= clamp(f.green, 0, 100);
-  f.blue		= clamp(f.blue, 0, 100);
-  b.red			= clamp(b.red, 0, 100);
-  b.green		= clamp(b.green, 0, 100);
-  b.blue		= clamp(b.blue, 0, 100);
+  f.red			= UTILS.clamp(f.red, 0, 100);
+  f.green		= UTILS.clamp(f.green, 0, 100);
+  f.blue		= UTILS.clamp(f.blue, 0, 100);
+  b.red			= UTILS.clamp(b.red, 0, 100);
+  b.green		= UTILS.clamp(b.green, 0, 100);
+  b.blue		= UTILS.clamp(b.blue, 0, 100);
 
   if (f.red + f.blue + f.green > 50 * 3) {
     modifier = colors.black;

@@ -61,7 +61,7 @@ describe('GW.dungeon', () => {
   });
 
   function tileAt(x, y) {
-    return map.cell(x, y).layers[0];
+    return map.cell(x, y).base;
   }
 
   test('can randomly attach rooms', () => {
@@ -230,7 +230,7 @@ describe('GW.dungeon', () => {
 
   	GW.dungeon.finish();
 
-    map.dump();
+    // map.dump();
 
     expect(tileAt(23, 19)).toEqual(1);  // FLOOR (not DOOR)
     expect(tileAt(27, 22)).toEqual(1);  // ...

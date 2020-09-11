@@ -1,31 +1,33 @@
 
-import { distanceBetween } from './utils.js';
-import { installFlag, Fl } from './flag.js';
+import { utils as UTILS } from './utils.js';
+import { flag as FLAG } from './flag.js';
 import { random } from './random.js';
-import { colors } from './color.js';
-import { Flags as CellFlags, MechFlags as CellMechFlags, Layers as CellLayers, getAppearance as cellGetAppearance } from './cell.js';
+import { Flags as TileFlags } from './tile.js';
+import { Flags as CellFlags, MechFlags as CellMechFlags, cell as CELL } from './cell.js';
 import { types, def, make, data as DATA, config as CONFIG } from './gw.js';
 
 
 export var map = {};
 
+const Fl = FLAG.fl;
 
-export const Flags = installFlag('map', {
+export const Flags = FLAG.install('map', {
 	MAP_CHANGED: Fl(0),
 	MAP_STABLE_GLOW_LIGHTS:  Fl(1),
 	MAP_STABLE_LIGHTS: Fl(2),
+	MAP_ALWAYS_LIT:	Fl(3),
 });
 
 
 
 export class Map {
 	constructor(w, h, opts={}) {
-		Object.assign(this, opts);
 		this.width = w;
 		this.height = h;
 		this.cells = make.grid(w, h, () => new types.Cell() );
-		this.locations = {};
-		this.config = {};
+		this.locations = opts.locations || {};
+		this.config = Object.assign({}, opts);
+		this.fx = [];
 	}
 
 	clear() { this.cells.forEach( (c) => c.clear() ); }
@@ -42,10 +44,10 @@ export class Map {
 				this.flags |= Flags.MAP_CHANGED;
 			}
 			else {
-				this.flags &= ~MAP_CHANGED;
+				this.flags &= ~Flags.MAP_CHANGED;
 			}
 		}
-		return (this.flags & MAP_CHANGED);
+		return (this.flags & Flags.MAP_CHANGED);
 	}
 
 	hasCellFlag(x, y, flag) 		{ return this.cell(x, y).flags & flag; }
@@ -54,13 +56,14 @@ export class Map {
 	hasTileMechFlag(x, y, flag) { return this.cell(x, y).hasTileMechFlag(flag); }
 
 	redrawCell(x, y) {
-		this.cell(x, y).flags |= CellFlags.NEEDS_REDRAW;
+		this.cell(x, y).redraw();
 		this.flags |= Flags.MAP_CHANGED;
 	}
 
 	markRevealed(x, y) { return this.cell(x, y).markRevealed(); }
 	isVisible(x, y)    { return this.cell(x, y).isVisible(); }
 	isAnyKindOfVisible(x, y) { return this.cell(x, y).isAnyKindOfVisible(); }
+	hasVisibleLight(x, y) { return (this.flags & Flags.MAP_ALWAYS_LIT) || this.cell(x, y).hasVisibleLight(); }
 
 	setFlags(mapFlag, cellFlag, cellMechFlag) {
 		if (mapFlag) {
@@ -201,10 +204,10 @@ export class Map {
 					if (!this.hasXY(i, j)) continue;
 					const cell = this.cell(i, j);
 					// if ((i == x-k || i == x+k || j == y-k || j == y+k)
-					if ((Math.floor(distanceBetween(x, y, i, j)) == k)
+					if ((Math.floor(UTILS.distanceBetween(x, y, i, j)) == k)
 							&& (!blockingMap || !blockingMap[i][j])
 							&& matcher(cell, i, j)
-							&& (!forbidLiquid || cell.layers[CellLayers.LIQUID] == def.NOTHING)
+							&& (!forbidLiquid || cell.liquid == def.NOTHING)
 							&& (hallwaysAllowed || this.passableArcCount(i, j) < 2))
 	        {
 						candidateLocs.push([i, j]);
@@ -265,6 +268,39 @@ export class Map {
 		return [ x, y ];
 	}
 
+	// FX
+
+	addFx(x, y, anim) {
+		if (!this.hasXY(x, y)) return false;
+		const cell = this.cell(x, y);
+		cell.setFlags(CellFlags.HAS_FX);
+		anim.x = x;
+		anim.y = y;
+		this.fx.push(anim);
+		this.flags |= Flags.MAP_CHANGED;
+		return true;
+	}
+
+	moveFx(x, y, anim) {
+		if (!this.hasXY(x, y)) return false;
+		const cell = this.cell(x, y);
+		const oldCell = this.cell(anim.x, anim.y);
+		oldCell.clearFlags(CellFlags.HAS_FX);
+		cell.setFlags(CellFlags.HAS_FX);
+		this.flags |= Flags.MAP_CHANGED;
+		anim.x = x;
+		anim.y = y;
+		return true;
+	}
+
+	removeFx(anim) {
+		const oldCell = this.cell(anim.x, anim.y);
+		oldCell.clearFlags(CellFlags.HAS_FX);
+		this.fx = this.fx.filter( (a) => a !== anim );
+		this.flags |= Flags.MAP_CHANGED;
+		return true;
+	}
+
 	// ACTORS
 
 	// will return the PLAYER if the PLAYER is at (x, y).
@@ -286,16 +322,22 @@ export class Map {
 			// GW.ui.message(colors.badMessageColor, 'There is already an actor there.');
 			return false;
 		}
+
 		theActor.x = x;
 		theActor.y = y;
-		this.actors.add(theActor);
-		cell.flags |= (CellFlags.HAS_MONSTER | CellFlags.NEEDS_REDRAW);
+
+		let flag = CellFlags.HAS_PLAYER;
+		if (theActor !== DATA.player) {
+			this.actors.add(theActor);
+			flag = CellFlags.HAS_MONSTER;
+		}
+		cell.flags |= (flag | CellFlags.NEEDS_REDRAW);
 
 		this.flags |= Flags.MAP_CHANGED;
-		if (theActor.flags & ActorFlags.MK_DETECTED)
-		{
-			cell.flags |= CellFlags.MONSTER_DETECTED;
-		}
+		// if (theActor.flags & ActorFlags.MK_DETECTED)
+		// {
+		// 	cell.flags |= CellFlags.MONSTER_DETECTED;
+		// }
 
 		return true;
 	}
@@ -314,12 +356,35 @@ export class Map {
 		return this.addActor(loc[0], loc[1], theActor);
 	}
 
+	moveActor(x, y, actor) {
+		if (!this.hasXY(x, y)) return false;
+
+		const flag = (actor === DATA.player) ? CellFlags.HAS_PLAYER : CellFlags.HAS_MONSTER;
+		if (actor.x >= 0) {
+			const oldCell = this.cell(actor.x, actor.y);
+			oldCell.clearFlags(flag | CellFlags.MONSTER_DETECTED);
+		}
+
+		actor.x = x;
+		actor.y = y;
+		const cell = this.cell(x, y);
+		cell.flags |= (flag | CellFlags.NEEDS_REDRAW);
+		this.flags |= Flags.MAP_CHANGED;
+		// if (theActor.flags & ActorFlags.MK_DETECTED)
+		// {
+		// 	cell.flags |= CellFlags.MONSTER_DETECTED;
+		// }
+		return true;
+	}
+
 	removeActor(actor) {
 		const cell = this.cell(actor.x, actor.y);
-		cell.flags &= ~(CellFlags.HAS_PLAYER | CellFlags.HAS_MONSTER);
+		cell.flags &= ~CellFlags.HAS_ACTOR;
 		cell.flags |= CellFlags.NEEDS_REDRAW;
 		this.flags |= Flags.MAP_CHANGED;
-		this.actors.remove(actor);
+		if (actor !== DATA.player) {
+			this.actors.remove(actor);
+		}
 	}
 
 	dormantAt(x, y) {  // creature *
@@ -409,13 +474,29 @@ export class Map {
 	// async promote(x, y, mechFlag) {
 	// 	if (this.hasTileMechFlag(x, y, mechFlag)) {
 	// 		const cell = this.cell(x, y);
-	// 		for (layer = 0; layer < NUMBER_TERRAIN_LAYERS; layer++) {
-	// 			if (GW.tiles[cell.layers[layer]].mechFlags & mechFlag) {
-	// 				await GW.tile.promote(this, x, y, layer, false);
+	// 		for (let tile of cell.tiles()) {
+	// 			if (tile.mechFlags & mechFlag) {
+	// 				await tile.promote(this, x, y, false);
 	// 			}
 	// 		}
 	// 	}
 	// }
+
+
+	// FOV
+
+	// Returns a boolean grid indicating whether each square is in the field of view of (xLoc, yLoc).
+	// forbiddenTerrain is the set of terrain flags that will block vision (but the blocking cell itself is
+	// illuminated); forbiddenFlags is the set of map flags that will block vision.
+	// If cautiousOnWalls is set, we will not illuminate blocking tiles unless the tile one space closer to the origin
+	// is visible to the player; this is to prevent lights from illuminating a wall when the player is on the other
+	// side of the wall.
+	calcFov(grid, x, y, maxRadius, forbiddenFlags=0, forbiddenTerrain=TileFlags.T_OBSTRUCTS_VISION, cautiousOnWalls=true) {
+	  const FOV = new types.FOV(grid, (i, j) => {
+	    return (!this.hasXY(i, j)) || this.hasCellFlag(i, j, forbiddenFlags) || this.hasTileFlag(i, j, forbiddenTerrain) ;
+	  });
+	  return FOV.calculate(x, y, maxRadius, cautiousOnWalls);
+	}
 
 	// MEMORIES
 
@@ -437,13 +518,35 @@ export class Map {
 			}
 		}
 	}
+
+	// DRAW
+
+	draw(buffer) {
+		if (!this.flags & Flags.MAP_CHANGED) return;
+
+		this.cells.forEach( (c, i, j) => {
+			if (c.flags & CellFlags.NEEDS_REDRAW) {
+	      const buf = buffer[i][j];
+				GW.map.getCellAppearance(this, i, j, buf);
+				c.clearFlags(CellFlags.NEEDS_REDRAW);
+	      buffer.needsUpdate = true;
+			}
+		});
+
+		this.flags &= ~Flags.MAP_CHANGED;
+	}
+
 }
 
 types.Map = Map;
 
 
 export function makeMap(w, h, opts={}) {
-	return new types.Map(w, h, opts);
+	const map = new types.Map(w, h, opts);
+	if (opts.tile) {
+		map.fill(opts.tile, opts.boundary);
+	}
+	return map;
 }
 
 make.map = makeMap;
@@ -453,7 +556,102 @@ export function getCellAppearance(map, x, y, dest) {
 	dest.clear();
 	if (!map.hasXY(x, y)) return;
 	const cell = map.cell(x, y);
-	cellGetAppearance(cell, dest);
+	CELL.getAppearance(cell, dest);
+
+	if (cell.flags & CellFlags.HAS_PLAYER) {
+		dest.plot(DATA.player.kind.sprite);
+	}
+	else if (cell.flags & CellFlags.HAS_MONSTER) {
+		const monst = map.actorAt(x, y);
+		if (monst) {
+			dest.plot(monst.kind.sprite);
+		}
+	}
+
+	// add fx (if any)
+	if (cell.flags & CellFlags.HAS_FX) {
+		map.fx.forEach( (a) => {
+			if (a.x != x || a.y != y) return;
+			dest.plot(a.sprite);
+		});
+	}
+	dest.bake();
 }
 
 map.getCellAppearance = getCellAppearance;
+
+
+
+const FP_BASE = 16;
+const FP_FACTOR = (1<<16);
+
+// ADAPTED FROM BROGUE 1.7.5
+// Simple line algorithm (maybe this is Bresenham?) that returns a list of coordinates
+// that extends all the way to the edge of the map based on an originLoc (which is not included
+// in the list of coordinates) and a targetLoc.
+// Returns the number of entries in the list, and includes (-1, -1) as an additional
+// terminus indicator after the end of the list.
+export function getLine(map, fromX, fromY, toX, toY) {
+	let targetVector = [], error = [], currentVector = [], previousVector = [], quadrantTransform = [];
+	let largerTargetComponent, i;
+	let currentLoc = [], previousLoc = [];
+
+	const line = [];
+
+	if (fromX == toX && fromY == toY) {
+		return line;
+	}
+
+	const originLoc = [fromX, fromY];
+	const targetLoc = [toX, toY];
+
+	// Neither vector is negative. We keep track of negatives with quadrantTransform.
+	for (i=0; i<= 1; i++) {
+		targetVector[i] = (targetLoc[i] - originLoc[i]) << FP_BASE;	// FIXME: should use parens?
+		if (targetVector[i] < 0) {
+			targetVector[i] *= -1;
+			quadrantTransform[i] = -1;
+		} else {
+			quadrantTransform[i] = 1;
+		}
+		currentVector[i] = previousVector[i] = error[i] = 0;
+		currentLoc[i] = originLoc[i];
+	}
+
+	// normalize target vector such that one dimension equals 1 and the other is in [0, 1].
+	largerTargetComponent = Math.max(targetVector[0], targetVector[1]);
+	// targetVector[0] = Math.floor( (targetVector[0] << FP_BASE) / largerTargetComponent);
+	// targetVector[1] = Math.floor( (targetVector[1] << FP_BASE) / largerTargetComponent);
+	targetVector[0] = Math.floor(targetVector[0] * FP_FACTOR / largerTargetComponent);
+	targetVector[1] = Math.floor(targetVector[1] * FP_FACTOR / largerTargetComponent);
+
+	do {
+		for (i=0; i<= 1; i++) {
+
+			previousLoc[i] = currentLoc[i];
+
+			currentVector[i] += targetVector[i] >> FP_BASE;
+			error[i] += (targetVector[i] == FP_FACTOR ? 0 : targetVector[i]);
+
+			if (error[i] >= Math.floor(FP_FACTOR / 2) ) {
+				currentVector[i]++;
+				error[i] -= FP_FACTOR;
+			}
+
+			currentLoc[i] = Math.floor(quadrantTransform[i]*currentVector[i] + originLoc[i]);
+
+		}
+
+		if (map.hasXY(currentLoc[0], currentLoc[1])) {
+			line.push(currentLoc.slice());
+		}
+		else {
+			break;
+		}
+
+	} while (true);
+
+	return line;
+}
+
+map.getLine = getLine;

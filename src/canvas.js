@@ -1,20 +1,19 @@
 
-import { css } from './color.js';
-import { Sprite } from './sprite.js';
-import { Grid } from './grid.js';
+import { color as COLOR, colors as COLORS } from './color.js';
 import { cosmetic } from './random.js';
 
-import { canvas, buffer, types, debug } from './gw.js';
+import { types, debug } from './gw.js';
 
 
-const HANGING_LETTERS = ['y', 'p', 'g', 'j', 'q', '[', ']', '(', ')', '{', '}'];
 const DEFAULT_FONT = 'monospace';
 
 
+export var canvas = {};
 
-class Buffer extends Grid {
+
+class Buffer extends types.Grid {
   constructor(w, h) {
-    super(w, h, () => new Sprite() );
+    super(w, h, () => new types.Sprite() );
     this.needsUpdate = true;
   }
 
@@ -44,6 +43,8 @@ class Buffer extends Grid {
   }
 
   plot(x, y, sprite) {
+    if (sprite.opacity <= 0) return;
+
     if (!this.hasXY(x, y)) {
       debug.log('invalid coordinates: ' + x + ', ' + y);
       return false;
@@ -61,16 +62,65 @@ class Buffer extends Grid {
       return;
     }
 
+    if (typeof fg === 'string') { fg = COLORS[fg]; }
+    if (typeof bg === 'string') { bg = COLORS[bg]; }
     const destCell = this[x][y];
     destCell.plotChar(ch, fg, bg);
     this.needsUpdate = true;
   }
 
   plotText(x, y, text, fg, bg) {
+    if (typeof fg === 'string') { fg = COLORS[fg]; }
+    if (typeof bg === 'string') { bg = COLORS[bg]; }
     let len = text.length;
     for(let i = 0; i < len; ++i) {
       this.plotChar(i + x, y, text[i], fg, bg);
     }
+  }
+
+  wrapText(x, y, width, text, fg, bg, opts={}) {
+    if (typeof fg === 'string') { fg = COLORS[fg]; }
+    if (typeof bg === 'string') { bg = COLORS[bg]; }
+    width = Math.min(width, this.width - x);
+    if (text.length <= width) {
+      return this.plotText(x, y, text, fg, bg);
+    }
+    let first = true;
+    let start = 0;
+    let last = 0;
+    for(let index = 0; index < text.length; ++index) {
+      const ch = text[index];
+      if (ch === '\n') {
+        last = index;
+      }
+      if ((index - start >= width) || (ch === '\n')) {
+        const sub = text.substring(start, last);
+        this.plotText(x, y++, sub, fg, bg);
+        if (first) {
+          x += (opts.indent || 0);
+          first = false;
+        }
+        start = last;
+      }
+      if (ch === ' ') {
+        last = index + 1;
+      }
+    }
+
+    if (start < text.length - 1) {
+      const sub = text.substring(start);
+      this.plotText(x, y++, sub, fg, bg);
+    }
+    return y;
+  }
+
+  fillRect(x, y, w, h, ch, fg, bg) {
+    if (typeof fg === 'string') { fg = COLORS[fg]; }
+    if (typeof bg === 'string') { bg = COLORS[bg]; }
+    this.forRect(x, y, w, h, (destCell, i, j) => {
+      destCell.plotChar(ch, fg, bg);
+    });
+    this.needsUpdate = true;
   }
 
 }
@@ -192,8 +242,9 @@ class Canvas {
         }
 
         if (cell.needsUpdate) {
-          if (HANGING_LETTERS.includes(cell.ch) && j < buffer.height - 1) {
+          if (cell.wasHanging && j < this.buffer.height - 1) {
             this.buffer[i][j + 1].needsUpdate = true;	// redraw the row below any hanging letters that changed
+            cell.wasHanging = false;
           }
 
           this.drawCell(cell, i, j);
@@ -208,7 +259,7 @@ class Canvas {
     const ctx = this.ctx;
     const tileSize = this.tileSize;// * this.displayRatio;
 
-    const backCss = css(cell.bg);
+    const backCss = COLOR.css(cell.bg);
     ctx.fillStyle = backCss;
 
     ctx.fillRect(
@@ -219,7 +270,7 @@ class Canvas {
     );
 
     if (cell.ch && cell.ch !== ' ') {
-      const foreCss = css(cell.fg);
+      const foreCss = COLOR.css(cell.fg);
       ctx.fillStyle = foreCss;
 
       const textX = x * tileSize + Math.floor(tileSize * 0.5);
@@ -245,6 +296,10 @@ class Canvas {
     this.buffer.plotText(x, y, text, fg, bg);
   }
 
+  fillRect(x, y, w, h, ch, fg, bg) {
+    this.buffer.fillRect(x, y, w, h, ch, fg, bg);
+  }
+
   allocBuffer() {
     let buf;
     if (this.dead.length) {
@@ -262,6 +317,9 @@ class Canvas {
     bufs.forEach( (buf) => this.dead.push(buf) );
   }
 
+  copyBuffer(dest) {
+    dest.copy(this.buffer);
+  }
 
   // draws overBuf over the current canvas with per-cell pseudotransparency as specified in overBuf.
   // If previousBuf is not null, it gets filled with the preexisting canvas for reversion purposes.
@@ -269,7 +327,7 @@ class Canvas {
     if (previousBuf) {
       previousBuf.copy(this.buffer);
     }
-    overlayRect(overBuf, 0, 0, this.buffer.width, this.buffer.height);
+    this.overlayRect(overBuf, 0, 0, this.buffer.width, this.buffer.height);
   }
 
   // draws overBuf over the current canvas with per-cell pseudotransparency as specified in overBuf.
@@ -279,7 +337,15 @@ class Canvas {
 
     for (i=x; i<x + w; i++) {
       for (j=y; j<y + h; j++) {
-        this.buffer.plot(i, j, overBuf[i][j]);
+        const src = overBuf[i][j];
+        if (src.opacity) {
+          const dest = this.buffer[i][j];
+          if (!dest.equals(src)) {
+            dest.copy(src);
+            dest.needsUpdate = true;
+            this.buffer.needsUpdate = true;
+          }
+        }
       }
     }
 
