@@ -5969,8 +5969,8 @@
     opts.stepFn = opts.stepFn || ((x, y) => !map.isObstruction(x, y));
     opts.playFn = fx.playGameTime;
     if (opts.realTime || (!opts.gameTime)) {
-      opts.speed *= 16;
-      opts.fade *= 16;
+      opts.speed *= 8;
+      opts.fade *= 8;
       opts.playFn = fx.playRealTime;
     }
 
@@ -6004,6 +6004,7 @@
       this.shape = shape || 'o';
       this.center = (center === undefined) ? true : center;
       this.stepFn = stepFn || utils$1.TRUE;
+      this.count = 0;
     }
 
     start() {
@@ -6016,6 +6017,8 @@
     }
 
     step() {
+      if (this.radius >= this.maxRadius) return false;
+
       this.radius = Math.min(this.radius + 1, this.maxRadius);
 
       let done = true;
@@ -6040,7 +6043,7 @@
         }
       }
       // console.log('returning...', done);
-      if (done) {
+      if (done && (this.count == 0)) {
         return this.stop(this); // xy of explosion is callback value
       }
       return false;
@@ -6048,8 +6051,15 @@
 
     visit(x, y) {
       if (this.isInShape(x, y) && this.stepFn(x, y)) {
+        this.count += 1;
+        ui.requestUpdate(30);
         const anim = new SpriteFX(this.map, this.sprite, x, y, { duration: this.fade });
-        this.playFx(anim);
+        this.playFx(anim).then( () => {
+          --this.count;
+          if (this.count == 0) {
+            this.stop(this);
+          }
+        });
         // fx.flashSprite(this.map, x, y, this.sprite, this.fade);
       }
       this.grid[x][y] = 2;
@@ -6074,15 +6084,15 @@
   }
 
   function checkExplosionOpts(opts) {
-    opts.speed = opts.speed || 3;
-    opts.fade = opts.fade || 5;
+    opts.speed = opts.speed || 5;
+    opts.fade = opts.fade || 10;
     opts.playFn = fx.playGameTime;
     opts.shape = opts.shape || 'o';
     if (opts.center === undefined) { opts.center = true; }
 
     if (opts.realTime || (!opts.gameTime)) {
-      opts.speed = opts.speed * 16;
-      opts.fade = opts.fade * 16;
+      opts.speed = opts.speed * 8;
+      opts.fade = opts.fade * 8;
       opts.playFn = fx.playRealTime;
     }
   }
