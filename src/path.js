@@ -1,6 +1,9 @@
 
-import { makeArray } from './grid.js';
-import { path as PATH, def } from './gw.js';
+import { def, make } from './gw.js';
+
+
+var PATH = {};
+export { PATH as path };
 
 
 const PDS_FORBIDDEN   = def.PDS_FORBIDDEN   = -1;
@@ -23,7 +26,7 @@ function makeDijkstraMap(w, h) {
 	return {
 		eightWays: false,
 		front: makeCostLink(-1),
-		links: makeArray(w * h, (i) => makeCostLink(i) ),
+		links: make.array(w * h, (i) => makeCostLink(i) ),
 		width: w,
 		height: h,
 	};

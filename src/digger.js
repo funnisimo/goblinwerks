@@ -1,6 +1,6 @@
 
-import { ERROR, WARN, first, sequence, clamp } from './utils.js';
-import { allocGrid, freeGrid, offsetZip, fillBlob, directionOfDoorSite } from './grid.js';
+import { utils as UTILS } from './utils.js';
+import { grid as GRID } from './grid.js';
 import { random } from './random.js';
 import { debug, def } from './gw.js';
 
@@ -34,7 +34,7 @@ function checkDiggerConfig(config, opts) {
 
     if (expect === true) {	// needs to be a number > 0
       if (typeof have !== 'number') {
-        ERROR('Invalid configuration for digger: ' + key + ' expected number received ' + typeof have);
+        UTILS.ERROR('Invalid configuration for digger: ' + key + ' expected number received ' + typeof have);
       }
     }
     else if (typeof expect === 'number') {	// needs to be a number, this is the default
@@ -48,7 +48,7 @@ function checkDiggerConfig(config, opts) {
         config[key] = new Array(expect.length).fill(have);
       }
       else if (!Array.isArray(have)) {
-        WARN('Received unexpected config for digger : ' + key + ' expected array, received ' + typeof have + ', using defaults.');
+        UTILS.WARN('Received unexpected config for digger : ' + key + ' expected array, received ' + typeof have + ', using defaults.');
         config[key] = expect.slice();
       }
       else if (expect.length > have.length) {
@@ -58,7 +58,7 @@ function checkDiggerConfig(config, opts) {
       }
     }
     else {
-      WARN('Unexpected digger configuration parameter: ', key, expect);
+      UTILS.WARN('Unexpected digger configuration parameter: ', key, expect);
     }
   });
 
@@ -78,7 +78,7 @@ export function digCavern(config, grid) {
   let foundFillPoint = false;
   let blobGrid;
 
-  blobGrid = allocGrid(grid.width, grid.height, 0);
+  blobGrid = GRID.alloc(grid.width, grid.height, 0);
 
   const minWidth  = config.width[0];
   const maxWidth  = config.width[1];
@@ -86,15 +86,15 @@ export function digCavern(config, grid) {
   const maxHeight = config.height[1];
 
   grid.fill(0);
-  const bounds = fillBlob(blobGrid, 5, minWidth, minHeight, maxWidth, maxHeight, 55, "ffffffttt", "ffffttttt");
+  const bounds = GRID.fillBlob(blobGrid, 5, minWidth, minHeight, maxWidth, maxHeight, 55, "ffffffttt", "ffffttttt");
 
   // Position the new cave in the middle of the grid...
   destX = Math.floor((grid.width - bounds.width) / 2);
   destY = Math.floor((grid.height - bounds.height) / 2);
 
   // ...and copy it to the master grid.
-  offsetZip(grid, blobGrid, destX - bounds.x, destY - bounds.y, config.tile);
-  freeGrid(blobGrid);
+  GRID.offsetZip(grid, blobGrid, destX - bounds.x, destY - bounds.y, config.tile);
+  GRID.free(blobGrid);
 }
 
 digger.cavern = digCavern;
@@ -110,11 +110,11 @@ export function digChoiceRoom(config, grid) {
     choices = Object.keys(config.choices);
   }
   else {
-    ERROR('Expected choices to be either array of choices or map { digger: weight }');
+    UTILS.ERROR('Expected choices to be either array of choices or map { digger: weight }');
   }
   for(let choice of choices) {
     if (!diggers[choice]) {
-      ERROR('Missing digger choice: ' + choice);
+      UTILS.ERROR('Missing digger choice: ' + choice);
     }
   }
 
@@ -299,13 +299,13 @@ export function chooseRandomDoorSites(sourceGrid) {
   let dir;
   let doorSiteFailed;
 
-  const grid = allocGrid(sourceGrid.width, sourceGrid.height);
+  const grid = GRID.alloc(sourceGrid.width, sourceGrid.height);
   grid.copy(sourceGrid);
 
   for (i=0; i<grid.width; i++) {
       for (j=0; j<grid.height; j++) {
           if (!grid[i][j]) {
-              dir = directionOfDoorSite(grid, i, j);
+              dir = GRID.directionOfDoorSite(grid, i, j);
               if (dir != def.NO_DIRECTION) {
                   // Trace a ray 10 spaces outward from the door site to make sure it doesn't intersect the room.
                   // If it does, it's not a valid door site.
@@ -334,7 +334,7 @@ export function chooseRandomDoorSites(sourceGrid) {
       doorSites[dir] = loc.slice();
   }
 
-  freeGrid(grid);
+  GRID.free(grid);
   return doorSites;
 }
 
@@ -352,13 +352,13 @@ export function attachHallway(grid, doorSitesArray, opts) {
     opts = opts || {};
     const tile = opts.tile || 1;
 
-    const horizontalLength = first('horizontalHallLength', opts, [9,15]);
-    const verticalLength = first('verticalHallLength', opts, [2,9]);
+    const horizontalLength = UTILS.first('horizontalHallLength', opts, [9,15]);
+    const verticalLength = UTILS.first('verticalHallLength', opts, [2,9]);
 
     // Pick a direction.
     dir = opts.dir;
     if (dir === undefined) {
-      const dirs = sequence(4);
+      const dirs = UTILS.sequence(4);
       random.shuffle(dirs);
       for (i=0; i<4; i++) {
           dir = dirs[i];
@@ -391,8 +391,8 @@ export function attachHallway(grid, doorSitesArray, opts) {
         x += DIRS[dir][0];
         y += DIRS[dir][1];
     }
-    x = clamp(x - DIRS[dir][0], 0, grid.width - 1);
-    y = clamp(y - DIRS[dir][1], 0, grid.height - 1); // Now (x, y) points at the last interior cell of the hallway.
+    x = UTILS.clamp(x - DIRS[dir][0], 0, grid.width - 1);
+    y = UTILS.clamp(y - DIRS[dir][1], 0, grid.height - 1); // Now (x, y) points at the last interior cell of the hallway.
     allowObliqueHallwayExit = random.percent(15);
     for (dir2 = 0; dir2 < 4; dir2++) {
         newX = x + DIRS[dir2][0];

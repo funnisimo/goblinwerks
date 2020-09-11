@@ -131,25 +131,21 @@ function drawMap(attempt=0) {
 		}
 	});
 
-	canvas.draw();
+	// canvas.draw();
 
 	console.log('MAP SEED = ', seed);
 }
 
-function drawCanvas() {
-	requestAnimationFrame(drawCanvas);
-	canvas.draw();
-}
 
 // start the environment
 function start() {
-	canvas = new GW.types.Canvas(80, 30, 'game');
+	canvas = GW.ui.start({ width: 80, height: 30, div: 'game', io: false });
 	game.onmousedown = handleClick;
 	document.onkeydown = handleKey;
 
 	canvas.plotText(10, 15, 'Click to draw map with starting location at click point.', [100,50,0]);
 	canvas.plotText(10, 17, 'Press any key to redesign the map at same starting point.', [100,50,0]);
-	canvas.draw();
+	// canvas.draw();
 
 	// drawCanvas();	// uncomment to have water colors dance
 }

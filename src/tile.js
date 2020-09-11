@@ -1,14 +1,14 @@
 
-import { WARN } from './utils.js';
-import { installFlag, Fl } from './flag.js';
-import { makeSprite } from './sprite.js';
+import { utils as UTILS } from './utils.js';
+import { flag as FLAG } from './flag.js';
 import { types, def, make } from './gw.js';
 
 export var tile = {};
 export var tiles = [];
 
+const Fl = FLAG.fl;
 
-export const Flags = installFlag('tile', {
+export const Flags = FLAG.install('tile', {
   T_OBSTRUCTS_PASSABILITY	: Fl(0),		// cannot be walked through
   T_OBSTRUCTS_VISION			: Fl(1),		// blocks line of sight
   T_OBSTRUCTS_ITEMS				: Fl(2),		// items can't be on this tile
@@ -60,7 +60,7 @@ tile.flags = Flags;
 // TILE MECH
 
 
-export const MechFlags = installFlag('tileMech', {
+export const MechFlags = FLAG.install('tileMech', {
   TM_IS_SECRET							: Fl(0),		// successful search or being stepped on while visible transforms it into discoverType
   TM_PROMOTES_WITH_KEY			: Fl(1),		// promotes if the key is present on the tile (in your pack, carried by monster, or lying on the ground)
   TM_PROMOTES_WITHOUT_KEY		: Fl(2),		// promotes if the key is NOT present on the tile (in your pack, carried by monster, or lying on the ground)
@@ -99,7 +99,7 @@ function setFlags(tile, allFlags) {
     flags = allFlags.split(/[,|]/).map( (t) => t.trim() );
   }
   else if (!Array.isArray(allFlags)) {
-    return WARN('Invalid tile flags: ' + allFlags);
+    return UTILS.WARN('Invalid tile flags: ' + allFlags);
   }
   else if (allFlags.length <= 2) {
     if (typeof allFlags[0] === 'number') {
@@ -111,7 +111,7 @@ function setFlags(tile, allFlags) {
 
   flags.forEach((f) => {
     if (typeof f !== 'string') {
-      WARN('Invalid tile flag: ' + f);
+      UTILS.WARN('Invalid tile flag: ' + f);
     }
     else if (Flags[f]) {
       tile.flags |= Flags[f];
@@ -120,7 +120,7 @@ function setFlags(tile, allFlags) {
       tile.mechFlags |= MechFlags[f];
     }
     else {
-      WARN('Invalid tile flag: ' + f);
+      UTILS.WARN('Invalid tile flag: ' + f);
     }
   });
 }
@@ -132,7 +132,7 @@ export class Tile {
     this.mechFlags = 0;
     this.layer = layer || 0;
     this.priority = priority || 50; // lower means higher priority (50 = average)
-    this.sprite = makeSprite(ch, fg, bg);
+    this.sprite = make.sprite(ch, fg, bg);
     this.events = {};
     this.light = null;
     this.desc = desc || '';
@@ -185,13 +185,13 @@ tile.install = installTile;
 // These are the minimal set of tiles to make the diggers work
 const NOTHING = def.NOTHING = 0;
 installTile(NOTHING,       '\u2205', 'black', 'black', 100, 0, 'T_OBSTRUCTS_PASSABILITY', "an eerie nothingness", "");
-installTile('FLOOR',       '\u00b7', [40,40,40,15], [90,90,90], 90);	// FLOOR
+installTile('FLOOR',       '\u00b7', [30,30,30,20], [2,2,10,0,2,2,0], 90);	// FLOOR
 installTile('DOOR',        '+', [100,40,40], [30,60,60], 50, 0, 'T_IS_DOOR');	// DOOR
 installTile('BRIDGE',      '=', [100,40,40], [60,40,0], 30);	// BRIDGE
 installTile('UP_STAIRS',   '<', [100,40,40], [100,60,20], 10);	// UP
 installTile('DOWN_STAIRS', '>', [100,40,40], [100,60,20], 10);	// DOWN
-installTile('WALL',        '#', [50,50,50,10], [20,20,20,10], 20, 0, 'T_OBSTRUCTS_EVERYTHING');	// WALL
-installTile('LAKE',        '~', [0,80,100,10], [0,30,100,10,0,0,0,1], 40, 0, 'T_DEEP_WATER');	// LAKE
+installTile('WALL',        '#', [7,7,7,0,3,3,3],  [40,40,40,10,10,0,5], 20, 0, 'T_OBSTRUCTS_EVERYTHING');	// WALL
+installTile('LAKE',        '~', [5,8,20,10,0,4,15,1], [10,15,41,6,5,5,5,1], 40, 0, 'T_DEEP_WATER');	// LAKE
 
 export function withName(name) {
   return tiles.find( (t) => t.name == name );

@@ -1,7 +1,7 @@
 
-import * as utils from './utils.js';
+import { utils as UTILS } from './utils.js';
 import { random } from './random.js';
-import { grid as GRID, def, data as DATA, types, debug, make } from './gw.js';
+import { def, data as DATA, types, debug, make } from './gw.js';
 
 
 const GRID_CACHE = [];
@@ -12,6 +12,9 @@ var   GRID_CREATE_COUNT = 0;
 
 const DIRS = def.dirs;
 const CDIRS = def.clockDirs;
+
+var GRID = {};
+export { GRID as grid };
 
 
 export function makeArray(l, fn) {
@@ -161,11 +164,11 @@ export class Grid extends Array {
 
 	closestMatchingXY(x, y, fn) {
 		let bestLoc = [-1, -1];
-	  let bestDistance = grid.width + grid.height;
+	  let bestDistance = this.width + this.height;
 
 		this.forEach( (v, i, j) => {
 			if (fn(v, i, j)) {
-				const dist = utils.distanceBetween(x, y, i, j);
+				const dist = UTILS.distanceBetween(x, y, i, j);
 				if (dist < bestDistance) {
 					bestLoc[0] = i;
 					bestLoc[1] = j;
@@ -301,7 +304,7 @@ export class Grid extends Array {
 
 	  // brogueAssert(grid.hasXY(x, y));
 
-		testFn = testFn || utils.IDENTITY;
+		testFn = testFn || UTILS.IDENTITY;
 
 		arcCount = 0;
 		for (dir = 0; dir < CDIRS.length; dir++) {
@@ -453,10 +456,10 @@ export function gridDumpRect(grid, left, top, width, height, fmtFn) {
 
 	fmtFn = fmtFn || _formatGridValue
 
-	left = utils.clamp(left, 0, grid.width - 2);
-	top = utils.clamp(top, 0, grid.height - 2);
-	const right = utils.clamp(left + width, 1, grid.width - 1);
-	const bottom = utils.clamp(top + height, 1, grid.height - 1);
+	left = UTILS.clamp(left, 0, grid.width - 2);
+	top = UTILS.clamp(top, 0, grid.height - 2);
+	const right = UTILS.clamp(left + width, 1, grid.width - 1);
+	const bottom = UTILS.clamp(top + height, 1, grid.height - 1);
 
 	let output = [];
 

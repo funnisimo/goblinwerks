@@ -230,7 +230,7 @@ describe('GW.dungeon', () => {
 
   	GW.dungeon.finish();
 
-    map.dump();
+    // map.dump();
 
     expect(tileAt(23, 19)).toEqual(1);  // FLOOR (not DOOR)
     expect(tileAt(27, 22)).toEqual(1);  // ...
