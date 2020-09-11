@@ -470,6 +470,8 @@ class ExplosionFX extends FX {
         }
       }
     }
+    UI.requestUpdate(48);
+
     // console.log('returning...', done);
     if (done && (this.count == 0)) {
       return this.stop(this); // xy of explosion is callback value
@@ -480,7 +482,6 @@ class ExplosionFX extends FX {
   visit(x, y) {
     if (this.isInShape(x, y) && this.stepFn(x, y)) {
       this.count += 1;
-      UI.requestUpdate(30);
       const anim = new SpriteFX(this.map, this.sprite, x, y, { duration: this.fade });
       this.playFx(anim).then( () => {
         --this.count;

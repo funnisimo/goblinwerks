@@ -364,10 +364,12 @@ export async function nextKeyPress(ms, match) {
 
 io.nextKeyPress = nextKeyPress;
 
-export async function nextKeyOrClick(ms) {
+export async function nextKeyOrClick(ms, matchFn) {
+	ms = ms || 0;
+	matchFn = matchFn || UTILS.TRUE;
 	function match(e) {
   	if (e.type !== KEYPRESS && e.type !== CLICK) return false;
-    return true;
+    return matchFn(e);
   }
   return io.nextEvent(ms, match);
 }

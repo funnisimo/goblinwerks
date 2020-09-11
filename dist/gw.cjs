@@ -2728,10 +2728,12 @@ async function nextKeyPress(ms, match) {
 
 io.nextKeyPress = nextKeyPress;
 
-async function nextKeyOrClick(ms) {
+async function nextKeyOrClick(ms, matchFn) {
+	ms = ms || 0;
+	matchFn = matchFn || utils$1.TRUE;
 	function match(e) {
   	if (e.type !== KEYPRESS && e.type !== CLICK) return false;
-    return true;
+    return matchFn(e);
   }
   return io.nextEvent(ms, match);
 }
@@ -6072,6 +6074,8 @@ class ExplosionFX extends FX {
         }
       }
     }
+    ui.requestUpdate(48);
+
     // console.log('returning...', done);
     if (done && (this.count == 0)) {
       return this.stop(this); // xy of explosion is callback value
@@ -6082,7 +6086,6 @@ class ExplosionFX extends FX {
   visit(x, y) {
     if (this.isInShape(x, y) && this.stepFn(x, y)) {
       this.count += 1;
-      ui.requestUpdate(30);
       const anim = new SpriteFX(this.map, this.sprite, x, y, { duration: this.fade });
       this.playFx(anim).then( () => {
         --this.count;
@@ -6241,11 +6244,11 @@ async function updateNow(t=1) {
 	t = Math.max(t, UPDATE_REQUESTED, 1);
 	UPDATE_REQUESTED = 0;
 
-	// console.log('updating UI with timeout...', t);
 	ui.draw();
 	ui.canvas.draw();
 	if (t) {
 		const now = performance.now();
+		console.log('UI update - with timeout:', t);
 		const r = await io.tickMs(t);
 		// console.log('- done', r, Math.floor(performance.now() - now));
 	}
@@ -6352,6 +6355,7 @@ function draw() {
   else if (ui.canvas) {
     // const side = GW.sidebar.draw(UI_BUFFER);
     if (data.map) data.map.draw(ui.canvas.buffer);
+			UPDATE_REQUESTED = 0;
     // }
   }
 }
