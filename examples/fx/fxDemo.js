@@ -225,13 +225,6 @@ async function moveDir(e) {
 GW.commands.moveDir = moveDir;
 
 
-function quitGame(e) {
-	DATA.running = false;
-	console.log('quit game');
-}
-
-GW.commands.quitGame = quitGame;
-
 
 let mapCount = 0;
 
@@ -266,6 +259,43 @@ function newMap() {
 GW.commands.newMap = newMap;
 
 
+async function showHelp() {
+	const buf = GW.ui.startDialog();
+
+	let y = 2;
+	buf.plotText(20, y++, 'GoblinWerks FX Example', 'green');
+	y++;
+	y = buf.wrapText(10, y, 60, 'This example allows you to try out some of the special FX in GoblinWerks.', 'white');
+	y++;
+	buf.plotText(10, y++, 'CLICK : When you click on a tile, the current FX is played.', 'white');
+	buf.plotText(10, y++, 'DIR   : Pressing a direction key moves the player.', 'white');
+	y = buf.wrapText(10, y, 60, 'SPACE : Rest player - lets game time animations continue. (you could also move the player)', 'white', null, { indent: 8 });
+	buf.plotText(10, y++, 'g     : Toggle between game time and real time FX.', 'white');
+	buf.plotText(10, y++, '>     : Change to a new map.', 'white');
+	buf.plotText(10, y++, '?     : Show this screen.', 'white');
+	y++;
+	buf.plotText(10, y++, 'FX available', 'white');
+	buf.plotText(10, y++, '======================', 'white');
+	buf.plotText(10, y++, 'h     : Show a HIT on the clicked tile.', 'white');
+	buf.plotText(10, y++, 'f     : Blink a sprite on the clicked tile.', 'white');
+	buf.plotText(10, y++, 'b     : Fire a BOLT to the clicked tile.', 'white');
+	buf.plotText(10, y++, 'p     : Fire a PROJECTILE to the clicked tile.', 'white');
+	buf.plotText(10, y++, 'm     : Fire a BEAM to the clicked tile.', 'white');
+	buf.plotText(10, y++, 'o     : Cause an explosion at the clicked tile.', 'white');
+	buf.plotText(10, y++, '+     : Fire a + shaped explosion.', 'white');
+	buf.plotText(10, y++, 'x     : Fire an X shaped explosion.', 'white');
+	buf.plotText(10, y++, '*     : Fire a * shaped explosion.', 'white');
+	buf.plotText(10, y++, 'a     : Produce an aura (explosion w/o center).', 'white');
+
+	buf.fillRect(8, 1, 64, y, null, null, 'black' );
+
+	GW.ui.draw();
+	await GW.io.nextKeyPress(-1);
+	GW.ui.finishDialog();
+}
+
+GW.commands.showHelp = showHelp;
+
 
 // start the environment
 function start() {
@@ -277,7 +307,7 @@ function start() {
 			o: 'selectExplosion', '+': 'selectExplosionPlus', '=': 'selectExplosionPlus',
 		 	x: 'selectExplosionX', '8': 'selectExplosionStar', '*': 'selectExplosionStar',
 			a: 'selectAura',
-			q: 'quitGame', g: 'toggleGameTime', '>': 'newMap', '<': 'newMap',
+			g: 'toggleGameTime', '>': 'newMap', '<': 'newMap',
 			'?': 'showHelp'
 	});
 
@@ -285,7 +315,9 @@ function start() {
 	PLAYER.y = 27;
 
 	makeMap();
-	GW.game.start({ player: PLAYER, map: MAP });
+	showHelp().then( () => {
+		GW.game.start({ player: PLAYER, map: MAP });
+	});
 }
 
 window.onload = start;

@@ -2085,42 +2085,65 @@ class Buffer extends types.Grid {
       return;
     }
 
-    if (typeof fg === 'string') {
-      fg = colors[fg];
-    }
-    if (typeof bg === 'string') {
-      bg = colors[bg];
-    }
-
+    if (typeof fg === 'string') { fg = colors[fg]; }
+    if (typeof bg === 'string') { bg = colors[bg]; }
     const destCell = this[x][y];
     destCell.plotChar(ch, fg, bg);
     this.needsUpdate = true;
   }
 
   plotText(x, y, text, fg, bg) {
-    if (typeof fg === 'string') {
-      fg = colors[fg];
-    }
-    if (typeof bg === 'string') {
-      bg = colors[bg];
-    }
+    if (typeof fg === 'string') { fg = colors[fg]; }
+    if (typeof bg === 'string') { bg = colors[bg]; }
     let len = text.length;
     for(let i = 0; i < len; ++i) {
       this.plotChar(i + x, y, text[i], fg, bg);
     }
   }
 
-  fillRect(x, y, w, h, ch, fg, bg) {
-    if (typeof fg === 'string') {
-      fg = colors[fg];
+  wrapText(x, y, width, text, fg, bg, opts={}) {
+    if (typeof fg === 'string') { fg = colors[fg]; }
+    if (typeof bg === 'string') { bg = colors[bg]; }
+    width = Math.min(width, this.width - x);
+    if (text.length <= width) {
+      return this.plotText(x, y, text, fg, bg);
     }
-    if (typeof bg === 'string') {
-      bg = colors[bg];
+    let first = true;
+    let start = 0;
+    let last = 0;
+    for(let index = 0; index < text.length; ++index) {
+      const ch = text[index];
+      if (ch === '\n') {
+        last = index;
+      }
+      if ((index - start >= width) || (ch === '\n')) {
+        const sub = text.substring(start, last);
+        this.plotText(x, y++, sub, fg, bg);
+        if (first) {
+          x += (opts.indent || 0);
+          first = false;
+        }
+        start = last;
+      }
+      if (ch === ' ') {
+        last = index + 1;
+      }
     }
 
-    this.forRect(x, y, w, h, (v, i, j) => {
-      this.plotChar(i, j, ch, fg, bg);
+    if (start < text.length - 1) {
+      const sub = text.substring(start);
+      this.plotText(x, y++, sub, fg, bg);
+    }
+    return y;
+  }
+
+  fillRect(x, y, w, h, ch, fg, bg) {
+    if (typeof fg === 'string') { fg = colors[fg]; }
+    if (typeof bg === 'string') { bg = colors[bg]; }
+    this.forRect(x, y, w, h, (destCell, i, j) => {
+      destCell.plotChar(ch, fg, bg);
     });
+    this.needsUpdate = true;
   }
 
 }
@@ -2641,7 +2664,7 @@ function nextEvent(ms, match) {
 
   let done;
 
-	if (!ms) return null;
+	if (ms == 0) return null;
 
   CURRENT_HANDLER = ((e) => {
 		if (e.type === MOUSEMOVE) {
@@ -2649,7 +2672,7 @@ function nextEvent(ms, match) {
 			io.mouse.y = e.y;
 		}
 
-  	if (e.type === TICK) {
+  	if (e.type === TICK && ms > 0) {
     	elapsed += e.dt;
     	if (elapsed < ms) {
         return;
@@ -2691,7 +2714,8 @@ io.tickMs = tickMs;
 
 // TODO - io.tickMs(ms)
 
-async function nextKeypress(ms, match) {
+async function nextKeyPress(ms, match) {
+	ms = ms || 0;
 	match = match || utils$1.TRUE;
 	function matchingKey(e) {
   	if (e.type !== KEYPRESS) return false;
@@ -2700,7 +2724,7 @@ async function nextKeypress(ms, match) {
   return io.nextEvent(ms, matchingKey);
 }
 
-io.nextKeypress = nextKeypress;
+io.nextKeyPress = nextKeyPress;
 
 async function nextKeyOrClick(ms) {
 	function match(e) {

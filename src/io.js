@@ -302,7 +302,7 @@ export function nextEvent(ms, match) {
 
   let done;
 
-	if (!ms) return null;
+	if (ms == 0) return null;
 
   CURRENT_HANDLER = ((e) => {
 		if (e.type === MOUSEMOVE) {
@@ -310,7 +310,7 @@ export function nextEvent(ms, match) {
 			io.mouse.y = e.y;
 		}
 
-  	if (e.type === TICK) {
+  	if (e.type === TICK && ms > 0) {
     	elapsed += e.dt;
     	if (elapsed < ms) {
         return;
@@ -352,7 +352,8 @@ io.tickMs = tickMs;
 
 // TODO - io.tickMs(ms)
 
-export async function nextKeypress(ms, match) {
+export async function nextKeyPress(ms, match) {
+	ms = ms || 0;
 	match = match || UTILS.TRUE;
 	function matchingKey(e) {
   	if (e.type !== KEYPRESS) return false;
@@ -361,7 +362,7 @@ export async function nextKeypress(ms, match) {
   return io.nextEvent(ms, matchingKey);
 }
 
-io.nextKeypress = nextKeypress;
+io.nextKeyPress = nextKeyPress;
 
 export async function nextKeyOrClick(ms) {
 	function match(e) {
