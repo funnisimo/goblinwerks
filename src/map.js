@@ -595,7 +595,6 @@ export function getLine(map, fromX, fromY, toX, toY) {
 	let targetVector = [], error = [], currentVector = [], previousVector = [], quadrantTransform = [];
 	let largerTargetComponent, i;
 	let currentLoc = [], previousLoc = [];
-	let cellNumber = 0;
 
 	const line = [];
 
@@ -643,12 +642,14 @@ export function getLine(map, fromX, fromY, toX, toY) {
 
 		}
 
-		line.push(currentLoc.slice());
+		if (map.hasXY(currentLoc[0], currentLoc[1])) {
+			line.push(currentLoc.slice());
+		}
+		else {
+			break;
+		}
 
-		//DEBUG printf("\ncell %i: (%i, %i)", cellNumber, listOfCoordinates[cellNumber][0], listOfCoordinates[cellNumber][1]);
-		cellNumber++;
-
-	} while (map.hasXY(currentLoc[0], currentLoc[1]));
+	} while (true);
 
 	return line;
 }

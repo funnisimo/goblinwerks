@@ -5505,9 +5505,14 @@ function getLine(map, fromX, fromY, toX, toY) {
 
 		}
 
-		line.push(currentLoc.slice());
+		if (map.hasXY(currentLoc[0], currentLoc[1])) {
+			line.push(currentLoc.slice());
+		}
+		else {
+			break;
+		}
 
-	} while (map.hasXY(currentLoc[0], currentLoc[1]));
+	} while (true);
 
 	return line;
 }
@@ -5696,9 +5701,9 @@ class SpriteFX extends FX {
     }
     this.map = map;
     this.sprite = sprite;
-    this.x = x || -1;
-    this.y = y || -1;
-    this.count = 2*count - 1;
+    this.x = x || 0;
+    this.y = y || 0;
+    this.stepCount = 2*count - 1;
   }
 
   start() {
@@ -5707,9 +5712,9 @@ class SpriteFX extends FX {
   }
 
   step() {
-    --this.count;
-    if (this.count <= 0) return this.stop();
-    if (this.count % 2 == 0) {
+    --this.stepCount;
+    if (this.stepCount <= 0) return this.stop();
+    if (this.stepCount % 2 == 0) {
       this.map.removeFx(this);
     }
     else {
@@ -5927,10 +5932,11 @@ class BeamFX extends FX {
   }
 
   step() {
-    if (this.x == this.target.x && this.y == this.target.y) return this.stop(this);
-    if (!this.path.find( (loc) => loc[0] == this.target.x && loc[1] == this.target.y)) {
-      this.path = map.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
-    }
+    // if (this.x == this.target.x && this.y == this.target.y) return this.stop(this);
+    // if (!this.path.find( (loc) => loc[0] == this.target.x && loc[1] == this.target.y)) {
+    //   this.path = MAP.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
+    // }
+    if (this.path.length == 0) { return this.stop(this); }
     const next = this.path.shift();
     const r = this.stepFn(next[0], next[1]);
     if (r < 0) {
@@ -5947,6 +5953,10 @@ class BeamFX extends FX {
   }
 
   moveTo(x, y) {
+    if (!this.map.hasXY(x, y)) {
+      console.log('BEAM - invalid x,y', x, y);
+      return;
+    }
     this.x = x;
     this.y = y;
     // fx.flashSprite(this.map, x, y, this.sprite, this.fade);
@@ -5962,7 +5972,7 @@ types.BeamFX = BeamFX;
 function beam(map, from, to, sprite, opts={}) {
   opts.fade = opts.fade || 5;
   opts.speed = opts.speed || 1;
-  opts.stepFn = opts.stepFn || ((x, y) => !map.isObstruction(x, y));
+  opts.stepFn = opts.stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
   opts.playFn = fx.playGameTime;
   if (opts.realTime || (!opts.gameTime)) {
     opts.speed *= 8;
