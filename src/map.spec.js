@@ -45,11 +45,11 @@ describe('Map', () => {
   test('getLine', () => {
     const map = GW.make.map(10, 10);
     const line = GW.map.getLine(map, 1, 1, 7, 8);
-    expect(line.length).toEqual(9);
+    expect(line.length).toEqual(8);
     expect(line).not.toContainEqual([1,1]);
     expect(line).toContainEqual([7,8]);
     expect(line).toEqual([
-      [ 2, 2 ],  [ 3, 3 ], [ 4, 4 ],  [ 4, 5 ], [ 5, 6 ],  [ 6, 7 ], [ 7, 8 ],  [ 8, 9 ], [ 9, 10 ]
+      [ 2, 2 ],  [ 3, 3 ], [ 4, 4 ],  [ 4, 5 ], [ 5, 6 ],  [ 6, 7 ], [ 7, 8 ],  [ 8, 9 ]
     ]);
   });
 });
