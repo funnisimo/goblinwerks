@@ -12,8 +12,16 @@ export class Player extends types.Actor {
     super(kind);
   }
 
+  startTurn() {
+    player.startTurn(this);
+  }
+
   visionRadius() {
   	return CONFIG.MAX_FOV_RADIUS || (DATA.map.width + DATA.map.height);
+  }
+
+  endTurn(turnTime) {
+    player.endTurn(this, turnTime);
   }
 
 }
@@ -32,14 +40,13 @@ make.player = makePlayer;
 export async function takeTurn() {
   const PLAYER = DATA.player;
   console.log('player turn...', DATA.time);
-  await player.startTurn();
+  await PLAYER.startTurn();
 
   while(!PLAYER.turnTime) {
     const ev = await IO.nextEvent(1000);
     await IO.dispatchEvent(ev);
   }
 
-  await player.endTurn();
   console.log('...end turn', PLAYER.turnTime);
   return PLAYER.turnTime;
 }
@@ -47,8 +54,7 @@ export async function takeTurn() {
 player.takeTurn = takeTurn;
 
 
-function startTurn() {
-  const PLAYER = DATA.player;
+function startTurn(PLAYER) {
 	PLAYER.turnTime = 0;
 }
 
@@ -61,11 +67,9 @@ function act() {
 
 player.act = act;
 
-function endTurn() {
-  const PLAYER = DATA.player;
-	if (PLAYER.isOrWasVisible() && PLAYER.turnTime) {
-		UI.requestUpdate();
-	}
+function endTurn(PLAYER, turnTime) {
+  PLAYER.turnTime = turnTime || PLAYER.kind.speed;
+  UI.requestUpdate();
 }
 
 player.endTurn = endTurn;

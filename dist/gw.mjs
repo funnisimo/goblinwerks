@@ -6305,18 +6305,26 @@ class Actor {
 		this.x = -1;
     this.y = -1;
     this.flags = 0;
-    this.kind = kind;
+    this.kind = kind || {};
     this.turnTime = 0;
-    this.speed = 50;
+
+		this.kind.speed = this.kind.speed || config.defaultSpeed || 120;
   }
 
+	startTurn() {
+		actor.startTurn(this);
+	}
 
 	// TODO - This is a command/task
-	moveDir(dir) {
+	async moveDir(dir) {
     const map = data.map;
-    this.turnTime = this.speed;
-    return map.moveActor(this.x + dir[0], this.y + dir[1], this);
+    await map.moveActor(this.x + dir[0], this.y + dir[1], this);
+		this.endTurn();
   }
+
+	endTurn(turnTime) {
+		actor.endTurn(this, turnTime);
+	}
 
 	isOrWasVisible() {
 		return true;
@@ -6339,7 +6347,6 @@ async function takeTurn(theActor) {
   console.log('actor turn...', data.time);
   await actor.startTurn(theActor);
   await actor.act(theActor);
-  await actor.endTurn(theActor);
   return theActor.turnTime;	// actual or idle time
 }
 
@@ -6347,19 +6354,20 @@ actor.takeTurn = takeTurn;
 
 
 function startTurn(theActor) {
-	theActor.turnTime = Math.foor(theActor.speed/2);
 }
 
 actor.startTurn = startTurn;
 
 
 function act(theActor) {
+	theActor.endTurn();
 	return true;
 }
 
 actor.act = act;
 
-function endTurn(theActor) {
+function endTurn(theActor, turnTime) {
+	theActor.turnTime = turnTime || theActor.kind.speed;
 	if (theActor.isOrWasVisible() && theActor.turnTime) {
 		ui.requestUpdate();
 	}
@@ -6375,8 +6383,16 @@ class Player extends types.Actor {
     super(kind);
   }
 
+  startTurn() {
+    player.startTurn(this);
+  }
+
   visionRadius() {
   	return CONFIG.MAX_FOV_RADIUS || (data.map.width + data.map.height);
+  }
+
+  endTurn(turnTime) {
+    player.endTurn(this, turnTime);
   }
 
 }
@@ -6395,14 +6411,13 @@ make.player = makePlayer;
 async function takeTurn$1() {
   const PLAYER = data.player;
   console.log('player turn...', data.time);
-  await player.startTurn();
+  await PLAYER.startTurn();
 
   while(!PLAYER.turnTime) {
     const ev = await io.nextEvent(1000);
     await io.dispatchEvent(ev);
   }
 
-  await player.endTurn();
   console.log('...end turn', PLAYER.turnTime);
   return PLAYER.turnTime;
 }
@@ -6410,8 +6425,7 @@ async function takeTurn$1() {
 player.takeTurn = takeTurn$1;
 
 
-function startTurn$1() {
-  const PLAYER = data.player;
+function startTurn$1(PLAYER) {
 	PLAYER.turnTime = 0;
 }
 
@@ -6424,11 +6438,9 @@ function act$1() {
 
 player.act = act$1;
 
-function endTurn$1() {
-  const PLAYER = data.player;
-	if (PLAYER.isOrWasVisible() && PLAYER.turnTime) {
-		ui.requestUpdate();
-	}
+function endTurn$1(PLAYER, turnTime) {
+  PLAYER.turnTime = turnTime || PLAYER.kind.speed;
+  ui.requestUpdate();
 }
 
 player.endTurn = endTurn$1;

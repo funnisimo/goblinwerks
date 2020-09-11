@@ -1,7 +1,7 @@
 
 import { ui as UI } from './ui.js';
 
-import { types, make, data as DATA } from './gw.js';
+import { types, make, data as DATA, config as CONFIG } from './gw.js';
 
 export var actor = {};
 
@@ -10,18 +10,26 @@ export class Actor {
 		this.x = -1;
     this.y = -1;
     this.flags = 0;
-    this.kind = kind;
+    this.kind = kind || {};
     this.turnTime = 0;
-    this.speed = 50;
+
+		this.kind.speed = this.kind.speed || CONFIG.defaultSpeed || 120;
   }
 
+	startTurn() {
+		actor.startTurn(this);
+	}
 
 	// TODO - This is a command/task
-	moveDir(dir) {
+	async moveDir(dir) {
     const map = DATA.map;
-    this.turnTime = this.speed;
-    return map.moveActor(this.x + dir[0], this.y + dir[1], this);
+    await map.moveActor(this.x + dir[0], this.y + dir[1], this);
+		this.endTurn();
   }
+
+	endTurn(turnTime) {
+		actor.endTurn(this, turnTime);
+	}
 
 	isOrWasVisible() {
 		return true;
@@ -44,7 +52,6 @@ export async function takeTurn(theActor) {
   console.log('actor turn...', DATA.time);
   await actor.startTurn(theActor);
   await actor.act(theActor);
-  await actor.endTurn(theActor);
   return theActor.turnTime;	// actual or idle time
 }
 
@@ -52,19 +59,20 @@ actor.takeTurn = takeTurn;
 
 
 function startTurn(theActor) {
-	theActor.turnTime = Math.foor(theActor.speed/2);
 }
 
 actor.startTurn = startTurn;
 
 
 function act(theActor) {
+	theActor.endTurn();
 	return true;
 }
 
 actor.act = act;
 
-function endTurn(theActor) {
+function endTurn(theActor, turnTime) {
+	theActor.turnTime = turnTime || theActor.kind.speed;
 	if (theActor.isOrWasVisible() && theActor.turnTime) {
 		UI.requestUpdate();
 	}

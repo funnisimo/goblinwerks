@@ -7,7 +7,8 @@ GW.digger.install('HUGE_ROOM',     GW.digger.rectangularRoom,  { width: [50,76],
 
 const PLAYER = GW.make.player({
 		sprite: GW.make.sprite('@', 'white'),
-		name: 'you'
+		name: 'you',
+		speed: 120
 });
 
 let command = 'showHit';
@@ -110,12 +111,12 @@ async function showHit(e) {
 GW.commands.showHit = showHit;
 
 async function showBeam(e) {
-	GW.fx.beam(MAP, GW.data.player, { x: e.x, y: e.y }, 'lightning', 1, 5).then( async (anim) => {
+	GW.fx.beam(MAP, PLAYER, { x: e.x, y: e.y }, 'lightning', 1, 5).then( async (anim) => {
 		console.log('beam end: ', anim.x, anim.y);
 		await GW.fx.hit(MAP, anim);
 		console.log('- beam hit done');
 	});
-	GW.data.player.turnTime = GW.data.player.speed;
+	PLAYER.endTurn();
 }
 
 GW.sprite.install('lightning', '\u16f6', [200,200,200]);
@@ -123,12 +124,12 @@ GW.sprite.install('lightning', '\u16f6', [200,200,200]);
 GW.commands.showBeam = showBeam;
 
 function showBolt(e) {
-	GW.fx.bolt(MAP, GW.data.player, { x: e.x, y: e.y }, 'magic', 5).then( async (result) => {
+	GW.fx.bolt(MAP, PLAYER, { x: e.x, y: e.y }, 'magic', 5).then( async (result) => {
 		console.log('bolt hit:', result.x, result.y);
 		await GW.fx.flashSprite(MAP, result.x, result.y, 'hit', 500, 3);
 		console.log('- hit done.');
 	});
-	GW.data.player.turnTime = GW.data.player.speed;
+	PLAYER.endTurn();
 }
 
 GW.sprite.install('magic', '*', 'purple');
@@ -136,27 +137,27 @@ GW.sprite.install('magic', '*', 'purple');
 GW.commands.showBolt = showBolt;
 
 async function showProjectile(e) {
-	GW.fx.projectile(MAP, GW.data.player, { x: e.x, y: e.y }, '|-\\/', 'orange', 5).then( (anim) => {
+	GW.fx.projectile(MAP, PLAYER, { x: e.x, y: e.y }, '|-\\/', 'orange', 5).then( (anim) => {
 		console.log('projectile hit:', anim.x, anim.y);
 		GW.fx.flashSprite(MAP, anim.x, anim.y, 'hit', 500, 1);
 	});
 
-	GW.data.player.turnTime = GW.data.player.speed;
+	PLAYER.endTurn();
 }
 
 GW.commands.showProjectile = showProjectile;
 
 async function showAura(e) {
-	GW.fx.explosion(MAP, e.x, e.y, 3, 'magic', 50, 200, 'o', false);
-	GW.data.player.turnTime = GW.data.player.speed;
+	GW.fx.explosion(MAP, e.x, e.y, 3, 'magic', 10, 20, 'o', false);
+	PLAYER.endTurn();
 }
 
 GW.commands.showAura = showAura;
 
 
 async function showExplosion(e) {
-	GW.fx.explosion(MAP, e.x, e.y, 7, 'fireball', 10, 40);
-	GW.data.player.turnTime = GW.data.player.speed;
+	GW.fx.explosion(MAP, e.x, e.y, 7, 'fireball', 1, 5);
+	PLAYER.endTurn();
 }
 
 GW.sprite.install('fireball', '&', 'dark_red', 50);
@@ -165,22 +166,22 @@ GW.commands.showExplosion = showExplosion;
 
 
 async function showExplosionPlus(e) {
-	GW.fx.explosion(MAP, e.x, e.y, 7, 'fireball', 50, 200, '+');
-	GW.data.player.turnTime = GW.data.player.speed;
+	GW.fx.explosion(MAP, e.x, e.y, 7, 'fireball', 2, 10, '+');
+	PLAYER.endTurn();
 }
 
 GW.commands.showExplosionPlus = showExplosionPlus;
 
 async function showExplosionX(e) {
-	GW.fx.explosion(MAP, e.x, e.y, 7, 'fireball', 50, 200, 'x');
-	GW.data.player.turnTime = GW.data.player.speed;
+	GW.fx.explosion(MAP, e.x, e.y, 7, 'fireball', 3, 15, 'x');
+	PLAYER.endTurn();
 }
 
 GW.commands.showExplosionX = showExplosionX;
 
 async function showExplosionStar(e) {
-	GW.fx.explosion(MAP, e.x, e.y, 7, 'fireball', 50, 200, '*');
-	GW.data.player.turnTime = GW.data.player.speed;
+	GW.fx.explosion(MAP, e.x, e.y, 7, 'fireball', 4, 20, '*');
+	PLAYER.endTurn();
 }
 
 GW.commands.showExplosionStar = showExplosionStar;
@@ -199,7 +200,7 @@ async function toggleWall(e) {
 GW.commands.toggleWall = toggleWall;
 
 async function rest(e) {
-	GW.data.player.turnTime = GW.data.player.speed;
+	PLAYER.endTurn();
 }
 
 GW.commands.rest = rest;
@@ -207,7 +208,7 @@ GW.commands.rest = rest;
 
 async function moveDir(e) {
 	const dir = e.dir || [0,0];
-	await GW.data.player.moveDir(dir);
+	await PLAYER.moveDir(dir);
 }
 
 GW.commands.moveDir = moveDir;
