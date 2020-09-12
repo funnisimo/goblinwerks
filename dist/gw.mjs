@@ -2137,6 +2137,10 @@ class Buffer extends types.Grid {
     return y;
   }
 
+  fill(ch, fg, bg) {
+    this.fillRect(0, 0, this.width, this.height, ch, fg, bg);
+  }
+
   fillRect(x, y, w, h, ch, fg, bg) {
     if (typeof fg === 'string') { fg = colors[fg]; }
     if (typeof bg === 'string') { bg = colors[bg]; }
@@ -2294,21 +2298,21 @@ class Canvas {
     }
   }
 
-  plot(x, y, sprite) {
-    this.buffer.plot(x, y, sprite);
-  }
-
-  plotChar(x, y, ch, fg, bg) {
-    this.buffer.plotChar(x, y, ch, fg, bg);
-  }
-
-  plotText(x, y, text, fg, bg) {
-    this.buffer.plotText(x, y, text, fg, bg);
-  }
-
-  fillRect(x, y, w, h, ch, fg, bg) {
-    this.buffer.fillRect(x, y, w, h, ch, fg, bg);
-  }
+  // plot(x, y, sprite) {
+  //   this.buffer.plot(x, y, sprite);
+  // }
+  //
+  // plotChar(x, y, ch, fg, bg) {
+  //   this.buffer.plotChar(x, y, ch, fg, bg);
+  // }
+  //
+  // plotText(x, y, text, fg, bg) {
+  //   this.buffer.plotText(x, y, text, fg, bg);
+  // }
+  //
+  // fillRect(x, y, w, h, ch, fg, bg) {
+  //   this.buffer.fillRect(x, y, w, h, ch, fg, bg);
+  // }
 
   allocBuffer() {
     let buf;
@@ -5467,6 +5471,16 @@ function getCellAppearance(map, x, y, dest) {
 
 map.getCellAppearance = getCellAppearance;
 
+
+function addText(map, x, y, text, fg, bg) {
+	for(let ch of text) {
+		const sprite = make.sprite(ch, fg, bg);
+		const fx = { sprite, x, y };
+		map.addFx(x++, y, fx);
+	}
+}
+
+map.addText = addText;
 
 
 const FP_BASE = 16;

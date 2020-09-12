@@ -124,7 +124,7 @@ function drawMap(attempt=0) {
 	MAP.cells.forEach( (c, i, j) => {
 		const tile = c.highestPriorityTile();
 		if (tile) {
-			canvas.plot(i, j, tile.sprite);
+			canvas.buffer.plot(i, j, tile.sprite);
 		}
 		else {
 			console.warn('missing tile ', v, i, j);
@@ -143,8 +143,8 @@ function start() {
 	game.onmousedown = handleClick;
 	document.onkeydown = handleKey;
 
-	canvas.plotText(10, 15, 'Click to draw map with starting location at click point.', [100,50,0]);
-	canvas.plotText(10, 17, 'Press any key to redesign the map at same starting point.', [100,50,0]);
+	canvas.buffer.plotText(10, 15, 'Click to draw map with starting location at click point.', [100,50,0]);
+	canvas.buffer.plotText(10, 17, 'Press any key to redesign the map at same starting point.', [100,50,0]);
 	// canvas.draw();
 
 	// drawCanvas();	// uncomment to have water colors dance

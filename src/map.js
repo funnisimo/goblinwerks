@@ -581,6 +581,16 @@ export function getCellAppearance(map, x, y, dest) {
 map.getCellAppearance = getCellAppearance;
 
 
+export function addText(map, x, y, text, fg, bg) {
+	for(let ch of text) {
+		const sprite = make.sprite(ch, fg, bg);
+		const fx = { sprite, x, y };
+		map.addFx(x++, y, fx);
+	}
+}
+
+map.addText = addText;
+
 
 const FP_BASE = 16;
 const FP_FACTOR = (1<<16);

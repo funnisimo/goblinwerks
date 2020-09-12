@@ -44,7 +44,7 @@ function handleMove(e) {
 // alive = @, dead = ' '
 function draw() {
 	data.forEach( (v, x, y) => {
-		canvas.plot(x, y, v ? ALIVE : DEAD);
+		canvas.buffer.plot(x, y, v ? ALIVE : DEAD);
 	});
 	// canvas.draw();
 }
@@ -91,8 +91,8 @@ function start() {
 	game.onmousemove = handleMove;
 	document.onkeydown = runSim;
 
-	canvas.plotText(20, 15, 'Click to Turn on/off some cells.', [100,50,0]);
-	canvas.plotText(20, 17, 'Press any key to run simulation.', [100,50,0]);
+	canvas.buffer.plotText(20, 15, 'Click to Turn on/off some cells.', [100,50,0]);
+	canvas.buffer.plotText(20, 17, 'Press any key to run simulation.', [100,50,0]);
 	// canvas.draw();
 }
 

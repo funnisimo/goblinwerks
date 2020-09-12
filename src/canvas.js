@@ -114,6 +114,10 @@ class Buffer extends types.Grid {
     return y;
   }
 
+  fill(ch, fg, bg) {
+    this.fillRect(0, 0, this.width, this.height, ch, fg, bg);
+  }
+
   fillRect(x, y, w, h, ch, fg, bg) {
     if (typeof fg === 'string') { fg = COLORS[fg]; }
     if (typeof bg === 'string') { bg = COLORS[bg]; }
@@ -284,21 +288,21 @@ class Canvas {
     }
   }
 
-  plot(x, y, sprite) {
-    this.buffer.plot(x, y, sprite);
-  }
-
-  plotChar(x, y, ch, fg, bg) {
-    this.buffer.plotChar(x, y, ch, fg, bg);
-  }
-
-  plotText(x, y, text, fg, bg) {
-    this.buffer.plotText(x, y, text, fg, bg);
-  }
-
-  fillRect(x, y, w, h, ch, fg, bg) {
-    this.buffer.fillRect(x, y, w, h, ch, fg, bg);
-  }
+  // plot(x, y, sprite) {
+  //   this.buffer.plot(x, y, sprite);
+  // }
+  //
+  // plotChar(x, y, ch, fg, bg) {
+  //   this.buffer.plotChar(x, y, ch, fg, bg);
+  // }
+  //
+  // plotText(x, y, text, fg, bg) {
+  //   this.buffer.plotText(x, y, text, fg, bg);
+  // }
+  //
+  // fillRect(x, y, w, h, ch, fg, bg) {
+  //   this.buffer.fillRect(x, y, w, h, ch, fg, bg);
+  // }
 
   allocBuffer() {
     let buf;
