@@ -556,11 +556,11 @@ export function addBridges(minimumPathingDistance, maxConnectionLength) {
 
                       while(x !== newX || y !== newY) {
                         if (isBridgeCandidate(x, y, bridgeDir)) {
-                          SITE.setTile(x, y, BRIDGE, true);
+                          SITE.setTile(x, y, BRIDGE);
                           costGrid[x][y] = 1;          // (Cost map also needs updating.)
                         }
                         else {
-                          SITE.setTile(x, y, FLOOR, true);
+                          SITE.setTile(x, y, FLOOR);
                           costGrid[x][y] = 1;
                         }
                         x += bridgeDir[0];
@@ -606,7 +606,7 @@ export function removeDiagonalOpenings() {
 							y1 = j + 1;
 						}
             diagonalCornerRemoved = true;
-            SITE.setTile(x1, y1, FLOOR, true);
+            SITE.setTile(x1, y1, FLOOR);
             debug.log('Removed diagonal opening', x1, y1);
 					}
 				}
@@ -629,7 +629,7 @@ function finishDoors() {
 					&& (SITE.canBePassed(i, j+1) || SITE.canBePassed(i, j-1))) {
 					// If there's passable terrain to the left or right, and there's passable terrain
 					// above or below, then the door is orphaned and must be removed.
-					SITE.setTile(i, j, FLOOR, true);
+					SITE.setTile(i, j, FLOOR);
           debug.log('Removed orphan door', i, j);
 				} else if ((SITE.blocksPathing(i+1, j) ? 1 : 0)
 						   + (SITE.blocksPathing(i-1, j) ? 1 : 0)
@@ -637,7 +637,7 @@ function finishDoors() {
 						   + (SITE.blocksPathing(i, j-1) ? 1 : 0) >= 3) {
 					// If the door has three or more pathing blocker neighbors in the four cardinal directions,
 					// then the door is orphaned and must be removed.
-          SITE.setTile(i, j, FLOOR, true);
+          SITE.setTile(i, j, FLOOR);
           debug.log('Removed blocked door', i, j);
 				}
 			}

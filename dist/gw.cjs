@@ -373,7 +373,7 @@ class Enum {
       offset = names.shift();
     }
     names.forEach( (name, index) => {
-      this[name] = index + offset;
+      this[name] = def[name] = index + offset;
     });
   }
 
@@ -1113,6 +1113,8 @@ class Sprite {
 
 	clone() {
 		const other = new types.Sprite(this.ch, this.fg, this.bg, this.opacity);
+		other.wasHanging = this.wasHanging;
+		other.needsUpdate = this.needsUpdate;
 		return other;
 	}
 
@@ -1135,7 +1137,7 @@ class Sprite {
 	}
 
 	plotChar(ch, fg, bg) {
-		this.wasHanging = this.wasHanging || (ch && HANGING_LETTERS.includes(ch));
+		this.wasHanging = this.wasHanging || (ch != null && HANGING_LETTERS.includes(ch));
     if (ch) { this.ch = ch; }
 		if (fg) { this.fg.copy(fg); }
     if (bg) { this.bg.copy(bg); }
@@ -1151,7 +1153,7 @@ class Sprite {
       return true;
     }
 
-		this.wasHanging = this.wasHanging || (sprite.ch && HANGING_LETTERS.includes(sprite.ch));
+		this.wasHanging = this.wasHanging || (sprite.ch != null && HANGING_LETTERS.includes(sprite.ch));
 
     // ch and fore color:
     if (sprite.ch && sprite.ch != ' ') { // Blank cells in the overbuf take the ch from the screen.
@@ -3814,14 +3816,14 @@ tile.install = installTile;
 
 // These are the minimal set of tiles to make the diggers work
 const NOTHING = def.NOTHING = 0;
-installTile(NOTHING,       '\u2205', 'black', 'black', 100, 0, 'T_OBSTRUCTS_PASSABILITY', "an eerie nothingness", "");
-installTile('FLOOR',       '\u00b7', [30,30,30,20], [2,2,10,0,2,2,0], 90);	// FLOOR
-installTile('DOOR',        '+', [100,40,40], [30,60,60], 50, 0, 'T_IS_DOOR');	// DOOR
-installTile('BRIDGE',      '=', [100,40,40], [60,40,0], 30);	// BRIDGE
-installTile('UP_STAIRS',   '<', [100,40,40], [100,60,20], 10);	// UP
-installTile('DOWN_STAIRS', '>', [100,40,40], [100,60,20], 10);	// DOWN
-installTile('WALL',        '#', [7,7,7,0,3,3,3],  [40,40,40,10,10,0,5], 20, 0, 'T_OBSTRUCTS_EVERYTHING');	// WALL
-installTile('LAKE',        '~', [5,8,20,10,0,4,15,1], [10,15,41,6,5,5,5,1], 40, 0, 'T_DEEP_WATER');	// LAKE
+installTile(NOTHING,       '\u2205', 'black', 'black', 0, 0, 'T_OBSTRUCTS_PASSABILITY', "an eerie nothingness", "");
+installTile('FLOOR',       '\u00b7', [30,30,30,20], [2,2,10,0,2,2,0], 10);	// FLOOR
+installTile('DOOR',        '+', [100,40,40], [30,60,60], 30, 0, 'T_IS_DOOR');	// DOOR
+installTile('BRIDGE',      '=', [100,40,40], [60,40,0], 70);	// BRIDGE
+installTile('UP_STAIRS',   '<', [100,40,40], [100,60,20], 200);	// UP
+installTile('DOWN_STAIRS', '>', [100,40,40], [100,60,20], 200);	// DOWN
+installTile('WALL',        '#', [7,7,7,0,3,3,3],  [40,40,40,10,10,0,5], 100, 0, 'T_OBSTRUCTS_EVERYTHING');	// WALL
+installTile('LAKE',        '~', [5,8,20,10,0,4,15,1], [10,15,41,6,5,5,5,1], 50, 0, 'T_DEEP_WATER');	// LAKE
 
 function withName(name) {
   return tiles.find( (t) => t.name == name );
@@ -4374,11 +4376,11 @@ function addBridges(minimumPathingDistance, maxConnectionLength) {
 
                       while(x !== newX || y !== newY) {
                         if (isBridgeCandidate(x, y, bridgeDir)) {
-                          SITE.setTile(x, y, BRIDGE, true);
+                          SITE.setTile(x, y, BRIDGE);
                           costGrid[x][y] = 1;          // (Cost map also needs updating.)
                         }
                         else {
-                          SITE.setTile(x, y, FLOOR, true);
+                          SITE.setTile(x, y, FLOOR);
                           costGrid[x][y] = 1;
                         }
                         x += bridgeDir[0];
@@ -4422,7 +4424,7 @@ function removeDiagonalOpenings() {
 							y1 = j + 1;
 						}
             diagonalCornerRemoved = true;
-            SITE.setTile(x1, y1, FLOOR, true);
+            SITE.setTile(x1, y1, FLOOR);
             debug$1.log('Removed diagonal opening', x1, y1);
 					}
 				}
@@ -4445,7 +4447,7 @@ function finishDoors() {
 					&& (SITE.canBePassed(i, j+1) || SITE.canBePassed(i, j-1))) {
 					// If there's passable terrain to the left or right, and there's passable terrain
 					// above or below, then the door is orphaned and must be removed.
-					SITE.setTile(i, j, FLOOR, true);
+					SITE.setTile(i, j, FLOOR);
           debug$1.log('Removed orphan door', i, j);
 				} else if ((SITE.blocksPathing(i+1, j) ? 1 : 0)
 						   + (SITE.blocksPathing(i-1, j) ? 1 : 0)
@@ -4453,7 +4455,7 @@ function finishDoors() {
 						   + (SITE.blocksPathing(i, j-1) ? 1 : 0) >= 3) {
 					// If the door has three or more pathing blocker neighbors in the four cardinal directions,
 					// then the door is orphaned and must be removed.
-          SITE.setTile(i, j, FLOOR, true);
+          SITE.setTile(i, j, FLOOR);
           debug$1.log('Removed blocked door', i, j);
 				}
 			}
@@ -4514,7 +4516,11 @@ function addStairs(upX, upY, downX, downY, minDistance) {
 
 dungeon.addStairs = addStairs;
 
-var cell$1 = {};
+var cell = {};
+
+const Layer = new types.Enum('GROUND', 'LIQUID', 'SURFACE', 'GAS', 'ITEM', 'ACTOR', 'PLAYER', 'FX', 'UI');
+
+cell.Layer = Layer;
 
 const Fl$2 = flag.fl;
 
@@ -4565,7 +4571,7 @@ const Flags$1 = flag.install('cell', {
   HAS_ACTOR               : ['HAS_PLAYER', 'HAS_MONSTER'],
 });
 
-cell$1.flags = Flags$1;
+cell.flags = Flags$1;
 
 ///////////////////////////////////////////////////////
 // CELL MECH
@@ -4589,7 +4595,7 @@ const MechFlags$1 = flag.install('cellMech', {
                           'IS_CHOKEPOINT', 'IS_GATE_SITE', 'IS_IN_MACHINE', ],
 });
 
-cell$1.mechFlags = MechFlags$1;
+cell.mechFlags = MechFlags$1;
 
 
 class CellMemory {
@@ -4616,6 +4622,8 @@ class CellMemory {
 
 types.CellMemory = CellMemory;
 
+
+
 class Cell {
   constructor() {
     this.memory = new types.CellMemory();
@@ -4631,6 +4639,8 @@ class Cell {
     this.surface = 0;
     this.gas = 0;
     this.liquid = 0;
+    this.sprites = null;
+    this.actor = null;
     this.flags = 0;							// non-terrain cell flags
     this.mechFlags = 0;
     this.gasVolume = 0;						// quantity of gas in cell
@@ -4829,7 +4839,7 @@ class Cell {
     }
   }
 
-  setTile(tileId, force) {
+  setTile(tileId, checkPriority) {
     let tile;
     if (typeof tileId === 'string') {
       tile = withName(tileId);
@@ -4845,7 +4855,7 @@ class Cell {
     const oldTileId = this.base || 0;
     const oldTile = tiles[oldTileId] || tiles[0];
 
-    if (!force && oldTile.priority < tile.priority) return false;
+    if (checkPriority && oldTile.priority > tile.priority) return false;
 
     this.base = tile.id;
     this.flags |= (Flags$1.NEEDS_REDRAW | Flags$1.TILE_CHANGED);
@@ -4863,6 +4873,50 @@ class Cell {
   setLiquid(tileId, volume, force) {
 
   }
+
+
+  // SPRITES
+
+  addSprite(layer, sprite, priority=50) {
+
+    this.flags |= Flags$1.NEEDS_REDRAW;
+
+    if (!this.sprites) {
+      this.sprites = { layer, priority, sprite, next: null };
+      return;
+    }
+
+    let current = this.sprites;
+    while(current.next && current.layer < layer || (current.layer == layer && current.priority <= priority)) {
+      current = current.next;
+    }
+
+    const item = { layer, priority, sprite, next: current.next };
+    current.next = item;
+  }
+
+  removeSprite(sprite) {
+
+    this.flags |= Flags$1.NEEDS_REDRAW;
+    
+    if (this.sprites && this.sprites.sprite === sprite) {
+      this.sprites = this.sprites.next;
+      return;
+    }
+
+    let prev = this.sprites;
+    let current = this.sprites.next;
+    while (current) {
+      if (current.sprite === sprite) {
+        prev.next = current.next;
+        return true;
+      }
+      current = current.next;
+    }
+    return false;
+  }
+
+  // MEMORY
 
   storeMemory(item) {
     const memory = this.memory;
@@ -4896,13 +4950,18 @@ make.cell = makeCell;
 
 
 function getAppearance(cell, dest) {
-	dest.clear();
-  const tile = cell.highestPriorityTile();
-  dest.copy(tile.sprite);
+  const baseTile = tiles[cell.base];
+	dest.copy(baseTile.sprite);
+
+  let current = cell.sprites;
+  while(current) {
+    dest.plot(current.sprite);
+    current = current.next;
+  }
   return true;
 }
 
-cell$1.getAppearance = getAppearance;
+cell.getAppearance = getAppearance;
 
 var map = {};
 
@@ -4924,7 +4983,6 @@ class Map {
 		this.cells = make.grid(w, h, () => new types.Cell() );
 		this.locations = opts.locations || {};
 		this.config = Object.assign({}, opts);
-		this.fx = [];
 	}
 
 	clear() { this.cells.forEach( (c) => c.clear() ); }
@@ -5023,9 +5081,9 @@ class Map {
 	tileFlavor(x, y) { return this.cells[x][y].tileFlavor(); }
 	tileText(x, y)   { return this.cells[x][y].tileText(); }
 
-	setTile(x, y, tileId, force) {
+	setTile(x, y, tileId, checkPriority) {
 		const cell = this.cell(x, y);
-		if (cell.setTile(tileId, force)) {
+		if (cell.setTile(tileId, checkPriority)) {
 			this.flags &= ~(Flags$2.MAP_STABLE_GLOW_LIGHTS);
 		}
 		this.flags |= Flags$2.MAP_CHANGED;
@@ -5167,10 +5225,9 @@ class Map {
 	addFx(x, y, anim) {
 		if (!this.hasXY(x, y)) return false;
 		const cell = this.cell(x, y);
-		cell.setFlags(Flags$1.HAS_FX);
+		cell.addSprite(Layer.FX, anim.sprite);
 		anim.x = x;
 		anim.y = y;
-		this.fx.push(anim);
 		this.flags |= Flags$2.MAP_CHANGED;
 		return true;
 	}
@@ -5179,8 +5236,8 @@ class Map {
 		if (!this.hasXY(x, y)) return false;
 		const cell = this.cell(x, y);
 		const oldCell = this.cell(anim.x, anim.y);
-		oldCell.clearFlags(Flags$1.HAS_FX);
-		cell.setFlags(Flags$1.HAS_FX);
+		oldCell.removeSprite(anim.sprite);
+		cell.addSprite(Layer.FX, anim.sprite);
 		this.flags |= Flags$2.MAP_CHANGED;
 		anim.x = x;
 		anim.y = y;
@@ -5189,8 +5246,7 @@ class Map {
 
 	removeFx(anim) {
 		const oldCell = this.cell(anim.x, anim.y);
-		oldCell.clearFlags(Flags$1.HAS_FX);
-		this.fx = this.fx.filter( (a) => a !== anim );
+		oldCell.removeSprite(anim.sprite);
 		this.flags |= Flags$2.MAP_CHANGED;
 		return true;
 	}
@@ -5199,38 +5255,33 @@ class Map {
 
 	// will return the PLAYER if the PLAYER is at (x, y).
 	actorAt(x, y) { // creature *
-		if (!(this.cell(x, y).flags & Flags$1.HAS_ACTOR)) {
-			return null;
-		}
-		if (data.player && data.player.x == x && data.player.y == y) {
-			return data.player;
-		}
-	  return this.actors.find( (m) => m.x == x && m.y == y );
+		if (!this.hasXY(x, y)) return null;
+		const cell = this.cell(x, y);
+		return cell.actor;
 	}
 
 	addActor(x, y, theActor) {
 		if (!this.hasXY(x, y)) return false;
 		const cell = this.cell(x, y);
-		if (cell.flags & Flags$1.HAS_ACTOR) {
-			// GW.ui.message(colors.badMessageColor, 'There is already an actor there.');
+		if (cell.actor) {
 			return false;
 		}
 
-		theActor.x = x;
-		theActor.y = y;
+		cell.actor = theActor;
 
-		let flag = Flags$1.HAS_PLAYER;
-		if (theActor !== data.player) {
-			this.actors.add(theActor);
-			flag = Flags$1.HAS_MONSTER;
-		}
+		const layer = (theActor === data.player) ? Layer.PLAYER : Layer.ACTOR;
+		cell.addSprite(layer, theActor.kind.sprite);
+
+		const flag = (theActor === data.player) ? Flags$1.HAS_PLAYER : Flags$1.HAS_MONSTER;
 		cell.flags |= (flag | Flags$1.NEEDS_REDRAW);
-
-		this.flags |= Flags$2.MAP_CHANGED;
 		// if (theActor.flags & ActorFlags.MK_DETECTED)
 		// {
 		// 	cell.flags |= CellFlags.MONSTER_DETECTED;
 		// }
+
+		theActor.x = x;
+		theActor.y = y;
+		this.flags |= Flags$2.MAP_CHANGED;
 
 		return true;
 	}
@@ -5251,58 +5302,49 @@ class Map {
 
 	moveActor(x, y, actor) {
 		if (!this.hasXY(x, y)) return false;
+		this.removeActor(actor);
 
-		const flag = (actor === data.player) ? Flags$1.HAS_PLAYER : Flags$1.HAS_MONSTER;
-		if (actor.x >= 0) {
-			const oldCell = this.cell(actor.x, actor.y);
-			oldCell.clearFlags(flag | Flags$1.MONSTER_DETECTED);
+		if (!this.addActor(x, y, actor)) {
+			this.addActor(actor.x, actor.y, actor);
+			return false;
 		}
-
-		actor.x = x;
-		actor.y = y;
-		const cell = this.cell(x, y);
-		cell.flags |= (flag | Flags$1.NEEDS_REDRAW);
-		this.flags |= Flags$2.MAP_CHANGED;
-		// if (theActor.flags & ActorFlags.MK_DETECTED)
-		// {
-		// 	cell.flags |= CellFlags.MONSTER_DETECTED;
-		// }
 		return true;
 	}
 
 	removeActor(actor) {
 		const cell = this.cell(actor.x, actor.y);
-		cell.flags &= ~Flags$1.HAS_ACTOR;
-		cell.flags |= Flags$1.NEEDS_REDRAW;
-		this.flags |= Flags$2.MAP_CHANGED;
-		if (actor !== data.player) {
-			this.actors.remove(actor);
+		if (cell.actor === actor) {
+			cell.actor = null;
+			cell.flags &= ~Flags$1.HAS_ACTOR;
+			cell.flags |= Flags$1.NEEDS_REDRAW;
+			this.flags |= Flags$2.MAP_CHANGED;
+			cell.removeSprite(actor.kind.sprite);
 		}
 	}
 
-	dormantAt(x, y) {  // creature *
-		if (!(this.cell(x, y).flags & Flags$1.HAS_DORMANT_MONSTER)) {
-			return null;
-		}
-		return this.dormantActors.find( (m) => m.x == x && m.y == y );
-	}
-
-	addDormant(x, y, theActor) {
-		theActor.x = x;
-		theActor.y = y;
-		this.dormant.add(theActor);
-		cell.flags |= (Flags$1.HAS_DORMANT_MONSTER);
-		this.flags |= Flags$2.MAP_CHANGED;
-		return true;
-	}
-
-	removeDormant(actor) {
-		const cell = this.cell(actor.x, actor.y);
-		cell.flags &= ~(Flags$1.HAS_DORMANT_MONSTER);
-		cell.flags |= Flags$1.NEEDS_REDRAW;
-		this.flags |= Flags$2.MAP_CHANGED;
-		this.dormant.remove(actor);
-	}
+	// dormantAt(x, y) {  // creature *
+	// 	if (!(this.cell(x, y).flags & CellFlags.HAS_DORMANT_MONSTER)) {
+	// 		return null;
+	// 	}
+	// 	return this.dormantActors.find( (m) => m.x == x && m.y == y );
+	// }
+	//
+	// addDormant(x, y, theActor) {
+	// 	theActor.x = x;
+	// 	theActor.y = y;
+	// 	this.dormant.add(theActor);
+	// 	cell.flags |= (CellFlags.HAS_DORMANT_MONSTER);
+	// 	this.flags |= Flags.MAP_CHANGED;
+	// 	return true;
+	// }
+	//
+	// removeDormant(actor) {
+	// 	const cell = this.cell(actor.x, actor.y);
+	// 	cell.flags &= ~(CellFlags.HAS_DORMANT_MONSTER);
+	// 	cell.flags |= CellFlags.NEEDS_REDRAW;
+	// 	this.flags |= Flags.MAP_CHANGED;
+	// 	this.dormant.remove(actor);
+	// }
 
 	// ITEMS
 
@@ -5448,26 +5490,19 @@ make.map = makeMap;
 function getCellAppearance(map, x, y, dest) {
 	dest.clear();
 	if (!map.hasXY(x, y)) return;
-	const cell = map.cell(x, y);
-	cell$1.getAppearance(cell, dest);
+	const cell$1 = map.cell(x, y);
+	cell.getAppearance(cell$1, dest);
 
-	if (cell.flags & Flags$1.HAS_PLAYER) {
+	if (cell$1.flags & Flags$1.HAS_PLAYER) {
 		dest.plot(data.player.kind.sprite);
 	}
-	else if (cell.flags & Flags$1.HAS_MONSTER) {
+	else if (cell$1.flags & Flags$1.HAS_MONSTER) {
 		const monst = map.actorAt(x, y);
 		if (monst) {
 			dest.plot(monst.kind.sprite);
 		}
 	}
 
-	// add fx (if any)
-	if (cell.flags & Flags$1.HAS_FX) {
-		map.fx.forEach( (a) => {
-			if (a.x != x || a.y != y) return;
-			dest.plot(a.sprite);
-		});
-	}
 	dest.bake();
 }
 
@@ -7047,7 +7082,7 @@ types.FOV = FOV;
 
 exports.actor = actor;
 exports.canvas = canvas;
-exports.cell = cell$1;
+exports.cell = cell;
 exports.color = color;
 exports.colors = colors;
 exports.commands = commands;

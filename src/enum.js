@@ -15,7 +15,7 @@ export class Enum {
       offset = names.shift();
     }
     names.forEach( (name, index) => {
-      this[name] = index + offset;
+      this[name] = def[name] = index + offset;
     });
   }
 

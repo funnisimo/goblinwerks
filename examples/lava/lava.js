@@ -38,9 +38,9 @@ function makeMap(id) {
 	MAP.clear();
 
 	MAP.fill(6);
-	MAP.cells.forRect(10, 0, 30, 30, (c) => c.setTile(1, true));
-	MAP.cells.forRect(10, 1, 30, 1, (c) => c.setTile(GOAL_TILE, true) );
-	MAP.cells.forRect(10, 28, 30, 1, (c) => c.setTile(START_TILE, true) );
+	MAP.cells.forRect(10, 0, 30, 30, (c) => c.setTile(1));
+	MAP.cells.forRect(10, 1, 30, 1, (c) => c.setTile(GOAL_TILE) );
+	MAP.cells.forRect(10, 28, 30, 1, (c) => c.setTile(START_TILE) );
 
 	GW.map.addText(MAP, 22, 1, 'FINISH', 'green');
 	GW.map.addText(MAP, 23, 28, 'START', 'blue');

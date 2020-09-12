@@ -184,14 +184,14 @@ tile.install = installTile;
 
 // These are the minimal set of tiles to make the diggers work
 const NOTHING = def.NOTHING = 0;
-installTile(NOTHING,       '\u2205', 'black', 'black', 100, 0, 'T_OBSTRUCTS_PASSABILITY', "an eerie nothingness", "");
-installTile('FLOOR',       '\u00b7', [30,30,30,20], [2,2,10,0,2,2,0], 90);	// FLOOR
-installTile('DOOR',        '+', [100,40,40], [30,60,60], 50, 0, 'T_IS_DOOR');	// DOOR
-installTile('BRIDGE',      '=', [100,40,40], [60,40,0], 30);	// BRIDGE
-installTile('UP_STAIRS',   '<', [100,40,40], [100,60,20], 10);	// UP
-installTile('DOWN_STAIRS', '>', [100,40,40], [100,60,20], 10);	// DOWN
-installTile('WALL',        '#', [7,7,7,0,3,3,3],  [40,40,40,10,10,0,5], 20, 0, 'T_OBSTRUCTS_EVERYTHING');	// WALL
-installTile('LAKE',        '~', [5,8,20,10,0,4,15,1], [10,15,41,6,5,5,5,1], 40, 0, 'T_DEEP_WATER');	// LAKE
+installTile(NOTHING,       '\u2205', 'black', 'black', 0, 0, 'T_OBSTRUCTS_PASSABILITY', "an eerie nothingness", "");
+installTile('FLOOR',       '\u00b7', [30,30,30,20], [2,2,10,0,2,2,0], 10);	// FLOOR
+installTile('DOOR',        '+', [100,40,40], [30,60,60], 30, 0, 'T_IS_DOOR');	// DOOR
+installTile('BRIDGE',      '=', [100,40,40], [60,40,0], 70);	// BRIDGE
+installTile('UP_STAIRS',   '<', [100,40,40], [100,60,20], 200);	// UP
+installTile('DOWN_STAIRS', '>', [100,40,40], [100,60,20], 200);	// DOWN
+installTile('WALL',        '#', [7,7,7,0,3,3,3],  [40,40,40,10,10,0,5], 100, 0, 'T_OBSTRUCTS_EVERYTHING');	// WALL
+installTile('LAKE',        '~', [5,8,20,10,0,4,15,1], [10,15,41,6,5,5,5,1], 50, 0, 'T_DEEP_WATER');	// LAKE
 
 export function withName(name) {
   return tiles.find( (t) => t.name == name );

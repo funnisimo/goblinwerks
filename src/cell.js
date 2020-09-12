@@ -8,6 +8,10 @@ import { types, make, def, config as CONFIG, data as DATA } from './gw.js';
 
 export var cell = {};
 
+export const Layer = new types.Enum('GROUND', 'LIQUID', 'SURFACE', 'GAS', 'ITEM', 'ACTOR', 'PLAYER', 'FX', 'UI');
+
+cell.Layer = Layer;
+
 const Fl = FLAG.fl;
 
 export const Flags = FLAG.install('cell', {
@@ -108,6 +112,8 @@ class CellMemory {
 
 types.CellMemory = CellMemory;
 
+
+
 class Cell {
   constructor() {
     this.memory = new types.CellMemory();
@@ -123,6 +129,8 @@ class Cell {
     this.surface = 0;
     this.gas = 0;
     this.liquid = 0;
+    this.sprites = null;
+    this.actor = null;
     this.flags = 0;							// non-terrain cell flags
     this.mechFlags = 0;
     this.gasVolume = 0;						// quantity of gas in cell
@@ -321,7 +329,7 @@ class Cell {
     }
   }
 
-  setTile(tileId, force) {
+  setTile(tileId, checkPriority) {
     let tile;
     if (typeof tileId === 'string') {
       tile = withName(tileId);
@@ -337,7 +345,7 @@ class Cell {
     const oldTileId = this.base || 0;
     const oldTile = TILES[oldTileId] || TILES[0];
 
-    if (!force && oldTile.priority < tile.priority) return false;
+    if (checkPriority && oldTile.priority > tile.priority) return false;
 
     this.base = tile.id;
     this.flags |= (Flags.NEEDS_REDRAW | Flags.TILE_CHANGED);
@@ -355,6 +363,50 @@ class Cell {
   setLiquid(tileId, volume, force) {
 
   }
+
+
+  // SPRITES
+
+  addSprite(layer, sprite, priority=50) {
+
+    this.flags |= Flags.NEEDS_REDRAW;
+
+    if (!this.sprites) {
+      this.sprites = { layer, priority, sprite, next: null };
+      return;
+    }
+
+    let current = this.sprites;
+    while(current.next && current.layer < layer || (current.layer == layer && current.priority <= priority)) {
+      current = current.next;
+    }
+
+    const item = { layer, priority, sprite, next: current.next };
+    current.next = item;
+  }
+
+  removeSprite(sprite) {
+
+    this.flags |= Flags.NEEDS_REDRAW;
+    
+    if (this.sprites && this.sprites.sprite === sprite) {
+      this.sprites = this.sprites.next;
+      return;
+    }
+
+    let prev = this.sprites;
+    let current = this.sprites.next;
+    while (current) {
+      if (current.sprite === sprite) {
+        prev.next = current.next;
+        return true;
+      }
+      current = current.next;
+    }
+    return false;
+  }
+
+  // MEMORY
 
   storeMemory(item) {
     const memory = this.memory;
@@ -388,9 +440,14 @@ make.cell = makeCell;
 
 
 export function getAppearance(cell, dest) {
-	dest.clear();
-  const tile = cell.highestPriorityTile();
-  dest.copy(tile.sprite);
+  const baseTile = TILES[cell.base];
+	dest.copy(baseTile.sprite);
+
+  let current = cell.sprites;
+  while(current) {
+    dest.plot(current.sprite);
+    current = current.next;
+  }
   return true;
 }
 
