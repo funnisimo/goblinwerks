@@ -69,6 +69,7 @@ export const MechFlags = FLAG.install('tileMech', {
   TM_PROMOTES_ON_PLAYER_ENTRY		: Fl(5),		// promotes when the player enters the tile (whether or not levitating)
   TM_PROMOTES_ON_SACRIFICE_ENTRY: Fl(6),		// promotes when the sacrifice target enters the tile (whether or not levitating)
   TM_PROMOTES_ON_ELECTRICITY    : Fl(7),    // promotes when hit by a lightning bolt
+
   TM_ALLOWS_SUBMERGING					: Fl(8),		// allows submersible monsters to submerge in this terrain
   TM_IS_WIRED										: Fl(9),		// if wired, promotes when powered, and sends power when promoting
   TM_IS_CIRCUIT_BREAKER 				: Fl(10),        // prevents power from circulating in its machine

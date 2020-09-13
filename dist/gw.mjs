@@ -5,7 +5,6 @@ var debug$1 = {};
 var make = {};
 var install = {};
 
-var commands = {};
 var config = {
   fx: {},
 };
@@ -2371,6 +2370,2154 @@ class Canvas {
 
 types.Canvas = Canvas;
 
+var tile = {};
+var tiles = [];
+
+const Fl$1 = flag.fl;
+
+const Flags = flag.install('tile', {
+  T_OBSTRUCTS_PASSABILITY	: Fl$1(0),		// cannot be walked through
+  T_OBSTRUCTS_VISION			: Fl$1(1),		// blocks line of sight
+  T_OBSTRUCTS_ITEMS				: Fl$1(2),		// items can't be on this tile
+  T_OBSTRUCTS_SURFACE		  : Fl$1(3),		// grass, blood, etc. cannot exist on this tile
+  T_OBSTRUCTS_GAS					: Fl$1(4),		// blocks the permeation of gas
+  T_OBSTRUCTS_DIAGONAL_MOVEMENT : Fl$1(5),    // can't step diagonally around this tile
+
+  T_AUTO_DESCENT					: Fl$1(6),		// automatically drops creatures down a depth level and does some damage (2d6)
+  T_LAVA			            : Fl$1(7),		// kills any non-levitating non-fire-immune creature instantly
+  T_DEEP_WATER					  : Fl$1(8),		// steals items 50% of the time and moves them around randomly
+
+  T_SPONTANEOUSLY_IGNITES	: Fl$1(9),		// monsters avoid unless chasing player or immune to fire
+  T_IS_FLAMMABLE					: Fl$1(10),		// terrain can catch fire
+  T_IS_FIRE								: Fl$1(11),		// terrain is a type of fire; ignites neighboring flammable cells
+  T_ENTANGLES							: Fl$1(12),		// entangles players and monsters like a spiderweb
+
+  T_CAUSES_POISON					: Fl$1(13),		// any non-levitating creature gets 10 poison
+  T_CAUSES_DAMAGE					: Fl$1(14),		// anything on the tile takes max(1-2, 10%) damage per turn
+  T_CAUSES_NAUSEA					: Fl$1(15),		// any creature on the tile becomes nauseous
+  T_CAUSES_PARALYSIS			: Fl$1(16),		// anything caught on this tile is paralyzed
+  T_CAUSES_CONFUSION			: Fl$1(17),		// causes creatures on this tile to become confused
+  T_CAUSES_HEALING   	    : Fl$1(18),   // heals 20% max HP per turn for any player or non-inanimate monsters
+  T_IS_TRAP								: Fl$1(19),		// spews gas of type specified in fireType when stepped on
+  T_CAUSES_EXPLOSIVE_DAMAGE		: Fl$1(20),		// is an explosion; deals higher of 15-20 or 50% damage instantly, but not again for five turns
+  T_SACRED                : Fl$1(21),   // monsters that aren't allies of the player will avoid stepping here
+
+  T_UP_STAIRS							: Fl$1(22),
+  T_DOWN_STAIRS						: Fl$1(23),
+  T_PORTAL                : Fl$1(24),
+  T_IS_DOOR								: Fl$1(25),
+
+  T_HAS_STAIRS						: ['T_UP_STAIRS', 'T_DOWN_STAIRS'],
+  T_OBSTRUCTS_SCENT				: ['T_OBSTRUCTS_PASSABILITY', 'T_OBSTRUCTS_VISION', 'T_AUTO_DESCENT', 'T_LAVA', 'T_DEEP_WATER', 'T_SPONTANEOUSLY_IGNITES', 'T_HAS_STAIRS'],
+  T_PATHING_BLOCKER				: ['T_OBSTRUCTS_PASSABILITY', 'T_AUTO_DESCENT', 'T_IS_TRAP', 'T_LAVA', 'T_DEEP_WATER', 'T_IS_FIRE', 'T_SPONTANEOUSLY_IGNITES', 'T_ENTANGLES'],
+  T_DIVIDES_LEVEL       	: ['T_OBSTRUCTS_PASSABILITY', 'T_AUTO_DESCENT', 'T_IS_TRAP', 'T_LAVA', 'T_DEEP_WATER'],
+  T_LAKE_PATHING_BLOCKER	: ['T_AUTO_DESCENT', 'T_LAVA', 'T_DEEP_WATER', 'T_SPONTANEOUSLY_IGNITES'],
+  T_WAYPOINT_BLOCKER			: ['T_OBSTRUCTS_PASSABILITY', 'T_AUTO_DESCENT', 'T_IS_TRAP', 'T_LAVA', 'T_DEEP_WATER', 'T_SPONTANEOUSLY_IGNITES'],
+  T_MOVES_ITEMS						: ['T_DEEP_WATER', 'T_LAVA'],
+  T_CAN_BE_BRIDGED				: ['T_AUTO_DESCENT'],
+  T_OBSTRUCTS_EVERYTHING	: ['T_OBSTRUCTS_PASSABILITY', 'T_OBSTRUCTS_VISION', 'T_OBSTRUCTS_ITEMS', 'T_OBSTRUCTS_GAS', 'T_OBSTRUCTS_SURFACE',   'T_OBSTRUCTS_DIAGONAL_MOVEMENT'],
+  T_HARMFUL_TERRAIN				: ['T_CAUSES_POISON', 'T_IS_FIRE', 'T_CAUSES_DAMAGE', 'T_CAUSES_PARALYSIS', 'T_CAUSES_CONFUSION', 'T_CAUSES_EXPLOSIVE_DAMAGE'],
+  T_RESPIRATION_IMMUNITIES  : ['T_CAUSES_DAMAGE', 'T_CAUSES_CONFUSION', 'T_CAUSES_PARALYSIS', 'T_CAUSES_NAUSEA'],
+  T_IS_LIQUID               : ['T_LAVA', 'T_AUTO_DESCENT', 'T_DEEP_WATER'],
+});
+
+tile.flags = Flags;
+
+///////////////////////////////////////////////////////
+// TILE MECH
+
+
+const MechFlags = flag.install('tileMech', {
+  TM_IS_SECRET							: Fl$1(0),		// successful search or being stepped on while visible transforms it into discoverType
+  TM_PROMOTES_WITH_KEY			: Fl$1(1),		// promotes if the key is present on the tile (in your pack, carried by monster, or lying on the ground)
+  TM_PROMOTES_WITHOUT_KEY		: Fl$1(2),		// promotes if the key is NOT present on the tile (in your pack, carried by monster, or lying on the ground)
+  TM_PROMOTES_ON_STEP				: Fl$1(3),		// promotes when a creature, player or item is on the tile (whether or not levitating)
+  TM_PROMOTES_ON_ITEM_REMOVE		: Fl$1(4),		// promotes when an item is lifted from the tile (primarily for altars)
+  TM_PROMOTES_ON_PLAYER_ENTRY		: Fl$1(5),		// promotes when the player enters the tile (whether or not levitating)
+  TM_PROMOTES_ON_SACRIFICE_ENTRY: Fl$1(6),		// promotes when the sacrifice target enters the tile (whether or not levitating)
+  TM_PROMOTES_ON_ELECTRICITY    : Fl$1(7),    // promotes when hit by a lightning bolt
+
+  TM_ALLOWS_SUBMERGING					: Fl$1(8),		// allows submersible monsters to submerge in this terrain
+  TM_IS_WIRED										: Fl$1(9),		// if wired, promotes when powered, and sends power when promoting
+  TM_IS_CIRCUIT_BREAKER 				: Fl$1(10),        // prevents power from circulating in its machine
+  TM_GAS_DISSIPATES							: Fl$1(11),		// does not just hang in the air forever
+  TM_GAS_DISSIPATES_QUICKLY			: Fl$1(12),		// dissipates quickly
+  TM_EXTINGUISHES_FIRE					: Fl$1(13),		// extinguishes burning terrain or creatures
+  TM_VANISHES_UPON_PROMOTION		: Fl$1(14),		// vanishes when creating promotion dungeon feature, even if the replacement terrain priority doesn't require it
+  TM_REFLECTS_BOLTS           	: Fl$1(15),       // magic bolts reflect off of its surface randomly (similar to ACTIVE_CELLS flag IMPREGNABLE)
+  TM_STAND_IN_TILE            	: Fl$1(16),		// earthbound creatures will be said to stand "in" the tile, not on it
+  TM_LIST_IN_SIDEBAR          	: Fl$1(17),       // terrain will be listed in the sidebar with a description of the terrain type
+  TM_VISUALLY_DISTINCT        	: Fl$1(18),       // terrain will be color-adjusted if necessary so the character stands out from the background
+  TM_BRIGHT_MEMORY            	: Fl$1(19),       // no blue fade when this tile is out of sight
+  TM_EXPLOSIVE_PROMOTE        	: Fl$1(20),       // when burned, will promote to promoteType instead of burningType if surrounded by tiles with T_IS_FIRE or TM_EXPLOSIVE_PROMOTE
+  TM_CONNECTS_LEVEL           	: Fl$1(21),       // will be treated as passable for purposes of calculating level connectedness, irrespective of other aspects of this terrain layer
+  TM_INTERRUPT_EXPLORATION_WHEN_SEEN : Fl$1(22),    // will generate a message when discovered during exploration to interrupt exploration
+  TM_INVERT_WHEN_HIGHLIGHTED  	: Fl$1(23),       // will flip fore and back colors when highlighted with pathing
+  TM_SWAP_ENCHANTS_ACTIVATION 	: Fl$1(24),       // in machine, swap item enchantments when two suitable items are on this terrain, and activate the machine when that happens
+  TM_PROMOTES										: 'TM_PROMOTES_WITH_KEY | TM_PROMOTES_WITHOUT_KEY | TM_PROMOTES_ON_STEP | TM_PROMOTES_ON_ITEM_REMOVE | TM_PROMOTES_ON_SACRIFICE_ENTRY | TM_PROMOTES_ON_ELECTRICITY | TM_PROMOTES_ON_PLAYER_ENTRY',
+});
+
+tile.mechFlags = MechFlags;
+
+function setFlags(tile, allFlags) {
+  let flags = [];
+  if (!allFlags) return;  // no flags
+
+  if (typeof allFlags === 'string') {
+    flags = allFlags.split(/[,|]/).map( (t) => t.trim() );
+  }
+  else if (!Array.isArray(allFlags)) {
+    return utils$1.WARN('Invalid tile flags: ' + allFlags);
+  }
+  else if (allFlags.length <= 2) {
+    if (typeof allFlags[0] === 'number') {
+      tile.flags = allFlags[0] || 0;
+      tile.mechFlags = allFlags[1] || 0;
+      return;
+    }
+  }
+
+  flags.forEach((f) => {
+    if (typeof f !== 'string') {
+      utils$1.WARN('Invalid tile flag: ' + f);
+    }
+    else if (Flags[f]) {
+      tile.flags |= Flags[f];
+    }
+    else if (MechFlags[f]) {
+      tile.mechFlags |= MechFlags[f];
+    }
+    else {
+      utils$1.WARN('Invalid tile flag: ' + f);
+    }
+  });
+}
+
+
+class Tile {
+  constructor(ch, fg, bg, layer, priority, allFlags, desc, flavor) {
+    this.flags = 0;
+    this.mechFlags = 0;
+    this.layer = layer || 0;
+    this.priority = priority || 50; // lower means higher priority (50 = average)
+    this.sprite = make.sprite(ch, fg, bg);
+    this.events = {};
+    this.light = null;
+    this.desc = desc || '';
+    this.flavor = flavor || '';
+    this.name = null;
+
+    setFlags(this, allFlags);
+  }
+
+  successorFlags(event) {
+    const e = this.events[event];
+    if (!e) return 0;
+    const feature = e.feature;
+    if (!feature) return 0;
+    // const tile = FEATURES[feature].tile;
+    // if (!tile) return 0;
+    // return tiles[tile].flags;
+  }
+}
+
+types.Tile = Tile;
+
+function makeTile(ch, fg, bg, priority, layer, allFlags, desc, flavor, opts={}) {
+  const tile = new types.Tile(ch, fg, bg, layer, priority, allFlags, desc, flavor);
+  // TODO - tile.light = opts.light || null;
+  // TODO - tile.events.fire = opts.fire
+  // TODO - tile.events.promote = opts.promote
+  // TODO - tile.events.discover = opts.discover
+  return tile;
+}
+
+make.tile = makeTile;
+
+function installTile(name, ...args) {
+  let tile;
+  if (args.length == 1 && args[0] instanceof Tile) {
+    tile = args[0];
+  }
+  else {
+    tile = make.tile(...args);
+  }
+  tile.name = name;
+  tile.id = tiles.length;
+  tiles.push(tile);
+  return tile.id;
+}
+
+tile.install = installTile;
+
+// These are the minimal set of tiles to make the diggers work
+const NOTHING = def.NOTHING = 0;
+installTile(NOTHING,       '\u2205', 'black', 'black', 0, 0, 'T_OBSTRUCTS_PASSABILITY', "an eerie nothingness", "");
+installTile('FLOOR',       '\u00b7', [30,30,30,20], [2,2,10,0,2,2,0], 10);	// FLOOR
+installTile('DOOR',        '+', [100,40,40], [30,60,60], 30, 0, 'T_IS_DOOR');	// DOOR
+installTile('BRIDGE',      '=', [100,40,40], [60,40,0], 70);	// BRIDGE
+installTile('UP_STAIRS',   '<', [100,40,40], [100,60,20], 200);	// UP
+installTile('DOWN_STAIRS', '>', [100,40,40], [100,60,20], 200);	// DOWN
+installTile('WALL',        '#', [7,7,7,0,3,3,3],  [40,40,40,10,10,0,5], 100, 0, 'T_OBSTRUCTS_EVERYTHING');	// WALL
+installTile('LAKE',        '~', [5,8,20,10,0,4,15,1], [10,15,41,6,5,5,5,1], 50, 0, 'T_DEEP_WATER');	// LAKE
+
+function withName(name) {
+  return tiles.find( (t) => t.name == name );
+}
+
+tile.withName = withName;
+
+var cell = {};
+
+const Layer = new types.Enum('GROUND', 'LIQUID', 'SURFACE', 'GAS', 'ITEM', 'ACTOR', 'PLAYER', 'FX', 'UI');
+
+cell.Layer = Layer;
+
+const Fl$2 = flag.fl;
+
+const Flags$1 = flag.install('cell', {
+  REVEALED					: Fl$2(0),
+  VISIBLE							: Fl$2(1),	// cell has sufficient light and is in field of view, ready to draw.
+  WAS_VISIBLE					: Fl$2(2),
+  IN_FOV		          : Fl$2(3),	// player has unobstructed line of sight whether or not there is enough light
+
+  HAS_PLAYER					: Fl$2(4),
+  HAS_MONSTER					: Fl$2(5),
+  HAS_DORMANT_MONSTER	: Fl$2(6),	// hidden monster on the square
+  HAS_ITEM						: Fl$2(7),
+  HAS_STAIRS					: Fl$2(8),
+  HAS_FX              : Fl$2(9),
+
+  IS_IN_PATH					: Fl$2(12),	// the yellow trail leading to the cursor
+  IS_CURSOR						: Fl$2(13),	// the current cursor
+
+  MAGIC_MAPPED				: Fl$2(14),
+  ITEM_DETECTED				: Fl$2(15),
+
+  STABLE_MEMORY						: Fl$2(16),	// redraws will simply be pulled from the memory array, not recalculated
+
+  CLAIRVOYANT_VISIBLE			: Fl$2(17),
+  WAS_CLAIRVOYANT_VISIBLE	: Fl$2(18),
+  CLAIRVOYANT_DARKENED		: Fl$2(19),	// magical blindness from a cursed ring of clairvoyance
+
+  IMPREGNABLE							: Fl$2(20),	// no tunneling allowed!
+
+  TELEPATHIC_VISIBLE			: Fl$2(22),	// potions of telepathy let you see through other creatures' eyes
+  WAS_TELEPATHIC_VISIBLE	: Fl$2(23),	// potions of telepathy let you see through other creatures' eyes
+
+  MONSTER_DETECTED				: Fl$2(24),
+  WAS_MONSTER_DETECTED		: Fl$2(25),
+
+  NEEDS_REDRAW            : Fl$2(26),	// needs to be redrawn (maybe in path, etc...)
+  TILE_CHANGED						: Fl$2(27),	// one of the tiles changed
+
+  CELL_LIT                : Fl$2(28),
+  IS_IN_SHADOW				    : Fl$2(29),	// so that a player gains an automatic stealth bonus
+  CELL_DARK               : Fl$2(30),
+
+  PERMANENT_CELL_FLAGS : ['REVEALED', 'MAGIC_MAPPED', 'ITEM_DETECTED', 'HAS_ITEM', 'HAS_DORMANT_MONSTER',
+              'HAS_STAIRS', 'STABLE_MEMORY', 'IMPREGNABLE'],
+
+  ANY_KIND_OF_VISIBLE			: ['VISIBLE', 'CLAIRVOYANT_VISIBLE', 'TELEPATHIC_VISIBLE'],
+  HAS_ACTOR               : ['HAS_PLAYER', 'HAS_MONSTER'],
+});
+
+cell.flags = Flags$1;
+
+///////////////////////////////////////////////////////
+// CELL MECH
+
+const MechFlags$1 = flag.install('cellMech', {
+  SEARCHED_FROM_HERE				: Fl$2(0),	// Player already auto-searched from here; can't auto search here again
+  CAUGHT_FIRE_THIS_TURN			: Fl$2(1),	// so that fire does not spread asymmetrically
+  PRESSURE_PLATE_DEPRESSED	: Fl$2(2),	// so that traps do not trigger repeatedly while you stand on them
+  KNOWN_TO_BE_TRAP_FREE			: Fl$2(3),	// keep track of where the player has stepped as he knows no traps are there
+
+  IS_IN_LOOP					: Fl$2(5),	// this cell is part of a terrain loop
+  IS_CHOKEPOINT				: Fl$2(6),	// if this cell is blocked, part of the map will be rendered inaccessible
+  IS_GATE_SITE				: Fl$2(7),	// consider placing a locked door here
+  IS_IN_ROOM_MACHINE	: Fl$2(8),
+  IS_IN_AREA_MACHINE	: Fl$2(9),
+  IS_POWERED					: Fl$2(10),	// has been activated by machine power this turn (can probably be eliminate if needed)
+
+  IS_IN_MACHINE				: ['IS_IN_ROOM_MACHINE', 'IS_IN_AREA_MACHINE'], 	// sacred ground; don't generate items here, or teleport randomly to it
+
+  PERMANENT_MECH_FLAGS : ['SEARCHED_FROM_HERE', 'PRESSURE_PLATE_DEPRESSED', 'KNOWN_TO_BE_TRAP_FREE', 'IS_IN_LOOP',
+                          'IS_CHOKEPOINT', 'IS_GATE_SITE', 'IS_IN_MACHINE', ],
+});
+
+cell.mechFlags = MechFlags$1;
+
+
+class CellMemory {
+  constructor() {
+    this.sprite = make.sprite();
+    this.clear();
+  }
+
+  clear() {
+    this.sprite.clear();
+    this.itemKind = null;
+    this.itemQuantity = 0;
+    this.tile = null;
+    this.cellFlags = 0;
+    this.cellMechFlags = 0;
+    this.tileFlags = 0;
+    this.tileMechFlags = 0;
+  }
+
+  copy(other) {
+    utils$1.copyObject(this, other);
+  }
+}
+
+types.CellMemory = CellMemory;
+
+
+
+class Cell {
+  constructor() {
+    this.memory = new types.CellMemory();
+    this.clear();
+  }
+
+  copy(other) {
+    utils$1.copyObject(this, other);
+  }
+
+  clear() {
+    this.base = 0;
+    this.surface = 0;
+    this.gas = 0;
+    this.liquid = 0;
+    this.sprites = null;
+    this.actor = null;
+    this.flags = 0;							// non-terrain cell flags
+    this.mechFlags = 0;
+    this.gasVolume = 0;						// quantity of gas in cell
+    this.liquidVolume = 0;
+    this.machineNumber = 0;
+    this.memory.clear();
+  }
+
+  dump() { return tiles[this.base].sprite.ch; }
+  isVisible() { return this.flags & Flags$1.VISIBLE; }
+  isAnyKindOfVisible() { return (this.flags & Flags$1.ANY_KIND_OF_VISIBLE) || config.playbackOmniscience; }
+  hasVisibleLight() { return true; }  // TODO
+
+  redraw() { this.flags |= Flags$1.NEEDS_REDRAW; }
+
+  *tiles() {
+    if (this.base) yield tiles[this.base];
+    if (this.surface) yield tiles[this.surface];
+    if (this.liquid) yield tiles[this.liquid];
+    if (this.gas) yield tiles[this.gas];
+  }
+
+  tileFlags(limitToPlayerKnowledge) {
+    if (limitToPlayerKnowledge && !this.isVisible()) {
+      return this.memory.tileFlags;
+    }
+    let flags = 0;
+    for( let tile of this.tiles()) {
+      flags |= tile.flags;
+    }
+    return flags;
+  }
+
+  tileMechFlags(limitToPlayerKnowledge)	{
+    if (limitToPlayerKnowledge && !this.isVisible()) {
+      return this.memory.tileMechFlags;
+    }
+    let flags = 0;
+    for( let tile of this.tiles()) {
+      flags |= tile.mechFlags;
+    }
+    return flags;
+  }
+
+  hasTileFlag(flagMask)	{
+    return !!(flagMask & this.tileFlags());
+  }
+
+  hasTileMechFlag(flagMask) {
+    return !!(flagMask & this.tileMechFlags());
+  }
+
+  setFlags(cellFlag=0, cellMechFlag=0) {
+    this.flags |= cellFlag;
+    this.mechFlags |= cellMechFlag;
+    this.flags |= Flags$1.NEEDS_REDRAW;
+  }
+
+  clearFlags(cellFlag=0, cellMechFlag=0) {
+    this.flags &= ~cellFlag;
+    this.mechFlags &= ~cellMechFlag;
+    if ((~cellFlag) & Flags$1.NEEDS_REDRAW) {
+      this.flags |= Flags$1.NEEDS_REDRAW;
+    }
+  }
+
+  hasTile(id) {
+    return this.base === id || this.surface === id || this.gas === id || this.liquid === id;
+  }
+
+  // hasTileInGroup(...groups) {
+  //   if (groups.length == 1 && Array.isArray(groups[0])) {
+  //     groups = groups[0];
+  //   }
+  //   return this.layers.some( (tileId) => {
+  //     const tile = TILES[tileId] || TILES.NOTHING;
+  //     return GW.utils.intersect(groups, tile.groups);
+  //   });
+  // }
+
+  successorTileFlags(event) {
+    let flags = 0;
+    for( let tile of this.tiles()) {
+      flags |= tile.successorFlags(event);
+    }
+    return flags;
+  }
+
+  promotedTileFlags() {
+    return this.successorTileFlags('promote');
+  }
+
+  discoveredTileFlags() {
+    return this.successorTileFlags('discover');
+  }
+
+  hasDiscoveredTileFlag(flag) {
+    // if (!this.hasTileMechFlag(TM_IS_SECRET)) return false;
+    return this.discoveredTileFlags() & flag;
+  }
+
+  highestPriorityTile() {
+    let best = tiles[0];
+    let bestPriority = 10000;
+    for(let tile of this.tiles()) {
+      if (tile.priority < bestPriority) {
+        best = tile;
+        bestPriority = tile.priority;
+      }
+    }
+    return best;
+  }
+
+  tileWithFlag(tileFlag) {
+    for(let tile of this.tiles()) {
+      if (tile.flags & tileFlags) return tile;
+    }
+    return null;
+  }
+
+  tileWithMechFlag(mechFlag) {
+    for(let tile of this.tiles()) {
+      if (tile.mechFlags & mechFlags) return tile;
+    }
+    return null;
+  }
+
+  // Retrieves a pointer to the flavor text of the highest-priority terrain at the given location
+  tileFlavor() {
+    return this.highestPriorityTile().flavor;
+  }
+
+  // Retrieves a pointer to the description text of the highest-priority terrain at the given location
+  tileText() {
+    return this.highestPriorityTile().desc;
+  }
+
+  isEmpty() {
+    return this.base == 0;
+  }
+
+  isPassableNow(limitToPlayerKnowledge) {
+    const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
+    const tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
+    if (!(tileFlags & Flags.T_PATHING_BLOCKER)) return true;
+
+    let tileMechFlags = (useMemory) ? this.memory.tileMechFlags : this.tileMechFlags();
+    return limitToPlayerKnowledge ? false : this.isSecretDoor();
+  }
+
+  canBePassed(limitToPlayerKnowledge) {
+    if (this.isPassableNow(limitToPlayerKnowledge)) return true;
+    const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
+    let tileMechFlags = (useMemory) ? this.memory.tileMechFlags : this.tileMechFlags();
+    if (tileMechFlags & MechFlags.TM_CONNECTS_LEVEL) return true;
+    return ((tileMechFlags & MechFlags.TM_PROMOTES) && !(this.promotedTileFlags() & Flags.T_PATHING_BLOCKER));
+  }
+
+  isObstruction(limitToPlayerKnowledge) {
+    const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
+    let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
+    return tileFlags & Flags.T_OBSTRUCTS_DIAGONAL_MOVEMENT;
+  }
+
+  isDoor(limitToPlayerKnowledge) {
+    const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
+    let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
+    return tileFlags & Flags.T_IS_DOOR;
+  }
+
+  isSecretDoor(limitToPlayerKnowledge) {
+    if (limitToPlayerKnowledge) return false;
+    const tileMechFlags = this.tileMechFlags();
+    return (tileMechFlags & MechFlags.TM_IS_SECRET) && !(this.discoveredTileFlags() & Flags.T_PATHING_BLOCKER)
+  }
+
+  blocksPathing(limitToPlayerKnowledge) {
+    const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
+    let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
+    return tileFlags & Flags.T_PATHING_BLOCKER;
+  }
+
+  isLiquid(limitToPlayerKnowledge) {
+    const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
+    let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
+    return tileFlags & Flags.T_IS_LIQUID;
+  }
+
+  markRevealed() {
+    this.flags &= ~Flags$1.STABLE_MEMORY;
+    if (!(this.flags & Flags$1.REVEALED)) {
+      this.flags |= Flags$1.REVEALED;
+      if (!this.hasTileFlag(Flags.T_PATHING_BLOCKER)) {
+        data.xpxpThisTurn++;
+      }
+    }
+  }
+
+  setTile(tileId, checkPriority) {
+    let tile;
+    if (typeof tileId === 'string') {
+      tile = withName(tileId);
+    }
+    else {
+      tile = tiles[tileId];
+    }
+
+    if (!tile) {
+      tile = tiles[0];
+    }
+
+    const oldTileId = this.base || 0;
+    const oldTile = tiles[oldTileId] || tiles[0];
+
+    if (checkPriority && oldTile.priority > tile.priority) return false;
+
+    this.base = tile.id;
+    this.flags |= (Flags$1.NEEDS_REDRAW | Flags$1.TILE_CHANGED);
+    return (oldTile.glowLight !== tile.glowLight);
+  }
+
+  setSurface(tileId, force) {
+
+  }
+
+  setGas(tileId, volume, force) {
+
+  }
+
+  setLiquid(tileId, volume, force) {
+
+  }
+
+
+  // SPRITES
+
+  addSprite(layer, sprite, priority=50) {
+
+    this.flags |= Flags$1.NEEDS_REDRAW;
+
+    if (!this.sprites) {
+      this.sprites = { layer, priority, sprite, next: null };
+      return;
+    }
+
+    let current = this.sprites;
+    while(current.next && current.layer < layer || (current.layer == layer && current.priority <= priority)) {
+      current = current.next;
+    }
+
+    const item = { layer, priority, sprite, next: current.next };
+    current.next = item;
+  }
+
+  removeSprite(sprite) {
+
+    this.flags |= Flags$1.NEEDS_REDRAW;
+    
+    if (this.sprites && this.sprites.sprite === sprite) {
+      this.sprites = this.sprites.next;
+      return;
+    }
+
+    let prev = this.sprites;
+    let current = this.sprites.next;
+    while (current) {
+      if (current.sprite === sprite) {
+        prev.next = current.next;
+        return true;
+      }
+      current = current.next;
+    }
+    return false;
+  }
+
+  // MEMORY
+
+  storeMemory(item) {
+    const memory = this.memory;
+    memory.tileFlags = this.tileFlags();
+    memory.tileMechFlags = this.tileMechFlags();
+    memory.cellFlags = this.flags;
+		memory.cellMechFlags = this.mechFlags;
+    memory.tile = this.highestPriorityTile().id;
+		if (item) {
+			memory.itemKind = item.kind;
+			memory.itemQuantity = item.quantity || 1;
+		}
+		else {
+			memory.itemKind = null;
+			memory.itemQuantity = 0;
+		}
+  }
+
+}
+
+types.Cell = Cell;
+
+
+function makeCell(...args) {
+  const cell = new types.Cell(...args);
+  return cell;
+}
+
+
+make.cell = makeCell;
+
+
+function getAppearance(cell, dest) {
+  const baseTile = tiles[cell.base];
+	dest.copy(baseTile.sprite);
+
+  let current = cell.sprites;
+  while(current) {
+    dest.plot(current.sprite);
+    current = current.next;
+  }
+  return true;
+}
+
+cell.getAppearance = getAppearance;
+
+var map = {};
+
+const Fl$3 = flag.fl;
+
+const Flags$2 = flag.install('map', {
+	MAP_CHANGED: Fl$3(0),
+	MAP_STABLE_GLOW_LIGHTS:  Fl$3(1),
+	MAP_STABLE_LIGHTS: Fl$3(2),
+	MAP_ALWAYS_LIT:	Fl$3(3),
+});
+
+
+
+class Map {
+	constructor(w, h, opts={}) {
+		this.width = w;
+		this.height = h;
+		this.cells = make.grid(w, h, () => new types.Cell() );
+		this.locations = opts.locations || {};
+		this.config = Object.assign({}, opts);
+	}
+
+	clear() { this.cells.forEach( (c) => c.clear() ); }
+	dump() { this.cells.dump((c) => c.dump()); }
+	cell(x, y)   { return this.cells[x][y]; }
+	eachCell(fn) { this.cells.forEach(fn); }
+
+	hasXY(x, y)    		 { return this.cells.hasXY(x, y); }
+	isBoundaryXY(x, y) { return this.cells.isBoundaryXY(x, y); }
+
+	changed(v) {
+		if (arguments.length == 1) {
+			if (v) {
+				this.flags |= Flags$2.MAP_CHANGED;
+			}
+			else {
+				this.flags &= ~Flags$2.MAP_CHANGED;
+			}
+		}
+		return (this.flags & Flags$2.MAP_CHANGED);
+	}
+
+	hasCellFlag(x, y, flag) 		{ return this.cell(x, y).flags & flag; }
+	hasCellMechFlag(x, y, flag) { return this.cell(x, y).mechFlags & flag; }
+	hasTileFlag(x, y, flag) 		{ return this.cell(x, y).hasTileFlag(flag); }
+	hasTileMechFlag(x, y, flag) { return this.cell(x, y).hasTileMechFlag(flag); }
+
+	redrawCell(x, y) {
+		this.cell(x, y).redraw();
+		this.flags |= Flags$2.MAP_CHANGED;
+	}
+
+	markRevealed(x, y) { return this.cell(x, y).markRevealed(); }
+	isVisible(x, y)    { return this.cell(x, y).isVisible(); }
+	isAnyKindOfVisible(x, y) { return this.cell(x, y).isAnyKindOfVisible(); }
+	hasVisibleLight(x, y) { return (this.flags & Flags$2.MAP_ALWAYS_LIT) || this.cell(x, y).hasVisibleLight(); }
+
+	setFlags(mapFlag, cellFlag, cellMechFlag) {
+		if (mapFlag) {
+			this.flags |= mapFlag;
+		}
+		if (cellFlag || cellMechFlag) {
+			this.eachCell( (c) => c.setFlags(cellFlag, cellMechFlag) );
+		}
+		this.flags |= Flags$2.MAP_CHANGED;
+	}
+
+	clearFlags(mapFlag, cellFlag, cellMechFlag) {
+		if (mapFlag) {
+			this.flags &= ~mapFlag;
+		}
+		if (cellFlag || cellMechFlag) {
+			this.eachCell( (cell) => cell.clearFlags(cellFlag, cellMechFlag) );
+		}
+		this.flags |= Flags$2.MAP_CHANGED;
+	}
+
+	setCellFlags(x, y, cellFlag, cellMechFlag) {
+		this.cell(x, y).setFlags(cellFlag, cellMechFlag);
+		this.flags |= Flags$2.MAP_CHANGED;
+	}
+
+	clearCellFlags(x, y, cellFlags, cellMechFlags) {
+		this.cell(x, y).clearFlags(cellFlags, cellMechFlags);
+		this.flags |= Flags$2.MAP_CHANGED;
+	}
+
+	hasTile(x, y, tile)	{ return this.cells[x][y].hasTile(tile); }
+
+	tileFlags(x, y, limitToPlayerKnowledge)			{ return this.cells[x][y].tileFlags(limitToPlayerKnowledge); }
+	tileMechFlags(x, y, limitToPlayerKnowledge)	{ return this.cells[x][y].tileMechFlags(limitToPlayerKnowledge); }
+
+	tileWithFlag(x, y, flag) { return this.cells[x][y].tileWithFlag(flag); }
+	tileWithMechFlag(x, y, mechFlag) { return this.cells[x][y].tileWithMechFlag(mechFlag); }
+
+	hasKnownTileFlag(x, y, flagMask) { return this.cells[x][y].memory.tileFlags & flagMask; }
+
+	// hasTileInGroup(x, y, ...groups) { return this.cells[x][y].hasTileInGroup(...groups); }
+
+	discoveredTileFlags(x, y) { return this.cells[x][y].discoveredTileFlags(); }
+	hasDiscoveredTileFlag(x, y, flag) { return this.cells[x][y].hasDiscoveredTileFlag(flag); }
+
+	canBePassed(x, y, limitToPlayerKnowledge) { return this.cells[x][y].canBePassed(limitToPlayerKnowledge); }
+	isPassableNow(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isPassableNow(limitToPlayerKnowledge); }
+
+	isEmpty(x, y) { return this.cells[x][y].isEmpty(); }
+	isObstruction(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isObstruction(limitToPlayerKnowledge); }
+  isDoor(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isDoor(limitToPlayerKnowledge); }
+  blocksPathing(x, y, limitToPlayerKnowledge) { return this.cells[x][y].blocksPathing(limitToPlayerKnowledge); }
+  isLiquid(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isLiquid(limitToPlayerKnowledge); }
+  hasGas(x, y, limitToPlayerKnowledge) { return this.cells[x][y].hasGas(limitToPlayerKnowledge); }
+
+	highestPriorityLayer(x, y, skipGas) { return this.cells[x][y].highestPriorityLayer(x, y); }
+	highestPriorityTile(x, y, skipGas) { return this.cells[x][y].highestPriorityTile(x, y); }
+
+	tileFlavor(x, y) { return this.cells[x][y].tileFlavor(); }
+	tileText(x, y)   { return this.cells[x][y].tileText(); }
+
+	setTile(x, y, tileId, checkPriority) {
+		const cell = this.cell(x, y);
+		if (cell.setTile(tileId, checkPriority)) {
+			this.flags &= ~(Flags$2.MAP_STABLE_GLOW_LIGHTS);
+		}
+		this.flags |= Flags$2.MAP_CHANGED;
+	  return true;
+	}
+
+	fill(tileId, boundaryTile) {
+		let i, j;
+		if (boundaryTile === undefined) {
+			boundaryTile = tileId;
+		}
+		for(i=0; i < this.width; ++i) {
+			for(j = 0; j < this.height; ++j) {
+				if (this.isBoundaryXY(i, j)) {
+					this.setTile(i, j, boundaryTile);
+				}
+				else {
+					this.setTile(i, j, tileId);
+				}
+			}
+		}
+	}
+
+	passableArcCount(x, y) {
+		if (!this.hasXY(x, y)) return -1;
+		return this.cells.arcCount(x, y, (c) => c.isPassableNow() );
+	}
+
+	diagonalBlocked(x1, y1, x2, y2, limitToPlayerKnowledge) {
+	    if (x1 == x2 || y1 == y2) {
+	      return false; // If it's not a diagonal, it's not diagonally blocked.
+	    }
+	    const locFlags1 = this.tileFlags(x1, y2, limitToPlayerKnowledge);
+	    if (locFlags1 & Flags.T_OBSTRUCTS_DIAGONAL_MOVEMENT) {
+	        return true;
+	    }
+	    const locFlags2 = this.tileFlags(x2, y1, limitToPlayerKnowledge);
+	    if (locFlags2 & Flags.T_OBSTRUCTS_DIAGONAL_MOVEMENT) {
+	        return true;
+	    }
+	    return false;
+	}
+
+	fillBasicCostGrid(costGrid) {
+		this.cells.forEach( (cell, i, j) => {
+      if (cell.isEmpty()) {
+        costGrid[i][j] = def.PDS_OBSTRUCTION;
+      }
+      else {
+        costGrid[i][j] = cell.canBePassed() ? 1 : def.PDS_OBSTRUCTION;
+      }
+    });
+	}
+
+	// blockingMap is optional
+	matchingXYNear(x, y, matcher, opts={})
+	{
+		let i, j, k;
+
+		const hallwaysAllowed = opts.hallwaysAllowed || opts.hallways || false;
+		const blockingMap = opts.blockingMap || null;
+		const forbidLiquid = opts.forbidLiquid || opts.forbidLiquids || false;
+		const deterministic = opts.deterministic || false;
+
+		const candidateLocs = [];
+
+		// count up the number of candidate locations
+		for (k=0; k<Math.max(this.width, this.height) && !candidateLocs.length; k++) {
+			for (i = x-k; i <= x+k; i++) {
+				for (j = y-k; j <= y+k; j++) {
+					if (!this.hasXY(i, j)) continue;
+					const cell = this.cell(i, j);
+					// if ((i == x-k || i == x+k || j == y-k || j == y+k)
+					if ((Math.floor(utils$1.distanceBetween(x, y, i, j)) == k)
+							&& (!blockingMap || !blockingMap[i][j])
+							&& matcher(cell, i, j)
+							&& (!forbidLiquid || cell.liquid == def.NOTHING)
+							&& (hallwaysAllowed || this.passableArcCount(i, j) < 2))
+	        {
+						candidateLocs.push([i, j]);
+					}
+				}
+			}
+		}
+
+		if (candidateLocs.length == 0) {
+			return null;
+		}
+
+		// and pick one
+		let randIndex = 0;
+		if (deterministic) {
+	    randIndex = Math.floor(candidateLocs.length / 2);
+		} else {
+			randIndex = random.number(candidateLocs.length) - 1;
+		}
+		return candidateLocs[randIndex];
+	}
+
+
+
+	// fills (*x, *y) with the coordinates of a random cell with
+	// no creatures, items or stairs and with either a matching liquid and dungeon type
+	// or at least one layer of type terrainType.
+	// A dungeon, liquid type of -1 will match anything.
+	randomMatchingXY(matcher, opts={}) {
+		let failsafeCount = 0;
+		let x;
+		let y;
+		let cell;
+
+		// dungeonType -1 => ignore, otherwise match with 0 = NOTHING, 'string' = MATCH
+		// liquidType  -1 => ignore, otherwise match with 0 = NOTHING, 'string' = MATCH
+
+		let retry = true;
+		while(retry) {
+			failsafeCount++;
+			if (failsafeCount >= 500) break;
+
+			x = random.range(0, this.width - 1);
+			y = random.range(0, this.height - 1);
+			cell = this.cell(x, y);
+
+			if (matcher(cell, x, y)) {
+				retry = false;
+			}
+		}
+		if (failsafeCount >= 500) {
+			// GW.debug.log('randomMatchingLocation', dungeonType, liquidType, terrainType, ' => FAIL');
+			return false;
+		}
+
+		// GW.debug.log('randomMatchingLocation', dungeonType, liquidType, terrainType, ' => ', x, y);
+		return [ x, y ];
+	}
+
+	// FX
+
+	addFx(x, y, anim) {
+		if (!this.hasXY(x, y)) return false;
+		const cell = this.cell(x, y);
+		cell.addSprite(Layer.FX, anim.sprite);
+		anim.x = x;
+		anim.y = y;
+		this.flags |= Flags$2.MAP_CHANGED;
+		return true;
+	}
+
+	moveFx(x, y, anim) {
+		if (!this.hasXY(x, y)) return false;
+		const cell = this.cell(x, y);
+		const oldCell = this.cell(anim.x, anim.y);
+		oldCell.removeSprite(anim.sprite);
+		cell.addSprite(Layer.FX, anim.sprite);
+		this.flags |= Flags$2.MAP_CHANGED;
+		anim.x = x;
+		anim.y = y;
+		return true;
+	}
+
+	removeFx(anim) {
+		const oldCell = this.cell(anim.x, anim.y);
+		oldCell.removeSprite(anim.sprite);
+		this.flags |= Flags$2.MAP_CHANGED;
+		return true;
+	}
+
+	// ACTORS
+
+	// will return the PLAYER if the PLAYER is at (x, y).
+	actorAt(x, y) { // creature *
+		if (!this.hasXY(x, y)) return null;
+		const cell = this.cell(x, y);
+		return cell.actor;
+	}
+
+	addActor(x, y, theActor) {
+		if (!this.hasXY(x, y)) return false;
+		const cell = this.cell(x, y);
+		if (cell.actor) {
+			return false;
+		}
+
+		cell.actor = theActor;
+
+		const layer = (theActor === data.player) ? Layer.PLAYER : Layer.ACTOR;
+		cell.addSprite(layer, theActor.kind.sprite);
+
+		const flag = (theActor === data.player) ? Flags$1.HAS_PLAYER : Flags$1.HAS_MONSTER;
+		cell.flags |= (flag | Flags$1.NEEDS_REDRAW);
+		// if (theActor.flags & ActorFlags.MK_DETECTED)
+		// {
+		// 	cell.flags |= CellFlags.MONSTER_DETECTED;
+		// }
+
+		theActor.x = x;
+		theActor.y = y;
+		this.flags |= Flags$2.MAP_CHANGED;
+
+		return true;
+	}
+
+	addActorNear(x, y, theActor) {
+		const forbidTileFlags = GW.actor.avoidedFlags(theActor);
+		const loc = this.getMatchingLocNear(x, y, (cell, i, j) => {
+			if (cell.flags & (Flags$1.HAS_ACTOR)) return false;
+			return !cell.hasTileFlag(forbidTileFlags);
+		});
+		if (!loc || loc[0] < 0) {
+			// GW.ui.message(colors.badMessageColor, 'There is no place to put the actor.');
+			return false;
+		}
+
+		return this.addActor(loc[0], loc[1], theActor);
+	}
+
+	moveActor(x, y, actor) {
+		if (!this.hasXY(x, y)) return false;
+		this.removeActor(actor);
+
+		if (!this.addActor(x, y, actor)) {
+			this.addActor(actor.x, actor.y, actor);
+			return false;
+		}
+		return true;
+	}
+
+	removeActor(actor) {
+		const cell = this.cell(actor.x, actor.y);
+		if (cell.actor === actor) {
+			cell.actor = null;
+			cell.flags &= ~Flags$1.HAS_ACTOR;
+			cell.flags |= Flags$1.NEEDS_REDRAW;
+			this.flags |= Flags$2.MAP_CHANGED;
+			cell.removeSprite(actor.kind.sprite);
+		}
+	}
+
+	// dormantAt(x, y) {  // creature *
+	// 	if (!(this.cell(x, y).flags & CellFlags.HAS_DORMANT_MONSTER)) {
+	// 		return null;
+	// 	}
+	// 	return this.dormantActors.find( (m) => m.x == x && m.y == y );
+	// }
+	//
+	// addDormant(x, y, theActor) {
+	// 	theActor.x = x;
+	// 	theActor.y = y;
+	// 	this.dormant.add(theActor);
+	// 	cell.flags |= (CellFlags.HAS_DORMANT_MONSTER);
+	// 	this.flags |= Flags.MAP_CHANGED;
+	// 	return true;
+	// }
+	//
+	// removeDormant(actor) {
+	// 	const cell = this.cell(actor.x, actor.y);
+	// 	cell.flags &= ~(CellFlags.HAS_DORMANT_MONSTER);
+	// 	cell.flags |= CellFlags.NEEDS_REDRAW;
+	// 	this.flags |= Flags.MAP_CHANGED;
+	// 	this.dormant.remove(actor);
+	// }
+
+	// ITEMS
+
+	itemAt(x, y) {
+		if (!(this.cell(x, y).flags & Flags$1.HAS_ITEM)) {
+			return null;
+		}
+		return this.items.find( (i) => i.x == x && i.y == y );
+	}
+
+	addItem(x, y, theItem) {
+		if (!this.hasXY(x, y)) return false;
+		const cell = this.cell(x, y);
+		if (cell.flags & Flags$1.HAS_ITEM) {
+			// GW.ui.message(colors.badMessageColor, 'There is already an item there.');
+			return false;
+		}
+		theItem.x = x;
+		theItem.y = y;
+		this.items.add(theItem);
+		cell.flags |= (Flags$1.HAS_ITEM | Flags$1.NEEDS_REDRAW);
+
+		this.flags |= Flags$2.MAP_CHANGED;
+		if ( ((theItem.flags & ItemFlags.ITEM_MAGIC_DETECTED) && GW.item.magicChar(theItem)) ||
+					config.D_ITEM_OMNISCIENCE)
+		{
+			cell.flags |= Flags$1.ITEM_DETECTED;
+		}
+
+		return true;
+	}
+
+	addItemNear(x, y, theItem) {
+		const loc = this.getMatchingLocNear(x, y, (cell, i, j) => {
+			if (cell.flags & Flags$1.HAS_ITEM) return false;
+			return !cell.hasTileFlag(Flags.T_OBSTRUCTS_ITEMS);
+		});
+		if (!loc || loc[0] < 0) {
+			// GW.ui.message(colors.badMessageColor, 'There is no place to put the item.');
+			return false;
+		}
+
+		return this.addItem(loc[0], loc[1], theItem);
+	}
+
+
+	removeItem(theItem, skipRefresh) {
+		const x = theItem.x;
+		const y = theItem.y;
+		if (this.items.remove(theItem)) {
+			this.flags |= Flags$2.MAP_CHANGED;
+			const cell = this.cell(x, y);
+			cell.flags &= ~(Flags$1.HAS_ITEM | Flags$1.ITEM_DETECTED);
+			cell.flags |= Flags$1.NEEDS_REDRAW;
+			return true;
+		}
+		return false;
+	}
+
+	// // PROMOTE
+	//
+	// async promote(x, y, mechFlag) {
+	// 	if (this.hasTileMechFlag(x, y, mechFlag)) {
+	// 		const cell = this.cell(x, y);
+	// 		for (let tile of cell.tiles()) {
+	// 			if (tile.mechFlags & mechFlag) {
+	// 				await tile.promote(this, x, y, false);
+	// 			}
+	// 		}
+	// 	}
+	// }
+
+
+	// FOV
+
+	// Returns a boolean grid indicating whether each square is in the field of view of (xLoc, yLoc).
+	// forbiddenTerrain is the set of terrain flags that will block vision (but the blocking cell itself is
+	// illuminated); forbiddenFlags is the set of map flags that will block vision.
+	// If cautiousOnWalls is set, we will not illuminate blocking tiles unless the tile one space closer to the origin
+	// is visible to the player; this is to prevent lights from illuminating a wall when the player is on the other
+	// side of the wall.
+	calcFov(grid, x, y, maxRadius, forbiddenFlags=0, forbiddenTerrain=Flags.T_OBSTRUCTS_VISION, cautiousOnWalls=true) {
+	  const FOV = new types.FOV(grid, (i, j) => {
+	    return (!this.hasXY(i, j)) || this.hasCellFlag(i, j, forbiddenFlags) || this.hasTileFlag(i, j, forbiddenTerrain) ;
+	  });
+	  return FOV.calculate(x, y, maxRadius, cautiousOnWalls);
+	}
+
+	// MEMORIES
+
+	storeMemory(x, y) {
+		const cell = this.cell(x, y);
+		cell.storeMemory(this.itemAt(x, y));
+	}
+
+	storeMemories() {
+		let x, y;
+		for(x = 0; x < this.width; ++x) {
+			for(y = 0; y < this.height; ++y) {
+				const cell = this.cell(x, y);
+				if (cell.flags & Flags$1.ANY_KIND_OF_VISIBLE) {
+					this.storeMemory(x, y);
+				}
+				cell.flags &= Flags$1.PERMANENT_CELL_FLAGS | config.PERMANENT_CELL_FLAGS;
+				cell.mechFlags &= Flags$1.PERMANENT_MECH_FLAGS | config.PERMANENT_MECH_FLAGS;
+			}
+		}
+	}
+
+	// DRAW
+
+	draw(buffer) {
+		if (!this.flags & Flags$2.MAP_CHANGED) return;
+
+		this.cells.forEach( (c, i, j) => {
+			if (c.flags & Flags$1.NEEDS_REDRAW) {
+	      const buf = buffer[i][j];
+				GW.map.getCellAppearance(this, i, j, buf);
+				c.clearFlags(Flags$1.NEEDS_REDRAW);
+	      buffer.needsUpdate = true;
+			}
+		});
+
+		this.flags &= ~Flags$2.MAP_CHANGED;
+	}
+
+}
+
+types.Map = Map;
+
+
+function makeMap(w, h, opts={}) {
+	const map = new types.Map(w, h, opts);
+	if (opts.tile) {
+		map.fill(opts.tile, opts.boundary);
+	}
+	return map;
+}
+
+make.map = makeMap;
+
+
+function getCellAppearance(map, x, y, dest) {
+	dest.clear();
+	if (!map.hasXY(x, y)) return;
+	const cell$1 = map.cell(x, y);
+	cell.getAppearance(cell$1, dest);
+
+	if (cell$1.flags & Flags$1.HAS_PLAYER) {
+		dest.plot(data.player.kind.sprite);
+	}
+	else if (cell$1.flags & Flags$1.HAS_MONSTER) {
+		const monst = map.actorAt(x, y);
+		if (monst) {
+			dest.plot(monst.kind.sprite);
+		}
+	}
+
+	dest.bake();
+}
+
+map.getCellAppearance = getCellAppearance;
+
+
+function addText(map, x, y, text, fg, bg) {
+	for(let ch of text) {
+		const sprite = make.sprite(ch, fg, bg);
+		const fx = { sprite, x, y };
+		map.addFx(x++, y, fx);
+	}
+}
+
+map.addText = addText;
+
+
+const FP_BASE = 16;
+const FP_FACTOR = (1<<16);
+
+// ADAPTED FROM BROGUE 1.7.5
+// Simple line algorithm (maybe this is Bresenham?) that returns a list of coordinates
+// that extends all the way to the edge of the map based on an originLoc (which is not included
+// in the list of coordinates) and a targetLoc.
+// Returns the number of entries in the list, and includes (-1, -1) as an additional
+// terminus indicator after the end of the list.
+function getLine(map, fromX, fromY, toX, toY) {
+	let targetVector = [], error = [], currentVector = [], previousVector = [], quadrantTransform = [];
+	let largerTargetComponent, i;
+	let currentLoc = [], previousLoc = [];
+
+	const line = [];
+
+	if (fromX == toX && fromY == toY) {
+		return line;
+	}
+
+	const originLoc = [fromX, fromY];
+	const targetLoc = [toX, toY];
+
+	// Neither vector is negative. We keep track of negatives with quadrantTransform.
+	for (i=0; i<= 1; i++) {
+		targetVector[i] = (targetLoc[i] - originLoc[i]) << FP_BASE;	// FIXME: should use parens?
+		if (targetVector[i] < 0) {
+			targetVector[i] *= -1;
+			quadrantTransform[i] = -1;
+		} else {
+			quadrantTransform[i] = 1;
+		}
+		currentVector[i] = previousVector[i] = error[i] = 0;
+		currentLoc[i] = originLoc[i];
+	}
+
+	// normalize target vector such that one dimension equals 1 and the other is in [0, 1].
+	largerTargetComponent = Math.max(targetVector[0], targetVector[1]);
+	// targetVector[0] = Math.floor( (targetVector[0] << FP_BASE) / largerTargetComponent);
+	// targetVector[1] = Math.floor( (targetVector[1] << FP_BASE) / largerTargetComponent);
+	targetVector[0] = Math.floor(targetVector[0] * FP_FACTOR / largerTargetComponent);
+	targetVector[1] = Math.floor(targetVector[1] * FP_FACTOR / largerTargetComponent);
+
+	do {
+		for (i=0; i<= 1; i++) {
+
+			previousLoc[i] = currentLoc[i];
+
+			currentVector[i] += targetVector[i] >> FP_BASE;
+			error[i] += (targetVector[i] == FP_FACTOR ? 0 : targetVector[i]);
+
+			if (error[i] >= Math.floor(FP_FACTOR / 2) ) {
+				currentVector[i]++;
+				error[i] -= FP_FACTOR;
+			}
+
+			currentLoc[i] = Math.floor(quadrantTransform[i]*currentVector[i] + originLoc[i]);
+
+		}
+
+		if (map.hasXY(currentLoc[0], currentLoc[1])) {
+			line.push(currentLoc.slice());
+		}
+		else {
+			break;
+		}
+
+	} while (true);
+
+	return line;
+}
+
+map.getLine = getLine;
+
+class Scheduler {
+	constructor() {
+  	this.next = null;
+    this.time = 0;
+    this.cache = null;
+  }
+
+	clear() {
+		while(this.next) {
+			const current = this.next;
+			this.next = current.next;
+			current.next = this.cache;
+			this.cache = current;
+		}
+	}
+
+  push(fn, delay=1) {
+    let item;
+    if (this.cache) {
+    	item = this.cache;
+      this.cache = item.next;
+			item.next = null;
+    }
+    else {
+    	item = { fn: null, time: 0, next: null };
+    }
+		item.fn = fn;
+    item.time = this.time + delay;
+    if (!this.next) {
+	    this.next = item;
+    }
+    else {
+    	let current = this;
+      let next = current.next;
+    	while(next && next.time <= item.time) {
+      	current = next;
+        next = current.next;
+      }
+      item.next = current.next;
+      current.next = item;
+    }
+		return item;
+  }
+
+  pop() {
+  	const n = this.next;
+		if (!n) return null;
+
+    this.next = n.next;
+    n.next = this.cache;
+    this.cache = n;
+
+		this.time = Math.max(n.time, this.time);	// so you can schedule -1 as a time uint
+    return n.fn;
+  }
+
+	remove(item) {
+		if (this.next === item) {
+			this.next = item.next;
+			return;
+		}
+		prev = this.next;
+		current = prev.next;
+		while( current && current !== item ) {
+			prev = current;
+			current = current.next;
+		}
+
+		if (current === item) {
+			prev.next = current.next;
+		}
+	}
+}
+
+const scheduler = new Scheduler();
+
+var fx = {};
+
+let ANIMATIONS = [];
+
+function busy() {
+  return ANIMATIONS.some( (a) => a );
+}
+
+fx.busy = busy;
+
+
+async function playAll() {
+  while(fx.busy()) {
+    const dt = await io.nextTick();
+    ANIMATIONS.forEach( (a) => a && a.tick(dt) );
+    ANIMATIONS = ANIMATIONS.filter( (a) => a && !a.done );
+  }
+}
+
+fx.playAll = playAll;
+
+
+function tick(dt) {
+  if (!ANIMATIONS.length) return false;
+
+  io.pauseEvents();
+  ANIMATIONS.forEach( (a) => a && a.tick(dt) );
+  ANIMATIONS = ANIMATIONS.filter( (a) => a && !a.done );
+  io.resumeEvents();
+
+  return true;
+}
+
+fx.tick = tick;
+
+async function playRealTime(animation) {
+  animation.playFx = fx.playRealTime;
+
+  animation.start();
+  ANIMATIONS.push(animation);
+  return new Promise( (resolve) => animation.callback = resolve );
+}
+
+fx.playRealTime = playRealTime;
+
+async function playGameTime(anim) {
+  anim.playFx = fx.playGameTime;
+
+  anim.start();
+  scheduler.push(() => {
+    anim.step();
+    ui.requestUpdate(1);
+    return anim.done ? 0 : anim.speed;
+  },  anim.speed);
+
+  return new Promise( (resolve) => anim.callback = resolve );
+}
+
+fx.playGameTime = playGameTime;
+
+
+class FX {
+  constructor(opts={}) {
+    this.tilNextTurn = opts.speed || opts.duration || 1000;
+    this.speed = opts.speed || opts.duration || 1000;
+    this.callback = utils$1.NOOP;
+    this.done = false;
+  }
+
+  tick(dt) {
+    if (this.done) return;
+    this.tilNextTurn -= dt;
+    while (this.tilNextTurn < 0 && !this.done) {
+      this.step();
+      this.tilNextTurn += this.speed;
+    }
+  }
+
+  step() {
+    this.stop();
+  }
+
+  start() {}
+
+  stop(result) {
+    if (this.done) return;
+    this.done = true;
+    this.callback(result);
+  }
+
+}
+
+types.FX = FX;
+
+
+class SpriteFX extends FX {
+  constructor(map, sprite, x, y, opts={}) {
+    const count = opts.blink || 1;
+    const duration = opts.duration || 1000;
+    opts.speed = opts.speed || (duration / (2*count-1));
+    super(opts);
+    if (typeof sprite === 'string') {
+      sprite = sprites[sprite];
+    }
+    this.map = map;
+    this.sprite = sprite;
+    this.x = x || 0;
+    this.y = y || 0;
+    this.stepCount = 2*count - 1;
+  }
+
+  start() {
+    this.map.addFx(this.x, this.y, this);
+    return super.start();
+  }
+
+  step() {
+    --this.stepCount;
+    if (this.stepCount <= 0) return this.stop();
+    if (this.stepCount % 2 == 0) {
+      this.map.removeFx(this);
+    }
+    else {
+      this.map.addFx(this.x, this.y, this);
+    }
+  }
+
+  stop(result) {
+    this.map.removeFx(this);
+    return super.stop(result);
+  }
+
+  moveDir(dx, dy) {
+    return this.moveTo(this.x + dx, this.y + dy);
+  }
+
+  moveTo(x, y) {
+    this.map.moveFx(x, y, this);
+    return true;
+  }
+
+}
+
+
+
+async function flashSprite(map, x, y, sprite, duration=100, count=1) {
+  const anim = new SpriteFX(map, sprite, x, y, { duration, blink: count });
+  return fx.playRealTime(anim);
+}
+
+fx.flashSprite = flashSprite;
+
+installSprite('bump', 'white', 50);
+
+
+async function hit(map, target, sprite, duration) {
+  sprite = sprite || config.fx.hitSprite || 'hit';
+  duration = duration || config.fx.hitFlashTime || 200;
+  await fx.flashSprite(map, target.x, target.y, sprite, duration, 1);
+}
+
+fx.hit = hit;
+
+installSprite('hit', 'red', 50);
+
+async function miss(map, target, sprite, duration) {
+  sprite = sprite || config.fx.missSprite || 'miss';
+  duration = duration || config.fx.missFlashTime || 200;
+  await fx.flashSprite(map, target.x, target.y, sprite, duration, 1);
+}
+
+fx.miss = miss;
+
+installSprite('miss', 'green', 50);
+
+
+class MovingSpriteFX extends SpriteFX {
+  constructor(map$1, source, target, sprite, speed, stepFn) {
+    super(map$1, sprite, source.x, source.y, { speed });
+    this.target = target;
+    this.path = map.getLine(this.map, source.x, source.y, this.target.x, this.target.y);
+    this.stepFn = stepFn || utils$1.TRUE;
+  }
+
+  step() {
+    if (this.x == this.target.x && this.y == this.target.y) return this.stop(this);
+    if (!this.path.find( (loc) => loc[0] == this.target.x && loc[1] == this.target.y)) {
+      this.path = map.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
+    }
+    const next = this.path.shift();
+    const r = this.stepFn(next[0], next[1]);
+    if (r < 0) {
+      return this.stop(this);
+    }
+    else if (r) {
+      return this.moveTo(next[0], next[1]);
+    }
+    else {
+      this.moveTo(next[0], next[1]);
+      this.target.x = this.x;
+      this.target.y = this.y;
+    }
+  }
+}
+
+types.MovingSpriteFX = MovingSpriteFX;
+
+
+async function bolt(map, source, target, sprite, opts={}) {
+  if (typeof sprite === 'string') {
+    sprite = sprites[sprite];
+  }
+  opts.speed = opts.speed || 3;
+  opts.stepFn = opts.stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
+  opts.playFn = fx.playGameTime;
+  if (opts.realTime || (!opts.gameTime)) {
+    opts.speed *= 16;
+    opts.playFn = fx.playRealTime;
+  }
+
+  const anim = new MovingSpriteFX(map, source, target, sprite, opts.speed, opts.stepFn);
+  return opts.playFn(anim);
+}
+
+fx.bolt = bolt;
+
+async function projectile(map, source, target, chs, fg, opts) {
+  if (chs.length != 4) utils$1.ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
+
+  const dir = utils$1.dirFromTo(source, target);
+  const dIndex = utils$1.dirIndex(dir);
+  const index = Math.floor(dIndex / 2);
+  const ch = chs[index];
+  const sprite = GW.make.sprite(ch, fg);
+
+  return fx.bolt(map, source, target, sprite, opts);
+}
+
+fx.projectile = projectile;
+
+
+//
+// RUT.Animations.projectileToTarget = function projectileTo(map, from, target, callback, opts) {
+//   if (typeof callback != 'function' && opts === undefined) {
+//     opts = callback;
+//     callback = RUT.NOOP;
+//   }
+//   if (opts === true) opts = {};
+//   if (opts === false) return;
+//   opts = opts || {};
+//   if (typeof opts === 'string') opts = { sprite: opts };
+//
+//   Object.defaults(opts, RUT.Config.Animations.projectile);
+//   // if (!RUT.FOV.isVisible(shooter) && !RUT.FOV.isVisible(to)) { return Promise.resolve(); }
+//   const sprite = opts.sprite;
+//   let anim = new RUT.Animations.XYAnimation(map, sprite, from, () => target.xy, callback, opts.speed);
+//   anim.start(); // .then( () => target.xy );
+//   return anim;
+// }
+//
+
+// export class DirAnimation extends FX {
+//   constructor(sprite, from, dir, callback, opts={}) {
+//     const speed = opts.speed || 10;
+//     super(callback, { sprite, speed });
+//     this.from = from;
+//     this.dir = dir;
+//     this.stopCell = opts.stopCell;
+//     this.stopTile = opts.stopTile;
+//     this.stepFn = opts.stepFn || TRUE;
+//     this.range = opts.range || 99;
+//   }
+//
+//   start() {
+//     return super.start(this.from.x, this.from.y);
+//   }
+//
+//   step() {
+//     let dist = distanceFromTo(this.from, this.xy);
+//     if (dist >= this.range) {
+//       return this.stop(this.xy);
+//     }
+//
+//     const newXy = this.xy.plus(this.dir);
+//
+//     const cell = DATA.map.cell(newXy.x, newXy.y);
+//     if (!cell) {
+//       return this.stop(this.xy);
+//     }
+//     else if (this.stopCell && RUT.Cell.hasAllFlags(cell, this.stopCell)) {
+//       return this.stop(this.xy);
+//     }
+//     else if (this.stopTile && RUT.Cell.hasTileFlag(cell, this.stopTile)) {
+//       return this.stop(this.xy);
+//     }
+//
+//     DATA.map.moveAnimation(this.map, newXy.x, newXy.y, this);
+//     if (this.stepFn(this.map, this.xy.x, this.xy.y)) {
+//       return this.stop(this.xy);
+//     }
+//   }
+// }
+
+//
+// RUT.Animations.projectileDir = function projectileTo(map, xy, dir, callback, opts) {
+//   if (typeof callback != 'function' && opts === undefined) {
+//     opts = callback;
+//     callback = RUT.NOOP;
+//   }
+//   if (opts === true) opts = {};
+//   if (opts === false) return;
+//   opts = opts || {};
+//   if (typeof opts === 'string') opts = { sprite: opts };
+//   if (opts.sprite === true) opts.sprite = RUT.Config.Animations.projectile.sprite;
+//
+//   Object.defaults(opts, RUT.Config.Animations.projectile);
+//   let anim = new RUT.Animations.DirAnimation(map, opts.sprite, xy, dir, callback, opts);
+//   anim.start(); // .then( () => anim.xy );
+//   return anim;
+// }
+//
+
+class BeamFX extends FX {
+  constructor(map$1, from, target, sprite, speed, fade, stepFn) {
+    speed = speed || 20;
+    super({ speed });
+    this.map = map$1;
+    this.x = from.x;
+    this.y = from.y;
+    this.target = target;
+    this.sprite = sprite;
+    this.fade = fade || speed;
+    this.path = map.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
+    this.stepFn = stepFn || utils$1.TRUE;
+  }
+
+  step() {
+    // if (this.x == this.target.x && this.y == this.target.y) return this.stop(this);
+    // if (!this.path.find( (loc) => loc[0] == this.target.x && loc[1] == this.target.y)) {
+    //   this.path = MAP.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
+    // }
+    if (this.path.length == 0) { return this.stop(this); }
+    const next = this.path.shift();
+    const r = this.stepFn(next[0], next[1]);
+    if (r < 0) {
+      return this.stop(this);
+    }
+    else if (r) {
+      return this.moveTo(next[0], next[1]);
+    }
+    else {
+      this.moveTo(next[0], next[1]);
+      this.target.x = this.x;
+      this.target.y = this.y;
+    }
+  }
+
+  moveTo(x, y) {
+    if (!this.map.hasXY(x, y)) {
+      console.log('BEAM - invalid x,y', x, y);
+      return;
+    }
+    this.x = x;
+    this.y = y;
+    // fx.flashSprite(this.map, x, y, this.sprite, this.fade);
+
+    const anim = new SpriteFX(this.map, this.sprite, x, y, { duration: this.fade });
+    this.playFx(anim);
+  }
+
+}
+
+types.BeamFX = BeamFX;
+
+function beam(map, from, to, sprite, opts={}) {
+  opts.fade = opts.fade || 5;
+  opts.speed = opts.speed || 1;
+  opts.stepFn = opts.stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
+  opts.playFn = fx.playGameTime;
+  if (opts.realTime || (!opts.gameTime)) {
+    opts.speed *= 8;
+    opts.fade *= 8;
+    opts.playFn = fx.playRealTime;
+  }
+
+  const animation = new BeamFX(map, from, to, sprite, opts.speed, opts.fade, opts.stepFn);
+  return opts.playFn(animation);
+}
+
+fx.beam = beam;
+
+
+
+class ExplosionFX extends FX {
+  // TODO - take opts instead of individual params (do opts setup here)
+  constructor(map, fovGrid, x, y, radius, sprite, speed, fade, shape, center, stepFn) {
+    speed = speed || 20;
+    super({ speed });
+    this.map = map;
+    this.grid = GRID.alloc(map.width, map.height);
+    if (fovGrid) {
+      this.grid.copy(fovGrid);
+    }
+    else {
+      this.grid.fill(1);
+    }
+    this.x = x;
+    this.y = y;
+    this.radius = 0;
+    this.maxRadius = radius;
+    this.sprite = sprite;
+    this.fade = fade || 100;
+    this.shape = shape || 'o';
+    this.center = (center === undefined) ? true : center;
+    this.stepFn = stepFn || utils$1.TRUE;
+    this.count = 0;
+  }
+
+  start() {
+    if (this.center) {
+      this.visit(this.x, this.y);
+    }
+    else {
+      this.step();
+    }
+  }
+
+  step() {
+    if (this.radius >= this.maxRadius) return false;
+
+    this.radius = Math.min(this.radius + 1, this.maxRadius);
+
+    let done = true;
+    let x = Math.max(0, Math.floor(this.x - this.maxRadius));
+    const maxX = Math.min(this.grid.width - 1, Math.ceil(this.x + this.maxRadius));
+    let minY = Math.max(0, Math.floor(this.y - this.maxRadius));
+    const maxY = Math.min(this.grid.height - 1, Math.ceil(this.y + this.maxRadius));
+    let col;
+    let dist;
+
+    for(; x <= maxX; ++x) {
+      col = this.grid[x];
+      for(let y = minY; y <= maxY; ++y) {
+        if (col[y] != 1) continue;  // not in FOV
+        dist = utils$1.distanceBetween(this.x, this.y, x, y);
+        if (dist <= this.radius) {
+          this.visit(x, y);
+        }
+        else if (dist <= this.maxRadius) {
+          done = false;
+        }
+      }
+    }
+    ui.requestUpdate(48);
+
+    // console.log('returning...', done);
+    if (done && (this.count == 0)) {
+      return this.stop(this); // xy of explosion is callback value
+    }
+    return false;
+  }
+
+  visit(x, y) {
+    if (this.isInShape(x, y) && this.stepFn(x, y)) {
+      this.count += 1;
+      const anim = new SpriteFX(this.map, this.sprite, x, y, { duration: this.fade });
+      this.playFx(anim).then( () => {
+        --this.count;
+        if (this.count == 0) {
+          this.stop(this);
+        }
+      });
+      // fx.flashSprite(this.map, x, y, this.sprite, this.fade);
+    }
+    this.grid[x][y] = 2;
+  }
+
+  isInShape(x, y) {
+    const sx = Math.abs(x - this.x);
+    const sy = Math.abs(y - this.y);
+    if (sx == 0 && sy == 0 && !this.center) return false;
+    switch(this.shape) {
+      case '+': return sx == 0 || sy == 0;
+      case 'x': return sx == sy;
+      case '*': return (sx == 0 || sy == 0 || sx == sy);
+      default: return true;
+    }
+  }
+
+  stop(result) {
+    this.grid = GRID.free(this.grid);
+    return super.stop(result);
+  }
+}
+
+function checkExplosionOpts(opts) {
+  opts.speed = opts.speed || 5;
+  opts.fade = opts.fade || 10;
+  opts.playFn = fx.playGameTime;
+  opts.shape = opts.shape || 'o';
+  if (opts.center === undefined) { opts.center = true; }
+
+  if (opts.realTime || (!opts.gameTime)) {
+    opts.speed = opts.speed * 8;
+    opts.fade = opts.fade * 8;
+    opts.playFn = fx.playRealTime;
+  }
+}
+
+function explosion(map, x, y, radius, sprite, opts={}) {
+  checkExplosionOpts(opts);
+  opts.stepFn = opts.stepFn || ((x, y) => !map.isObstruction(x, y));
+  const animation = new ExplosionFX(map, null, x, y, radius, sprite, opts.speed, opts.fade, opts.shape, opts.center, opts.stepFn);
+  map.calcFov(animation.grid, x, y, radius);
+  return opts.playFn(animation);
+}
+
+fx.explosion = explosion;
+
+function explosionFor(map, grid, x, y, radius, sprite, opts={}) {
+  checkExplosionOpts(opts);
+  opts.stepFn = opts.stepFn || ((x, y) => !map.isObstruction(x, y));
+  const animation = new ExplosionFX(map, grid, x, y, radius, sprite, opts.speed, opts.fade, opts.shape, opts.center, opts.stepFn);
+  return opts.playFn(animation);
+}
+
+fx.explosionFor = explosionFor;
+
+var ui = {};
+
+let UI_BUFFER = null;
+let UI_BASE = null;
+let UI_OVERLAY = null;
+let IN_DIALOG = false;
+
+let time = performance.now();
+
+let RUNNING = false;
+
+function uiLoop(t) {
+	t = t || performance.now();
+
+  if (RUNNING) {
+    requestAnimationFrame(uiLoop);
+  }
+
+	const dt = Math.floor(t - time);
+	time = t;
+
+	if ((!IN_DIALOG) && fx.tick(dt)) {
+		ui.draw();
+	}
+	else {
+		const ev = io.makeTickEvent(dt);
+		io.pushEvent(ev);
+	}
+
+	ui.canvas.draw();
+}
+
+
+function start(opts={}) {
+
+  utils$1.setDefaults(opts, {
+    width: 100,
+    height: 34,
+    bg: 'black',
+    sidebar: false,
+    messages: false,
+    flavor: false,
+    menu: false,
+    div: 'canvas',
+    io: true,
+  });
+
+
+  if (!ui.canvas) {
+    ui.canvas = new types.Canvas(opts.width, opts.height, opts.div, opts);
+
+    if (opts.io && typeof document !== 'undefined') {
+      ui.canvas.element.onmousedown = ui.onmousedown;
+      ui.canvas.element.onmousemove = ui.onmousemove;
+    	document.onkeydown = ui.onkeydown;
+    }
+  }
+
+  // TODO - init sidebar, messages, flavor, menu
+  UI_BUFFER = UI_BUFFER || ui.canvas.allocBuffer();
+  UI_BASE = UI_BASE || ui.canvas.allocBuffer();
+  UI_OVERLAY = UI_OVERLAY || ui.canvas.allocBuffer();
+  UI_BASE.clear();
+  UI_OVERLAY.clear();
+
+  IN_DIALOG = false;
+
+  ui.blackOutDisplay();
+	RUNNING = true;
+	uiLoop();
+
+  return ui.canvas;
+}
+
+ui.start = start;
+
+
+function stop() {
+	RUNNING = false;
+}
+
+ui.stop = stop;
+
+
+let UPDATE_REQUESTED = 0;
+function requestUpdate(t=1) {
+	UPDATE_REQUESTED = Math.max(UPDATE_REQUESTED, t, 1);
+}
+
+ui.requestUpdate = requestUpdate;
+
+async function updateNow(t=1) {
+	t = Math.max(t, UPDATE_REQUESTED, 1);
+	UPDATE_REQUESTED = 0;
+
+	ui.draw();
+	ui.canvas.draw();
+	if (t) {
+		const now = performance.now();
+		console.log('UI update - with timeout:', t);
+		const r = await io.tickMs(t);
+		// console.log('- done', r, Math.floor(performance.now() - now));
+	}
+}
+
+ui.updateNow = updateNow;
+
+async function updateIfRequested() {
+	if (UPDATE_REQUESTED) {
+		await ui.updateNow(UPDATE_REQUESTED);
+	}
+}
+
+ui.updateIfRequested = updateIfRequested;
+
+// EVENTS
+
+function onkeydown(e) {
+	if (io.ignoreKeyEvent(e)) return;
+
+	if (e.code === 'Escape') {
+		io.clearEvents();	// clear all current events, then push on the escape
+  }
+
+	const ev = io.makeKeyEvent(e);
+	io.pushEvent(ev);
+}
+
+ui.onkeydown = onkeydown;
+
+function onmousemove(e) {
+	const x = ui.canvas.toX(e.clientX);
+	const y = ui.canvas.toY(e.clientY);
+	const ev = io.makeMouseEvent(e, x, y);
+	io.pushEvent(ev);
+}
+
+ui.onmousemove = onmousemove;
+
+function onmousedown(e) {
+	const x = ui.canvas.toX(e.clientX);
+	const y = ui.canvas.toY(e.clientY);
+	const ev = io.makeMouseEvent(e, x, y);
+	io.pushEvent(ev);
+}
+
+ui.onmousedown = onmousedown;
+
+// FUNCS
+
+async function messageBox(text, fg, duration) {
+
+  const buffer = ui.startDialog();
+
+  const len = text.length;
+  const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
+  const y = Math.floor(ui.canvas.height / 2) - 1;
+  buffer.fillRect(x, y, len + 4, 3, ' ', 'black', 'black');
+	buffer.plotText(x + 2, y + 1, text, fg || 'white');
+	ui.draw();
+
+	await io.pause(duration || 30 * 1000);
+
+	ui.finishDialog();
+}
+
+ui.messageBox = messageBox;
+
+
+function blackOutDisplay() {
+	UI_BUFFER.erase();
+}
+
+ui.blackOutDisplay = blackOutDisplay;
+
+
+// DIALOG
+
+function startDialog() {
+  IN_DIALOG = true;
+  ui.canvas.copyBuffer(UI_BASE);
+  UI_OVERLAY.clear();
+  return UI_OVERLAY;
+}
+
+ui.startDialog = startDialog;
+
+
+function finishDialog() {
+  IN_DIALOG = false;
+  ui.canvas.overlay(UI_BASE);
+  UI_OVERLAY.clear();
+}
+
+ui.finishDialog = finishDialog;
+
+// DRAW
+
+function draw() {
+  if (IN_DIALOG) {
+    ui.canvas.overlay(UI_BASE);
+    ui.canvas.overlay(UI_OVERLAY);
+  }
+  else if (ui.canvas) {
+    // const side = GW.sidebar.draw(UI_BUFFER);
+    if (data.map) data.map.draw(ui.canvas.buffer);
+			UPDATE_REQUESTED = 0;
+    // }
+  }
+}
+
+ui.draw = draw;
+
+var message = {};
+
+function moveBlocked(ctx) {
+  console.log('Blocked!');
+}
+
+message.moveBlocked = moveBlocked;
+
+var commands = {};
+
+
+async function moveDir(e) {
+  const actor = e.actor || data.player;
+  const newX = e.dir[0] + actor.x;
+  const newY = e.dir[1] + actor.y;
+  const map = data.map;
+  const cell = map.cell(newX, newY);
+
+  if (!map.hasXY(newX, newY)) {
+    message.moveBlocked({ actor, x: newX, y: newY, map });
+    return false;
+  }
+
+  // TODO - Can we leave old cell?
+  // PROMOTES ON EXIT, NO KEY(?), PLAYER EXIT
+
+  // Can we enter new cell?
+  if (cell.hasTileFlag(Flags.T_OBSTRUCTS_PASSABILITY)) {
+    message.moveBlocked({ actor, x: newX, y: newY, map });
+    return false;
+  }
+  if (map.diagonalBlocked(actor.x, actor.y, newX, newY)) {
+    message.moveBlocked({ actor, x: newX, y: newY, map });
+    return false;
+  }
+
+  if (!map.moveActor(newX, newY, actor)) {
+    message.moveFailed({ actor, x: newX, y: newY, map });
+    return false;
+  }
+
+  // PROMOTES ON ENTER, PLAYER ENTER, KEY(?)
+
+  ui.requestUpdate();
+  actor.endTurn();
+  return true;
+}
+
+commands.moveDir = moveDir;
+
+
+// async function moveTo(x, y, actor) {
+//   actor = actor || DATA.player;
+//   return commands.moveDir(x - actor.x, y - actor.y, actor);
+// }
+
 var io = {};
 
 const KEYMAPS = [];
@@ -2398,11 +4545,11 @@ function addKeymap(keymap) {
 
 io.addKeymap = addKeymap;
 
-function busy() {
+function busy$1() {
 	return KEYMAPS.length && KEYMAPS[KEYMAPS.length - 1].busy;
 }
 
-io.busy = busy;
+io.busy = busy$1;
 
 function hasEvents() {
 	return EVENTS.length;
@@ -3633,202 +5780,6 @@ function attachHallway(grid, doorSitesArray, opts) {
 
 digger.attachHallway = attachHallway;
 
-var tile = {};
-var tiles = [];
-
-const Fl$1 = flag.fl;
-
-const Flags = flag.install('tile', {
-  T_OBSTRUCTS_PASSABILITY	: Fl$1(0),		// cannot be walked through
-  T_OBSTRUCTS_VISION			: Fl$1(1),		// blocks line of sight
-  T_OBSTRUCTS_ITEMS				: Fl$1(2),		// items can't be on this tile
-  T_OBSTRUCTS_SURFACE		  : Fl$1(3),		// grass, blood, etc. cannot exist on this tile
-  T_OBSTRUCTS_GAS					: Fl$1(4),		// blocks the permeation of gas
-  T_OBSTRUCTS_DIAGONAL_MOVEMENT : Fl$1(5),    // can't step diagonally around this tile
-
-  T_AUTO_DESCENT					: Fl$1(6),		// automatically drops creatures down a depth level and does some damage (2d6)
-  T_LAVA			            : Fl$1(7),		// kills any non-levitating non-fire-immune creature instantly
-  T_DEEP_WATER					  : Fl$1(8),		// steals items 50% of the time and moves them around randomly
-
-  T_SPONTANEOUSLY_IGNITES	: Fl$1(9),		// monsters avoid unless chasing player or immune to fire
-  T_IS_FLAMMABLE					: Fl$1(10),		// terrain can catch fire
-  T_IS_FIRE								: Fl$1(11),		// terrain is a type of fire; ignites neighboring flammable cells
-  T_ENTANGLES							: Fl$1(12),		// entangles players and monsters like a spiderweb
-
-  T_CAUSES_POISON					: Fl$1(13),		// any non-levitating creature gets 10 poison
-  T_CAUSES_DAMAGE					: Fl$1(14),		// anything on the tile takes max(1-2, 10%) damage per turn
-  T_CAUSES_NAUSEA					: Fl$1(15),		// any creature on the tile becomes nauseous
-  T_CAUSES_PARALYSIS			: Fl$1(16),		// anything caught on this tile is paralyzed
-  T_CAUSES_CONFUSION			: Fl$1(17),		// causes creatures on this tile to become confused
-  T_CAUSES_HEALING   	    : Fl$1(18),   // heals 20% max HP per turn for any player or non-inanimate monsters
-  T_IS_TRAP								: Fl$1(19),		// spews gas of type specified in fireType when stepped on
-  T_CAUSES_EXPLOSIVE_DAMAGE		: Fl$1(20),		// is an explosion; deals higher of 15-20 or 50% damage instantly, but not again for five turns
-  T_SACRED                : Fl$1(21),   // monsters that aren't allies of the player will avoid stepping here
-
-  T_UP_STAIRS							: Fl$1(22),
-  T_DOWN_STAIRS						: Fl$1(23),
-  T_PORTAL                : Fl$1(24),
-  T_IS_DOOR								: Fl$1(25),
-
-  T_HAS_STAIRS						: ['T_UP_STAIRS', 'T_DOWN_STAIRS'],
-  T_OBSTRUCTS_SCENT				: ['T_OBSTRUCTS_PASSABILITY', 'T_OBSTRUCTS_VISION', 'T_AUTO_DESCENT', 'T_LAVA', 'T_DEEP_WATER', 'T_SPONTANEOUSLY_IGNITES', 'T_HAS_STAIRS'],
-  T_PATHING_BLOCKER				: ['T_OBSTRUCTS_PASSABILITY', 'T_AUTO_DESCENT', 'T_IS_TRAP', 'T_LAVA', 'T_DEEP_WATER', 'T_IS_FIRE', 'T_SPONTANEOUSLY_IGNITES', 'T_ENTANGLES'],
-  T_DIVIDES_LEVEL       	: ['T_OBSTRUCTS_PASSABILITY', 'T_AUTO_DESCENT', 'T_IS_TRAP', 'T_LAVA', 'T_DEEP_WATER'],
-  T_LAKE_PATHING_BLOCKER	: ['T_AUTO_DESCENT', 'T_LAVA', 'T_DEEP_WATER', 'T_SPONTANEOUSLY_IGNITES'],
-  T_WAYPOINT_BLOCKER			: ['T_OBSTRUCTS_PASSABILITY', 'T_AUTO_DESCENT', 'T_IS_TRAP', 'T_LAVA', 'T_DEEP_WATER', 'T_SPONTANEOUSLY_IGNITES'],
-  T_MOVES_ITEMS						: ['T_DEEP_WATER', 'T_LAVA'],
-  T_CAN_BE_BRIDGED				: ['T_AUTO_DESCENT'],
-  T_OBSTRUCTS_EVERYTHING	: ['T_OBSTRUCTS_PASSABILITY', 'T_OBSTRUCTS_VISION', 'T_OBSTRUCTS_ITEMS', 'T_OBSTRUCTS_GAS', 'T_OBSTRUCTS_SURFACE',   'T_OBSTRUCTS_DIAGONAL_MOVEMENT'],
-  T_HARMFUL_TERRAIN				: ['T_CAUSES_POISON', 'T_IS_FIRE', 'T_CAUSES_DAMAGE', 'T_CAUSES_PARALYSIS', 'T_CAUSES_CONFUSION', 'T_CAUSES_EXPLOSIVE_DAMAGE'],
-  T_RESPIRATION_IMMUNITIES  : ['T_CAUSES_DAMAGE', 'T_CAUSES_CONFUSION', 'T_CAUSES_PARALYSIS', 'T_CAUSES_NAUSEA'],
-  T_IS_LIQUID               : ['T_LAVA', 'T_AUTO_DESCENT', 'T_DEEP_WATER'],
-});
-
-tile.flags = Flags;
-
-///////////////////////////////////////////////////////
-// TILE MECH
-
-
-const MechFlags = flag.install('tileMech', {
-  TM_IS_SECRET							: Fl$1(0),		// successful search or being stepped on while visible transforms it into discoverType
-  TM_PROMOTES_WITH_KEY			: Fl$1(1),		// promotes if the key is present on the tile (in your pack, carried by monster, or lying on the ground)
-  TM_PROMOTES_WITHOUT_KEY		: Fl$1(2),		// promotes if the key is NOT present on the tile (in your pack, carried by monster, or lying on the ground)
-  TM_PROMOTES_ON_STEP				: Fl$1(3),		// promotes when a creature, player or item is on the tile (whether or not levitating)
-  TM_PROMOTES_ON_ITEM_REMOVE		: Fl$1(4),		// promotes when an item is lifted from the tile (primarily for altars)
-  TM_PROMOTES_ON_PLAYER_ENTRY		: Fl$1(5),		// promotes when the player enters the tile (whether or not levitating)
-  TM_PROMOTES_ON_SACRIFICE_ENTRY: Fl$1(6),		// promotes when the sacrifice target enters the tile (whether or not levitating)
-  TM_PROMOTES_ON_ELECTRICITY    : Fl$1(7),    // promotes when hit by a lightning bolt
-  TM_ALLOWS_SUBMERGING					: Fl$1(8),		// allows submersible monsters to submerge in this terrain
-  TM_IS_WIRED										: Fl$1(9),		// if wired, promotes when powered, and sends power when promoting
-  TM_IS_CIRCUIT_BREAKER 				: Fl$1(10),        // prevents power from circulating in its machine
-  TM_GAS_DISSIPATES							: Fl$1(11),		// does not just hang in the air forever
-  TM_GAS_DISSIPATES_QUICKLY			: Fl$1(12),		// dissipates quickly
-  TM_EXTINGUISHES_FIRE					: Fl$1(13),		// extinguishes burning terrain or creatures
-  TM_VANISHES_UPON_PROMOTION		: Fl$1(14),		// vanishes when creating promotion dungeon feature, even if the replacement terrain priority doesn't require it
-  TM_REFLECTS_BOLTS           	: Fl$1(15),       // magic bolts reflect off of its surface randomly (similar to ACTIVE_CELLS flag IMPREGNABLE)
-  TM_STAND_IN_TILE            	: Fl$1(16),		// earthbound creatures will be said to stand "in" the tile, not on it
-  TM_LIST_IN_SIDEBAR          	: Fl$1(17),       // terrain will be listed in the sidebar with a description of the terrain type
-  TM_VISUALLY_DISTINCT        	: Fl$1(18),       // terrain will be color-adjusted if necessary so the character stands out from the background
-  TM_BRIGHT_MEMORY            	: Fl$1(19),       // no blue fade when this tile is out of sight
-  TM_EXPLOSIVE_PROMOTE        	: Fl$1(20),       // when burned, will promote to promoteType instead of burningType if surrounded by tiles with T_IS_FIRE or TM_EXPLOSIVE_PROMOTE
-  TM_CONNECTS_LEVEL           	: Fl$1(21),       // will be treated as passable for purposes of calculating level connectedness, irrespective of other aspects of this terrain layer
-  TM_INTERRUPT_EXPLORATION_WHEN_SEEN : Fl$1(22),    // will generate a message when discovered during exploration to interrupt exploration
-  TM_INVERT_WHEN_HIGHLIGHTED  	: Fl$1(23),       // will flip fore and back colors when highlighted with pathing
-  TM_SWAP_ENCHANTS_ACTIVATION 	: Fl$1(24),       // in machine, swap item enchantments when two suitable items are on this terrain, and activate the machine when that happens
-  TM_PROMOTES										: 'TM_PROMOTES_WITH_KEY | TM_PROMOTES_WITHOUT_KEY | TM_PROMOTES_ON_STEP | TM_PROMOTES_ON_ITEM_REMOVE | TM_PROMOTES_ON_SACRIFICE_ENTRY | TM_PROMOTES_ON_ELECTRICITY | TM_PROMOTES_ON_PLAYER_ENTRY',
-});
-
-tile.mechFlags = MechFlags;
-
-function setFlags(tile, allFlags) {
-  let flags = [];
-  if (!allFlags) return;  // no flags
-
-  if (typeof allFlags === 'string') {
-    flags = allFlags.split(/[,|]/).map( (t) => t.trim() );
-  }
-  else if (!Array.isArray(allFlags)) {
-    return utils$1.WARN('Invalid tile flags: ' + allFlags);
-  }
-  else if (allFlags.length <= 2) {
-    if (typeof allFlags[0] === 'number') {
-      tile.flags = allFlags[0] || 0;
-      tile.mechFlags = allFlags[1] || 0;
-      return;
-    }
-  }
-
-  flags.forEach((f) => {
-    if (typeof f !== 'string') {
-      utils$1.WARN('Invalid tile flag: ' + f);
-    }
-    else if (Flags[f]) {
-      tile.flags |= Flags[f];
-    }
-    else if (MechFlags[f]) {
-      tile.mechFlags |= MechFlags[f];
-    }
-    else {
-      utils$1.WARN('Invalid tile flag: ' + f);
-    }
-  });
-}
-
-
-class Tile {
-  constructor(ch, fg, bg, layer, priority, allFlags, desc, flavor) {
-    this.flags = 0;
-    this.mechFlags = 0;
-    this.layer = layer || 0;
-    this.priority = priority || 50; // lower means higher priority (50 = average)
-    this.sprite = make.sprite(ch, fg, bg);
-    this.events = {};
-    this.light = null;
-    this.desc = desc || '';
-    this.flavor = flavor || '';
-    this.name = null;
-
-    setFlags(this, allFlags);
-  }
-
-  successorFlags(event) {
-    const e = this.events[event];
-    if (!e) return 0;
-    const feature = e.feature;
-    if (!feature) return 0;
-    // const tile = FEATURES[feature].tile;
-    // if (!tile) return 0;
-    // return tiles[tile].flags;
-  }
-}
-
-types.Tile = Tile;
-
-function makeTile(ch, fg, bg, priority, layer, allFlags, desc, flavor, opts={}) {
-  const tile = new types.Tile(ch, fg, bg, layer, priority, allFlags, desc, flavor);
-  // TODO - tile.light = opts.light || null;
-  // TODO - tile.events.fire = opts.fire
-  // TODO - tile.events.promote = opts.promote
-  // TODO - tile.events.discover = opts.discover
-  return tile;
-}
-
-make.tile = makeTile;
-
-function installTile(name, ...args) {
-  let tile;
-  if (args.length == 1 && args[0] instanceof Tile) {
-    tile = args[0];
-  }
-  else {
-    tile = make.tile(...args);
-  }
-  tile.name = name;
-  tile.id = tiles.length;
-  tiles.push(tile);
-  return tile.id;
-}
-
-tile.install = installTile;
-
-// These are the minimal set of tiles to make the diggers work
-const NOTHING = def.NOTHING = 0;
-installTile(NOTHING,       '\u2205', 'black', 'black', 0, 0, 'T_OBSTRUCTS_PASSABILITY', "an eerie nothingness", "");
-installTile('FLOOR',       '\u00b7', [30,30,30,20], [2,2,10,0,2,2,0], 10);	// FLOOR
-installTile('DOOR',        '+', [100,40,40], [30,60,60], 30, 0, 'T_IS_DOOR');	// DOOR
-installTile('BRIDGE',      '=', [100,40,40], [60,40,0], 70);	// BRIDGE
-installTile('UP_STAIRS',   '<', [100,40,40], [100,60,20], 200);	// UP
-installTile('DOWN_STAIRS', '>', [100,40,40], [100,60,20], 200);	// DOWN
-installTile('WALL',        '#', [7,7,7,0,3,3,3],  [40,40,40,10,10,0,5], 100, 0, 'T_OBSTRUCTS_EVERYTHING');	// WALL
-installTile('LAKE',        '~', [5,8,20,10,0,4,15,1], [10,15,41,6,5,5,5,1], 50, 0, 'T_DEEP_WATER');	// LAKE
-
-function withName(name) {
-  return tiles.find( (t) => t.name == name );
-}
-
-tile.withName = withName;
-
 const DIRS$3 = def.dirs;
 const OPP_DIRS = [def.DOWN, def.UP, def.RIGHT, def.LEFT];
 
@@ -3850,7 +5801,7 @@ let SITE = null;
 let LOCS;
 
 
-function start(map, opts={}) {
+function start$1(map, opts={}) {
 
   FLOOR       = tile.withName('FLOOR')       ? tile.withName('FLOOR').id        : FLOOR;
   DOOR        = tile.withName('DOOR')        ? tile.withName('DOOR').id         : DOOR;
@@ -3872,7 +5823,7 @@ function start(map, opts={}) {
   SITE = map;
 }
 
-dungeon.start = start;
+dungeon.start = start$1;
 
 
 function finish() {
@@ -4513,1901 +6464,6 @@ function addStairs(upX, upY, downX, downY, minDistance) {
 }
 
 dungeon.addStairs = addStairs;
-
-var cell = {};
-
-const Layer = new types.Enum('GROUND', 'LIQUID', 'SURFACE', 'GAS', 'ITEM', 'ACTOR', 'PLAYER', 'FX', 'UI');
-
-cell.Layer = Layer;
-
-const Fl$2 = flag.fl;
-
-const Flags$1 = flag.install('cell', {
-  REVEALED					: Fl$2(0),
-  VISIBLE							: Fl$2(1),	// cell has sufficient light and is in field of view, ready to draw.
-  WAS_VISIBLE					: Fl$2(2),
-  IN_FOV		          : Fl$2(3),	// player has unobstructed line of sight whether or not there is enough light
-
-  HAS_PLAYER					: Fl$2(4),
-  HAS_MONSTER					: Fl$2(5),
-  HAS_DORMANT_MONSTER	: Fl$2(6),	// hidden monster on the square
-  HAS_ITEM						: Fl$2(7),
-  HAS_STAIRS					: Fl$2(8),
-  HAS_FX              : Fl$2(9),
-
-  IS_IN_PATH					: Fl$2(12),	// the yellow trail leading to the cursor
-  IS_CURSOR						: Fl$2(13),	// the current cursor
-
-  MAGIC_MAPPED				: Fl$2(14),
-  ITEM_DETECTED				: Fl$2(15),
-
-  STABLE_MEMORY						: Fl$2(16),	// redraws will simply be pulled from the memory array, not recalculated
-
-  CLAIRVOYANT_VISIBLE			: Fl$2(17),
-  WAS_CLAIRVOYANT_VISIBLE	: Fl$2(18),
-  CLAIRVOYANT_DARKENED		: Fl$2(19),	// magical blindness from a cursed ring of clairvoyance
-
-  IMPREGNABLE							: Fl$2(20),	// no tunneling allowed!
-
-  TELEPATHIC_VISIBLE			: Fl$2(22),	// potions of telepathy let you see through other creatures' eyes
-  WAS_TELEPATHIC_VISIBLE	: Fl$2(23),	// potions of telepathy let you see through other creatures' eyes
-
-  MONSTER_DETECTED				: Fl$2(24),
-  WAS_MONSTER_DETECTED		: Fl$2(25),
-
-  NEEDS_REDRAW            : Fl$2(26),	// needs to be redrawn (maybe in path, etc...)
-  TILE_CHANGED						: Fl$2(27),	// one of the tiles changed
-
-  CELL_LIT                : Fl$2(28),
-  IS_IN_SHADOW				    : Fl$2(29),	// so that a player gains an automatic stealth bonus
-  CELL_DARK               : Fl$2(30),
-
-  PERMANENT_CELL_FLAGS : ['REVEALED', 'MAGIC_MAPPED', 'ITEM_DETECTED', 'HAS_ITEM', 'HAS_DORMANT_MONSTER',
-              'HAS_STAIRS', 'STABLE_MEMORY', 'IMPREGNABLE'],
-
-  ANY_KIND_OF_VISIBLE			: ['VISIBLE', 'CLAIRVOYANT_VISIBLE', 'TELEPATHIC_VISIBLE'],
-  HAS_ACTOR               : ['HAS_PLAYER', 'HAS_MONSTER'],
-});
-
-cell.flags = Flags$1;
-
-///////////////////////////////////////////////////////
-// CELL MECH
-
-const MechFlags$1 = flag.install('cellMech', {
-  SEARCHED_FROM_HERE				: Fl$2(0),	// Player already auto-searched from here; can't auto search here again
-  CAUGHT_FIRE_THIS_TURN			: Fl$2(1),	// so that fire does not spread asymmetrically
-  PRESSURE_PLATE_DEPRESSED	: Fl$2(2),	// so that traps do not trigger repeatedly while you stand on them
-  KNOWN_TO_BE_TRAP_FREE			: Fl$2(3),	// keep track of where the player has stepped as he knows no traps are there
-
-  IS_IN_LOOP					: Fl$2(5),	// this cell is part of a terrain loop
-  IS_CHOKEPOINT				: Fl$2(6),	// if this cell is blocked, part of the map will be rendered inaccessible
-  IS_GATE_SITE				: Fl$2(7),	// consider placing a locked door here
-  IS_IN_ROOM_MACHINE	: Fl$2(8),
-  IS_IN_AREA_MACHINE	: Fl$2(9),
-  IS_POWERED					: Fl$2(10),	// has been activated by machine power this turn (can probably be eliminate if needed)
-
-  IS_IN_MACHINE				: ['IS_IN_ROOM_MACHINE', 'IS_IN_AREA_MACHINE'], 	// sacred ground; don't generate items here, or teleport randomly to it
-
-  PERMANENT_MECH_FLAGS : ['SEARCHED_FROM_HERE', 'PRESSURE_PLATE_DEPRESSED', 'KNOWN_TO_BE_TRAP_FREE', 'IS_IN_LOOP',
-                          'IS_CHOKEPOINT', 'IS_GATE_SITE', 'IS_IN_MACHINE', ],
-});
-
-cell.mechFlags = MechFlags$1;
-
-
-class CellMemory {
-  constructor() {
-    this.sprite = make.sprite();
-    this.clear();
-  }
-
-  clear() {
-    this.sprite.clear();
-    this.itemKind = null;
-    this.itemQuantity = 0;
-    this.tile = null;
-    this.cellFlags = 0;
-    this.cellMechFlags = 0;
-    this.tileFlags = 0;
-    this.tileMechFlags = 0;
-  }
-
-  copy(other) {
-    utils$1.copyObject(this, other);
-  }
-}
-
-types.CellMemory = CellMemory;
-
-
-
-class Cell {
-  constructor() {
-    this.memory = new types.CellMemory();
-    this.clear();
-  }
-
-  copy(other) {
-    utils$1.copyObject(this, other);
-  }
-
-  clear() {
-    this.base = 0;
-    this.surface = 0;
-    this.gas = 0;
-    this.liquid = 0;
-    this.sprites = null;
-    this.actor = null;
-    this.flags = 0;							// non-terrain cell flags
-    this.mechFlags = 0;
-    this.gasVolume = 0;						// quantity of gas in cell
-    this.liquidVolume = 0;
-    this.machineNumber = 0;
-    this.memory.clear();
-  }
-
-  dump() { return tiles[this.base].sprite.ch; }
-  isVisible() { return this.flags & Flags$1.VISIBLE; }
-  isAnyKindOfVisible() { return (this.flags & Flags$1.ANY_KIND_OF_VISIBLE) || config.playbackOmniscience; }
-  hasVisibleLight() { return true; }  // TODO
-
-  redraw() { this.flags |= Flags$1.NEEDS_REDRAW; }
-
-  *tiles() {
-    if (this.base) yield tiles[this.base];
-    if (this.surface) yield tiles[this.surface];
-    if (this.liquid) yield tiles[this.liquid];
-    if (this.gas) yield tiles[this.gas];
-  }
-
-  tileFlags(limitToPlayerKnowledge) {
-    if (limitToPlayerKnowledge && !this.isVisible()) {
-      return this.memory.tileFlags;
-    }
-    let flags = 0;
-    for( let tile of this.tiles()) {
-      flags |= tile.flags;
-    }
-    return flags;
-  }
-
-  tileMechFlags(limitToPlayerKnowledge)	{
-    if (limitToPlayerKnowledge && !this.isVisible()) {
-      return this.memory.tileMechFlags;
-    }
-    let flags = 0;
-    for( let tile of this.tiles()) {
-      flags |= tile.mechFlags;
-    }
-    return flags;
-  }
-
-  hasTileFlag(flagMask)	{
-    return !!(flagMask & this.tileFlags());
-  }
-
-  hasTileMechFlag(flagMask) {
-    return !!(flagMask & this.tileMechFlags());
-  }
-
-  setFlags(cellFlag=0, cellMechFlag=0) {
-    this.flags |= cellFlag;
-    this.mechFlags |= cellMechFlag;
-    this.flags |= Flags$1.NEEDS_REDRAW;
-  }
-
-  clearFlags(cellFlag=0, cellMechFlag=0) {
-    this.flags &= ~cellFlag;
-    this.mechFlags &= ~cellMechFlag;
-    if ((~cellFlag) & Flags$1.NEEDS_REDRAW) {
-      this.flags |= Flags$1.NEEDS_REDRAW;
-    }
-  }
-
-  hasTile(id) {
-    return this.base === id || this.surface === id || this.gas === id || this.liquid === id;
-  }
-
-  // hasTileInGroup(...groups) {
-  //   if (groups.length == 1 && Array.isArray(groups[0])) {
-  //     groups = groups[0];
-  //   }
-  //   return this.layers.some( (tileId) => {
-  //     const tile = TILES[tileId] || TILES.NOTHING;
-  //     return GW.utils.intersect(groups, tile.groups);
-  //   });
-  // }
-
-  successorTileFlags(event) {
-    let flags = 0;
-    for( let tile of this.tiles()) {
-      flags |= tile.successorFlags(event);
-    }
-    return flags;
-  }
-
-  promotedTileFlags() {
-    return this.successorTileFlags('promote');
-  }
-
-  discoveredTileFlags() {
-    return this.successorTileFlags('discover');
-  }
-
-  hasDiscoveredTileFlag(flag) {
-    // if (!this.hasTileMechFlag(TM_IS_SECRET)) return false;
-    return this.discoveredTileFlags() & flag;
-  }
-
-  highestPriorityTile() {
-    let best = tiles[0];
-    let bestPriority = 10000;
-    for(let tile of this.tiles()) {
-      if (tile.priority < bestPriority) {
-        best = tile;
-        bestPriority = tile.priority;
-      }
-    }
-    return best;
-  }
-
-  tileWithFlag(tileFlag) {
-    for(let tile of this.tiles()) {
-      if (tile.flags & tileFlags) return tile;
-    }
-    return null;
-  }
-
-  tileWithMechFlag(mechFlag) {
-    for(let tile of this.tiles()) {
-      if (tile.mechFlags & mechFlags) return tile;
-    }
-    return null;
-  }
-
-  // Retrieves a pointer to the flavor text of the highest-priority terrain at the given location
-  tileFlavor() {
-    return this.highestPriorityTile().flavor;
-  }
-
-  // Retrieves a pointer to the description text of the highest-priority terrain at the given location
-  tileText() {
-    return this.highestPriorityTile().desc;
-  }
-
-  isEmpty() {
-    return this.base == 0;
-  }
-
-  isPassableNow(limitToPlayerKnowledge) {
-    const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
-    const tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
-    if (!(tileFlags & Flags.T_PATHING_BLOCKER)) return true;
-
-    let tileMechFlags = (useMemory) ? this.memory.tileMechFlags : this.tileMechFlags();
-    return limitToPlayerKnowledge ? false : this.isSecretDoor();
-  }
-
-  canBePassed(limitToPlayerKnowledge) {
-    if (this.isPassableNow(limitToPlayerKnowledge)) return true;
-    const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
-    let tileMechFlags = (useMemory) ? this.memory.tileMechFlags : this.tileMechFlags();
-    if (tileMechFlags & MechFlags.TM_CONNECTS_LEVEL) return true;
-    return ((tileMechFlags & MechFlags.TM_PROMOTES) && !(this.promotedTileFlags() & Flags.T_PATHING_BLOCKER));
-  }
-
-  isObstruction(limitToPlayerKnowledge) {
-    const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
-    let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
-    return tileFlags & Flags.T_OBSTRUCTS_DIAGONAL_MOVEMENT;
-  }
-
-  isDoor(limitToPlayerKnowledge) {
-    const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
-    let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
-    return tileFlags & Flags.T_IS_DOOR;
-  }
-
-  isSecretDoor(limitToPlayerKnowledge) {
-    if (limitToPlayerKnowledge) return false;
-    const tileMechFlags = this.tileMechFlags();
-    return (tileMechFlags & MechFlags.TM_IS_SECRET) && !(this.discoveredTileFlags() & Flags.T_PATHING_BLOCKER)
-  }
-
-  blocksPathing(limitToPlayerKnowledge) {
-    const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
-    let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
-    return tileFlags & Flags.T_PATHING_BLOCKER;
-  }
-
-  isLiquid(limitToPlayerKnowledge) {
-    const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
-    let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
-    return tileFlags & Flags.T_IS_LIQUID;
-  }
-
-  markRevealed() {
-    this.flags &= ~Flags$1.STABLE_MEMORY;
-    if (!(this.flags & Flags$1.REVEALED)) {
-      this.flags |= Flags$1.REVEALED;
-      if (!this.hasTileFlag(Flags.T_PATHING_BLOCKER)) {
-        data.xpxpThisTurn++;
-      }
-    }
-  }
-
-  setTile(tileId, checkPriority) {
-    let tile;
-    if (typeof tileId === 'string') {
-      tile = withName(tileId);
-    }
-    else {
-      tile = tiles[tileId];
-    }
-
-    if (!tile) {
-      tile = tiles[0];
-    }
-
-    const oldTileId = this.base || 0;
-    const oldTile = tiles[oldTileId] || tiles[0];
-
-    if (checkPriority && oldTile.priority > tile.priority) return false;
-
-    this.base = tile.id;
-    this.flags |= (Flags$1.NEEDS_REDRAW | Flags$1.TILE_CHANGED);
-    return (oldTile.glowLight !== tile.glowLight);
-  }
-
-  setSurface(tileId, force) {
-
-  }
-
-  setGas(tileId, volume, force) {
-
-  }
-
-  setLiquid(tileId, volume, force) {
-
-  }
-
-
-  // SPRITES
-
-  addSprite(layer, sprite, priority=50) {
-
-    this.flags |= Flags$1.NEEDS_REDRAW;
-
-    if (!this.sprites) {
-      this.sprites = { layer, priority, sprite, next: null };
-      return;
-    }
-
-    let current = this.sprites;
-    while(current.next && current.layer < layer || (current.layer == layer && current.priority <= priority)) {
-      current = current.next;
-    }
-
-    const item = { layer, priority, sprite, next: current.next };
-    current.next = item;
-  }
-
-  removeSprite(sprite) {
-
-    this.flags |= Flags$1.NEEDS_REDRAW;
-    
-    if (this.sprites && this.sprites.sprite === sprite) {
-      this.sprites = this.sprites.next;
-      return;
-    }
-
-    let prev = this.sprites;
-    let current = this.sprites.next;
-    while (current) {
-      if (current.sprite === sprite) {
-        prev.next = current.next;
-        return true;
-      }
-      current = current.next;
-    }
-    return false;
-  }
-
-  // MEMORY
-
-  storeMemory(item) {
-    const memory = this.memory;
-    memory.tileFlags = this.tileFlags();
-    memory.tileMechFlags = this.tileMechFlags();
-    memory.cellFlags = this.flags;
-		memory.cellMechFlags = this.mechFlags;
-    memory.tile = this.highestPriorityTile().id;
-		if (item) {
-			memory.itemKind = item.kind;
-			memory.itemQuantity = item.quantity || 1;
-		}
-		else {
-			memory.itemKind = null;
-			memory.itemQuantity = 0;
-		}
-  }
-
-}
-
-types.Cell = Cell;
-
-
-function makeCell(...args) {
-  const cell = new types.Cell(...args);
-  return cell;
-}
-
-
-make.cell = makeCell;
-
-
-function getAppearance(cell, dest) {
-  const baseTile = tiles[cell.base];
-	dest.copy(baseTile.sprite);
-
-  let current = cell.sprites;
-  while(current) {
-    dest.plot(current.sprite);
-    current = current.next;
-  }
-  return true;
-}
-
-cell.getAppearance = getAppearance;
-
-var map = {};
-
-const Fl$3 = flag.fl;
-
-const Flags$2 = flag.install('map', {
-	MAP_CHANGED: Fl$3(0),
-	MAP_STABLE_GLOW_LIGHTS:  Fl$3(1),
-	MAP_STABLE_LIGHTS: Fl$3(2),
-	MAP_ALWAYS_LIT:	Fl$3(3),
-});
-
-
-
-class Map {
-	constructor(w, h, opts={}) {
-		this.width = w;
-		this.height = h;
-		this.cells = make.grid(w, h, () => new types.Cell() );
-		this.locations = opts.locations || {};
-		this.config = Object.assign({}, opts);
-	}
-
-	clear() { this.cells.forEach( (c) => c.clear() ); }
-	dump() { this.cells.dump((c) => c.dump()); }
-	cell(x, y)   { return this.cells[x][y]; }
-	eachCell(fn) { this.cells.forEach(fn); }
-
-	hasXY(x, y)    		 { return this.cells.hasXY(x, y); }
-	isBoundaryXY(x, y) { return this.cells.isBoundaryXY(x, y); }
-
-	changed(v) {
-		if (arguments.length == 1) {
-			if (v) {
-				this.flags |= Flags$2.MAP_CHANGED;
-			}
-			else {
-				this.flags &= ~Flags$2.MAP_CHANGED;
-			}
-		}
-		return (this.flags & Flags$2.MAP_CHANGED);
-	}
-
-	hasCellFlag(x, y, flag) 		{ return this.cell(x, y).flags & flag; }
-	hasCellMechFlag(x, y, flag) { return this.cell(x, y).mechFlags & flag; }
-	hasTileFlag(x, y, flag) 		{ return this.cell(x, y).hasTileFlag(flag); }
-	hasTileMechFlag(x, y, flag) { return this.cell(x, y).hasTileMechFlag(flag); }
-
-	redrawCell(x, y) {
-		this.cell(x, y).redraw();
-		this.flags |= Flags$2.MAP_CHANGED;
-	}
-
-	markRevealed(x, y) { return this.cell(x, y).markRevealed(); }
-	isVisible(x, y)    { return this.cell(x, y).isVisible(); }
-	isAnyKindOfVisible(x, y) { return this.cell(x, y).isAnyKindOfVisible(); }
-	hasVisibleLight(x, y) { return (this.flags & Flags$2.MAP_ALWAYS_LIT) || this.cell(x, y).hasVisibleLight(); }
-
-	setFlags(mapFlag, cellFlag, cellMechFlag) {
-		if (mapFlag) {
-			this.flags |= mapFlag;
-		}
-		if (cellFlag || cellMechFlag) {
-			this.eachCell( (c) => c.setFlags(cellFlag, cellMechFlag) );
-		}
-		this.flags |= Flags$2.MAP_CHANGED;
-	}
-
-	clearFlags(mapFlag, cellFlag, cellMechFlag) {
-		if (mapFlag) {
-			this.flags &= ~mapFlag;
-		}
-		if (cellFlag || cellMechFlag) {
-			this.eachCell( (cell) => cell.clearFlags(cellFlag, cellMechFlag) );
-		}
-		this.flags |= Flags$2.MAP_CHANGED;
-	}
-
-	setCellFlags(x, y, cellFlag, cellMechFlag) {
-		this.cell(x, y).setFlags(cellFlag, cellMechFlag);
-		this.flags |= Flags$2.MAP_CHANGED;
-	}
-
-	clearCellFlags(x, y, cellFlags, cellMechFlags) {
-		this.cell(x, y).clearFlags(cellFlags, cellMechFlags);
-		this.flags |= Flags$2.MAP_CHANGED;
-	}
-
-	hasTile(x, y, tile)	{ return this.cells[x][y].hasTile(tile); }
-
-	tileFlags(x, y, limitToPlayerKnowledge)			{ return this.cells[x][y].tileFlags(limitToPlayerKnowledge); }
-	tileMechFlags(x, y, limitToPlayerKnowledge)	{ return this.cells[x][y].tileMechFlags(limitToPlayerKnowledge); }
-
-	tileWithFlag(x, y, flag) { return this.cells[x][y].tileWithFlag(flag); }
-	tileWithMechFlag(x, y, mechFlag) { return this.cells[x][y].tileWithMechFlag(mechFlag); }
-
-	hasKnownTileFlag(x, y, flagMask) { return this.cells[x][y].memory.tileFlags & flagMask; }
-
-	// hasTileInGroup(x, y, ...groups) { return this.cells[x][y].hasTileInGroup(...groups); }
-
-	discoveredTileFlags(x, y) { return this.cells[x][y].discoveredTileFlags(); }
-	hasDiscoveredTileFlag(x, y, flag) { return this.cells[x][y].hasDiscoveredTileFlag(flag); }
-
-	canBePassed(x, y, limitToPlayerKnowledge) { return this.cells[x][y].canBePassed(limitToPlayerKnowledge); }
-	isPassableNow(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isPassableNow(limitToPlayerKnowledge); }
-
-	isEmpty(x, y) { return this.cells[x][y].isEmpty(); }
-	isObstruction(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isObstruction(limitToPlayerKnowledge); }
-  isDoor(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isDoor(limitToPlayerKnowledge); }
-  blocksPathing(x, y, limitToPlayerKnowledge) { return this.cells[x][y].blocksPathing(limitToPlayerKnowledge); }
-  isLiquid(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isLiquid(limitToPlayerKnowledge); }
-  hasGas(x, y, limitToPlayerKnowledge) { return this.cells[x][y].hasGas(limitToPlayerKnowledge); }
-
-	highestPriorityLayer(x, y, skipGas) { return this.cells[x][y].highestPriorityLayer(x, y); }
-	highestPriorityTile(x, y, skipGas) { return this.cells[x][y].highestPriorityTile(x, y); }
-
-	tileFlavor(x, y) { return this.cells[x][y].tileFlavor(); }
-	tileText(x, y)   { return this.cells[x][y].tileText(); }
-
-	setTile(x, y, tileId, checkPriority) {
-		const cell = this.cell(x, y);
-		if (cell.setTile(tileId, checkPriority)) {
-			this.flags &= ~(Flags$2.MAP_STABLE_GLOW_LIGHTS);
-		}
-		this.flags |= Flags$2.MAP_CHANGED;
-	  return true;
-	}
-
-	fill(tileId, boundaryTile) {
-		let i, j;
-		if (boundaryTile === undefined) {
-			boundaryTile = tileId;
-		}
-		for(i=0; i < this.width; ++i) {
-			for(j = 0; j < this.height; ++j) {
-				if (this.isBoundaryXY(i, j)) {
-					this.setTile(i, j, boundaryTile);
-				}
-				else {
-					this.setTile(i, j, tileId);
-				}
-			}
-		}
-	}
-
-	passableArcCount(x, y) {
-		if (!this.hasXY(x, y)) return -1;
-		return this.cells.arcCount(x, y, (c) => c.isPassableNow() );
-	}
-
-	diagonalBlocked(x1, y1, x2, y2, limitToPlayerKnowledge) {
-	    if (x1 == x2 || y1 == y2) {
-	      return false; // If it's not a diagonal, it's not diagonally blocked.
-	    }
-	    const locFlags1 = this.tileFlags(x1, y2, limitToPlayerKnowledge);
-	    if (locFlags1 & Flags.T_OBSTRUCTS_DIAGONAL_MOVEMENT) {
-	        return true;
-	    }
-	    const locFlags2 = this.tileFlags(x2, y1, limitToPlayerKnowledge);
-	    if (locFlags2 & Flags.T_OBSTRUCTS_DIAGONAL_MOVEMENT) {
-	        return true;
-	    }
-	    return false;
-	}
-
-	fillBasicCostGrid(costGrid) {
-		this.cells.forEach( (cell, i, j) => {
-      if (cell.isEmpty()) {
-        costGrid[i][j] = def.PDS_OBSTRUCTION;
-      }
-      else {
-        costGrid[i][j] = cell.canBePassed() ? 1 : def.PDS_OBSTRUCTION;
-      }
-    });
-	}
-
-	// blockingMap is optional
-	matchingXYNear(x, y, matcher, opts={})
-	{
-		let i, j, k;
-
-		const hallwaysAllowed = opts.hallwaysAllowed || opts.hallways || false;
-		const blockingMap = opts.blockingMap || null;
-		const forbidLiquid = opts.forbidLiquid || opts.forbidLiquids || false;
-		const deterministic = opts.deterministic || false;
-
-		const candidateLocs = [];
-
-		// count up the number of candidate locations
-		for (k=0; k<Math.max(this.width, this.height) && !candidateLocs.length; k++) {
-			for (i = x-k; i <= x+k; i++) {
-				for (j = y-k; j <= y+k; j++) {
-					if (!this.hasXY(i, j)) continue;
-					const cell = this.cell(i, j);
-					// if ((i == x-k || i == x+k || j == y-k || j == y+k)
-					if ((Math.floor(utils$1.distanceBetween(x, y, i, j)) == k)
-							&& (!blockingMap || !blockingMap[i][j])
-							&& matcher(cell, i, j)
-							&& (!forbidLiquid || cell.liquid == def.NOTHING)
-							&& (hallwaysAllowed || this.passableArcCount(i, j) < 2))
-	        {
-						candidateLocs.push([i, j]);
-					}
-				}
-			}
-		}
-
-		if (candidateLocs.length == 0) {
-			return null;
-		}
-
-		// and pick one
-		let randIndex = 0;
-		if (deterministic) {
-	    randIndex = Math.floor(candidateLocs.length / 2);
-		} else {
-			randIndex = random.number(candidateLocs.length) - 1;
-		}
-		return candidateLocs[randIndex];
-	}
-
-
-
-	// fills (*x, *y) with the coordinates of a random cell with
-	// no creatures, items or stairs and with either a matching liquid and dungeon type
-	// or at least one layer of type terrainType.
-	// A dungeon, liquid type of -1 will match anything.
-	randomMatchingXY(matcher, opts={}) {
-		let failsafeCount = 0;
-		let x;
-		let y;
-		let cell;
-
-		// dungeonType -1 => ignore, otherwise match with 0 = NOTHING, 'string' = MATCH
-		// liquidType  -1 => ignore, otherwise match with 0 = NOTHING, 'string' = MATCH
-
-		let retry = true;
-		while(retry) {
-			failsafeCount++;
-			if (failsafeCount >= 500) break;
-
-			x = random.range(0, this.width - 1);
-			y = random.range(0, this.height - 1);
-			cell = this.cell(x, y);
-
-			if (matcher(cell, x, y)) {
-				retry = false;
-			}
-		}
-		if (failsafeCount >= 500) {
-			// GW.debug.log('randomMatchingLocation', dungeonType, liquidType, terrainType, ' => FAIL');
-			return false;
-		}
-
-		// GW.debug.log('randomMatchingLocation', dungeonType, liquidType, terrainType, ' => ', x, y);
-		return [ x, y ];
-	}
-
-	// FX
-
-	addFx(x, y, anim) {
-		if (!this.hasXY(x, y)) return false;
-		const cell = this.cell(x, y);
-		cell.addSprite(Layer.FX, anim.sprite);
-		anim.x = x;
-		anim.y = y;
-		this.flags |= Flags$2.MAP_CHANGED;
-		return true;
-	}
-
-	moveFx(x, y, anim) {
-		if (!this.hasXY(x, y)) return false;
-		const cell = this.cell(x, y);
-		const oldCell = this.cell(anim.x, anim.y);
-		oldCell.removeSprite(anim.sprite);
-		cell.addSprite(Layer.FX, anim.sprite);
-		this.flags |= Flags$2.MAP_CHANGED;
-		anim.x = x;
-		anim.y = y;
-		return true;
-	}
-
-	removeFx(anim) {
-		const oldCell = this.cell(anim.x, anim.y);
-		oldCell.removeSprite(anim.sprite);
-		this.flags |= Flags$2.MAP_CHANGED;
-		return true;
-	}
-
-	// ACTORS
-
-	// will return the PLAYER if the PLAYER is at (x, y).
-	actorAt(x, y) { // creature *
-		if (!this.hasXY(x, y)) return null;
-		const cell = this.cell(x, y);
-		return cell.actor;
-	}
-
-	addActor(x, y, theActor) {
-		if (!this.hasXY(x, y)) return false;
-		const cell = this.cell(x, y);
-		if (cell.actor) {
-			return false;
-		}
-
-		cell.actor = theActor;
-
-		const layer = (theActor === data.player) ? Layer.PLAYER : Layer.ACTOR;
-		cell.addSprite(layer, theActor.kind.sprite);
-
-		const flag = (theActor === data.player) ? Flags$1.HAS_PLAYER : Flags$1.HAS_MONSTER;
-		cell.flags |= (flag | Flags$1.NEEDS_REDRAW);
-		// if (theActor.flags & ActorFlags.MK_DETECTED)
-		// {
-		// 	cell.flags |= CellFlags.MONSTER_DETECTED;
-		// }
-
-		theActor.x = x;
-		theActor.y = y;
-		this.flags |= Flags$2.MAP_CHANGED;
-
-		return true;
-	}
-
-	addActorNear(x, y, theActor) {
-		const forbidTileFlags = GW.actor.avoidedFlags(theActor);
-		const loc = this.getMatchingLocNear(x, y, (cell, i, j) => {
-			if (cell.flags & (Flags$1.HAS_ACTOR)) return false;
-			return !cell.hasTileFlag(forbidTileFlags);
-		});
-		if (!loc || loc[0] < 0) {
-			// GW.ui.message(colors.badMessageColor, 'There is no place to put the actor.');
-			return false;
-		}
-
-		return this.addActor(loc[0], loc[1], theActor);
-	}
-
-	moveActor(x, y, actor) {
-		if (!this.hasXY(x, y)) return false;
-		this.removeActor(actor);
-
-		if (!this.addActor(x, y, actor)) {
-			this.addActor(actor.x, actor.y, actor);
-			return false;
-		}
-		return true;
-	}
-
-	removeActor(actor) {
-		const cell = this.cell(actor.x, actor.y);
-		if (cell.actor === actor) {
-			cell.actor = null;
-			cell.flags &= ~Flags$1.HAS_ACTOR;
-			cell.flags |= Flags$1.NEEDS_REDRAW;
-			this.flags |= Flags$2.MAP_CHANGED;
-			cell.removeSprite(actor.kind.sprite);
-		}
-	}
-
-	// dormantAt(x, y) {  // creature *
-	// 	if (!(this.cell(x, y).flags & CellFlags.HAS_DORMANT_MONSTER)) {
-	// 		return null;
-	// 	}
-	// 	return this.dormantActors.find( (m) => m.x == x && m.y == y );
-	// }
-	//
-	// addDormant(x, y, theActor) {
-	// 	theActor.x = x;
-	// 	theActor.y = y;
-	// 	this.dormant.add(theActor);
-	// 	cell.flags |= (CellFlags.HAS_DORMANT_MONSTER);
-	// 	this.flags |= Flags.MAP_CHANGED;
-	// 	return true;
-	// }
-	//
-	// removeDormant(actor) {
-	// 	const cell = this.cell(actor.x, actor.y);
-	// 	cell.flags &= ~(CellFlags.HAS_DORMANT_MONSTER);
-	// 	cell.flags |= CellFlags.NEEDS_REDRAW;
-	// 	this.flags |= Flags.MAP_CHANGED;
-	// 	this.dormant.remove(actor);
-	// }
-
-	// ITEMS
-
-	itemAt(x, y) {
-		if (!(this.cell(x, y).flags & Flags$1.HAS_ITEM)) {
-			return null;
-		}
-		return this.items.find( (i) => i.x == x && i.y == y );
-	}
-
-	addItem(x, y, theItem) {
-		if (!this.hasXY(x, y)) return false;
-		const cell = this.cell(x, y);
-		if (cell.flags & Flags$1.HAS_ITEM) {
-			// GW.ui.message(colors.badMessageColor, 'There is already an item there.');
-			return false;
-		}
-		theItem.x = x;
-		theItem.y = y;
-		this.items.add(theItem);
-		cell.flags |= (Flags$1.HAS_ITEM | Flags$1.NEEDS_REDRAW);
-
-		this.flags |= Flags$2.MAP_CHANGED;
-		if ( ((theItem.flags & ItemFlags.ITEM_MAGIC_DETECTED) && GW.item.magicChar(theItem)) ||
-					config.D_ITEM_OMNISCIENCE)
-		{
-			cell.flags |= Flags$1.ITEM_DETECTED;
-		}
-
-		return true;
-	}
-
-	addItemNear(x, y, theItem) {
-		const loc = this.getMatchingLocNear(x, y, (cell, i, j) => {
-			if (cell.flags & Flags$1.HAS_ITEM) return false;
-			return !cell.hasTileFlag(Flags.T_OBSTRUCTS_ITEMS);
-		});
-		if (!loc || loc[0] < 0) {
-			// GW.ui.message(colors.badMessageColor, 'There is no place to put the item.');
-			return false;
-		}
-
-		return this.addItem(loc[0], loc[1], theItem);
-	}
-
-
-	removeItem(theItem, skipRefresh) {
-		const x = theItem.x;
-		const y = theItem.y;
-		if (this.items.remove(theItem)) {
-			this.flags |= Flags$2.MAP_CHANGED;
-			const cell = this.cell(x, y);
-			cell.flags &= ~(Flags$1.HAS_ITEM | Flags$1.ITEM_DETECTED);
-			cell.flags |= Flags$1.NEEDS_REDRAW;
-			return true;
-		}
-		return false;
-	}
-
-	// // PROMOTE
-	//
-	// async promote(x, y, mechFlag) {
-	// 	if (this.hasTileMechFlag(x, y, mechFlag)) {
-	// 		const cell = this.cell(x, y);
-	// 		for (let tile of cell.tiles()) {
-	// 			if (tile.mechFlags & mechFlag) {
-	// 				await tile.promote(this, x, y, false);
-	// 			}
-	// 		}
-	// 	}
-	// }
-
-
-	// FOV
-
-	// Returns a boolean grid indicating whether each square is in the field of view of (xLoc, yLoc).
-	// forbiddenTerrain is the set of terrain flags that will block vision (but the blocking cell itself is
-	// illuminated); forbiddenFlags is the set of map flags that will block vision.
-	// If cautiousOnWalls is set, we will not illuminate blocking tiles unless the tile one space closer to the origin
-	// is visible to the player; this is to prevent lights from illuminating a wall when the player is on the other
-	// side of the wall.
-	calcFov(grid, x, y, maxRadius, forbiddenFlags=0, forbiddenTerrain=Flags.T_OBSTRUCTS_VISION, cautiousOnWalls=true) {
-	  const FOV = new types.FOV(grid, (i, j) => {
-	    return (!this.hasXY(i, j)) || this.hasCellFlag(i, j, forbiddenFlags) || this.hasTileFlag(i, j, forbiddenTerrain) ;
-	  });
-	  return FOV.calculate(x, y, maxRadius, cautiousOnWalls);
-	}
-
-	// MEMORIES
-
-	storeMemory(x, y) {
-		const cell = this.cell(x, y);
-		cell.storeMemory(this.itemAt(x, y));
-	}
-
-	storeMemories() {
-		let x, y;
-		for(x = 0; x < this.width; ++x) {
-			for(y = 0; y < this.height; ++y) {
-				const cell = this.cell(x, y);
-				if (cell.flags & Flags$1.ANY_KIND_OF_VISIBLE) {
-					this.storeMemory(x, y);
-				}
-				cell.flags &= Flags$1.PERMANENT_CELL_FLAGS | config.PERMANENT_CELL_FLAGS;
-				cell.mechFlags &= Flags$1.PERMANENT_MECH_FLAGS | config.PERMANENT_MECH_FLAGS;
-			}
-		}
-	}
-
-	// DRAW
-
-	draw(buffer) {
-		if (!this.flags & Flags$2.MAP_CHANGED) return;
-
-		this.cells.forEach( (c, i, j) => {
-			if (c.flags & Flags$1.NEEDS_REDRAW) {
-	      const buf = buffer[i][j];
-				GW.map.getCellAppearance(this, i, j, buf);
-				c.clearFlags(Flags$1.NEEDS_REDRAW);
-	      buffer.needsUpdate = true;
-			}
-		});
-
-		this.flags &= ~Flags$2.MAP_CHANGED;
-	}
-
-}
-
-types.Map = Map;
-
-
-function makeMap(w, h, opts={}) {
-	const map = new types.Map(w, h, opts);
-	if (opts.tile) {
-		map.fill(opts.tile, opts.boundary);
-	}
-	return map;
-}
-
-make.map = makeMap;
-
-
-function getCellAppearance(map, x, y, dest) {
-	dest.clear();
-	if (!map.hasXY(x, y)) return;
-	const cell$1 = map.cell(x, y);
-	cell.getAppearance(cell$1, dest);
-
-	if (cell$1.flags & Flags$1.HAS_PLAYER) {
-		dest.plot(data.player.kind.sprite);
-	}
-	else if (cell$1.flags & Flags$1.HAS_MONSTER) {
-		const monst = map.actorAt(x, y);
-		if (monst) {
-			dest.plot(monst.kind.sprite);
-		}
-	}
-
-	dest.bake();
-}
-
-map.getCellAppearance = getCellAppearance;
-
-
-function addText(map, x, y, text, fg, bg) {
-	for(let ch of text) {
-		const sprite = make.sprite(ch, fg, bg);
-		const fx = { sprite, x, y };
-		map.addFx(x++, y, fx);
-	}
-}
-
-map.addText = addText;
-
-
-const FP_BASE = 16;
-const FP_FACTOR = (1<<16);
-
-// ADAPTED FROM BROGUE 1.7.5
-// Simple line algorithm (maybe this is Bresenham?) that returns a list of coordinates
-// that extends all the way to the edge of the map based on an originLoc (which is not included
-// in the list of coordinates) and a targetLoc.
-// Returns the number of entries in the list, and includes (-1, -1) as an additional
-// terminus indicator after the end of the list.
-function getLine(map, fromX, fromY, toX, toY) {
-	let targetVector = [], error = [], currentVector = [], previousVector = [], quadrantTransform = [];
-	let largerTargetComponent, i;
-	let currentLoc = [], previousLoc = [];
-
-	const line = [];
-
-	if (fromX == toX && fromY == toY) {
-		return line;
-	}
-
-	const originLoc = [fromX, fromY];
-	const targetLoc = [toX, toY];
-
-	// Neither vector is negative. We keep track of negatives with quadrantTransform.
-	for (i=0; i<= 1; i++) {
-		targetVector[i] = (targetLoc[i] - originLoc[i]) << FP_BASE;	// FIXME: should use parens?
-		if (targetVector[i] < 0) {
-			targetVector[i] *= -1;
-			quadrantTransform[i] = -1;
-		} else {
-			quadrantTransform[i] = 1;
-		}
-		currentVector[i] = previousVector[i] = error[i] = 0;
-		currentLoc[i] = originLoc[i];
-	}
-
-	// normalize target vector such that one dimension equals 1 and the other is in [0, 1].
-	largerTargetComponent = Math.max(targetVector[0], targetVector[1]);
-	// targetVector[0] = Math.floor( (targetVector[0] << FP_BASE) / largerTargetComponent);
-	// targetVector[1] = Math.floor( (targetVector[1] << FP_BASE) / largerTargetComponent);
-	targetVector[0] = Math.floor(targetVector[0] * FP_FACTOR / largerTargetComponent);
-	targetVector[1] = Math.floor(targetVector[1] * FP_FACTOR / largerTargetComponent);
-
-	do {
-		for (i=0; i<= 1; i++) {
-
-			previousLoc[i] = currentLoc[i];
-
-			currentVector[i] += targetVector[i] >> FP_BASE;
-			error[i] += (targetVector[i] == FP_FACTOR ? 0 : targetVector[i]);
-
-			if (error[i] >= Math.floor(FP_FACTOR / 2) ) {
-				currentVector[i]++;
-				error[i] -= FP_FACTOR;
-			}
-
-			currentLoc[i] = Math.floor(quadrantTransform[i]*currentVector[i] + originLoc[i]);
-
-		}
-
-		if (map.hasXY(currentLoc[0], currentLoc[1])) {
-			line.push(currentLoc.slice());
-		}
-		else {
-			break;
-		}
-
-	} while (true);
-
-	return line;
-}
-
-map.getLine = getLine;
-
-class Scheduler {
-	constructor() {
-  	this.next = null;
-    this.time = 0;
-    this.cache = null;
-  }
-
-	clear() {
-		while(this.next) {
-			const current = this.next;
-			this.next = current.next;
-			current.next = this.cache;
-			this.cache = current;
-		}
-	}
-
-  push(fn, delay=1) {
-    let item;
-    if (this.cache) {
-    	item = this.cache;
-      this.cache = item.next;
-			item.next = null;
-    }
-    else {
-    	item = { fn: null, time: 0, next: null };
-    }
-		item.fn = fn;
-    item.time = this.time + delay;
-    if (!this.next) {
-	    this.next = item;
-    }
-    else {
-    	let current = this;
-      let next = current.next;
-    	while(next && next.time <= item.time) {
-      	current = next;
-        next = current.next;
-      }
-      item.next = current.next;
-      current.next = item;
-    }
-		return item;
-  }
-
-  pop() {
-  	const n = this.next;
-		if (!n) return null;
-
-    this.next = n.next;
-    n.next = this.cache;
-    this.cache = n;
-
-		this.time = Math.max(n.time, this.time);	// so you can schedule -1 as a time uint
-    return n.fn;
-  }
-
-	remove(item) {
-		if (this.next === item) {
-			this.next = item.next;
-			return;
-		}
-		prev = this.next;
-		current = prev.next;
-		while( current && current !== item ) {
-			prev = current;
-			current = current.next;
-		}
-
-		if (current === item) {
-			prev.next = current.next;
-		}
-	}
-}
-
-const scheduler = new Scheduler();
-
-var fx = {};
-
-let ANIMATIONS = [];
-
-function busy$1() {
-  return ANIMATIONS.some( (a) => a );
-}
-
-fx.busy = busy$1;
-
-
-async function playAll() {
-  while(fx.busy()) {
-    const dt = await io.nextTick();
-    ANIMATIONS.forEach( (a) => a && a.tick(dt) );
-    ANIMATIONS = ANIMATIONS.filter( (a) => a && !a.done );
-  }
-}
-
-fx.playAll = playAll;
-
-
-function tick(dt) {
-  if (!ANIMATIONS.length) return false;
-
-  io.pauseEvents();
-  ANIMATIONS.forEach( (a) => a && a.tick(dt) );
-  ANIMATIONS = ANIMATIONS.filter( (a) => a && !a.done );
-  io.resumeEvents();
-
-  return true;
-}
-
-fx.tick = tick;
-
-async function playRealTime(animation) {
-  animation.playFx = fx.playRealTime;
-
-  animation.start();
-  ANIMATIONS.push(animation);
-  return new Promise( (resolve) => animation.callback = resolve );
-}
-
-fx.playRealTime = playRealTime;
-
-async function playGameTime(anim) {
-  anim.playFx = fx.playGameTime;
-
-  anim.start();
-  scheduler.push(() => {
-    anim.step();
-    ui.requestUpdate(1);
-    return anim.done ? 0 : anim.speed;
-  },  anim.speed);
-
-  return new Promise( (resolve) => anim.callback = resolve );
-}
-
-fx.playGameTime = playGameTime;
-
-
-class FX {
-  constructor(opts={}) {
-    this.tilNextTurn = opts.speed || opts.duration || 1000;
-    this.speed = opts.speed || opts.duration || 1000;
-    this.callback = utils$1.NOOP;
-    this.done = false;
-  }
-
-  tick(dt) {
-    if (this.done) return;
-    this.tilNextTurn -= dt;
-    while (this.tilNextTurn < 0 && !this.done) {
-      this.step();
-      this.tilNextTurn += this.speed;
-    }
-  }
-
-  step() {
-    this.stop();
-  }
-
-  start() {}
-
-  stop(result) {
-    if (this.done) return;
-    this.done = true;
-    this.callback(result);
-  }
-
-}
-
-types.FX = FX;
-
-
-class SpriteFX extends FX {
-  constructor(map, sprite, x, y, opts={}) {
-    const count = opts.blink || 1;
-    const duration = opts.duration || 1000;
-    opts.speed = opts.speed || (duration / (2*count-1));
-    super(opts);
-    if (typeof sprite === 'string') {
-      sprite = sprites[sprite];
-    }
-    this.map = map;
-    this.sprite = sprite;
-    this.x = x || 0;
-    this.y = y || 0;
-    this.stepCount = 2*count - 1;
-  }
-
-  start() {
-    this.map.addFx(this.x, this.y, this);
-    return super.start();
-  }
-
-  step() {
-    --this.stepCount;
-    if (this.stepCount <= 0) return this.stop();
-    if (this.stepCount % 2 == 0) {
-      this.map.removeFx(this);
-    }
-    else {
-      this.map.addFx(this.x, this.y, this);
-    }
-  }
-
-  stop(result) {
-    this.map.removeFx(this);
-    return super.stop(result);
-  }
-
-  moveDir(dx, dy) {
-    return this.moveTo(this.x + dx, this.y + dy);
-  }
-
-  moveTo(x, y) {
-    this.map.moveFx(x, y, this);
-    return true;
-  }
-
-}
-
-
-
-async function flashSprite(map, x, y, sprite, duration=100, count=1) {
-  const anim = new SpriteFX(map, sprite, x, y, { duration, blink: count });
-  return fx.playRealTime(anim);
-}
-
-fx.flashSprite = flashSprite;
-
-installSprite('bump', 'white', 50);
-
-
-async function hit(map, target, sprite, duration) {
-  sprite = sprite || config.fx.hitSprite || 'hit';
-  duration = duration || config.fx.hitFlashTime || 200;
-  await fx.flashSprite(map, target.x, target.y, sprite, duration, 1);
-}
-
-fx.hit = hit;
-
-installSprite('hit', 'red', 50);
-
-async function miss(map, target, sprite, duration) {
-  sprite = sprite || config.fx.missSprite || 'miss';
-  duration = duration || config.fx.missFlashTime || 200;
-  await fx.flashSprite(map, target.x, target.y, sprite, duration, 1);
-}
-
-fx.miss = miss;
-
-installSprite('miss', 'green', 50);
-
-
-class MovingSpriteFX extends SpriteFX {
-  constructor(map$1, source, target, sprite, speed, stepFn) {
-    super(map$1, sprite, source.x, source.y, { speed });
-    this.target = target;
-    this.path = map.getLine(this.map, source.x, source.y, this.target.x, this.target.y);
-    this.stepFn = stepFn || utils$1.TRUE;
-  }
-
-  step() {
-    if (this.x == this.target.x && this.y == this.target.y) return this.stop(this);
-    if (!this.path.find( (loc) => loc[0] == this.target.x && loc[1] == this.target.y)) {
-      this.path = map.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
-    }
-    const next = this.path.shift();
-    const r = this.stepFn(next[0], next[1]);
-    if (r < 0) {
-      return this.stop(this);
-    }
-    else if (r) {
-      return this.moveTo(next[0], next[1]);
-    }
-    else {
-      this.moveTo(next[0], next[1]);
-      this.target.x = this.x;
-      this.target.y = this.y;
-    }
-  }
-}
-
-types.MovingSpriteFX = MovingSpriteFX;
-
-
-async function bolt(map, source, target, sprite, opts={}) {
-  if (typeof sprite === 'string') {
-    sprite = sprites[sprite];
-  }
-  opts.speed = opts.speed || 3;
-  opts.stepFn = opts.stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
-  opts.playFn = fx.playGameTime;
-  if (opts.realTime || (!opts.gameTime)) {
-    opts.speed *= 16;
-    opts.playFn = fx.playRealTime;
-  }
-
-  const anim = new MovingSpriteFX(map, source, target, sprite, opts.speed, opts.stepFn);
-  return opts.playFn(anim);
-}
-
-fx.bolt = bolt;
-
-async function projectile(map, source, target, chs, fg, opts) {
-  if (chs.length != 4) utils$1.ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
-
-  const dir = utils$1.dirFromTo(source, target);
-  const dIndex = utils$1.dirIndex(dir);
-  const index = Math.floor(dIndex / 2);
-  const ch = chs[index];
-  const sprite = GW.make.sprite(ch, fg);
-
-  return fx.bolt(map, source, target, sprite, opts);
-}
-
-fx.projectile = projectile;
-
-
-//
-// RUT.Animations.projectileToTarget = function projectileTo(map, from, target, callback, opts) {
-//   if (typeof callback != 'function' && opts === undefined) {
-//     opts = callback;
-//     callback = RUT.NOOP;
-//   }
-//   if (opts === true) opts = {};
-//   if (opts === false) return;
-//   opts = opts || {};
-//   if (typeof opts === 'string') opts = { sprite: opts };
-//
-//   Object.defaults(opts, RUT.Config.Animations.projectile);
-//   // if (!RUT.FOV.isVisible(shooter) && !RUT.FOV.isVisible(to)) { return Promise.resolve(); }
-//   const sprite = opts.sprite;
-//   let anim = new RUT.Animations.XYAnimation(map, sprite, from, () => target.xy, callback, opts.speed);
-//   anim.start(); // .then( () => target.xy );
-//   return anim;
-// }
-//
-
-// export class DirAnimation extends FX {
-//   constructor(sprite, from, dir, callback, opts={}) {
-//     const speed = opts.speed || 10;
-//     super(callback, { sprite, speed });
-//     this.from = from;
-//     this.dir = dir;
-//     this.stopCell = opts.stopCell;
-//     this.stopTile = opts.stopTile;
-//     this.stepFn = opts.stepFn || TRUE;
-//     this.range = opts.range || 99;
-//   }
-//
-//   start() {
-//     return super.start(this.from.x, this.from.y);
-//   }
-//
-//   step() {
-//     let dist = distanceFromTo(this.from, this.xy);
-//     if (dist >= this.range) {
-//       return this.stop(this.xy);
-//     }
-//
-//     const newXy = this.xy.plus(this.dir);
-//
-//     const cell = DATA.map.cell(newXy.x, newXy.y);
-//     if (!cell) {
-//       return this.stop(this.xy);
-//     }
-//     else if (this.stopCell && RUT.Cell.hasAllFlags(cell, this.stopCell)) {
-//       return this.stop(this.xy);
-//     }
-//     else if (this.stopTile && RUT.Cell.hasTileFlag(cell, this.stopTile)) {
-//       return this.stop(this.xy);
-//     }
-//
-//     DATA.map.moveAnimation(this.map, newXy.x, newXy.y, this);
-//     if (this.stepFn(this.map, this.xy.x, this.xy.y)) {
-//       return this.stop(this.xy);
-//     }
-//   }
-// }
-
-//
-// RUT.Animations.projectileDir = function projectileTo(map, xy, dir, callback, opts) {
-//   if (typeof callback != 'function' && opts === undefined) {
-//     opts = callback;
-//     callback = RUT.NOOP;
-//   }
-//   if (opts === true) opts = {};
-//   if (opts === false) return;
-//   opts = opts || {};
-//   if (typeof opts === 'string') opts = { sprite: opts };
-//   if (opts.sprite === true) opts.sprite = RUT.Config.Animations.projectile.sprite;
-//
-//   Object.defaults(opts, RUT.Config.Animations.projectile);
-//   let anim = new RUT.Animations.DirAnimation(map, opts.sprite, xy, dir, callback, opts);
-//   anim.start(); // .then( () => anim.xy );
-//   return anim;
-// }
-//
-
-class BeamFX extends FX {
-  constructor(map$1, from, target, sprite, speed, fade, stepFn) {
-    speed = speed || 20;
-    super({ speed });
-    this.map = map$1;
-    this.x = from.x;
-    this.y = from.y;
-    this.target = target;
-    this.sprite = sprite;
-    this.fade = fade || speed;
-    this.path = map.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
-    this.stepFn = stepFn || utils$1.TRUE;
-  }
-
-  step() {
-    // if (this.x == this.target.x && this.y == this.target.y) return this.stop(this);
-    // if (!this.path.find( (loc) => loc[0] == this.target.x && loc[1] == this.target.y)) {
-    //   this.path = MAP.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
-    // }
-    if (this.path.length == 0) { return this.stop(this); }
-    const next = this.path.shift();
-    const r = this.stepFn(next[0], next[1]);
-    if (r < 0) {
-      return this.stop(this);
-    }
-    else if (r) {
-      return this.moveTo(next[0], next[1]);
-    }
-    else {
-      this.moveTo(next[0], next[1]);
-      this.target.x = this.x;
-      this.target.y = this.y;
-    }
-  }
-
-  moveTo(x, y) {
-    if (!this.map.hasXY(x, y)) {
-      console.log('BEAM - invalid x,y', x, y);
-      return;
-    }
-    this.x = x;
-    this.y = y;
-    // fx.flashSprite(this.map, x, y, this.sprite, this.fade);
-
-    const anim = new SpriteFX(this.map, this.sprite, x, y, { duration: this.fade });
-    this.playFx(anim);
-  }
-
-}
-
-types.BeamFX = BeamFX;
-
-function beam(map, from, to, sprite, opts={}) {
-  opts.fade = opts.fade || 5;
-  opts.speed = opts.speed || 1;
-  opts.stepFn = opts.stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
-  opts.playFn = fx.playGameTime;
-  if (opts.realTime || (!opts.gameTime)) {
-    opts.speed *= 8;
-    opts.fade *= 8;
-    opts.playFn = fx.playRealTime;
-  }
-
-  const animation = new BeamFX(map, from, to, sprite, opts.speed, opts.fade, opts.stepFn);
-  return opts.playFn(animation);
-}
-
-fx.beam = beam;
-
-
-
-class ExplosionFX extends FX {
-  // TODO - take opts instead of individual params (do opts setup here)
-  constructor(map, fovGrid, x, y, radius, sprite, speed, fade, shape, center, stepFn) {
-    speed = speed || 20;
-    super({ speed });
-    this.map = map;
-    this.grid = GRID.alloc(map.width, map.height);
-    if (fovGrid) {
-      this.grid.copy(fovGrid);
-    }
-    else {
-      this.grid.fill(1);
-    }
-    this.x = x;
-    this.y = y;
-    this.radius = 0;
-    this.maxRadius = radius;
-    this.sprite = sprite;
-    this.fade = fade || 100;
-    this.shape = shape || 'o';
-    this.center = (center === undefined) ? true : center;
-    this.stepFn = stepFn || utils$1.TRUE;
-    this.count = 0;
-  }
-
-  start() {
-    if (this.center) {
-      this.visit(this.x, this.y);
-    }
-    else {
-      this.step();
-    }
-  }
-
-  step() {
-    if (this.radius >= this.maxRadius) return false;
-
-    this.radius = Math.min(this.radius + 1, this.maxRadius);
-
-    let done = true;
-    let x = Math.max(0, Math.floor(this.x - this.maxRadius));
-    const maxX = Math.min(this.grid.width - 1, Math.ceil(this.x + this.maxRadius));
-    let minY = Math.max(0, Math.floor(this.y - this.maxRadius));
-    const maxY = Math.min(this.grid.height - 1, Math.ceil(this.y + this.maxRadius));
-    let col;
-    let dist;
-
-    for(; x <= maxX; ++x) {
-      col = this.grid[x];
-      for(let y = minY; y <= maxY; ++y) {
-        if (col[y] != 1) continue;  // not in FOV
-        dist = utils$1.distanceBetween(this.x, this.y, x, y);
-        if (dist <= this.radius) {
-          this.visit(x, y);
-        }
-        else if (dist <= this.maxRadius) {
-          done = false;
-        }
-      }
-    }
-    ui.requestUpdate(48);
-
-    // console.log('returning...', done);
-    if (done && (this.count == 0)) {
-      return this.stop(this); // xy of explosion is callback value
-    }
-    return false;
-  }
-
-  visit(x, y) {
-    if (this.isInShape(x, y) && this.stepFn(x, y)) {
-      this.count += 1;
-      const anim = new SpriteFX(this.map, this.sprite, x, y, { duration: this.fade });
-      this.playFx(anim).then( () => {
-        --this.count;
-        if (this.count == 0) {
-          this.stop(this);
-        }
-      });
-      // fx.flashSprite(this.map, x, y, this.sprite, this.fade);
-    }
-    this.grid[x][y] = 2;
-  }
-
-  isInShape(x, y) {
-    const sx = Math.abs(x - this.x);
-    const sy = Math.abs(y - this.y);
-    if (sx == 0 && sy == 0 && !this.center) return false;
-    switch(this.shape) {
-      case '+': return sx == 0 || sy == 0;
-      case 'x': return sx == sy;
-      case '*': return (sx == 0 || sy == 0 || sx == sy);
-      default: return true;
-    }
-  }
-
-  stop(result) {
-    this.grid = GRID.free(this.grid);
-    return super.stop(result);
-  }
-}
-
-function checkExplosionOpts(opts) {
-  opts.speed = opts.speed || 5;
-  opts.fade = opts.fade || 10;
-  opts.playFn = fx.playGameTime;
-  opts.shape = opts.shape || 'o';
-  if (opts.center === undefined) { opts.center = true; }
-
-  if (opts.realTime || (!opts.gameTime)) {
-    opts.speed = opts.speed * 8;
-    opts.fade = opts.fade * 8;
-    opts.playFn = fx.playRealTime;
-  }
-}
-
-function explosion(map, x, y, radius, sprite, opts={}) {
-  checkExplosionOpts(opts);
-  opts.stepFn = opts.stepFn || ((x, y) => !map.isObstruction(x, y));
-  const animation = new ExplosionFX(map, null, x, y, radius, sprite, opts.speed, opts.fade, opts.shape, opts.center, opts.stepFn);
-  map.calcFov(animation.grid, x, y, radius);
-  return opts.playFn(animation);
-}
-
-fx.explosion = explosion;
-
-function explosionFor(map, grid, x, y, radius, sprite, opts={}) {
-  checkExplosionOpts(opts);
-  opts.stepFn = opts.stepFn || ((x, y) => !map.isObstruction(x, y));
-  const animation = new ExplosionFX(map, grid, x, y, radius, sprite, opts.speed, opts.fade, opts.shape, opts.center, opts.stepFn);
-  return opts.playFn(animation);
-}
-
-fx.explosionFor = explosionFor;
-
-var ui = {};
-
-let UI_BUFFER = null;
-let UI_BASE = null;
-let UI_OVERLAY = null;
-let IN_DIALOG = false;
-
-let time = performance.now();
-
-let RUNNING = false;
-
-function uiLoop(t) {
-	t = t || performance.now();
-
-  if (RUNNING) {
-    requestAnimationFrame(uiLoop);
-  }
-
-	const dt = Math.floor(t - time);
-	time = t;
-
-	if ((!IN_DIALOG) && fx.tick(dt)) {
-		ui.draw();
-	}
-	else {
-		const ev = io.makeTickEvent(dt);
-		io.pushEvent(ev);
-	}
-
-	ui.canvas.draw();
-}
-
-
-function start$1(opts={}) {
-
-  utils$1.setDefaults(opts, {
-    width: 100,
-    height: 34,
-    bg: 'black',
-    sidebar: false,
-    messages: false,
-    flavor: false,
-    menu: false,
-    div: 'canvas',
-    io: true,
-  });
-
-
-  if (!ui.canvas) {
-    ui.canvas = new types.Canvas(opts.width, opts.height, opts.div, opts);
-
-    if (opts.io && typeof document !== 'undefined') {
-      ui.canvas.element.onmousedown = ui.onmousedown;
-      ui.canvas.element.onmousemove = ui.onmousemove;
-    	document.onkeydown = ui.onkeydown;
-    }
-  }
-
-  // TODO - init sidebar, messages, flavor, menu
-  UI_BUFFER = UI_BUFFER || ui.canvas.allocBuffer();
-  UI_BASE = UI_BASE || ui.canvas.allocBuffer();
-  UI_OVERLAY = UI_OVERLAY || ui.canvas.allocBuffer();
-  UI_BASE.clear();
-  UI_OVERLAY.clear();
-
-  IN_DIALOG = false;
-
-  ui.blackOutDisplay();
-	RUNNING = true;
-	uiLoop();
-
-  return ui.canvas;
-}
-
-ui.start = start$1;
-
-
-function stop() {
-	RUNNING = false;
-}
-
-ui.stop = stop;
-
-
-let UPDATE_REQUESTED = 0;
-function requestUpdate(t=1) {
-	UPDATE_REQUESTED = Math.max(UPDATE_REQUESTED, t, 1);
-}
-
-ui.requestUpdate = requestUpdate;
-
-async function updateNow(t=1) {
-	t = Math.max(t, UPDATE_REQUESTED, 1);
-	UPDATE_REQUESTED = 0;
-
-	ui.draw();
-	ui.canvas.draw();
-	if (t) {
-		const now = performance.now();
-		console.log('UI update - with timeout:', t);
-		const r = await io.tickMs(t);
-		// console.log('- done', r, Math.floor(performance.now() - now));
-	}
-}
-
-ui.updateNow = updateNow;
-
-async function updateIfRequested() {
-	if (UPDATE_REQUESTED) {
-		await ui.updateNow(UPDATE_REQUESTED);
-	}
-}
-
-ui.updateIfRequested = updateIfRequested;
-
-// EVENTS
-
-function onkeydown(e) {
-	if (io.ignoreKeyEvent(e)) return;
-
-	if (e.code === 'Escape') {
-		io.clearEvents();	// clear all current events, then push on the escape
-  }
-
-	const ev = io.makeKeyEvent(e);
-	io.pushEvent(ev);
-}
-
-ui.onkeydown = onkeydown;
-
-function onmousemove(e) {
-	const x = ui.canvas.toX(e.clientX);
-	const y = ui.canvas.toY(e.clientY);
-	const ev = io.makeMouseEvent(e, x, y);
-	io.pushEvent(ev);
-}
-
-ui.onmousemove = onmousemove;
-
-function onmousedown(e) {
-	const x = ui.canvas.toX(e.clientX);
-	const y = ui.canvas.toY(e.clientY);
-	const ev = io.makeMouseEvent(e, x, y);
-	io.pushEvent(ev);
-}
-
-ui.onmousedown = onmousedown;
-
-// FUNCS
-
-async function messageBox(text, fg, duration) {
-
-  const buffer = ui.startDialog();
-
-  const len = text.length;
-  const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
-  const y = Math.floor(ui.canvas.height / 2) - 1;
-  buffer.fillRect(x, y, len + 4, 3, ' ', 'black', 'black');
-	buffer.plotText(x + 2, y + 1, text, fg || 'white');
-	ui.draw();
-
-	await io.pause(duration || 30 * 1000);
-
-	ui.finishDialog();
-}
-
-ui.messageBox = messageBox;
-
-
-function blackOutDisplay() {
-	UI_BUFFER.erase();
-}
-
-ui.blackOutDisplay = blackOutDisplay;
-
-
-// DIALOG
-
-function startDialog() {
-  IN_DIALOG = true;
-  ui.canvas.copyBuffer(UI_BASE);
-  UI_OVERLAY.clear();
-  return UI_OVERLAY;
-}
-
-ui.startDialog = startDialog;
-
-
-function finishDialog() {
-  IN_DIALOG = false;
-  ui.canvas.overlay(UI_BASE);
-  UI_OVERLAY.clear();
-}
-
-ui.finishDialog = finishDialog;
-
-// DRAW
-
-function draw() {
-  if (IN_DIALOG) {
-    ui.canvas.overlay(UI_BASE);
-    ui.canvas.overlay(UI_OVERLAY);
-  }
-  else if (ui.canvas) {
-    // const side = GW.sidebar.draw(UI_BUFFER);
-    if (data.map) data.map.draw(ui.canvas.buffer);
-			UPDATE_REQUESTED = 0;
-    // }
-  }
-}
-
-ui.draw = draw;
 
 var actor = {};
 

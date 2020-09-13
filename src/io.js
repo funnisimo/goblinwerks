@@ -1,6 +1,7 @@
 
+import { commands as COMMANDS } from './commands.js';
 import { utils as UTILS } from './utils.js';
-import { def, commands as COMMANDS, data as DATA } from './gw.js';
+import { def, data as DATA } from './gw.js';
 
 
 export var io = {};

@@ -217,13 +217,6 @@ async function rest(e) {
 GW.commands.rest = rest;
 
 
-async function moveDir(e) {
-	const dir = e.dir || [0,0];
-	await PLAYER.moveDir(dir);
-}
-
-GW.commands.moveDir = moveDir;
-
 
 
 let mapCount = 0;

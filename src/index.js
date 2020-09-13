@@ -21,5 +21,6 @@ export { actor } from './actor.js';
 export { player } from './player.js';
 export { ui } from './ui.js';
 export { fov } from './fov.js';
+export { commands } from './commands.js';
 
 export * from './gw.js';
