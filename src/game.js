@@ -2,15 +2,14 @@
 
 import { utils as UTILS } from './utils.js';
 import { Flags as CellFlags } from './cell.js';
-import { Flags as MapFlags } from './map.js';
+import { Flags as MapFlags, map as MAP } from './map.js';
 import { io as IO } from './io.js';
 import { ui as UI } from './ui.js';
-import { fx as FX } from './fx.js';
 import { actor as ACTOR } from './actor.js';
 import { player as PLAYER } from './player.js';
 import { scheduler } from './scheduler.js';
 
-import { data as DATA, types } from './gw.js';
+import { data as DATA, types, fx as FX } from './gw.js';
 
 export var game = {};
 
@@ -59,19 +58,25 @@ export function startMap(map, playerX, playerY) {
   // TODO - Add Map/Environment Updater
 
   if (DATA.player) {
-    let x = playerX || DATA.player.x || 0;
-    let y = playerY || DATA.player.y || 0;
+    let x = playerX || 0;
+    let y = playerY || 0;
     if (x <= 0) {
       const start = map.locations.start;
-      if (!start) UTILS.ERROR('Need x,y or start location.');
       x = start[0];
       y = start[1];
     }
+    if (x <= 0) {
+      x = DATA.player.x || Math.floor(map.width / 2);
+      y = DATA.player.y || Math.floor(map.height / 2);
+    }
     DATA.map.addActor(x, y, DATA.player);
-
   }
 
   UI.draw();
+
+  if (map.config.tick) {
+    scheduler.push( game.updateEnvironment, map.config.tick );
+  }
 }
 
 game.startMap = startMap;
@@ -135,3 +140,18 @@ export async function cancelDelay(timer) {
 }
 
 game.cancelDelay = cancelDelay;
+
+export async function updateEnvironment() {
+
+  console.log('update environment');
+
+  const map = DATA.map;
+  if (!map) return 0;
+
+  await map.tick();
+  UI.requestUpdate();
+
+  return map.config.tick;
+}
+
+game.updateEnvironment = updateEnvironment;

@@ -1,8 +1,7 @@
 
 import { utils as UTILS } from './utils.js';
 import { io as IO } from './io.js';
-import { fx as FX } from './fx.js';
-import { data as DATA, types } from './gw.js';
+import { data as DATA, types, fx as FX } from './gw.js';
 
 
 export var ui = {};
@@ -174,6 +173,55 @@ export async function messageBox(text, fg, duration) {
 }
 
 ui.messageBox = messageBox;
+
+
+export async function confirm(text, fg) {
+
+  const buffer = ui.startDialog();
+
+	const btnOK = 'OK=Enter';
+	const btnCancel = 'Cancel=Escape';
+  const len = Math.max(text.length, btnOK.length + 4 + btnCancel.length);
+  const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
+  const y = Math.floor(ui.canvas.height / 2) - 1;
+  buffer.fillRect(x, y, len + 4, 5, ' ', 'black', 'black');
+	buffer.plotText(x + 2, y + 1, text, fg || 'white');
+	buffer.plotText(x + 2, y + 3, btnOK, 'white');
+	buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, 'white');
+	ui.draw();
+
+	let result;
+	while(result === undefined) {
+		const ev = await IO.nextEvent(1000);
+		await IO.dispatchEvent(ev, {
+			enter() {
+				result = true;
+			},
+			escape() {
+				result = false;
+			},
+			mousemove() {
+				let isOK = ev.x < x + btnOK.length + 2;
+				let isCancel = ev.x > x + len + 4 - btnCancel.length - 4;
+				if (ev.x < x || ev.x > x + len + 4) { isOK = false; isCancel = false; }
+				if (ev.y != y + 3 ) { isOK = false; isCancel = false; }
+				buffer.plotText(x + 2, y + 3, btnOK, isOK ? 'blue' : 'white');
+				buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, isCancel ? 'blue' : 'white');
+				ui.draw();
+			},
+			click() {
+				if (ev.x < x || ev.x > x + len + 4) return;
+				if (ev.y < y || ev.y > y + 5) return;
+				result = ev.x < x + Math.floor(len/2) + 2;
+			}
+		});
+	}
+
+	ui.finishDialog();
+	return result;
+}
+
+ui.confirm = confirm;
 
 
 function blackOutDisplay() {

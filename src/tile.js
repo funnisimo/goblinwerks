@@ -6,6 +6,11 @@ import { types, def, make } from './gw.js';
 export var tile = {};
 export var tiles = [];
 
+export const Layer = new types.Enum('GROUND', 'LIQUID', 'SURFACE', 'GAS', 'ITEM', 'ACTOR', 'PLAYER', 'FX', 'UI');
+
+tile.Layer = Layer;
+
+
 const Fl = FLAG.fl;
 
 export const Flags = FLAG.install('tile', {
@@ -14,31 +19,34 @@ export const Flags = FLAG.install('tile', {
   T_OBSTRUCTS_ITEMS				: Fl(2),		// items can't be on this tile
   T_OBSTRUCTS_SURFACE		  : Fl(3),		// grass, blood, etc. cannot exist on this tile
   T_OBSTRUCTS_GAS					: Fl(4),		// blocks the permeation of gas
-  T_OBSTRUCTS_DIAGONAL_MOVEMENT : Fl(5),    // can't step diagonally around this tile
+  T_OBSTRUCTS_LIQUID      : Fl(5),
+  T_OBSTRUCTS_TILE_EFFECTS  : Fl(6),
+  T_OBSTRUCTS_DIAGONAL_MOVEMENT : Fl(7),    // can't step diagonally around this tile
 
-  T_AUTO_DESCENT					: Fl(6),		// automatically drops creatures down a depth level and does some damage (2d6)
-  T_LAVA			            : Fl(7),		// kills any non-levitating non-fire-immune creature instantly
-  T_DEEP_WATER					  : Fl(8),		// steals items 50% of the time and moves them around randomly
+  T_BRIDGE                : Fl(10),   // Acts as a bridge over the folowing types:
+  T_AUTO_DESCENT					: Fl(11),		// automatically drops creatures down a depth level and does some damage (2d6)
+  T_LAVA			            : Fl(12),		// kills any non-levitating non-fire-immune creature instantly
+  T_DEEP_WATER					  : Fl(13),		// steals items 50% of the time and moves them around randomly
 
-  T_SPONTANEOUSLY_IGNITES	: Fl(9),		// monsters avoid unless chasing player or immune to fire
-  T_IS_FLAMMABLE					: Fl(10),		// terrain can catch fire
-  T_IS_FIRE								: Fl(11),		// terrain is a type of fire; ignites neighboring flammable cells
-  T_ENTANGLES							: Fl(12),		// entangles players and monsters like a spiderweb
+  T_SPONTANEOUSLY_IGNITES	: Fl(14),		// monsters avoid unless chasing player or immune to fire
+  T_IS_FLAMMABLE					: Fl(15),		// terrain can catch fire
+  T_IS_FIRE								: Fl(16),		// terrain is a type of fire; ignites neighboring flammable cells
+  T_ENTANGLES							: Fl(17),		// entangles players and monsters like a spiderweb
 
-  T_CAUSES_POISON					: Fl(13),		// any non-levitating creature gets 10 poison
-  T_CAUSES_DAMAGE					: Fl(14),		// anything on the tile takes max(1-2, 10%) damage per turn
-  T_CAUSES_NAUSEA					: Fl(15),		// any creature on the tile becomes nauseous
-  T_CAUSES_PARALYSIS			: Fl(16),		// anything caught on this tile is paralyzed
-  T_CAUSES_CONFUSION			: Fl(17),		// causes creatures on this tile to become confused
-  T_CAUSES_HEALING   	    : Fl(18),   // heals 20% max HP per turn for any player or non-inanimate monsters
-  T_IS_TRAP								: Fl(19),		// spews gas of type specified in fireType when stepped on
-  T_CAUSES_EXPLOSIVE_DAMAGE		: Fl(20),		// is an explosion; deals higher of 15-20 or 50% damage instantly, but not again for five turns
-  T_SACRED                : Fl(21),   // monsters that aren't allies of the player will avoid stepping here
+  T_CAUSES_POISON					: Fl(18),		// any non-levitating creature gets 10 poison
+  T_CAUSES_DAMAGE					: Fl(19),		// anything on the tile takes max(1-2, 10%) damage per turn
+  T_CAUSES_NAUSEA					: Fl(20),		// any creature on the tile becomes nauseous
+  T_CAUSES_PARALYSIS			: Fl(21),		// anything caught on this tile is paralyzed
+  T_CAUSES_CONFUSION			: Fl(22),		// causes creatures on this tile to become confused
+  T_CAUSES_HEALING   	    : Fl(23),   // heals 20% max HP per turn for any player or non-inanimate monsters
+  T_IS_TRAP								: Fl(24),		// spews gas of type specified in fireType when stepped on
+  T_CAUSES_EXPLOSIVE_DAMAGE		: Fl(25),		// is an explosion; deals higher of 15-20 or 50% damage instantly, but not again for five turns
+  T_SACRED                : Fl(26),   // monsters that aren't allies of the player will avoid stepping here
 
-  T_UP_STAIRS							: Fl(22),
-  T_DOWN_STAIRS						: Fl(23),
-  T_PORTAL                : Fl(24),
-  T_IS_DOOR								: Fl(25),
+  T_UP_STAIRS							: Fl(27),
+  T_DOWN_STAIRS						: Fl(28),
+  T_PORTAL                : Fl(29),
+  T_IS_DOOR								: Fl(30),
 
   T_HAS_STAIRS						: ['T_UP_STAIRS', 'T_DOWN_STAIRS'],
   T_OBSTRUCTS_SCENT				: ['T_OBSTRUCTS_PASSABILITY', 'T_OBSTRUCTS_VISION', 'T_AUTO_DESCENT', 'T_LAVA', 'T_DEEP_WATER', 'T_SPONTANEOUSLY_IGNITES', 'T_HAS_STAIRS'],
@@ -128,11 +136,11 @@ function setFlags(tile, allFlags) {
 
 
 export class Tile {
-  constructor(ch, fg, bg, layer, priority, allFlags, desc, flavor) {
+  constructor(ch, fg, bg, priority, layer, allFlags, desc, flavor) {
     this.flags = 0;
     this.mechFlags = 0;
     this.layer = layer || 0;
-    this.priority = priority || 50; // lower means higher priority (50 = average)
+    this.priority = priority || 0; // lower means higher priority (50 = average)
     this.sprite = make.sprite(ch, fg, bg);
     this.events = {};
     this.light = null;
@@ -157,11 +165,17 @@ export class Tile {
 types.Tile = Tile;
 
 export function makeTile(ch, fg, bg, priority, layer, allFlags, desc, flavor, opts={}) {
-  const tile = new types.Tile(ch, fg, bg, layer, priority, allFlags, desc, flavor);
+  const tile = new types.Tile(ch, fg, bg, priority, layer, allFlags, desc, flavor);
   // TODO - tile.light = opts.light || null;
   // TODO - tile.events.fire = opts.fire
   // TODO - tile.events.promote = opts.promote
   // TODO - tile.events.discover = opts.discover
+  if (opts.playerEnter) { tile.events.playerEnter = make.tileEvent(opts.playerEnter); }
+  if (opts.enter) { tile.events.enter = make.tileEvent(opts.enter); }
+  if (opts.tick) {
+    const tick = tile.events.tick = make.tileEvent(opts.tick);
+    tick.chance = tick.chance || 100;
+  }
   return tile;
 }
 
@@ -187,8 +201,8 @@ tile.install = installTile;
 const NOTHING = def.NOTHING = 0;
 installTile(NOTHING,       '\u2205', 'black', 'black', 0, 0, 'T_OBSTRUCTS_PASSABILITY', "an eerie nothingness", "");
 installTile('FLOOR',       '\u00b7', [30,30,30,20], [2,2,10,0,2,2,0], 10);	// FLOOR
-installTile('DOOR',        '+', [100,40,40], [30,60,60], 30, 0, 'T_IS_DOOR');	// DOOR
-installTile('BRIDGE',      '=', [100,40,40], [60,40,0], 70);	// BRIDGE
+installTile('DOOR',        '+', [100,40,40], [30,60,60], 30, Layer.SURFACE, 'T_IS_DOOR');	// DOOR (LAYER=SURFACE)
+installTile('BRIDGE',      '=', [100,40,40], null, 40, Layer.SURFACE);	// BRIDGE (LAYER=SURFACE)
 installTile('UP_STAIRS',   '<', [100,40,40], [100,60,20], 200);	// UP
 installTile('DOWN_STAIRS', '>', [100,40,40], [100,60,20], 200);	// DOWN
 installTile('WALL',        '#', [7,7,7,0,3,3,3],  [40,40,40,10,10,0,5], 100, 0, 'T_OBSTRUCTS_EVERYTHING');	// WALL

@@ -1,12 +1,12 @@
 
-import { commands as COMMANDS } from './commands.js';
 import { utils as UTILS } from './utils.js';
-import { def, data as DATA } from './gw.js';
+import { def, data as DATA, commands as COMMANDS } from './gw.js';
 
 
 export var io = {};
 
-const KEYMAPS = [];
+let KEYMAP = {};
+// const KEYMAPS = [];
 const EVENTS = [];
 const DEAD_EVENTS = [];
 
@@ -25,14 +25,16 @@ const CONTROL_CODES = [
 var CURRENT_HANDLER = null;
 
 
-export function addKeymap(keymap) {
-	KEYMAPS.push(keymap);
+export function setKeymap(keymap) {
+	KEYMAP = keymap;
+	// KEYMAPS.push(keymap);
 }
 
-io.addKeymap = addKeymap;
+io.setKeymap = setKeymap;
 
 export function busy() {
-	return KEYMAPS.length && KEYMAPS[KEYMAPS.length - 1].busy;
+	return KEYMAP.busy;
+	// return KEYMAPS.length && KEYMAPS[KEYMAPS.length - 1].busy;
 }
 
 io.busy = busy;
@@ -89,42 +91,55 @@ export function pushEvent(ev) {
 io.pushEvent = pushEvent;
 
 
-export async function dispatchEvent(ev) {
+export async function dispatchEvent(ev, km) {
 	let result;
-	for(let i = KEYMAPS.length - 1 && (result === undefined); i >= 0; --i) {
-		const km = KEYMAPS[i];
-		let command;
-		if (ev.dir) {
-			command = km.dir;
-		}
-		else if (ev.type === KEYPRESS) {
-			command = km[ev.key] || km[ev.code];
-		}
-		else if (km[ev.type]) {
-			command = km[ev.type];
-		}
+	let command;
 
-		if (command) {
-			if (typeof command === 'function') {
-				result = await command(ev);
-			}
-			else if (COMMANDS[command]) {
-				result = await COMMANDS[command](ev);
-			}
-			else {
-				UTILS.WARN('No command found: ' + command);
-			}
-		}
+	km = km || KEYMAP;
 
-		if (km.next === false) {
-			result = false;
+	if (ev.dir) {
+		command = km.dir;
+	}
+	else if (ev.type === KEYPRESS) {
+		command = km[ev.key] || km[ev.code];
+	}
+	else if (km[ev.type]) {
+		command = km[ev.type];
+	}
+
+	if (command) {
+		if (typeof command === 'function') {
+			result = await command(ev);
+		}
+		else if (COMMANDS[command]) {
+			result = await COMMANDS[command](ev);
+		}
+		else {
+			UTILS.WARN('No command found: ' + command);
 		}
 	}
+
+	if (km.next === false) {
+		result = false;
+	}
+
 	io.recycleEvent(ev);
 	return result;
 }
 
 io.dispatchEvent = dispatchEvent;
+
+// export async function dispatchEvent(ev, keymap) {
+// 	let result;
+// 	for(let i = KEYMAPS.length - 1 && (result === undefined); i >= 0; --i) {
+// 		const km = KEYMAPS[i];
+//
+// 	}
+// 	io.recycleEvent(ev);
+// 	return result;
+// }
+//
+// io.dispatchEvent = dispatchEvent;
 
 function recycleEvent(ev) {
 	DEAD_EVENTS.push(ev);

@@ -1,16 +1,15 @@
 
 import { utils as UTILS } from './utils.js';
 import { flag as FLAG } from './flag.js';
-import { tiles as TILES, Flags as TileFlags, MechFlags as TileMechFlags, withName } from './tile.js';
+import { random } from './random.js';
+import { tiles as TILES, Flags as TileFlags, MechFlags as TileMechFlags, withName, Layer as TileLayer } from './tile.js';
+import { tileEvent as TILE_EVENT } from './tileEvent.js';
 
 import { types, make, def, config as CONFIG, data as DATA } from './gw.js';
 
 
 export var cell = {};
 
-export const Layer = new types.Enum('GROUND', 'LIQUID', 'SURFACE', 'GAS', 'ITEM', 'ACTOR', 'PLAYER', 'FX', 'UI');
-
-cell.Layer = Layer;
 
 const Fl = FLAG.fl;
 
@@ -25,7 +24,9 @@ export const Flags = FLAG.install('cell', {
   HAS_DORMANT_MONSTER	: Fl(6),	// hidden monster on the square
   HAS_ITEM						: Fl(7),
   HAS_STAIRS					: Fl(8),
-  HAS_FX              : Fl(9),
+
+  NEEDS_REDRAW        : Fl(9),	// needs to be redrawn (maybe in path, etc...)
+  TILE_CHANGED				: Fl(10),	// one of the tiles changed
 
   IS_IN_PATH					: Fl(12),	// the yellow trail leading to the cursor
   IS_CURSOR						: Fl(13),	// the current cursor
@@ -47,9 +48,6 @@ export const Flags = FLAG.install('cell', {
   MONSTER_DETECTED				: Fl(24),
   WAS_MONSTER_DETECTED		: Fl(25),
 
-  NEEDS_REDRAW            : Fl(26),	// needs to be redrawn (maybe in path, etc...)
-  TILE_CHANGED						: Fl(27),	// one of the tiles changed
-
   CELL_LIT                : Fl(28),
   IS_IN_SHADOW				    : Fl(29),	// so that a player gains an automatic stealth bonus
   CELL_DARK               : Fl(30),
@@ -68,16 +66,19 @@ cell.flags = Flags;
 
 export const MechFlags = FLAG.install('cellMech', {
   SEARCHED_FROM_HERE				: Fl(0),	// Player already auto-searched from here; can't auto search here again
-  CAUGHT_FIRE_THIS_TURN			: Fl(1),	// so that fire does not spread asymmetrically
-  PRESSURE_PLATE_DEPRESSED	: Fl(2),	// so that traps do not trigger repeatedly while you stand on them
-  KNOWN_TO_BE_TRAP_FREE			: Fl(3),	// keep track of where the player has stepped as he knows no traps are there
+  PRESSURE_PLATE_DEPRESSED	: Fl(1),	// so that traps do not trigger repeatedly while you stand on them
+  KNOWN_TO_BE_TRAP_FREE			: Fl(2),	// keep track of where the player has stepped as he knows no traps are there
 
-  IS_IN_LOOP					: Fl(5),	// this cell is part of a terrain loop
-  IS_CHOKEPOINT				: Fl(6),	// if this cell is blocked, part of the map will be rendered inaccessible
-  IS_GATE_SITE				: Fl(7),	// consider placing a locked door here
-  IS_IN_ROOM_MACHINE	: Fl(8),
-  IS_IN_AREA_MACHINE	: Fl(9),
-  IS_POWERED					: Fl(10),	// has been activated by machine power this turn (can probably be eliminate if needed)
+  CAUGHT_FIRE_THIS_TURN			: Fl(4),	// so that fire does not spread asymmetrically
+  EVENT_FIRED_THIS_TURN     : Fl(5),  // so we don't update cells that have already changed this turn
+  EVENT_PROTECTED           : Fl(6),
+
+  IS_IN_LOOP					: Fl(10),	// this cell is part of a terrain loop
+  IS_CHOKEPOINT				: Fl(11),	// if this cell is blocked, part of the map will be rendered inaccessible
+  IS_GATE_SITE				: Fl(12),	// consider placing a locked door here
+  IS_IN_ROOM_MACHINE	: Fl(13),
+  IS_IN_AREA_MACHINE	: Fl(14),
+  IS_POWERED					: Fl(15),	// has been activated by machine power this turn (can probably be eliminate if needed)
 
   IS_IN_MACHINE				: ['IS_IN_ROOM_MACHINE', 'IS_IN_AREA_MACHINE'], 	// sacred ground; don't generate items here, or teleport randomly to it
 
@@ -116,6 +117,7 @@ types.CellMemory = CellMemory;
 
 class Cell {
   constructor() {
+    this.layers = [0,0,0,0];
     this.memory = new types.CellMemory();
     this.clear();
   }
@@ -125,32 +127,53 @@ class Cell {
   }
 
   clear() {
-    this.base = 0;
-    this.surface = 0;
-    this.gas = 0;
-    this.liquid = 0;
+    for(let i = 0; i < this.layers.length; ++i) {
+      this.layers[i] = 0;
+    }
+
     this.sprites = null;
     this.actor = null;
+    this.item = null;
+
     this.flags = 0;							// non-terrain cell flags
     this.mechFlags = 0;
     this.gasVolume = 0;						// quantity of gas in cell
     this.liquidVolume = 0;
     this.machineNumber = 0;
     this.memory.clear();
+    this.layerFlags = 0;
   }
 
-  dump() { return TILES[this.base].sprite.ch; }
+  get ground() { return this.layers[0]; }
+  get liquid() { return this.layers[1]; }
+  get surface() { return this.layers[2]; }
+  get gas() { return this.layers[3]; }
+
+  dump() {
+    for(let i = this.layers.length - 1; i >= 0; --i) {
+      if (!this.layers[i]) continue;
+      const tile = TILES[this.layers[i]];
+      if (tile.sprite.ch) return tile.sprite.ch;
+    }
+    return TILES[0].sprite.ch;
+  }
   isVisible() { return this.flags & Flags.VISIBLE; }
   isAnyKindOfVisible() { return (this.flags & Flags.ANY_KIND_OF_VISIBLE) || CONFIG.playbackOmniscience; }
   hasVisibleLight() { return true; }  // TODO
 
   redraw() { this.flags |= Flags.NEEDS_REDRAW; }
 
+  tile(layer=0) {
+    const id = this.layers[layer] || 0;
+    return TILES[id];
+  }
+
   *tiles() {
-    if (this.base) yield TILES[this.base];
-    if (this.surface) yield TILES[this.surface];
-    if (this.liquid) yield TILES[this.liquid];
-    if (this.gas) yield TILES[this.gas];
+    for(let id of this.layers) {
+      if (id) {
+        yield TILES[id];
+      }
+    }
   }
 
   tileFlags(limitToPlayerKnowledge) {
@@ -198,7 +221,7 @@ class Cell {
   }
 
   hasTile(id) {
-    return this.base === id || this.surface === id || this.gas === id || this.liquid === id;
+    return this.layers.includes(id);
   }
 
   // hasTileInGroup(...groups) {
@@ -234,9 +257,9 @@ class Cell {
 
   highestPriorityTile() {
     let best = TILES[0];
-    let bestPriority = 10000;
+    let bestPriority = -10000;
     for(let tile of this.tiles()) {
-      if (tile.priority < bestPriority) {
+      if (tile.priority > bestPriority) {
         best = tile;
         bestPriority = tile.priority;
       }
@@ -269,7 +292,7 @@ class Cell {
   }
 
   isEmpty() {
-    return this.base == 0;
+    return this.ground == 0;
   }
 
   isPassableNow(limitToPlayerKnowledge) {
@@ -329,10 +352,18 @@ class Cell {
     }
   }
 
-  setTile(tileId, checkPriority) {
+  obstructsLayer(layer) {
+    return layer == TileLayer.SURFACE && this.hasTileFlag(TileFlags.T_OBSTRUCTS_SURFACE_EFFECTS);
+  }
+
+  setTile(tileId=0, checkPriority=false) {
     let tile;
     if (typeof tileId === 'string') {
       tile = withName(tileId);
+    }
+    else if (tileId instanceof types.Tile) {
+      tile = tileId;
+      tileId = tile.id;
     }
     else {
       tile = TILES[tileId];
@@ -340,30 +371,121 @@ class Cell {
 
     if (!tile) {
       tile = TILES[0];
+      tileId = 0;
     }
 
-    const oldTileId = this.base || 0;
+    const oldTileId = this.layers[tile.layer] || 0;
     const oldTile = TILES[oldTileId] || TILES[0];
 
     if (checkPriority && oldTile.priority > tile.priority) return false;
 
-    this.base = tile.id;
+    if ((oldTile.flags & TileFlags.T_PATHING_BLOCKER)
+      != (tile.flags & TileFlags.T_PATHING_BLOCKER))
+    {
+      DATA.staleLoopMap = true;
+    }
+
+    if ((tile.flags & TileFlags.T_IS_FIRE)
+      && !(oldTile.flags & TileFlags.T_IS_FIRE))
+    {
+      this.setFlags(0, CellMechFlags.CAUGHT_FIRE_THIS_TURN);
+    }
+
+    this.layerFlags &= ~Fl(tile.layer); // turn off layer flag
+    this.layers[tile.layer] = tile.id;
     this.flags |= (Flags.NEEDS_REDRAW | Flags.TILE_CHANGED);
     return (oldTile.glowLight !== tile.glowLight);
   }
 
-  setSurface(tileId, force) {
-
+  clearLayers(except, floorTile) {
+    floorTile = floorTile === undefined ? this.layers[0] : floorTile;
+    for (let layer = 0; layer < this.layers.length; layer++) {
+      if (layer != except && layer != TileLayer.GAS) {
+          this.layers[layer] = (layer ? 0 : floorTile);
+      }
+    }
+    this.flags |= (Flags.NEEDS_REDRAW | Flags.TILE_CHANGED);
   }
 
-  setGas(tileId, volume, force) {
-
+  clearTileWithFlags(tileFlags, tileMechFlags=0) {
+    for( let i = 0; i < this.layers.length; ++i ) {
+      const id = this.layers[i];
+      if (!id) continue;
+      const tile = TILES[id];
+      if (tileFlags && tileMechFlags) {
+        if ((tile.flags & tileFlags) && (tile.mechFlags & tileMechFlags)) {
+          this.layers[i] = 0;
+        }
+      }
+      else if (tileFlags) {
+        if (tile.flags & tileFlags) {
+          this.layers[i] = 0;
+        }
+      }
+      else if (tileMechFlags) {
+        if (tile.flags & tileMechFlags) {
+          this.layers[i] = 0;
+        }
+      }
+    }
+    this.flags |= (Flags.NEEDS_REDRAW | Flags.TILE_CHANGED);
   }
 
-  setLiquid(tileId, volume, force) {
+  // EVENTS
 
+  async fireEvent(name, ctx) {
+    ctx.cell = this;
+    let fired = false;
+    for (let tile of this.tiles()) {
+      if (!tile.events) continue;
+      const ev = tile.events[name];
+      if (ev) {
+        if (ev.chance && !random.percent(ev.chance)) {
+          continue;
+        }
+
+        ctx.tile = tile;
+        fired = await TILE_EVENT.spawn(ev, ctx) || fired;
+      }
+    }
+    if (fired) {
+      this.mechFlags |= MechFlags.EVENT_FIRED_THIS_TURN;
+    }
+    return fired;
   }
 
+
+  // setTickFlag() {
+  //   let flag = 0;
+  //   for(let i = 0; i < this.layers.length; ++i) {
+  //     const id = this.layers[i];
+  //     if (!id) continue;
+  //     const tile = TILES[id];
+  //     if (!tile.events.tick) continue;
+  //     if (random.percent(tile.events.tick.chance)) {
+  //       flag |= Fl(i);
+  //     }
+  //   }
+  //   this.layerFlags = flag;
+  //   return flag;
+  // }
+  //
+  // async fireTick(ctx) {
+  //   if (!this.layerFlags) return false;
+  //
+  //   ctx.cell = this;
+  //   let fired = false;
+  //   for(let i = 0; i < this.layers.length; ++i) {
+  //     if (this.layerFlags & Fl(i)) {
+  //       const tile = TILES[this.layers[i]];
+  //       ctx.tile = tile;
+  //       await TILE_EVENT.spawn(tile.events.tick, ctx);
+  //       fired = true;
+  //     }
+  //   }
+  //   this.layerFlags = 0;
+  //   return fired;
+  // }
 
   // SPRITES
 
@@ -377,7 +499,7 @@ class Cell {
     }
 
     let current = this.sprites;
-    while(current.next && current.layer < layer || (current.layer == layer && current.priority <= priority)) {
+    while (current.next && ((current.layer < layer) || ((current.layer == layer) && (current.priority <= priority)))) {
       current = current.next;
     }
 
@@ -388,7 +510,7 @@ class Cell {
   removeSprite(sprite) {
 
     this.flags |= Flags.NEEDS_REDRAW;
-    
+
     if (this.sprites && this.sprites.sprite === sprite) {
       this.sprites = this.sprites.next;
       return;
@@ -440,8 +562,10 @@ make.cell = makeCell;
 
 
 export function getAppearance(cell, dest) {
-  const baseTile = TILES[cell.base];
-	dest.copy(baseTile.sprite);
+  dest.clear();
+  for( let tile of cell.tiles() ) {
+    dest.plot(tile.sprite);
+  }
 
   let current = cell.sprites;
   while(current) {

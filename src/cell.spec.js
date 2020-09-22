@@ -30,15 +30,15 @@ describe('CellMemory', () => {
 
     expect(GW.tiles[1].priority).toBeLessThan(GW.tiles[2].priority);
 
-    expect(c.base).toEqual(0);
+    expect(c.ground).toEqual(0);
     c.setTile(1);
-    expect(c.base).toEqual(1);
-    c.setTile(2);
-    expect(c.base).toEqual(2);
+    expect(c.ground).toEqual(1);
+    c.setTile(6);
+    expect(c.ground).toEqual(6);
     c.setTile(1, true); // checks priority
-    expect(c.base).toEqual(2);  // 2 has better priority
+    expect(c.ground).toEqual(6);  // 2 has better priority
     c.setTile(1);
-    expect(c.base).toEqual(1);  // ignored priority
+    expect(c.ground).toEqual(1);  // ignored priority
   });
 
   test('can support many layers', () => {
@@ -91,7 +91,7 @@ describe('CellMemory', () => {
     c.removeSprite(b);
 
     GW.cell.getAppearance(c, app);
-    expect(app).toEqual(GW.tiles[1].sprite);    
+    expect(app).toEqual(GW.tiles[1].sprite);
   });
 
 });

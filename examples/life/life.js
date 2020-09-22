@@ -87,8 +87,8 @@ function runSim() {
 // start the environment
 function start() {
 	canvas = GW.ui.start({ tileSize: 11, div: 'game', io: false });
-	game.onmousedown = handleClick;
-	game.onmousemove = handleMove;
+	canvas.element.onmousedown = handleClick;
+	canvas.element.onmousemove = handleMove;
 	document.onkeydown = runSim;
 
 	canvas.buffer.plotText(20, 15, 'Click to Turn on/off some cells.', [100,50,0]);

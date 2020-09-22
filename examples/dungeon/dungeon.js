@@ -121,15 +121,16 @@ function drawMap(attempt=0) {
 
 	stopTimer('DIG');
 
-	MAP.cells.forEach( (c, i, j) => {
-		const tile = c.highestPriorityTile();
-		if (tile) {
-			canvas.buffer.plot(i, j, tile.sprite);
-		}
-		else {
-			console.warn('missing tile ', v, i, j);
-		}
-	});
+	MAP.draw(canvas.buffer);
+	// MAP.cells.forEach( (c, i, j) => {
+	// 	const tile = c.highestPriorityTile();
+	// 	if (tile) {
+	// 		canvas.buffer.plot(i, j, tile.sprite);
+	// 	}
+	// 	else {
+	// 		console.warn('missing tile ', v, i, j);
+	// 	}
+	// });
 
 	// canvas.draw();
 

@@ -7,3 +7,9 @@ function moveBlocked(ctx) {
 }
 
 message.moveBlocked = moveBlocked;
+
+function add(text) {
+  console.log(text);
+}
+
+message.add = add;

@@ -1,5 +1,6 @@
 
 import { ui as UI } from './ui.js';
+import { Flags as TileFlags } from './tile.js';
 
 import { types, make, data as DATA, config as CONFIG } from './gw.js';
 
@@ -37,6 +38,10 @@ export class Actor {
 
 	isOrWasVisible() {
 		return true;
+	}
+
+	forbiddenTileFlags() {
+		return TileFlags.T_PATHING_BLOCKER;
 	}
 
 }

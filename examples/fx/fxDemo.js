@@ -295,7 +295,7 @@ GW.commands.showHelp = showHelp;
 function start() {
 
 	const canvas = GW.ui.start({ width: 80, height: 30, div: 'game' });
-	GW.io.addKeymap({ dir: 'moveDir', space: 'rest', click: 'showFX',
+	GW.io.setKeymap({ dir: 'moveDir', space: 'rest', click: 'showFX',
 			b: 'selectBolt', h: 'selectHit', f: 'selectFlash', p: 'selectProjectile',
 		 	m: 'selectBeam', w: 'selectWall',
 			o: 'selectExplosion', '+': 'selectExplosionPlus', '=': 'selectExplosionPlus',

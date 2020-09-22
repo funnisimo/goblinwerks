@@ -2,8 +2,9 @@
 import { utils as UTILS } from './utils.js';
 import { flag as FLAG } from './flag.js';
 import { random } from './random.js';
-import { Flags as TileFlags } from './tile.js';
-import { Flags as CellFlags, MechFlags as CellMechFlags, cell as CELL, Layer } from './cell.js';
+import { grid as GRID } from './grid.js';
+import { Flags as TileFlags, Layer as TileLayer } from './tile.js';
+import { Flags as CellFlags, MechFlags as CellMechFlags, cell as CELL } from './cell.js';
 import { types, def, make, data as DATA, config as CONFIG } from './gw.js';
 
 
@@ -27,12 +28,16 @@ export class Map {
 		this.cells = make.grid(w, h, () => new types.Cell() );
 		this.locations = opts.locations || {};
 		this.config = Object.assign({}, opts);
+		this.config.tick = this.config.tick || 100;
 	}
 
 	clear() { this.cells.forEach( (c) => c.clear() ); }
 	dump() { this.cells.dump((c) => c.dump()); }
 	cell(x, y)   { return this.cells[x][y]; }
-	eachCell(fn) { this.cells.forEach(fn); }
+
+	forEach(fn) { this.cells.forEach(fn); }
+	forRect(x, y, w, h, fn) { this.cells.forRect(x, y, w, h, fn ); }
+	eachNeighbor(x, y, fn, only4dirs) { this.cells.eachNeighbor(x, y, fn, only4dirs); }
 
 	hasXY(x, y)    		 { return this.cells.hasXY(x, y); }
 	isBoundaryXY(x, y) { return this.cells.isBoundaryXY(x, y); }
@@ -59,6 +64,11 @@ export class Map {
 		this.flags |= Flags.MAP_CHANGED;
 	}
 
+	redraw() {
+		this.forEach( (c) => c.redraw() );
+		this.flags |= Flags.MAP_CHANGED;
+	}
+
 	markRevealed(x, y) { return this.cell(x, y).markRevealed(); }
 	isVisible(x, y)    { return this.cell(x, y).isVisible(); }
 	isAnyKindOfVisible(x, y) { return this.cell(x, y).isAnyKindOfVisible(); }
@@ -69,7 +79,7 @@ export class Map {
 			this.flags |= mapFlag;
 		}
 		if (cellFlag || cellMechFlag) {
-			this.eachCell( (c) => c.setFlags(cellFlag, cellMechFlag) );
+			this.forEach( (c) => c.setFlags(cellFlag, cellMechFlag) );
 		}
 		this.flags |= Flags.MAP_CHANGED;
 	}
@@ -79,7 +89,7 @@ export class Map {
 			this.flags &= ~mapFlag;
 		}
 		if (cellFlag || cellMechFlag) {
-			this.eachCell( (cell) => cell.clearFlags(cellFlag, cellMechFlag) );
+			this.forEach( (cell) => cell.clearFlags(cellFlag, cellMechFlag) );
 		}
 		this.flags |= Flags.MAP_CHANGED;
 	}
@@ -132,6 +142,11 @@ export class Map {
 		}
 		this.flags |= Flags.MAP_CHANGED;
 	  return true;
+	}
+
+	clearTileWithFlags(x, y, tileFlags, tileMechFlags=0) {
+		const cell = this.cell(x, y);
+		cell.clearTileWithFlags(tileFlags, tileMechFlags);
 	}
 
 	fill(tileId, boundaryTile) {
@@ -272,7 +287,7 @@ export class Map {
 	addFx(x, y, anim) {
 		if (!this.hasXY(x, y)) return false;
 		const cell = this.cell(x, y);
-		cell.addSprite(Layer.FX, anim.sprite);
+		cell.addSprite(TileLayer.FX, anim.sprite);
 		anim.x = x;
 		anim.y = y;
 		this.flags |= Flags.MAP_CHANGED;
@@ -284,7 +299,7 @@ export class Map {
 		const cell = this.cell(x, y);
 		const oldCell = this.cell(anim.x, anim.y);
 		oldCell.removeSprite(anim.sprite);
-		cell.addSprite(Layer.FX, anim.sprite);
+		cell.addSprite(TileLayer.FX, anim.sprite);
 		this.flags |= Flags.MAP_CHANGED;
 		anim.x = x;
 		anim.y = y;
@@ -316,7 +331,7 @@ export class Map {
 
 		cell.actor = theActor;
 
-		const layer = (theActor === DATA.player) ? Layer.PLAYER : Layer.ACTOR;
+		const layer = (theActor === DATA.player) ? TileLayer.PLAYER : TileLayer.ACTOR;
 		cell.addSprite(layer, theActor.kind.sprite);
 
 		const flag = (theActor === DATA.player) ? CellFlags.HAS_PLAYER : CellFlags.HAS_MONSTER;
@@ -518,6 +533,37 @@ export class Map {
 		this.flags &= ~Flags.MAP_CHANGED;
 	}
 
+	// TICK
+
+	async tick() {
+		// const grid = GRID.alloc(this.width, this.height);
+		//
+		// for(let x = 0; x < this.width; ++x) {
+		// 	for(let y = 0; y < this.height; ++y) {
+		// 		const cell = this.cells[x][y];
+		// 		grid[x][y] = cell.setTickFlag();
+		// 	}
+		// }
+
+		this.forEach( (c) => c.mechFlags &= ~(CellMechFlags.EVENT_FIRED_THIS_TURN | CellMechFlags.EVENT_PROTECTED));
+		for(let x = 0; x < this.width; ++x) {
+			for(let y = 0; y < this.height; ++y) {
+				const cell = this.cells[x][y];
+				await cell.fireEvent('tick', { map: this, x, y, cell });
+			}
+		}
+		//
+		// for(let x = 0; x < this.width; ++x) {
+		// 	for(let y = 0; y < this.height; ++y) {
+		// 		if (!grid[x][y]) continue;
+		// 		const cell = this.cell(x, y);
+		// 		await cell.fireTick({ map: this, x, y, cell });
+		// 	}
+		// }
+		//
+		// GRID.free(grid);
+	}
+
 }
 
 types.Map = Map;
@@ -554,6 +600,58 @@ export function getCellAppearance(map, x, y, dest) {
 }
 
 map.getCellAppearance = getCellAppearance;
+
+
+export function gridDisruptsPassability(map, blockingGrid, mapToGridX=0, mapToGridY=0)
+{
+	let result;
+	let i, j, x, y;
+
+	const walkableGrid = GRID.alloc(map.width, map.height);
+	let disrupts = false;
+
+	x = y = -1;
+	// Get all walkable locations after lake added
+	map.cells.forEach( (cell, i, j) => {
+		const blockingX = i + mapToGridX;
+		const blockingY = j + mapToGridY;
+		if (cell.isEmpty()) {
+			return; // do nothing
+		}
+		else if (cell.canBePassed()) {
+			if (blockingGrid.hasXY(blockingX, blockingY) && blockingGrid[blockingX][blockingY]) return;
+			walkableGrid[i][j] = 1;
+		}
+		else if (cell.hasTileFlag(TileFlags.T_HAS_STAIRS)) {
+			if (blockingGrid.hasXY(blockingX, blockingY) && blockingGrid[blockingX][blockingY]) {
+				disrupts = true;
+			}
+			else {
+				walkableGrid[i][j] = 1;
+			}
+		}
+	});
+
+	let first = true;
+	for(let i = 0; i < walkableGrid.width && !disrupts; ++i) {
+		for(let j = 0; j < walkableGrid.height && !disrupts; ++j) {
+			if (walkableGrid[i][j] == 1) {
+				if (first) {
+					GRID.floodFill(walkableGrid, i, j, 1, 2);
+					first = false;
+				}
+				else {
+					disrupts = true;
+				}
+			}
+		}
+	}
+
+	GRID.free(walkableGrid);
+	return disrupts;
+}
+
+map.gridDisruptsPassability = gridDisruptsPassability;
 
 
 export function addText(map, x, y, text, fg, bg) {

@@ -16,11 +16,12 @@ export { cell } from './cell.js';
 export { map } from './map.js';
 export { scheduler } from  './scheduler.js';
 export { game } from './game.js';
-export { fx } from './fx.js';
+import './fx.js';
 export { actor } from './actor.js';
 export { player } from './player.js';
 export { ui } from './ui.js';
 export { fov } from './fov.js';
-export { commands } from './commands.js';
+import './commands.js';
+export { tileEvent, tileEvents } from './tileEvent.js';
 
 export * from './gw.js';

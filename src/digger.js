@@ -95,6 +95,7 @@ export function digCavern(config, grid) {
   // ...and copy it to the master grid.
   GRID.offsetZip(grid, blobGrid, destX - bounds.x, destY - bounds.y, config.tile);
   GRID.free(blobGrid);
+  return config.id;
 }
 
 digger.cavern = digCavern;
@@ -128,8 +129,9 @@ export function digChoiceRoom(config, grid) {
     id = random.lottery(config.choices);
   }
   const digger = diggers[id];
-  debug.log('Choose room: ', id);
+  // debug.log('Choose room: ', id);
   digger.fn(digger, grid);
+  return digger.id;
 }
 
 digger.choiceRoom = digChoiceRoom;
@@ -154,6 +156,7 @@ export function digEntranceRoom(config, grid) {
   grid.fill(0);
   grid.fillRect(roomX, roomY, roomWidth, roomHeight, config.tile || TILE);
   grid.fillRect(roomX2, roomY2, roomWidth2, roomHeight2, config.tile || TILE);
+  return config.id;
 }
 
 
@@ -178,6 +181,7 @@ export function digCrossRoom(config, grid) {
 
   grid.fillRect(roomX - 5, roomY + 5, roomWidth, roomHeight, config.tile || TILE);
   grid.fillRect(roomX2 - 5, roomY2 + 5, roomWidth2, roomHeight2, config.tile || TILE);
+  return config.id;
 }
 
 digger.crossRoom = digCrossRoom;
@@ -202,6 +206,7 @@ export function digSymmetricalCrossRoom(config, grid) {
   grid.fill(0);
   grid.fillRect(Math.floor((grid.width - majorWidth)/2), Math.floor((grid.height - minorHeight)/2), majorWidth, minorHeight, config.tile || TILE);
   grid.fillRect(Math.floor((grid.width - minorWidth)/2), Math.floor((grid.height - majorHeight)/2), minorWidth, majorHeight, config.tile || TILE);
+  return config.id;
 }
 
 digger.symmetricalCrossRoom = digSymmetricalCrossRoom;
@@ -216,6 +221,7 @@ export function digRectangularRoom(config, grid) {
 
   grid.fill(0);
   grid.fillRect(Math.floor((grid.width - width) / 2), Math.floor((grid.height - height) / 2), width, height, config.tile || TILE);
+  return config.id;
 }
 
 digger.rectangularRoom = digRectangularRoom;
@@ -230,6 +236,7 @@ export function digCircularRoom(config, grid) {
   grid.fill(0);
   grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, config.tile || TILE);
 
+  return config.id;
 }
 
 digger.circularRoom = digCircularRoom;
@@ -250,6 +257,7 @@ export function digBrogueCircularRoom(config, grid) {
   {
       grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), random.range(config.holeMinSize, radius - config.holeMinSize), 0);
   }
+  return config.id;
 }
 
 digger.brogueCircularRoom = digBrogueCircularRoom;
@@ -288,6 +296,7 @@ export function digChunkyRoom(config, grid) {
 //            temporaryMessage("Added a chunk:", true);
       }
   }
+  return config.id;
 }
 
 digger.chunkyRoom = digChunkyRoom;
