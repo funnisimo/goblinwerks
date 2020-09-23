@@ -942,7 +942,7 @@ async function showArchive() {
 
 		if (!reverse) {
     	if (!DATA.autoPlayingLevel) {
-        const y = isOnTop ? 0 : debuf.height - 1;
+        const y = isOnTop ? 0 : dbuf.height - 1;
         dbuf.plotText(SETUP.toCanvasX(-8), y, "--DONE--", COLORS.black, COLORS.white);
       	UI.draw();
       	await IO.waitForAck();
