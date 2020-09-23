@@ -1,10 +1,11 @@
 
 import { utils as UTILS } from './utils.js';
 import { io as IO } from './io.js';
-import { data as DATA, types, fx as FX } from './gw.js';
+import { data as DATA, types, fx as FX, ui, message as MSG } from './gw.js';
 
 
-export var ui = {};
+let SHOW_FLAVOR = false;
+let SHOW_SIDEBAR = false;
 
 let UI_BUFFER = null;
 let UI_BASE = null;
@@ -46,12 +47,10 @@ export function start(opts={}) {
     bg: 'black',
     sidebar: false,
     messages: false,
-    flavor: false,
     menu: false,
     div: 'canvas',
     io: true,
   });
-
 
   if (!ui.canvas) {
     ui.canvas = new types.Canvas(opts.width, opts.height, opts.div, opts);
@@ -72,6 +71,15 @@ export function start(opts={}) {
 
   IN_DIALOG = false;
   REDRAW_UI = false;
+
+	if (opts.messages) {
+		if (opts.messages < 0) {	// on bottom of screen
+			MSG.setup({x: 0, y: ui.canvas.height + opts.messages, width: ui.canvas.width, height: -opts.messages, archive: ui.canvas.height });
+		}
+		else {	// on top of screen
+			MSG.setup({x: 0, y: 0, width: ui.canvas.width, height: opts.messages, archive: ui.canvas.height });
+		}
+	}
 
   ui.blackOutDisplay();
 	RUNNING = true;
@@ -262,6 +270,7 @@ function draw() {
   else if (ui.canvas) {
     // const side = GW.sidebar.draw(UI_BUFFER);
     if (DATA.map) DATA.map.draw(ui.canvas.buffer);
+		if (MSG.bounds) MSG.draw(ui.canvas.buffer);
     // if (commitCombatMessage() || REDRAW_UI || side || map) {
     // ui.canvas.overlay(UI_BUFFER);
     // ui.canvas.overlay(UI_OVERLAY);

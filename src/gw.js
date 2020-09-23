@@ -6,6 +6,9 @@ export var debug = {};
 
 export var make = {};
 export var install = {};
+export var message = {};
+
+export var ui = {};
 
 export var fx = {};
 export var commands = {};

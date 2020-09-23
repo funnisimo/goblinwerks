@@ -4,12 +4,11 @@ import { utils as UTILS } from './utils.js';
 import { Flags as CellFlags } from './cell.js';
 import { Flags as MapFlags, map as MAP } from './map.js';
 import { io as IO } from './io.js';
-import { ui as UI } from './ui.js';
 import { actor as ACTOR } from './actor.js';
 import { player as PLAYER } from './player.js';
 import { scheduler } from './scheduler.js';
 
-import { data as DATA, types, fx as FX } from './gw.js';
+import { data as DATA, types, fx as FX, ui as UI } from './gw.js';
 
 export var game = {};
 

@@ -15,16 +15,16 @@ const PLAYER = GW.make.player({
 });
 
 async function crossedFinish() {
-	++mapCount;
-	await GW.ui.messageBox('Level ' + mapCount, 'blue', 1000);
 
-	const map = makeMap(mapCount);
+	const map = makeMap(MAP.id + 1);
+	await GW.ui.messageBox('Level ' + map.id, 'light_blue', 1000);
+	GW.message.add('Level: %d', map.id);
 	await GW.game.startMap(map);
 }
 
 async function lavaTick(ctx) {
 	if (GW.random.number(300 * 10 * 10) <= 1) {
-		console.warn('ERUPT', ctx.x, ctx.y);
+		GW.message.add('ERUPTION @ %d,%d', ctx.x, ctx.y);
 		return await GW.tileEvent.spawn({ tile: 'LAVA_ERUPTING' }, ctx);
 	}
 	else if (GW.random.percent(5)) {
@@ -83,9 +83,7 @@ GW.commands.rest = rest;
 
 
 
-let mapCount = 1;
-
-function makeMap(id) {
+function makeMap(id=1) {
 	// dig a map
 	MAP = GW.make.map(50, 30);
 	MAP.clear();
@@ -109,25 +107,21 @@ function makeMap(id) {
 }
 
 
-function newMap() {
-	const map = makeMap();
-	GW.game.startMap(map);
-}
-
-GW.commands.newMap = newMap;
-
 
 async function showHelp() {
 	const buf = GW.ui.startDialog();
 
 	let y = 2;
-	buf.plotText(10, y++, 'GoblinWerks Lava Dodge Example', 'green');
+	buf.plotText(10, y++, 'GoblinWerks Lava Hop Example', 'green');
 	y++;
-	y = buf.wrapText(5, y, 60, 'This example is all about dodging the fireballs.', 'white');
+	y = buf.wrapText(5, y, 40, 'This example is all about crossing the lava field.', 'white');
 	y++;
-	buf.plotText(5, y++, 'DIR   : Pressing a direction key moves the player.', 'white');
-	buf.plotText(5, y++, 'SPACE : Rest player - lets game time animations continue.', 'white');
-	buf.plotText(5, y++, '?     : Show this screen.', 'white');
+	buf.plotText(5, y, 'DIR   ', 'yellow');
+	y = buf.wrapText(11, y, 32, ': Pressing an arrow key moves the player in that direction.', 'white', null, 2);
+	buf.plotText(5, y, 'SPACE ', 'yellow');
+	y = buf.wrapText(11, y, 32, ': Rest player - lets game time animations continue.', 'white', null, 2);
+	buf.plotText(5, y, '?', 'yellow');
+	y = buf.wrapText(11, y, 32, ': Show this screen.', 'white');
 
 	buf.fillRect(4, 1, 42, y, null, null, 'black' );
 
@@ -142,16 +136,15 @@ GW.commands.showHelp = showHelp;
 // start the environment
 async function start() {
 
-	const canvas = GW.ui.start({ width: 50, height: 35, div: 'game' });
+	const canvas = GW.ui.start({ width: 50, height: 35, div: 'game', messages: -5 });
 	GW.io.setKeymap({
 		dir: 'moveDir', space: 'rest',
-		'>': 'newMap', '<': 'newMap',
 		'x': startExplosion,
 		'?': 'showHelp'
 	});
 
-	await showHelp();
-	MAP = makeMap(0);
+	MAP = makeMap();
+	GW.message.add('%RWelcome to Lava Hop!\nGet across the Lava field safely to advance.\nPress <?> for help.', 'yellow');
 	GW.game.start({ player: PLAYER, map: MAP });
 }
 

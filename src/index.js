@@ -19,9 +19,10 @@ export { game } from './game.js';
 import './fx.js';
 export { actor } from './actor.js';
 export { player } from './player.js';
-export { ui } from './ui.js';
+import './ui.js';
 export { fov } from './fov.js';
 import './commands.js';
 export { tileEvent, tileEvents } from './tileEvent.js';
+import './message.js';
 
 export * from './gw.js';

@@ -1,9 +1,7 @@
 
 
 import { Flags as TileFlags } from './tile.js';
-import { ui as UI } from './ui.js';
-import { message as MSG } from './message.js';
-import { data as DATA, def, commands } from './gw.js';
+import { data as DATA, def, commands, ui as UI, message as MSG } from './gw.js';
 
 
 

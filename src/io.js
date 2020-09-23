@@ -129,17 +129,6 @@ export async function dispatchEvent(ev, km) {
 
 io.dispatchEvent = dispatchEvent;
 
-// export async function dispatchEvent(ev, keymap) {
-// 	let result;
-// 	for(let i = KEYMAPS.length - 1 && (result === undefined); i >= 0; --i) {
-// 		const km = KEYMAPS[i];
-//
-// 	}
-// 	io.recycleEvent(ev);
-// 	return result;
-// }
-//
-// io.dispatchEvent = dispatchEvent;
 
 function recycleEvent(ev) {
 	DEAD_EVENTS.push(ev);

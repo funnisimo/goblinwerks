@@ -2,7 +2,7 @@
 import { color as COLOR, colors as COLORS } from './color.js';
 import { cosmetic } from './random.js';
 
-import { types, debug } from './gw.js';
+import { types, debug, make } from './gw.js';
 
 
 const DEFAULT_FONT = 'monospace';
@@ -42,6 +42,8 @@ class Buffer extends types.Grid {
     this.needsUpdate = true;
   }
 
+  dump() { super.dump( (s) => s.ch ); }
+
   plot(x, y, sprite) {
     if (sprite.opacity <= 0) return;
 
@@ -78,12 +80,26 @@ class Buffer extends types.Grid {
     }
   }
 
+  plotLine(x, y, w, text, fg, bg) {
+    if (typeof fg === 'string') { fg = COLORS[fg]; }
+    if (typeof bg === 'string') { bg = COLORS[bg]; }
+    let len = text.length;
+    for(let i = 0; i < len; ++i) {
+      this.plotChar(i + x, y, text[i], fg, bg);
+    }
+    for(let i = len; i < w; ++i) {
+      this.plotChar(i + x, y, ' ', fg, bg);
+    }
+  }
+
   wrapText(x, y, width, text, fg, bg, opts={}) {
+    if (typeof opts === 'number') { opts = { indent: opts }; }
     if (typeof fg === 'string') { fg = COLORS[fg]; }
     if (typeof bg === 'string') { bg = COLORS[bg]; }
     width = Math.min(width, this.width - x);
     if (text.length <= width) {
-      return this.plotText(x, y, text, fg, bg);
+      this.plotText(x, y, text, fg, bg);
+      return y + 1;
     }
     let first = true;
     let start = 0;
@@ -131,6 +147,11 @@ class Buffer extends types.Grid {
 
 types.Buffer = Buffer;
 
+function makeBuffer(w, h) {
+  return new types.Buffer(w, h);
+}
+
+make.buffer = makeBuffer;
 
 
 function setFont(canvas, size, name) {
