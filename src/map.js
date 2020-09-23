@@ -516,22 +516,22 @@ export class Map {
 		}
 	}
 
-	// DRAW
-
-	draw(buffer) {
-		if (!this.flags & Flags.MAP_CHANGED) return;
-
-		this.cells.forEach( (c, i, j) => {
-			if (c.flags & CellFlags.NEEDS_REDRAW) {
-	      const buf = buffer[i][j];
-				GW.map.getCellAppearance(this, i, j, buf);
-				c.clearFlags(CellFlags.NEEDS_REDRAW);
-	      buffer.needsUpdate = true;
-			}
-		});
-
-		this.flags &= ~Flags.MAP_CHANGED;
-	}
+	// // DRAW
+	//
+	// draw(buffer) {
+	// 	if (!this.flags & Flags.MAP_CHANGED) return;
+	//
+	// 	this.cells.forEach( (c, i, j) => {
+	// 		if (c.flags & CellFlags.NEEDS_REDRAW) {
+	//       const buf = buffer[i][j];
+	// 			GW.map.getCellAppearance(this, i, j, buf);
+	// 			c.clearFlags(CellFlags.NEEDS_REDRAW);
+	//       buffer.needsUpdate = true;
+	// 		}
+	// 	});
+	//
+	// 	this.flags &= ~Flags.MAP_CHANGED;
+	// }
 
 	// TICK
 

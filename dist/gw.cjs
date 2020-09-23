@@ -5480,22 +5480,22 @@ class Map {
 		}
 	}
 
-	// DRAW
-
-	draw(buffer) {
-		if (!this.flags & Flags$3.MAP_CHANGED) return;
-
-		this.cells.forEach( (c, i, j) => {
-			if (c.flags & Flags$2.NEEDS_REDRAW) {
-	      const buf = buffer[i][j];
-				GW.map.getCellAppearance(this, i, j, buf);
-				c.clearFlags(Flags$2.NEEDS_REDRAW);
-	      buffer.needsUpdate = true;
-			}
-		});
-
-		this.flags &= ~Flags$3.MAP_CHANGED;
-	}
+	// // DRAW
+	//
+	// draw(buffer) {
+	// 	if (!this.flags & Flags.MAP_CHANGED) return;
+	//
+	// 	this.cells.forEach( (c, i, j) => {
+	// 		if (c.flags & CellFlags.NEEDS_REDRAW) {
+	//       const buf = buffer[i][j];
+	// 			GW.map.getCellAppearance(this, i, j, buf);
+	// 			c.clearFlags(CellFlags.NEEDS_REDRAW);
+	//       buffer.needsUpdate = true;
+	// 		}
+	// 	});
+	//
+	// 	this.flags &= ~Flags.MAP_CHANGED;
+	// }
 
 	// TICK
 
@@ -8822,7 +8822,6 @@ function addMessage(msg) {
   }
 
   // display the message:
-	// updateMessageDisplay();
   NEEDS_UPDATE = true;
   ui.requestUpdate();
 
@@ -8842,7 +8841,8 @@ function addMessage(msg) {
 // 	else {
 // 		COMBAT_MESSAGE += ' ' + message.capitalize(msg);;
 // 	}
-// 	// updateMessageDisplay();
+// NEEDS_UPDATE = true;
+// UI.requestUpdate();
 // }
 //
 // UI.combatMessage = combatMessage;
@@ -8860,7 +8860,6 @@ function confirmAll() {
 	for (let i=0; i<CONFIRMED.length; i++) {
 		CONFIRMED[i] = true;
 	}
-	// updateMessageDisplay();
   NEEDS_UPDATE = true;
   ui.requestUpdate();
 }
@@ -8940,7 +8939,6 @@ async function showArchive() {
 	ui.finishDialog();
 
 	message.confirmAll();
-	// updateMessageDisplay();
   NEEDS_UPDATE = true;
   ui.requestUpdate();
 }
@@ -8959,9 +8957,9 @@ viewport.setup = setup$1;
 
 // DRAW
 
-function drawViewport(buffer) {
-  if (!data.map) return;
-  const map$1 = data.map;
+function drawViewport(buffer, map$1) {
+  map$1 = map$1 || data.map;
+  if (!map$1) return;
   if (!map$1.flags & Flags$3.MAP_CHANGED) return;
 
   map$1.cells.forEach( (c, i, j) => {

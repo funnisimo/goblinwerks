@@ -17,9 +17,9 @@ viewport.setup = setup;
 
 // DRAW
 
-function drawViewport(buffer) {
-  if (!DATA.map) return;
-  const map = DATA.map;
+function drawViewport(buffer, map) {
+  map = map || DATA.map;
+  if (!map) return;
   if (!map.flags & MapFlags.MAP_CHANGED) return;
 
   map.cells.forEach( (c, i, j) => {

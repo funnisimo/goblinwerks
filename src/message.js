@@ -835,7 +835,6 @@ function addMessage(msg) {
   }
 
   // display the message:
-	// updateMessageDisplay();
   NEEDS_UPDATE = true;
   UI.requestUpdate();
 
@@ -855,7 +854,8 @@ function addMessage(msg) {
 // 	else {
 // 		COMBAT_MESSAGE += ' ' + message.capitalize(msg);;
 // 	}
-// 	// updateMessageDisplay();
+// NEEDS_UPDATE = true;
+// UI.requestUpdate();
 // }
 //
 // UI.combatMessage = combatMessage;
@@ -873,7 +873,6 @@ function confirmAll() {
 	for (let i=0; i<CONFIRMED.length; i++) {
 		CONFIRMED[i] = true;
 	}
-	// updateMessageDisplay();
   NEEDS_UPDATE = true;
   UI.requestUpdate();
 }
@@ -953,7 +952,6 @@ async function showArchive() {
 	UI.finishDialog();
 
 	message.confirmAll();
-	// updateMessageDisplay();
   NEEDS_UPDATE = true;
   UI.requestUpdate();
 }
