@@ -5051,6 +5051,10 @@ tileEvent.evacuateCreatures = evacuateCreatures;
 var cell = {};
 
 
+color.install('cursorColor', 25, 100, 150);
+config.cursorPathIntensity = 50;
+
+
 const Fl$3 = flag.fl;
 
 const Flags$2 = flag.install('cell', {
@@ -5612,6 +5616,25 @@ function getAppearance(cell, dest) {
     dest.plot(current.sprite);
     current = current.next;
   }
+
+  let needDistinctness = false;
+  if (cell.flags & (Flags$2.IS_CURSOR | Flags$2.IS_IN_PATH)) {
+    const highlight = (cell.flags & Flags$2.IS_CURSOR) ? colors.cursorColor : colors.yellow;
+    if (cell.hasTileMechFlag(MechFlags.TM_INVERT_WHEN_HIGHLIGHTED)) {
+      color.swap(dest.fg, dest.bg);
+    } else {
+      // if (!GAME.trueColorMode || !dest.needDistinctness) {
+          color.applyMix(dest.fg, highlight, config.cursorPathIntensity || 20);
+      // }
+      color.applyMix(dest.bg, highlight, config.cursorPathIntensity || 20);
+    }
+    needDistinctness = true;
+  }
+
+  if (needDistinctness) {
+    color.separate(dest.fg, dest.bg);
+  }
+
   return true;
 }
 
@@ -6155,17 +6178,6 @@ function getCellAppearance(map, x, y, dest) {
 	if (!map.hasXY(x, y)) return;
 	const cell$1 = map.cell(x, y);
 	cell.getAppearance(cell$1, dest);
-
-	if (cell$1.flags & Flags$2.HAS_PLAYER) {
-		dest.plot(data.player.kind.sprite);
-	}
-	else if (cell$1.flags & Flags$2.HAS_MONSTER) {
-		const monst = map.actorAt(x, y);
-		if (monst) {
-			dest.plot(monst.kind.sprite);
-		}
-	}
-
 	dest.bake();
 }
 
@@ -7843,6 +7855,8 @@ function explosionFor(map, grid, x, y, radius, sprite, opts={}) {
 
 fx.explosionFor = explosionFor;
 
+let SHOW_CURSOR = false;
+
 let UI_BUFFER = null;
 let UI_BASE = null;
 let UI_OVERLAY = null;
@@ -7882,6 +7896,7 @@ function start$1(opts={}) {
     bg: 'black',
     sidebar: false,
     messages: false,
+		cursor: false,
     menu: false,
     div: 'canvas',
     io: true,
@@ -7924,6 +7939,7 @@ function start$1(opts={}) {
 	}
 
 	viewport.setup({ x: viewX, y: viewY, w: viewW, h: viewH });
+	SHOW_CURSOR = opts.cursor;
 
   ui.blackOutDisplay();
 	RUNNING = true;
@@ -7942,6 +7958,7 @@ function stop() {
 ui.stop = stop;
 
 
+
 async function dispatchEvent$1(ev) {
 
 	if (ev.type === def.CLICK) {
@@ -7951,8 +7968,14 @@ async function dispatchEvent$1(ev) {
 		}
 	}
 	else if (ev.type === def.MOUSEMOVE) {
-		if (message.bounds && message.bounds.hasCanvasLoc(ev.x, ev.y)) {
-			return;
+		if (viewport.bounds && viewport.bounds.hasCanvasLoc(ev.x, ev.y)) {
+			if (SHOW_CURSOR) {
+				viewport.setCursor(viewport.bounds.toLocalX(ev.x), viewport.bounds.toLocalY(ev.y));
+			}
+			return true;
+		}
+		else {
+			viewport.clearCursor();
 		}
 	}
 
@@ -8815,7 +8838,6 @@ function confirmAll() {
 message.confirmAll = confirmAll;
 
 
-
 async function showArchive() {
 	let i, j, k, reverse, fadePercent, totalMessageCount, currentMessageCount;
 	let fastForward;
@@ -8895,12 +8917,67 @@ message.showArchive = showArchive;
 
 let VIEWPORT = null;
 
+var CURSOR = viewport.cursor = {
+  x: -1,
+  y: -1,
+};
+
 
 function setup$1(opts={}) {
   VIEWPORT = viewport.bounds = new types.Bounds(opts.x, opts.y, opts.w, opts.h);
 }
 
 viewport.setup = setup$1;
+
+//////////////////
+// CURSOR
+
+function setCursor(x, y) {
+  const map = data.map;
+  if (!map) return false;
+
+  if (CURSOR.x == x && CURSOR.y == y) return false;
+
+  // console.log('set cursor', x, y);
+
+  if (map.hasXY(CURSOR.x, CURSOR.y)) {
+    map.clearCellFlags(CURSOR.x, CURSOR.y, Flags$2.IS_CURSOR);
+  }
+  CURSOR.x = x;
+  CURSOR.y = y;
+
+  if (map.hasXY(x, y)) {
+    if (!data.player || data.player.x !== x || data.player.y !== y ) {
+      map.setCellFlags(CURSOR.x, CURSOR.y, Flags$2.IS_CURSOR);
+    }
+
+    // if (!GW.player.isMoving()) {
+    //   showPathFromPlayerTo(x, y);
+    // }
+    // GW.ui.flavorMessage('' + x + ',' + y + ': ' + GW.map.cellFlavor(x, y));
+  }
+
+  ui.requestUpdate();
+  return true;
+}
+
+viewport.setCursor = setCursor;
+
+// function moveCursor(dx, dy) {
+//   GW.map.setCursor(CURSOR.x + dx, CURSOR.y + dy);
+// }
+//
+// GW.map.moveCursor = moveCursor;
+
+// GW.map.cursor = CURSOR;
+
+function clearCursor() {
+  return viewport.setCursor(-1,-1);
+  // GW.ui.flavorMessage(GW.map.cellFlavor(GW.PLAYER.x, GW.PLAYER.y));
+}
+
+viewport.clearCursor = clearCursor;
+
 
 
 // DRAW

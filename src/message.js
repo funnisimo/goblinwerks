@@ -218,7 +218,6 @@ function confirmAll() {
 message.confirmAll = confirmAll;
 
 
-
 async function showArchive() {
 	let i, j, k, reverse, fadePercent, totalMessageCount, currentMessageCount;
 	let fastForward;

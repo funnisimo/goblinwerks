@@ -6,6 +6,7 @@ import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIE
 
 let SHOW_FLAVOR = false;
 let SHOW_SIDEBAR = false;
+let SHOW_CURSOR = false;
 
 let UI_BUFFER = null;
 let UI_BASE = null;
@@ -47,6 +48,7 @@ export function start(opts={}) {
     bg: 'black',
     sidebar: false,
     messages: false,
+		cursor: false,
     menu: false,
     div: 'canvas',
     io: true,
@@ -90,6 +92,7 @@ export function start(opts={}) {
 	}
 
 	VIEWPORT.setup({ x: viewX, y: viewY, w: viewW, h: viewH });
+	SHOW_CURSOR = opts.cursor;
 
   ui.blackOutDisplay();
 	RUNNING = true;
@@ -108,6 +111,7 @@ export function stop() {
 ui.stop = stop;
 
 
+
 export async function dispatchEvent(ev) {
 
 	if (ev.type === def.CLICK) {
@@ -117,8 +121,14 @@ export async function dispatchEvent(ev) {
 		}
 	}
 	else if (ev.type === def.MOUSEMOVE) {
-		if (MSG.bounds && MSG.bounds.hasCanvasLoc(ev.x, ev.y)) {
-			return;
+		if (VIEWPORT.bounds && VIEWPORT.bounds.hasCanvasLoc(ev.x, ev.y)) {
+			if (SHOW_CURSOR) {
+				VIEWPORT.setCursor(VIEWPORT.bounds.toLocalX(ev.x), VIEWPORT.bounds.toLocalY(ev.y));
+			}
+			return true;
+		}
+		else {
+			VIEWPORT.clearCursor();
 		}
 	}
 

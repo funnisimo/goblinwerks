@@ -136,7 +136,7 @@ GW.commands.showHelp = showHelp;
 // start the environment
 async function start() {
 
-	const canvas = GW.ui.start({ width: 50, height: 35, div: 'game', messages: -5 });
+	const canvas = GW.ui.start({ width: 50, height: 35, div: 'game', messages: -5, cursor: true });
 	GW.io.setKeymap({
 		dir: 'moveDir', space: 'rest',
 		'x': startExplosion,
