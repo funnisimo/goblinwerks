@@ -6,9 +6,10 @@ var debug$1 = {};
 
 var make = {};
 var install = {};
-var message = {};
 
 var ui = {};
+var message = {};
+var viewport = {};
 
 var fx = {};
 var commands = {};
@@ -33,6 +34,39 @@ def.LEFT_DOWN = 6;
 def.RIGHT_UP = 7;
 
 debug$1.log = console.log;
+
+class Bounds {
+  constructor(x, y, w, h) {
+    this.x = x || 0;
+    this.y = y || 0;
+    this.width = w || 0;
+    this.height = h || 0;
+  }
+
+  hasCanvasLoc(x, y) {
+    return this.width > 0
+      && this.x <= x
+      && this.y <= y
+      && this.x + this.width > x
+      && this.y + this.height > y;
+  }
+
+  toLocalX(x) { return x - this.x; }
+  toLocalY(y) { return y - this.y; }
+
+  toCanvasX(x) {
+    let offset = 0;
+    if (x < 0) { offset = this.width - 1; }
+    return x + this.x + offset;
+  }
+  toCanvasY(y) {
+    let offset = 0;
+    if (y < 0) { offset = this.height - 1; }
+    return y + this.y + offset;
+  }
+}
+
+types.Bounds = Bounds;
 
 var utils$1 = {};
 
@@ -6513,7 +6547,7 @@ async function takeTurn$1() {
 
   while(!PLAYER.turnTime) {
     const ev = await io.nextEvent(1000);
-    await io.dispatchEvent(ev);
+    await ui.dispatchEvent(ev);
     await ui.updateIfRequested();
   }
 
@@ -7266,14 +7300,24 @@ function start$1(opts={}) {
 
   IN_DIALOG = false;
 
+	let viewX = 0;
+	let viewY = 0;
+	let viewW = opts.width;
+	let viewH = opts.height;
+
 	if (opts.messages) {
 		if (opts.messages < 0) {	// on bottom of screen
 			message.setup({x: 0, y: ui.canvas.height + opts.messages, width: ui.canvas.width, height: -opts.messages, archive: ui.canvas.height });
+			viewH += opts.messages;	// subtract off message height
 		}
 		else {	// on top of screen
 			message.setup({x: 0, y: 0, width: ui.canvas.width, height: opts.messages, archive: ui.canvas.height });
+			viewY = opts.messages;
+			viewH -= opts.messages;
 		}
 	}
+
+	viewport.setup({ x: viewX, y: viewY, w: viewW, h: viewH });
 
   ui.blackOutDisplay();
 	RUNNING = true;
@@ -7290,6 +7334,26 @@ function stop() {
 }
 
 ui.stop = stop;
+
+
+async function dispatchEvent$1(ev) {
+
+	if (ev.type === def.CLICK) {
+		if (message.bounds && message.bounds.hasCanvasLoc(ev.x, ev.y)) {
+			await message.showArchive();
+			return true;
+		}
+	}
+	else if (ev.type === def.MOUSEMOVE) {
+		if (message.bounds && message.bounds.hasCanvasLoc(ev.x, ev.y)) {
+			return;
+		}
+	}
+
+	await io.dispatchEvent(ev);
+}
+
+ui.dispatchEvent = dispatchEvent$1;
 
 
 let UPDATE_REQUESTED = 0;
@@ -7462,7 +7526,7 @@ function draw() {
   }
   else if (ui.canvas) {
     // const side = GW.sidebar.draw(UI_BUFFER);
-    if (data.map) data.map.draw(ui.canvas.buffer);
+    if (viewport.bounds) viewport.draw(ui.canvas.buffer);
 		if (message.bounds) message.draw(ui.canvas.buffer);
 			UPDATE_REQUESTED = 0;
     // }
@@ -7947,40 +8011,9 @@ const CONFIRMED = [];
 var ARCHIVE_LINES = 30;
 var CURRENT_ARCHIVE_POS = 0;
 var NEEDS_UPDATE = false;
+var INTERFACE_OPACITY = 90;
 
 
-
-
-class Bounds {
-  constructor(x, y, w, h) {
-    this.x = x || 0;
-    this.y = y || 0;
-    this.width = w || 0;
-    this.height = h || 0;
-  }
-
-  hasCanvasLoc(x, y) {
-    return this.width > 0
-      && this.x <= x
-      && this.y <= y
-      && this.x + this.width > x
-      && this.y + this.height > y;
-  }
-
-  toLocalX(x) { return x - this.x; }
-  toLocalY(y) { return y - this.y; }
-
-  toCanvasX(x) {
-    let offset = 0;
-    if (x < 0) { offset = this.width - 1; }
-    return x + this.x + offset;
-  }
-  toCanvasY(y) {
-    let offset = 0;
-    if (y < 0) { offset = this.height - 1; }
-    return y + this.y + offset;
-  }
-}
 
 function setup(opts) {
   opts.height = opts.height || 1;
@@ -7989,7 +8022,7 @@ function setup(opts) {
     DISPLAYED[i] = null;
   }
 
-  SETUP = message.bounds = new Bounds(opts.x, opts.y, opts.w || opts.width, opts.h || opts.height);
+  SETUP = message.bounds = new types.Bounds(opts.x, opts.y, opts.w || opts.width, opts.h || opts.height);
   ARCHIVE_LINES = opts.archive || 0;
   if (!ARCHIVE_LINES) {
     if (ui.canvas) {
@@ -8002,6 +8035,8 @@ function setup(opts) {
   for(let i = 0; i < ARCHIVE_LINES; ++i) {
     ARCHIVE[i] = null;
   }
+
+  INTERFACE_OPACITY = opts.opacity || INTERFACE_OPACITY;
 }
 
 message.setup = setup;
@@ -8857,23 +8892,23 @@ async function showArchive() {
 			 (reverse ? currentMessageCount >= SETUP.height : currentMessageCount <= totalMessageCount);
 			 currentMessageCount += (reverse ? -1 : 1))
 	  {
-			GW.canvas.clear(dbuf);
+			dbuf.clear();
 
 			// Print the message archive text to the dbuf.
-			for (j=0; j < currentMessageCount && j < GW.canvas.height; j++) {
+			for (j=0; j < currentMessageCount && j < dbuf.height; j++) {
 				const pos = (CURRENT_ARCHIVE_POS - currentMessageCount + ARCHIVE_LINES + j) % ARCHIVE_LINES;
-        const y = isOnTop ? j : GW.canvas.height - j - 1;
+        const y = isOnTop ? j : dbuf.height - j - 1;
 
 				dbuf.plotLine(SETUP.toCanvasX(0), y, SETUP.width, ARCHIVE[pos], colors.white, colors.black);
 			}
 
 			// Set the dbuf opacity, and do a fade from bottom to top to make it clear that the bottom messages are the most recent.
-			for (j=0; j < currentMessageCount && j < GW.canvas.height; j++) {
+			for (j=0; j < currentMessageCount && j < dbuf.height; j++) {
 				fadePercent = 40 * (j + totalMessageCount - currentMessageCount) / totalMessageCount + 60;
 				for (i=0; i<SETUP.width; i++) {
 					const x = SETUP.toCanvasX(i);
 
-          const y = isOnTop ? j : GW.canvas.height - j - 1;
+          const y = isOnTop ? j : dbuf.height - j - 1;
 					dbuf[x][y].opacity = INTERFACE_OPACITY;
 					if (dbuf[x][y].char != ' ') {
 						for (k=0; k<3; k++) {
@@ -8883,7 +8918,7 @@ async function showArchive() {
 				}
 			}
 
-			ui.drawDialog();
+			ui.draw();
 
 			if (!fastForward && await io.pause(reverse ? 15 : 45)) {
 				fastForward = true;
@@ -8894,8 +8929,9 @@ async function showArchive() {
 
 		if (!reverse) {
     	if (!data.autoPlayingLevel) {
-        dbuf.plotText(SETUP.toCanvasX(-8), GW.canvas.height - 1, "--DONE--", colors.black, colors.white);
-      	ui.drawDialog();
+        const y = isOnTop ? 0 : debuf.height - 1;
+        dbuf.plotText(SETUP.toCanvasX(-8), y, "--DONE--", colors.black, colors.white);
+      	ui.draw();
       	await io.waitForAck();
     	}
 
@@ -8903,13 +8939,47 @@ async function showArchive() {
 	}
 	ui.finishDialog();
 
-	messages.confirmAll();
+	message.confirmAll();
 	// updateMessageDisplay();
   NEEDS_UPDATE = true;
   ui.requestUpdate();
 }
 
 message.showArchive = showArchive;
+
+let VIEWPORT = null;
+
+
+function setup$1(opts={}) {
+  VIEWPORT = viewport.bounds = new types.Bounds(opts.x, opts.y, opts.w, opts.h);
+}
+
+viewport.setup = setup$1;
+
+
+// DRAW
+
+function drawViewport(buffer) {
+  if (!data.map) return;
+  const map$1 = data.map;
+  if (!map$1.flags & Flags$3.MAP_CHANGED) return;
+
+  map$1.cells.forEach( (c, i, j) => {
+    if (!VIEWPORT.hasCanvasLoc(i + VIEWPORT.x, j + VIEWPORT.y)) return;
+
+    if (c.flags & Flags$2.NEEDS_REDRAW) {
+      const buf = buffer[i + VIEWPORT.x][j + VIEWPORT.y];
+      map.getCellAppearance(map$1, i, j, buf);
+      c.clearFlags(Flags$2.NEEDS_REDRAW);
+      buffer.needsUpdate = true;
+    }
+  });
+
+  map$1.flags &= ~Flags$3.MAP_CHANGED;
+}
+
+
+viewport.draw = drawViewport;
 
 exports.actor = actor;
 exports.canvas = canvas;
@@ -8949,3 +9019,4 @@ exports.tiles = tiles;
 exports.types = types;
 exports.ui = ui;
 exports.utils = utils$1;
+exports.viewport = viewport;

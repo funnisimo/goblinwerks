@@ -1,7 +1,7 @@
 
 // This Grid holds all the simulation data:
 // 1 - alive, 0 - dead
-let data = GW.grid.alloc(100, 34);
+let data = null;
 let canvas = null;
 
 const DEAD = GW.make.sprite(' ', [0], [0]);
@@ -93,6 +93,7 @@ function start() {
 
 	canvas.buffer.plotText(20, 15, 'Click to Turn on/off some cells.', [100,50,0]);
 	canvas.buffer.plotText(20, 17, 'Press any key to run simulation.', [100,50,0]);
+	data = GW.grid.alloc(canvas.width, canvas.height);
 	// canvas.draw();
 }
 

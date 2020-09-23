@@ -43,7 +43,7 @@ export async function takeTurn() {
 
   while(!PLAYER.turnTime) {
     const ev = await IO.nextEvent(1000);
-    await IO.dispatchEvent(ev);
+    await UI.dispatchEvent(ev);
     await UI.updateIfRequested();
   }
 

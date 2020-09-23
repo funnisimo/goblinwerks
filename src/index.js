@@ -1,4 +1,5 @@
 
+import './bounds.js';
 export { utils } from './utils.js';
 export { flag, flags } from './flag.js';
 import './enum.js';
@@ -24,5 +25,6 @@ export { fov } from './fov.js';
 import './commands.js';
 export { tileEvent, tileEvents } from './tileEvent.js';
 import './message.js';
+import './viewport.js';
 
 export * from './gw.js';

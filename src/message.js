@@ -19,40 +19,9 @@ const CONFIRMED = [];
 var ARCHIVE_LINES = 30;
 var CURRENT_ARCHIVE_POS = 0;
 var NEEDS_UPDATE = false;
+var INTERFACE_OPACITY = 90;
 
 
-
-
-class Bounds {
-  constructor(x, y, w, h) {
-    this.x = x || 0;
-    this.y = y || 0;
-    this.width = w || 0;
-    this.height = h || 0;
-  }
-
-  hasCanvasLoc(x, y) {
-    return this.width > 0
-      && this.x <= x
-      && this.y <= y
-      && this.x + this.width > x
-      && this.y + this.height > y;
-  }
-
-  toLocalX(x) { return x - this.x; }
-  toLocalY(y) { return y - this.y; }
-
-  toCanvasX(x) {
-    let offset = 0;
-    if (x < 0) { offset = this.width - 1; }
-    return x + this.x + offset;
-  }
-  toCanvasY(y) {
-    let offset = 0;
-    if (y < 0) { offset = this.height - 1; }
-    return y + this.y + offset;
-  }
-}
 
 function setup(opts) {
   opts.height = opts.height || 1;
@@ -61,7 +30,7 @@ function setup(opts) {
     DISPLAYED[i] = null;
   }
 
-  SETUP = message.bounds = new Bounds(opts.x, opts.y, opts.w || opts.width, opts.h || opts.height);
+  SETUP = message.bounds = new types.Bounds(opts.x, opts.y, opts.w || opts.width, opts.h || opts.height);
   ARCHIVE_LINES = opts.archive || 0;
   if (!ARCHIVE_LINES) {
     if (UI.canvas) {
@@ -74,6 +43,8 @@ function setup(opts) {
   for(let i = 0; i < ARCHIVE_LINES; ++i) {
     ARCHIVE[i] = null;
   }
+
+  INTERFACE_OPACITY = opts.opacity || INTERFACE_OPACITY;
 }
 
 message.setup = setup;
@@ -934,23 +905,23 @@ async function showArchive() {
 			 (reverse ? currentMessageCount >= SETUP.height : currentMessageCount <= totalMessageCount);
 			 currentMessageCount += (reverse ? -1 : 1))
 	  {
-			GW.canvas.clear(dbuf);
+			dbuf.clear();
 
 			// Print the message archive text to the dbuf.
-			for (j=0; j < currentMessageCount && j < GW.canvas.height; j++) {
+			for (j=0; j < currentMessageCount && j < dbuf.height; j++) {
 				const pos = (CURRENT_ARCHIVE_POS - currentMessageCount + ARCHIVE_LINES + j) % ARCHIVE_LINES;
-        const y = isOnTop ? j : GW.canvas.height - j - 1;
+        const y = isOnTop ? j : dbuf.height - j - 1;
 
 				dbuf.plotLine(SETUP.toCanvasX(0), y, SETUP.width, ARCHIVE[pos], COLORS.white, COLORS.black);
 			}
 
 			// Set the dbuf opacity, and do a fade from bottom to top to make it clear that the bottom messages are the most recent.
-			for (j=0; j < currentMessageCount && j < GW.canvas.height; j++) {
+			for (j=0; j < currentMessageCount && j < dbuf.height; j++) {
 				fadePercent = 40 * (j + totalMessageCount - currentMessageCount) / totalMessageCount + 60;
 				for (i=0; i<SETUP.width; i++) {
 					const x = SETUP.toCanvasX(i);
 
-          const y = isOnTop ? j : GW.canvas.height - j - 1;
+          const y = isOnTop ? j : dbuf.height - j - 1;
 					dbuf[x][y].opacity = INTERFACE_OPACITY;
 					if (dbuf[x][y].char != ' ') {
 						for (k=0; k<3; k++) {
@@ -960,7 +931,7 @@ async function showArchive() {
 				}
 			}
 
-			UI.drawDialog();
+			UI.draw();
 
 			if (!fastForward && await IO.pause(reverse ? 15 : 45)) {
 				fastForward = true;
@@ -971,8 +942,9 @@ async function showArchive() {
 
 		if (!reverse) {
     	if (!DATA.autoPlayingLevel) {
-        dbuf.plotText(SETUP.toCanvasX(-8), GW.canvas.height - 1, "--DONE--", COLORS.black, COLORS.white);
-      	UI.drawDialog();
+        const y = isOnTop ? 0 : debuf.height - 1;
+        dbuf.plotText(SETUP.toCanvasX(-8), y, "--DONE--", COLORS.black, COLORS.white);
+      	UI.draw();
       	await IO.waitForAck();
     	}
 
@@ -980,7 +952,7 @@ async function showArchive() {
 	}
 	UI.finishDialog();
 
-	messages.confirmAll();
+	message.confirmAll();
 	// updateMessageDisplay();
   NEEDS_UPDATE = true;
   UI.requestUpdate();

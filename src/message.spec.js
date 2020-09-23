@@ -44,6 +44,8 @@ describe('Message', () => {
       expect(lines).toEqual(["This is a", "superextra-", "long string", "of text", "that has", "extremely", "long", "alphabetic-", "al strings."]);
     });
 
+    test.todo('Splitting a line will keep color settings on new line.');
+
   });
 
   describe('add', () => {

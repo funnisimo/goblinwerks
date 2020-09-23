@@ -1,7 +1,7 @@
 
 import { utils as UTILS } from './utils.js';
 import { io as IO } from './io.js';
-import { data as DATA, types, fx as FX, ui, message as MSG } from './gw.js';
+import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT } from './gw.js';
 
 
 let SHOW_FLAVOR = false;
@@ -72,14 +72,24 @@ export function start(opts={}) {
   IN_DIALOG = false;
   REDRAW_UI = false;
 
+	let viewX = 0;
+	let viewY = 0;
+	let viewW = opts.width;
+	let viewH = opts.height;
+
 	if (opts.messages) {
 		if (opts.messages < 0) {	// on bottom of screen
 			MSG.setup({x: 0, y: ui.canvas.height + opts.messages, width: ui.canvas.width, height: -opts.messages, archive: ui.canvas.height });
+			viewH += opts.messages;	// subtract off message height
 		}
 		else {	// on top of screen
 			MSG.setup({x: 0, y: 0, width: ui.canvas.width, height: opts.messages, archive: ui.canvas.height });
+			viewY = opts.messages;
+			viewH -= opts.messages;
 		}
 	}
+
+	VIEWPORT.setup({ x: viewX, y: viewY, w: viewW, h: viewH });
 
   ui.blackOutDisplay();
 	RUNNING = true;
@@ -96,6 +106,26 @@ export function stop() {
 }
 
 ui.stop = stop;
+
+
+export async function dispatchEvent(ev) {
+
+	if (ev.type === def.CLICK) {
+		if (MSG.bounds && MSG.bounds.hasCanvasLoc(ev.x, ev.y)) {
+			await MSG.showArchive();
+			return true;
+		}
+	}
+	else if (ev.type === def.MOUSEMOVE) {
+		if (MSG.bounds && MSG.bounds.hasCanvasLoc(ev.x, ev.y)) {
+			return;
+		}
+	}
+
+	await IO.dispatchEvent(ev);
+}
+
+ui.dispatchEvent = dispatchEvent;
 
 
 let UPDATE_REQUESTED = 0;
@@ -269,7 +299,7 @@ function draw() {
   }
   else if (ui.canvas) {
     // const side = GW.sidebar.draw(UI_BUFFER);
-    if (DATA.map) DATA.map.draw(ui.canvas.buffer);
+    if (VIEWPORT.bounds) VIEWPORT.draw(ui.canvas.buffer);
 		if (MSG.bounds) MSG.draw(ui.canvas.buffer);
     // if (commitCombatMessage() || REDRAW_UI || side || map) {
     // ui.canvas.overlay(UI_BUFFER);
