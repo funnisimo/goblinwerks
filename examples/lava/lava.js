@@ -43,25 +43,25 @@ async function startExplosion() {
 }
 
 const GOAL_TILE = GW.tile.install('GOAL', '=', 'green', 'black', 50, 0, 0,
-	'finish line', 'you see the finish line.',
+	'the finish line', 'you see the finish line.',
 	{ playerEnter: crossedFinish }
 );
-const START_TILE = GW.tile.install('START', '=', 'blue', 'black', 50, 0);
+const START_TILE = GW.tile.install('START', '=', 'blue', 'black', 50, 0, 0, 'the starting line');
 
 const LAVA_TILE = GW.tile.install('LAVA_TILE', '~', 'lavaForeColor', 'lavaBackColor', 90,	0,
 	'T_LAVA',
 	'lava', 'you see molten lava.', { tick: lavaTick });
 
 // LAVA_CRUST
-const LAVA_CRUST = GW.tile.install('LAVA_CRUST', '~', 'lavaForeColor', 'dark_gray', 40,	GW.def.LIQUID,
+const LAVA_CRUST = GW.tile.install('LAVA_CRUST', '~', 'lavaForeColor', 'dark_gray', 91,	GW.def.LIQUID,
 	'T_BRIDGE',
 	'crusted lava', 'you see crusted lava.', { tick: { chance: 10, tile: 'LAVA_CRUST_BREAKING' } });
 
 
 // LAVA_CRUST_BREAKING
-const LAVA_CRUST_BREAKING = GW.tile.install('LAVA_CRUST_BREAKING', '~', 'lavaForeColor', 'darkest_red', 45,	GW.def.LIQUID,
+const LAVA_CRUST_BREAKING = GW.tile.install('LAVA_CRUST_BREAKING', '~', 'lavaForeColor', 'darkest_red', 92,	GW.def.LIQUID,
 	'T_BRIDGE',
-	'crusted lava', 'you see crusted lava that looks like it is unstable.', { tick: { chance: 60, flags: 'DFF_CLEAR_OTHER_TERRAIN' } });
+	'lava with a cracking crust', 'you see crusted lava that looks like it is unstable.', { tick: { chance: 60, flags: 'DFF_CLEAR_OTHER_TERRAIN' } });
 
 // LAVA_ERUPTING
 const LAVA_ERUPTING = GW.tile.install('LAVA_ERUPTING', '!', 'red', 'yellow', 91,	0,
@@ -101,6 +101,7 @@ function makeMap(id=1) {
 	GW.map.addText(MAP, 22, 1, 'FINISH', 'green');
 	GW.map.addText(MAP, 23, 28, 'START', 'blue');
 
+	MAP.setFlags(0, GW.flags.cell.VISIBLE);
 	MAP.id = id;
 	MAP.locations.start = [25, 29];
 	return MAP;
@@ -136,7 +137,7 @@ GW.commands.showHelp = showHelp;
 // start the environment
 async function start() {
 
-	const canvas = GW.ui.start({ width: 50, height: 35, div: 'game', messages: -5, cursor: true });
+	const canvas = GW.ui.start({ width: 50, height: 36, div: 'game', messages: -5, cursor: true, flavor: true });
 	GW.io.setKeymap({
 		dir: 'moveDir', space: 'rest',
 		'x': startExplosion,

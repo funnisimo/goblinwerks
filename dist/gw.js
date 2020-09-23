@@ -14,6 +14,7 @@
   var ui = {};
   var message = {};
   var viewport = {};
+  var flavor = {};
 
   var fx = {};
   var commands = {};
@@ -4492,7 +4493,7 @@
 
 
   class Tile {
-    constructor(ch, fg, bg, priority, layer, allFlags, desc, flavor) {
+    constructor(ch, fg, bg, priority, layer, allFlags, text, desc) {
       this.flags = 0;
       this.mechFlags = 0;
       this.layer = layer || 0;
@@ -4501,7 +4502,7 @@
       this.events = {};
       this.light = null;
       this.desc = desc || '';
-      this.flavor = flavor || '';
+      this.text = text || '';
       this.name = null;
 
       setFlags(this, allFlags);
@@ -4520,8 +4521,8 @@
 
   types.Tile = Tile;
 
-  function makeTile(ch, fg, bg, priority, layer, allFlags, desc, flavor, opts={}) {
-    const tile = new types.Tile(ch, fg, bg, priority, layer, allFlags, desc, flavor);
+  function makeTile(ch, fg, bg, priority, layer, allFlags, text, desc, opts={}) {
+    const tile = new types.Tile(ch, fg, bg, priority, layer, allFlags, text, desc);
     // TODO - tile.light = opts.light || null;
     // TODO - tile.events.fire = opts.fire
     // TODO - tile.events.promote = opts.promote
@@ -4556,13 +4557,13 @@
   // These are the minimal set of tiles to make the diggers work
   const NOTHING = def.NOTHING = 0;
   installTile(NOTHING,       '\u2205', 'black', 'black', 0, 0, 'T_OBSTRUCTS_PASSABILITY', "an eerie nothingness", "");
-  installTile('FLOOR',       '\u00b7', [30,30,30,20], [2,2,10,0,2,2,0], 10);	// FLOOR
-  installTile('DOOR',        '+', [100,40,40], [30,60,60], 30, Layer.SURFACE, 'T_IS_DOOR');	// DOOR (LAYER=SURFACE)
-  installTile('BRIDGE',      '=', [100,40,40], null, 40, Layer.SURFACE);	// BRIDGE (LAYER=SURFACE)
-  installTile('UP_STAIRS',   '<', [100,40,40], [100,60,20], 200);	// UP
-  installTile('DOWN_STAIRS', '>', [100,40,40], [100,60,20], 200);	// DOWN
-  installTile('WALL',        '#', [7,7,7,0,3,3,3],  [40,40,40,10,10,0,5], 100, 0, 'T_OBSTRUCTS_EVERYTHING');	// WALL
-  installTile('LAKE',        '~', [5,8,20,10,0,4,15,1], [10,15,41,6,5,5,5,1], 50, 0, 'T_DEEP_WATER');	// LAKE
+  installTile('FLOOR',       '\u00b7', [30,30,30,20], [2,2,10,0,2,2,0], 10, 0, 0, 'the floor');	// FLOOR
+  installTile('DOOR',        '+', [100,40,40], [30,60,60], 30, Layer.SURFACE, 'T_IS_DOOR', 'a door');	// DOOR (LAYER=SURFACE)
+  installTile('BRIDGE',      '=', [100,40,40], null, 40, Layer.SURFACE, 'T_BRIDGE', 'a bridge');	// BRIDGE (LAYER=SURFACE)
+  installTile('UP_STAIRS',   '<', [100,40,40], [100,60,20], 200, 0, 'T_UP_STAIRS', 'an upward staircase');	// UP
+  installTile('DOWN_STAIRS', '>', [100,40,40], [100,60,20], 200, 0, 'T_DOWN_STAIRS', 'a downward staircase');	// DOWN
+  installTile('WALL',        '#', [7,7,7,0,3,3,3],  [40,40,40,10,10,0,5], 100, 0, 'T_OBSTRUCTS_EVERYTHING', 'a wall');	// WALL
+  installTile('LAKE',        '~', [5,8,20,10,0,4,15,1], [10,15,41,6,5,5,5,1], 50, 0, 'T_DEEP_WATER', 'deep water');	// LAKE
 
   function withName(name) {
     return tiles.find( (t) => t.name == name );
@@ -5332,13 +5333,13 @@
     }
 
     // Retrieves a pointer to the flavor text of the highest-priority terrain at the given location
-    tileFlavor() {
-      return this.highestPriorityTile().flavor;
+    tileDesc() {
+      return this.highestPriorityTile().desc;
     }
 
     // Retrieves a pointer to the description text of the highest-priority terrain at the given location
     tileText() {
-      return this.highestPriorityTile().desc;
+      return this.highestPriorityTile().text;
     }
 
     isEmpty() {
@@ -7055,6 +7056,7 @@
       this.flags = 0;
       this.kind = kind || {};
       this.turnTime = 0;
+  		this.status = {};
 
   		this.kind.speed = this.kind.speed || config.defaultSpeed || 120;
     }
@@ -7861,315 +7863,6 @@
 
   fx.explosionFor = explosionFor;
 
-  let SHOW_CURSOR = false;
-
-  let UI_BUFFER = null;
-  let UI_BASE = null;
-  let UI_OVERLAY = null;
-  let IN_DIALOG = false;
-
-  let time = performance.now();
-
-  let RUNNING = false;
-
-  function uiLoop(t) {
-  	t = t || performance.now();
-
-    if (RUNNING) {
-      requestAnimationFrame(uiLoop);
-    }
-
-  	const dt = Math.floor(t - time);
-  	time = t;
-
-  	if ((!IN_DIALOG) && fx.tick(dt)) {
-  		ui.draw();
-  	}
-  	else {
-  		const ev = io.makeTickEvent(dt);
-  		io.pushEvent(ev);
-  	}
-
-  	ui.canvas.draw();
-  }
-
-
-  function start$1(opts={}) {
-
-    utils$1.setDefaults(opts, {
-      width: 100,
-      height: 34,
-      bg: 'black',
-      sidebar: false,
-      messages: false,
-  		cursor: false,
-      menu: false,
-      div: 'canvas',
-      io: true,
-    });
-
-    if (!ui.canvas) {
-      ui.canvas = new types.Canvas(opts.width, opts.height, opts.div, opts);
-
-      if (opts.io && typeof document !== 'undefined') {
-        ui.canvas.element.onmousedown = ui.onmousedown;
-        ui.canvas.element.onmousemove = ui.onmousemove;
-      	document.onkeydown = ui.onkeydown;
-      }
-    }
-
-    // TODO - init sidebar, messages, flavor, menu
-    UI_BUFFER = UI_BUFFER || ui.canvas.allocBuffer();
-    UI_BASE = UI_BASE || ui.canvas.allocBuffer();
-    UI_OVERLAY = UI_OVERLAY || ui.canvas.allocBuffer();
-    UI_BASE.clear();
-    UI_OVERLAY.clear();
-
-    IN_DIALOG = false;
-
-  	let viewX = 0;
-  	let viewY = 0;
-  	let viewW = opts.width;
-  	let viewH = opts.height;
-
-  	if (opts.messages) {
-  		if (opts.messages < 0) {	// on bottom of screen
-  			message.setup({x: 0, y: ui.canvas.height + opts.messages, width: ui.canvas.width, height: -opts.messages, archive: ui.canvas.height });
-  			viewH += opts.messages;	// subtract off message height
-  		}
-  		else {	// on top of screen
-  			message.setup({x: 0, y: 0, width: ui.canvas.width, height: opts.messages, archive: ui.canvas.height });
-  			viewY = opts.messages;
-  			viewH -= opts.messages;
-  		}
-  	}
-
-  	viewport.setup({ x: viewX, y: viewY, w: viewW, h: viewH });
-  	SHOW_CURSOR = opts.cursor;
-
-    ui.blackOutDisplay();
-  	RUNNING = true;
-  	uiLoop();
-
-    return ui.canvas;
-  }
-
-  ui.start = start$1;
-
-
-  function stop() {
-  	RUNNING = false;
-  }
-
-  ui.stop = stop;
-
-
-
-  async function dispatchEvent$1(ev) {
-
-  	if (ev.type === def.CLICK) {
-  		if (message.bounds && message.bounds.hasCanvasLoc(ev.x, ev.y)) {
-  			await message.showArchive();
-  			return true;
-  		}
-  	}
-  	else if (ev.type === def.MOUSEMOVE) {
-  		if (viewport.bounds && viewport.bounds.hasCanvasLoc(ev.x, ev.y)) {
-  			if (SHOW_CURSOR) {
-  				viewport.setCursor(viewport.bounds.toLocalX(ev.x), viewport.bounds.toLocalY(ev.y));
-  			}
-  			return true;
-  		}
-  		else {
-  			viewport.clearCursor();
-  		}
-  	}
-
-  	await io.dispatchEvent(ev);
-  }
-
-  ui.dispatchEvent = dispatchEvent$1;
-
-
-  let UPDATE_REQUESTED = 0;
-  function requestUpdate(t=1) {
-  	UPDATE_REQUESTED = Math.max(UPDATE_REQUESTED, t, 1);
-  }
-
-  ui.requestUpdate = requestUpdate;
-
-  async function updateNow(t=1) {
-  	t = Math.max(t, UPDATE_REQUESTED, 0);
-  	UPDATE_REQUESTED = 0;
-
-  	ui.draw();
-  	ui.canvas.draw();
-  	if (t) {
-  		// const now = performance.now();
-  		// console.log('UI update - with timeout:', t);
-  		const r = await io.tickMs(t);
-  		// console.log('- done', r, Math.floor(performance.now() - now));
-  	}
-  }
-
-  ui.updateNow = updateNow;
-
-  async function updateIfRequested() {
-  	if (UPDATE_REQUESTED) {
-  		await ui.updateNow(UPDATE_REQUESTED);
-  	}
-  }
-
-  ui.updateIfRequested = updateIfRequested;
-
-  // EVENTS
-
-  function onkeydown(e) {
-  	if (io.ignoreKeyEvent(e)) return;
-
-  	if (e.code === 'Escape') {
-  		io.clearEvents();	// clear all current events, then push on the escape
-    }
-
-  	const ev = io.makeKeyEvent(e);
-  	io.pushEvent(ev);
-  }
-
-  ui.onkeydown = onkeydown;
-
-  function onmousemove(e) {
-  	const x = ui.canvas.toX(e.clientX);
-  	const y = ui.canvas.toY(e.clientY);
-  	const ev = io.makeMouseEvent(e, x, y);
-  	io.pushEvent(ev);
-  }
-
-  ui.onmousemove = onmousemove;
-
-  function onmousedown(e) {
-  	const x = ui.canvas.toX(e.clientX);
-  	const y = ui.canvas.toY(e.clientY);
-  	const ev = io.makeMouseEvent(e, x, y);
-  	io.pushEvent(ev);
-  }
-
-  ui.onmousedown = onmousedown;
-
-  // FUNCS
-
-  async function messageBox(text, fg, duration) {
-
-    const buffer = ui.startDialog();
-
-    const len = text.length;
-    const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
-    const y = Math.floor(ui.canvas.height / 2) - 1;
-    buffer.fillRect(x, y, len + 4, 3, ' ', 'black', 'black');
-  	buffer.plotText(x + 2, y + 1, text, fg || 'white');
-  	ui.draw();
-
-  	await io.pause(duration || 30 * 1000);
-
-  	ui.finishDialog();
-  }
-
-  ui.messageBox = messageBox;
-
-
-  async function confirm(text, fg) {
-
-    const buffer = ui.startDialog();
-
-  	const btnOK = 'OK=Enter';
-  	const btnCancel = 'Cancel=Escape';
-    const len = Math.max(text.length, btnOK.length + 4 + btnCancel.length);
-    const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
-    const y = Math.floor(ui.canvas.height / 2) - 1;
-    buffer.fillRect(x, y, len + 4, 5, ' ', 'black', 'black');
-  	buffer.plotText(x + 2, y + 1, text, fg || 'white');
-  	buffer.plotText(x + 2, y + 3, btnOK, 'white');
-  	buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, 'white');
-  	ui.draw();
-
-  	let result;
-  	while(result === undefined) {
-  		const ev = await io.nextEvent(1000);
-  		await io.dispatchEvent(ev, {
-  			enter() {
-  				result = true;
-  			},
-  			escape() {
-  				result = false;
-  			},
-  			mousemove() {
-  				let isOK = ev.x < x + btnOK.length + 2;
-  				let isCancel = ev.x > x + len + 4 - btnCancel.length - 4;
-  				if (ev.x < x || ev.x > x + len + 4) { isOK = false; isCancel = false; }
-  				if (ev.y != y + 3 ) { isOK = false; isCancel = false; }
-  				buffer.plotText(x + 2, y + 3, btnOK, isOK ? 'blue' : 'white');
-  				buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, isCancel ? 'blue' : 'white');
-  				ui.draw();
-  			},
-  			click() {
-  				if (ev.x < x || ev.x > x + len + 4) return;
-  				if (ev.y < y || ev.y > y + 5) return;
-  				result = ev.x < x + Math.floor(len/2) + 2;
-  			}
-  		});
-  	}
-
-  	ui.finishDialog();
-  	return result;
-  }
-
-  ui.confirm = confirm;
-
-
-  function blackOutDisplay() {
-  	UI_BUFFER.erase();
-  }
-
-  ui.blackOutDisplay = blackOutDisplay;
-
-
-  // DIALOG
-
-  function startDialog() {
-    IN_DIALOG = true;
-    ui.canvas.copyBuffer(UI_BASE);
-    UI_OVERLAY.clear();
-    return UI_OVERLAY;
-  }
-
-  ui.startDialog = startDialog;
-
-
-  function finishDialog() {
-    IN_DIALOG = false;
-    ui.canvas.overlay(UI_BASE);
-    UI_OVERLAY.clear();
-  }
-
-  ui.finishDialog = finishDialog;
-
-  // DRAW
-
-  function draw() {
-    if (IN_DIALOG) {
-      ui.canvas.overlay(UI_BASE);
-      ui.canvas.overlay(UI_OVERLAY);
-    }
-    else if (ui.canvas) {
-      // const side = GW.sidebar.draw(UI_BUFFER);
-      if (viewport.bounds) viewport.draw(ui.canvas.buffer);
-  		if (message.bounds) message.draw(ui.canvas.buffer);
-  			UPDATE_REQUESTED = 0;
-      // }
-    }
-  }
-
-  ui.draw = draw;
-
   var fov = {};
 
 
@@ -8923,68 +8616,12 @@
 
   let VIEWPORT = null;
 
-  var CURSOR = viewport.cursor = {
-    x: -1,
-    y: -1,
-  };
-
 
   function setup$1(opts={}) {
     VIEWPORT = viewport.bounds = new types.Bounds(opts.x, opts.y, opts.w, opts.h);
   }
 
   viewport.setup = setup$1;
-
-  //////////////////
-  // CURSOR
-
-  function setCursor(x, y) {
-    const map = data.map;
-    if (!map) return false;
-
-    if (CURSOR.x == x && CURSOR.y == y) return false;
-
-    // console.log('set cursor', x, y);
-
-    if (map.hasXY(CURSOR.x, CURSOR.y)) {
-      map.clearCellFlags(CURSOR.x, CURSOR.y, Flags$2.IS_CURSOR);
-    }
-    CURSOR.x = x;
-    CURSOR.y = y;
-
-    if (map.hasXY(x, y)) {
-      if (!data.player || data.player.x !== x || data.player.y !== y ) {
-        map.setCellFlags(CURSOR.x, CURSOR.y, Flags$2.IS_CURSOR);
-      }
-
-      // if (!GW.player.isMoving()) {
-      //   showPathFromPlayerTo(x, y);
-      // }
-      // GW.ui.flavorMessage('' + x + ',' + y + ': ' + GW.map.cellFlavor(x, y));
-    }
-
-    ui.requestUpdate();
-    return true;
-  }
-
-  viewport.setCursor = setCursor;
-
-  // function moveCursor(dx, dy) {
-  //   GW.map.setCursor(CURSOR.x + dx, CURSOR.y + dy);
-  // }
-  //
-  // GW.map.moveCursor = moveCursor;
-
-  // GW.map.cursor = CURSOR;
-
-  function clearCursor() {
-    return viewport.setCursor(-1,-1);
-    // GW.ui.flavorMessage(GW.map.cellFlavor(GW.PLAYER.x, GW.PLAYER.y));
-  }
-
-  viewport.clearCursor = clearCursor;
-
-
 
   // DRAW
 
@@ -9010,6 +8647,534 @@
 
   viewport.draw = drawViewport;
 
+  const flavorTextColor = color.install('flavorText', 50, 40, 90);
+
+  let FLAVOR_TEXT = '';
+  let NEED_FLAVOR_UPDATE = false;
+  let SETUP$1 = null;
+
+  function setupFlavor(opts={}) {
+    SETUP$1 = flavor.bounds = new types.Bounds(opts.x, opts.y, opts.w, 1);
+  }
+
+  flavor.setup = setupFlavor;
+
+  function setFlavorText(text$1) {
+    FLAVOR_TEXT = text.capitalize(text$1);
+    NEED_FLAVOR_UPDATE = true;
+    ui.requestUpdate();
+  }
+
+  flavor.setText = setFlavorText;
+
+
+  function drawFlavor(buffer) {
+    if (!NEED_FLAVOR_UPDATE || !SETUP$1) return;
+    buffer.plotLine(SETUP$1.x, SETUP$1.y, SETUP$1.width, FLAVOR_TEXT, flavorTextColor, colors.black);
+  }
+
+  flavor.draw = drawFlavor;
+
+
+
+  function showFlavorFor(x, y) {
+    if (!data.map) return;
+    const map = data.map;
+  	const cell = map.cell(x, y);
+  	let buf;
+
+  	let monst;
+  	let theItem;
+  	let standsInTerrain;
+  	let object;
+
+    const player = data.player || null;
+
+  	monst = null;
+  	standsInTerrain = ((cell.highestPriorityTile().mechFlags & MechFlags.TM_STAND_IN_TILE) ? true : false);
+  	theItem = map.itemAt(x, y);
+  	if (cell.flags & Flags$2.HAS_MONSTER) {
+  		monst = map.actorAt(x, y);
+  	} else if (cell.flags & Flags$2.HAS_DORMANT_MONSTER) {
+  		monst = map.dormantAt(x, y);
+  	}
+
+  	if (player && x == player.x && y == player.y) {
+  		if (player.status[def.STATUS_LEVITATING]) {
+  			buf = text.format("you are hovering above %s.", cell.tileText());
+  		}
+      else {
+  			// if (theItem) {
+  			// 	buf = ITEM.flavorText(theItem);
+  			// }
+        // else {
+          buf = 'you see yourself.';
+        // }
+  		}
+      flavor.setText(buf);
+  		return true;
+  	}
+    //
+  	// // detecting magical items
+  	// magicItem = null;
+  	// if (theItem && !playerCanSeeOrSense(x, y)
+  	// 	&& GW.item.isDetected(theItem))
+  	// {
+  	// 	magicItem = theItem;
+  	// } else if (monst && !playerCanSeeOrSense(x, y)
+  	// 		   && monst.carriedItem
+  	// 		   && GW.item.isDetected(monst.carriedItem))
+    // {
+  	// 	magicItem = monst.carriedItem;
+  	// }
+  	// if (magicItem) {
+  	// 	return GW.item.detectedText(magicItem);
+  	// }
+    //
+  	// // telepathy
+  	// if (monst
+    //       && !(cell.flags & VISIBLE) 					 // && !GW.player.canSeeMonster(monst)
+  	// 			&& (cell.flags & TELEPATHIC_VISIBLE)) // GW.actor.telepathicallyRevealed(monst))
+  	// {
+  	// 	return GW.actor.telepathyText(monst);
+  	// }
+    //
+  	// if (monst && !playerCanSeeOrSense(x, y)) {
+    //       // Monster is not visible.
+  	// 	monst = null;
+  	// }
+
+  	if (!map.isAnyKindOfVisible(x, y)) {
+      buf = '';
+  		if (cell.flags & Flags$2.REVEALED) { // memory
+  			// if (cell.rememberedItemCategory) {
+        //   if (player.status[GW.const.STATUS_HALLUCINATING] && !GW.GAME.playbackOmniscience) {
+        //       object = GW.item.describeHallucinatedItem();
+        //   } else {
+        //       object = GW.item.describeItemBasedOnParameters(cell.rememberedItemCategory, cell.rememberedItemKind, cell.rememberedItemQuantity);
+        //   }
+  			// } else {
+  				object = tiles[cell.memory.tile].description;
+  			// }
+  			buf = text.format("you remember seeing %s here.", object);
+  		} else if (cell.flags & Flags$2.MAGIC_MAPPED) { // magic mapped
+  			buf = text.format("you expect %s to be here.", tiles[cell.memory.tile].description);
+  		}
+  		flavor.setText(buf);
+      return true;
+  	}
+
+  	// if (monst) {
+  	// 	return GW.actor.flavorText(monst);
+  	// } else if (theItem) {
+  	// 	return GW.item.flavorText(theItem);
+  	// }
+
+  	buf = text.format("you %s %s.", (map.isVisible(x, y) ? "see" : "sense"), cell.tileText());
+    flavor.setText(buf);
+  	return true;
+  }
+
+  flavor.showFor = showFlavorFor;
+
+  let SHOW_CURSOR = false;
+
+  let UI_BUFFER = null;
+  let UI_BASE = null;
+  let UI_OVERLAY = null;
+  let IN_DIALOG = false;
+
+  let time = performance.now();
+
+  let RUNNING = false;
+
+  function uiLoop(t) {
+  	t = t || performance.now();
+
+    if (RUNNING) {
+      requestAnimationFrame(uiLoop);
+    }
+
+  	const dt = Math.floor(t - time);
+  	time = t;
+
+  	if ((!IN_DIALOG) && fx.tick(dt)) {
+  		ui.draw();
+  	}
+  	else {
+  		const ev = io.makeTickEvent(dt);
+  		io.pushEvent(ev);
+  	}
+
+  	ui.canvas.draw();
+  }
+
+
+  function start$1(opts={}) {
+
+    utils$1.setDefaults(opts, {
+      width: 100,
+      height: 34,
+      bg: 'black',
+      sidebar: false,
+      messages: false,
+  		cursor: false,
+  		flavor: false,
+      menu: false,
+      div: 'canvas',
+      io: true,
+    });
+
+    if (!ui.canvas) {
+      ui.canvas = new types.Canvas(opts.width, opts.height, opts.div, opts);
+
+      if (opts.io && typeof document !== 'undefined') {
+        ui.canvas.element.onmousedown = ui.onmousedown;
+        ui.canvas.element.onmousemove = ui.onmousemove;
+      	document.onkeydown = ui.onkeydown;
+      }
+    }
+
+    // TODO - init sidebar, messages, flavor, menu
+    UI_BUFFER = UI_BUFFER || ui.canvas.allocBuffer();
+    UI_BASE = UI_BASE || ui.canvas.allocBuffer();
+    UI_OVERLAY = UI_OVERLAY || ui.canvas.allocBuffer();
+    UI_BASE.clear();
+    UI_OVERLAY.clear();
+
+    IN_DIALOG = false;
+
+  	let viewX = 0;
+  	let viewY = 0;
+  	let viewW = opts.width;
+  	let viewH = opts.height;
+
+  	let flavorLine = -1;
+
+  	if (opts.messages) {
+  		if (opts.messages < 0) {	// on bottom of screen
+  			message.setup({x: 0, y: ui.canvas.height + opts.messages, width: ui.canvas.width, height: -opts.messages, archive: ui.canvas.height });
+  			viewH += opts.messages;	// subtract off message height
+  			if (opts.flavor) {
+  				viewH -= 1;
+  				flavorLine = ui.canvas.height + opts.messages - 1;
+  			}
+  		}
+  		else {	// on top of screen
+  			message.setup({x: 0, y: 0, width: ui.canvas.width, height: opts.messages, archive: ui.canvas.height });
+  			viewY = opts.messages;
+  			viewH -= opts.messages;
+  			if (opts.flavor) {
+  				viewY += 1;
+  				viewH -= 1;
+  				flavorLine = opts.messages;
+  			}
+  		}
+  	}
+
+  	if (opts.flavor) {
+  		flavor.setup({ x: viewX, y: flavorLine, w: viewW, h: 1 });
+  	}
+
+  	viewport.setup({ x: viewX, y: viewY, w: viewW, h: viewH });
+  	SHOW_CURSOR = opts.cursor;
+
+    ui.blackOutDisplay();
+  	RUNNING = true;
+  	uiLoop();
+
+    return ui.canvas;
+  }
+
+  ui.start = start$1;
+
+
+  function stop() {
+  	RUNNING = false;
+  }
+
+  ui.stop = stop;
+
+
+
+  async function dispatchEvent$1(ev) {
+
+  	if (ev.type === def.CLICK) {
+  		if (message.bounds && message.bounds.hasCanvasLoc(ev.x, ev.y)) {
+  			await message.showArchive();
+  			return true;
+  		}
+  		if (flavor.bounds && flavor.bounds.hasCanvasLoc(ev.x, ev.y)) {
+  			return true;
+  		}
+  	}
+  	else if (ev.type === def.MOUSEMOVE) {
+  		if (viewport.bounds && viewport.bounds.hasCanvasLoc(ev.x, ev.y)) {
+  			if (SHOW_CURSOR) {
+  				ui.setCursor(viewport.bounds.toLocalX(ev.x), viewport.bounds.toLocalY(ev.y));
+  			}
+  			return true;
+  		}
+  		else {
+  			ui.clearCursor();
+  		}
+  		if (flavor.bounds && flavor.bounds.hasCanvasLoc(ev.x, ev.y)) {
+  			return true;
+  		}
+  	}
+
+  	await io.dispatchEvent(ev);
+  }
+
+  ui.dispatchEvent = dispatchEvent$1;
+
+
+  let UPDATE_REQUESTED = 0;
+  function requestUpdate(t=1) {
+  	UPDATE_REQUESTED = Math.max(UPDATE_REQUESTED, t, 1);
+  }
+
+  ui.requestUpdate = requestUpdate;
+
+  async function updateNow(t=1) {
+  	t = Math.max(t, UPDATE_REQUESTED, 0);
+  	UPDATE_REQUESTED = 0;
+
+  	ui.draw();
+  	ui.canvas.draw();
+  	if (t) {
+  		// const now = performance.now();
+  		// console.log('UI update - with timeout:', t);
+  		const r = await io.tickMs(t);
+  		// console.log('- done', r, Math.floor(performance.now() - now));
+  	}
+  }
+
+  ui.updateNow = updateNow;
+
+  async function updateIfRequested() {
+  	if (UPDATE_REQUESTED) {
+  		await ui.updateNow(UPDATE_REQUESTED);
+  	}
+  }
+
+  ui.updateIfRequested = updateIfRequested;
+
+  // EVENTS
+
+  function onkeydown(e) {
+  	if (io.ignoreKeyEvent(e)) return;
+
+  	if (e.code === 'Escape') {
+  		io.clearEvents();	// clear all current events, then push on the escape
+    }
+
+  	const ev = io.makeKeyEvent(e);
+  	io.pushEvent(ev);
+  }
+
+  ui.onkeydown = onkeydown;
+
+  function onmousemove(e) {
+  	const x = ui.canvas.toX(e.clientX);
+  	const y = ui.canvas.toY(e.clientY);
+  	const ev = io.makeMouseEvent(e, x, y);
+  	io.pushEvent(ev);
+  }
+
+  ui.onmousemove = onmousemove;
+
+  function onmousedown(e) {
+  	const x = ui.canvas.toX(e.clientX);
+  	const y = ui.canvas.toY(e.clientY);
+  	const ev = io.makeMouseEvent(e, x, y);
+  	io.pushEvent(ev);
+  }
+
+  ui.onmousedown = onmousedown;
+
+
+  //////////////////
+  // CURSOR
+
+  var MOUSE = ui.mouse = {
+    x: -1,
+    y: -1,
+  };
+
+  var CURSOR = ui.cursor = {
+  	x: -1,
+  	y: -1,
+  };
+
+  function setCursor(x, y) {
+    const map = data.map;
+    if (!map) return false;
+
+    if (CURSOR.x == x && CURSOR.y == y) return false;
+
+    // console.log('set cursor', x, y);
+
+    if (map.hasXY(CURSOR.x, CURSOR.y)) {
+      map.clearCellFlags(CURSOR.x, CURSOR.y, CellFlags.IS_CURSOR);
+    }
+    CURSOR.x = x;
+    CURSOR.y = y;
+
+    if (map.hasXY(x, y)) {
+      // if (!DATA.player || DATA.player.x !== x || DATA.player.y !== y ) {
+        map.setCellFlags(CURSOR.x, CURSOR.y, CellFlags.IS_CURSOR);
+      // }
+
+      // if (!GW.player.isMoving()) {
+      //   showPathFromPlayerTo(x, y);
+      // }
+      flavor.showFor(x, y);
+    }
+    else {
+      // GW.map.clearPath();
+      flavor.setText('');
+    }
+
+    ui.requestUpdate();
+    return true;
+  }
+
+  ui.setCursor = setCursor;
+
+  // function moveCursor(dx, dy) {
+  //   GW.map.setCursor(CURSOR.x + dx, CURSOR.y + dy);
+  // }
+  //
+  // GW.map.moveCursor = moveCursor;
+
+  // GW.map.cursor = CURSOR;
+
+  function clearCursor() {
+    return ui.setCursor(-1,-1);
+    // GW.ui.flavorMessage(GW.map.cellFlavor(GW.PLAYER.x, GW.PLAYER.y));
+  }
+
+  ui.clearCursor = clearCursor;
+
+
+
+  // FUNCS
+
+  async function messageBox(text, fg, duration) {
+
+    const buffer = ui.startDialog();
+
+    const len = text.length;
+    const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
+    const y = Math.floor(ui.canvas.height / 2) - 1;
+    buffer.fillRect(x, y, len + 4, 3, ' ', 'black', 'black');
+  	buffer.plotText(x + 2, y + 1, text, fg || 'white');
+  	ui.draw();
+
+  	await io.pause(duration || 30 * 1000);
+
+  	ui.finishDialog();
+  }
+
+  ui.messageBox = messageBox;
+
+
+  async function confirm(text, fg) {
+
+    const buffer = ui.startDialog();
+
+  	const btnOK = 'OK=Enter';
+  	const btnCancel = 'Cancel=Escape';
+    const len = Math.max(text.length, btnOK.length + 4 + btnCancel.length);
+    const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
+    const y = Math.floor(ui.canvas.height / 2) - 1;
+    buffer.fillRect(x, y, len + 4, 5, ' ', 'black', 'black');
+  	buffer.plotText(x + 2, y + 1, text, fg || 'white');
+  	buffer.plotText(x + 2, y + 3, btnOK, 'white');
+  	buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, 'white');
+  	ui.draw();
+
+  	let result;
+  	while(result === undefined) {
+  		const ev = await io.nextEvent(1000);
+  		await io.dispatchEvent(ev, {
+  			enter() {
+  				result = true;
+  			},
+  			escape() {
+  				result = false;
+  			},
+  			mousemove() {
+  				let isOK = ev.x < x + btnOK.length + 2;
+  				let isCancel = ev.x > x + len + 4 - btnCancel.length - 4;
+  				if (ev.x < x || ev.x > x + len + 4) { isOK = false; isCancel = false; }
+  				if (ev.y != y + 3 ) { isOK = false; isCancel = false; }
+  				buffer.plotText(x + 2, y + 3, btnOK, isOK ? 'blue' : 'white');
+  				buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, isCancel ? 'blue' : 'white');
+  				ui.draw();
+  			},
+  			click() {
+  				if (ev.x < x || ev.x > x + len + 4) return;
+  				if (ev.y < y || ev.y > y + 5) return;
+  				result = ev.x < x + Math.floor(len/2) + 2;
+  			}
+  		});
+  	}
+
+  	ui.finishDialog();
+  	return result;
+  }
+
+  ui.confirm = confirm;
+
+
+  function blackOutDisplay() {
+  	UI_BUFFER.erase();
+  }
+
+  ui.blackOutDisplay = blackOutDisplay;
+
+
+  // DIALOG
+
+  function startDialog() {
+    IN_DIALOG = true;
+    ui.canvas.copyBuffer(UI_BASE);
+    UI_OVERLAY.clear();
+    return UI_OVERLAY;
+  }
+
+  ui.startDialog = startDialog;
+
+
+  function finishDialog() {
+    IN_DIALOG = false;
+    ui.canvas.overlay(UI_BASE);
+    UI_OVERLAY.clear();
+  }
+
+  ui.finishDialog = finishDialog;
+
+  // DRAW
+
+  function draw() {
+    if (IN_DIALOG) {
+      ui.canvas.overlay(UI_BASE);
+      ui.canvas.overlay(UI_OVERLAY);
+    }
+    else if (ui.canvas) {
+      // const side = GW.sidebar.draw(UI_BUFFER);
+      if (viewport.bounds) viewport.draw(ui.canvas.buffer);
+  		if (message.bounds) message.draw(ui.canvas.buffer);
+  		if (flavor.bounds) flavor.draw(ui.canvas.buffer);
+  			UPDATE_REQUESTED = 0;
+      // }
+    }
+  }
+
+  ui.draw = draw;
+
   exports.actor = actor;
   exports.canvas = canvas;
   exports.cell = cell;
@@ -9026,6 +9191,7 @@
   exports.dungeon = dungeon;
   exports.flag = flag;
   exports.flags = flags;
+  exports.flavor = flavor;
   exports.fov = fov;
   exports.fx = fx;
   exports.game = game;

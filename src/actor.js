@@ -12,6 +12,7 @@ export class Actor {
     this.flags = 0;
     this.kind = kind || {};
     this.turnTime = 0;
+		this.status = {};
 
 		this.kind.speed = this.kind.speed || CONFIG.defaultSpeed || 120;
   }

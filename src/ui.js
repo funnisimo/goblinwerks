@@ -1,7 +1,7 @@
 
 import { utils as UTILS } from './utils.js';
 import { io as IO } from './io.js';
-import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT } from './gw.js';
+import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR } from './gw.js';
 
 
 let SHOW_FLAVOR = false;
@@ -49,6 +49,7 @@ export function start(opts={}) {
     sidebar: false,
     messages: false,
 		cursor: false,
+		flavor: false,
     menu: false,
     div: 'canvas',
     io: true,
@@ -79,16 +80,31 @@ export function start(opts={}) {
 	let viewW = opts.width;
 	let viewH = opts.height;
 
+	let flavorLine = -1;
+
 	if (opts.messages) {
 		if (opts.messages < 0) {	// on bottom of screen
 			MSG.setup({x: 0, y: ui.canvas.height + opts.messages, width: ui.canvas.width, height: -opts.messages, archive: ui.canvas.height });
 			viewH += opts.messages;	// subtract off message height
+			if (opts.flavor) {
+				viewH -= 1;
+				flavorLine = ui.canvas.height + opts.messages - 1;
+			}
 		}
 		else {	// on top of screen
 			MSG.setup({x: 0, y: 0, width: ui.canvas.width, height: opts.messages, archive: ui.canvas.height });
 			viewY = opts.messages;
 			viewH -= opts.messages;
+			if (opts.flavor) {
+				viewY += 1;
+				viewH -= 1;
+				flavorLine = opts.messages;
+			}
 		}
+	}
+
+	if (opts.flavor) {
+		FLAVOR.setup({ x: viewX, y: flavorLine, w: viewW, h: 1 });
 	}
 
 	VIEWPORT.setup({ x: viewX, y: viewY, w: viewW, h: viewH });
@@ -119,16 +135,22 @@ export async function dispatchEvent(ev) {
 			await MSG.showArchive();
 			return true;
 		}
+		if (FLAVOR.bounds && FLAVOR.bounds.hasCanvasLoc(ev.x, ev.y)) {
+			return true;
+		}
 	}
 	else if (ev.type === def.MOUSEMOVE) {
 		if (VIEWPORT.bounds && VIEWPORT.bounds.hasCanvasLoc(ev.x, ev.y)) {
 			if (SHOW_CURSOR) {
-				VIEWPORT.setCursor(VIEWPORT.bounds.toLocalX(ev.x), VIEWPORT.bounds.toLocalY(ev.y));
+				ui.setCursor(VIEWPORT.bounds.toLocalX(ev.x), VIEWPORT.bounds.toLocalY(ev.y));
 			}
 			return true;
 		}
 		else {
-			VIEWPORT.clearCursor();
+			ui.clearCursor();
+		}
+		if (FLAVOR.bounds && FLAVOR.bounds.hasCanvasLoc(ev.x, ev.y)) {
+			return true;
 		}
 	}
 
@@ -201,6 +223,72 @@ export function onmousedown(e) {
 }
 
 ui.onmousedown = onmousedown;
+
+
+//////////////////
+// CURSOR
+
+var MOUSE = ui.mouse = {
+  x: -1,
+  y: -1,
+};
+
+var CURSOR = ui.cursor = {
+	x: -1,
+	y: -1,
+}
+
+function setCursor(x, y) {
+  const map = DATA.map;
+  if (!map) return false;
+
+  if (CURSOR.x == x && CURSOR.y == y) return false;
+
+  // console.log('set cursor', x, y);
+
+  if (map.hasXY(CURSOR.x, CURSOR.y)) {
+    map.clearCellFlags(CURSOR.x, CURSOR.y, CellFlags.IS_CURSOR);
+  }
+  CURSOR.x = x;
+  CURSOR.y = y;
+
+  if (map.hasXY(x, y)) {
+    // if (!DATA.player || DATA.player.x !== x || DATA.player.y !== y ) {
+      map.setCellFlags(CURSOR.x, CURSOR.y, CellFlags.IS_CURSOR);
+    // }
+
+    // if (!GW.player.isMoving()) {
+    //   showPathFromPlayerTo(x, y);
+    // }
+    FLAVOR.showFor(x, y);
+  }
+  else {
+    // GW.map.clearPath();
+    FLAVOR.setText('');
+  }
+
+  ui.requestUpdate();
+  return true;
+}
+
+ui.setCursor = setCursor;
+
+// function moveCursor(dx, dy) {
+//   GW.map.setCursor(CURSOR.x + dx, CURSOR.y + dy);
+// }
+//
+// GW.map.moveCursor = moveCursor;
+
+// GW.map.cursor = CURSOR;
+
+function clearCursor() {
+  return ui.setCursor(-1,-1);
+  // GW.ui.flavorMessage(GW.map.cellFlavor(GW.PLAYER.x, GW.PLAYER.y));
+}
+
+ui.clearCursor = clearCursor;
+
+
 
 // FUNCS
 
@@ -311,6 +399,8 @@ function draw() {
     // const side = GW.sidebar.draw(UI_BUFFER);
     if (VIEWPORT.bounds) VIEWPORT.draw(ui.canvas.buffer);
 		if (MSG.bounds) MSG.draw(ui.canvas.buffer);
+		if (FLAVOR.bounds) FLAVOR.draw(ui.canvas.buffer);
+
     // if (commitCombatMessage() || REDRAW_UI || side || map) {
     // ui.canvas.overlay(UI_BUFFER);
     // ui.canvas.overlay(UI_OVERLAY);

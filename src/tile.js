@@ -136,7 +136,7 @@ function setFlags(tile, allFlags) {
 
 
 export class Tile {
-  constructor(ch, fg, bg, priority, layer, allFlags, desc, flavor) {
+  constructor(ch, fg, bg, priority, layer, allFlags, text, desc) {
     this.flags = 0;
     this.mechFlags = 0;
     this.layer = layer || 0;
@@ -145,7 +145,7 @@ export class Tile {
     this.events = {};
     this.light = null;
     this.desc = desc || '';
-    this.flavor = flavor || '';
+    this.text = text || '';
     this.name = null;
 
     setFlags(this, allFlags);
@@ -164,8 +164,8 @@ export class Tile {
 
 types.Tile = Tile;
 
-export function makeTile(ch, fg, bg, priority, layer, allFlags, desc, flavor, opts={}) {
-  const tile = new types.Tile(ch, fg, bg, priority, layer, allFlags, desc, flavor);
+export function makeTile(ch, fg, bg, priority, layer, allFlags, text, desc, opts={}) {
+  const tile = new types.Tile(ch, fg, bg, priority, layer, allFlags, text, desc);
   // TODO - tile.light = opts.light || null;
   // TODO - tile.events.fire = opts.fire
   // TODO - tile.events.promote = opts.promote
@@ -200,13 +200,13 @@ tile.install = installTile;
 // These are the minimal set of tiles to make the diggers work
 const NOTHING = def.NOTHING = 0;
 installTile(NOTHING,       '\u2205', 'black', 'black', 0, 0, 'T_OBSTRUCTS_PASSABILITY', "an eerie nothingness", "");
-installTile('FLOOR',       '\u00b7', [30,30,30,20], [2,2,10,0,2,2,0], 10);	// FLOOR
-installTile('DOOR',        '+', [100,40,40], [30,60,60], 30, Layer.SURFACE, 'T_IS_DOOR');	// DOOR (LAYER=SURFACE)
-installTile('BRIDGE',      '=', [100,40,40], null, 40, Layer.SURFACE);	// BRIDGE (LAYER=SURFACE)
-installTile('UP_STAIRS',   '<', [100,40,40], [100,60,20], 200);	// UP
-installTile('DOWN_STAIRS', '>', [100,40,40], [100,60,20], 200);	// DOWN
-installTile('WALL',        '#', [7,7,7,0,3,3,3],  [40,40,40,10,10,0,5], 100, 0, 'T_OBSTRUCTS_EVERYTHING');	// WALL
-installTile('LAKE',        '~', [5,8,20,10,0,4,15,1], [10,15,41,6,5,5,5,1], 50, 0, 'T_DEEP_WATER');	// LAKE
+installTile('FLOOR',       '\u00b7', [30,30,30,20], [2,2,10,0,2,2,0], 10, 0, 0, 'the floor');	// FLOOR
+installTile('DOOR',        '+', [100,40,40], [30,60,60], 30, Layer.SURFACE, 'T_IS_DOOR', 'a door');	// DOOR (LAYER=SURFACE)
+installTile('BRIDGE',      '=', [100,40,40], null, 40, Layer.SURFACE, 'T_BRIDGE', 'a bridge');	// BRIDGE (LAYER=SURFACE)
+installTile('UP_STAIRS',   '<', [100,40,40], [100,60,20], 200, 0, 'T_UP_STAIRS', 'an upward staircase');	// UP
+installTile('DOWN_STAIRS', '>', [100,40,40], [100,60,20], 200, 0, 'T_DOWN_STAIRS', 'a downward staircase');	// DOWN
+installTile('WALL',        '#', [7,7,7,0,3,3,3],  [40,40,40,10,10,0,5], 100, 0, 'T_OBSTRUCTS_EVERYTHING', 'a wall');	// WALL
+installTile('LAKE',        '~', [5,8,20,10,0,4,15,1], [10,15,41,6,5,5,5,1], 50, 0, 'T_DEEP_WATER', 'deep water');	// LAKE
 
 export function withName(name) {
   return tiles.find( (t) => t.name == name );

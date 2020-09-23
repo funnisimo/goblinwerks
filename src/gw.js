@@ -10,6 +10,7 @@ export var install = {};
 export var ui = {};
 export var message = {};
 export var viewport = {};
+export var flavor = {};
 
 export var fx = {};
 export var commands = {};
