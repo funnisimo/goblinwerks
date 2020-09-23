@@ -516,35 +516,9 @@ export class Map {
 		}
 	}
 
-	// // DRAW
-	//
-	// draw(buffer) {
-	// 	if (!this.flags & Flags.MAP_CHANGED) return;
-	//
-	// 	this.cells.forEach( (c, i, j) => {
-	// 		if (c.flags & CellFlags.NEEDS_REDRAW) {
-	//       const buf = buffer[i][j];
-	// 			GW.map.getCellAppearance(this, i, j, buf);
-	// 			c.clearFlags(CellFlags.NEEDS_REDRAW);
-	//       buffer.needsUpdate = true;
-	// 		}
-	// 	});
-	//
-	// 	this.flags &= ~Flags.MAP_CHANGED;
-	// }
-
 	// TICK
 
 	async tick() {
-		// const grid = GRID.alloc(this.width, this.height);
-		//
-		// for(let x = 0; x < this.width; ++x) {
-		// 	for(let y = 0; y < this.height; ++y) {
-		// 		const cell = this.cells[x][y];
-		// 		grid[x][y] = cell.setTickFlag();
-		// 	}
-		// }
-
 		this.forEach( (c) => c.mechFlags &= ~(CellMechFlags.EVENT_FIRED_THIS_TURN | CellMechFlags.EVENT_PROTECTED));
 		for(let x = 0; x < this.width; ++x) {
 			for(let y = 0; y < this.height; ++y) {
@@ -552,16 +526,6 @@ export class Map {
 				await cell.fireEvent('tick', { map: this, x, y, cell });
 			}
 		}
-		//
-		// for(let x = 0; x < this.width; ++x) {
-		// 	for(let y = 0; y < this.height; ++y) {
-		// 		if (!grid[x][y]) continue;
-		// 		const cell = this.cell(x, y);
-		// 		await cell.fireTick({ map: this, x, y, cell });
-		// 	}
-		// }
-		//
-		// GRID.free(grid);
 	}
 
 }
