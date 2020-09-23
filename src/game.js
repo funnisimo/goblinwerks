@@ -17,14 +17,6 @@ DATA.running = false;
 DATA.turnTime = 10;
 
 
-export function setTime(t) {
-  const dt = t - DATA.time;
-  DATA.time = t;
-  return Math.max(0, dt);
-}
-
-game.setTime = setTime;
-
 
 export function startGame(opts={}) {
   if (!opts.map) UTILS.ERROR('map is required.');
@@ -100,7 +92,7 @@ async function gameLoop() {
       }
       const turnTime = await fn();
       if (turnTime) {
-        console.log('- push actor', turnTime, scheduler.time);
+        console.log('- push actor: %d + %d = %d', scheduler.time, turnTime, scheduler.time + turnTime);
         scheduler.push(fn, turnTime);
       }
     }
@@ -113,13 +105,13 @@ game.loop = gameLoop;
 
 
 function queuePlayer() {
-  scheduler.push(PLAYER.takeTurn, DATA.player.speed);
+  scheduler.push(PLAYER.takeTurn, DATA.player.kind.speed);
 }
 
 game.queuePlayer = queuePlayer;
 
 function queueActor(actor) {
-  scheduler.push(ACTOR.takeTurn.bind(null, actor), actor.speed);
+  scheduler.push(ACTOR.takeTurn.bind(null, actor), actor.kind.speed);
 }
 
 game.queueActor = queueActor;

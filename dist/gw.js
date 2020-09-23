@@ -6555,14 +6555,6 @@
   data.turnTime = 10;
 
 
-  function setTime(t) {
-    const dt = t - data.time;
-    data.time = t;
-    return Math.max(0, dt);
-  }
-
-  game.setTime = setTime;
-
 
   function startGame(opts={}) {
     if (!opts.map) utils$1.ERROR('map is required.');
@@ -6638,7 +6630,7 @@
         }
         const turnTime = await fn();
         if (turnTime) {
-          console.log('- push actor', turnTime, scheduler.time);
+          console.log('- push actor: %d + %d = %d', scheduler.time, turnTime, scheduler.time + turnTime);
           scheduler.push(fn, turnTime);
         }
       }
@@ -6651,13 +6643,13 @@
 
 
   function queuePlayer() {
-    scheduler.push(player.takeTurn, data.player.speed);
+    scheduler.push(player.takeTurn, data.player.kind.speed);
   }
 
   game.queuePlayer = queuePlayer;
 
   function queueActor(actor$1) {
-    scheduler.push(actor.takeTurn.bind(null, actor$1), actor$1.speed);
+    scheduler.push(actor.takeTurn.bind(null, actor$1), actor$1.kind.speed);
   }
 
   game.queueActor = queueActor;
@@ -7312,14 +7304,14 @@
   ui.requestUpdate = requestUpdate;
 
   async function updateNow(t=1) {
-  	t = Math.max(t, UPDATE_REQUESTED, 1);
+  	t = Math.max(t, UPDATE_REQUESTED, 0);
   	UPDATE_REQUESTED = 0;
 
   	ui.draw();
   	ui.canvas.draw();
   	if (t) {
-  		const now = performance.now();
-  		console.log('UI update - with timeout:', t);
+  		// const now = performance.now();
+  		// console.log('UI update - with timeout:', t);
   		const r = await io.tickMs(t);
   		// console.log('- done', r, Math.floor(performance.now() - now));
   	}

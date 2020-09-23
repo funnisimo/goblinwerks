@@ -106,14 +106,14 @@ export function requestUpdate(t=1) {
 ui.requestUpdate = requestUpdate;
 
 export async function updateNow(t=1) {
-	t = Math.max(t, UPDATE_REQUESTED, 1);
+	t = Math.max(t, UPDATE_REQUESTED, 0);
 	UPDATE_REQUESTED = 0;
 
 	ui.draw();
 	ui.canvas.draw();
 	if (t) {
-		const now = performance.now();
-		console.log('UI update - with timeout:', t);
+		// const now = performance.now();
+		// console.log('UI update - with timeout:', t);
 		const r = await IO.tickMs(t);
 		// console.log('- done', r, Math.floor(performance.now() - now));
 	}
