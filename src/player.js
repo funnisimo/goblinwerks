@@ -45,6 +45,9 @@ export async function takeTurn() {
     const ev = await IO.nextEvent(1000);
     await UI.dispatchEvent(ev);
     await UI.updateIfRequested();
+    if (DATA.gameHasEnded) {
+      return 0;
+    }
   }
 
   console.log('...end turn', PLAYER.turnTime);

@@ -1,6 +1,6 @@
 
 
-import { Flags as TileFlags } from './tile.js';
+import { Flags as TileFlags, tile as TILE } from './tile.js';
 import { data as DATA, def, commands, ui as UI, message as MSG } from './gw.js';
 
 
@@ -16,6 +16,7 @@ async function moveDir(e) {
 
   if (!map.hasXY(newX, newY)) {
     MSG.moveBlocked(ctx);
+    // TURN ENDED (1/2 turn)?
     return false;
   }
 
@@ -25,10 +26,12 @@ async function moveDir(e) {
   // Can we enter new cell?
   if (cell.hasTileFlag(TileFlags.T_OBSTRUCTS_PASSABILITY)) {
     MSG.moveBlocked(ctx);
+    // TURN ENDED (1/2 turn)?
     return false;
   }
   if (map.diagonalBlocked(actor.x, actor.y, newX, newY)) {
     MSG.moveBlocked(ctx);
+    // TURN ENDED (1/2 turn)?
     return false;
   }
 
@@ -41,10 +44,17 @@ async function moveDir(e) {
 
   if (!map.moveActor(newX, newY, actor)) {
     MSG.moveFailed(ctx);
+    // TURN ENDED (1/2 turn)?
     return false;
   }
 
   // APPLY EFFECTS
+  for(let tile of cell.tiles()) {
+    await TILE.applyInstantEffects(tile, cell);
+    if (DATA.gameHasEnded) {
+      return true;
+    }
+  }
 
   // PROMOTES ON ENTER, PLAYER ENTER, KEY(?)
   let fired;

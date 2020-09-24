@@ -4360,6 +4360,1494 @@
 
   digger.attachHallway = attachHallway;
 
+  var tileEvent = {};
+  var tileEvents = {};
+
+  const Fl$1 = flag.fl;
+
+  const Flags = flag.install('event', {
+  	DFF_EVACUATE_CREATURES_FIRST	: Fl$1(0),	// Creatures in the DF area get moved outside of it
+  	DFF_SUBSEQ_EVERYWHERE			    : Fl$1(1),	// Subsequent DF spawns in every cell that this DF spawns in, instead of only the origin
+  	DFF_TREAT_AS_BLOCKING			    : Fl$1(2),	// If filling the footprint of this DF with walls would disrupt level connectivity, then abort.
+  	DFF_PERMIT_BLOCKING				    : Fl$1(3),	// Generate this DF without regard to level connectivity.
+  	DFF_ACTIVATE_DORMANT_MONSTER	: Fl$1(4),	// Dormant monsters on this tile will appear -- e.g. when a statue bursts to reveal a monster.
+  	DFF_CLEAR_OTHER_TERRAIN			  : Fl$1(5),	// Erase other terrain in the footprint of this DF.
+  	DFF_BLOCKED_BY_OTHER_LAYERS		: Fl$1(6),	// Will not propagate into a cell if any layer in that cell has a superior priority.
+  	DFF_SUPERPRIORITY				      : Fl$1(7),	// Will overwrite terrain of a superior priority.
+    DFF_AGGRAVATES_MONSTERS       : Fl$1(8),  // Will act as though an aggravate monster scroll of effectRadius radius had been read at that point.
+    DFF_RESURRECT_ALLY            : Fl$1(9),  // Will bring back to life your most recently deceased ally.
+  	DFF_EMIT_EVENT								: Fl$1(10), // Will emit the event when activated
+  	DFF_NO_REDRAW_CELL						: Fl$1(11),
+  	DFF_ABORT_IF_BLOCKS_MAP				: Fl$1(12),
+  	DFF_SPREAD_CIRCLE							: Fl$1(13),	// Spread in a circle around the spot (using FOV), radius calculated using spread+decrement
+  	DFF_ALWAYS_FIRE								: Fl$1(14),	// Fire even if the cell is marked as having fired this turn
+  	DFF_NO_MARK_FIRED							: Fl$1(15),	// Do not mark this cell as having fired an event
+  	// MUST_REPLACE_LAYER
+  	// NEEDS_EMPTY_LAYER
+  	DFF_PROTECTED									: Fl$1(18),
+  });
+
+  tileEvent.Flags = Flags;
+
+
+  class TileEvent {
+  	constructor(tile, spread, decr, flag, text, flare, color$1, radius, matchTile, subEvent, eventName, fn)
+  	{
+  		this.tile = tile || 0;
+  		this.fn = fn || null;
+  		this.chance = 0;
+
+  		// spawning pattern:
+  		this.spread = spread || 0;
+  		this.radius = radius || 0;
+  		this.decrement = decr || 0;
+  		this.flags = flag || 0;
+  		this.matchTile = matchTile || 0;	/* ENUM tileType */
+  		this.next = subEvent || 0;	/* ENUM makeEventTypes */
+
+  		this.message = text || null;
+  	  this.lightFlare = flare || 0;
+  		this.flashColor = color$1 ? color.from(color$1) : null;
+  		// this.effectRadius = radius || 0;
+  		this.messageDisplayed = false;
+  		this.eventName = eventName || null;	// name of the event to emit when activated
+  		this.id = null;
+  	}
+
+  }
+
+  types.TileEvent = TileEvent;
+
+
+  // Dungeon features, spawned from Architect.c:
+  function makeEvent(tile, spread, decr, flag, text, flare, color, radius, matchTile, subEvent, eventName, fn) {
+  	let chance = 0;
+  	if (arguments.length == 1 && tile) {
+  		if (typeof tile === 'object') {
+  			const opts = tile;
+  			tile = opts.tile || 0;
+  			spread = opts.spread || 0;
+  			decr = opts.decrement || 0;
+  			flag = opts.flags || opts.flag || 0;
+  			text = opts.message || null;
+  			flare = opts.flare || null;
+  			color = opts.flash || null;
+  			radius = opts.radius || null;
+  			matchTile = opts.matchTile || opts.needs || 0;
+  			subEvent = opts.next || null;
+  			eventName = opts.event || null;
+  			fn = opts.fn || null;
+  			chance = opts.chance || 0;
+  		}
+  		else if (typeof tile === 'function') {
+  			fn = tile;
+  			tile = 0;
+  			spread = 100;
+  		}
+  	}
+
+  	flag = Flags.toFlag(flag);
+  	const te = new types.TileEvent(tile, spread, decr, flag, text, flare, color, radius, matchTile, subEvent, eventName, fn);
+  	te.chance = chance;
+  	return te;
+  }
+
+  make.tileEvent = makeEvent;
+
+
+  function installEvent(id, event) {
+  	if (arguments.length > 2 || !(event instanceof types.TileEvent)) {
+  		event = make.tileEvent(...[].slice.call(arguments, 1));
+  	}
+    tileEvents[id] = event;
+  	if (event) tileEvent.id = id;
+  	return event;
+  }
+
+  tileEvent.install = installEvent;
+
+  installEvent('DF_NONE');
+
+
+
+  function resetAllMessages() {
+  	Object.values(tileEvents).forEach( (f) => {
+  		if (f instanceof types.Event) {
+  			f.messageDisplayed = false;
+  		}
+  	});
+  }
+
+  tileEvent.resetAllMessages = resetAllMessages;
+
+
+
+  // returns whether the feature was successfully generated (false if we aborted because of blocking)
+  async function spawn(feat, ctx) {
+  	let i, j;
+  	let succeeded;
+  	let tile$1;
+
+  	if (!feat) return false;
+  	if (!ctx) return false;
+
+  	if (typeof feat === 'string') {
+  		const name = feat;
+  		feat = tileEvents[feat];
+  		if (!feat) utils$1.ERROR('Unknown tile Event: ' + name);
+  	}
+
+  	if (typeof feat === 'function') {
+  		return feat(ctx);
+  	}
+
+  	const map = ctx.map;
+  	const x = ctx.x;
+  	const y = ctx.y;
+
+  	if (!map || x === undefined || y === undefined) {
+  		utils$1.ERROR('MAP, x, y are required in context.');
+  	}
+
+  	if (map.hasCellMechFlag(x, y, MechFlags.EVENT_FIRED_THIS_TURN)) {
+  		if (!(feat.flags & Flags.DFF_ALWAYS_FIRE)) {
+  			return false;
+  		}
+  	}
+
+  	const refreshCell = ctx.refreshCell || !(feat.flags & Flags.DFF_NO_REDRAW_CELL);
+  	const abortIfBlocking = ctx.abortIfBlocking || (feat.flags & Flags.DFF_ABORT_IF_BLOCKS_MAP);
+
+    // if ((feat.flags & DFF_RESURRECT_ALLY) && !resurrectAlly(x, y))
+  	// {
+    //     return false;
+    // }
+
+    if (feat.message && feat.message.length && !feat.messageDisplayed && map.isVisible(x, y)) {
+  		feat.messageDisplayed = true;
+  		message.add(feat.message);
+  	}
+
+  	const spawnMap = GRID.alloc(map.width, map.height);
+
+  	if (feat.fn) {
+  		succeeded = await feat.fn(ctx) || false;
+  	}
+
+
+    if (feat.tile) {
+
+  		if (typeof feat.tile === 'string') {
+  			tile$1 = tile.withName(feat.tile);
+  			if (tile$1) {
+  				feat.tile = tile$1.id;
+  			}
+  		}
+  		else {
+  			tile$1 = tiles[feat.tile];
+  		}
+
+  		if (!tile$1) {
+  			utils$1.ERROR('Unknown tile: ' + feat.tile);
+  		}
+
+  		// Blocking keeps track of whether to abort if it turns out that the DF would obstruct the level.
+  	  const blocking = ((abortIfBlocking
+  	               && !(feat.flags & Flags.DFF_PERMIT_BLOCKING)
+  	               && ((feat.tile && (tile$1.flags & (Flags$2.T_PATHING_BLOCKER)))
+  	                   || (feat.flags & Flags.DFF_TREAT_AS_BLOCKING))) ? true : false);
+
+
+      // if (tile.layer == GAS) {
+      //     pmap[x][y].volume += feat.chance;
+      //     pmap[x][y].layers[GAS] = feat.tile;
+      //     if (refreshCell) {
+      //         map.redrawCell(x, y);
+      //     }
+      //     succeeded = true;
+      // } else {
+
+      tileEvent.computeSpawnMap(map, x, y, feat, spawnMap);
+
+  		// if (GW.config.D_INSPECT_AUTOGENERATORS) {
+  		// 	let spawnCount = 0;
+  		// 	for(i = 0; i < map.width; ++i) {
+  		// 		for(j = 0; j < map.height; ++j) {
+  		// 			if (spawnMap[i][j]) {
+  		// 				spawnCount += 1;
+  		// 			}
+  		// 		}
+  		// 	}
+  		// 	await temporaryMessage(`Spawn ${spawnCount} cells.`, true);
+  		// }
+
+      if (!blocking || !MAP.gridDisruptsPassability(map, spawnMap)) {
+          if (feat.flags & Flags.DFF_EVACUATE_CREATURES_FIRST) { // first, evacuate creatures if necessary, so that they do not re-trigger the tile.
+              await tileEvent.evacuateCreatures(map, spawnMap);
+          }
+
+          //succeeded = spawnTiles(tile.layer, feat.tile, spawnMap, (feat.flags & DFF_BLOCKED_BY_OTHER_LAYERS), refreshCell, (feat.flags & DFF_SUPERPRIORITY));
+          await tileEvent.spawnTiles(map, tile$1, spawnMap,
+                       (feat.flags & Flags.DFF_BLOCKED_BY_OTHER_LAYERS),
+                       (feat.flags & Flags.DFF_SUPERPRIORITY),
+  									 		refreshCell); // this can tweak the spawn map too
+          succeeded = true; // fail ONLY if we blocked the level. We succeed even if, thanks to priority, nothing gets built.
+      } else {
+          succeeded = false;
+      }
+    	// }
+    } else {
+        spawnMap[x][y] = 1;
+        succeeded = true; // Automatically succeed if there is no terrain to place.
+        if (feat.flags & Flags.DFF_EVACUATE_CREATURES_FIRST) { // first, evacuate creatures if necessary, so that they do not re-trigger the tile.
+            await tileEvent.evacuateCreatures(map, spawnMap);
+        }
+    }
+
+    if (succeeded && (feat.flags & Flags.DFF_CLEAR_OTHER_TERRAIN)) {
+  		// const exceptLayer = feat.tile ? tile.layer : TileLayer.GROUND;
+  		const exceptLayer = Layer.GROUND;
+  		spawnMap.forEach( (v, i, j) => {
+  			if (!v) return;
+  			const cell = map.cell(i, j);
+  			// console.log('Clear other terrain', i, j);
+  			cell.clearLayers(exceptLayer); // , map.floorTile);
+  		});
+  	}
+
+  	if (succeeded && (feat.flags & Flags.DFF_PROTECTED)) {
+  		spawnMap.forEach( (v, i, j) => {
+  			if (!v) return;
+  			const cell = map.cell(i, j);
+  			cell.mechFlags |= MechFlags.EVENT_PROTECTED;
+  		});
+  	}
+
+  	// if (refreshCell && feat.tile
+  	// 	&& (tile.flags & (TileFlags.T_IS_FIRE | TileFlags.T_AUTO_DESCENT))
+  	// 	&& map.hasTileFlag(PLAYER.xLoc, PLAYER.yLoc, (TileFlags.T_IS_FIRE | TileFlags.T_AUTO_DESCENT)))
+  	// {
+  	// 	await applyInstantTileEffectsToCreature(PLAYER);
+  	// }
+
+  	// apply tile effects
+  	if (succeeded) {
+  		for(let i = 0; i < spawnMap.width; ++i) {
+  			for(let j = 0; j < spawnMap.height; ++j) {
+  				const v = spawnMap[i][j];
+  				if (!v || data.gameHasEnded) continue;
+  				const cell = map.cell(i, j);
+  				if (cell.actor || cell.item) {
+  					for(let t of cell.tiles()) {
+  						await tile.applyInstantEffects(t, cell);
+  						if (data.gameHasEnded) {
+  							return true;
+  						}
+  					}
+  				}
+  			}
+  		}
+  	}
+
+  	if (data.gameHasEnded) {
+  		GRID.free(spawnMap);
+  		return succeeded;
+  	}
+
+    //	if (succeeded && feat.message[0] && !feat.messageDisplayed && isVisible(x, y)) {
+    //		feat.messageDisplayed = true;
+    //		message(feat.message, false);
+    //	}
+    if (succeeded) {
+        if (feat.next) {
+            if (feat.flags & Flags.DFF_SUBSEQ_EVERYWHERE) {
+                for (i=0; i<map.width; i++) {
+                    for (j=0; j<map.height; j++) {
+                        if (spawnMap[i][j]) {
+                            await tileEvent.spawn(feat.next, { map, x: i, y: j });
+                        }
+                    }
+                }
+            }
+  					else {
+                await tileEvent.spawn(feat.next, { map, x, y });
+            }
+        }
+        if (feat.tile
+            && (tile$1.flags & (Flags$2.T_IS_DEEP_WATER | Flags$2.T_LAVA | Flags$2.T_AUTO_DESCENT)))
+  			{
+            data.updatedMapToShoreThisTurn = false;
+        }
+
+        // awaken dormant creatures?
+        // if (feat.flags & Flags.DFF_ACTIVATE_DORMANT_MONSTER) {
+        //     for (monst of map.dormant) {
+        //         if (monst.x == x && monst.y == y || spawnMap[monst.x][monst.y]) {
+        //             // found it!
+        //             toggleMonsterDormancy(monst);
+        //         }
+        //     }
+        // }
+    }
+
+
+
+  	// if (succeeded && feat.flags & Flags.DFF_EMIT_EVENT && feat.eventName) {
+  	// 	await GAME.emit(feat.eventName, x, y);
+  	// }
+
+  	if (succeeded) {
+  		ui.requestUpdate();
+
+  		if (feat.flags & Flags.DFF_NO_MARK_FIRED) {
+  			succeeded = false;
+  		}
+  	}
+
+  	GRID.free(spawnMap);
+  	return succeeded;
+  }
+
+  tileEvent.spawn = spawn;
+
+
+  function computeSpawnMap(map, x, y, feat, spawnMap)
+  {
+  	let i, j, dir, t, x2, y2;
+  	let madeChange;
+
+  	let matchTile = feat.matchTile || 0;
+  	const requireMatch = (matchTile ? true : false);
+  	let startProb = feat.spread || 0;
+  	let probDec = feat.decrement || 0;
+
+  	if (typeof matchTile === 'string') {
+  		matchTile = tile.withName(matchTile).id;
+  	}
+
+  	spawnMap[x][y] = t = 1; // incremented before anything else happens
+
+  	let radius = feat.radius || 0;
+  	if (feat.flags & Flags.DFF_SPREAD_CIRCLE) {
+  		radius = 0;
+  		startProb = startProb || 100;
+  		if (startProb >= 100) {
+  			probDec = probDec || 100;
+  		}
+  		while ( random.percent(startProb) ) {
+  			startProb -= probDec;
+  			++radius;
+  		}
+  		startProb = 100;
+  		probDec = 0;
+  	}
+
+  	if (radius) {
+  		startProb = startProb || 100;
+  		spawnMap.updateCircle(x, y, radius, (v, i, j) => {
+  			if (matchTile && !map.hasTile(i, j, matchTile)) return 0;
+  			if ((!matchTile) && map.hasTileFlag(i, j, Flags$2.T_OBSTRUCTS_TILE_EFFECTS)) return 0;
+
+  			const dist = Math.floor(utils$1.distanceBetween(x, y, i, j));
+  			const prob = startProb - (dist * probDec);
+  			if (!random.percent(prob)) return 0;
+  			return 1;
+  		});
+  		spawnMap[x][y] = 1;
+  	}
+  	else if (startProb) {
+  		madeChange = true;
+  		if (startProb >= 100) {
+  			probDec = probDec || 100;
+  		}
+
+  		while (madeChange && startProb > 0) {
+  			madeChange = false;
+  			t++;
+  			for (i = 0; i < map.width; i++) {
+  				for (j=0; j < map.height; j++) {
+  					if (spawnMap[i][j] == t - 1) {
+  						for (dir = 0; dir < 4; dir++) {
+  							x2 = i + def.dirs[dir][0];
+  							y2 = j + def.dirs[dir][1];
+  							if (map.hasXY(x2, y2) && !spawnMap[x2][y2]
+  								&& (!requireMatch || (matchTile && map.hasTile(x2, y2, matchTile)))
+  								&& (!map.hasTileFlag(x2, y2, Flags$2.T_OBSTRUCTS_TILE_EFFECTS) || (matchTile && map.hasTile(x2, y2, matchTile)))
+  								&& random.percent(startProb))
+  							{
+  								spawnMap[x2][y2] = t;
+  								madeChange = true;
+  							}
+  						}
+  					}
+  				}
+  			}
+  			startProb -= probDec;
+  		}
+  	}
+
+  	if (requireMatch && !map.hasTile(x, y, matchTile)) {
+  			spawnMap[x][y] = 0;
+  	}
+  }
+
+  tileEvent.computeSpawnMap = computeSpawnMap;
+
+
+  async function spawnTiles(map, tile, 	// layer, surfaceTileType,
+  					 spawnMap,
+  					 blockedByOtherLayers,
+  					 superpriority,
+  				 		applyEffects)
+  {
+  	let i, j;
+  	let accomplishedSomething;
+
+  	accomplishedSomething = false;
+
+  	for (i=0; i<map.width; i++) {
+  		for (j=0; j<map.height; j++) {
+
+  			if (!spawnMap[i][j]) continue;	// If it's not flagged for building in the spawn map,
+  			spawnMap[i][j] = 0; // so that the spawnmap reflects what actually got built
+
+  			const cell = map.cell(i, j);
+  			if (cell.mechFlags & MechFlags.EVENT_PROTECTED) continue;
+  			if (cell.layers[tile.layer] == tile.id) continue; // If the new cell already contains the fill terrain,
+  			if ((!superpriority) && cell.tile(tile.layer).priority >= tile.priority) continue; // If the terrain in the layer to be overwritten has a higher priority number (unless superpriority),
+  			if (cell.obstructsLayer(tile.layer)) continue; // If we will be painting into the surface layer when that cell forbids it,
+  			if (blockedByOtherLayers && cell.highestPriorityTile().priority >= tile.priority) continue; // if the fill won't violate the priority of the most important terrain in this cell:
+
+
+  			spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
+
+  			cell.setTile(tile);
+  			cell.mechFlags |= MechFlags.EVENT_FIRED_THIS_TURN;
+
+  			// const oldTile = cell.tile(tile.layer);
+  			// cell.layers[tile.layer] = tile.id; // Place the terrain!
+  			// cell.redraw();
+  			accomplishedSomething = true;
+  		}
+  	}
+  	if (accomplishedSomething) {
+  		map.changed(true);
+  	}
+  	return accomplishedSomething;
+  }
+
+  tileEvent.spawnTiles = spawnTiles;
+
+
+  async function evacuateCreatures(map, blockingMap) {
+  	let i, j;
+  	let monst;
+
+  	for (i=0; i<map.width; i++) {
+  		for (j=0; j<map.height; j++) {
+  			if (blockingMap[i][j]
+  				&& (map.hasCellFlag(i, j, Flags$1.HAS_ACTOR)))
+  			{
+  				monst = map.actorAt(i, j);
+  				const forbidFlags = monst.forbiddenTileFlags();
+  				const loc = map.matchingXYNear(
+  									 i, j, (cell) => {
+  										 if (cell.hasFlags(Flags$1.HAS_ACTOR)) return false;
+  										 if (cell.hasTileFlags(forbidFlags)) return false;
+  										 return true;
+  									 },
+  									 { hallwaysAllowed: true, blockingMap });
+  				await map.moveActor(loc[0], loc[1], monst);
+  			}
+  		}
+  	}
+  }
+
+  tileEvent.evacuateCreatures = evacuateCreatures;
+
+  var cell = {};
+
+
+  color.install('cursorColor', 25, 100, 150);
+  config.cursorPathIntensity = 50;
+
+
+  const Fl$2 = flag.fl;
+
+  const Flags$1 = flag.install('cell', {
+    REVEALED					: Fl$2(0),
+    VISIBLE							: Fl$2(1),	// cell has sufficient light and is in field of view, ready to draw.
+    WAS_VISIBLE					: Fl$2(2),
+    IN_FOV		          : Fl$2(3),	// player has unobstructed line of sight whether or not there is enough light
+
+    HAS_PLAYER					: Fl$2(4),
+    HAS_MONSTER					: Fl$2(5),
+    HAS_DORMANT_MONSTER	: Fl$2(6),	// hidden monster on the square
+    HAS_ITEM						: Fl$2(7),
+    HAS_STAIRS					: Fl$2(8),
+
+    NEEDS_REDRAW        : Fl$2(9),	// needs to be redrawn (maybe in path, etc...)
+    TILE_CHANGED				: Fl$2(10),	// one of the tiles changed
+
+    IS_IN_PATH					: Fl$2(12),	// the yellow trail leading to the cursor
+    IS_CURSOR						: Fl$2(13),	// the current cursor
+
+    MAGIC_MAPPED				: Fl$2(14),
+    ITEM_DETECTED				: Fl$2(15),
+
+    STABLE_MEMORY						: Fl$2(16),	// redraws will simply be pulled from the memory array, not recalculated
+
+    CLAIRVOYANT_VISIBLE			: Fl$2(17),
+    WAS_CLAIRVOYANT_VISIBLE	: Fl$2(18),
+    CLAIRVOYANT_DARKENED		: Fl$2(19),	// magical blindness from a cursed ring of clairvoyance
+
+    IMPREGNABLE							: Fl$2(20),	// no tunneling allowed!
+
+    TELEPATHIC_VISIBLE			: Fl$2(22),	// potions of telepathy let you see through other creatures' eyes
+    WAS_TELEPATHIC_VISIBLE	: Fl$2(23),	// potions of telepathy let you see through other creatures' eyes
+
+    MONSTER_DETECTED				: Fl$2(24),
+    WAS_MONSTER_DETECTED		: Fl$2(25),
+
+    CELL_LIT                : Fl$2(28),
+    IS_IN_SHADOW				    : Fl$2(29),	// so that a player gains an automatic stealth bonus
+    CELL_DARK               : Fl$2(30),
+
+    PERMANENT_CELL_FLAGS : ['REVEALED', 'MAGIC_MAPPED', 'ITEM_DETECTED', 'HAS_ITEM', 'HAS_DORMANT_MONSTER',
+                'HAS_STAIRS', 'STABLE_MEMORY', 'IMPREGNABLE'],
+
+    ANY_KIND_OF_VISIBLE			: ['VISIBLE', 'CLAIRVOYANT_VISIBLE', 'TELEPATHIC_VISIBLE'],
+    HAS_ACTOR               : ['HAS_PLAYER', 'HAS_MONSTER'],
+  });
+
+  cell.flags = Flags$1;
+
+  ///////////////////////////////////////////////////////
+  // CELL MECH
+
+  const MechFlags = flag.install('cellMech', {
+    SEARCHED_FROM_HERE				: Fl$2(0),	// Player already auto-searched from here; can't auto search here again
+    PRESSURE_PLATE_DEPRESSED	: Fl$2(1),	// so that traps do not trigger repeatedly while you stand on them
+    KNOWN_TO_BE_TRAP_FREE			: Fl$2(2),	// keep track of where the player has stepped as he knows no traps are there
+
+    CAUGHT_FIRE_THIS_TURN			: Fl$2(4),	// so that fire does not spread asymmetrically
+    EVENT_FIRED_THIS_TURN     : Fl$2(5),  // so we don't update cells that have already changed this turn
+    EVENT_PROTECTED           : Fl$2(6),
+
+    IS_IN_LOOP					: Fl$2(10),	// this cell is part of a terrain loop
+    IS_CHOKEPOINT				: Fl$2(11),	// if this cell is blocked, part of the map will be rendered inaccessible
+    IS_GATE_SITE				: Fl$2(12),	// consider placing a locked door here
+    IS_IN_ROOM_MACHINE	: Fl$2(13),
+    IS_IN_AREA_MACHINE	: Fl$2(14),
+    IS_POWERED					: Fl$2(15),	// has been activated by machine power this turn (can probably be eliminate if needed)
+
+    IS_IN_MACHINE				: ['IS_IN_ROOM_MACHINE', 'IS_IN_AREA_MACHINE'], 	// sacred ground; don't generate items here, or teleport randomly to it
+
+    PERMANENT_MECH_FLAGS : ['SEARCHED_FROM_HERE', 'PRESSURE_PLATE_DEPRESSED', 'KNOWN_TO_BE_TRAP_FREE', 'IS_IN_LOOP',
+                            'IS_CHOKEPOINT', 'IS_GATE_SITE', 'IS_IN_MACHINE', ],
+  });
+
+  cell.mechFlags = MechFlags;
+
+
+  class CellMemory {
+    constructor() {
+      this.sprite = make.sprite();
+      this.clear();
+    }
+
+    clear() {
+      this.sprite.clear();
+      this.itemKind = null;
+      this.itemQuantity = 0;
+      this.tile = null;
+      this.cellFlags = 0;
+      this.cellMechFlags = 0;
+      this.tileFlags = 0;
+      this.tileMechFlags = 0;
+    }
+
+    copy(other) {
+      utils$1.copyObject(this, other);
+    }
+  }
+
+  types.CellMemory = CellMemory;
+
+
+
+  class Cell {
+    constructor() {
+      this.layers = [0,0,0,0];
+      this.memory = new types.CellMemory();
+      this.clear();
+    }
+
+    copy(other) {
+      utils$1.copyObject(this, other);
+    }
+
+    clear() {
+      for(let i = 0; i < this.layers.length; ++i) {
+        this.layers[i] = 0;
+      }
+
+      this.sprites = null;
+      this.actor = null;
+      this.item = null;
+
+      this.flags = 0;							// non-terrain cell flags
+      this.mechFlags = 0;
+      this.gasVolume = 0;						// quantity of gas in cell
+      this.liquidVolume = 0;
+      this.machineNumber = 0;
+      this.memory.clear();
+      this.layerFlags = 0;
+    }
+
+    get ground() { return this.layers[0]; }
+    get liquid() { return this.layers[1]; }
+    get surface() { return this.layers[2]; }
+    get gas() { return this.layers[3]; }
+
+    dump() {
+      for(let i = this.layers.length - 1; i >= 0; --i) {
+        if (!this.layers[i]) continue;
+        const tile = tiles[this.layers[i]];
+        if (tile.sprite.ch) return tile.sprite.ch;
+      }
+      return tiles[0].sprite.ch;
+    }
+    isVisible() { return this.flags & Flags$1.VISIBLE; }
+    isAnyKindOfVisible() { return (this.flags & Flags$1.ANY_KIND_OF_VISIBLE) || config.playbackOmniscience; }
+    hasVisibleLight() { return true; }  // TODO
+
+    redraw() { this.flags |= Flags$1.NEEDS_REDRAW; }
+
+    tile(layer=0) {
+      const id = this.layers[layer] || 0;
+      return tiles[id];
+    }
+
+    *tiles() {
+      for(let id of this.layers) {
+        if (id) {
+          yield tiles[id];
+        }
+      }
+    }
+
+    tileFlags(limitToPlayerKnowledge) {
+      if (limitToPlayerKnowledge && !this.isVisible()) {
+        return this.memory.tileFlags;
+      }
+      let flags = 0;
+      for( let tile of this.tiles()) {
+        flags |= tile.flags;
+      }
+      return flags;
+    }
+
+    tileMechFlags(limitToPlayerKnowledge)	{
+      if (limitToPlayerKnowledge && !this.isVisible()) {
+        return this.memory.tileMechFlags;
+      }
+      let flags = 0;
+      for( let tile of this.tiles()) {
+        flags |= tile.mechFlags;
+      }
+      return flags;
+    }
+
+    hasTileFlag(flagMask)	{
+      return !!(flagMask & this.tileFlags());
+    }
+
+    hasTileMechFlag(flagMask) {
+      return !!(flagMask & this.tileMechFlags());
+    }
+
+    setFlags(cellFlag=0, cellMechFlag=0) {
+      this.flags |= cellFlag;
+      this.mechFlags |= cellMechFlag;
+      this.flags |= Flags$1.NEEDS_REDRAW;
+    }
+
+    clearFlags(cellFlag=0, cellMechFlag=0) {
+      this.flags &= ~cellFlag;
+      this.mechFlags &= ~cellMechFlag;
+      if ((~cellFlag) & Flags$1.NEEDS_REDRAW) {
+        this.flags |= Flags$1.NEEDS_REDRAW;
+      }
+    }
+
+    hasTile(id) {
+      return this.layers.includes(id);
+    }
+
+    // hasTileInGroup(...groups) {
+    //   if (groups.length == 1 && Array.isArray(groups[0])) {
+    //     groups = groups[0];
+    //   }
+    //   return this.layers.some( (tileId) => {
+    //     const tile = TILES[tileId] || TILES.NOTHING;
+    //     return GW.utils.intersect(groups, tile.groups);
+    //   });
+    // }
+
+    successorTileFlags(event) {
+      let flags = 0;
+      for( let tile of this.tiles()) {
+        flags |= tile.successorFlags(event);
+      }
+      return flags;
+    }
+
+    promotedTileFlags() {
+      return this.successorTileFlags('promote');
+    }
+
+    discoveredTileFlags() {
+      return this.successorTileFlags('discover');
+    }
+
+    hasDiscoveredTileFlag(flag) {
+      // if (!this.hasTileMechFlag(TM_IS_SECRET)) return false;
+      return this.discoveredTileFlags() & flag;
+    }
+
+    highestPriorityTile() {
+      let best = tiles[0];
+      let bestPriority = -10000;
+      for(let tile of this.tiles()) {
+        if (tile.priority > bestPriority) {
+          best = tile;
+          bestPriority = tile.priority;
+        }
+      }
+      return best;
+    }
+
+    tileWithFlag(tileFlag) {
+      for(let tile of this.tiles()) {
+        if (tile.flags & tileFlags) return tile;
+      }
+      return null;
+    }
+
+    tileWithMechFlag(mechFlag) {
+      for(let tile of this.tiles()) {
+        if (tile.mechFlags & mechFlags) return tile;
+      }
+      return null;
+    }
+
+    // Retrieves a pointer to the flavor text of the highest-priority terrain at the given location
+    tileDesc() {
+      return this.highestPriorityTile().desc;
+    }
+
+    // Retrieves a pointer to the description text of the highest-priority terrain at the given location
+    tileText() {
+      return this.highestPriorityTile().text;
+    }
+
+    isEmpty() {
+      return this.ground == 0;
+    }
+
+    isPassableNow(limitToPlayerKnowledge) {
+      const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
+      const tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
+      if (!(tileFlags & Flags$2.T_PATHING_BLOCKER)) return true;
+
+      let tileMechFlags = (useMemory) ? this.memory.tileMechFlags : this.tileMechFlags();
+      return limitToPlayerKnowledge ? false : this.isSecretDoor();
+    }
+
+    canBePassed(limitToPlayerKnowledge) {
+      if (this.isPassableNow(limitToPlayerKnowledge)) return true;
+      const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
+      let tileMechFlags = (useMemory) ? this.memory.tileMechFlags : this.tileMechFlags();
+      if (tileMechFlags & MechFlags$1.TM_CONNECTS_LEVEL) return true;
+      return ((tileMechFlags & MechFlags$1.TM_PROMOTES) && !(this.promotedTileFlags() & Flags$2.T_PATHING_BLOCKER));
+    }
+
+    isObstruction(limitToPlayerKnowledge) {
+      const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
+      let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
+      return tileFlags & Flags$2.T_OBSTRUCTS_DIAGONAL_MOVEMENT;
+    }
+
+    isDoor(limitToPlayerKnowledge) {
+      const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
+      let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
+      return tileFlags & Flags$2.T_IS_DOOR;
+    }
+
+    isSecretDoor(limitToPlayerKnowledge) {
+      if (limitToPlayerKnowledge) return false;
+      const tileMechFlags = this.tileMechFlags();
+      return (tileMechFlags & MechFlags$1.TM_IS_SECRET) && !(this.discoveredTileFlags() & Flags$2.T_PATHING_BLOCKER)
+    }
+
+    blocksPathing(limitToPlayerKnowledge) {
+      const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
+      let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
+      return tileFlags & Flags$2.T_PATHING_BLOCKER;
+    }
+
+    isLiquid(limitToPlayerKnowledge) {
+      const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
+      let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
+      return tileFlags & Flags$2.T_IS_LIQUID;
+    }
+
+    markRevealed() {
+      this.flags &= ~Flags$1.STABLE_MEMORY;
+      if (!(this.flags & Flags$1.REVEALED)) {
+        this.flags |= Flags$1.REVEALED;
+        if (!this.hasTileFlag(Flags$2.T_PATHING_BLOCKER)) {
+          data.xpxpThisTurn++;
+        }
+      }
+    }
+
+    obstructsLayer(layer) {
+      return layer == Layer.SURFACE && this.hasTileFlag(Flags$2.T_OBSTRUCTS_SURFACE_EFFECTS);
+    }
+
+    setTile(tileId=0, checkPriority=false) {
+      let tile;
+      if (typeof tileId === 'string') {
+        tile = withName(tileId);
+      }
+      else if (tileId instanceof types.Tile) {
+        tile = tileId;
+        tileId = tile.id;
+      }
+      else {
+        tile = tiles[tileId];
+      }
+
+      if (!tile) {
+        tile = tiles[0];
+        tileId = 0;
+      }
+
+      const oldTileId = this.layers[tile.layer] || 0;
+      const oldTile = tiles[oldTileId] || tiles[0];
+
+      if (checkPriority && oldTile.priority > tile.priority) return false;
+
+      if ((oldTile.flags & Flags$2.T_PATHING_BLOCKER)
+        != (tile.flags & Flags$2.T_PATHING_BLOCKER))
+      {
+        data.staleLoopMap = true;
+      }
+
+      if ((tile.flags & Flags$2.T_IS_FIRE)
+        && !(oldTile.flags & Flags$2.T_IS_FIRE))
+      {
+        this.setFlags(0, CellMechFlags.CAUGHT_FIRE_THIS_TURN);
+      }
+
+      this.layerFlags &= ~Fl$2(tile.layer); // turn off layer flag
+      this.layers[tile.layer] = tile.id;
+      this.flags |= (Flags$1.NEEDS_REDRAW | Flags$1.TILE_CHANGED);
+      return (oldTile.glowLight !== tile.glowLight);
+    }
+
+    clearLayers(except, floorTile) {
+      floorTile = floorTile === undefined ? this.layers[0] : floorTile;
+      for (let layer = 0; layer < this.layers.length; layer++) {
+        if (layer != except && layer != Layer.GAS) {
+            this.layers[layer] = (layer ? 0 : floorTile);
+        }
+      }
+      this.flags |= (Flags$1.NEEDS_REDRAW | Flags$1.TILE_CHANGED);
+    }
+
+    clearTileWithFlags(tileFlags, tileMechFlags=0) {
+      for( let i = 0; i < this.layers.length; ++i ) {
+        const id = this.layers[i];
+        if (!id) continue;
+        const tile = tiles[id];
+        if (tileFlags && tileMechFlags) {
+          if ((tile.flags & tileFlags) && (tile.mechFlags & tileMechFlags)) {
+            this.layers[i] = 0;
+          }
+        }
+        else if (tileFlags) {
+          if (tile.flags & tileFlags) {
+            this.layers[i] = 0;
+          }
+        }
+        else if (tileMechFlags) {
+          if (tile.flags & tileMechFlags) {
+            this.layers[i] = 0;
+          }
+        }
+      }
+      this.flags |= (Flags$1.NEEDS_REDRAW | Flags$1.TILE_CHANGED);
+    }
+
+    // EVENTS
+
+    async fireEvent(name, ctx) {
+      ctx.cell = this;
+      let fired = false;
+      for (let tile of this.tiles()) {
+        if (!tile.events) continue;
+        const ev = tile.events[name];
+        if (ev) {
+          if (ev.chance && !random.percent(ev.chance)) {
+            continue;
+          }
+
+          ctx.tile = tile;
+          fired = await tileEvent.spawn(ev, ctx) || fired;
+        }
+      }
+      if (fired) {
+        this.mechFlags |= MechFlags.EVENT_FIRED_THIS_TURN;
+      }
+      return fired;
+    }
+
+
+    // setTickFlag() {
+    //   let flag = 0;
+    //   for(let i = 0; i < this.layers.length; ++i) {
+    //     const id = this.layers[i];
+    //     if (!id) continue;
+    //     const tile = TILES[id];
+    //     if (!tile.events.tick) continue;
+    //     if (random.percent(tile.events.tick.chance)) {
+    //       flag |= Fl(i);
+    //     }
+    //   }
+    //   this.layerFlags = flag;
+    //   return flag;
+    // }
+    //
+    // async fireTick(ctx) {
+    //   if (!this.layerFlags) return false;
+    //
+    //   ctx.cell = this;
+    //   let fired = false;
+    //   for(let i = 0; i < this.layers.length; ++i) {
+    //     if (this.layerFlags & Fl(i)) {
+    //       const tile = TILES[this.layers[i]];
+    //       ctx.tile = tile;
+    //       await TILE_EVENT.spawn(tile.events.tick, ctx);
+    //       fired = true;
+    //     }
+    //   }
+    //   this.layerFlags = 0;
+    //   return fired;
+    // }
+
+    // SPRITES
+
+    addSprite(layer, sprite, priority=50) {
+
+      this.flags |= Flags$1.NEEDS_REDRAW;
+
+      if (!this.sprites) {
+        this.sprites = { layer, priority, sprite, next: null };
+        return;
+      }
+
+      let current = this.sprites;
+      while (current.next && ((current.layer < layer) || ((current.layer == layer) && (current.priority <= priority)))) {
+        current = current.next;
+      }
+
+      const item = { layer, priority, sprite, next: current.next };
+      current.next = item;
+    }
+
+    removeSprite(sprite) {
+
+      this.flags |= Flags$1.NEEDS_REDRAW;
+
+      if (this.sprites && this.sprites.sprite === sprite) {
+        this.sprites = this.sprites.next;
+        return;
+      }
+
+      let prev = this.sprites;
+      let current = this.sprites.next;
+      while (current) {
+        if (current.sprite === sprite) {
+          prev.next = current.next;
+          return true;
+        }
+        current = current.next;
+      }
+      return false;
+    }
+
+    // MEMORY
+
+    storeMemory(item) {
+      const memory = this.memory;
+      memory.tileFlags = this.tileFlags();
+      memory.tileMechFlags = this.tileMechFlags();
+      memory.cellFlags = this.flags;
+  		memory.cellMechFlags = this.mechFlags;
+      memory.tile = this.highestPriorityTile().id;
+  		if (item) {
+  			memory.itemKind = item.kind;
+  			memory.itemQuantity = item.quantity || 1;
+  		}
+  		else {
+  			memory.itemKind = null;
+  			memory.itemQuantity = 0;
+  		}
+    }
+
+  }
+
+  types.Cell = Cell;
+
+
+  function makeCell(...args) {
+    const cell = new types.Cell(...args);
+    return cell;
+  }
+
+
+  make.cell = makeCell;
+
+
+  function getAppearance(cell, dest) {
+    dest.clear();
+    for( let tile of cell.tiles() ) {
+      dest.plot(tile.sprite);
+    }
+
+    let current = cell.sprites;
+    while(current) {
+      dest.plot(current.sprite);
+      current = current.next;
+    }
+
+    let needDistinctness = false;
+    if (cell.flags & (Flags$1.IS_CURSOR | Flags$1.IS_IN_PATH)) {
+      const highlight = (cell.flags & Flags$1.IS_CURSOR) ? colors.cursorColor : colors.yellow;
+      if (cell.hasTileMechFlag(MechFlags$1.TM_INVERT_WHEN_HIGHLIGHTED)) {
+        color.swap(dest.fg, dest.bg);
+      } else {
+        // if (!GAME.trueColorMode || !dest.needDistinctness) {
+            color.applyMix(dest.fg, highlight, config.cursorPathIntensity || 20);
+        // }
+        color.applyMix(dest.bg, highlight, config.cursorPathIntensity || 20);
+      }
+      needDistinctness = true;
+    }
+
+    if (needDistinctness) {
+      color.separate(dest.fg, dest.bg);
+    }
+
+    return true;
+  }
+
+  cell.getAppearance = getAppearance;
+
+  var actor = {};
+
+  class Actor {
+  	constructor(kind) {
+  		this.x = -1;
+      this.y = -1;
+      this.flags = 0;
+      this.kind = kind || {};
+      this.turnTime = 0;
+  		this.status = {};
+
+  		this.kind.speed = this.kind.speed || config.defaultSpeed || 120;
+    }
+
+  	startTurn() {
+  		actor.startTurn(this);
+  	}
+
+  	act() {
+  		actor.act(this);
+  	}
+
+  	// TODO - This is a command/task
+  	async moveDir(dir) {
+      const map = data.map;
+      await map.moveActor(this.x + dir[0], this.y + dir[1], this);
+  		this.endTurn();
+    }
+
+  	endTurn(turnTime) {
+  		actor.endTurn(this, turnTime);
+  	}
+
+  	isOrWasVisible() {
+  		return true;
+  	}
+
+  	forbiddenTileFlags() {
+  		return Flags$2.T_PATHING_BLOCKER;
+  	}
+
+  	kill() {
+  		const map = data.map;
+  		map.removeActor(this);
+  		// in the future do something here (HP = 0?  Flag?)
+  	}
+
+  }
+
+  types.Actor = Actor;
+
+
+  function makeActor(kind) {
+    return new types.Actor(kind);
+  }
+
+  make.actor = makeActor;
+
+
+  // TODO - move back to game??
+  async function takeTurn(theActor) {
+    console.log('actor turn...', data.time);
+  	theActor.startTurn();
+  	await theActor.act();
+    return theActor.turnTime;	// actual or idle time
+  }
+
+  actor.takeTurn = takeTurn;
+
+
+  function startTurn(theActor) {
+  }
+
+  actor.startTurn = startTurn;
+
+
+  function act(theActor) {
+  	theActor.endTurn();
+  	return true;
+  }
+
+  actor.act = act;
+
+  function endTurn(theActor, turnTime) {
+  	theActor.turnTime = turnTime || Math.floor(theActor.kind.speed/2);	// doing nothing takes time
+  	if (theActor.isOrWasVisible() && theActor.turnTime) {
+  		ui.requestUpdate();
+  	}
+  }
+
+  actor.endTurn = endTurn;
+
+  var player = {};
+
+
+  class Player extends types.Actor {
+    constructor(kind) {
+      super(kind);
+    }
+
+    startTurn() {
+      player.startTurn(this);
+    }
+
+    visionRadius() {
+    	return CONFIG.MAX_FOV_RADIUS || (data.map.width + data.map.height);
+    }
+
+    endTurn(turnTime) {
+      player.endTurn(this, turnTime);
+    }
+
+  }
+
+  types.Player = Player;
+
+
+  function makePlayer(kind) {
+    return new types.Player(kind);
+  }
+
+  make.player = makePlayer;
+
+
+
+  async function takeTurn$1() {
+    const PLAYER = data.player;
+    console.log('player turn...', data.time);
+    await PLAYER.startTurn();
+
+    while(!PLAYER.turnTime) {
+      const ev = await io.nextEvent(1000);
+      await ui.dispatchEvent(ev);
+      await ui.updateIfRequested();
+      if (data.gameHasEnded) {
+        return 0;
+      }
+    }
+
+    console.log('...end turn', PLAYER.turnTime);
+    return PLAYER.turnTime;
+  }
+
+  player.takeTurn = takeTurn$1;
+
+
+  function startTurn$1(PLAYER) {
+  	PLAYER.turnTime = 0;
+  }
+
+  player.startTurn = startTurn$1;
+
+
+  function act$1() {
+  	return true;
+  }
+
+  player.act = act$1;
+
+  function endTurn$1(PLAYER, turnTime) {
+    PLAYER.turnTime = turnTime || Math.floor(PLAYER.kind.speed/2);  // doing nothing takes time
+    ui.requestUpdate();
+  }
+
+  player.endTurn = endTurn$1;
+
+  class Scheduler {
+  	constructor() {
+    	this.next = null;
+      this.time = 0;
+      this.cache = null;
+    }
+
+  	clear() {
+  		while(this.next) {
+  			const current = this.next;
+  			this.next = current.next;
+  			current.next = this.cache;
+  			this.cache = current;
+  		}
+  	}
+
+    push(fn, delay=1) {
+      let item;
+      if (this.cache) {
+      	item = this.cache;
+        this.cache = item.next;
+  			item.next = null;
+      }
+      else {
+      	item = { fn: null, time: 0, next: null };
+      }
+  		item.fn = fn;
+      item.time = this.time + delay;
+      if (!this.next) {
+  	    this.next = item;
+      }
+      else {
+      	let current = this;
+        let next = current.next;
+      	while(next && next.time <= item.time) {
+        	current = next;
+          next = current.next;
+        }
+        item.next = current.next;
+        current.next = item;
+      }
+  		return item;
+    }
+
+    pop() {
+    	const n = this.next;
+  		if (!n) return null;
+
+      this.next = n.next;
+      n.next = this.cache;
+      this.cache = n;
+
+  		this.time = Math.max(n.time, this.time);	// so you can schedule -1 as a time uint
+      return n.fn;
+    }
+
+  	remove(item) {
+  		if (this.next === item) {
+  			this.next = item.next;
+  			return;
+  		}
+  		prev = this.next;
+  		current = prev.next;
+  		while( current && current !== item ) {
+  			prev = current;
+  			current = current.next;
+  		}
+
+  		if (current === item) {
+  			prev.next = current.next;
+  		}
+  	}
+  }
+
+  const scheduler = new Scheduler();
+
+  var game = {};
+
+  data.time = 0;
+  data.running = false;
+  data.turnTime = 10;
+
+
+
+  function startGame(opts={}) {
+    if (!opts.map) utils$1.ERROR('map is required.');
+
+    data.time = 0;
+    data.running = true;
+    data.player = opts.player || null;
+
+    game.startMap(opts.map, opts.x, opts.y);
+    game.queuePlayer();
+
+    return game.loop();
+  }
+
+  game.start = startGame;
+
+
+  function startMap(map, playerX, playerY) {
+
+    scheduler.clear();
+
+    if (data.map && data.player) {
+      data.map.removeActor(data.player);
+    }
+
+    map.cells.forEach( (c) => c.redraw() );
+    map.flag |= Flags$3.MAP_CHANGED;
+    data.map = map;
+
+    // TODO - Add Map/Environment Updater
+
+    if (data.player) {
+      let x = playerX || 0;
+      let y = playerY || 0;
+      if (x <= 0) {
+        const start = map.locations.start;
+        x = start[0];
+        y = start[1];
+      }
+      if (x <= 0) {
+        x = data.player.x || Math.floor(map.width / 2);
+        y = data.player.y || Math.floor(map.height / 2);
+      }
+      data.map.addActor(x, y, data.player);
+    }
+
+    ui.draw();
+
+    if (map.config.tick) {
+      scheduler.push( game.updateEnvironment, map.config.tick );
+    }
+  }
+
+  game.startMap = startMap;
+
+
+
+  async function gameLoop() {
+
+    ui.draw();
+
+    while (data.running) {
+
+      const fn = scheduler.pop();
+      if (!fn) {
+        utils.WARN('NO ACTORS! STOPPING GAME!');
+        data.running = false;
+      }
+      else {
+        if (scheduler.time > data.time) {
+          data.time = scheduler.time;
+          await ui.updateIfRequested();
+        }
+        const turnTime = await fn();
+        if (turnTime) {
+          console.log('- push actor: %d + %d = %d', scheduler.time, turnTime, scheduler.time + turnTime);
+          scheduler.push(fn, turnTime);
+        }
+      }
+
+    }
+
+  }
+
+  game.loop = gameLoop;
+
+
+  function queuePlayer() {
+    scheduler.push(player.takeTurn, data.player.kind.speed);
+  }
+
+  game.queuePlayer = queuePlayer;
+
+  function queueActor(actor$1) {
+    scheduler.push(actor.takeTurn.bind(null, actor$1), actor$1.kind.speed);
+  }
+
+  game.queueActor = queueActor;
+
+  function delay(delay, fn) {
+    return scheduler.push(fn, delay);
+  }
+
+  game.delay = delay;
+
+  async function cancelDelay(timer) {
+    return scheduler.remove(timer);
+  }
+
+  game.cancelDelay = cancelDelay;
+
+  async function updateEnvironment() {
+
+    console.log('update environment');
+
+    const map = data.map;
+    if (!map) return 0;
+
+    await map.tick();
+    ui.requestUpdate();
+
+    return map.config.tick;
+  }
+
+  game.updateEnvironment = updateEnvironment;
+
+
+  sprite.install('hilite', colors.white);
+
+  async function gameOver(...args) {
+    const msg = text.format(...args);
+    message.add(msg);
+    message.add(colors.red, 'GAME OVER');
+    ui.updateNow();
+    await fx.flashSprite(data.map, data.player.x, data.player.y, 'hilite', 500, 3);
+    data.gameHasEnded = true;
+
+    data.running = false; // ???
+  }
+
+  game.gameOver = gameOver;
+
   var tile = {};
   var tiles = [];
 
@@ -4368,42 +5856,42 @@
   tile.Layer = Layer;
 
 
-  const Fl$1 = flag.fl;
+  const Fl$3 = flag.fl;
 
-  const Flags = flag.install('tile', {
-    T_OBSTRUCTS_PASSABILITY	: Fl$1(0),		// cannot be walked through
-    T_OBSTRUCTS_VISION			: Fl$1(1),		// blocks line of sight
-    T_OBSTRUCTS_ITEMS				: Fl$1(2),		// items can't be on this tile
-    T_OBSTRUCTS_SURFACE		  : Fl$1(3),		// grass, blood, etc. cannot exist on this tile
-    T_OBSTRUCTS_GAS					: Fl$1(4),		// blocks the permeation of gas
-    T_OBSTRUCTS_LIQUID      : Fl$1(5),
-    T_OBSTRUCTS_TILE_EFFECTS  : Fl$1(6),
-    T_OBSTRUCTS_DIAGONAL_MOVEMENT : Fl$1(7),    // can't step diagonally around this tile
+  const Flags$2 = flag.install('tile', {
+    T_OBSTRUCTS_PASSABILITY	: Fl$3(0),		// cannot be walked through
+    T_OBSTRUCTS_VISION			: Fl$3(1),		// blocks line of sight
+    T_OBSTRUCTS_ITEMS				: Fl$3(2),		// items can't be on this tile
+    T_OBSTRUCTS_SURFACE		  : Fl$3(3),		// grass, blood, etc. cannot exist on this tile
+    T_OBSTRUCTS_GAS					: Fl$3(4),		// blocks the permeation of gas
+    T_OBSTRUCTS_LIQUID      : Fl$3(5),
+    T_OBSTRUCTS_TILE_EFFECTS  : Fl$3(6),
+    T_OBSTRUCTS_DIAGONAL_MOVEMENT : Fl$3(7),    // can't step diagonally around this tile
 
-    T_BRIDGE                : Fl$1(10),   // Acts as a bridge over the folowing types:
-    T_AUTO_DESCENT					: Fl$1(11),		// automatically drops creatures down a depth level and does some damage (2d6)
-    T_LAVA			            : Fl$1(12),		// kills any non-levitating non-fire-immune creature instantly
-    T_DEEP_WATER					  : Fl$1(13),		// steals items 50% of the time and moves them around randomly
+    T_BRIDGE                : Fl$3(10),   // Acts as a bridge over the folowing types:
+    T_AUTO_DESCENT					: Fl$3(11),		// automatically drops creatures down a depth level and does some damage (2d6)
+    T_LAVA			            : Fl$3(12),		// kills any non-levitating non-fire-immune creature instantly
+    T_DEEP_WATER					  : Fl$3(13),		// steals items 50% of the time and moves them around randomly
 
-    T_SPONTANEOUSLY_IGNITES	: Fl$1(14),		// monsters avoid unless chasing player or immune to fire
-    T_IS_FLAMMABLE					: Fl$1(15),		// terrain can catch fire
-    T_IS_FIRE								: Fl$1(16),		// terrain is a type of fire; ignites neighboring flammable cells
-    T_ENTANGLES							: Fl$1(17),		// entangles players and monsters like a spiderweb
+    T_SPONTANEOUSLY_IGNITES	: Fl$3(14),		// monsters avoid unless chasing player or immune to fire
+    T_IS_FLAMMABLE					: Fl$3(15),		// terrain can catch fire
+    T_IS_FIRE								: Fl$3(16),		// terrain is a type of fire; ignites neighboring flammable cells
+    T_ENTANGLES							: Fl$3(17),		// entangles players and monsters like a spiderweb
 
-    T_CAUSES_POISON					: Fl$1(18),		// any non-levitating creature gets 10 poison
-    T_CAUSES_DAMAGE					: Fl$1(19),		// anything on the tile takes max(1-2, 10%) damage per turn
-    T_CAUSES_NAUSEA					: Fl$1(20),		// any creature on the tile becomes nauseous
-    T_CAUSES_PARALYSIS			: Fl$1(21),		// anything caught on this tile is paralyzed
-    T_CAUSES_CONFUSION			: Fl$1(22),		// causes creatures on this tile to become confused
-    T_CAUSES_HEALING   	    : Fl$1(23),   // heals 20% max HP per turn for any player or non-inanimate monsters
-    T_IS_TRAP								: Fl$1(24),		// spews gas of type specified in fireType when stepped on
-    T_CAUSES_EXPLOSIVE_DAMAGE		: Fl$1(25),		// is an explosion; deals higher of 15-20 or 50% damage instantly, but not again for five turns
-    T_SACRED                : Fl$1(26),   // monsters that aren't allies of the player will avoid stepping here
+    T_CAUSES_POISON					: Fl$3(18),		// any non-levitating creature gets 10 poison
+    T_CAUSES_DAMAGE					: Fl$3(19),		// anything on the tile takes max(1-2, 10%) damage per turn
+    T_CAUSES_NAUSEA					: Fl$3(20),		// any creature on the tile becomes nauseous
+    T_CAUSES_PARALYSIS			: Fl$3(21),		// anything caught on this tile is paralyzed
+    T_CAUSES_CONFUSION			: Fl$3(22),		// causes creatures on this tile to become confused
+    T_CAUSES_HEALING   	    : Fl$3(23),   // heals 20% max HP per turn for any player or non-inanimate monsters
+    T_IS_TRAP								: Fl$3(24),		// spews gas of type specified in fireType when stepped on
+    T_CAUSES_EXPLOSIVE_DAMAGE		: Fl$3(25),		// is an explosion; deals higher of 15-20 or 50% damage instantly, but not again for five turns
+    T_SACRED                : Fl$3(26),   // monsters that aren't allies of the player will avoid stepping here
 
-    T_UP_STAIRS							: Fl$1(27),
-    T_DOWN_STAIRS						: Fl$1(28),
-    T_PORTAL                : Fl$1(29),
-    T_IS_DOOR								: Fl$1(30),
+    T_UP_STAIRS							: Fl$3(27),
+    T_DOWN_STAIRS						: Fl$3(28),
+    T_PORTAL                : Fl$3(29),
+    T_IS_DOOR								: Fl$3(30),
 
     T_HAS_STAIRS						: ['T_UP_STAIRS', 'T_DOWN_STAIRS'],
     T_OBSTRUCTS_SCENT				: ['T_OBSTRUCTS_PASSABILITY', 'T_OBSTRUCTS_VISION', 'T_AUTO_DESCENT', 'T_LAVA', 'T_DEEP_WATER', 'T_SPONTANEOUSLY_IGNITES', 'T_HAS_STAIRS'],
@@ -4419,43 +5907,43 @@
     T_IS_LIQUID               : ['T_LAVA', 'T_AUTO_DESCENT', 'T_DEEP_WATER'],
   });
 
-  tile.flags = Flags;
+  tile.flags = Flags$2;
 
   ///////////////////////////////////////////////////////
   // TILE MECH
 
 
-  const MechFlags = flag.install('tileMech', {
-    TM_IS_SECRET							: Fl$1(0),		// successful search or being stepped on while visible transforms it into discoverType
-    TM_PROMOTES_WITH_KEY			: Fl$1(1),		// promotes if the key is present on the tile (in your pack, carried by monster, or lying on the ground)
-    TM_PROMOTES_WITHOUT_KEY		: Fl$1(2),		// promotes if the key is NOT present on the tile (in your pack, carried by monster, or lying on the ground)
-    TM_PROMOTES_ON_STEP				: Fl$1(3),		// promotes when a creature, player or item is on the tile (whether or not levitating)
-    TM_PROMOTES_ON_ITEM_REMOVE		: Fl$1(4),		// promotes when an item is lifted from the tile (primarily for altars)
-    TM_PROMOTES_ON_PLAYER_ENTRY		: Fl$1(5),		// promotes when the player enters the tile (whether or not levitating)
-    TM_PROMOTES_ON_SACRIFICE_ENTRY: Fl$1(6),		// promotes when the sacrifice target enters the tile (whether or not levitating)
-    TM_PROMOTES_ON_ELECTRICITY    : Fl$1(7),    // promotes when hit by a lightning bolt
+  const MechFlags$1 = flag.install('tileMech', {
+    TM_IS_SECRET							: Fl$3(0),		// successful search or being stepped on while visible transforms it into discoverType
+    TM_PROMOTES_WITH_KEY			: Fl$3(1),		// promotes if the key is present on the tile (in your pack, carried by monster, or lying on the ground)
+    TM_PROMOTES_WITHOUT_KEY		: Fl$3(2),		// promotes if the key is NOT present on the tile (in your pack, carried by monster, or lying on the ground)
+    TM_PROMOTES_ON_STEP				: Fl$3(3),		// promotes when a creature, player or item is on the tile (whether or not levitating)
+    TM_PROMOTES_ON_ITEM_REMOVE		: Fl$3(4),		// promotes when an item is lifted from the tile (primarily for altars)
+    TM_PROMOTES_ON_PLAYER_ENTRY		: Fl$3(5),		// promotes when the player enters the tile (whether or not levitating)
+    TM_PROMOTES_ON_SACRIFICE_ENTRY: Fl$3(6),		// promotes when the sacrifice target enters the tile (whether or not levitating)
+    TM_PROMOTES_ON_ELECTRICITY    : Fl$3(7),    // promotes when hit by a lightning bolt
 
-    TM_ALLOWS_SUBMERGING					: Fl$1(8),		// allows submersible monsters to submerge in this terrain
-    TM_IS_WIRED										: Fl$1(9),		// if wired, promotes when powered, and sends power when promoting
-    TM_IS_CIRCUIT_BREAKER 				: Fl$1(10),        // prevents power from circulating in its machine
-    TM_GAS_DISSIPATES							: Fl$1(11),		// does not just hang in the air forever
-    TM_GAS_DISSIPATES_QUICKLY			: Fl$1(12),		// dissipates quickly
-    TM_EXTINGUISHES_FIRE					: Fl$1(13),		// extinguishes burning terrain or creatures
-    TM_VANISHES_UPON_PROMOTION		: Fl$1(14),		// vanishes when creating promotion dungeon feature, even if the replacement terrain priority doesn't require it
-    TM_REFLECTS_BOLTS           	: Fl$1(15),       // magic bolts reflect off of its surface randomly (similar to ACTIVE_CELLS flag IMPREGNABLE)
-    TM_STAND_IN_TILE            	: Fl$1(16),		// earthbound creatures will be said to stand "in" the tile, not on it
-    TM_LIST_IN_SIDEBAR          	: Fl$1(17),       // terrain will be listed in the sidebar with a description of the terrain type
-    TM_VISUALLY_DISTINCT        	: Fl$1(18),       // terrain will be color-adjusted if necessary so the character stands out from the background
-    TM_BRIGHT_MEMORY            	: Fl$1(19),       // no blue fade when this tile is out of sight
-    TM_EXPLOSIVE_PROMOTE        	: Fl$1(20),       // when burned, will promote to promoteType instead of burningType if surrounded by tiles with T_IS_FIRE or TM_EXPLOSIVE_PROMOTE
-    TM_CONNECTS_LEVEL           	: Fl$1(21),       // will be treated as passable for purposes of calculating level connectedness, irrespective of other aspects of this terrain layer
-    TM_INTERRUPT_EXPLORATION_WHEN_SEEN : Fl$1(22),    // will generate a message when discovered during exploration to interrupt exploration
-    TM_INVERT_WHEN_HIGHLIGHTED  	: Fl$1(23),       // will flip fore and back colors when highlighted with pathing
-    TM_SWAP_ENCHANTS_ACTIVATION 	: Fl$1(24),       // in machine, swap item enchantments when two suitable items are on this terrain, and activate the machine when that happens
+    TM_ALLOWS_SUBMERGING					: Fl$3(8),		// allows submersible monsters to submerge in this terrain
+    TM_IS_WIRED										: Fl$3(9),		// if wired, promotes when powered, and sends power when promoting
+    TM_IS_CIRCUIT_BREAKER 				: Fl$3(10),        // prevents power from circulating in its machine
+    TM_GAS_DISSIPATES							: Fl$3(11),		// does not just hang in the air forever
+    TM_GAS_DISSIPATES_QUICKLY			: Fl$3(12),		// dissipates quickly
+    TM_EXTINGUISHES_FIRE					: Fl$3(13),		// extinguishes burning terrain or creatures
+    TM_VANISHES_UPON_PROMOTION		: Fl$3(14),		// vanishes when creating promotion dungeon feature, even if the replacement terrain priority doesn't require it
+    TM_REFLECTS_BOLTS           	: Fl$3(15),       // magic bolts reflect off of its surface randomly (similar to ACTIVE_CELLS flag IMPREGNABLE)
+    TM_STAND_IN_TILE            	: Fl$3(16),		// earthbound creatures will be said to stand "in" the tile, not on it
+    TM_LIST_IN_SIDEBAR          	: Fl$3(17),       // terrain will be listed in the sidebar with a description of the terrain type
+    TM_VISUALLY_DISTINCT        	: Fl$3(18),       // terrain will be color-adjusted if necessary so the character stands out from the background
+    TM_BRIGHT_MEMORY            	: Fl$3(19),       // no blue fade when this tile is out of sight
+    TM_EXPLOSIVE_PROMOTE        	: Fl$3(20),       // when burned, will promote to promoteType instead of burningType if surrounded by tiles with T_IS_FIRE or TM_EXPLOSIVE_PROMOTE
+    TM_CONNECTS_LEVEL           	: Fl$3(21),       // will be treated as passable for purposes of calculating level connectedness, irrespective of other aspects of this terrain layer
+    TM_INTERRUPT_EXPLORATION_WHEN_SEEN : Fl$3(22),    // will generate a message when discovered during exploration to interrupt exploration
+    TM_INVERT_WHEN_HIGHLIGHTED  	: Fl$3(23),       // will flip fore and back colors when highlighted with pathing
+    TM_SWAP_ENCHANTS_ACTIVATION 	: Fl$3(24),       // in machine, swap item enchantments when two suitable items are on this terrain, and activate the machine when that happens
     TM_PROMOTES										: 'TM_PROMOTES_WITH_KEY | TM_PROMOTES_WITHOUT_KEY | TM_PROMOTES_ON_STEP | TM_PROMOTES_ON_ITEM_REMOVE | TM_PROMOTES_ON_SACRIFICE_ENTRY | TM_PROMOTES_ON_ELECTRICITY | TM_PROMOTES_ON_PLAYER_ENTRY',
   });
 
-  tile.mechFlags = MechFlags;
+  tile.mechFlags = MechFlags$1;
 
   function setFlags(tile, allFlags) {
     let flags = [];
@@ -4479,11 +5967,11 @@
       if (typeof f !== 'string') {
         utils$1.WARN('Invalid tile flag: ' + f);
       }
-      else if (Flags[f]) {
-        tile.flags |= Flags[f];
+      else if (Flags$2[f]) {
+        tile.flags |= Flags$2[f];
       }
-      else if (MechFlags[f]) {
-        tile.mechFlags |= MechFlags[f];
+      else if (MechFlags$1[f]) {
+        tile.mechFlags |= MechFlags$1[f];
       }
       else {
         utils$1.WARN('Invalid tile flag: ' + f);
@@ -4571,1081 +6059,24 @@
 
   tile.withName = withName;
 
-  var tileEvent = {};
-  var tileEvents = {};
-
-  const Fl$2 = flag.fl;
-
-  const Flags$1 = flag.install('event', {
-  	DFF_EVACUATE_CREATURES_FIRST	: Fl$2(0),	// Creatures in the DF area get moved outside of it
-  	DFF_SUBSEQ_EVERYWHERE			    : Fl$2(1),	// Subsequent DF spawns in every cell that this DF spawns in, instead of only the origin
-  	DFF_TREAT_AS_BLOCKING			    : Fl$2(2),	// If filling the footprint of this DF with walls would disrupt level connectivity, then abort.
-  	DFF_PERMIT_BLOCKING				    : Fl$2(3),	// Generate this DF without regard to level connectivity.
-  	DFF_ACTIVATE_DORMANT_MONSTER	: Fl$2(4),	// Dormant monsters on this tile will appear -- e.g. when a statue bursts to reveal a monster.
-  	DFF_CLEAR_OTHER_TERRAIN			  : Fl$2(5),	// Erase other terrain in the footprint of this DF.
-  	DFF_BLOCKED_BY_OTHER_LAYERS		: Fl$2(6),	// Will not propagate into a cell if any layer in that cell has a superior priority.
-  	DFF_SUPERPRIORITY				      : Fl$2(7),	// Will overwrite terrain of a superior priority.
-    DFF_AGGRAVATES_MONSTERS       : Fl$2(8),  // Will act as though an aggravate monster scroll of effectRadius radius had been read at that point.
-    DFF_RESURRECT_ALLY            : Fl$2(9),  // Will bring back to life your most recently deceased ally.
-  	DFF_EMIT_EVENT								: Fl$2(10), // Will emit the event when activated
-  	DFF_NO_REDRAW_CELL						: Fl$2(11),
-  	DFF_ABORT_IF_BLOCKS_MAP				: Fl$2(12),
-  	DFF_SPREAD_CIRCLE							: Fl$2(13),	// Spread in a circle around the spot (using FOV), radius calculated using spread+decrement
-  	DFF_ALWAYS_FIRE								: Fl$2(14),	// Fire even if the cell is marked as having fired this turn
-  	DFF_NO_MARK_FIRED							: Fl$2(15),	// Do not mark this cell as having fired an event
-  	// MUST_REPLACE_LAYER
-  	// NEEDS_EMPTY_LAYER
-  	DFF_PROTECTED									: Fl$2(18),
-  });
-
-  tileEvent.Flags = Flags$1;
 
 
-  class TileEvent {
-  	constructor(tile, spread, decr, flag, text, flare, color$1, radius, matchTile, subEvent, eventName, fn)
-  	{
-  		this.tile = tile || 0;
-  		this.fn = fn || null;
-  		this.chance = 0;
+  async function applyInstantTileEffects(tile, cell) {
 
-  		// spawning pattern:
-  		this.spread = spread || 0;
-  		this.radius = radius || 0;
-  		this.decrement = decr || 0;
-  		this.flags = flag || 0;
-  		this.matchTile = matchTile || 0;	/* ENUM tileType */
-  		this.next = subEvent || 0;	/* ENUM makeEventTypes */
+    const actor = cell.actor;
 
-  		this.message = text || null;
-  	  this.lightFlare = flare || 0;
-  		this.flashColor = color$1 ? color.from(color$1) : null;
-  		// this.effectRadius = radius || 0;
-  		this.messageDisplayed = false;
-  		this.eventName = eventName || null;	// name of the event to emit when activated
-  		this.id = null;
-  	}
+    if (tile.flags & Flags$2.T_LAVA && actor) {
+      if (!cell.hasTileFlag(Flags$2.T_BRIDGE) && !actor.status[def.STATUS_LEVITATING]) {
+        actor.kill();
+        await game.gameOver(colors.red, 'you fall into lava and perish.');
+        return true;
+      }
+    }
 
+    return false;
   }
 
-  types.TileEvent = TileEvent;
-
-
-  // Dungeon features, spawned from Architect.c:
-  function makeEvent(tile, spread, decr, flag, text, flare, color, radius, matchTile, subEvent, eventName, fn) {
-  	let chance = 0;
-  	if (arguments.length == 1 && tile) {
-  		if (typeof tile === 'object') {
-  			const opts = tile;
-  			tile = opts.tile || 0;
-  			spread = opts.spread || 0;
-  			decr = opts.decrement || 0;
-  			flag = opts.flags || opts.flag || 0;
-  			text = opts.message || null;
-  			flare = opts.flare || null;
-  			color = opts.flash || null;
-  			radius = opts.radius || null;
-  			matchTile = opts.matchTile || opts.needs || 0;
-  			subEvent = opts.next || null;
-  			eventName = opts.event || null;
-  			fn = opts.fn || null;
-  			chance = opts.chance || 0;
-  		}
-  		else if (typeof tile === 'function') {
-  			fn = tile;
-  			tile = 0;
-  			spread = 100;
-  		}
-  	}
-
-  	flag = Flags$1.toFlag(flag);
-  	const te = new types.TileEvent(tile, spread, decr, flag, text, flare, color, radius, matchTile, subEvent, eventName, fn);
-  	te.chance = chance;
-  	return te;
-  }
-
-  make.tileEvent = makeEvent;
-
-
-  function installEvent(id, event) {
-  	if (arguments.length > 2 || !(event instanceof types.TileEvent)) {
-  		event = make.tileEvent(...[].slice.call(arguments, 1));
-  	}
-    tileEvents[id] = event;
-  	if (event) tileEvent.id = id;
-  	return event;
-  }
-
-  tileEvent.install = installEvent;
-
-  installEvent('DF_NONE');
-
-
-
-  function resetAllMessages() {
-  	Object.values(tileEvents).forEach( (f) => {
-  		if (f instanceof types.Event) {
-  			f.messageDisplayed = false;
-  		}
-  	});
-  }
-
-  tileEvent.resetAllMessages = resetAllMessages;
-
-
-
-  // returns whether the feature was successfully generated (false if we aborted because of blocking)
-  async function spawn(feat, ctx) {
-  	let i, j;
-  	let succeeded;
-  	let tile$1;
-
-  	if (!feat) return false;
-  	if (!ctx) return false;
-
-  	if (typeof feat === 'string') {
-  		const name = feat;
-  		feat = tileEvents[feat];
-  		if (!feat) utils$1.ERROR('Unknown tile Event: ' + name);
-  	}
-
-  	if (typeof feat === 'function') {
-  		return feat(ctx);
-  	}
-
-  	const map = ctx.map;
-  	const x = ctx.x;
-  	const y = ctx.y;
-
-  	if (!map || x === undefined || y === undefined) {
-  		utils$1.ERROR('MAP, x, y are required in context.');
-  	}
-
-  	if (map.hasCellMechFlag(x, y, MechFlags$1.EVENT_FIRED_THIS_TURN)) {
-  		if (!(feat.flags & Flags$1.DFF_ALWAYS_FIRE)) {
-  			return false;
-  		}
-  	}
-
-  	const refreshCell = ctx.refreshCell || !(feat.flags & Flags$1.DFF_NO_REDRAW_CELL);
-  	const abortIfBlocking = ctx.abortIfBlocking || (feat.flags & Flags$1.DFF_ABORT_IF_BLOCKS_MAP);
-
-    // if ((feat.flags & DFF_RESURRECT_ALLY) && !resurrectAlly(x, y))
-  	// {
-    //     return false;
-    // }
-
-    if (feat.message && feat.message.length && !feat.messageDisplayed && map.isVisible(x, y)) {
-  		feat.messageDisplayed = true;
-  		message.add(feat.message);
-  	}
-
-  	const spawnMap = GRID.alloc(map.width, map.height);
-
-  	if (feat.fn) {
-  		succeeded = await feat.fn(ctx) || false;
-  	}
-
-
-    if (feat.tile) {
-
-  		if (typeof feat.tile === 'string') {
-  			tile$1 = tile.withName(feat.tile);
-  			if (tile$1) {
-  				feat.tile = tile$1.id;
-  			}
-  		}
-  		else {
-  			tile$1 = tiles[feat.tile];
-  		}
-
-  		if (!tile$1) {
-  			utils$1.ERROR('Unknown tile: ' + feat.tile);
-  		}
-
-  		// Blocking keeps track of whether to abort if it turns out that the DF would obstruct the level.
-  	  const blocking = ((abortIfBlocking
-  	               && !(feat.flags & Flags$1.DFF_PERMIT_BLOCKING)
-  	               && ((feat.tile && (tile$1.flags & (Flags.T_PATHING_BLOCKER)))
-  	                   || (feat.flags & Flags$1.DFF_TREAT_AS_BLOCKING))) ? true : false);
-
-
-      // if (tile.layer == GAS) {
-      //     pmap[x][y].volume += feat.chance;
-      //     pmap[x][y].layers[GAS] = feat.tile;
-      //     if (refreshCell) {
-      //         map.redrawCell(x, y);
-      //     }
-      //     succeeded = true;
-      // } else {
-
-      tileEvent.computeSpawnMap(map, x, y, feat, spawnMap);
-
-  		// if (GW.config.D_INSPECT_AUTOGENERATORS) {
-  		// 	let spawnCount = 0;
-  		// 	for(i = 0; i < map.width; ++i) {
-  		// 		for(j = 0; j < map.height; ++j) {
-  		// 			if (spawnMap[i][j]) {
-  		// 				spawnCount += 1;
-  		// 			}
-  		// 		}
-  		// 	}
-  		// 	await temporaryMessage(`Spawn ${spawnCount} cells.`, true);
-  		// }
-
-      if (!blocking || !MAP.gridDisruptsPassability(map, spawnMap)) {
-          if (feat.flags & Flags$1.DFF_EVACUATE_CREATURES_FIRST) { // first, evacuate creatures if necessary, so that they do not re-trigger the tile.
-              await tileEvent.evacuateCreatures(map, spawnMap);
-          }
-
-          //succeeded = spawnTiles(tile.layer, feat.tile, spawnMap, (feat.flags & DFF_BLOCKED_BY_OTHER_LAYERS), refreshCell, (feat.flags & DFF_SUPERPRIORITY));
-          await tileEvent.spawnTiles(map, tile$1, spawnMap,
-                       (feat.flags & Flags$1.DFF_BLOCKED_BY_OTHER_LAYERS),
-                       (feat.flags & Flags$1.DFF_SUPERPRIORITY),
-  									 		refreshCell); // this can tweak the spawn map too
-          succeeded = true; // fail ONLY if we blocked the level. We succeed even if, thanks to priority, nothing gets built.
-      } else {
-          succeeded = false;
-      }
-    	// }
-    } else {
-        spawnMap[x][y] = 1;
-        succeeded = true; // Automatically succeed if there is no terrain to place.
-        if (feat.flags & Flags$1.DFF_EVACUATE_CREATURES_FIRST) { // first, evacuate creatures if necessary, so that they do not re-trigger the tile.
-            await tileEvent.evacuateCreatures(map, spawnMap);
-        }
-    }
-
-    if (succeeded && (feat.flags & Flags$1.DFF_CLEAR_OTHER_TERRAIN)) {
-  		// const exceptLayer = feat.tile ? tile.layer : TileLayer.GROUND;
-  		const exceptLayer = Layer.GROUND;
-  		spawnMap.forEach( (v, i, j) => {
-  			if (!v) return;
-  			const cell = map.cell(i, j);
-  			// console.log('Clear other terrain', i, j);
-  			cell.clearLayers(exceptLayer); // , map.floorTile);
-  		});
-  	}
-
-  	if (succeeded && (feat.flags & Flags$1.DFF_PROTECTED)) {
-  		spawnMap.forEach( (v, i, j) => {
-  			if (!v) return;
-  			const cell = map.cell(i, j);
-  			cell.mechFlags |= MechFlags$1.EVENT_PROTECTED;
-  		});
-  	}
-
-  	// if (refreshCell && feat.tile
-  	// 	&& (tile.flags & (TileFlags.T_IS_FIRE | TileFlags.T_AUTO_DESCENT))
-  	// 	&& map.hasTileFlag(PLAYER.xLoc, PLAYER.yLoc, (TileFlags.T_IS_FIRE | TileFlags.T_AUTO_DESCENT)))
-  	// {
-  	// 	await applyInstantTileEffectsToCreature(PLAYER);
-  	// }
-
-  	if (data.gameHasEnded) {
-  		GRID.free(spawnMap);
-  		return succeeded;
-  	}
-
-    //	if (succeeded && feat.message[0] && !feat.messageDisplayed && isVisible(x, y)) {
-    //		feat.messageDisplayed = true;
-    //		message(feat.message, false);
-    //	}
-    if (succeeded) {
-        if (feat.next) {
-            if (feat.flags & Flags$1.DFF_SUBSEQ_EVERYWHERE) {
-                for (i=0; i<map.width; i++) {
-                    for (j=0; j<map.height; j++) {
-                        if (spawnMap[i][j]) {
-                            await tileEvent.spawn(feat.next, { map, x: i, y: j });
-                        }
-                    }
-                }
-            }
-  					else {
-                await tileEvent.spawn(feat.next, { map, x, y });
-            }
-        }
-        if (feat.tile
-            && (tile$1.flags & (Flags.T_IS_DEEP_WATER | Flags.T_LAVA_INSTA_DEATH | Flags.T_AUTO_DESCENT)))
-  			{
-            data.updatedMapToShoreThisTurn = false;
-        }
-
-        // awaken dormant creatures?
-        // if (feat.flags & Flags.DFF_ACTIVATE_DORMANT_MONSTER) {
-        //     for (monst of map.dormant) {
-        //         if (monst.x == x && monst.y == y || spawnMap[monst.x][monst.y]) {
-        //             // found it!
-        //             toggleMonsterDormancy(monst);
-        //         }
-        //     }
-        // }
-    }
-
-  	// if (succeeded && feat.flags & Flags.DFF_EMIT_EVENT && feat.eventName) {
-  	// 	await GAME.emit(feat.eventName, x, y);
-  	// }
-
-  	if (succeeded) {
-  		ui.requestUpdate();
-
-  		if (feat.flags & Flags$1.DFF_NO_MARK_FIRED) {
-  			succeeded = false;
-  		}
-  	}
-
-  	GRID.free(spawnMap);
-  	return succeeded;
-  }
-
-  tileEvent.spawn = spawn;
-
-
-  function computeSpawnMap(map, x, y, feat, spawnMap)
-  {
-  	let i, j, dir, t, x2, y2;
-  	let madeChange;
-
-  	let matchTile = feat.matchTile || 0;
-  	const requireMatch = (matchTile ? true : false);
-  	let startProb = feat.spread || 0;
-  	let probDec = feat.decrement || 0;
-
-  	if (typeof matchTile === 'string') {
-  		matchTile = tile.withName(matchTile).id;
-  	}
-
-  	spawnMap[x][y] = t = 1; // incremented before anything else happens
-
-  	let radius = feat.radius || 0;
-  	if (feat.flags & Flags$1.DFF_SPREAD_CIRCLE) {
-  		radius = 0;
-  		startProb = startProb || 100;
-  		if (startProb >= 100) {
-  			probDec = probDec || 100;
-  		}
-  		while ( random.percent(startProb) ) {
-  			startProb -= probDec;
-  			++radius;
-  		}
-  		startProb = 100;
-  		probDec = 0;
-  	}
-
-  	if (radius) {
-  		startProb = startProb || 100;
-  		spawnMap.updateCircle(x, y, radius, (v, i, j) => {
-  			if (matchTile && !map.hasTile(i, j, matchTile)) return 0;
-  			if ((!matchTile) && map.hasTileFlag(i, j, Flags.T_OBSTRUCTS_TILE_EFFECTS)) return 0;
-
-  			const dist = Math.floor(utils$1.distanceBetween(x, y, i, j));
-  			const prob = startProb - (dist * probDec);
-  			if (!random.percent(prob)) return 0;
-  			return 1;
-  		});
-  		spawnMap[x][y] = 1;
-  	}
-  	else if (startProb) {
-  		madeChange = true;
-  		if (startProb >= 100) {
-  			probDec = probDec || 100;
-  		}
-
-  		while (madeChange && startProb > 0) {
-  			madeChange = false;
-  			t++;
-  			for (i = 0; i < map.width; i++) {
-  				for (j=0; j < map.height; j++) {
-  					if (spawnMap[i][j] == t - 1) {
-  						for (dir = 0; dir < 4; dir++) {
-  							x2 = i + def.dirs[dir][0];
-  							y2 = j + def.dirs[dir][1];
-  							if (map.hasXY(x2, y2) && !spawnMap[x2][y2]
-  								&& (!requireMatch || (matchTile && map.hasTile(x2, y2, matchTile)))
-  								&& (!map.hasTileFlag(x2, y2, Flags.T_OBSTRUCTS_TILE_EFFECTS) || (matchTile && map.hasTile(x2, y2, matchTile)))
-  								&& random.percent(startProb))
-  							{
-  								spawnMap[x2][y2] = t;
-  								madeChange = true;
-  							}
-  						}
-  					}
-  				}
-  			}
-  			startProb -= probDec;
-  		}
-  	}
-
-  	if (requireMatch && !map.hasTile(x, y, matchTile)) {
-  			spawnMap[x][y] = 0;
-  	}
-  }
-
-  tileEvent.computeSpawnMap = computeSpawnMap;
-
-
-  async function spawnTiles(map, tile, 	// layer, surfaceTileType,
-  					 spawnMap,
-  					 blockedByOtherLayers,
-  					 superpriority,
-  				 		applyEffects)
-  {
-  	let i, j;
-  	let accomplishedSomething;
-
-  	accomplishedSomething = false;
-
-  	for (i=0; i<map.width; i++) {
-  		for (j=0; j<map.height; j++) {
-
-  			if (!spawnMap[i][j]) continue;	// If it's not flagged for building in the spawn map,
-  			spawnMap[i][j] = 0; // so that the spawnmap reflects what actually got built
-
-  			const cell = map.cell(i, j);
-  			if (cell.mechFlags & MechFlags$1.EVENT_PROTECTED) continue;
-  			if (cell.layers[tile.layer] == tile.id) continue; // If the new cell already contains the fill terrain,
-  			if ((!superpriority) && cell.tile(tile.layer).priority >= tile.priority) continue; // If the terrain in the layer to be overwritten has a higher priority number (unless superpriority),
-  			if (cell.obstructsLayer(tile.layer)) continue; // If we will be painting into the surface layer when that cell forbids it,
-  			if (blockedByOtherLayers && cell.highestPriorityTile().priority >= tile.priority) continue; // if the fill won't violate the priority of the most important terrain in this cell:
-
-
-  			spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
-
-  			cell.setTile(tile);
-  			cell.mechFlags |= MechFlags$1.EVENT_FIRED_THIS_TURN;
-
-  			// const oldTile = cell.tile(tile.layer);
-  			// cell.layers[tile.layer] = tile.id; // Place the terrain!
-  			// cell.redraw();
-  			accomplishedSomething = true;
-  		}
-  	}
-  	if (accomplishedSomething) {
-  		map.changed(true);
-  	}
-  	return accomplishedSomething;
-  }
-
-  tileEvent.spawnTiles = spawnTiles;
-
-
-  async function evacuateCreatures(map, blockingMap) {
-  	let i, j;
-  	let monst;
-
-  	for (i=0; i<map.width; i++) {
-  		for (j=0; j<map.height; j++) {
-  			if (blockingMap[i][j]
-  				&& (map.hasCellFlag(i, j, Flags$2.HAS_ACTOR)))
-  			{
-  				monst = map.actorAt(i, j);
-  				const forbidFlags = monst.forbiddenTileFlags();
-  				const loc = map.matchingXYNear(
-  									 i, j, (cell) => {
-  										 if (cell.hasFlags(Flags$2.HAS_ACTOR)) return false;
-  										 if (cell.hasTileFlags(forbidFlags)) return false;
-  										 return true;
-  									 },
-  									 { hallwaysAllowed: true, blockingMap });
-  				await map.moveActor(loc[0], loc[1], monst);
-  			}
-  		}
-  	}
-  }
-
-  tileEvent.evacuateCreatures = evacuateCreatures;
-
-  var cell = {};
-
-
-  color.install('cursorColor', 25, 100, 150);
-  config.cursorPathIntensity = 50;
-
-
-  const Fl$3 = flag.fl;
-
-  const Flags$2 = flag.install('cell', {
-    REVEALED					: Fl$3(0),
-    VISIBLE							: Fl$3(1),	// cell has sufficient light and is in field of view, ready to draw.
-    WAS_VISIBLE					: Fl$3(2),
-    IN_FOV		          : Fl$3(3),	// player has unobstructed line of sight whether or not there is enough light
-
-    HAS_PLAYER					: Fl$3(4),
-    HAS_MONSTER					: Fl$3(5),
-    HAS_DORMANT_MONSTER	: Fl$3(6),	// hidden monster on the square
-    HAS_ITEM						: Fl$3(7),
-    HAS_STAIRS					: Fl$3(8),
-
-    NEEDS_REDRAW        : Fl$3(9),	// needs to be redrawn (maybe in path, etc...)
-    TILE_CHANGED				: Fl$3(10),	// one of the tiles changed
-
-    IS_IN_PATH					: Fl$3(12),	// the yellow trail leading to the cursor
-    IS_CURSOR						: Fl$3(13),	// the current cursor
-
-    MAGIC_MAPPED				: Fl$3(14),
-    ITEM_DETECTED				: Fl$3(15),
-
-    STABLE_MEMORY						: Fl$3(16),	// redraws will simply be pulled from the memory array, not recalculated
-
-    CLAIRVOYANT_VISIBLE			: Fl$3(17),
-    WAS_CLAIRVOYANT_VISIBLE	: Fl$3(18),
-    CLAIRVOYANT_DARKENED		: Fl$3(19),	// magical blindness from a cursed ring of clairvoyance
-
-    IMPREGNABLE							: Fl$3(20),	// no tunneling allowed!
-
-    TELEPATHIC_VISIBLE			: Fl$3(22),	// potions of telepathy let you see through other creatures' eyes
-    WAS_TELEPATHIC_VISIBLE	: Fl$3(23),	// potions of telepathy let you see through other creatures' eyes
-
-    MONSTER_DETECTED				: Fl$3(24),
-    WAS_MONSTER_DETECTED		: Fl$3(25),
-
-    CELL_LIT                : Fl$3(28),
-    IS_IN_SHADOW				    : Fl$3(29),	// so that a player gains an automatic stealth bonus
-    CELL_DARK               : Fl$3(30),
-
-    PERMANENT_CELL_FLAGS : ['REVEALED', 'MAGIC_MAPPED', 'ITEM_DETECTED', 'HAS_ITEM', 'HAS_DORMANT_MONSTER',
-                'HAS_STAIRS', 'STABLE_MEMORY', 'IMPREGNABLE'],
-
-    ANY_KIND_OF_VISIBLE			: ['VISIBLE', 'CLAIRVOYANT_VISIBLE', 'TELEPATHIC_VISIBLE'],
-    HAS_ACTOR               : ['HAS_PLAYER', 'HAS_MONSTER'],
-  });
-
-  cell.flags = Flags$2;
-
-  ///////////////////////////////////////////////////////
-  // CELL MECH
-
-  const MechFlags$1 = flag.install('cellMech', {
-    SEARCHED_FROM_HERE				: Fl$3(0),	// Player already auto-searched from here; can't auto search here again
-    PRESSURE_PLATE_DEPRESSED	: Fl$3(1),	// so that traps do not trigger repeatedly while you stand on them
-    KNOWN_TO_BE_TRAP_FREE			: Fl$3(2),	// keep track of where the player has stepped as he knows no traps are there
-
-    CAUGHT_FIRE_THIS_TURN			: Fl$3(4),	// so that fire does not spread asymmetrically
-    EVENT_FIRED_THIS_TURN     : Fl$3(5),  // so we don't update cells that have already changed this turn
-    EVENT_PROTECTED           : Fl$3(6),
-
-    IS_IN_LOOP					: Fl$3(10),	// this cell is part of a terrain loop
-    IS_CHOKEPOINT				: Fl$3(11),	// if this cell is blocked, part of the map will be rendered inaccessible
-    IS_GATE_SITE				: Fl$3(12),	// consider placing a locked door here
-    IS_IN_ROOM_MACHINE	: Fl$3(13),
-    IS_IN_AREA_MACHINE	: Fl$3(14),
-    IS_POWERED					: Fl$3(15),	// has been activated by machine power this turn (can probably be eliminate if needed)
-
-    IS_IN_MACHINE				: ['IS_IN_ROOM_MACHINE', 'IS_IN_AREA_MACHINE'], 	// sacred ground; don't generate items here, or teleport randomly to it
-
-    PERMANENT_MECH_FLAGS : ['SEARCHED_FROM_HERE', 'PRESSURE_PLATE_DEPRESSED', 'KNOWN_TO_BE_TRAP_FREE', 'IS_IN_LOOP',
-                            'IS_CHOKEPOINT', 'IS_GATE_SITE', 'IS_IN_MACHINE', ],
-  });
-
-  cell.mechFlags = MechFlags$1;
-
-
-  class CellMemory {
-    constructor() {
-      this.sprite = make.sprite();
-      this.clear();
-    }
-
-    clear() {
-      this.sprite.clear();
-      this.itemKind = null;
-      this.itemQuantity = 0;
-      this.tile = null;
-      this.cellFlags = 0;
-      this.cellMechFlags = 0;
-      this.tileFlags = 0;
-      this.tileMechFlags = 0;
-    }
-
-    copy(other) {
-      utils$1.copyObject(this, other);
-    }
-  }
-
-  types.CellMemory = CellMemory;
-
-
-
-  class Cell {
-    constructor() {
-      this.layers = [0,0,0,0];
-      this.memory = new types.CellMemory();
-      this.clear();
-    }
-
-    copy(other) {
-      utils$1.copyObject(this, other);
-    }
-
-    clear() {
-      for(let i = 0; i < this.layers.length; ++i) {
-        this.layers[i] = 0;
-      }
-
-      this.sprites = null;
-      this.actor = null;
-      this.item = null;
-
-      this.flags = 0;							// non-terrain cell flags
-      this.mechFlags = 0;
-      this.gasVolume = 0;						// quantity of gas in cell
-      this.liquidVolume = 0;
-      this.machineNumber = 0;
-      this.memory.clear();
-      this.layerFlags = 0;
-    }
-
-    get ground() { return this.layers[0]; }
-    get liquid() { return this.layers[1]; }
-    get surface() { return this.layers[2]; }
-    get gas() { return this.layers[3]; }
-
-    dump() {
-      for(let i = this.layers.length - 1; i >= 0; --i) {
-        if (!this.layers[i]) continue;
-        const tile = tiles[this.layers[i]];
-        if (tile.sprite.ch) return tile.sprite.ch;
-      }
-      return tiles[0].sprite.ch;
-    }
-    isVisible() { return this.flags & Flags$2.VISIBLE; }
-    isAnyKindOfVisible() { return (this.flags & Flags$2.ANY_KIND_OF_VISIBLE) || config.playbackOmniscience; }
-    hasVisibleLight() { return true; }  // TODO
-
-    redraw() { this.flags |= Flags$2.NEEDS_REDRAW; }
-
-    tile(layer=0) {
-      const id = this.layers[layer] || 0;
-      return tiles[id];
-    }
-
-    *tiles() {
-      for(let id of this.layers) {
-        if (id) {
-          yield tiles[id];
-        }
-      }
-    }
-
-    tileFlags(limitToPlayerKnowledge) {
-      if (limitToPlayerKnowledge && !this.isVisible()) {
-        return this.memory.tileFlags;
-      }
-      let flags = 0;
-      for( let tile of this.tiles()) {
-        flags |= tile.flags;
-      }
-      return flags;
-    }
-
-    tileMechFlags(limitToPlayerKnowledge)	{
-      if (limitToPlayerKnowledge && !this.isVisible()) {
-        return this.memory.tileMechFlags;
-      }
-      let flags = 0;
-      for( let tile of this.tiles()) {
-        flags |= tile.mechFlags;
-      }
-      return flags;
-    }
-
-    hasTileFlag(flagMask)	{
-      return !!(flagMask & this.tileFlags());
-    }
-
-    hasTileMechFlag(flagMask) {
-      return !!(flagMask & this.tileMechFlags());
-    }
-
-    setFlags(cellFlag=0, cellMechFlag=0) {
-      this.flags |= cellFlag;
-      this.mechFlags |= cellMechFlag;
-      this.flags |= Flags$2.NEEDS_REDRAW;
-    }
-
-    clearFlags(cellFlag=0, cellMechFlag=0) {
-      this.flags &= ~cellFlag;
-      this.mechFlags &= ~cellMechFlag;
-      if ((~cellFlag) & Flags$2.NEEDS_REDRAW) {
-        this.flags |= Flags$2.NEEDS_REDRAW;
-      }
-    }
-
-    hasTile(id) {
-      return this.layers.includes(id);
-    }
-
-    // hasTileInGroup(...groups) {
-    //   if (groups.length == 1 && Array.isArray(groups[0])) {
-    //     groups = groups[0];
-    //   }
-    //   return this.layers.some( (tileId) => {
-    //     const tile = TILES[tileId] || TILES.NOTHING;
-    //     return GW.utils.intersect(groups, tile.groups);
-    //   });
-    // }
-
-    successorTileFlags(event) {
-      let flags = 0;
-      for( let tile of this.tiles()) {
-        flags |= tile.successorFlags(event);
-      }
-      return flags;
-    }
-
-    promotedTileFlags() {
-      return this.successorTileFlags('promote');
-    }
-
-    discoveredTileFlags() {
-      return this.successorTileFlags('discover');
-    }
-
-    hasDiscoveredTileFlag(flag) {
-      // if (!this.hasTileMechFlag(TM_IS_SECRET)) return false;
-      return this.discoveredTileFlags() & flag;
-    }
-
-    highestPriorityTile() {
-      let best = tiles[0];
-      let bestPriority = -10000;
-      for(let tile of this.tiles()) {
-        if (tile.priority > bestPriority) {
-          best = tile;
-          bestPriority = tile.priority;
-        }
-      }
-      return best;
-    }
-
-    tileWithFlag(tileFlag) {
-      for(let tile of this.tiles()) {
-        if (tile.flags & tileFlags) return tile;
-      }
-      return null;
-    }
-
-    tileWithMechFlag(mechFlag) {
-      for(let tile of this.tiles()) {
-        if (tile.mechFlags & mechFlags) return tile;
-      }
-      return null;
-    }
-
-    // Retrieves a pointer to the flavor text of the highest-priority terrain at the given location
-    tileDesc() {
-      return this.highestPriorityTile().desc;
-    }
-
-    // Retrieves a pointer to the description text of the highest-priority terrain at the given location
-    tileText() {
-      return this.highestPriorityTile().text;
-    }
-
-    isEmpty() {
-      return this.ground == 0;
-    }
-
-    isPassableNow(limitToPlayerKnowledge) {
-      const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
-      const tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
-      if (!(tileFlags & Flags.T_PATHING_BLOCKER)) return true;
-
-      let tileMechFlags = (useMemory) ? this.memory.tileMechFlags : this.tileMechFlags();
-      return limitToPlayerKnowledge ? false : this.isSecretDoor();
-    }
-
-    canBePassed(limitToPlayerKnowledge) {
-      if (this.isPassableNow(limitToPlayerKnowledge)) return true;
-      const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
-      let tileMechFlags = (useMemory) ? this.memory.tileMechFlags : this.tileMechFlags();
-      if (tileMechFlags & MechFlags.TM_CONNECTS_LEVEL) return true;
-      return ((tileMechFlags & MechFlags.TM_PROMOTES) && !(this.promotedTileFlags() & Flags.T_PATHING_BLOCKER));
-    }
-
-    isObstruction(limitToPlayerKnowledge) {
-      const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
-      let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
-      return tileFlags & Flags.T_OBSTRUCTS_DIAGONAL_MOVEMENT;
-    }
-
-    isDoor(limitToPlayerKnowledge) {
-      const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
-      let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
-      return tileFlags & Flags.T_IS_DOOR;
-    }
-
-    isSecretDoor(limitToPlayerKnowledge) {
-      if (limitToPlayerKnowledge) return false;
-      const tileMechFlags = this.tileMechFlags();
-      return (tileMechFlags & MechFlags.TM_IS_SECRET) && !(this.discoveredTileFlags() & Flags.T_PATHING_BLOCKER)
-    }
-
-    blocksPathing(limitToPlayerKnowledge) {
-      const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
-      let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
-      return tileFlags & Flags.T_PATHING_BLOCKER;
-    }
-
-    isLiquid(limitToPlayerKnowledge) {
-      const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
-      let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
-      return tileFlags & Flags.T_IS_LIQUID;
-    }
-
-    markRevealed() {
-      this.flags &= ~Flags$2.STABLE_MEMORY;
-      if (!(this.flags & Flags$2.REVEALED)) {
-        this.flags |= Flags$2.REVEALED;
-        if (!this.hasTileFlag(Flags.T_PATHING_BLOCKER)) {
-          data.xpxpThisTurn++;
-        }
-      }
-    }
-
-    obstructsLayer(layer) {
-      return layer == Layer.SURFACE && this.hasTileFlag(Flags.T_OBSTRUCTS_SURFACE_EFFECTS);
-    }
-
-    setTile(tileId=0, checkPriority=false) {
-      let tile;
-      if (typeof tileId === 'string') {
-        tile = withName(tileId);
-      }
-      else if (tileId instanceof types.Tile) {
-        tile = tileId;
-        tileId = tile.id;
-      }
-      else {
-        tile = tiles[tileId];
-      }
-
-      if (!tile) {
-        tile = tiles[0];
-        tileId = 0;
-      }
-
-      const oldTileId = this.layers[tile.layer] || 0;
-      const oldTile = tiles[oldTileId] || tiles[0];
-
-      if (checkPriority && oldTile.priority > tile.priority) return false;
-
-      if ((oldTile.flags & Flags.T_PATHING_BLOCKER)
-        != (tile.flags & Flags.T_PATHING_BLOCKER))
-      {
-        data.staleLoopMap = true;
-      }
-
-      if ((tile.flags & Flags.T_IS_FIRE)
-        && !(oldTile.flags & Flags.T_IS_FIRE))
-      {
-        this.setFlags(0, CellMechFlags.CAUGHT_FIRE_THIS_TURN);
-      }
-
-      this.layerFlags &= ~Fl$3(tile.layer); // turn off layer flag
-      this.layers[tile.layer] = tile.id;
-      this.flags |= (Flags$2.NEEDS_REDRAW | Flags$2.TILE_CHANGED);
-      return (oldTile.glowLight !== tile.glowLight);
-    }
-
-    clearLayers(except, floorTile) {
-      floorTile = floorTile === undefined ? this.layers[0] : floorTile;
-      for (let layer = 0; layer < this.layers.length; layer++) {
-        if (layer != except && layer != Layer.GAS) {
-            this.layers[layer] = (layer ? 0 : floorTile);
-        }
-      }
-      this.flags |= (Flags$2.NEEDS_REDRAW | Flags$2.TILE_CHANGED);
-    }
-
-    clearTileWithFlags(tileFlags, tileMechFlags=0) {
-      for( let i = 0; i < this.layers.length; ++i ) {
-        const id = this.layers[i];
-        if (!id) continue;
-        const tile = tiles[id];
-        if (tileFlags && tileMechFlags) {
-          if ((tile.flags & tileFlags) && (tile.mechFlags & tileMechFlags)) {
-            this.layers[i] = 0;
-          }
-        }
-        else if (tileFlags) {
-          if (tile.flags & tileFlags) {
-            this.layers[i] = 0;
-          }
-        }
-        else if (tileMechFlags) {
-          if (tile.flags & tileMechFlags) {
-            this.layers[i] = 0;
-          }
-        }
-      }
-      this.flags |= (Flags$2.NEEDS_REDRAW | Flags$2.TILE_CHANGED);
-    }
-
-    // EVENTS
-
-    async fireEvent(name, ctx) {
-      ctx.cell = this;
-      let fired = false;
-      for (let tile of this.tiles()) {
-        if (!tile.events) continue;
-        const ev = tile.events[name];
-        if (ev) {
-          if (ev.chance && !random.percent(ev.chance)) {
-            continue;
-          }
-
-          ctx.tile = tile;
-          fired = await tileEvent.spawn(ev, ctx) || fired;
-        }
-      }
-      if (fired) {
-        this.mechFlags |= MechFlags$1.EVENT_FIRED_THIS_TURN;
-      }
-      return fired;
-    }
-
-
-    // setTickFlag() {
-    //   let flag = 0;
-    //   for(let i = 0; i < this.layers.length; ++i) {
-    //     const id = this.layers[i];
-    //     if (!id) continue;
-    //     const tile = TILES[id];
-    //     if (!tile.events.tick) continue;
-    //     if (random.percent(tile.events.tick.chance)) {
-    //       flag |= Fl(i);
-    //     }
-    //   }
-    //   this.layerFlags = flag;
-    //   return flag;
-    // }
-    //
-    // async fireTick(ctx) {
-    //   if (!this.layerFlags) return false;
-    //
-    //   ctx.cell = this;
-    //   let fired = false;
-    //   for(let i = 0; i < this.layers.length; ++i) {
-    //     if (this.layerFlags & Fl(i)) {
-    //       const tile = TILES[this.layers[i]];
-    //       ctx.tile = tile;
-    //       await TILE_EVENT.spawn(tile.events.tick, ctx);
-    //       fired = true;
-    //     }
-    //   }
-    //   this.layerFlags = 0;
-    //   return fired;
-    // }
-
-    // SPRITES
-
-    addSprite(layer, sprite, priority=50) {
-
-      this.flags |= Flags$2.NEEDS_REDRAW;
-
-      if (!this.sprites) {
-        this.sprites = { layer, priority, sprite, next: null };
-        return;
-      }
-
-      let current = this.sprites;
-      while (current.next && ((current.layer < layer) || ((current.layer == layer) && (current.priority <= priority)))) {
-        current = current.next;
-      }
-
-      const item = { layer, priority, sprite, next: current.next };
-      current.next = item;
-    }
-
-    removeSprite(sprite) {
-
-      this.flags |= Flags$2.NEEDS_REDRAW;
-
-      if (this.sprites && this.sprites.sprite === sprite) {
-        this.sprites = this.sprites.next;
-        return;
-      }
-
-      let prev = this.sprites;
-      let current = this.sprites.next;
-      while (current) {
-        if (current.sprite === sprite) {
-          prev.next = current.next;
-          return true;
-        }
-        current = current.next;
-      }
-      return false;
-    }
-
-    // MEMORY
-
-    storeMemory(item) {
-      const memory = this.memory;
-      memory.tileFlags = this.tileFlags();
-      memory.tileMechFlags = this.tileMechFlags();
-      memory.cellFlags = this.flags;
-  		memory.cellMechFlags = this.mechFlags;
-      memory.tile = this.highestPriorityTile().id;
-  		if (item) {
-  			memory.itemKind = item.kind;
-  			memory.itemQuantity = item.quantity || 1;
-  		}
-  		else {
-  			memory.itemKind = null;
-  			memory.itemQuantity = 0;
-  		}
-    }
-
-  }
-
-  types.Cell = Cell;
-
-
-  function makeCell(...args) {
-    const cell = new types.Cell(...args);
-    return cell;
-  }
-
-
-  make.cell = makeCell;
-
-
-  function getAppearance(cell, dest) {
-    dest.clear();
-    for( let tile of cell.tiles() ) {
-      dest.plot(tile.sprite);
-    }
-
-    let current = cell.sprites;
-    while(current) {
-      dest.plot(current.sprite);
-      current = current.next;
-    }
-
-    let needDistinctness = false;
-    if (cell.flags & (Flags$2.IS_CURSOR | Flags$2.IS_IN_PATH)) {
-      const highlight = (cell.flags & Flags$2.IS_CURSOR) ? colors.cursorColor : colors.yellow;
-      if (cell.hasTileMechFlag(MechFlags.TM_INVERT_WHEN_HIGHLIGHTED)) {
-        color.swap(dest.fg, dest.bg);
-      } else {
-        // if (!GAME.trueColorMode || !dest.needDistinctness) {
-            color.applyMix(dest.fg, highlight, config.cursorPathIntensity || 20);
-        // }
-        color.applyMix(dest.bg, highlight, config.cursorPathIntensity || 20);
-      }
-      needDistinctness = true;
-    }
-
-    if (needDistinctness) {
-      color.separate(dest.fg, dest.bg);
-    }
-
-    return true;
-  }
-
-  cell.getAppearance = getAppearance;
+  tile.applyInstantEffects = applyInstantTileEffects;
 
   var map = {};
 
@@ -5815,11 +6246,11 @@
   	      return false; // If it's not a diagonal, it's not diagonally blocked.
   	    }
   	    const locFlags1 = this.tileFlags(x1, y2, limitToPlayerKnowledge);
-  	    if (locFlags1 & Flags.T_OBSTRUCTS_DIAGONAL_MOVEMENT) {
+  	    if (locFlags1 & Flags$2.T_OBSTRUCTS_DIAGONAL_MOVEMENT) {
   	        return true;
   	    }
   	    const locFlags2 = this.tileFlags(x2, y1, limitToPlayerKnowledge);
-  	    if (locFlags2 & Flags.T_OBSTRUCTS_DIAGONAL_MOVEMENT) {
+  	    if (locFlags2 & Flags$2.T_OBSTRUCTS_DIAGONAL_MOVEMENT) {
   	        return true;
   	    }
   	    return false;
@@ -5970,8 +6401,8 @@
   		const layer = (theActor === data.player) ? Layer.PLAYER : Layer.ACTOR;
   		cell.addSprite(layer, theActor.kind.sprite);
 
-  		const flag = (theActor === data.player) ? Flags$2.HAS_PLAYER : Flags$2.HAS_MONSTER;
-  		cell.flags |= (flag | Flags$2.NEEDS_REDRAW);
+  		const flag = (theActor === data.player) ? Flags$1.HAS_PLAYER : Flags$1.HAS_MONSTER;
+  		cell.flags |= (flag | Flags$1.NEEDS_REDRAW);
   		// if (theActor.flags & ActorFlags.MK_DETECTED)
   		// {
   		// 	cell.flags |= CellFlags.MONSTER_DETECTED;
@@ -5987,7 +6418,7 @@
   	addActorNear(x, y, theActor) {
   		const forbidTileFlags = GW.actor.avoidedFlags(theActor);
   		const loc = this.getMatchingLocNear(x, y, (cell, i, j) => {
-  			if (cell.flags & (Flags$2.HAS_ACTOR)) return false;
+  			if (cell.flags & (Flags$1.HAS_ACTOR)) return false;
   			return !cell.hasTileFlag(forbidTileFlags);
   		});
   		if (!loc || loc[0] < 0) {
@@ -6013,8 +6444,8 @@
   		const cell = this.cell(actor.x, actor.y);
   		if (cell.actor === actor) {
   			cell.actor = null;
-  			cell.flags &= ~Flags$2.HAS_ACTOR;
-  			cell.flags |= Flags$2.NEEDS_REDRAW;
+  			cell.flags &= ~Flags$1.HAS_ACTOR;
+  			cell.flags |= Flags$1.NEEDS_REDRAW;
   			this.flags |= Flags$3.MAP_CHANGED;
   			cell.removeSprite(actor.kind.sprite);
   		}
@@ -6047,7 +6478,7 @@
   	// ITEMS
 
   	itemAt(x, y) {
-  		if (!(this.cell(x, y).flags & Flags$2.HAS_ITEM)) {
+  		if (!(this.cell(x, y).flags & Flags$1.HAS_ITEM)) {
   			return null;
   		}
   		return this.items.find( (i) => i.x == x && i.y == y );
@@ -6056,20 +6487,20 @@
   	addItem(x, y, theItem) {
   		if (!this.hasXY(x, y)) return false;
   		const cell = this.cell(x, y);
-  		if (cell.flags & Flags$2.HAS_ITEM) {
+  		if (cell.flags & Flags$1.HAS_ITEM) {
   			// GW.ui.message(colors.badMessageColor, 'There is already an item there.');
   			return false;
   		}
   		theItem.x = x;
   		theItem.y = y;
   		this.items.add(theItem);
-  		cell.flags |= (Flags$2.HAS_ITEM | Flags$2.NEEDS_REDRAW);
+  		cell.flags |= (Flags$1.HAS_ITEM | Flags$1.NEEDS_REDRAW);
 
   		this.flags |= Flags$3.MAP_CHANGED;
   		if ( ((theItem.flags & ItemFlags.ITEM_MAGIC_DETECTED) && GW.item.magicChar(theItem)) ||
   					config.D_ITEM_OMNISCIENCE)
   		{
-  			cell.flags |= Flags$2.ITEM_DETECTED;
+  			cell.flags |= Flags$1.ITEM_DETECTED;
   		}
 
   		return true;
@@ -6077,8 +6508,8 @@
 
   	addItemNear(x, y, theItem) {
   		const loc = this.getMatchingLocNear(x, y, (cell, i, j) => {
-  			if (cell.flags & Flags$2.HAS_ITEM) return false;
-  			return !cell.hasTileFlag(Flags.T_OBSTRUCTS_ITEMS);
+  			if (cell.flags & Flags$1.HAS_ITEM) return false;
+  			return !cell.hasTileFlag(Flags$2.T_OBSTRUCTS_ITEMS);
   		});
   		if (!loc || loc[0] < 0) {
   			// GW.ui.message(colors.badMessageColor, 'There is no place to put the item.');
@@ -6095,8 +6526,8 @@
   		if (this.items.remove(theItem)) {
   			this.flags |= Flags$3.MAP_CHANGED;
   			const cell = this.cell(x, y);
-  			cell.flags &= ~(Flags$2.HAS_ITEM | Flags$2.ITEM_DETECTED);
-  			cell.flags |= Flags$2.NEEDS_REDRAW;
+  			cell.flags &= ~(Flags$1.HAS_ITEM | Flags$1.ITEM_DETECTED);
+  			cell.flags |= Flags$1.NEEDS_REDRAW;
   			return true;
   		}
   		return false;
@@ -6124,7 +6555,7 @@
   	// If cautiousOnWalls is set, we will not illuminate blocking tiles unless the tile one space closer to the origin
   	// is visible to the player; this is to prevent lights from illuminating a wall when the player is on the other
   	// side of the wall.
-  	calcFov(grid, x, y, maxRadius, forbiddenFlags=0, forbiddenTerrain=Flags.T_OBSTRUCTS_VISION, cautiousOnWalls=true) {
+  	calcFov(grid, x, y, maxRadius, forbiddenFlags=0, forbiddenTerrain=Flags$2.T_OBSTRUCTS_VISION, cautiousOnWalls=true) {
   	  const FOV = new types.FOV(grid, (i, j) => {
   	    return (!this.hasXY(i, j)) || this.hasCellFlag(i, j, forbiddenFlags) || this.hasTileFlag(i, j, forbiddenTerrain) ;
   	  });
@@ -6143,11 +6574,11 @@
   		for(x = 0; x < this.width; ++x) {
   			for(y = 0; y < this.height; ++y) {
   				const cell = this.cell(x, y);
-  				if (cell.flags & Flags$2.ANY_KIND_OF_VISIBLE) {
+  				if (cell.flags & Flags$1.ANY_KIND_OF_VISIBLE) {
   					this.storeMemory(x, y);
   				}
-  				cell.flags &= Flags$2.PERMANENT_CELL_FLAGS | config.PERMANENT_CELL_FLAGS;
-  				cell.mechFlags &= Flags$2.PERMANENT_MECH_FLAGS | config.PERMANENT_MECH_FLAGS;
+  				cell.flags &= Flags$1.PERMANENT_CELL_FLAGS | config.PERMANENT_CELL_FLAGS;
+  				cell.mechFlags &= Flags$1.PERMANENT_MECH_FLAGS | config.PERMANENT_MECH_FLAGS;
   			}
   		}
   	}
@@ -6155,7 +6586,7 @@
   	// TICK
 
   	async tick() {
-  		this.forEach( (c) => c.mechFlags &= ~(MechFlags$1.EVENT_FIRED_THIS_TURN | MechFlags$1.EVENT_PROTECTED));
+  		this.forEach( (c) => c.mechFlags &= ~(MechFlags.EVENT_FIRED_THIS_TURN | MechFlags.EVENT_PROTECTED));
   		for(let x = 0; x < this.width; ++x) {
   			for(let y = 0; y < this.height; ++y) {
   				const cell = this.cells[x][y];
@@ -6207,7 +6638,7 @@
   			if (blockingGrid.hasXY(blockingX, blockingY) && blockingGrid[blockingX][blockingY]) return;
   			walkableGrid[i][j] = 1;
   		}
-  		else if (cell.hasTileFlag(Flags.T_HAS_STAIRS)) {
+  		else if (cell.hasTileFlag(Flags$2.T_HAS_STAIRS)) {
   			if (blockingGrid.hasXY(blockingX, blockingY) && blockingGrid[blockingX][blockingY]) {
   				disrupts = true;
   			}
@@ -6902,7 +7333,7 @@
   					&& (SITE.canBePassed(i, j+1) || SITE.canBePassed(i, j-1))) {
   					// If there's passable terrain to the left or right, and there's passable terrain
   					// above or below, then the door is orphaned and must be removed.
-  					SITE.clearTileWithFlags(i, j, Flags.T_IS_DOOR);
+  					SITE.clearTileWithFlags(i, j, Flags$2.T_IS_DOOR);
             dungeon.log('Removed orphan door', i, j);
   				} else if ((SITE.blocksPathing(i+1, j) ? 1 : 0)
   						   + (SITE.blocksPathing(i-1, j) ? 1 : 0)
@@ -6910,7 +7341,7 @@
   						   + (SITE.blocksPathing(i, j-1) ? 1 : 0) >= 3) {
   					// If the door has three or more pathing blocker neighbors in the four cardinal directions,
   					// then the door is orphaned and must be removed.
-            SITE.clearTileWithFlags(i, j, Flags.T_IS_DOOR);
+            SITE.clearTileWithFlags(i, j, Flags$2.T_IS_DOOR);
             dungeon.log('Removed blocked door', i, j);
   				}
   			}
@@ -6970,372 +7401,6 @@
   }
 
   dungeon.addStairs = addStairs;
-
-  class Scheduler {
-  	constructor() {
-    	this.next = null;
-      this.time = 0;
-      this.cache = null;
-    }
-
-  	clear() {
-  		while(this.next) {
-  			const current = this.next;
-  			this.next = current.next;
-  			current.next = this.cache;
-  			this.cache = current;
-  		}
-  	}
-
-    push(fn, delay=1) {
-      let item;
-      if (this.cache) {
-      	item = this.cache;
-        this.cache = item.next;
-  			item.next = null;
-      }
-      else {
-      	item = { fn: null, time: 0, next: null };
-      }
-  		item.fn = fn;
-      item.time = this.time + delay;
-      if (!this.next) {
-  	    this.next = item;
-      }
-      else {
-      	let current = this;
-        let next = current.next;
-      	while(next && next.time <= item.time) {
-        	current = next;
-          next = current.next;
-        }
-        item.next = current.next;
-        current.next = item;
-      }
-  		return item;
-    }
-
-    pop() {
-    	const n = this.next;
-  		if (!n) return null;
-
-      this.next = n.next;
-      n.next = this.cache;
-      this.cache = n;
-
-  		this.time = Math.max(n.time, this.time);	// so you can schedule -1 as a time uint
-      return n.fn;
-    }
-
-  	remove(item) {
-  		if (this.next === item) {
-  			this.next = item.next;
-  			return;
-  		}
-  		prev = this.next;
-  		current = prev.next;
-  		while( current && current !== item ) {
-  			prev = current;
-  			current = current.next;
-  		}
-
-  		if (current === item) {
-  			prev.next = current.next;
-  		}
-  	}
-  }
-
-  const scheduler = new Scheduler();
-
-  var actor = {};
-
-  class Actor {
-  	constructor(kind) {
-  		this.x = -1;
-      this.y = -1;
-      this.flags = 0;
-      this.kind = kind || {};
-      this.turnTime = 0;
-  		this.status = {};
-
-  		this.kind.speed = this.kind.speed || config.defaultSpeed || 120;
-    }
-
-  	startTurn() {
-  		actor.startTurn(this);
-  	}
-
-  	act() {
-  		actor.act(this);
-  	}
-
-  	// TODO - This is a command/task
-  	async moveDir(dir) {
-      const map = data.map;
-      await map.moveActor(this.x + dir[0], this.y + dir[1], this);
-  		this.endTurn();
-    }
-
-  	endTurn(turnTime) {
-  		actor.endTurn(this, turnTime);
-  	}
-
-  	isOrWasVisible() {
-  		return true;
-  	}
-
-  	forbiddenTileFlags() {
-  		return Flags.T_PATHING_BLOCKER;
-  	}
-
-  }
-
-  types.Actor = Actor;
-
-
-  function makeActor(kind) {
-    return new types.Actor(kind);
-  }
-
-  make.actor = makeActor;
-
-
-  // TODO - move back to game??
-  async function takeTurn(theActor) {
-    console.log('actor turn...', data.time);
-  	theActor.startTurn();
-  	await theActor.act();
-    return theActor.turnTime;	// actual or idle time
-  }
-
-  actor.takeTurn = takeTurn;
-
-
-  function startTurn(theActor) {
-  }
-
-  actor.startTurn = startTurn;
-
-
-  function act(theActor) {
-  	theActor.endTurn();
-  	return true;
-  }
-
-  actor.act = act;
-
-  function endTurn(theActor, turnTime) {
-  	theActor.turnTime = turnTime || Math.floor(theActor.kind.speed/2);	// doing nothing takes time
-  	if (theActor.isOrWasVisible() && theActor.turnTime) {
-  		ui.requestUpdate();
-  	}
-  }
-
-  actor.endTurn = endTurn;
-
-  var player = {};
-
-
-  class Player extends types.Actor {
-    constructor(kind) {
-      super(kind);
-    }
-
-    startTurn() {
-      player.startTurn(this);
-    }
-
-    visionRadius() {
-    	return CONFIG.MAX_FOV_RADIUS || (data.map.width + data.map.height);
-    }
-
-    endTurn(turnTime) {
-      player.endTurn(this, turnTime);
-    }
-
-  }
-
-  types.Player = Player;
-
-
-  function makePlayer(kind) {
-    return new types.Player(kind);
-  }
-
-  make.player = makePlayer;
-
-
-
-  async function takeTurn$1() {
-    const PLAYER = data.player;
-    console.log('player turn...', data.time);
-    await PLAYER.startTurn();
-
-    while(!PLAYER.turnTime) {
-      const ev = await io.nextEvent(1000);
-      await ui.dispatchEvent(ev);
-      await ui.updateIfRequested();
-    }
-
-    console.log('...end turn', PLAYER.turnTime);
-    return PLAYER.turnTime;
-  }
-
-  player.takeTurn = takeTurn$1;
-
-
-  function startTurn$1(PLAYER) {
-  	PLAYER.turnTime = 0;
-  }
-
-  player.startTurn = startTurn$1;
-
-
-  function act$1() {
-  	return true;
-  }
-
-  player.act = act$1;
-
-  function endTurn$1(PLAYER, turnTime) {
-    PLAYER.turnTime = turnTime || Math.floor(PLAYER.kind.speed/2);  // doing nothing takes time
-    ui.requestUpdate();
-  }
-
-  player.endTurn = endTurn$1;
-
-  var game = {};
-
-  data.time = 0;
-  data.running = false;
-  data.turnTime = 10;
-
-
-
-  function startGame(opts={}) {
-    if (!opts.map) utils$1.ERROR('map is required.');
-
-    data.time = 0;
-    data.running = true;
-    data.player = opts.player || null;
-
-    game.startMap(opts.map, opts.x, opts.y);
-    game.queuePlayer();
-
-    return game.loop();
-  }
-
-  game.start = startGame;
-
-
-  function startMap(map, playerX, playerY) {
-
-    scheduler.clear();
-
-    if (data.map && data.player) {
-      data.map.removeActor(data.player);
-    }
-
-    map.cells.forEach( (c) => c.redraw() );
-    map.flag |= Flags$3.MAP_CHANGED;
-    data.map = map;
-
-    // TODO - Add Map/Environment Updater
-
-    if (data.player) {
-      let x = playerX || 0;
-      let y = playerY || 0;
-      if (x <= 0) {
-        const start = map.locations.start;
-        x = start[0];
-        y = start[1];
-      }
-      if (x <= 0) {
-        x = data.player.x || Math.floor(map.width / 2);
-        y = data.player.y || Math.floor(map.height / 2);
-      }
-      data.map.addActor(x, y, data.player);
-    }
-
-    ui.draw();
-
-    if (map.config.tick) {
-      scheduler.push( game.updateEnvironment, map.config.tick );
-    }
-  }
-
-  game.startMap = startMap;
-
-
-
-  async function gameLoop() {
-
-    ui.draw();
-
-    while (data.running) {
-
-      const fn = scheduler.pop();
-      if (!fn) {
-        utils.WARN('NO ACTORS! STOPPING GAME!');
-        data.running = false;
-      }
-      else {
-        if (scheduler.time > data.time) {
-          data.time = scheduler.time;
-          await ui.updateIfRequested();
-        }
-        const turnTime = await fn();
-        if (turnTime) {
-          console.log('- push actor: %d + %d = %d', scheduler.time, turnTime, scheduler.time + turnTime);
-          scheduler.push(fn, turnTime);
-        }
-      }
-
-    }
-
-  }
-
-  game.loop = gameLoop;
-
-
-  function queuePlayer() {
-    scheduler.push(player.takeTurn, data.player.kind.speed);
-  }
-
-  game.queuePlayer = queuePlayer;
-
-  function queueActor(actor$1) {
-    scheduler.push(actor.takeTurn.bind(null, actor$1), actor$1.kind.speed);
-  }
-
-  game.queueActor = queueActor;
-
-  function delay(delay, fn) {
-    return scheduler.push(fn, delay);
-  }
-
-  game.delay = delay;
-
-  async function cancelDelay(timer) {
-    return scheduler.remove(timer);
-  }
-
-  game.cancelDelay = cancelDelay;
-
-  async function updateEnvironment() {
-
-    console.log('update environment');
-
-    const map = data.map;
-    if (!map) return 0;
-
-    await map.tick();
-    ui.requestUpdate();
-
-    return map.config.tick;
-  }
-
-  game.updateEnvironment = updateEnvironment;
 
   let ANIMATIONS = [];
 
@@ -8272,6 +8337,7 @@
 
     if (!map.hasXY(newX, newY)) {
       message.moveBlocked(ctx);
+      // TURN ENDED (1/2 turn)?
       return false;
     }
 
@@ -8279,17 +8345,19 @@
     // PROMOTES ON EXIT, NO KEY(?), PLAYER EXIT
 
     // Can we enter new cell?
-    if (cell.hasTileFlag(Flags.T_OBSTRUCTS_PASSABILITY)) {
+    if (cell.hasTileFlag(Flags$2.T_OBSTRUCTS_PASSABILITY)) {
       message.moveBlocked(ctx);
+      // TURN ENDED (1/2 turn)?
       return false;
     }
     if (map.diagonalBlocked(actor.x, actor.y, newX, newY)) {
       message.moveBlocked(ctx);
+      // TURN ENDED (1/2 turn)?
       return false;
     }
 
     // CHECK SOME SANITY MOVES
-    if (cell.hasTileFlag(Flags.T_LAVA) && !cell.hasTileFlag(Flags.T_BRIDGE)) {
+    if (cell.hasTileFlag(Flags$2.T_LAVA) && !cell.hasTileFlag(Flags$2.T_BRIDGE)) {
       if (!await ui.confirm('That is certain death!  Proceed anyway?')) {
         return false;
       }
@@ -8297,10 +8365,17 @@
 
     if (!map.moveActor(newX, newY, actor)) {
       message.moveFailed(ctx);
+      // TURN ENDED (1/2 turn)?
       return false;
     }
 
     // APPLY EFFECTS
+    for(let tile$1 of cell.tiles()) {
+      await tile.applyInstantEffects(tile$1, cell);
+      if (data.gameHasEnded) {
+        return true;
+      }
+    }
 
     // PROMOTES ON ENTER, PLAYER ENTER, KEY(?)
     let fired;
@@ -8633,10 +8708,10 @@
     map$1.cells.forEach( (c, i, j) => {
       if (!VIEWPORT.hasCanvasLoc(i + VIEWPORT.x, j + VIEWPORT.y)) return;
 
-      if (c.flags & Flags$2.NEEDS_REDRAW) {
+      if (c.flags & Flags$1.NEEDS_REDRAW) {
         const buf = buffer[i + VIEWPORT.x][j + VIEWPORT.y];
         map.getCellAppearance(map$1, i, j, buf);
-        c.clearFlags(Flags$2.NEEDS_REDRAW);
+        c.clearFlags(Flags$1.NEEDS_REDRAW);
         buffer.needsUpdate = true;
       }
     });
@@ -8648,10 +8723,12 @@
   viewport.draw = drawViewport;
 
   const flavorTextColor = color.install('flavorText', 50, 40, 90);
+  const flavorPromptColor = color.install('flavorPrompt', 100, 90, 20);
 
   let FLAVOR_TEXT = '';
   let NEED_FLAVOR_UPDATE = false;
   let SETUP$1 = null;
+  let IS_PROMPT = false;
 
   function setupFlavor(opts={}) {
     SETUP$1 = flavor.bounds = new types.Bounds(opts.x, opts.y, opts.w, 1);
@@ -8662,15 +8739,27 @@
   function setFlavorText(text$1) {
     FLAVOR_TEXT = text.capitalize(text$1);
     NEED_FLAVOR_UPDATE = true;
+    IS_PROMPT = false;
     ui.requestUpdate();
   }
 
   flavor.setText = setFlavorText;
 
 
+  function showPrompt(text$1) {
+    FLAVOR_TEXT = text.capitalize(text$1);
+    NEED_FLAVOR_UPDATE = true;
+    IS_PROMPT = true;
+    ui.requestUpdate();
+  }
+
+  flavor.showPrompt = showPrompt;
+
+
   function drawFlavor(buffer) {
     if (!NEED_FLAVOR_UPDATE || !SETUP$1) return;
-    buffer.plotLine(SETUP$1.x, SETUP$1.y, SETUP$1.width, FLAVOR_TEXT, flavorTextColor, colors.black);
+    const color = IS_PROMPT ? flavorPromptColor : flavorTextColor;
+    buffer.plotLine(SETUP$1.x, SETUP$1.y, SETUP$1.width, FLAVOR_TEXT, color, colors.black);
   }
 
   flavor.draw = drawFlavor;
@@ -8691,11 +8780,11 @@
     const player = data.player || null;
 
   	monst = null;
-  	standsInTerrain = ((cell.highestPriorityTile().mechFlags & MechFlags.TM_STAND_IN_TILE) ? true : false);
+  	standsInTerrain = ((cell.highestPriorityTile().mechFlags & MechFlags$1.TM_STAND_IN_TILE) ? true : false);
   	theItem = map.itemAt(x, y);
-  	if (cell.flags & Flags$2.HAS_MONSTER) {
+  	if (cell.flags & Flags$1.HAS_MONSTER) {
   		monst = map.actorAt(x, y);
-  	} else if (cell.flags & Flags$2.HAS_DORMANT_MONSTER) {
+  	} else if (cell.flags & Flags$1.HAS_DORMANT_MONSTER) {
   		monst = map.dormantAt(x, y);
   	}
 
@@ -8746,7 +8835,7 @@
 
   	if (!map.isAnyKindOfVisible(x, y)) {
       buf = '';
-  		if (cell.flags & Flags$2.REVEALED) { // memory
+  		if (cell.flags & Flags$1.REVEALED) { // memory
   			// if (cell.rememberedItemCategory) {
         //   if (player.status[GW.const.STATUS_HALLUCINATING] && !GW.GAME.playbackOmniscience) {
         //       object = GW.item.describeHallucinatedItem();
@@ -8757,7 +8846,7 @@
   				object = tiles[cell.memory.tile].description;
   			// }
   			buf = text.format("you remember seeing %s here.", object);
-  		} else if (cell.flags & Flags$2.MAGIC_MAPPED) { // magic mapped
+  		} else if (cell.flags & Flags$1.MAGIC_MAPPED) { // magic mapped
   			buf = text.format("you expect %s to be here.", tiles[cell.memory.tile].description);
   		}
   		flavor.setText(buf);
@@ -9057,9 +9146,6 @@
 
   ui.clearCursor = clearCursor;
 
-
-
-  // FUNCS
 
   async function messageBox(text, fg, duration) {
 

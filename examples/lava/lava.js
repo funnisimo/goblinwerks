@@ -64,12 +64,12 @@ const LAVA_CRUST_BREAKING = GW.tile.install('LAVA_CRUST_BREAKING', '~', 'lavaFor
 	'lava with a cracking crust', 'you see crusted lava that looks like it is unstable.', { tick: { chance: 60, flags: 'DFF_CLEAR_OTHER_TERRAIN' } });
 
 // LAVA_ERUPTING
-const LAVA_ERUPTING = GW.tile.install('LAVA_ERUPTING', '!', 'red', 'yellow', 91,	0,
+const LAVA_ERUPTING = GW.tile.install('LAVA_ERUPTING', '!', 'yellow', 'red', 91,	0,
 	0,
-	'erupting lava', 'you see a wave of hot lava.', { tick: { radius: 1, tile: 'LAVA_ERUPTING', flags: 'DFF_CLEAR_OTHER_TERRAIN', needs: 'LAVA_TILE', next: { tile: 'LAVA_ERUPTED' } }});
+	'a wave of erupting lava', 'you see a wave of hot lava.', { tick: { radius: 1, tile: 'LAVA_ERUPTING', flags: 'DFF_CLEAR_OTHER_TERRAIN', needs: 'LAVA_TILE', next: { tile: 'LAVA_ERUPTED' } }});
 
 // LAVA_ERUPTED
-const LAVA_ERUPTED = GW.tile.install('LAVA_ERUPTED', '~', 'blue', 'green', 92,	0,
+const LAVA_ERUPTED = GW.tile.install('LAVA_ERUPTED', '~', 'lavaForeColor', 'lavaBackColor', 92,	0,
 	0,
 	'lava', 'you see lava.', { tick: { tile: 'LAVA_TILE', flags: 'DFF_SUPERPRIORITY | DFF_PROTECTED' } });
 

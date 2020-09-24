@@ -292,6 +292,25 @@ async function spawn(feat, ctx) {
 	// 	await applyInstantTileEffectsToCreature(PLAYER);
 	// }
 
+	// apply tile effects
+	if (succeeded) {
+		for(let i = 0; i < spawnMap.width; ++i) {
+			for(let j = 0; j < spawnMap.height; ++j) {
+				const v = spawnMap[i][j];
+				if (!v || DATA.gameHasEnded) continue;
+				const cell = map.cell(i, j);
+				if (cell.actor || cell.item) {
+					for(let t of cell.tiles()) {
+						await TILE.applyInstantEffects(t, cell);
+						if (DATA.gameHasEnded) {
+							return true;
+						}
+					}
+				}
+			}
+		}
+	}
+
 	if (DATA.gameHasEnded) {
 		GRID.free(spawnMap);
 		return succeeded;
@@ -317,7 +336,7 @@ async function spawn(feat, ctx) {
           }
       }
       if (feat.tile
-          && (tile.flags & (TileFlags.T_IS_DEEP_WATER | TileFlags.T_LAVA_INSTA_DEATH | TileFlags.T_AUTO_DESCENT)))
+          && (tile.flags & (TileFlags.T_IS_DEEP_WATER | TileFlags.T_LAVA | TileFlags.T_AUTO_DESCENT)))
 			{
           DATA.updatedMapToShoreThisTurn = false;
       }
@@ -332,6 +351,8 @@ async function spawn(feat, ctx) {
       //     }
       // }
   }
+
+
 
 	// if (succeeded && feat.flags & Flags.DFF_EMIT_EVENT && feat.eventName) {
 	// 	await GAME.emit(feat.eventName, x, y);
@@ -476,11 +497,12 @@ async function spawnTiles(map, tile, 	// layer, surfaceTileType,
 				// if (PLAYER.xLoc == i && PLAYER.yLoc == j && !PLAYER.status[STATUS_LEVITATING] && refresh) {
 				// 	flavorMessage(tileFlavor(PLAYER.xLoc, PLAYER.yLoc));
 				// }
-				// if (pmap[i][j].flags & (HAS_MONSTER)) {
-				// 	monst = map.actorAt(i, j);
-				// 	await applyInstantTileEffectsToCreature(monst);
-				// 	if (GAME.gameHasEnded) {
-				// 		return true;
+				// if (cell.actor || cell.item) {
+				// 	for(let t of cell.tiles()) {
+				// 		await TILE.applyInstantEffects(t, cell);
+				// 		if (DATA.gameHasEnded) {
+				// 			return true;
+				// 		}
 				// 	}
 				// }
 				// if (tile.flags & TileFlags.T_IS_FIRE) {

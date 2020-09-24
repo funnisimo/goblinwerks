@@ -1,7 +1,9 @@
 
 import { utils as UTILS } from './utils.js';
 import { flag as FLAG } from './flag.js';
-import { types, def, make } from './gw.js';
+import { colors as COLORS } from './color.js';
+import { game as GAME } from './game.js';
+import { types, def, make, data as DATA } from './gw.js';
 
 export var tile = {};
 export var tiles = [];
@@ -213,3 +215,23 @@ export function withName(name) {
 }
 
 tile.withName = withName;
+
+
+
+async function applyInstantTileEffects(tile, cell) {
+
+  const actor = cell.actor;
+  const isPlayer = (actor === DATA.player);
+
+  if (tile.flags & Flags.T_LAVA && actor) {
+    if (!cell.hasTileFlag(Flags.T_BRIDGE) && !actor.status[def.STATUS_LEVITATING]) {
+      actor.kill();
+      await GAME.gameOver(COLORS.red, 'you fall into lava and perish.');
+      return true;
+    }
+  }
+
+  return false;
+}
+
+tile.applyInstantEffects = applyInstantTileEffects;

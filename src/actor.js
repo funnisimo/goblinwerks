@@ -44,6 +44,12 @@ export class Actor {
 		return TileFlags.T_PATHING_BLOCKER;
 	}
 
+	kill() {
+		const map = DATA.map;
+		map.removeActor(this);
+		// in the future do something here (HP = 0?  Flag?)
+	}
+
 }
 
 types.Actor = Actor;

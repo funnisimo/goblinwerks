@@ -292,6 +292,18 @@ ui.clearCursor = clearCursor;
 
 // FUNCS
 
+export async function prompt(...args) {
+	const msg = TEXT.format(...args);
+
+	if (SHOW_FLAVOR) {
+		FLAVOR.showPrompt(msg);
+	}
+	else {
+		console.log(msg);
+	}
+}
+
+
 export async function messageBox(text, fg, duration) {
 
   const buffer = ui.startDialog();

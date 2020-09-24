@@ -8,10 +8,12 @@ import { types, flavor, data as DATA, def, ui as UI } from './gw.js';
 
 
 const flavorTextColor = COLOR.install('flavorText', 50, 40, 90);
+const flavorPromptColor = COLOR.install('flavorPrompt', 100, 90, 20);
 
 let FLAVOR_TEXT = '';
 let NEED_FLAVOR_UPDATE = false;
 let SETUP = null;
+let IS_PROMPT = false;
 
 function setupFlavor(opts={}) {
   SETUP = flavor.bounds = new types.Bounds(opts.x, opts.y, opts.w, 1);
@@ -22,15 +24,27 @@ flavor.setup = setupFlavor;
 function setFlavorText(text) {
   FLAVOR_TEXT = TEXT.capitalize(text);
   NEED_FLAVOR_UPDATE = true;
+  IS_PROMPT = false;
   UI.requestUpdate();
 }
 
 flavor.setText = setFlavorText;
 
 
+function showPrompt(text) {
+  FLAVOR_TEXT = TEXT.capitalize(text);
+  NEED_FLAVOR_UPDATE = true;
+  IS_PROMPT = true;
+  UI.requestUpdate();
+}
+
+flavor.showPrompt = showPrompt;
+
+
 function drawFlavor(buffer) {
   if (!NEED_FLAVOR_UPDATE || !SETUP) return;
-  buffer.plotLine(SETUP.x, SETUP.y, SETUP.width, FLAVOR_TEXT, flavorTextColor, COLORS.black);
+  const color = IS_PROMPT ? flavorPromptColor : flavorTextColor;
+  buffer.plotLine(SETUP.x, SETUP.y, SETUP.width, FLAVOR_TEXT, color, COLORS.black);
 }
 
 flavor.draw = drawFlavor;

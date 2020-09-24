@@ -1,14 +1,17 @@
 
 
 import { utils as UTILS } from './utils.js';
+import { colors as COLORS } from './color.js';
 import { Flags as CellFlags } from './cell.js';
 import { Flags as MapFlags, map as MAP } from './map.js';
 import { io as IO } from './io.js';
 import { actor as ACTOR } from './actor.js';
 import { player as PLAYER } from './player.js';
 import { scheduler } from './scheduler.js';
+import { text as TEXT } from './text.js';
+import { sprite as SPRITE } from './sprite.js';
 
-import { data as DATA, types, fx as FX, ui as UI } from './gw.js';
+import { data as DATA, types, fx as FX, ui as UI, message as MSG } from './gw.js';
 
 export var game = {};
 
@@ -146,3 +149,19 @@ export async function updateEnvironment() {
 }
 
 game.updateEnvironment = updateEnvironment;
+
+
+SPRITE.install('hilite', COLORS.white);
+
+async function gameOver(...args) {
+  const msg = TEXT.format(...args);
+  MSG.add(msg);
+  MSG.add(COLORS.red, 'GAME OVER');
+  UI.updateNow();
+  await FX.flashSprite(DATA.map, DATA.player.x, DATA.player.y, 'hilite', 500, 3);
+  DATA.gameHasEnded = true;
+
+  DATA.running = false; // ???
+}
+
+game.gameOver = gameOver;
