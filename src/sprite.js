@@ -127,6 +127,7 @@ export class Sprite {
     {
       this.ch = ' ';
     }
+		this.opacity = Math.max(this.opacity, sprite.opacity);
 		this.needsUpdate = true;
 		return true;
 	}

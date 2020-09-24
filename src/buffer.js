@@ -25,6 +25,11 @@ class Buffer extends types.Grid {
     this.needsUpdate = true;
   }
 
+  clearCell(x, y) {
+    this[x][y].clear();
+    this.needsUpdate = true;
+  }
+
   erase() {
     this.forEach( (c) => c.erase() );
     this.needsUpdate = true;
@@ -32,6 +37,11 @@ class Buffer extends types.Grid {
 
   eraseRect(x, y, w, h) {
     this.forRect(x, y, w, h, (c) => c.erase() );
+    this.needsUpdate = true;
+  }
+
+  eraseCell(x, y) {
+    this[x][y].erase();
     this.needsUpdate = true;
   }
 

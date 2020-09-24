@@ -385,12 +385,20 @@ ui.blackOutDisplay = blackOutDisplay;
 function startDialog() {
   IN_DIALOG = true;
   ui.canvas.copyBuffer(UI_BASE);
-  UI_OVERLAY.clear();
+	ui.canvas.copyBuffer(UI_OVERLAY);
+  // UI_OVERLAY.clear();
   return UI_OVERLAY;
 }
 
 ui.startDialog = startDialog;
 
+function clearDialog() {
+	if (IN_DIALOG) {
+		UI_OVERLAY.copy(UI_BASE);
+	}
+}
+
+ui.clearDialog = clearDialog;
 
 function finishDialog() {
   IN_DIALOG = false;
@@ -404,7 +412,7 @@ ui.finishDialog = finishDialog;
 
 function draw() {
   if (IN_DIALOG) {
-    ui.canvas.overlay(UI_BASE);
+    // ui.canvas.overlay(UI_BASE);
     ui.canvas.overlay(UI_OVERLAY);
   }
   else if (ui.canvas) {

@@ -304,6 +304,7 @@ class Cell {
     const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
     const tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
     if (!(tileFlags & TileFlags.T_PATHING_BLOCKER)) return true;
+    if( tileFlags & TileFlags.T_BRIDGE) return true;
 
     let tileMechFlags = (useMemory) ? this.memory.tileMechFlags : this.tileMechFlags();
     return limitToPlayerKnowledge ? false : this.isSecretDoor();

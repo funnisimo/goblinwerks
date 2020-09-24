@@ -109,7 +109,7 @@ export async function dispatchEvent(ev, km) {
 
 	if (command) {
 		if (typeof command === 'function') {
-			result = await command(ev);
+			result = await command.call(km, ev);
 		}
 		else if (COMMANDS[command]) {
 			result = await COMMANDS[command](ev);

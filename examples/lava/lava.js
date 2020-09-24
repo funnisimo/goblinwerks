@@ -24,7 +24,6 @@ async function crossedFinish() {
 
 async function lavaTick(ctx) {
 	if (GW.random.number(300 * 10 * 10) <= 1) {
-		GW.message.add('ERUPTION @ %d,%d', ctx.x, ctx.y);
 		return await GW.tileEvent.spawn({ tile: 'LAVA_ERUPTING' }, ctx);
 	}
 	else if (GW.random.percent(5)) {
@@ -41,6 +40,63 @@ async function startExplosion() {
 	MAP.changed(true);
 	GW.ui.requestUpdate();
 }
+
+const jumpHilite = GW.sprite.install('jumpHilite', 'green', 50);
+
+async function jump() {
+	console.log('jump');
+
+	const buf = GW.ui.startDialog();
+	let waiting = true;
+	let dir = null;
+
+	buf.plotLine(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, 'Jump: Which direction?', GW.colors.orange);
+
+	GW.ui.draw();
+
+	while(waiting) {
+		const ev = await GW.io.nextEvent(100);
+		await GW.io.dispatchEvent(ev, {
+			escape() { waiting = false; dir = null; },
+			enter() { waiting = false; },
+			dir(e) {
+				if (this.canJumpDir(e.dir)) {
+					this.update(e.dir);
+				}
+			},
+			canJumpDir(dir) {
+				const nextCell = MAP.cell(PLAYER.x + dir[0], PLAYER.y + dir[1]);
+				if (nextCell.hasTileFlag(GW.flags.tile.T_OBSTRUCTS_PASSABILITY)) return false;
+				const destCell = MAP.cell(PLAYER.x + dir[0] * 2, PLAYER.y + dir[1] * 2);
+				if (!destCell.isPassableNow()) return false;
+				return true;
+			},
+			update(newDir) {
+				GW.ui.clearDialog();
+				if (newDir) {
+					buf.plot(PLAYER.x + newDir[0]*2, PLAYER.y + newDir[1]*2, jumpHilite);
+				}
+				dir = newDir;
+				GW.ui.draw();
+			}
+		});
+		GW.ui.draw();
+	}
+
+	GW.ui.finishDialog();
+
+	if (dir) {
+		console.log('Jump - ', dir);
+		MAP.removeActor(PLAYER);
+		await GW.fx.flashSprite(MAP, PLAYER.x + dir[0], PLAYER.y + dir[1], PLAYER.kind.sprite, 200);
+		MAP.addActor(PLAYER.x + dir[0]*2, PLAYER.y + dir[1]*2, PLAYER);
+		GW.ui.requestUpdate();
+		PLAYER.endTurn();
+	}
+
+	return false;
+}
+
 
 const GOAL_TILE = GW.tile.install('GOAL', '=', 'green', 'black', 50, 0, 0,
 	'the finish line', 'you see the finish line.',
@@ -115,14 +171,16 @@ async function showHelp() {
 	let y = 2;
 	buf.plotText(10, y++, 'GoblinWerks Lava Hop Example', 'green');
 	y++;
-	y = buf.wrapText(5, y, 40, 'This example is all about crossing the lava field.', 'white');
+	y = buf.wrapText(5, y, 40, 'This example is all about crossing the lava field by walking/jumping over the crusted lava.', 'white');
 	y++;
-	buf.plotText(5, y, 'DIR   ', 'yellow');
+	buf.plotText(5, y, 'dir   ', 'yellow');
 	y = buf.wrapText(11, y, 32, ': Pressing an arrow key moves the player in that direction.', 'white', null, 2);
-	buf.plotText(5, y, 'SPACE ', 'yellow');
-	y = buf.wrapText(11, y, 32, ': Rest player - lets game time animations continue.', 'white', null, 2);
+	buf.plotText(5, y, 'j     ', 'yellow');
+	y = buf.wrapText(11, y, 32, ': Jump over one cell in a direction you choose.', 'lighter_gray', null, 2);
+	buf.plotText(5, y, 'space ', 'yellow');
+	y = buf.wrapText(11, y, 32, ': Wait a short time.', 'white', null, 2);
 	buf.plotText(5, y, '?', 'yellow');
-	y = buf.wrapText(11, y, 32, ': Show this screen.', 'white');
+	y = buf.wrapText(11, y, 32, ': Show this screen.', 'lighter_gray');
 
 	buf.fillRect(4, 1, 42, y, null, null, 'black' );
 
@@ -139,7 +197,7 @@ async function start() {
 
 	const canvas = GW.ui.start({ width: 50, height: 36, div: 'game', messages: -5, cursor: true, flavor: true });
 	GW.io.setKeymap({
-		dir: 'moveDir', space: 'rest',
+		dir: 'moveDir', space: 'rest', 'j': jump,
 		'x': startExplosion,
 		'?': 'showHelp'
 	});

@@ -1874,6 +1874,7 @@ class Sprite {
     {
       this.ch = ' ';
     }
+		this.opacity = Math.max(this.opacity, sprite.opacity);
 		this.needsUpdate = true;
 		return true;
 	}
@@ -2755,6 +2756,11 @@ class Buffer extends types.Grid {
     this.needsUpdate = true;
   }
 
+  clearCell(x, y) {
+    this[x][y].clear();
+    this.needsUpdate = true;
+  }
+
   erase() {
     this.forEach( (c) => c.erase() );
     this.needsUpdate = true;
@@ -2762,6 +2768,11 @@ class Buffer extends types.Grid {
 
   eraseRect(x, y, w, h) {
     this.forRect(x, y, w, h, (c) => c.erase() );
+    this.needsUpdate = true;
+  }
+
+  eraseCell(x, y) {
+    this[x][y].erase();
     this.needsUpdate = true;
   }
 
@@ -3066,7 +3077,7 @@ class Canvas {
         if (src.opacity) {
           const dest = this.buffer[i][j];
           if (!dest.equals(src)) {
-            dest.copy(src);
+            dest.plot(src); // was copy
             dest.needsUpdate = true;
             this.buffer.needsUpdate = true;
           }
@@ -3186,7 +3197,7 @@ async function dispatchEvent(ev, km) {
 
 	if (command) {
 		if (typeof command === 'function') {
-			result = await command(ev);
+			result = await command.call(km, ev);
 		}
 		else if (commands[command]) {
 			result = await commands[command](ev);
@@ -5156,6 +5167,7 @@ class Cell {
     const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
     const tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
     if (!(tileFlags & Flags$2.T_PATHING_BLOCKER)) return true;
+    if( tileFlags & Flags$2.T_BRIDGE) return true;
 
     let tileMechFlags = (useMemory) ? this.memory.tileMechFlags : this.tileMechFlags();
     return limitToPlayerKnowledge ? false : this.isSecretDoor();
@@ -9223,12 +9235,20 @@ ui.blackOutDisplay = blackOutDisplay;
 function startDialog() {
   IN_DIALOG = true;
   ui.canvas.copyBuffer(UI_BASE);
-  UI_OVERLAY.clear();
+	ui.canvas.copyBuffer(UI_OVERLAY);
+  // UI_OVERLAY.clear();
   return UI_OVERLAY;
 }
 
 ui.startDialog = startDialog;
 
+function clearDialog() {
+	if (IN_DIALOG) {
+		UI_OVERLAY.copy(UI_BASE);
+	}
+}
+
+ui.clearDialog = clearDialog;
 
 function finishDialog() {
   IN_DIALOG = false;
@@ -9242,7 +9262,7 @@ ui.finishDialog = finishDialog;
 
 function draw() {
   if (IN_DIALOG) {
-    ui.canvas.overlay(UI_BASE);
+    // ui.canvas.overlay(UI_BASE);
     ui.canvas.overlay(UI_OVERLAY);
   }
   else if (ui.canvas) {
