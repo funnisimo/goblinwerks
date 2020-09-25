@@ -1840,6 +1840,9 @@ class Sprite {
 
 	plotChar(ch, fg, bg) {
 		this.wasHanging = this.wasHanging || (ch != null && HANGING_LETTERS.includes(ch));
+		if (!this.opacity) {
+			this.ch = ' ';
+		}
     if (ch) { this.ch = ch; }
 		if (fg) { this.fg.copy(fg); }
     if (bg) { this.bg.copy(bg); }
@@ -2822,7 +2825,7 @@ class Buffer extends types.Grid {
       this.plotChar(i + x, y, ch, color || fg, bg);
     });
     for(let i = len; i < w; ++i) {
-      this.plotChar(i + x, y, ' ', fg, bg);
+      this.plotChar(i + x, y, ' ', bg, bg);
     }
   }
 
@@ -3077,7 +3080,7 @@ class Canvas {
         if (src.opacity) {
           const dest = this.buffer[i][j];
           if (!dest.equals(src)) {
-            dest.plot(src); // was copy
+            dest.copy(src); // was copy
             dest.needsUpdate = true;
             this.buffer.needsUpdate = true;
           }
@@ -4372,7 +4375,7 @@ var tileEvents = {};
 
 const Fl$1 = flag.fl;
 
-const Flags = flag.install('event', {
+const Flags = flag.install('tileEvent', {
 	DFF_EVACUATE_CREATURES_FIRST	: Fl$1(0),	// Creatures in the DF area get moved outside of it
 	DFF_SUBSEQ_EVERYWHERE			    : Fl$1(1),	// Subsequent DF spawns in every cell that this DF spawns in, instead of only the origin
 	DFF_TREAT_AS_BLOCKING			    : Fl$1(2),	// If filling the footprint of this DF with walls would disrupt level connectivity, then abort.
@@ -9236,6 +9239,7 @@ function startDialog() {
   IN_DIALOG = true;
   ui.canvas.copyBuffer(UI_BASE);
 	ui.canvas.copyBuffer(UI_OVERLAY);
+	UI_OVERLAY.forEach( (c) => c.opacity = 0 );
   // UI_OVERLAY.clear();
   return UI_OVERLAY;
 }

@@ -22,15 +22,24 @@ async function crossedFinish() {
 	await GW.game.startMap(map);
 }
 
+
+let ERUPT_CHANCE = 300 * 10 * 10;
+let CRUST_CHANCE = 5;
+
 async function lavaTick(ctx) {
-	if (GW.random.number(300 * 10 * 10) <= 1) {
+	if (GW.random.number(ERUPT_CHANCE) <= 1) {
 		return await GW.tileEvent.spawn({ tile: 'LAVA_ERUPTING' }, ctx);
 	}
-	else if (GW.random.percent(5)) {
+	else if (GW.random.percent(CRUST_CHANCE)) {
 		return await GW.tileEvent.spawn({ tile: 'LAVA_CRUST' }, ctx);
 	}
 }
 
+async function lavaBreak(ctx) {
+	if (GW.random.percent(BREAK_CHANCE)) {
+		return await GW.tileEvent.spawn({ flags: GW.flags.tileEvent.DFF_CLEAR_OTHER_TERRAIN }, ctx);
+	}
+}
 
 async function startExplosion() {
 	console.log('set crust');
@@ -73,6 +82,7 @@ async function jump() {
 			},
 			update(newDir) {
 				GW.ui.clearDialog();
+				buf.plotLine(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, 'Jump: Which direction?', GW.colors.orange);
 				if (newDir) {
 					buf.plot(PLAYER.x + newDir[0]*2, PLAYER.y + newDir[1]*2, jumpHilite);
 				}
@@ -117,7 +127,7 @@ const LAVA_CRUST = GW.tile.install('LAVA_CRUST', '~', 'lavaForeColor', 'dark_gra
 // LAVA_CRUST_BREAKING
 const LAVA_CRUST_BREAKING = GW.tile.install('LAVA_CRUST_BREAKING', '~', 'lavaForeColor', 'darkest_red', 92,	GW.def.LIQUID,
 	'T_BRIDGE',
-	'lava with a cracking crust', 'you see crusted lava that looks like it is unstable.', { tick: { chance: 60, flags: 'DFF_CLEAR_OTHER_TERRAIN' } });
+	'lava with a cracking crust', 'you see crusted lava that looks like it is unstable.', { tick: lavaBreak });
 
 // LAVA_ERUPTING
 const LAVA_ERUPTING = GW.tile.install('LAVA_ERUPTING', '!', 'yellow', 'red', 91,	0,
@@ -147,15 +157,23 @@ function makeMap(id=1) {
 	MAP.fill(6);
 	MAP.cells.forRect(10, 0, 30, 30, (c) => c.setTile(1));
 	MAP.cells.forRect(10, 1, 30, 1, (c) => c.setTile(GOAL_TILE) );
+	GW.map.addText(MAP, 22, 1, 'FINISH', 'green');
 	MAP.cells.forRect(10, 28, 30, 1, (c) => c.setTile(START_TILE) );
+	GW.map.addText(MAP, 23, 28, 'START', 'blue');
 
-	let height = 9; // 2 + Math.floor(id / 2);
+	// update the difficulty
+	ERUPT_CHANCE = Math.max(300, 300 * (100 - id*2));
+	CRUST_CHANCE = Math.max(2, Math.floor(10 - id/2));
+	BREAK_CHANCE = Math.min(90, Math.floor(60 + id));
+
+	GW.message.add(GW.colors.blue, 'Erupt: %d, Crust: %d, Break: %d', ERUPT_CHANCE, CRUST_CHANCE, BREAK_CHANCE);
+
+	let height = 3 + Math.floor(id / 2);
 	let top = Math.floor( (30 - height) / 2 ) + 1;
 
 	MAP.cells.forRect(10, top, 30, height, (c) => c.setTile(LAVA_TILE) );
 
-	GW.map.addText(MAP, 22, 1, 'FINISH', 'green');
-	GW.map.addText(MAP, 23, 28, 'START', 'blue');
+
 
 	MAP.setFlags(0, GW.flags.cell.VISIBLE);
 	MAP.id = id;

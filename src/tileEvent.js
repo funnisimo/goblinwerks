@@ -14,7 +14,7 @@ export var tileEvents = {};
 
 const Fl = FLAG.fl;
 
-export const Flags = FLAG.install('event', {
+export const Flags = FLAG.install('tileEvent', {
 	DFF_EVACUATE_CREATURES_FIRST	: Fl(0),	// Creatures in the DF area get moved outside of it
 	DFF_SUBSEQ_EVERYWHERE			    : Fl(1),	// Subsequent DF spawns in every cell that this DF spawns in, instead of only the origin
 	DFF_TREAT_AS_BLOCKING			    : Fl(2),	// If filling the footprint of this DF with walls would disrupt level connectivity, then abort.

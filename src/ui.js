@@ -386,6 +386,7 @@ function startDialog() {
   IN_DIALOG = true;
   ui.canvas.copyBuffer(UI_BASE);
 	ui.canvas.copyBuffer(UI_OVERLAY);
+	UI_OVERLAY.forEach( (c) => c.opacity = 0 );
   // UI_OVERLAY.clear();
   return UI_OVERLAY;
 }

@@ -208,7 +208,7 @@ class Canvas {
         if (src.opacity) {
           const dest = this.buffer[i][j];
           if (!dest.equals(src)) {
-            dest.plot(src); // was copy
+            dest.copy(src); // was copy
             dest.needsUpdate = true;
             this.buffer.needsUpdate = true;
           }

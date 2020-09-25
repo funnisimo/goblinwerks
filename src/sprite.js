@@ -93,6 +93,9 @@ export class Sprite {
 
 	plotChar(ch, fg, bg) {
 		this.wasHanging = this.wasHanging || (ch != null && HANGING_LETTERS.includes(ch));
+		if (!this.opacity) {
+			this.ch = ' ';
+		}
     if (ch) { this.ch = ch; }
 		if (fg) { this.fg.copy(fg); }
     if (bg) { this.bg.copy(bg); }

@@ -91,7 +91,7 @@ class Buffer extends types.Grid {
       this.plotChar(i + x, y, ch, color || fg, bg);
     });
     for(let i = len; i < w; ++i) {
-      this.plotChar(i + x, y, ' ', fg, bg);
+      this.plotChar(i + x, y, ' ', bg, bg);
     }
   }
 
