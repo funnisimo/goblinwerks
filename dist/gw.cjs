@@ -2048,6 +2048,12 @@ class Grid extends Array {
 		this.updateCircle(x, y, radius, fn);
 	}
 
+
+	replace(findValue, replaceValue)
+	{
+		this.update( (v, x, y) => (v == findValue) ? replaceValue : v );
+	}
+
 	copy(from) {
 		// TODO - check width, height?
 		this.update( (v, i, j) => from[i][j] );
