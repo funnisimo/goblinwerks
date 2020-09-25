@@ -1,11 +1,14 @@
 
+import './bounds.js';
 export { utils } from './utils.js';
 export { flag, flags } from './flag.js';
 import './enum.js';
 export { random, cosmetic } from './random.js';
 export { color, colors } from './color.js';
+export { text } from './text.js';
 export { sprite, sprites } from './sprite.js';
 export { grid } from './grid.js';
+import './buffer.js';
 export { canvas } from './canvas.js';
 export { io } from './io.js';
 export { path } from './path.js';
@@ -16,10 +19,15 @@ export { cell } from './cell.js';
 export { map } from './map.js';
 export { scheduler } from  './scheduler.js';
 export { game } from './game.js';
-export { fx } from './fx.js';
+import './fx.js';
 export { actor } from './actor.js';
 export { player } from './player.js';
-export { ui } from './ui.js';
 export { fov } from './fov.js';
+import './commands.js';
+export { tileEvent, tileEvents } from './tileEvent.js';
+import './message.js';
+import './viewport.js';
+import './flavor.js';
+import './ui.js';
 
 export * from './gw.js';

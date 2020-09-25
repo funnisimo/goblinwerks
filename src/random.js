@@ -136,6 +136,8 @@ export class Random {
 
   // TODO - should this be : chance(percent)
   percent(percent) {
+    if (percent <= 0) return false;
+    if (percent >= 100) return true;
   	return (this.range(0, 99) < percent);
   }
 

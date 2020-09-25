@@ -1,6 +1,6 @@
 
 let canvas = null;
-let MAP = GW.make.map(80, 30);
+let MAP = null;
 const startingXY = [40, 28];
 
 GW.random.seed(12345);
@@ -121,33 +121,20 @@ function drawMap(attempt=0) {
 
 	stopTimer('DIG');
 
-	MAP.cells.forEach( (c, i, j) => {
-		const tile = c.highestPriorityTile();
-		if (tile) {
-			canvas.buffer.plot(i, j, tile.sprite);
-		}
-		else {
-			console.warn('missing tile ', v, i, j);
-		}
-	});
-
-	// canvas.draw();
-
+	GW.viewport.draw(canvas.buffer, MAP);
 	console.log('MAP SEED = ', seed);
 }
 
 
 // start the environment
 function start() {
+	MAP = GW.make.map(80, 30);
 	canvas = GW.ui.start({ width: 80, height: 30, div: 'game', io: false });
 	game.onmousedown = handleClick;
 	document.onkeydown = handleKey;
 
 	canvas.buffer.plotText(10, 15, 'Click to draw map with starting location at click point.', [100,50,0]);
 	canvas.buffer.plotText(10, 17, 'Press any key to redesign the map at same starting point.', [100,50,0]);
-	// canvas.draw();
-
-	// drawCanvas();	// uncomment to have water colors dance
 }
 
 window.onload = start;

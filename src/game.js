@@ -1,16 +1,17 @@
 
 
 import { utils as UTILS } from './utils.js';
+import { colors as COLORS } from './color.js';
 import { Flags as CellFlags } from './cell.js';
-import { Flags as MapFlags } from './map.js';
+import { Flags as MapFlags, map as MAP } from './map.js';
 import { io as IO } from './io.js';
-import { ui as UI } from './ui.js';
-import { fx as FX } from './fx.js';
 import { actor as ACTOR } from './actor.js';
 import { player as PLAYER } from './player.js';
 import { scheduler } from './scheduler.js';
+import { text as TEXT } from './text.js';
+import { sprite as SPRITE } from './sprite.js';
 
-import { data as DATA, types } from './gw.js';
+import { data as DATA, types, fx as FX, ui as UI, message as MSG } from './gw.js';
 
 export var game = {};
 
@@ -18,14 +19,6 @@ DATA.time = 0;
 DATA.running = false;
 DATA.turnTime = 10;
 
-
-export function setTime(t) {
-  const dt = t - DATA.time;
-  DATA.time = t;
-  return Math.max(0, dt);
-}
-
-game.setTime = setTime;
 
 
 export function startGame(opts={}) {
@@ -59,19 +52,25 @@ export function startMap(map, playerX, playerY) {
   // TODO - Add Map/Environment Updater
 
   if (DATA.player) {
-    let x = playerX || DATA.player.x || 0;
-    let y = playerY || DATA.player.y || 0;
+    let x = playerX || 0;
+    let y = playerY || 0;
     if (x <= 0) {
       const start = map.locations.start;
-      if (!start) UTILS.ERROR('Need x,y or start location.');
       x = start[0];
       y = start[1];
     }
+    if (x <= 0) {
+      x = DATA.player.x || Math.floor(map.width / 2);
+      y = DATA.player.y || Math.floor(map.height / 2);
+    }
     DATA.map.addActor(x, y, DATA.player);
-
   }
 
   UI.draw();
+
+  if (map.config.tick) {
+    scheduler.push( game.updateEnvironment, map.config.tick );
+  }
 }
 
 game.startMap = startMap;
@@ -96,7 +95,7 @@ async function gameLoop() {
       }
       const turnTime = await fn();
       if (turnTime) {
-        console.log('- push actor', turnTime, scheduler.time);
+        console.log('- push actor: %d + %d = %d', scheduler.time, turnTime, scheduler.time + turnTime);
         scheduler.push(fn, turnTime);
       }
     }
@@ -109,13 +108,13 @@ game.loop = gameLoop;
 
 
 function queuePlayer() {
-  scheduler.push(PLAYER.takeTurn, DATA.player.speed);
+  scheduler.push(PLAYER.takeTurn, DATA.player.kind.speed);
 }
 
 game.queuePlayer = queuePlayer;
 
 function queueActor(actor) {
-  scheduler.push(ACTOR.takeTurn.bind(null, actor), actor.speed);
+  scheduler.push(ACTOR.takeTurn.bind(null, actor), actor.kind.speed);
 }
 
 game.queueActor = queueActor;
@@ -135,3 +134,34 @@ export async function cancelDelay(timer) {
 }
 
 game.cancelDelay = cancelDelay;
+
+export async function updateEnvironment() {
+
+  console.log('update environment');
+
+  const map = DATA.map;
+  if (!map) return 0;
+
+  await map.tick();
+  UI.requestUpdate();
+
+  return map.config.tick;
+}
+
+game.updateEnvironment = updateEnvironment;
+
+
+SPRITE.install('hilite', COLORS.white);
+
+async function gameOver(...args) {
+  const msg = TEXT.format(...args);
+  MSG.add(msg);
+  MSG.add(COLORS.red, 'GAME OVER');
+  UI.updateNow();
+  await FX.flashSprite(DATA.map, DATA.player.x, DATA.player.y, 'hilite', 500, 3);
+  DATA.gameHasEnded = true;
+
+  DATA.running = false; // ???
+}
+
+game.gameOver = gameOver;

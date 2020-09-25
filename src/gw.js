@@ -7,7 +7,14 @@ export var debug = {};
 export var make = {};
 export var install = {};
 
+export var ui = {};
+export var message = {};
+export var viewport = {};
+export var flavor = {};
+
+export var fx = {};
 export var commands = {};
+
 export var config = {
   fx: {},
 };
