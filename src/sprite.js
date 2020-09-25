@@ -68,6 +68,8 @@ export class Sprite {
 
 	clone() {
 		const other = new types.Sprite(this.ch, this.fg, this.bg, this.opacity);
+		other.wasHanging = this.wasHanging;
+		other.needsUpdate = this.needsUpdate;
 		return other;
 	}
 
@@ -90,7 +92,10 @@ export class Sprite {
 	}
 
 	plotChar(ch, fg, bg) {
-		this.wasHanging = this.wasHanging || (ch && HANGING_LETTERS.includes(ch));
+		this.wasHanging = this.wasHanging || (ch != null && HANGING_LETTERS.includes(ch));
+		if (!this.opacity) {
+			this.ch = ' ';
+		}
     if (ch) { this.ch = ch; }
 		if (fg) { this.fg.copy(fg); }
     if (bg) { this.bg.copy(bg); }
@@ -106,7 +111,7 @@ export class Sprite {
       return true;
     }
 
-		this.wasHanging = this.wasHanging || (sprite.ch && HANGING_LETTERS.includes(sprite.ch));
+		this.wasHanging = this.wasHanging || (sprite.ch != null && HANGING_LETTERS.includes(sprite.ch));
 
     // ch and fore color:
     if (sprite.ch && sprite.ch != ' ') { // Blank cells in the overbuf take the ch from the screen.
@@ -125,6 +130,7 @@ export class Sprite {
     {
       this.ch = ' ';
     }
+		this.opacity = Math.max(this.opacity, sprite.opacity);
 		this.needsUpdate = true;
 		return true;
 	}

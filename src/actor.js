@@ -1,7 +1,7 @@
 
-import { ui as UI } from './ui.js';
+import { Flags as TileFlags } from './tile.js';
 
-import { types, make, data as DATA, config as CONFIG } from './gw.js';
+import { types, make, data as DATA, config as CONFIG, ui as UI } from './gw.js';
 
 export var actor = {};
 
@@ -12,6 +12,7 @@ export class Actor {
     this.flags = 0;
     this.kind = kind || {};
     this.turnTime = 0;
+		this.status = {};
 
 		this.kind.speed = this.kind.speed || CONFIG.defaultSpeed || 120;
   }
@@ -37,6 +38,16 @@ export class Actor {
 
 	isOrWasVisible() {
 		return true;
+	}
+
+	forbiddenTileFlags() {
+		return TileFlags.T_PATHING_BLOCKER;
+	}
+
+	kill() {
+		const map = DATA.map;
+		map.removeActor(this);
+		// in the future do something here (HP = 0?  Flag?)
 	}
 
 }

@@ -27,14 +27,71 @@ describe('CellMemory', () => {
 
   test('setTile', () => {
     const c = GW.make.cell();
-    expect(c.base).toEqual(0);
+
+    expect(GW.tiles[1].priority).toBeLessThan(GW.tiles[2].priority);
+
+    expect(c.ground).toEqual(0);
     c.setTile(1);
-    expect(c.base).toEqual(1);
-    c.setTile(2);
-    expect(c.base).toEqual(2);
+    expect(c.ground).toEqual(1);
+    c.setTile(6);
+    expect(c.ground).toEqual(6);
+    c.setTile(1, true); // checks priority
+    expect(c.ground).toEqual(6);  // 2 has better priority
     c.setTile(1);
-    expect(c.base).toEqual(2);  // 2 has better priority
-    c.setTile(1, true);
-    expect(c.base).toEqual(1);  // 2 has better priority
+    expect(c.ground).toEqual(1);  // ignored priority
   });
+
+  test('can support many layers', () => {
+
+    const c = GW.make.cell();
+    c.setTile(1); // FLOOR
+
+    const a = GW.make.sprite('@', 'white', 'blue');
+    const b = GW.make.sprite(null, null, 'red');
+
+    c.addSprite(1, a);
+    c.addSprite(2, b, 100);
+
+    expect(c.sprites).not.toBeNull();
+    expect(c.sprites.sprite).toBe(a);
+    expect(c.sprites.next.sprite).toBe(b);
+
+    const app = GW.make.sprite();
+    GW.cell.getAppearance(c, app);
+
+    const ex = GW.make.sprite('@', 'white', 'red');
+    expect(app).toEqual(ex);
+  });
+
+  test('layers will blend opacities', () => {
+    const c = GW.make.cell();
+    c.setTile(1); // FLOOR
+
+    const a = GW.make.sprite('@', 'white', 'blue');
+    const b = GW.make.sprite(null, null, 'red', 50);
+
+    c.flags = 0;
+    c.addSprite(1, a);
+    expect(c.flags & GW.flags.cell.NEEDS_REDRAW).toBeTruthy();
+    c.addSprite(2, b, 100);
+
+    expect(c.sprites).not.toBeNull();
+    expect(c.sprites.sprite).toBe(a);
+    expect(c.sprites.next.sprite).toBe(b);
+
+    const app = GW.make.sprite();
+    GW.cell.getAppearance(c, app);
+
+    const ex = GW.make.sprite('@', 'white', [50,0,50]);
+    expect(app).toEqual(ex);
+
+    c.flags = 0;
+    c.removeSprite(a);
+    expect(c.flags & GW.flags.cell.NEEDS_REDRAW).toBeTruthy();
+    c.removeSprite(b);
+
+    GW.cell.getAppearance(c, app);
+    expect(app).toEqual(GW.tiles[1].sprite);
+  });
+
 });

@@ -3,13 +3,11 @@ import { utils as UTILS } from './utils.js';
 import { grid as GRID } from './grid.js';
 import { sprites as SPRITES, installSprite } from './sprite.js';
 import { map as MAP } from './map.js';
-import { ui as UI } from './ui.js';
 import { io as IO } from './io.js';
 import { scheduler } from './scheduler.js';
 
-import { data as DATA, types, make, config as CONFIG } from './gw.js';
+import { data as DATA, types, make, config as CONFIG, fx, ui as UI } from './gw.js';
 
-export var fx = {};
 
 let ANIMATIONS = [];
 

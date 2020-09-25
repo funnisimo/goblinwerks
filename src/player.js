@@ -1,8 +1,7 @@
 
 
 import { io as IO } from './io.js';
-import { ui as UI } from './ui.js';
-import { make, data as DATA, types } from './gw.js';
+import { make, data as DATA, types, ui as UI } from './gw.js';
 
 export var player = {};
 
@@ -44,7 +43,11 @@ export async function takeTurn() {
 
   while(!PLAYER.turnTime) {
     const ev = await IO.nextEvent(1000);
-    await IO.dispatchEvent(ev);
+    await UI.dispatchEvent(ev);
+    await UI.updateIfRequested();
+    if (DATA.gameHasEnded) {
+      return 0;
+    }
   }
 
   console.log('...end turn', PLAYER.turnTime);
