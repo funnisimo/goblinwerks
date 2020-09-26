@@ -90,10 +90,10 @@ describe('GW.dungeon', () => {
 
     map.cells.forRect(36, 22, 14, 6, (c, i, j) => expect(tileAt(i, j)).toEqual(1));
 
-    expect(surfaceAt(47, 21)).toEqual(2);
-    expect(surfaceAt(35, 22)).toEqual(2);
-    expect(surfaceAt(26, 21)).toEqual(2);
-    expect(surfaceAt(55, 19)).toEqual(2);
+    expect(tileAt(47, 21)).toEqual(2);
+    expect(tileAt(35, 22)).toEqual(2);
+    expect(tileAt(26, 21)).toEqual(2);
+    expect(tileAt(55, 19)).toEqual(2);
 
   });
 
@@ -118,10 +118,10 @@ describe('GW.dungeon', () => {
 
     map.cells.forRect(36, 22, 14, 6, (c, i, j) => expect(tileAt(i, j)).toEqual(1));
 
-    expect(surfaceAt(50, 22)).toEqual(2);
-    expect(surfaceAt(64, 16)).toEqual(2);
-    expect(surfaceAt(69, 10)).toEqual(2);
-    expect(surfaceAt(59, 6)).toEqual(2);
+    expect(tileAt(50, 22)).toEqual(2);
+    expect(tileAt(64, 16)).toEqual(2);
+    expect(tileAt(69, 10)).toEqual(2);
+    expect(tileAt(59, 6)).toEqual(2);
 
   });
 
@@ -148,8 +148,8 @@ describe('GW.dungeon', () => {
 
     // map.dump();
 
-    expect(surfaceAt(39, 21)).toEqual(2); // added door
-    expect(surfaceAt(47, 21)).toEqual(2); // added door
+    expect(tileAt(39, 21)).toEqual(2); // added door
+    expect(tileAt(47, 21)).toEqual(2); // added door
 
   });
 

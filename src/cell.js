@@ -3,7 +3,7 @@ import { utils as UTILS } from './utils.js';
 import { flag as FLAG } from './flag.js';
 import { random } from './random.js';
 import { colors as COLORS, color as COLOR } from './color.js';
-import { tiles as TILES, Flags as TileFlags, MechFlags as TileMechFlags, withName, Layer as TileLayer } from './tile.js';
+import { tiles as TILES, tile as TILE, Flags as TileFlags, MechFlags as TileMechFlags, Layer as TileLayer } from './tile.js';
 import { tileEvent as TILE_EVENT } from './tileEvent.js';
 
 import { types, make, def, config as CONFIG, data as DATA } from './gw.js';
@@ -365,7 +365,7 @@ class Cell {
   setTile(tileId=0, checkPriority=false) {
     let tile;
     if (typeof tileId === 'string') {
-      tile = withName(tileId);
+      tile = TILE.withName(tileId);
     }
     else if (tileId instanceof types.Tile) {
       tile = tileId;
@@ -399,6 +399,11 @@ class Cell {
 
     this.layerFlags &= ~Fl(tile.layer); // turn off layer flag
     this.layers[tile.layer] = tile.id;
+
+    if (tile.layer > 0 && this.layers[0] == 0) {
+      this.layers[0] = TILE.withName('FLOOR').id; // TODO - Not good
+    }
+
     this.flags |= (Flags.NEEDS_REDRAW | Flags.TILE_CHANGED);
     return (oldTile.glowLight !== tile.glowLight);
   }

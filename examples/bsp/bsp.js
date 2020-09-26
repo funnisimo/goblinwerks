@@ -62,21 +62,21 @@ class Node {
 		if (splitHeight) {
 			let plusH = Math.min(10,(this.h - minHeight*2));
 			let topH = GW.random.number(plusH) + minHeight; // + minHeight;
-			console.log('Divide TOP/BOTTOM', this.toString());
+			// console.log('Divide TOP/BOTTOM', this.toString());
 			const bottomNode = new Node(this.x, this.y + topH, this.w, this.h - topH);
 			this.h = topH;
-			console.log(' - ', this.toString());
-			console.log(' - ', bottomNode.toString());
+			// console.log(' - ', this.toString());
+			// console.log(' - ', bottomNode.toString());
 			return bottomNode;
 		}
 		if (splitWidth) {
 			let plusW = Math.min(15, this.w - minWidth*2);
 			let leftW = GW.random.number(plusW) + minWidth;
-			console.log('Divide LEFT/RIGHT', this.toString());
+			// console.log('Divide LEFT/RIGHT', this.toString());
 			const rightNode = new Node(this.x + leftW, this.y, this.w - leftW, this.h);
 			this.w = leftW;
-			console.log(' - ', this.toString());
-			console.log(' - ', rightNode.toString());
+			// console.log(' - ', this.toString());
+			// console.log(' - ', rightNode.toString());
 			return rightNode;
 		}
 	}
@@ -95,12 +95,12 @@ function makeBspTree(map, opts={}) {
 	let nodes = [root];
 	let active = true;
 	let len = 1;
-	while(active || len < 5) {
+	while(active || len < 6) {
 		active = false;
 		len = nodes.length;	// get before we add the new ones...
 		for(let i = 0; i < len; ++i) {
 			const node = nodes[i];
-			if (len < 5 || ((!node.tooSmall(minW, minH)) && GW.random.percent(50))) {
+			if ((!node.tooSmall(minW, minH)) && (GW.random.percent(40) || len < 6)) {
 				const added = node.split(minW, minH);
 				if (added) {
 					nodes.push(added);
@@ -120,15 +120,17 @@ function isOpen(grid, x, y) {
 
 function digTunnel(grid, x, y, dx, dy) {
 	const v = grid[x][y];
-	console.log('dig tunnel', x, y, v, dx, dy);
+	// console.log('dig tunnel', x, y, v, dx, dy);
 
 	if (grid[x + dx][y + dy]) {
-		console.log('- Not edge.');
+		// console.log('- Not edge.');
 		return false;
 	}
 
 	let fx = x + dx;
 	let fy = y + dy;
+	const doorX = fx;
+	const doorY = fy;
 
 	while(grid.hasXY(fx, fy)) {
 		if (isOpen(grid, fx, fy)) {
@@ -136,21 +138,39 @@ function digTunnel(grid, x, y, dx, dy) {
 			if (!isOpen(grid, fx - dy, fy - dx)) return false;
 		}
 		else if (grid[fx][fy] == v) {
-			console.log('- same');
+			// console.log('- same');
 			return false;
 		}
 		else {
-			console.log('- end:', fx, fy, grid[fx][fy]);
+			// console.log('- end:', fx, fy, grid[fx][fy]);
 			while( x != fx || y != fy) {
 				grid[x][y] = v;
 				x += dx;
 				y += dy;
 			}
-			const l = grid[fx][fy];
+			let l = grid[fx][fy];
+			if (l == 2) {
+				if (grid[fx-1][fy] > 2 && grid[fx-1][fy] != v) {
+					l = grid[fx-1][fy];
+				}
+				else if (grid[fx+1][fy] > 2 && grid[fx+1][fy] != v) {
+					l = grid[fx+1][fy];
+				}
+				else if (grid[fx][fy-1] > 2 && grid[fx][fy-1] != v) {
+					l = grid[fx][fy-1];
+				}
+				else if (grid[fx][fy+1] > 2 && grid[fx][fy+1] != v) {
+					l = grid[fx][fy+1];
+				}
+				else {
+					l = v;	// same
+				}
+			}
 			let a = Math.max(v, l);
 			let b = Math.min(v, l);
-			console.log('connected:', a, '=>', b);
+			// console.log('connected:', a, '=>', b);
 			grid.replace(a, b);
+			grid[doorX][doorY] = 2;
 			return l;
 		}
 
@@ -158,7 +178,7 @@ function digTunnel(grid, x, y, dx, dy) {
 		fy = fy + dy;
 	}
 
-	console.log('- Not found');
+	// console.log('- Not found');
 	return false;
 }
 
@@ -212,7 +232,7 @@ function digRight(grid, node) {
 }
 
 function digBspTree(map, tree, opts={}) {
-	console.log(tree);
+	// console.log(tree);
 	const minW = opts.minWidth || opts.minW || 7;
 	const minH = opts.minHeight || opts.minH || 5;
 
@@ -227,7 +247,7 @@ function digBspTree(map, tree, opts={}) {
 		node.y = y;
 		node.w = w;
 		node.h = h;
-		grid.updateRect(x, y, w, h, () => i + 1 );
+		grid.updateRect(x, y, w, h, () => i + 3 );
 	});
 
 	GW.random.shuffle(tree);
@@ -240,19 +260,25 @@ function digBspTree(map, tree, opts={}) {
 		}
 	});
 
-	grid.dump();
+	// grid.dump();
 
-	if (grid.count( (v) => v > 1 )) {
+	if (grid.count( (v) => v > 3 )) {
+		GW.grid.free(grid);
 		console.log('NOT CONNECTED!');
+		return false;
 	}
 
 	grid.forEach( (v, i, j) => {
-		if (v) {
-			map.setTile(i, j, 1);
+		if (v > 2) {
+			map.setTile(i, j, 'FLOOR');
+		}
+		else if (v == 2) {
+			map.setTile(i, j, 'DOOR');
 		}
 	});
 
 	GW.grid.free(grid);
+	return true;
 }
 
 
@@ -264,10 +290,33 @@ function drawMap(attempt=0) {
 	const seed = GW.random._v - 1;
 
 	// dig a map
-	MAP.fill(6);
+	MAP.clear();
+	GW.dungeon.start(MAP);
+
 	const opts = { minWidth: 7, minHeight: 5, start: startingXY };
-	const tree = makeBspTree(MAP, opts);
-	digBspTree(MAP, tree, opts);
+
+	let success = false;
+	while(!success) {
+		const tree = makeBspTree(MAP, opts);
+		success = digBspTree(MAP, tree, opts);
+	}
+
+	GW.dungeon.addLoops(30, 5);
+
+	let lakeCount = GW.random.number(5);
+	for(let i = 0; i < lakeCount; ++i) {
+		GW.dungeon.digLake();
+	}
+
+	GW.dungeon.addBridges(40, 8);
+
+	// if (!GW.dungeon.addStairs(startingXY[0], startingXY[1], -1, -1)) {
+	// 	console.error('Failed to place stairs.');
+	// 	return drawMap(++attempt);
+	// }
+
+	GW.dungeon.finish();
+
 
 	GW.viewport.draw(canvas.buffer, MAP);
 	console.log('MAP SEED = ', seed);

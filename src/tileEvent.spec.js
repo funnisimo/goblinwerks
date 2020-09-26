@@ -323,8 +323,8 @@ describe('tileEvent', () => {
     const feat = GW.make.tileEvent({ flags: 'DFF_CLEAR_OTHER_TERRAIN' });
 
     const cell = map.cell(5, 5);
-    cell.setTile(2);
-    expect(cell.surface).toEqual(2);
+    cell.setTile(3);
+    expect(cell.surface).toEqual(3);
     expect(cell.ground).toEqual(1);
 
     GW.tileEvent.spawn(feat, { map, x: 5, y: 5 });

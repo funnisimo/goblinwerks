@@ -5233,44 +5233,49 @@ class Cell {
   }
 
   setTile(tileId=0, checkPriority=false) {
-    let tile;
+    let tile$1;
     if (typeof tileId === 'string') {
-      tile = withName(tileId);
+      tile$1 = tile.withName(tileId);
     }
     else if (tileId instanceof types.Tile) {
-      tile = tileId;
-      tileId = tile.id;
+      tile$1 = tileId;
+      tileId = tile$1.id;
     }
     else {
-      tile = tiles[tileId];
+      tile$1 = tiles[tileId];
     }
 
-    if (!tile) {
-      tile = tiles[0];
+    if (!tile$1) {
+      tile$1 = tiles[0];
       tileId = 0;
     }
 
-    const oldTileId = this.layers[tile.layer] || 0;
+    const oldTileId = this.layers[tile$1.layer] || 0;
     const oldTile = tiles[oldTileId] || tiles[0];
 
-    if (checkPriority && oldTile.priority > tile.priority) return false;
+    if (checkPriority && oldTile.priority > tile$1.priority) return false;
 
     if ((oldTile.flags & Flags$2.T_PATHING_BLOCKER)
-      != (tile.flags & Flags$2.T_PATHING_BLOCKER))
+      != (tile$1.flags & Flags$2.T_PATHING_BLOCKER))
     {
       data.staleLoopMap = true;
     }
 
-    if ((tile.flags & Flags$2.T_IS_FIRE)
+    if ((tile$1.flags & Flags$2.T_IS_FIRE)
       && !(oldTile.flags & Flags$2.T_IS_FIRE))
     {
       this.setFlags(0, CellMechFlags.CAUGHT_FIRE_THIS_TURN);
     }
 
-    this.layerFlags &= ~Fl$2(tile.layer); // turn off layer flag
-    this.layers[tile.layer] = tile.id;
+    this.layerFlags &= ~Fl$2(tile$1.layer); // turn off layer flag
+    this.layers[tile$1.layer] = tile$1.id;
+
+    if (tile$1.layer > 0 && this.layers[0] == 0) {
+      this.layers[0] = tile.withName('FLOOR').id; // TODO - Not good
+    }
+
     this.flags |= (Flags$1.NEEDS_REDRAW | Flags$1.TILE_CHANGED);
-    return (oldTile.glowLight !== tile.glowLight);
+    return (oldTile.glowLight !== tile$1.glowLight);
   }
 
   clearLayers(except, floorTile) {
@@ -6061,7 +6066,7 @@ tile.install = installTile;
 const NOTHING = def.NOTHING = 0;
 installTile(NOTHING,       '\u2205', 'black', 'black', 0, 0, 'T_OBSTRUCTS_PASSABILITY', "an eerie nothingness", "");
 installTile('FLOOR',       '\u00b7', [30,30,30,20], [2,2,10,0,2,2,0], 10, 0, 0, 'the floor');	// FLOOR
-installTile('DOOR',        '+', [100,40,40], [30,60,60], 30, Layer.SURFACE, 'T_IS_DOOR', 'a door');	// DOOR (LAYER=SURFACE)
+installTile('DOOR',        '+', [100,40,40], [30,60,60], 30, 0, 'T_IS_DOOR', 'a door');	// DOOR
 installTile('BRIDGE',      '=', [100,40,40], null, 40, Layer.SURFACE, 'T_BRIDGE', 'a bridge');	// BRIDGE (LAYER=SURFACE)
 installTile('UP_STAIRS',   '<', [100,40,40], [100,60,20], 200, 0, 'T_UP_STAIRS', 'an upward staircase');	// UP
 installTile('DOWN_STAIRS', '>', [100,40,40], [100,60,20], 200, 0, 'T_DOWN_STAIRS', 'a downward staircase');	// DOWN
