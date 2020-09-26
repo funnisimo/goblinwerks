@@ -15,7 +15,7 @@ const TILE = 1;
 
 
 export function installDigger(id, fn, config) {
-  config = fn(config || {});	// call to have function bind itself to the config
+  config = fn(config || {});	// call to have function setup the config
   config.fn = fn;
   config.id = id;
   diggers[id] = config;
@@ -129,8 +129,12 @@ export function digChoiceRoom(config, grid) {
     id = random.lottery(config.choices);
   }
   const digger = diggers[id];
+  let digConfig = digger;
+  if (config.opts) {
+    digConfig = Object.assign({}, digger, config.opts);
+  }
   // debug.log('Choose room: ', id);
-  digger.fn(digger, grid);
+  digger.fn(digConfig, grid);
   return digger.id;
 }
 

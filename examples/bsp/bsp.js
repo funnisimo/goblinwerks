@@ -231,6 +231,21 @@ function digRight(grid, node) {
 	return false;
 }
 
+
+function digRoom(grid, node, id=1) {
+	const w = Math.round(node.w * (75 + GW.random.number(25)) / 100) - 1;
+	const h = Math.round(node.h * (75 + GW.random.number(25)) / 100) - 1;
+	const x = node.x + GW.random.clumped(1, node.w - w, 3) - 1;
+	const y = node.y + GW.random.clumped(1, node.h - h, 3) - 1;
+	node.x = x;
+	node.y = y;
+	node.w = w;
+	node.h = h;
+	grid.updateRect(x, y, w, h, () => id );
+	return true;
+}
+
+
 function digBspTree(map, tree, opts={}) {
 	// console.log(tree);
 	const minW = opts.minWidth || opts.minW || 7;
@@ -239,15 +254,7 @@ function digBspTree(map, tree, opts={}) {
 	const grid = GW.grid.alloc(map.width, map.height);
 
 	tree.forEach( (node, i) => {
-		const w = Math.round(node.w * (75 + GW.random.number(25)) / 100) - 1;
-		const h = Math.round(node.h * (75 + GW.random.number(25)) / 100) - 1;
-		const x = node.x + GW.random.clumped(1, node.w - w, 3) - 1;
-		const y = node.y + GW.random.clumped(1, node.h - h, 3) - 1;
-		node.x = x;
-		node.y = y;
-		node.w = w;
-		node.h = h;
-		grid.updateRect(x, y, w, h, () => i + 3 );
+		digRoom(grid, node, i + 3);
 	});
 
 	GW.random.shuffle(tree);
