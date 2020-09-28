@@ -96,7 +96,7 @@ export function digRoom(opts={}) {
     const id = digger.fn(config, grid);
     dungeon.log('Dig room:', id);
     const doors = DIGGER.chooseRandomDoorSites(grid);
-    if (random.percent(hallChance)) {
+    if (random.chance(hallChance)) {
       DIGGER.attachHallway(grid, doors, SITE.config);
     }
 
@@ -198,7 +198,7 @@ function attachRoomToDungeon(roomGrid, doorSites, placeDoor) {
         if (doorSites[oppDir][0] != -1
             && roomAttachesAt(roomGrid, offsetX, offsetY))
         {
-          // GW.dungeon.log("attachRoom: ", x, y, oppDir);
+          dungeon.log("- attachRoom: ", x, y, oppDir);
 
           // Room fits here.
           GRID.offsetZip(SITE.cells, roomGrid, offsetX, offsetY, (d, s, i, j) => d.setTile(s) );
@@ -555,7 +555,7 @@ export function removeDiagonalOpenings() {
 						&& (SITE.isObstruction(i + k, j+1))
 						&& (SITE.canBePassed(i + (1-k), j+1)))
           {
-						if (random.percent(50)) {
+						if (random.chance(50)) {
 							x1 = i + (1-k);
 							x2 = i + k;
 							y1 = j;
@@ -588,7 +588,7 @@ function finishDoors() {
 					&& (SITE.canBePassed(i, j+1) || SITE.canBePassed(i, j-1))) {
 					// If there's passable terrain to the left or right, and there's passable terrain
 					// above or below, then the door is orphaned and must be removed.
-					SITE.clearTileWithFlags(i, j, TileFlags.T_IS_DOOR);
+					SITE.setTile(i, j, FLOOR);
           dungeon.log('Removed orphan door', i, j);
 				} else if ((SITE.blocksPathing(i+1, j) ? 1 : 0)
 						   + (SITE.blocksPathing(i-1, j) ? 1 : 0)
@@ -596,7 +596,7 @@ function finishDoors() {
 						   + (SITE.blocksPathing(i, j-1) ? 1 : 0) >= 3) {
 					// If the door has three or more pathing blocker neighbors in the four cardinal directions,
 					// then the door is orphaned and must be removed.
-          SITE.clearTileWithFlags(i, j, TileFlags.T_IS_DOOR);
+          SITE.setTile(i, j, FLOOR);
           dungeon.log('Removed blocked door', i, j);
 				}
 			}

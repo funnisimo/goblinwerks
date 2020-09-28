@@ -451,7 +451,7 @@ class Cell {
       if (!tile.events) continue;
       const ev = tile.events[name];
       if (ev) {
-        if (ev.chance && !random.percent(ev.chance)) {
+        if (ev.chance && !random.chance(ev.chance)) {
           continue;
         }
 
@@ -473,7 +473,7 @@ class Cell {
   //     if (!id) continue;
   //     const tile = TILES[id];
   //     if (!tile.events.tick) continue;
-  //     if (random.percent(tile.events.tick.chance)) {
+  //     if (random.chance(tile.events.tick.chance)) {
   //       flag |= Fl(i);
   //     }
   //   }

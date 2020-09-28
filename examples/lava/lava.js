@@ -30,13 +30,13 @@ async function lavaTick(ctx) {
 	if (GW.random.number(ERUPT_CHANCE) <= 1) {
 		return await GW.tileEvent.spawn({ tile: 'LAVA_ERUPTING' }, ctx);
 	}
-	else if (GW.random.percent(CRUST_CHANCE)) {
+	else if (GW.random.chance(CRUST_CHANCE)) {
 		return await GW.tileEvent.spawn({ tile: 'LAVA_CRUST' }, ctx);
 	}
 }
 
 async function lavaBreak(ctx) {
-	if (GW.random.percent(BREAK_CHANCE)) {
+	if (GW.random.chance(BREAK_CHANCE)) {
 		return await GW.tileEvent.spawn({ flags: GW.flags.tileEvent.DFF_CLEAR_OTHER_TERRAIN }, ctx);
 	}
 }

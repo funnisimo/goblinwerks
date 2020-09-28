@@ -83,6 +83,7 @@ export class Random {
   }
 
   range(lo, hi) {
+    if (hi <= lo) return hi;
   	const diff = (hi - lo) + 1;
   	return lo + (this.number() % diff);
   }
@@ -134,13 +135,11 @@ export class Random {
   	return (total + lo);
   }
 
-  // TODO - should this be : chance(percent)
-  percent(percent) {
+  chance(percent) {
     if (percent <= 0) return false;
     if (percent >= 100) return true;
   	return (this.range(0, 99) < percent);
   }
-
 
   item(list) {
   	return list[this.range(0, list.length - 1)];

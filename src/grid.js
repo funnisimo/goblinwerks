@@ -99,6 +99,18 @@ export class Grid extends Array {
 		return this.hasXY(x, y) && ((x == 0) || (x == this.width - 1) || (y == 0) || (y == this.height - 1));
 	}
 
+	calcBounds() {
+		const bounds = { left: this.width, top: this.height, right: 0, bottom: 0 };
+		this.forEach( (v, i, j) => {
+			if (!v) return;
+			if (bounds.left > i) bounds.left = i;
+			if (bounds.right < i) bounds.right = i;
+			if (bounds.top > j) bounds.top = j;
+			if (bounds.bottom < j ) bounds.bottom = j;
+		});
+		return bounds;
+	}
+
 	update(fn) {
 		let i, j;
 		for(i = 0; i < this.width; i++) {
@@ -180,7 +192,7 @@ export class Grid extends Array {
 					bestLoc[1] = j;
 					bestDistance = dist;
 				}
-				else if (dist == bestDistance && random.percent(50)) {
+				else if (dist == bestDistance && random.chance(50)) {
 					bestLoc[0] = i;
 					bestLoc[1] = j;
 				}
@@ -637,13 +649,13 @@ GRID.floodFill = floodFill;
 
 
 export function offsetZip(destGrid, srcGrid, srcToDestX, srcToDestY, value) {
-	const fn = (typeof value === 'function') ? value : ((d, s, i, j) => destGrid[i][j] = value || s);
+	const fn = (typeof value === 'function') ? value : ((d, s, dx, dy, sx, sy) => destGrid[dx][dy] = value || s);
 	srcGrid.forEach( (c, i, j) => {
 		const destX = i + srcToDestX;
 		const destY = j + srcToDestY;
 		if (!destGrid.hasXY(destX, destY)) return;
 		if (!c) return;
-		fn(destGrid[destX][destY], c, i, j);
+		fn(destGrid[destX][destY], c, destX, destY, i, j);
 	});
 }
 
@@ -756,7 +768,7 @@ export function fillBlob(grid,
 		// Fill relevant portion with noise based on the percentSeeded argument.
 		for(i=0; i<maxBlobWidth; i++) {
 			for(j=0; j<maxBlobHeight; j++) {
-				grid[i + left][j + top] = (random.percent(percentSeeded) ? 1 : 0);
+				grid[i + left][j + top] = (random.chance(percentSeeded) ? 1 : 0);
 			}
 		}
 

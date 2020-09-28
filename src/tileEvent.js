@@ -396,7 +396,7 @@ function computeSpawnMap(map, x, y, feat, spawnMap)
 		if (startProb >= 100) {
 			probDec = probDec || 100;
 		}
-		while ( random.percent(startProb) ) {
+		while ( random.chance(startProb) ) {
 			startProb -= probDec;
 			++radius;
 		}
@@ -412,7 +412,7 @@ function computeSpawnMap(map, x, y, feat, spawnMap)
 
 			const dist = Math.floor(UTILS.distanceBetween(x, y, i, j));
 			const prob = startProb - (dist * probDec);
-			if (!random.percent(prob)) return 0;
+			if (!random.chance(prob)) return 0;
 			return 1;
 		});
 		spawnMap[x][y] = 1;
@@ -435,7 +435,7 @@ function computeSpawnMap(map, x, y, feat, spawnMap)
 							if (map.hasXY(x2, y2) && !spawnMap[x2][y2]
 								&& (!requireMatch || (matchTile && map.hasTile(x2, y2, matchTile)))
 								&& (!map.hasTileFlag(x2, y2, TileFlags.T_OBSTRUCTS_TILE_EFFECTS) || (matchTile && map.hasTile(x2, y2, matchTile)))
-								&& random.percent(startProb))
+								&& random.chance(startProb))
 							{
 								spawnMap[x2][y2] = t;
 								madeChange = true;

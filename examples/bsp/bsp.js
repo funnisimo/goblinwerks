@@ -32,6 +32,12 @@ class Node {
 	tooShort(minHeight) { return (this.h <= minHeight*2); }
 	tooSmall(minWidth, minHeight) { return (this.tooNarrow(minWidth) && this.tooShort(minHeight)); }
 
+	containsXY(x, y) {
+		if (x < this.x || y < this.y) return false;
+		if (x > this.x + this.w || y > this.y + this.h) return false;
+		return true;
+	}
+
 	split(minWidth, minHeight) {
 		let splitWidth = !this.tooNarrow(minWidth);
 		let splitHeight  = !this.tooShort(minHeight);
@@ -40,7 +46,7 @@ class Node {
 			return null;
 		}
 		else if (splitWidth && splitHeight) {
-			if (GW.random.percent(50)) {
+			if (GW.random.chance(50)) {
 				splitWidth = true;
 				splitHeight = false;
 			}
@@ -100,7 +106,7 @@ function makeBspTree(map, opts={}) {
 		len = nodes.length;	// get before we add the new ones...
 		for(let i = 0; i < len; ++i) {
 			const node = nodes[i];
-			if ((!node.tooSmall(minW, minH)) && (GW.random.percent(40) || len < 6)) {
+			if ((!node.tooSmall(minW, minH)) && (GW.random.chance(40) || len < 6)) {
 				const added = node.split(minW, minH);
 				if (added) {
 					nodes.push(added);
@@ -118,8 +124,14 @@ function isOpen(grid, x, y) {
 }
 
 
-function digTunnel(grid, x, y, dx, dy) {
-	const v = grid[x][y];
+function digTunnel(grid, node, x, y, dx, dy) {
+	let v = grid[x][y];
+	while (!v) {
+		x -= dx;
+		y -= dy;
+		if (!node.containsXY(x, y)) return false;
+		v = grid[x][y];
+	}
 	// console.log('dig tunnel', x, y, v, dx, dy);
 
 	if (grid[x + dx][y + dy]) {
@@ -187,7 +199,7 @@ function digUp(grid, node) {
 	GW.random.shuffle(seq);
 
 	for(let dx of seq) {
-		if (digTunnel(grid, node.x + dx, node.y, 0, -1)) {
+		if (digTunnel(grid, node, node.x + dx, node.y, 0, -1)) {
 			return true;
 		}
 	}
@@ -199,7 +211,7 @@ function digDown(grid, node) {
 	GW.random.shuffle(seq);
 
 	for(let dx of seq) {
-		if (digTunnel(grid, node.x + dx, node.y + node.h - 1, 0, 1)) {
+		if (digTunnel(grid, node, node.x + dx, node.y + node.h - 1, 0, 1)) {
 			return true;
 		}
 	}
@@ -211,7 +223,7 @@ function digLeft(grid, node) {
 	GW.random.shuffle(seq);
 
 	for(let dy of seq) {
-		if (digTunnel(grid, node.x, node.y + dy, -1, 0)) {
+		if (digTunnel(grid, node, node.x, node.y + dy, -1, 0)) {
 			return true;
 		}
 	}
@@ -224,7 +236,7 @@ function digRight(grid, node) {
 	GW.random.shuffle(seq);
 
 	for(let dy of seq) {
-		if (digTunnel(grid, node.x + node.w - 1, node.y + dy, 1, 0)) {
+		if (digTunnel(grid, node, node.x + node.w - 1, node.y + dy, 1, 0)) {
 			return true;
 		}
 	}
@@ -233,15 +245,51 @@ function digRight(grid, node) {
 
 
 function digRoom(grid, node, id=1) {
-	const w = Math.round(node.w * (75 + GW.random.number(25)) / 100) - 1;
-	const h = Math.round(node.h * (75 + GW.random.number(25)) / 100) - 1;
-	const x = node.x + GW.random.clumped(1, node.w - w, 3) - 1;
-	const y = node.y + GW.random.clumped(1, node.h - h, 3) - 1;
-	node.x = x;
-	node.y = y;
-	node.w = w;
-	node.h = h;
-	grid.updateRect(x, y, w, h, () => id );
+
+	const opts = {
+		width: node.w - 1,
+		height: node.h - 1,
+		minPct: 75,
+	};
+
+	const roomGrid = GW.grid.alloc(grid.width, grid.height);
+	let tries = 20;
+	let bounds;
+
+	while(tries--) {
+		const ratio = Math.abs(100 - Math.round(100 * node.w/node.h));
+		if (ratio < 20 && GW.random.chance(30)) {
+			GW.digger.circularRoom(opts, roomGrid);
+		}
+		else {
+			GW.digger.rectangularRoom(opts, roomGrid);
+		}
+		bounds = roomGrid.calcBounds();
+
+		if (bounds.right - bounds.left < node.w && bounds.bottom - bounds.top < node.h) {
+			break;
+		}
+	}
+
+	if (!tries) {
+		console.error('Failed to build room after 20 tries!');
+		console.log(opts);
+		return false;
+	}
+
+	GW.grid.offsetZip(grid, roomGrid, node.x - bounds.left, node.y - bounds.top, id);
+	node.w = bounds.right - bounds.left + 1;
+	node.h = bounds.bottom - bounds.top + 1;
+
+	// const w = Math.round(node.w * (75 + GW.random.number(25)) / 100) - 1;
+	// const h = Math.round(node.h * (75 + GW.random.number(25)) / 100) - 1;
+	// const x = node.x + GW.random.clumped(1, node.w - w, 3) - 1;
+	// const y = node.y + GW.random.clumped(1, node.h - h, 3) - 1;
+	// node.x = x;
+	// node.y = y;
+	// node.w = w;
+	// node.h = h;
+	// grid.updateRect(x, y, w, h, () => id );
 	return true;
 }
 

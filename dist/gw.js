@@ -517,6 +517,7 @@
     }
 
     range(lo, hi) {
+      if (hi <= lo) return hi;
     	const diff = (hi - lo) + 1;
     	return lo + (this.number() % diff);
     }
@@ -568,13 +569,11 @@
     	return (total + lo);
     }
 
-    // TODO - should this be : chance(percent)
-    percent(percent) {
+    chance(percent) {
       if (percent <= 0) return false;
       if (percent >= 100) return true;
     	return (this.range(0, 99) < percent);
     }
-
 
     item(list) {
     	return list[this.range(0, list.length - 1)];
@@ -2005,6 +2004,18 @@
   		return this.hasXY(x, y) && ((x == 0) || (x == this.width - 1) || (y == 0) || (y == this.height - 1));
   	}
 
+  	calcBounds() {
+  		const bounds = { left: this.width, top: this.height, right: 0, bottom: 0 };
+  		this.forEach( (v, i, j) => {
+  			if (!v) return;
+  			if (bounds.left > i) bounds.left = i;
+  			if (bounds.right < i) bounds.right = i;
+  			if (bounds.top > j) bounds.top = j;
+  			if (bounds.bottom < j ) bounds.bottom = j;
+  		});
+  		return bounds;
+  	}
+
   	update(fn) {
   		let i, j;
   		for(i = 0; i < this.width; i++) {
@@ -2086,7 +2097,7 @@
   					bestLoc[1] = j;
   					bestDistance = dist;
   				}
-  				else if (dist == bestDistance && random.percent(50)) {
+  				else if (dist == bestDistance && random.chance(50)) {
   					bestLoc[0] = i;
   					bestLoc[1] = j;
   				}
@@ -2532,13 +2543,13 @@
 
 
   function offsetZip(destGrid, srcGrid, srcToDestX, srcToDestY, value) {
-  	const fn = (typeof value === 'function') ? value : ((d, s, i, j) => destGrid[i][j] = value || s);
+  	const fn = (typeof value === 'function') ? value : ((d, s, dx, dy, sx, sy) => destGrid[dx][dy] = value || s);
   	srcGrid.forEach( (c, i, j) => {
   		const destX = i + srcToDestX;
   		const destY = j + srcToDestY;
   		if (!destGrid.hasXY(destX, destY)) return;
   		if (!c) return;
-  		fn(destGrid[destX][destY], c, i, j);
+  		fn(destGrid[destX][destY], c, destX, destY, i, j);
   	});
   }
 
@@ -2649,7 +2660,7 @@
   		// Fill relevant portion with noise based on the percentSeeded argument.
   		for(i=0; i<maxBlobWidth; i++) {
   			for(j=0; j<maxBlobHeight; j++) {
-  				grid[i + left][j + top] = (random.percent(percentSeeded) ? 1 : 0);
+  				grid[i + left][j + top] = (random.chance(percentSeeded) ? 1 : 0);
   			}
   		}
 
@@ -3989,6 +4000,8 @@
     config = config || {};
     opts = opts || {};
 
+    if (!config.width || !config.height) utils$1.ERROR('All diggers require config to include width and height.');
+
     Object.entries(opts).forEach( ([key,expect]) => {
       const have = config[key];
 
@@ -4029,7 +4042,7 @@
 
 
   function digCavern(config, grid) {
-    config = digger.checkConfig(config, { width: [3,12], height: [4,8] });
+    config = digger.checkConfig(config, { width: 12, height: 8 });
     if (!grid) return config;
 
     let destX, destY;
@@ -4037,10 +4050,10 @@
 
     blobGrid = GRID.alloc(grid.width, grid.height, 0);
 
-    const minWidth  = config.width[0];
-    const maxWidth  = config.width[1];
-    const minHeight = config.height[0];
-    const maxHeight = config.height[1];
+    const minWidth  = Math.floor(0.5 * config.width); // 6
+    const maxWidth  = config.width;
+    const minHeight = Math.floor(0.5 * config.height);  // 4
+    const maxHeight = config.height;
 
     grid.fill(0);
     const bounds = GRID.fillBlob(blobGrid, 5, minWidth, minHeight, maxWidth, maxHeight, 55, "ffffffttt", "ffffttttt");
@@ -4098,15 +4111,15 @@
   digger.choiceRoom = digChoiceRoom;
 
 
-  // This is a special room that appears at the entrance to the dungeon on depth 1.
+  // From BROGUE => This is a special room that appears at the entrance to the dungeon on depth 1.
   function digEntranceRoom(config, grid) {
-    config = digger.checkConfig(config, { width: [8,20], height: [10,5] });
+    config = digger.checkConfig(config, { width: 20, height: 10 });
     if (!grid) return config;
 
-    const roomWidth = config.width[0];
-    const roomHeight = config.height[0];
-    const roomWidth2 = config.width[1];
-    const roomHeight2 = config.height[1];
+    const roomWidth = Math.floor(0.4 * config.width); // 8
+    const roomHeight = config.height;
+    const roomWidth2 = config.width;
+    const roomHeight2 = Math.floor(0.5 * config.height);  // 5
 
     // ALWAYS start at bottom+center of map
     const roomX = Math.floor(grid.width/2 - roomWidth/2 - 1);
@@ -4125,13 +4138,13 @@
 
 
   function digCrossRoom(config, grid) {
-    config = digger.checkConfig(config, { width: [3,12], height: [3,7], width2: [4,20], height2: [2,5] });
+    config = digger.checkConfig(config, { width: 12, height: 20 });
     if (!grid) return config;
 
-    const roomWidth = random.range(config.width[0], config.width[1]);
-    const roomWidth2 = random.range(config.width2[0], config.width2[1]);
-    const roomHeight = random.range(config.height[0], config.height[1]);
-    const roomHeight2 = random.range(config.height2[0], config.height2[1]);
+    const roomWidth = Math.max(2, Math.floor( config.width * random.range(15, 60) / 100)); // [3,12]
+    const roomWidth2 = Math.max(2, Math.floor( config.width * random.range(20, 100) / 100)); // [4,20]
+    const roomHeight = Math.max(2, Math.floor( config.height * random.range(50, 100) / 100));  // [3,7]
+    const roomHeight2 = Math.max(2, Math.floor( config.height * random.range(25, 75) / 100));  // [2,5]
 
     const roomX = random.range(Math.max(0, Math.floor(grid.width/2) - (roomWidth - 1)), Math.min(grid.width, Math.floor(grid.width/2)));
     const roomX2 = (roomX + Math.floor(roomWidth / 2) + random.range(0, 2) + random.range(0, 2) - 3) - Math.floor(roomWidth2 / 2);
@@ -4149,18 +4162,18 @@
 
 
   function digSymmetricalCrossRoom(config, grid) {
-    config = digger.checkConfig(config, { width: [4,8], height: [4,5], width2: [3,4], height2: [3,3] });
+    config = digger.checkConfig(config, { width: 8, height: 5 });
     if (!grid) return config;
 
-    let majorWidth = random.range(config.width[0], config.width[1]);
-    let majorHeight = random.range(config.height[0], config.height[1]);
+    let majorWidth = Math.floor( config.width * random.range(50, 100) / 100); // [4,8]
+    let majorHeight = Math.floor( config.height * random.range(75, 100) / 100); // [4,5]
 
-    let minorWidth = random.range(config.width2[0], config.width2[1]);
-    if (majorHeight % 2 == 0) {
+    let minorWidth = Math.max(2, Math.floor( config.width * random.range(25, 50) / 100));  // [2,4]
+    if (majorHeight % 2 == 0 && minorWidth > 2) {
         minorWidth -= 1;
     }
-    let minorHeight = random.range(config.height2[0], config.height2[1]);	// originally 2,3?
-    if (majorWidth % 2 == 0) {
+    let minorHeight = Math.max(2, Math.floor( config.height * random.range(25, 50) / 100));	// [2,3]?
+    if (majorWidth % 2 == 0 && minorHeight > 2) {
         minorHeight -= 1;
     }
 
@@ -4174,11 +4187,11 @@
 
 
   function digRectangularRoom(config, grid) {
-    config = digger.checkConfig(config, { width: [3,6], height: [2,4] });
+    config = digger.checkConfig(config, { width: 6, height: 4, minPct: 50 });
     if (!grid) return config;
 
-    const width = random.range(config.width[0], config.width[1]);
-    const height = random.range(config.height[0], config.height[1]);
+    const width = Math.floor( config.width * random.range(config.minPct, 100) / 100);  // [3,6]
+    const height = Math.floor( config.height * random.range(config.minPct, 100) / 100);  // [2,4]
 
     grid.fill(0);
     grid.fillRect(Math.floor((grid.width - width) / 2), Math.floor((grid.height - height) / 2), width, height, config.tile || TILE);
@@ -4189,13 +4202,15 @@
 
 
   function digCircularRoom(config, grid) {
-    config = digger.checkConfig(config, { radius: [2,4] });
+    config = digger.checkConfig(config, { width: 6, height: 6 });
     if (!grid) return config;
 
-    const radius = random.range(config.radius[0], config.radius[1]);
+    const radius = Math.floor( (Math.min(config.width, config.height)-1) * random.range(75, 100) / 200);  // [3,4]
 
     grid.fill(0);
-    grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, config.tile || TILE);
+    if (radius > 1) {
+      grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, config.tile || TILE);
+    }
 
     return config.id;
   }
@@ -4203,41 +4218,41 @@
   digger.circularRoom = digCircularRoom;
 
 
-  function digBrogueCircularRoom(config, grid) {
-    config = digger.checkConfig(config, { radius: [2,4], radius2: [4,10], altChance: 5, ringMinWidth: 3, holeMinSize: 3, holeChance: 50 });
+  function digBrogueDonut(config, grid) {
+    config = digger.checkConfig(config, { width: 10, height: 10, altChance: 5, ringMinWidth: 3, holeMinSize: 3, holeChance: 50 });
     if (!grid) return config;
 
-    const params = random.percent(config.altChance || 5) ? config.radius2 : config.radius;
-    const radius = random.range(params[0], params[1]);
+    const radius = Math.floor( Math.min(config.width, config.height) * random.range(75, 100) / 100);  // [5,10]
 
     grid.fill(0);
     grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, config.tile || TILE);
 
     if (radius > config.ringMinWidth + config.holeMinSize
-        && random.percent(config.holeChance))
+        && random.chance(config.holeChance))
     {
         grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), random.range(config.holeMinSize, radius - config.holeMinSize), 0);
     }
     return config.id;
   }
 
-  digger.brogueCircularRoom = digBrogueCircularRoom;
+  digger.brogueDonut = digBrogueDonut;
 
 
   function digChunkyRoom(config, grid) {
-    config = digger.checkConfig(config, { count: [2,8] });
+    config = digger.checkConfig(config, { count: 8 });
     if (!grid) return config;
 
     let i, x, y;
     let minX, maxX, minY, maxY;
-    let chunkCount = random.range(config.count[0], config.count[1]);
+    let chunkCount = Math.floor( config.count * random.range(25, 100) / 100); // [2,8]
+
+    minX = Math.floor(grid.width/2) - Math.floor(config.width/2);
+    maxX = Math.floor(grid.width/2) + Math.floor(config.width/2);
+    minY = Math.floor(grid.height/2) - Math.floor(config.height/2);
+    maxY = Math.floor(grid.height/2) + Math.floor(config.height/2);
 
     grid.fill(0);
     grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), 2, 1);
-    minX = Math.floor(grid.width/2) - 3;
-    maxX = Math.floor(grid.width/2) + 3;
-    minY = Math.floor(grid.height/2) - 3;
-    maxY = Math.floor(grid.height/2) + 3;
 
     for (i=0; i<chunkCount;) {
         x = random.range(minX, maxX);
@@ -4246,12 +4261,13 @@
   //            colorOverDungeon(/* Color. */darkGray);
   //            hiliteGrid(grid, /* Color. */white, 100);
 
+            if (x - 2 < minX) continue;
+            if (x + 2 > maxX) continue;
+            if (y - 2 < minY) continue;
+            if (y + 2 > maxY) continue;
+
             grid.fillCircle(x, y, 2, config.tile || TILE);
             i++;
-            minX = Math.max(1, Math.min(x - 3, minX));
-            maxX = Math.min(grid.width - 2, Math.max(x + 3, maxX));
-            minY = Math.max(1, Math.min(y - 3, minY));
-            maxY = Math.min(grid.height - 2, Math.max(y + 3, maxY));
 
   //            hiliteGrid(grid, /* Color. */green, 50);
   //            temporaryMessage("Added a chunk:", true);
@@ -4362,7 +4378,7 @@
       }
       x = utils$1.clamp(x - DIRS$2[dir][0], 0, grid.width - 1);
       y = utils$1.clamp(y - DIRS$2[dir][1], 0, grid.height - 1); // Now (x, y) points at the last interior cell of the hallway.
-      allowObliqueHallwayExit = random.percent(15);
+      allowObliqueHallwayExit = random.chance(15);
       for (dir2 = 0; dir2 < 4; dir2++) {
           newX = x + DIRS$2[dir2][0];
           newY = y + DIRS$2[dir2][1];
@@ -4758,7 +4774,7 @@
   		if (startProb >= 100) {
   			probDec = probDec || 100;
   		}
-  		while ( random.percent(startProb) ) {
+  		while ( random.chance(startProb) ) {
   			startProb -= probDec;
   			++radius;
   		}
@@ -4774,7 +4790,7 @@
 
   			const dist = Math.floor(utils$1.distanceBetween(x, y, i, j));
   			const prob = startProb - (dist * probDec);
-  			if (!random.percent(prob)) return 0;
+  			if (!random.chance(prob)) return 0;
   			return 1;
   		});
   		spawnMap[x][y] = 1;
@@ -4797,7 +4813,7 @@
   							if (map.hasXY(x2, y2) && !spawnMap[x2][y2]
   								&& (!requireMatch || (matchTile && map.hasTile(x2, y2, matchTile)))
   								&& (!map.hasTileFlag(x2, y2, Flags$2.T_OBSTRUCTS_TILE_EFFECTS) || (matchTile && map.hasTile(x2, y2, matchTile)))
-  								&& random.percent(startProb))
+  								&& random.chance(startProb))
   							{
   								spawnMap[x2][y2] = t;
   								madeChange = true;
@@ -5331,7 +5347,7 @@
         if (!tile.events) continue;
         const ev = tile.events[name];
         if (ev) {
-          if (ev.chance && !random.percent(ev.chance)) {
+          if (ev.chance && !random.chance(ev.chance)) {
             continue;
           }
 
@@ -5353,7 +5369,7 @@
     //     if (!id) continue;
     //     const tile = TILES[id];
     //     if (!tile.events.tick) continue;
-    //     if (random.percent(tile.events.tick.chance)) {
+    //     if (random.chance(tile.events.tick.chance)) {
     //       flag |= Fl(i);
     //     }
     //   }
@@ -6873,7 +6889,7 @@
       const id = digger$1.fn(config, grid);
       dungeon.log('Dig room:', id);
       const doors = digger.chooseRandomDoorSites(grid);
-      if (random.percent(hallChance)) {
+      if (random.chance(hallChance)) {
         digger.attachHallway(grid, doors, SITE.config);
       }
 
@@ -6975,7 +6991,7 @@
           if (doorSites[oppDir][0] != -1
               && roomAttachesAt(roomGrid, offsetX, offsetY))
           {
-            // GW.dungeon.log("attachRoom: ", x, y, oppDir);
+            dungeon.log("- attachRoom: ", x, y, oppDir);
 
             // Room fits here.
             GRID.offsetZip(SITE.cells, roomGrid, offsetX, offsetY, (d, s, i, j) => d.setTile(s) );
@@ -7332,7 +7348,7 @@
   						&& (SITE.isObstruction(i + k, j+1))
   						&& (SITE.canBePassed(i + (1-k), j+1)))
             {
-  						if (random.percent(50)) {
+  						if (random.chance(50)) {
   							x1 = i + (1-k);
   							y1 = j;
   						} else {
@@ -7363,7 +7379,7 @@
   					&& (SITE.canBePassed(i, j+1) || SITE.canBePassed(i, j-1))) {
   					// If there's passable terrain to the left or right, and there's passable terrain
   					// above or below, then the door is orphaned and must be removed.
-  					SITE.clearTileWithFlags(i, j, Flags$2.T_IS_DOOR);
+  					SITE.setTile(i, j, FLOOR);
             dungeon.log('Removed orphan door', i, j);
   				} else if ((SITE.blocksPathing(i+1, j) ? 1 : 0)
   						   + (SITE.blocksPathing(i-1, j) ? 1 : 0)
@@ -7371,7 +7387,7 @@
   						   + (SITE.blocksPathing(i, j-1) ? 1 : 0) >= 3) {
   					// If the door has three or more pathing blocker neighbors in the four cardinal directions,
   					// then the door is orphaned and must be removed.
-            SITE.clearTileWithFlags(i, j, Flags$2.T_IS_DOOR);
+            SITE.setTile(i, j, FLOOR);
             dungeon.log('Removed blocked door', i, j);
   				}
   			}
