@@ -7155,7 +7155,7 @@ function lakeDisruptsPassability(lakeGrid, dungeonToGridX, dungeonToGridY) {
 
 // Add some loops to the otherwise simply connected network of rooms.
 function addLoops(minimumPathingDistance, maxConnectionLength) {
-    let newX, newY, oppX, oppY;
+    let startX, startY, endX, endY;
     let i, j, d, x, y;
 
     minimumPathingDistance = minimumPathingDistance || Math.floor(Math.min(SITE.width,SITE.height)/2);
@@ -7169,6 +7169,26 @@ function addLoops(minimumPathingDistance, maxConnectionLength) {
 
     SITE.fillBasicCostGrid(costGrid);
 
+    function isValidTunnelStart(x, y, dir) {
+      if (!SITE.hasXY(x, y)) return false;
+      if (!SITE.hasXY(x + dir[1], y + dir[0])) return false;
+      if (!SITE.hasXY(x - dir[1], y - dir[0])) return false;
+      if (!SITE.cell(x, y).isEmpty()) return false;
+      if (!SITE.cell(x + dir[1], y + dir[0]).isEmpty()) return false;
+      if (!SITE.cell(x - dir[1], y - dir[0]).isEmpty()) return false;
+      return true;
+    }
+
+    function isValidTunnelEnd(x, y, dir) {
+      if (!SITE.hasXY(x, y)) return false;
+      if (!SITE.hasXY(x + dir[1], y + dir[0])) return false;
+      if (!SITE.hasXY(x - dir[1], y - dir[0])) return false;
+      if (!SITE.cell(x, y).isEmpty()) return true;
+      if (!SITE.cell(x + dir[1], y + dir[0]).isEmpty()) return true;
+      if (!SITE.cell(x - dir[1], y - dir[0]).isEmpty()) return true;
+      return false;
+    }
+
     for (i = 0; i < LOCS.length; i++) {
         x = Math.floor(LOCS[i] / siteGrid.height);
         y = LOCS[i] % siteGrid.height;
@@ -7176,56 +7196,50 @@ function addLoops(minimumPathingDistance, maxConnectionLength) {
         const cell = siteGrid[x][y];
         if (cell.isEmpty()) {
             for (d=0; d <= 1; d++) { // Try a horizontal door, and then a vertical door.
-                newX = x + dirCoords[d][0];
-                newY = y + dirCoords[d][1];
-                oppX = x - dirCoords[d][0];
-                oppY = y - dirCoords[d][1];
+                let dir = dirCoords[d];
+                if (!isValidTunnelStart(x, y, dir)) continue;
                 j = maxConnectionLength;
 
                 // check up/left
-                if (SITE.hasXY(newX, newY) && !SITE.cell(newX, newY).isEmpty()) {
-                  oppX = x;
-                  oppY = y;
-
-                  for(j = 0; j < maxConnectionLength; ++j) {
-                    oppX -= dirCoords[d][0];
-                    oppY -= dirCoords[d][1];
-
-                    if (SITE.hasXY(oppX, oppY) && !SITE.cell(oppX, oppY).isEmpty()) {
-                      break;
-                    }
-                  }
+                if (SITE.hasXY(x + dir[0], y + dir[1]) && !SITE.cell(x + dir[0], y + dir[1]).isEmpty()) ;
+                else if (SITE.hasXY(x - dir[0], y - dir[1]) && !SITE.cell(x - dir[0], y - dir[1]).isEmpty()) {
+                  dir = dir.map( (v) => -1*v );
                 }
-                else if (SITE.hasXY(oppX, oppY) && !SITE.cell(oppX, oppY).isEmpty()) {
-                  newX = x;
-                  newY = y;
+                else {
+                  continue; // not valid start for tunnel
+                }
 
-                  for(j = 0; j < maxConnectionLength; ++j) {
-                    newX += dirCoords[d][0];
-                    newY += dirCoords[d][1];
+                startX = x + dir[0];
+                startY = y + dir[1];
+                endX = x;
+                endY = y;
 
-                    if (SITE.hasXY(newX, newY) && !SITE.cell(newX, newY).isEmpty()) {
-                      break;
-                    }
+                for(j = 0; j < maxConnectionLength; ++j) {
+                  endX -= dir[0];
+                  endY -= dir[1];
+
+                  // if (SITE.hasXY(endX, endY) && !SITE.cell(endX, endY).isEmpty()) {
+                  if (isValidTunnelEnd(endX, endY, dir)) {
+                    break;
                   }
                 }
 
                 if (j < maxConnectionLength) {
-                  PATH.calculateDistances(pathGrid, newX, newY, costGrid, false);
+                  PATH.calculateDistances(pathGrid, startX, startY, costGrid, false);
                   // pathGrid.fill(30000);
-                  // pathGrid[newX][newY] = 0;
+                  // pathGrid[startX][startY] = 0;
                   // dijkstraScan(pathGrid, costGrid, false);
-                  if (pathGrid[oppX][oppY] > minimumPathingDistance) { // and if the pathing distance between the two flanking floor tiles exceeds minimumPathingDistance,
+                  if (pathGrid[endX][endY] > minimumPathingDistance && pathGrid[endX][endY] < 30000) { // and if the pathing distance between the two flanking floor tiles exceeds minimumPathingDistance,
 
-                      dungeon.log('Adding Loop', newX, newY, ' => ', oppX, oppY);
+                      dungeon.log('Adding Loop', startX, startY, ' => ', endX, endY, ' : ', pathGrid[endX][endY]);
 
-                      while(oppX !== newX || oppY !== newY) {
-                        if (SITE.cell(oppX, oppY).isEmpty()) {
-                          SITE.setTile(oppX, oppY, FLOOR);
-                          costGrid[oppX][oppY] = 1;          // (Cost map also needs updating.)
+                      while(endX !== startX || endY !== startY) {
+                        if (SITE.cell(endX, endY).isEmpty()) {
+                          SITE.setTile(endX, endY, FLOOR);
+                          costGrid[endX][endY] = 1;          // (Cost map also needs updating.)
                         }
-                        oppX += dirCoords[d][0];
-                        oppY += dirCoords[d][1];
+                        endX += dir[0];
+                        endY += dir[1];
                       }
                       SITE.setTile(x, y, DOOR);             // then turn the tile into a doorway.
                       break;

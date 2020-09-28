@@ -46,7 +46,15 @@ class Node {
 			return null;
 		}
 		else if (splitWidth && splitHeight) {
-			if (GW.random.chance(50)) {
+			if (this.w > this.h * 2) {
+				splitWidth = true;
+				splitHeight = false;
+			}
+			else if (this.w * 1.5 > this.h ) {
+				splitHeight = true;
+				splitWidth = false;
+			}
+			else if (GW.random.chance(50)) {
 				splitWidth = true;
 				splitHeight = false;
 			}
@@ -56,33 +64,29 @@ class Node {
 			}
 		}
 
-		if (this.w > this.h * 1.5) {
-			splitHeight = false;
-			splitWidth = true;
-		}
-		else if (this.h > this.w * 1.5) {
-			splitHeight = true;
-			splitWidth = false;
-		}
+		// else if (this.h > this.w * 1.5) {
+		// 	splitHeight = true;
+		// 	splitWidth = false;
+		// }
 
 		if (splitHeight) {
-			let plusH = Math.min(10,(this.h - minHeight*2));
-			let topH = GW.random.number(plusH) + minHeight; // + minHeight;
-			// console.log('Divide TOP/BOTTOM', this.toString());
+			let plusH = (this.h - minHeight*2);
+			let topH = GW.random.clumped(0, plusH, 3) + minHeight; // + minHeight;
+			console.log('Divide TOP/BOTTOM', this.toString(), 'topH=', topH, '=', minHeight, '+ rnd:', plusH);
 			const bottomNode = new Node(this.x, this.y + topH, this.w, this.h - topH);
 			this.h = topH;
-			// console.log(' - ', this.toString());
-			// console.log(' - ', bottomNode.toString());
+			console.log(' - ', this.toString());
+			console.log(' - ', bottomNode.toString());
 			return bottomNode;
 		}
 		if (splitWidth) {
-			let plusW = Math.min(15, this.w - minWidth*2);
-			let leftW = GW.random.number(plusW) + minWidth;
-			// console.log('Divide LEFT/RIGHT', this.toString());
+			let plusW = this.w - minWidth*2;
+			let leftW = GW.random.clumped(0, plusW, 3) + minWidth;
+			console.log('Divide LEFT/RIGHT', this.toString(), 'leftW=', leftW, '=', minWidth, '+ rnd:', plusW);
 			const rightNode = new Node(this.x + leftW, this.y, this.w - leftW, this.h);
 			this.w = leftW;
-			// console.log(' - ', this.toString());
-			// console.log(' - ', rightNode.toString());
+			console.log(' - ', this.toString());
+			console.log(' - ', rightNode.toString());
 			return rightNode;
 		}
 	}
@@ -95,18 +99,19 @@ class Node {
 function makeBspTree(map, opts={}) {
 	const minW = opts.minWidth || opts.minW || 7;
 	const minH = opts.minHeight || opts.minH || 5;
+	const minCount = opts.minCount || 6;
 
 	const root = new Node(1, 1, map.width - 1, map.height - 1);
 
 	let nodes = [root];
 	let active = true;
 	let len = 1;
-	while(active || len < 6) {
+	while(active || len < minCount) {
 		active = false;
 		len = nodes.length;	// get before we add the new ones...
 		for(let i = 0; i < len; ++i) {
 			const node = nodes[i];
-			if ((!node.tooSmall(minW, minH)) && (GW.random.chance(40) || len < 6)) {
+			if ((!node.tooSmall(minW, minH)) && (GW.random.chance(40) || len < minCount)) {
 				const added = node.split(minW, minH);
 				if (added) {
 					nodes.push(added);
@@ -152,6 +157,9 @@ function digTunnel(grid, node, x, y, dx, dy) {
 		else if (grid[fx][fy] == v) {
 			// console.log('- same');
 			return false;
+		}
+		else if (grid[fx][fy] == 2) {
+			return false;	// do not tunnel into doors
 		}
 		else {
 			// console.log('- end:', fx, fy, grid[fx][fy]);
@@ -249,7 +257,7 @@ function digRoom(grid, node, id=1) {
 	const opts = {
 		width: node.w - 1,
 		height: node.h - 1,
-		minPct: 75,
+		minPct: 100,
 	};
 
 	const roomGrid = GW.grid.alloc(grid.width, grid.height);
@@ -258,12 +266,12 @@ function digRoom(grid, node, id=1) {
 
 	while(tries--) {
 		const ratio = Math.abs(100 - Math.round(100 * node.w/node.h));
-		if (ratio < 20 && GW.random.chance(30)) {
-			GW.digger.circularRoom(opts, roomGrid);
-		}
-		else {
+		// if (ratio < 20 && GW.random.chance(30)) {
+		// 	GW.digger.circularRoom(opts, roomGrid);
+		// }
+		// else {
 			GW.digger.rectangularRoom(opts, roomGrid);
-		}
+		// }
 		bounds = roomGrid.calcBounds();
 
 		if (bounds.right - bounds.left < node.w && bounds.bottom - bounds.top < node.h) {
@@ -296,9 +304,6 @@ function digRoom(grid, node, id=1) {
 
 function digBspTree(map, tree, opts={}) {
 	// console.log(tree);
-	const minW = opts.minWidth || opts.minW || 7;
-	const minH = opts.minHeight || opts.minH || 5;
-
 	const grid = GW.grid.alloc(map.width, map.height);
 
 	tree.forEach( (node, i) => {
@@ -348,7 +353,7 @@ function drawMap(attempt=0) {
 	MAP.clear();
 	GW.dungeon.start(MAP);
 
-	const opts = { minWidth: 7, minHeight: 5, start: startingXY };
+	const opts = { minWidth: 7, minHeight: 5, minCount: 10, minPct: 100, start: startingXY };
 
 	let success = false;
 	while(!success) {
@@ -356,14 +361,16 @@ function drawMap(attempt=0) {
 		success = digBspTree(MAP, tree, opts);
 	}
 
+	// GW.dungeon.log = console.log;
 	GW.dungeon.addLoops(30, 5);
+	// GW.dungeon.log = GW.utils.NOOP;
 
-	let lakeCount = GW.random.number(5);
-	for(let i = 0; i < lakeCount; ++i) {
-		GW.dungeon.digLake();
-	}
-
-	GW.dungeon.addBridges(40, 8);
+	// let lakeCount = GW.random.number(5);
+	// for(let i = 0; i < lakeCount; ++i) {
+	// 	GW.dungeon.digLake();
+	// }
+	//
+	// GW.dungeon.addBridges(40, 8);
 
 	// if (!GW.dungeon.addStairs(startingXY[0], startingXY[1], -1, -1)) {
 	// 	console.error('Failed to place stairs.');
@@ -373,6 +380,7 @@ function drawMap(attempt=0) {
 	GW.dungeon.finish();
 
 
+	canvas.buffer.erase();
 	GW.viewport.draw(canvas.buffer, MAP);
 	console.log('MAP SEED = ', seed);
 }
