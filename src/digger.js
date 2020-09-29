@@ -1,8 +1,8 @@
 
-import { utils as UTILS } from './utils.js';
+import {  } from './utils.js';
 import { grid as GRID } from './grid.js';
 import { random } from './random.js';
-import { debug, def } from './gw.js';
+import { debug, def, utils as UTILS } from './gw.js';
 
 
 export var digger = {};

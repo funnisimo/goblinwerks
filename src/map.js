@@ -1,11 +1,10 @@
 
-import { utils as UTILS } from './utils.js';
-import { flag as FLAG } from './flag.js';
 import { random } from './random.js';
 import { grid as GRID } from './grid.js';
+import { Flags as ItemFlags } from './item.js';
 import { Flags as TileFlags, Layer as TileLayer } from './tile.js';
 import { Flags as CellFlags, MechFlags as CellMechFlags, cell as CELL } from './cell.js';
-import { types, def, make, data as DATA, config as CONFIG } from './gw.js';
+import { types, def, make, data as DATA, config as CONFIG, flag as FLAG, utils as UTILS } from './gw.js';
 
 
 export var map = {};
@@ -29,6 +28,8 @@ export class Map {
 		this.locations = opts.locations || {};
 		this.config = Object.assign({}, opts);
 		this.config.tick = this.config.tick || 100;
+		this.actors = null;
+		this.items = null;
 	}
 
 	clear() { this.cells.forEach( (c) => c.clear() ); }
@@ -239,7 +240,7 @@ export class Map {
 		if (deterministic) {
 	    randIndex = Math.floor(candidateLocs.length / 2);
 		} else {
-			randIndex = random.number(candidateLocs.length) - 1;
+			randIndex = random.number(candidateLocs.length);
 		}
 		return candidateLocs[randIndex];
 	}
@@ -350,7 +351,7 @@ export class Map {
 
 	addActorNear(x, y, theActor) {
 		const forbidTileFlags = GW.actor.avoidedFlags(theActor);
-		const loc = this.getMatchingLocNear(x, y, (cell, i, j) => {
+		const loc = this.matchingXYNear(x, y, (cell, i, j) => {
 			if (cell.flags & (CellFlags.HAS_ACTOR)) return false;
 			return !cell.hasTileFlag(forbidTileFlags);
 		});
@@ -411,10 +412,8 @@ export class Map {
 	// ITEMS
 
 	itemAt(x, y) {
-		if (!(this.cell(x, y).flags & CellFlags.HAS_ITEM)) {
-			return null;
-		}
-		return this.items.find( (i) => i.x == x && i.y == y );
+		const cell = this.cell(x, y);
+		return cell.item;
 	}
 
 	addItem(x, y, theItem) {
@@ -426,7 +425,13 @@ export class Map {
 		}
 		theItem.x = x;
 		theItem.y = y;
-		this.items.add(theItem);
+
+		cell.item = theItem;
+		theItem.next = this.items;
+		this.items = theItem;
+
+		cell.addSprite(TileLayer.ITEM, theItem.kind.sprite);
+
 		cell.flags |= (CellFlags.HAS_ITEM | CellFlags.NEEDS_REDRAW);
 
 		this.flags |= Flags.MAP_CHANGED;
@@ -440,7 +445,7 @@ export class Map {
 	}
 
 	addItemNear(x, y, theItem) {
-		const loc = this.getMatchingLocNear(x, y, (cell, i, j) => {
+		const loc = this.matchingXYNear(x, y, (cell, i, j) => {
 			if (cell.flags & CellFlags.HAS_ITEM) return false;
 			return !cell.hasTileFlag(TileFlags.T_OBSTRUCTS_ITEMS);
 		});
@@ -456,14 +461,31 @@ export class Map {
 	removeItem(theItem, skipRefresh) {
 		const x = theItem.x;
 		const y = theItem.y;
-		if (this.items.remove(theItem)) {
-			this.flags |= Flags.MAP_CHANGED;
-			const cell = this.cell(x, y);
-			cell.flags &= ~(CellFlags.HAS_ITEM | CellFlags.ITEM_DETECTED);
-			cell.flags |= CellFlags.NEEDS_REDRAW;
-			return true;
+		const cell = this.cell(x, y);
+		if (cell.item !== theItem) return false;
+
+		cell.removeSprite(theItem.kind.sprite);
+
+		cell.item = null;
+		if (this.items === theItem) {
+			this.items = theItem.next;
 		}
-		return false;
+		else {
+			let prev = this.items;
+			let current = prev.next;
+			while(current && current !== theItem) {
+				prev = current;
+				current = prev.next;
+			}
+			if (current === theItem) {
+				prev.next = current.next;
+			}
+		}
+
+		this.flags |= Flags.MAP_CHANGED;
+		cell.flags &= ~(CellFlags.HAS_ITEM | CellFlags.ITEM_DETECTED);
+		cell.flags |= CellFlags.NEEDS_REDRAW;
+		return true;
 	}
 
 	// // PROMOTE

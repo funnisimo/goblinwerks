@@ -1,6 +1,5 @@
 
-import { utils } from './utils.js';
-import { make, types } from './gw.js';
+import { make, types, utils } from './gw.js';
 
 
 // Based on random numbers in umoria

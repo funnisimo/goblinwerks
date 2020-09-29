@@ -1,7 +1,6 @@
 
-import { utils as UTILS } from './utils.js';
 import { random } from './random.js';
-import { def, data as DATA, types, debug, make } from './gw.js';
+import { def, data as DATA, types, debug, make, utils as UTILS } from './gw.js';
 
 
 const GRID_CACHE = [];

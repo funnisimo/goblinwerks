@@ -1,7 +1,6 @@
 
-import { def } from './gw.js';
+import { def, utils } from './gw.js';
 
-export var utils = {};
 
 export function NOOP()  {}
 utils.NOOP = NOOP;

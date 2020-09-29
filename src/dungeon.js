@@ -1,12 +1,11 @@
 
-import { utils as UTILS } from './utils.js';
 import { grid as GRID } from './grid.js';
 import { random } from './random.js';
 import { path as PATH } from './path.js';
 import { map as MAP } from './map.js';
 import { tile as TILE, Flags as TileFlags } from './tile.js';
 import { diggers as DIGGERS, digger as DIGGER } from './digger.js';
-import { def, debug } from './gw.js';
+import { def, debug, utils as UTILS } from './gw.js';
 
 const DIRS = def.dirs;
 const OPP_DIRS = [def.DOWN, def.UP, def.RIGHT, def.LEFT];

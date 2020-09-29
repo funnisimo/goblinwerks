@@ -152,6 +152,12 @@ export class Sprite {
 types.Sprite = Sprite;
 
 export function makeSprite(ch, fg, bg, opacity) {
+	if (arguments.length == 1 && typeof arguments[0] === 'object' && ch !== null) {
+		opacity = ch.opacity || null;
+		bg = ch.bg || null;
+		fg = ch.fg || null;
+		ch = ch.ch || null;
+	}
   return new Sprite(ch, fg, bg, opacity);
 }
 

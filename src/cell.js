@@ -1,12 +1,10 @@
 
-import { utils as UTILS } from './utils.js';
-import { flag as FLAG } from './flag.js';
 import { random } from './random.js';
 import { colors as COLORS, color as COLOR } from './color.js';
 import { tiles as TILES, tile as TILE, Flags as TileFlags, MechFlags as TileMechFlags, Layer as TileLayer } from './tile.js';
 import { tileEvent as TILE_EVENT } from './tileEvent.js';
 
-import { types, make, def, config as CONFIG, data as DATA } from './gw.js';
+import { types, make, def, config as CONFIG, data as DATA, flag as FLAG, utils as UTILS } from './gw.js';
 
 
 export var cell = {};

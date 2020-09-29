@@ -7,6 +7,8 @@ export var debug = {};
 export var make = {};
 export var install = {};
 
+export var utils = {};
+
 export var ui = {};
 export var message = {};
 export var viewport = {};
@@ -14,6 +16,12 @@ export var flavor = {};
 
 export var fx = {};
 export var commands = {};
+
+export var itemKinds = {};
+export var item = {};
+
+export var flag = {};
+export var flags = {};
 
 export var config = {
   fx: {},

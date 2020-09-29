@@ -1,7 +1,6 @@
 
-import { utils as UTILS } from './utils.js';
 import { io as IO } from './io.js';
-import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR } from './gw.js';
+import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, utils as UTILS } from './gw.js';
 
 
 let SHOW_FLAVOR = false;
@@ -131,25 +130,25 @@ ui.stop = stop;
 export async function dispatchEvent(ev) {
 
 	if (ev.type === def.CLICK) {
-		if (MSG.bounds && MSG.bounds.hasCanvasLoc(ev.x, ev.y)) {
+		if (MSG.bounds && MSG.bounds.containsXY(ev.x, ev.y)) {
 			await MSG.showArchive();
 			return true;
 		}
-		if (FLAVOR.bounds && FLAVOR.bounds.hasCanvasLoc(ev.x, ev.y)) {
+		if (FLAVOR.bounds && FLAVOR.bounds.containsXY(ev.x, ev.y)) {
 			return true;
 		}
 	}
 	else if (ev.type === def.MOUSEMOVE) {
-		if (VIEWPORT.bounds && VIEWPORT.bounds.hasCanvasLoc(ev.x, ev.y)) {
+		if (VIEWPORT.bounds && VIEWPORT.bounds.containsXY(ev.x, ev.y)) {
 			if (SHOW_CURSOR) {
-				ui.setCursor(VIEWPORT.bounds.toLocalX(ev.x), VIEWPORT.bounds.toLocalY(ev.y));
+				ui.setCursor(VIEWPORT.bounds.toInnerX(ev.x), VIEWPORT.bounds.toInnerY(ev.y));
 			}
 			return true;
 		}
 		else {
 			ui.clearCursor();
 		}
-		if (FLAVOR.bounds && FLAVOR.bounds.hasCanvasLoc(ev.x, ev.y)) {
+		if (FLAVOR.bounds && FLAVOR.bounds.containsXY(ev.x, ev.y)) {
 			return true;
 		}
 	}

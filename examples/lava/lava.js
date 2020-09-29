@@ -162,7 +162,7 @@ function makeMap(id=1) {
 	GW.map.addText(MAP, 23, 28, 'START', 'blue');
 
 	// update the difficulty
-	ERUPT_CHANCE = Math.max(300, 300 * (100 - id*2));
+	ERUPT_CHANCE = Math.max(5000, 30000 - (1000 * id));
 	CRUST_CHANCE = Math.max(2, Math.floor(10 - id/2));
 	BREAK_CHANCE = Math.min(90, Math.floor(60 + id));
 

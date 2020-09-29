@@ -90,10 +90,10 @@ function drawMessages(buffer) {
 		}
 
     const localY = isOnTop ? (SETUP.height - i - 1) : i;
-    const y = SETUP.toCanvasY(localY);
+    const y = SETUP.toOuterY(localY);
 
 		TEXT.eachChar( DISPLAYED[i], (c, color, j) => {
-			const x = SETUP.toCanvasX(j);
+			const x = SETUP.toOuterX(j);
 
 			if (color && (messageColor !== color) && CONFIRMED[i]) {
 				COLOR.applyMix(color, COLORS.black, 50);
@@ -104,7 +104,7 @@ function drawMessages(buffer) {
 		});
 
 		for (let j = TEXT.length(DISPLAYED[i]); j < SETUP.width; j++) {
-			const x = SETUP.toCanvasX(j);
+			const x = SETUP.toOuterX(j);
 			buffer.plotChar(x, y, ' ', COLORS.black, COLORS.black);
 		}
 	}
@@ -248,14 +248,14 @@ async function showArchive() {
 				const pos = (CURRENT_ARCHIVE_POS - currentMessageCount + ARCHIVE_LINES + j) % ARCHIVE_LINES;
         const y = isOnTop ? j : dbuf.height - j - 1;
 
-				dbuf.plotLine(SETUP.toCanvasX(0), y, SETUP.width, ARCHIVE[pos], COLORS.white, COLORS.black);
+				dbuf.plotLine(SETUP.toOuterX(0), y, SETUP.width, ARCHIVE[pos], COLORS.white, COLORS.black);
 			}
 
 			// Set the dbuf opacity, and do a fade from bottom to top to make it clear that the bottom messages are the most recent.
 			for (j=0; j < currentMessageCount && j < dbuf.height; j++) {
 				fadePercent = 40 * (j + totalMessageCount - currentMessageCount) / totalMessageCount + 60;
 				for (i=0; i<SETUP.width; i++) {
-					const x = SETUP.toCanvasX(i);
+					const x = SETUP.toOuterX(i);
 
           const y = isOnTop ? j : dbuf.height - j - 1;
 					dbuf[x][y].opacity = INTERFACE_OPACITY;
@@ -279,7 +279,7 @@ async function showArchive() {
 		if (!reverse) {
     	if (!DATA.autoPlayingLevel) {
         const y = isOnTop ? 0 : dbuf.height - 1;
-        dbuf.plotText(SETUP.toCanvasX(-8), y, "--DONE--", COLORS.black, COLORS.white);
+        dbuf.plotText(SETUP.toOuterX(-8), y, "--DONE--", COLORS.black, COLORS.white);
       	UI.draw();
       	await IO.waitForAck();
     	}

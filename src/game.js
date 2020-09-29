@@ -1,6 +1,5 @@
 
 
-import { utils as UTILS } from './utils.js';
 import { colors as COLORS } from './color.js';
 import { Flags as CellFlags } from './cell.js';
 import { Flags as MapFlags, map as MAP } from './map.js';
@@ -11,7 +10,7 @@ import { scheduler } from './scheduler.js';
 import { text as TEXT } from './text.js';
 import { sprite as SPRITE } from './sprite.js';
 
-import { data as DATA, types, fx as FX, ui as UI, message as MSG } from './gw.js';
+import { data as DATA, types, fx as FX, ui as UI, message as MSG, utils as UTILS } from './gw.js';
 
 export var game = {};
 

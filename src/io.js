@@ -1,6 +1,5 @@
 
-import { utils as UTILS } from './utils.js';
-import { def, data as DATA, commands as COMMANDS } from './gw.js';
+import { def, data as DATA, commands as COMMANDS, utils as UTILS } from './gw.js';
 
 
 export var io = {};

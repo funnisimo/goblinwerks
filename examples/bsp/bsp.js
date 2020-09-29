@@ -7,16 +7,16 @@ GW.random.seed(12345);
 
 const TILES = GW.tiles;
 
-function handleClick(e) {
-	startingXY[0] = canvas.toX(e.clientX);
-	startingXY[1] = canvas.toY(e.clientY);
-	drawMap();
-}
 
-function handleKey(e) {
-	if (e.key == 'Shift') return;
-	drawMap();
-}
+BOX = GW.item.installKind('BOX', {
+	name: 'box',
+	description: 'a large wooden box',
+	sprite: { ch: '\u2612', fg: 'light_brown' },
+	flags: 'A_PUSH, A_PULL, A_SLIDE, A_NO_PICKUP, IK_BLOCKS_MOVE',
+	stats: { health: 10 }
+});
+
+
 
 
 class Node {
@@ -47,27 +47,18 @@ class Node {
 		}
 		else if (splitWidth && splitHeight) {
 			if (this.w > this.h * 2) {
-				splitWidth = true;
-				splitHeight = false;
+				splitHeight = false;	// splitWidth = true;
 			}
 			else if (this.w * 1.5 > this.h ) {
-				splitHeight = true;
-				splitWidth = false;
+				splitWidth = false;	// splitHeight = true;
 			}
 			else if (GW.random.chance(50)) {
-				splitWidth = true;
-				splitHeight = false;
+				splitHeight = false;	// splitWidth = true;
 			}
 			else {
-				splitHeight = true;
-				splitWidth = false;
+				splitWidth = false;		// splitHeight = true;
 			}
 		}
-
-		// else if (this.h > this.w * 1.5) {
-		// 	splitHeight = true;
-		// 	splitWidth = false;
-		// }
 
 		if (splitHeight) {
 			let plusH = (this.h - minHeight*2);
@@ -289,15 +280,6 @@ function digRoom(grid, node, id=1) {
 	node.w = bounds.right - bounds.left + 1;
 	node.h = bounds.bottom - bounds.top + 1;
 
-	// const w = Math.round(node.w * (75 + GW.random.number(25)) / 100) - 1;
-	// const h = Math.round(node.h * (75 + GW.random.number(25)) / 100) - 1;
-	// const x = node.x + GW.random.clumped(1, node.w - w, 3) - 1;
-	// const y = node.y + GW.random.clumped(1, node.h - h, 3) - 1;
-	// node.x = x;
-	// node.y = y;
-	// node.w = w;
-	// node.h = h;
-	// grid.updateRect(x, y, w, h, () => id );
 	return true;
 }
 
@@ -356,8 +338,9 @@ function drawMap(attempt=0) {
 	const opts = { minWidth: 7, minHeight: 5, minCount: 10, minPct: 100, start: startingXY };
 
 	let success = false;
+	let tree;
 	while(!success) {
-		const tree = makeBspTree(MAP, opts);
+		tree = makeBspTree(MAP, opts);
 		success = digBspTree(MAP, tree, opts);
 	}
 
@@ -379,11 +362,28 @@ function drawMap(attempt=0) {
 
 	GW.dungeon.finish();
 
+	console.log('BSP TREE', tree);
+
+	const box = GW.make.item('BOX');
+	MAP.addItemNear(1, 1, box);
 
 	canvas.buffer.erase();
 	GW.viewport.draw(canvas.buffer, MAP);
 	console.log('MAP SEED = ', seed);
 }
+
+
+function handleClick(e) {
+	startingXY[0] = canvas.toX(e.clientX);
+	startingXY[1] = canvas.toY(e.clientY);
+	drawMap();
+}
+
+function handleKey(e) {
+	if (e.key == 'Shift') return;
+	drawMap();
+}
+
 
 
 // start the environment

@@ -1,9 +1,7 @@
 
-import { utils as UTILS } from './utils.js';
-import { flag as FLAG } from './flag.js';
 import { colors as COLORS } from './color.js';
 import { game as GAME } from './game.js';
-import { types, def, make, data as DATA } from './gw.js';
+import { types, def, make, data as DATA, flag as FLAG, utils as UTILS } from './gw.js';
 
 export var tile = {};
 export var tiles = [];

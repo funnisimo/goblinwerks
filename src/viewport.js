@@ -22,7 +22,7 @@ function drawViewport(buffer, map) {
   if (!map.flags & MapFlags.MAP_CHANGED) return;
 
   map.cells.forEach( (c, i, j) => {
-    if (!VIEWPORT.hasCanvasLoc(i + VIEWPORT.x, j + VIEWPORT.y)) return;
+    if (!VIEWPORT.containsXY(i + VIEWPORT.x, j + VIEWPORT.y)) return;
 
     if (c.flags & CellFlags.NEEDS_REDRAW) {
       const buf = buffer[i + VIEWPORT.x][j + VIEWPORT.y];
