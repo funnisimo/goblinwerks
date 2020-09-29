@@ -53,6 +53,14 @@ export class Color extends Array {
     this.dances = false;
   }
 
+  css() {
+    const rand = cosmetic.value() * (this.rand || 0);
+    const red = toRGB(this.red + rand, this.redRand);
+    const green = toRGB(this.green + rand, this.greenRand);
+    const blue = toRGB(this.blue + rand, this.blueRand);
+    return `#${toCSS(red)}${toCSS(green)}${toCSS(blue)}`;
+  }
+
 }
 
 types.Color = Color;
@@ -142,11 +150,7 @@ function toCSS(v) {
 }
 
 export function css(color) {
-  const rand = cosmetic.value() * (color.rand || 0);
-  const red = toRGB(color.red + rand, color.redRand);
-  const green = toRGB(color.green + rand, color.greenRand);
-  const blue = toRGB(color.blue + rand, color.blueRand);
-  return `#${toCSS(red)}${toCSS(green)}${toCSS(blue)}`;
+    return color.css();
 }
 
 color.css = css;

@@ -16,6 +16,7 @@ describe('GW.color', () => {
   test('css', () => {
     const c = new GW.types.Color(100, 50, 0);
     expect(GW.color.css(c)).toEqual('#ff8000');
+    expect(c.css()).toEqual('#ff8000');
   });
 
 });

@@ -31,6 +31,7 @@
     "setupFilesAfterEnv": [
       "jest-extended",
       "./test/matchers.js"
-    ]
+    ],
+    "coverageDirectory": "coverage"
   }
 }
