@@ -4,6 +4,57 @@ const UTILS = require('../test/utils.js');
 
 describe('Message', () => {
 
+    describe('eachChar', () => {
+
+        test('returns each char in text', () => {
+            let result = '';
+            const text = 'test';
+            GW.text.eachChar(text, (c) => {
+                result += c;
+            });
+            expect(result).toEqual(text);
+        });
+
+        test('mixes in colors', () => {
+            let result = '';
+            let colorCount = 0;
+            const text = GW.text.format('test %Rcolor%R.', GW.colors.blue, null);
+            GW.text.eachChar(text, (c, color) => {
+                result += c;
+                if (color) {
+                    expect(color.css()).toEqual('#0000ff');
+                    ++colorCount;
+                }
+            });
+            expect(result).toEqual('test color.');
+            expect(colorCount).toEqual(5);
+        });
+
+    });
+
+    describe('length', () => {
+
+        test('works with plain strings', () => {
+            expect(GW.text.length('test')).toEqual(4);
+        });
+
+        test('works with colors', () => {
+            const text = GW.text.format('test %Rcolors%R.', GW.colors.green, null);
+            expect(GW.text.length(text)).not.toEqual(text.length);
+            expect(GW.text.length(text)).toEqual('test colors.'.length);
+        });
+
+    });
+
+    describe('splice', () => {
+        test('Splice to add', () => {
+            expect(GW.text.splice('test text', 0, 0, 'a real ')).toEqual('a real test text');
+            expect(GW.text.splice('test text', 5, 0, 'a real ')).toEqual('test a real text');
+            expect(GW.text.splice('test text', 0, 5, 'a real ')).toEqual('a real text');
+            expect(GW.text.splice('test text', 5, 4, 'everything')).toEqual('test everything');
+        });
+    });
+
   describe('format', () => {
 
     test('handles sprintf like stuff', () => {
