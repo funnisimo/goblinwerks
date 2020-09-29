@@ -1355,11 +1355,9 @@ function textlen(msg) {
 text.length = textlen;
 
 
-function splice(msg, begin, length, add) {
+function splice(msg, begin, length, add='') {
   const preText = msg.substring(0, begin);
   const postText = msg.substring(begin + length);
-  add = add || '';
-
   return preText + add + postText;
 }
 
