@@ -14,6 +14,8 @@ import { data as DATA, types, fx as FX, ui as UI, message as MSG, utils as UTILS
 
 export var game = {};
 
+game.debug = UTILS.NOOP;
+
 DATA.time = 0;
 DATA.running = false;
 DATA.turnTime = 10;
@@ -94,7 +96,7 @@ async function gameLoop() {
       }
       const turnTime = await fn();
       if (turnTime) {
-        console.log('- push actor: %d + %d = %d', scheduler.time, turnTime, scheduler.time + turnTime);
+        game.debug('- push actor: %d + %d = %d', scheduler.time, turnTime, scheduler.time + turnTime);
         scheduler.push(fn, turnTime);
       }
     }
@@ -136,7 +138,7 @@ game.cancelDelay = cancelDelay;
 
 export async function updateEnvironment() {
 
-  console.log('update environment');
+  game.debug('update environment');
 
   const map = DATA.map;
   if (!map) return 0;

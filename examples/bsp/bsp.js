@@ -8,7 +8,7 @@ GW.random.seed(12345);
 const TILES = GW.tiles;
 
 
-BOX = GW.item.installKind('BOX', {
+GW.item.installKind('BOX', {
 	name: 'box',
 	description: 'a large wooden box',
 	sprite: { ch: '\u2612', fg: 'light_brown' },
@@ -16,40 +16,40 @@ BOX = GW.item.installKind('BOX', {
 	stats: { health: 10 }
 });
 
+GW.item.installKind('TABLE', {
+	name: 'table',
+	description: 'a wooden table',
+	sprite: { ch: '\u2610', fg: 'light_brown' },
+	flags: 'A_NO_PICKUP, IK_BLOCKS_MOVE',
+	stats: { health: 10 }
+});
+
+const BOXES = GW.make.tileEvent({ item: 'BOX', spread: 75, decrement: 20, flags: 'DFF_ABORT_IF_BLOCKS_MAP' });
+const TABLES = GW.make.tileEvent({ item: 'TABLE', flags: 'DFF_SPREAD_LINE', spread: 75, decrement: 20, flags: 'DFF_ABORT_IF_BLOCKS_MAP' });
 
 
-
-class Node {
+class Node extends GW.types.Bounds {
 	constructor(x, y, w, h) {
-		this.x = x;
-		this.y = y;
-		this.w = w;
-		this.h = h;
+		super(x, y, w, h);
 	}
 
-	get size() { return this.w * this.h; }
-	tooNarrow(minWidth) { return (this.w <= minWidth*2); }
-	tooShort(minHeight) { return (this.h <= minHeight*2); }
+	get size() { return this.width * this.height; }
+	tooNarrow(minWidth) { return (this.width <= minWidth*2); }
+	tooShort(minHeight) { return (this.height <= minHeight*2); }
 	tooSmall(minWidth, minHeight) { return (this.tooNarrow(minWidth) && this.tooShort(minHeight)); }
-
-	containsXY(x, y) {
-		if (x < this.x || y < this.y) return false;
-		if (x > this.x + this.w || y > this.y + this.h) return false;
-		return true;
-	}
 
 	split(minWidth, minHeight) {
 		let splitWidth = !this.tooNarrow(minWidth);
 		let splitHeight  = !this.tooShort(minHeight);
 		if ((!splitWidth) && (!splitHeight)) {
-			console.log('tooNarrow && tooShort', this.toString());
+			// console.log('tooNarrow && tooShort', this.toString());
 			return null;
 		}
 		else if (splitWidth && splitHeight) {
-			if (this.w > this.h * 2) {
+			if (this.width > this.height * 2) {
 				splitHeight = false;	// splitWidth = true;
 			}
-			else if (this.w * 1.5 > this.h ) {
+			else if (this.width * 1.5 > this.height ) {
 				splitWidth = false;	// splitHeight = true;
 			}
 			else if (GW.random.chance(50)) {
@@ -61,29 +61,29 @@ class Node {
 		}
 
 		if (splitHeight) {
-			let plusH = (this.h - minHeight*2);
+			let plusH = (this.height - minHeight*2);
 			let topH = GW.random.clumped(0, plusH, 3) + minHeight; // + minHeight;
-			console.log('Divide TOP/BOTTOM', this.toString(), 'topH=', topH, '=', minHeight, '+ rnd:', plusH);
-			const bottomNode = new Node(this.x, this.y + topH, this.w, this.h - topH);
-			this.h = topH;
-			console.log(' - ', this.toString());
-			console.log(' - ', bottomNode.toString());
+			// console.log('Divide TOP/BOTTOM', this.toString(), 'topH=', topH, '=', minHeight, '+ rnd:', plusH);
+			const bottomNode = new Node(this.x, this.y + topH, this.width, this.height - topH);
+			this.height = topH;
+			// console.log(' - ', this.toString());
+			// console.log(' - ', bottomNode.toString());
 			return bottomNode;
 		}
 		if (splitWidth) {
-			let plusW = this.w - minWidth*2;
+			let plusW = this.width - minWidth*2;
 			let leftW = GW.random.clumped(0, plusW, 3) + minWidth;
-			console.log('Divide LEFT/RIGHT', this.toString(), 'leftW=', leftW, '=', minWidth, '+ rnd:', plusW);
-			const rightNode = new Node(this.x + leftW, this.y, this.w - leftW, this.h);
-			this.w = leftW;
-			console.log(' - ', this.toString());
-			console.log(' - ', rightNode.toString());
+			// console.log('Divide LEFT/RIGHT', this.toString(), 'leftW=', leftW, '=', minWidth, '+ rnd:', plusW);
+			const rightNode = new Node(this.x + leftW, this.y, this.width - leftW, this.height);
+			this.width = leftW;
+			// console.log(' - ', this.toString());
+			// console.log(' - ', rightNode.toString());
 			return rightNode;
 		}
 	}
 
 	toString() {
-		return '[' + this.x + ',' + this.y + ' => ' + (this.x + this.w) + ',' + (this.y + this.h) + ']';
+		return '[' + this.x + ',' + this.y + ' => ' + (this.x + this.width) + ',' + (this.y + this.height) + ']';
 	}
 }
 
@@ -194,7 +194,7 @@ function digTunnel(grid, node, x, y, dx, dy) {
 }
 
 function digUp(grid, node) {
-	const seq = GW.utils.sequence(node.w);
+	const seq = GW.utils.sequence(node.width);
 	GW.random.shuffle(seq);
 
 	for(let dx of seq) {
@@ -206,11 +206,11 @@ function digUp(grid, node) {
 }
 
 function digDown(grid, node) {
-	const seq = GW.utils.sequence(node.w);
+	const seq = GW.utils.sequence(node.width);
 	GW.random.shuffle(seq);
 
 	for(let dx of seq) {
-		if (digTunnel(grid, node, node.x + dx, node.y + node.h - 1, 0, 1)) {
+		if (digTunnel(grid, node, node.x + dx, node.y + node.height - 1, 0, 1)) {
 			return true;
 		}
 	}
@@ -218,7 +218,7 @@ function digDown(grid, node) {
 }
 
 function digLeft(grid, node) {
-	const seq = GW.utils.sequence(node.h);
+	const seq = GW.utils.sequence(node.height);
 	GW.random.shuffle(seq);
 
 	for(let dy of seq) {
@@ -231,11 +231,11 @@ function digLeft(grid, node) {
 
 
 function digRight(grid, node) {
-	const seq = GW.utils.sequence(node.h);
+	const seq = GW.utils.sequence(node.height);
 	GW.random.shuffle(seq);
 
 	for(let dy of seq) {
-		if (digTunnel(grid, node, node.x + node.w - 1, node.y + dy, 1, 0)) {
+		if (digTunnel(grid, node, node.x + node.width - 1, node.y + dy, 1, 0)) {
 			return true;
 		}
 	}
@@ -246,8 +246,8 @@ function digRight(grid, node) {
 function digRoom(grid, node, id=1) {
 
 	const opts = {
-		width: node.w - 1,
-		height: node.h - 1,
+		width: node.width - 1,
+		height: node.height - 1,
 		minPct: 100,
 	};
 
@@ -256,7 +256,7 @@ function digRoom(grid, node, id=1) {
 	let bounds;
 
 	while(tries--) {
-		const ratio = Math.abs(100 - Math.round(100 * node.w/node.h));
+		const ratio = Math.abs(100 - Math.round(100 * node.width/node.height));
 		// if (ratio < 20 && GW.random.chance(30)) {
 		// 	GW.digger.circularRoom(opts, roomGrid);
 		// }
@@ -265,7 +265,7 @@ function digRoom(grid, node, id=1) {
 		// }
 		bounds = roomGrid.calcBounds();
 
-		if (bounds.right - bounds.left < node.w && bounds.bottom - bounds.top < node.h) {
+		if (bounds.right - bounds.left < node.width && bounds.bottom - bounds.top < node.height) {
 			break;
 		}
 	}
@@ -277,8 +277,8 @@ function digRoom(grid, node, id=1) {
 	}
 
 	GW.grid.offsetZip(grid, roomGrid, node.x - bounds.left, node.y - bounds.top, id);
-	node.w = bounds.right - bounds.left + 1;
-	node.h = bounds.bottom - bounds.top + 1;
+	node.width = bounds.right - bounds.left + 1;
+	node.height = bounds.bottom - bounds.top + 1;
 
 	return true;
 }
@@ -324,7 +324,7 @@ function digBspTree(map, tree, opts={}) {
 }
 
 
-function drawMap(attempt=0) {
+async function drawMap(attempt=0) {
 	if (attempt > 20) {
 		console.error('Failed to build map!');
 		return false;
@@ -364,8 +364,35 @@ function drawMap(attempt=0) {
 
 	console.log('BSP TREE', tree);
 
-	const box = GW.make.item('BOX');
-	MAP.addItemNear(1, 1, box);
+	// GW.tileEvent.debug = console.log;
+
+	for(let node of tree) {
+		const sequence = GW.utils.sequence(node.width * node.height);
+		GW.random.shuffle(sequence);
+
+		node.x -= 1;
+		node.y -= 1;
+		node.width += 2;
+		node.height += 2;
+
+		const tries = Math.max(5, GW.random.number(sequence.length));
+
+		let success = false;
+		for(let i = 0; i < tries && !success; ++i) {
+			const x = node.x + Math.floor(sequence[i] / node.height);
+			const y = node.y + (sequence[i] % node.height);
+
+			// Not on room boundary
+			if (x == node.x || y == node.y) continue;
+			if (x == node.x + node.width - 1 || y == node.y + node.height - 1) continue;
+
+			const cell = MAP.cell(x, y);
+			if (!cell.isPassableNow()) continue;
+			success = await GW.tileEvent.spawn(BOXES, { map: MAP, x, y, bounds: node });
+		}
+	}
+
+	// GW.tileEvent.debug = GW.utils.NOOP;
 
 	canvas.buffer.erase();
 	GW.viewport.draw(canvas.buffer, MAP);

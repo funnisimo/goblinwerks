@@ -8,6 +8,7 @@ import { types, def, make, data as DATA, config as CONFIG, flag as FLAG, utils a
 
 
 export var map = {};
+map.debug = UTILS.NOOP;
 
 const Fl = FLAG.fl;
 
@@ -44,13 +45,11 @@ export class Map {
 	isBoundaryXY(x, y) { return this.cells.isBoundaryXY(x, y); }
 
 	changed(v) {
-		if (arguments.length == 1) {
-			if (v) {
-				this.flags |= Flags.MAP_CHANGED;
-			}
-			else {
-				this.flags &= ~Flags.MAP_CHANGED;
-			}
+		if (v === true) {
+			this.flags |= Flags.MAP_CHANGED;
+		}
+		else if (v === false) {
+			this.flags &= ~Flags.MAP_CHANGED;
 		}
 		return (this.flags & Flags.MAP_CHANGED);
 	}
@@ -82,7 +81,7 @@ export class Map {
 		if (cellFlag || cellMechFlag) {
 			this.forEach( (c) => c.setFlags(cellFlag, cellMechFlag) );
 		}
-		this.flags |= Flags.MAP_CHANGED;
+		this.changed(true);
 	}
 
 	clearFlags(mapFlag, cellFlag, cellMechFlag) {
@@ -92,7 +91,7 @@ export class Map {
 		if (cellFlag || cellMechFlag) {
 			this.forEach( (cell) => cell.clearFlags(cellFlag, cellMechFlag) );
 		}
-		this.flags |= Flags.MAP_CHANGED;
+		this.changed(true);
 	}
 
 	setCellFlags(x, y, cellFlag, cellMechFlag) {
@@ -102,7 +101,7 @@ export class Map {
 
 	clearCellFlags(x, y, cellFlags, cellMechFlags) {
 		this.cell(x, y).clearFlags(cellFlags, cellMechFlags);
-		this.flags |= Flags.MAP_CHANGED;
+		this.changed(true);
 	}
 
 	hasTile(x, y, tile)	{ return this.cells[x][y].hasTile(tile); }
@@ -141,13 +140,18 @@ export class Map {
 		if (cell.setTile(tileId, checkPriority)) {
 			this.flags &= ~(Flags.MAP_STABLE_GLOW_LIGHTS);
 		}
-		this.flags |= Flags.MAP_CHANGED;
+		this.changed(true);
 	  return true;
 	}
 
 	clearTileWithFlags(x, y, tileFlags, tileMechFlags=0) {
 		const cell = this.cell(x, y);
 		cell.clearTileWithFlags(tileFlags, tileMechFlags);
+	}
+
+	clearCellTiles(x, y, includeGas) {
+		this.changed(true);
+		return this.cell(x, y).clearTiles(includeGas);
 	}
 
 	fill(tileId, boundaryTile) {
@@ -275,11 +279,11 @@ export class Map {
 		};
 
 		if (failsafeCount >= 500) {
-			// GW.debug.log('randomMatchingLocation', dungeonType, liquidType, terrainType, ' => FAIL');
+			// map.debug('randomMatchingLocation', dungeonType, liquidType, terrainType, ' => FAIL');
 			return false;
 		}
 
-		// GW.debug.log('randomMatchingLocation', dungeonType, liquidType, terrainType, ' => ', x, y);
+		// map.debug('randomMatchingLocation', dungeonType, liquidType, terrainType, ' => ', x, y);
 		return [ x, y ];
 	}
 
@@ -447,7 +451,7 @@ export class Map {
 	addItemNear(x, y, theItem) {
 		const loc = this.matchingXYNear(x, y, (cell, i, j) => {
 			if (cell.flags & CellFlags.HAS_ITEM) return false;
-			return !cell.hasTileFlag(TileFlags.T_OBSTRUCTS_ITEMS);
+			return !cell.hasTileFlag(theItem.forbiddenTileFlags());
 		});
 		if (!loc || loc[0] < 0) {
 			// GW.ui.message(colors.badMessageColor, 'There is no place to put the item.');
@@ -577,19 +581,24 @@ export function getCellAppearance(map, x, y, dest) {
 map.getCellAppearance = getCellAppearance;
 
 
-export function gridDisruptsPassability(map, blockingGrid, mapToGridX=0, mapToGridY=0)
+export function gridDisruptsPassability(theMap, blockingGrid, opts={})
 {
 	let result;
 	let i, j, x, y;
 
-	const walkableGrid = GRID.alloc(map.width, map.height);
+	const walkableGrid = GRID.alloc(theMap.width, theMap.height);
 	let disrupts = false;
+
+	const gridOffsetX = opts.gridOffsetX || 0;
+	const gridOffsetY = opts.gridOffsetY || 0;
+	const bounds = opts.bounds || null;
 
 	x = y = -1;
 	// Get all walkable locations after lake added
-	map.cells.forEach( (cell, i, j) => {
-		const blockingX = i + mapToGridX;
-		const blockingY = j + mapToGridY;
+	theMap.cells.forEach( (cell, i, j) => {
+		if (bounds && !bounds.containsXY(i, j)) return;	// outside bounds
+		const blockingX = i + gridOffsetX;
+		const blockingY = j + gridOffsetY;
 		if (cell.isEmpty()) {
 			return; // do nothing
 		}

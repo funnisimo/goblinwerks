@@ -7,6 +7,7 @@ import { scheduler } from './scheduler.js';
 
 import { data as DATA, types, make, config as CONFIG, fx, ui as UI, utils as UTILS } from './gw.js';
 
+fx.debug = UTILS.NOOP;
 
 let ANIMATIONS = [];
 
@@ -373,7 +374,7 @@ export class BeamFX extends FX {
 
   moveTo(x, y) {
     if (!this.map.hasXY(x, y)) {
-      console.log('BEAM - invalid x,y', x, y);
+      fx.debug('BEAM - invalid x,y', x, y);
       return;
     }
     this.x = x;
@@ -469,7 +470,7 @@ class ExplosionFX extends FX {
     }
     UI.requestUpdate(48);
 
-    // console.log('returning...', done);
+    // fx.debug('returning...', done);
     if (done && (this.count == 0)) {
       return this.stop(this); // xy of explosion is callback value
     }

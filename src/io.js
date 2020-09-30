@@ -1,8 +1,10 @@
 
-import { def, data as DATA, commands as COMMANDS, utils as UTILS } from './gw.js';
+import { def, data as DATA, commands as COMMANDS, utils as UTILS, make } from './gw.js';
 
 
 export var io = {};
+
+io.debug = UTILS.NOOP;
 
 let KEYMAP = {};
 // const KEYMAPS = [];
@@ -265,7 +267,7 @@ let PAUSED = null;
 export function pauseEvents() {
 	if (PAUSED) return;
 	PAUSED = CURRENT_HANDLER;
-	// console.log('events paused');
+	// io.debug('events paused');
 }
 
 io.pauseEvents = pauseEvents;
@@ -273,15 +275,15 @@ io.pauseEvents = pauseEvents;
 export function resumeEvents() {
 	CURRENT_HANDLER = PAUSED;
 	PAUSED = null;
-	// console.log('resuming events');
+	// io.debug('resuming events');
 
 	if (EVENTS.length && CURRENT_HANDLER) {
 		const e = EVENTS.shift();
-		// console.log('- processing paused event', e.type);
+		// io.debug('- processing paused event', e.type);
 		CURRENT_HANDLER(e);
 		// io.recycleEvent(e);	// DO NOT DO THIS B/C THE HANDLER MAY PUT IT BACK ON THE QUEUE (see tickMs)
 	}
-	// console.log('events resumed');
+	// io.debug('events resumed');
 }
 
 io.resumeEvents = resumeEvents;

@@ -2,11 +2,10 @@
 import { color as COLOR, colors as COLORS } from './color.js';
 import { cosmetic } from './random.js';
 
-import { types, debug, make } from './gw.js';
+import { types, make, ui as UI } from './gw.js';
 
 
 const DEFAULT_FONT = 'monospace';
-
 
 export var canvas = {};
 
@@ -36,10 +35,9 @@ function handleResizeEvent() {
   const rect = this.element.getBoundingClientRect();
   this.pxWidth  = rect.width;
   this.pxHeight = rect.height;
-  console.log('canvas resize', rect);
+  UI.debug('canvas resize', rect);
 
   this.buffer.forEach((c) => { c.needsUpdate = true; });
-
 }
 
 

@@ -147,6 +147,17 @@ class Cell {
     this.layerFlags = 0;
   }
 
+  clearTiles(includeGas=true) {
+    this.layers[1] = 0;
+    this.layers[2] = 0;
+    this.liquidVolume = 0;
+    if (includeGas) {
+      this.layers[3] = 0;
+      this.gasVolume = 0;
+    }
+    this.redraw();
+  }
+
   get ground() { return this.layers[0]; }
   get liquid() { return this.layers[1]; }
   get surface() { return this.layers[2]; }

@@ -4,8 +4,6 @@ import { make, types } from './gw.js';
 
 export var text = {};
 
-
-
 ///////////////////////////////////
 // Message String
 
@@ -564,7 +562,6 @@ function format(fmt, ...args) {
   }
 
   let result = fmt.replace(RE, (m, p1, p2, p3, p4, p5, offset) => {
-    // GW.debug.log(m, p1, p2, p3, p4, p5, offset);
 
     p1 = p1 || '';
     p2 = p2 || '';

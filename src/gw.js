@@ -2,7 +2,6 @@
 
 export var def = {};
 export var types = {};
-export var debug = {};
 
 export var make = {};
 export var install = {};
@@ -41,5 +40,3 @@ def.LEFT_UP = 4;
 def.RIGHT_DOWN = 5;
 def.LEFT_DOWN = 6;
 def.RIGHT_UP = 7;
-
-debug.log = console.log;

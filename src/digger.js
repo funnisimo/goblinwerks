@@ -1,12 +1,12 @@
 
-import {  } from './utils.js';
 import { grid as GRID } from './grid.js';
 import { random } from './random.js';
-import { debug, def, utils as UTILS } from './gw.js';
-
+import { make, def, utils as UTILS } from './gw.js';
 
 export var digger = {};
 export var diggers = {};
+
+digger.debug = UTILS.NOOP;
 
 const DIRS = def.dirs;
 
@@ -135,7 +135,7 @@ export function digChoiceRoom(config, grid) {
   if (config.opts) {
     digConfig = Object.assign({}, digger, config.opts);
   }
-  // debug.log('Choose room: ', id);
+  // digger.debug('Chose room: ', id);
   digger.fn(digConfig, grid);
   return digger.id;
 }

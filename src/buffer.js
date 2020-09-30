@@ -1,8 +1,7 @@
 
 import { colors as COLORS, color as COLOR } from './color.js';
 import { text as TEXT } from './text.js';
-import { types, make } from './gw.js';
-
+import { types, make, utils as UTILS } from './gw.js';
 
 class Buffer extends types.Grid {
   constructor(w, h) {
@@ -51,7 +50,7 @@ class Buffer extends types.Grid {
     if (sprite.opacity <= 0) return;
 
     if (!this.hasXY(x, y)) {
-      debug.log('invalid coordinates: ' + x + ', ' + y);
+      UTILS.warn('invalid coordinates: ' + x + ', ' + y);
       return false;
     }
     const destCell = this[x][y];
@@ -63,7 +62,7 @@ class Buffer extends types.Grid {
 
   plotChar(x, y, ch, fg, bg) {
     if (!this.hasXY(x, y)) {
-      debug.log('invalid coordinates: ' + x + ', ' + y);
+      UTILS.warn('invalid coordinates: ' + x + ', ' + y);
       return;
     }
 

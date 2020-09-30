@@ -1,4 +1,5 @@
 
+import { Flags as TileFlags } from './tile.js';
 import * as GW from './gw.js';
 
 const Fl = GW.flag.fl;
@@ -143,14 +144,16 @@ class ItemKind {
 		this.actionFlags = ActionFlags.toFlag(opts.flags);
 		this.attackFlags = AttackFlags.toFlag(opts.flags);
 		this.stats = Object.assign({}, opts.stats || {});
+		this.id = opts.id || null;
   }
 }
 
 GW.types.ItemKind = ItemKind;
 
-function installItemKind(name, opts={}) {
+function installItemKind(id, opts={}) {
+	opts.id = id;
 	const kind = new GW.types.ItemKind(opts);
-	GW.itemKinds[name] = kind;
+	GW.itemKinds[id] = kind;
 	return kind;
 }
 
@@ -180,6 +183,8 @@ class Item {
 	}
 
 	isDestroyed() { return this.flags & Flags.ITEM_DESTROYED; }
+
+	forbiddenTileFlags() { return TileFlags.T_OBSTRUCTS_ITEMS; }
 }
 
 GW.types.Item = Item;

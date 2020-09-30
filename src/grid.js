@@ -1,6 +1,6 @@
 
 import { random } from './random.js';
-import { def, data as DATA, types, debug, make, utils as UTILS } from './gw.js';
+import { def, data as DATA, types, make, utils as UTILS } from './gw.js';
 
 
 const GRID_CACHE = [];
@@ -528,8 +528,7 @@ export function floodFillRange(grid, x, y, eligibleValueMin, eligibleValueMax, f
 	let newX, newY, fillCount = 1;
 
   if (fillValue >= eligibleValueMin && fillValue <= eligibleValueMax) {
-		console.error('Invalid grid flood fill');
-		return 0;
+		UTILS.ERROR('Invalid grid flood fill');
 	}
 
   grid[x][y] = fillValue;

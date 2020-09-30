@@ -1,7 +1,8 @@
 
 import { io as IO } from './io.js';
-import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, utils as UTILS } from './gw.js';
+import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, utils as UTILS, make } from './gw.js';
 
+ui.debug = UTILS.NOOP;
 
 let SHOW_FLAVOR = false;
 let SHOW_SIDEBAR = false;
@@ -174,9 +175,9 @@ export async function updateNow(t=1) {
 	ui.canvas.draw();
 	if (t) {
 		// const now = performance.now();
-		// console.log('UI update - with timeout:', t);
+		// ui.debug('UI update - with timeout:', t);
 		const r = await IO.tickMs(t);
-		// console.log('- done', r, Math.floor(performance.now() - now));
+		// ui.debug('- done', r, Math.floor(performance.now() - now));
 	}
 }
 
@@ -243,7 +244,7 @@ function setCursor(x, y) {
 
   if (CURSOR.x == x && CURSOR.y == y) return false;
 
-  // console.log('set cursor', x, y);
+  // ui.debug('set cursor', x, y);
 
   if (map.hasXY(CURSOR.x, CURSOR.y)) {
     map.clearCellFlags(CURSOR.x, CURSOR.y, CellFlags.IS_CURSOR);

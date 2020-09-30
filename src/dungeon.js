@@ -5,14 +5,14 @@ import { path as PATH } from './path.js';
 import { map as MAP } from './map.js';
 import { tile as TILE, Flags as TileFlags } from './tile.js';
 import { diggers as DIGGERS, digger as DIGGER } from './digger.js';
-import { def, debug, utils as UTILS } from './gw.js';
+import { def, make, utils as UTILS } from './gw.js';
 
 const DIRS = def.dirs;
 const OPP_DIRS = [def.DOWN, def.UP, def.RIGHT, def.LEFT];
 
 export var dungeon = {};
 
-dungeon.log = UTILS.NOOP;
+dungeon.debug = UTILS.NOOP;
 
 const NOTHING = 0;
 let FLOOR = 1;
@@ -93,7 +93,7 @@ export function digRoom(opts={}) {
     grid.fill(NOTHING);
 
     const id = digger.fn(config, grid);
-    dungeon.log('Dig room:', id);
+    dungeon.debug('Dig room:', id);
     const doors = DIGGER.chooseRandomDoorSites(grid);
     if (random.chance(hallChance)) {
       DIGGER.attachHallway(grid, doors, SITE.config);
@@ -197,7 +197,7 @@ function attachRoomToDungeon(roomGrid, doorSites, placeDoor) {
         if (doorSites[oppDir][0] != -1
             && roomAttachesAt(roomGrid, offsetX, offsetY))
         {
-          dungeon.log("- attachRoom: ", x, y, oppDir);
+          dungeon.debug("- attachRoom: ", x, y, oppDir);
 
           // Room fits here.
           GRID.offsetZip(SITE.cells, roomGrid, offsetX, offsetY, (d, s, i, j) => d.setTile(s) );
@@ -267,7 +267,7 @@ function insertRoomAtXY(x, y, roomGrid, doorSites, placeDoor) {
     if (doorSites[oppDir][0] != -1
         && roomAttachesAt(roomGrid, x - doorSites[oppDir][0], y - doorSites[oppDir][1]))
     {
-      // GW.dungeon.log("attachRoom: ", x, y, oppDir);
+      // dungeon.debug("attachRoom: ", x, y, oppDir);
 
       // Room fits here.
       const offX = x - doorSites[oppDir][0];
@@ -334,7 +334,7 @@ export function digLake(opts={}) {
         y = random.range(1 - bounds.y, lakeGrid.height - bounds.height - bounds.y - 2);
 
       if (canDisrupt || !lakeDisruptsPassability(lakeGrid, -x, -y)) { // level with lake is completely connected
-        dungeon.log("Placed a lake!", x, y);
+        dungeon.debug("Placed a lake!", x, y);
 
         ++count;
         // copy in lake
@@ -360,7 +360,7 @@ dungeon.digLake = digLake;
 
 
 function lakeDisruptsPassability(lakeGrid, dungeonToGridX, dungeonToGridY) {
-  return MAP.gridDisruptsPassability(SITE, lakeGrid, dungeonToGridX, dungeonToGridY);
+  return MAP.gridDisruptsPassability(SITE, lakeGrid, { gridOffsetX: dungeonToGridX, gridOffsetY: dungeonToGridY });
 }
 
 
@@ -413,10 +413,16 @@ export function addLoops(minimumPathingDistance, maxConnectionLength) {
                 j = maxConnectionLength;
 
                 // check up/left
-                if (SITE.hasXY(x + dir[0], y + dir[1]) && !SITE.cell(x + dir[0], y + dir[1]).isEmpty()) {
-                  // ok
+                if (SITE.hasXY(x + dir[0], y + dir[1]) && SITE.cell(x + dir[0], y + dir[1]).hasTile(FLOOR)) {
+                  // just can't build directly into a door
+                  if (!SITE.hasXY(x - dir[0], y - dir[1]) || SITE.cell(x - dir[0], y - dir[1]).hasTile(DOOR)) {
+                    continue;
+                  }
                 }
-                else if (SITE.hasXY(x - dir[0], y - dir[1]) && !SITE.cell(x - dir[0], y - dir[1]).isEmpty()) {
+                else if (SITE.hasXY(x - dir[0], y - dir[1]) && SITE.cell(x - dir[0], y - dir[1]).hasTile(FLOOR)) {
+                  if (!SITE.hasXY(x + dir[0], y + dir[1]) || SITE.cell(x + dir[0], y + dir[1]).hasTile(DOOR)) {
+                    continue;
+                  }
                   dir = dir.map( (v) => -1*v );
                 }
                 else {
@@ -445,7 +451,7 @@ export function addLoops(minimumPathingDistance, maxConnectionLength) {
                   // dijkstraScan(pathGrid, costGrid, false);
                   if (pathGrid[endX][endY] > minimumPathingDistance && pathGrid[endX][endY] < 30000) { // and if the pathing distance between the two flanking floor tiles exceeds minimumPathingDistance,
 
-                      dungeon.log('Adding Loop', startX, startY, ' => ', endX, endY, ' : ', pathGrid[endX][endY]);
+                      dungeon.debug('Adding Loop', startX, startY, ' => ', endX, endY, ' : ', pathGrid[endX][endY]);
 
                       while(endX !== startX || endY !== startY) {
                         if (SITE.cell(endX, endY).isEmpty()) {
@@ -526,7 +532,7 @@ export function addBridges(minimumPathingDistance, maxConnectionLength) {
                   // dijkstraScan(pathGrid, costGrid, false);
                   if (pathGrid[x][y] > minimumPathingDistance && pathGrid[x][y] < def.PDS_NO_PATH) { // and if the pathing distance between the two flanking floor tiles exceeds minimumPathingDistance,
 
-                      dungeon.log('Adding Bridge', x, y, ' => ', newX, newY);
+                      dungeon.debug('Adding Bridge', x, y, ' => ', newX, newY);
 
                       while(x !== newX || y !== newY) {
                         if (isBridgeCandidate(x, y, bridgeDir)) {
@@ -581,7 +587,7 @@ export function removeDiagonalOpenings() {
 						}
             diagonalCornerRemoved = true;
             SITE.setTile(x1, y1, FLOOR);
-            dungeon.log('Removed diagonal opening', x1, y1);
+            dungeon.debug('Removed diagonal opening', x1, y1);
 					}
 				}
 			}
@@ -604,7 +610,7 @@ function finishDoors() {
 					// If there's passable terrain to the left or right, and there's passable terrain
 					// above or below, then the door is orphaned and must be removed.
 					SITE.setTile(i, j, FLOOR);
-          dungeon.log('Removed orphan door', i, j);
+          dungeon.debug('Removed orphan door', i, j);
 				} else if ((SITE.blocksPathing(i+1, j) ? 1 : 0)
 						   + (SITE.blocksPathing(i-1, j) ? 1 : 0)
 						   + (SITE.blocksPathing(i, j+1) ? 1 : 0)
@@ -612,7 +618,7 @@ function finishDoors() {
 					// If the door has three or more pathing blocker neighbors in the four cardinal directions,
 					// then the door is orphaned and must be removed.
           SITE.setTile(i, j, FLOOR);
-          dungeon.log('Removed blocked door', i, j);
+          dungeon.debug('Removed blocked door', i, j);
 				}
 			}
 		}
@@ -642,7 +648,7 @@ export function addStairs(upX, upY, downX, downY, minDistance) {
 
   const upLoc = SITE.cells.matchingXYNear(upX, upY, dungeon.isValidStairLoc);
 	if (!upLoc || upLoc[0] < 0) {
-    dungeon.log('no up location');
+    dungeon.debug('no up location');
     return false;
   }
 
@@ -658,7 +664,7 @@ export function addStairs(upX, upY, downX, downY, minDistance) {
   }
 
   if (!downLoc || downLoc[0] < 0) {
-    dungeon.log('No down location');
+    dungeon.debug('No down location');
     return false;
   }
 
