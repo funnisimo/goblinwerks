@@ -64,4 +64,23 @@ describe('GW.utils', () => {
     expect(UTILS.distanceFromTo({ x: 5, y: 0 }, { x: 10, y: 0 })).toEqual(5);
     expect(UTILS.distanceFromTo([5,0], [10,0])).toEqual(5);
   });
+
+  test('dirBetween', () => {
+    expect(UTILS.dirBetween(0, 0, 3, 0)).toEqual([1,0]);
+    expect(UTILS.dirBetween(0, 0, 0, -3)).toEqual([0,-1]);
+    expect(UTILS.dirBetween(0, 0, 10, 9)).toEqual([1,1]);
+    expect(UTILS.dirBetween(0, 0, -10, 9)).toEqual([-1,1]);
+  });
+
+  test('dirFromTo', () => {
+    expect(UTILS.dirFromTo({x: 0, y: 0 }, { x: 5, y: -1 })).toEqual([1,0]);
+    expect(UTILS.dirFromTo([0,0], { x: -5, y: -10 })).toEqual([0,-1]);
+  });
+
+  test('dirIndex', () => {
+    expect(UTILS.dirIndex([0,0])).toEqual(-1);
+    expect(UTILS.dirIndex([2,0])).toEqual(-1);
+    expect(UTILS.dirIndex([1,0])).toEqual(3);
+    expect(UTILS.dirIndex([-1,1])).toEqual(6);
+  });
 });

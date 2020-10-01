@@ -147,7 +147,9 @@ function dirFromTo(a, b) {
 utils$1.dirFromTo = dirFromTo;
 
 function dirIndex(dir) {
-  return def.dirs.findIndex( (a) => a[0] == dir[0] && a[1] == dir[1] );
+  const x = dir.x || dir[0] || 0;
+  const y = dir.y || dir[1] || 0;
+  return def.dirs.findIndex( (a) => a[0] == x && a[1] == y );
 }
 
 utils$1.dirIndex = dirIndex;
@@ -163,24 +165,24 @@ function extend(obj, name, fn) {
 
 utils$1.extend = extend;
 
-function rebase(obj, name, newBase) {
-  const fns = [];
-  let fn = obj[name];
+// export function rebase(obj, name, newBase) {
+//   const fns = [];
+//   let fn = obj[name];
 
-  while(fn && fn.fn) {
-    fns.push(fn.fn);
-    fn = fn.base;
-  }
+//   while(fn && fn.fn) {
+//     fns.push(fn.fn);
+//     fn = fn.base;
+//   }
 
-  obj[name] = newBase;
+//   obj[name] = newBase;
 
-  while(fns.length) {
-    fn = fns.pop();
-    extend(obj, name, fn);
-  }
-}
+//   while(fns.length) {
+//     fn = fns.pop();
+//     extend(obj, name, fn);
+//   }
+// }
 
-utils$1.rebase = rebase;
+// utils.rebase = rebase;
 
 function cloneObject(obj) {
   const other = Object.create(obj.__proto__);
