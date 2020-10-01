@@ -126,20 +126,21 @@ dungeon.digRoom = digRoom;
 
 export function isValidStairLoc(c, x, y) {
   let count = 0;
-  if (!c.isEmpty()) return false;
+  if (!c.isNull()) return false;
 
   for(let i = 0; i < 4; ++i) {
     const dir = def.dirs[i];
     if (!SITE.hasXY(x + dir[0], y + dir[1])) return false;
+    if (!SITE.hasXY(x - dir[0], y - dir[1])) return false;
     const cell = SITE.cell(x + dir[0], y + dir[1]);
     if (cell.hasTile(FLOOR)) {
       count += 1;
       const va = SITE.cell(x - dir[0] + dir[1], y - dir[1] + dir[0]);
-      if (!va.isEmpty()) return false;
+      if (!va.isNull()) return false;
       const vb = SITE.cell(x - dir[0] - dir[1], y - dir[1] - dir[0]);
-      if (!vb.isEmpty()) return false;
+      if (!vb.isNull()) return false;
     }
-    else if (!cell.isEmpty()) {
+    else if (!cell.isNull()) {
       return false;
     }
   }
@@ -164,7 +165,7 @@ function roomAttachesAt(roomGrid, roomToSiteX, roomToSiteY) {
                     for (j = ySite - 1; j <= ySite + 1; j++) {
                         if (!SITE.hasXY(i, j)
                             || SITE.isBoundaryXY(i, j)
-                            || !SITE.cell(i, j).isEmpty())
+                            || !SITE.cell(i, j).isNull())
                         {
                             return false;
                         }
@@ -186,7 +187,7 @@ function attachRoomToDungeon(roomGrid, doorSites, placeDoor) {
       const x = Math.floor(LOCS[i] / SITE.height);
       const y = LOCS[i] % SITE.height;
 
-      if (!SITE.cell(x, y).isEmpty()) continue;
+      if (!SITE.cell(x, y).isNull()) continue;
       const dir = GRID.directionOfDoorSite(SITE.cells, x, y, (c) => (c.hasTile(FLOOR) && !c.isLiquid()) );
       if (dir != def.NO_DIRECTION) {
         const oppDir = OPP_DIRS[dir];
@@ -385,9 +386,9 @@ export function addLoops(minimumPathingDistance, maxConnectionLength) {
       if (!SITE.hasXY(x, y)) return false;
       if (!SITE.hasXY(x + dir[1], y + dir[0])) return false;
       if (!SITE.hasXY(x - dir[1], y - dir[0])) return false;
-      if (!SITE.cell(x, y).isEmpty()) return false;
-      if (!SITE.cell(x + dir[1], y + dir[0]).isEmpty()) return false;
-      if (!SITE.cell(x - dir[1], y - dir[0]).isEmpty()) return false;
+      if (!SITE.cell(x, y).isNull()) return false;
+      if (!SITE.cell(x + dir[1], y + dir[0]).isNull()) return false;
+      if (!SITE.cell(x - dir[1], y - dir[0]).isNull()) return false;
       return true;
     }
 
@@ -395,9 +396,9 @@ export function addLoops(minimumPathingDistance, maxConnectionLength) {
       if (!SITE.hasXY(x, y)) return false;
       if (!SITE.hasXY(x + dir[1], y + dir[0])) return false;
       if (!SITE.hasXY(x - dir[1], y - dir[0])) return false;
-      if (!SITE.cell(x, y).isEmpty()) return true;
-      if (!SITE.cell(x + dir[1], y + dir[0]).isEmpty()) return true;
-      if (!SITE.cell(x - dir[1], y - dir[0]).isEmpty()) return true;
+      if (!SITE.cell(x, y).isNull()) return true;
+      if (!SITE.cell(x + dir[1], y + dir[0]).isNull()) return true;
+      if (!SITE.cell(x - dir[1], y - dir[0]).isNull()) return true;
       return false;
     }
 
@@ -406,7 +407,7 @@ export function addLoops(minimumPathingDistance, maxConnectionLength) {
         y = LOCS[i] % siteGrid.height;
 
         const cell = siteGrid[x][y];
-        if (cell.isEmpty()) {
+        if (cell.isNull()) {
             for (d=0; d <= 1; d++) { // Try a horizontal door, and then a vertical door.
                 let dir = dirCoords[d];
                 if (!isValidTunnelStart(x, y, dir)) continue;
@@ -438,7 +439,7 @@ export function addLoops(minimumPathingDistance, maxConnectionLength) {
                   endX -= dir[0];
                   endY -= dir[1];
 
-                  // if (SITE.hasXY(endX, endY) && !SITE.cell(endX, endY).isEmpty()) {
+                  // if (SITE.hasXY(endX, endY) && !SITE.cell(endX, endY).isNull()) {
                   if (isValidTunnelEnd(endX, endY, dir)) {
                     break;
                   }
@@ -454,7 +455,7 @@ export function addLoops(minimumPathingDistance, maxConnectionLength) {
                       dungeon.debug('Adding Loop', startX, startY, ' => ', endX, endY, ' : ', pathGrid[endX][endY]);
 
                       while(endX !== startX || endY !== startY) {
-                        if (SITE.cell(endX, endY).isEmpty()) {
+                        if (SITE.cell(endX, endY).isNull()) {
                           SITE.setTile(endX, endY, FLOOR);
                           costGrid[endX][endY] = 1;          // (Cost map also needs updating.)
                         }
@@ -502,7 +503,7 @@ export function addBridges(minimumPathingDistance, maxConnectionLength) {
         x = Math.floor(LOCS[i] / siteGrid.height);
         y = LOCS[i] % siteGrid.height;
 
-        if (SITE.hasXY(x, y) && (!SITE.isEmpty(x, y)) && SITE.canBePassed(x, y)) {
+        if (SITE.hasXY(x, y) && (!SITE.isNull(x, y)) && SITE.canBePassed(x, y)) {
             for (d=0; d <= 1; d++) { // Try right, then down
                 const bridgeDir = dirCoords[d];
                 newX = x + bridgeDir[0];
@@ -525,7 +526,7 @@ export function addBridges(minimumPathingDistance, maxConnectionLength) {
                   }
                 }
 
-                if ((!SITE.isEmpty(newX, newY)) && SITE.canBePassed(newX, newY) && (j < maxConnectionLength)) {
+                if ((!SITE.isNull(newX, newY)) && SITE.canBePassed(newX, newY) && (j < maxConnectionLength)) {
                   PATH.calculateDistances(pathGrid, newX, newY, costGrid, false);
                   // pathGrid.fill(30000);
                   // pathGrid[newX][newY] = 0;
@@ -629,7 +630,7 @@ dungeon.finishDoors = finishDoors;
 
 function finishWalls() {
   SITE.cells.forEach( (cell, i, j) => {
-    if (cell.isEmpty()) {
+    if (cell.isNull()) {
       cell.setTile(WALL);
     }
   });
@@ -638,39 +639,42 @@ function finishWalls() {
 dungeon.finishWalls = finishWalls;
 
 
-export function addStairs(upX, upY, downX, downY, minDistance) {
+export function addStairs(opts = {}) {
 
-  upX = upX || random.number(SITE.width);
-  upY = upY || random.number(SITE.height);
-  downX = downX || -1;
-  downY = downY || -1;
-  minDistance = minDistance || Math.floor(Math.max(SITE.width,SITE.height)/2);
+  let upLoc = opts.up || null;
+  let downLoc = opts.down || null;
+  const minDistance = opts.minDistance || Math.floor(Math.max(SITE.width,SITE.height)/2);
+  const isValidStairLoc = opts.isValid || dungeon.isValidStairLoc;
+  const setup = opts.setup || SITE.setTile.bind(SITE);
 
-  const upLoc = SITE.cells.matchingXYNear(upX, upY, dungeon.isValidStairLoc);
-	if (!upLoc || upLoc[0] < 0) {
-    dungeon.debug('no up location');
+  if (upLoc) {
+    upLoc = SITE.cells.matchingXYNear(UTILS.x(upLoc), UTILS.y(upLoc), isValidStairLoc);
+  }
+  else {
+    upLoc = SITE.cells.randomMatchingXY( isValidStairLoc );
+  }
+  if (!upLoc || upLoc[0] < 0) {
+    dungeon.debug('No up stairs location.');
     return false;
   }
 
-  let downLoc;
-  if (downX < 0) {
-    downLoc = SITE.cells.randomMatchingXY( (v, x, y) => {
-  		if (UTILS.distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
-  		return dungeon.isValidStairLoc(v, x, y);
-  	});
+  if (downLoc) {
+    downLoc = SITE.cells.matchingXYNear(UTILS.x(downLoc), UTILS.y(downLoc), isValidStairLoc);
   }
   else {
-    downLoc = SITE.cells.matchingXYNear(downX, downY, dungeon.isValidStairLoc);
+    downLoc = SITE.cells.randomMatchingXY( (v, x, y) => {
+  		if (UTILS.distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
+  		return isValidStairLoc(v, x, y);
+  	});
   }
-
   if (!downLoc || downLoc[0] < 0) {
     dungeon.debug('No down location');
     return false;
   }
 
-  SITE.setTile(upLoc[0], upLoc[1], UP_STAIRS);
+  setup(upLoc[0], upLoc[1], UP_STAIRS);
 	SITE.locations.start = upLoc.slice();
-  SITE.setTile(downLoc[0], downLoc[1], DOWN_STAIRS);
+  setup(downLoc[0], downLoc[1], DOWN_STAIRS);
 	SITE.locations.finish = downLoc.slice();
 
   return true;

@@ -23,23 +23,35 @@ export function clamp(v, min, max) {
 
 utils.clamp = clamp;
 
+export function x(src) {
+  return src.x || src[0] || 0;
+}
+
+utils.x = x;
+
+export function y(src) {
+  return src.y || src[1] || 0;
+}
+
+utils.y = y;
+
 export function copyXY(dest, src) {
-  dest.x = src.x || src[0] || 0;
-  dest.y = src.y || src[1] || 0;
+  dest.x = utils.x(src);
+  dest.y = utils.y(src);
 }
 
 utils.copyXY = copyXY;
 
 export function addXY(dest, src) {
-  dest.x += src.x || src[0] || 0;
-  dest.y += src.y || src[1] || 0;
+  dest.x += utils.x(src);
+  dest.y += utils.y(src);
 }
 
 utils.addXY = addXY;
 
 export function equalsXY(dest, src) {
-  return (dest.x == (src.x || src[0] || 0))
-  && (dest.y == (src.y || src[1] || 0));
+  return (dest.x == utils.x(src))
+  && (dest.y == utils.y(src));
 }
 
 utils.equalsXY = equalsXY;
@@ -54,7 +66,7 @@ export function distanceBetween(x1, y1, x2, y2) {
 utils.distanceBetween = distanceBetween;
 
 export function distanceFromTo(a, b) {
-  return distanceBetween(a.x || a[0] || 0, a.y || a[1] || 0, b.x || b[0] || 0, b.y || b[1] || 0);
+  return distanceBetween(utils.x(a), utils.y(a), utils.x(b), utils.y(b));
 }
 
 utils.distanceFromTo = distanceFromTo;
@@ -74,7 +86,7 @@ export function dirBetween(x, y, toX, toY) {
 utils.dirBetween = dirBetween;
 
 export function dirFromTo(a, b) {
-  return dirBetween(a.x || a[0] || 0, a.y || a[1] || 0, b.x || b[0] || 0, b.y || b[1] || 0);
+  return dirBetween(utils.x(a), utils.y(a), utils.x(b), utils.y(b));
 }
 
 utils.dirFromTo = dirFromTo;

@@ -313,8 +313,12 @@ class Cell {
     return this.highestPriorityTile().text;
   }
 
-  isEmpty() {
+  isNull() {
     return this.ground == 0;
+  }
+
+  isEmpty() {
+    return !(this.actor || this.item);
   }
 
   isPassableNow(limitToPlayerKnowledge) {

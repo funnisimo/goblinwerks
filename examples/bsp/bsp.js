@@ -333,6 +333,63 @@ function digBspTree(map, tree, opts={}) {
 }
 
 
+function isValidStairs(cell, x, y) {
+	console.log('is valid stairs', cell, x, y);
+
+	if (!cell.hasTile(1)) return false;
+	if (!cell.isEmpty()) return false;
+
+	// must touch wall
+	const walls = MAP.neighborCount(x, y, (c) => c.isNull(), true);
+	if (!walls) return false;
+
+	// cannot be near door or items or actors
+	const doors = MAP.neighborCount(x, y, (c) => { return c.isDoor() || !c.isEmpty(); } );
+	if (doors) return false;
+
+	// must have empty floor on one side (of 4 primary directions)
+	const exit = MAP.neighborCount(x, y, (c) => c.hasTile(1) && c.isEmpty(), true);
+	if (!exit) return false;
+
+	return true;
+}
+
+
+function setupStairs(x, y, tile) {
+	MAP.setTile(x, y, tile);
+
+	const indexes = GW.random.shuffle(GW.utils.sequence(4));
+
+	let dir;
+	for(let i = 0; i < indexes.length; ++i) {
+		dir = GW.def.dirs[i];
+		const x0 = x + dir[0];
+		const y0 = y + dir[1];
+		const cell = MAP.cell(x0, y0);
+		if (cell.hasTile(1) && cell.isEmpty()) {
+			const oppCell = MAP.cell(x - dir[0], y - dir[1]);
+			if (oppCell.isNull()) break;
+		}
+
+		dir = null;
+	}
+
+	if (!dir) GW.utils.ERROR('No stair direction found!');
+
+	const dirIndex = GW.def.clockDirs.findIndex( (d) => d[0] == dir[0] && d[1] == dir[1] );
+
+	for(let i = 0; i < GW.def.clockDirs.length; ++i) {
+		const l = i ? i - 1 : 7;
+		const r = (i + 1) % 8;
+		if (i == dirIndex || l == dirIndex || r == dirIndex ) continue;
+		const d = GW.def.clockDirs[i];
+		MAP.setTile(x + d[0], y + d[1], 6);
+	}
+
+	console.log('setup stairs', x, y, tile);
+}
+
+
 async function drawMap(attempt=0) {
 	if (attempt > 20) {
 		console.error('Failed to build map!');
@@ -364,10 +421,10 @@ async function drawMap(attempt=0) {
 	//
 	// GW.dungeon.addBridges(40, 8);
 
-	// if (!GW.dungeon.addStairs(startingXY[0], startingXY[1], -1, -1)) {
-	// 	console.error('Failed to place stairs.');
-	// 	return drawMap(++attempt);
-	// }
+	if (!GW.dungeon.addStairs({ up: startingXY, isValid: isValidStairs, setup: setupStairs })) {
+		console.error('Failed to place stairs.');
+		return drawMap(++attempt);
+	}
 
 	GW.dungeon.finish();
 

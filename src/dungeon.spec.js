@@ -283,7 +283,7 @@ describe('GW.dungeon', () => {
 
   	GW.dungeon.addBridges(40, 8);
 
-  	if (!GW.dungeon.addStairs(startingXY[0], startingXY[1], -1, -1)) {
+  	if (!GW.dungeon.addStairs({ up: startingXY })) {
   		console.error('Failed to place stairs.');
   		return drawMap(++attempt);
   	}

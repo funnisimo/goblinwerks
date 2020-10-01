@@ -99,23 +99,35 @@
 
   utils$1.clamp = clamp;
 
+  function x(src) {
+    return src.x || src[0] || 0;
+  }
+
+  utils$1.x = x;
+
+  function y(src) {
+    return src.y || src[1] || 0;
+  }
+
+  utils$1.y = y;
+
   function copyXY(dest, src) {
-    dest.x = src.x || src[0] || 0;
-    dest.y = src.y || src[1] || 0;
+    dest.x = utils$1.x(src);
+    dest.y = utils$1.y(src);
   }
 
   utils$1.copyXY = copyXY;
 
   function addXY(dest, src) {
-    dest.x += src.x || src[0] || 0;
-    dest.y += src.y || src[1] || 0;
+    dest.x += utils$1.x(src);
+    dest.y += utils$1.y(src);
   }
 
   utils$1.addXY = addXY;
 
   function equalsXY(dest, src) {
-    return (dest.x == (src.x || src[0] || 0))
-    && (dest.y == (src.y || src[1] || 0));
+    return (dest.x == utils$1.x(src))
+    && (dest.y == utils$1.y(src));
   }
 
   utils$1.equalsXY = equalsXY;
@@ -130,7 +142,7 @@
   utils$1.distanceBetween = distanceBetween;
 
   function distanceFromTo(a, b) {
-    return distanceBetween(a.x || a[0] || 0, a.y || a[1] || 0, b.x || b[0] || 0, b.y || b[1] || 0);
+    return distanceBetween(utils$1.x(a), utils$1.y(a), utils$1.x(b), utils$1.y(b));
   }
 
   utils$1.distanceFromTo = distanceFromTo;
@@ -150,7 +162,7 @@
   utils$1.dirBetween = dirBetween;
 
   function dirFromTo(a, b) {
-    return dirBetween(a.x || a[0] || 0, a.y || a[1] || 0, b.x || b[0] || 0, b.y || b[1] || 0);
+    return dirBetween(utils$1.x(a), utils$1.y(a), utils$1.x(b), utils$1.y(b));
   }
 
   utils$1.dirFromTo = dirFromTo;
@@ -610,6 +622,7 @@
     			list[i] = buf;
     		}
     	}
+      return list;
     }
 
   }
@@ -5324,8 +5337,12 @@
       return this.highestPriorityTile().text;
     }
 
-    isEmpty() {
+    isNull() {
       return this.ground == 0;
+    }
+
+    isEmpty() {
+      return !(this.actor || this.item);
     }
 
     isPassableNow(limitToPlayerKnowledge) {
@@ -6099,6 +6116,7 @@
     T_HARMFUL_TERRAIN				: ['T_CAUSES_POISON', 'T_IS_FIRE', 'T_CAUSES_DAMAGE', 'T_CAUSES_PARALYSIS', 'T_CAUSES_CONFUSION', 'T_CAUSES_EXPLOSIVE_DAMAGE'],
     T_RESPIRATION_IMMUNITIES  : ['T_CAUSES_DAMAGE', 'T_CAUSES_CONFUSION', 'T_CAUSES_PARALYSIS', 'T_CAUSES_NAUSEA'],
     T_IS_LIQUID               : ['T_LAVA', 'T_AUTO_DESCENT', 'T_DEEP_WATER'],
+    T_STAIR_BLOCKERS          : 'T_OBSTRUCTS_ITEMS, T_OBSTRUCTS_SURFACE, T_OBSTRUCTS_GAS, T_OBSTRUCTS_LIQUID, T_OBSTRUCTS_TILE_EFFECTS',
   });
 
   tile.flags = Flags$2;
@@ -6242,8 +6260,8 @@
   installTile('FLOOR',       '\u00b7', [30,30,30,20], [2,2,10,0,2,2,0], 10, 0, 0, 'the floor');	// FLOOR
   installTile('DOOR',        '+', [100,40,40], [30,60,60], 30, 0, 'T_IS_DOOR, T_OBSTRUCTS_ITEMS, T_OBSTRUCTS_TILE_EFFECTS', 'a door');	// DOOR
   installTile('BRIDGE',      '=', [100,40,40], null, 40, Layer.SURFACE, 'T_BRIDGE', 'a bridge');	// BRIDGE (LAYER=SURFACE)
-  installTile('UP_STAIRS',   '<', [100,40,40], [100,60,20], 200, 0, 'T_UP_STAIRS', 'an upward staircase');	// UP
-  installTile('DOWN_STAIRS', '>', [100,40,40], [100,60,20], 200, 0, 'T_DOWN_STAIRS', 'a downward staircase');	// DOWN
+  installTile('UP_STAIRS',   '<', [100,40,40], [100,60,20], 200, 0, 'T_UP_STAIRS, T_STAIR_BLOCKERS', 'an upward staircase');	// UP
+  installTile('DOWN_STAIRS', '>', [100,40,40], [100,60,20], 200, 0, 'T_DOWN_STAIRS, T_STAIR_BLOCKERS', 'a downward staircase');	// DOWN
   installTile('WALL',        '#', [7,7,7,0,3,3,3],  [40,40,40,10,10,0,5], 100, 0, 'T_OBSTRUCTS_EVERYTHING', 'a wall');	// WALL
   installTile('LAKE',        '~', [5,8,20,10,0,4,15,1], [10,15,41,6,5,5,5,1], 50, 0, 'T_DEEP_WATER', 'deep water');	// LAKE
 
@@ -6585,7 +6603,7 @@
   	canBePassed(x, y, limitToPlayerKnowledge) { return this.cells[x][y].canBePassed(limitToPlayerKnowledge); }
   	isPassableNow(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isPassableNow(limitToPlayerKnowledge); }
 
-  	isEmpty(x, y) { return this.cells[x][y].isEmpty(); }
+  	isNull(x, y) { return this.cells[x][y].isNull(); }
   	isObstruction(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isObstruction(limitToPlayerKnowledge); }
     isDoor(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isDoor(limitToPlayerKnowledge); }
     blocksPathing(x, y, limitToPlayerKnowledge) { return this.cells[x][y].blocksPathing(limitToPlayerKnowledge); }
@@ -6634,6 +6652,14 @@
   		}
   	}
 
+  	neighborCount(x, y, matchFn, only4dirs) {
+  		let count = 0;
+  		this.eachNeighbor(x, y, (...args) => {
+  			if (matchFn(...args)) ++count;
+  		}, only4dirs);
+  		return count;
+  	}
+
   	passableArcCount(x, y) {
   		if (!this.hasXY(x, y)) return -1;
   		return this.cells.arcCount(x, y, (c) => c.isPassableNow() );
@@ -6656,7 +6682,7 @@
 
   	fillBasicCostGrid(costGrid) {
   		this.cells.forEach( (cell, i, j) => {
-        if (cell.isEmpty()) {
+        if (cell.isNull()) {
           costGrid[i][j] = def.PDS_OBSTRUCTION;
         }
         else {
@@ -7055,7 +7081,7 @@
   		if (bounds && !bounds.containsXY(i, j)) return;	// outside bounds
   		const blockingX = i + gridOffsetX;
   		const blockingY = j + gridOffsetY;
-  		if (cell.isEmpty()) {
+  		if (cell.isNull()) {
   			return; // do nothing
   		}
   		else if (cell.canBePassed()) {
@@ -7298,20 +7324,21 @@
 
   function isValidStairLoc(c, x, y) {
     let count = 0;
-    if (!c.isEmpty()) return false;
+    if (!c.isNull()) return false;
 
     for(let i = 0; i < 4; ++i) {
       const dir = def.dirs[i];
       if (!SITE.hasXY(x + dir[0], y + dir[1])) return false;
+      if (!SITE.hasXY(x - dir[0], y - dir[1])) return false;
       const cell = SITE.cell(x + dir[0], y + dir[1]);
       if (cell.hasTile(FLOOR)) {
         count += 1;
         const va = SITE.cell(x - dir[0] + dir[1], y - dir[1] + dir[0]);
-        if (!va.isEmpty()) return false;
+        if (!va.isNull()) return false;
         const vb = SITE.cell(x - dir[0] - dir[1], y - dir[1] - dir[0]);
-        if (!vb.isEmpty()) return false;
+        if (!vb.isNull()) return false;
       }
-      else if (!cell.isEmpty()) {
+      else if (!cell.isNull()) {
         return false;
       }
     }
@@ -7336,7 +7363,7 @@
                       for (j = ySite - 1; j <= ySite + 1; j++) {
                           if (!SITE.hasXY(i, j)
                               || SITE.isBoundaryXY(i, j)
-                              || !SITE.cell(i, j).isEmpty())
+                              || !SITE.cell(i, j).isNull())
                           {
                               return false;
                           }
@@ -7358,7 +7385,7 @@
         const x = Math.floor(LOCS[i] / SITE.height);
         const y = LOCS[i] % SITE.height;
 
-        if (!SITE.cell(x, y).isEmpty()) continue;
+        if (!SITE.cell(x, y).isNull()) continue;
         const dir = GRID.directionOfDoorSite(SITE.cells, x, y, (c) => (c.hasTile(FLOOR) && !c.isLiquid()) );
         if (dir != def.NO_DIRECTION) {
           const oppDir = OPP_DIRS[dir];
@@ -7557,9 +7584,9 @@
         if (!SITE.hasXY(x, y)) return false;
         if (!SITE.hasXY(x + dir[1], y + dir[0])) return false;
         if (!SITE.hasXY(x - dir[1], y - dir[0])) return false;
-        if (!SITE.cell(x, y).isEmpty()) return false;
-        if (!SITE.cell(x + dir[1], y + dir[0]).isEmpty()) return false;
-        if (!SITE.cell(x - dir[1], y - dir[0]).isEmpty()) return false;
+        if (!SITE.cell(x, y).isNull()) return false;
+        if (!SITE.cell(x + dir[1], y + dir[0]).isNull()) return false;
+        if (!SITE.cell(x - dir[1], y - dir[0]).isNull()) return false;
         return true;
       }
 
@@ -7567,9 +7594,9 @@
         if (!SITE.hasXY(x, y)) return false;
         if (!SITE.hasXY(x + dir[1], y + dir[0])) return false;
         if (!SITE.hasXY(x - dir[1], y - dir[0])) return false;
-        if (!SITE.cell(x, y).isEmpty()) return true;
-        if (!SITE.cell(x + dir[1], y + dir[0]).isEmpty()) return true;
-        if (!SITE.cell(x - dir[1], y - dir[0]).isEmpty()) return true;
+        if (!SITE.cell(x, y).isNull()) return true;
+        if (!SITE.cell(x + dir[1], y + dir[0]).isNull()) return true;
+        if (!SITE.cell(x - dir[1], y - dir[0]).isNull()) return true;
         return false;
       }
 
@@ -7578,7 +7605,7 @@
           y = LOCS[i] % siteGrid.height;
 
           const cell = siteGrid[x][y];
-          if (cell.isEmpty()) {
+          if (cell.isNull()) {
               for (d=0; d <= 1; d++) { // Try a horizontal door, and then a vertical door.
                   let dir = dirCoords[d];
                   if (!isValidTunnelStart(x, y, dir)) continue;
@@ -7610,7 +7637,7 @@
                     endX -= dir[0];
                     endY -= dir[1];
 
-                    // if (SITE.hasXY(endX, endY) && !SITE.cell(endX, endY).isEmpty()) {
+                    // if (SITE.hasXY(endX, endY) && !SITE.cell(endX, endY).isNull()) {
                     if (isValidTunnelEnd(endX, endY, dir)) {
                       break;
                     }
@@ -7626,7 +7653,7 @@
                         dungeon.debug('Adding Loop', startX, startY, ' => ', endX, endY, ' : ', pathGrid[endX][endY]);
 
                         while(endX !== startX || endY !== startY) {
-                          if (SITE.cell(endX, endY).isEmpty()) {
+                          if (SITE.cell(endX, endY).isNull()) {
                             SITE.setTile(endX, endY, FLOOR);
                             costGrid[endX][endY] = 1;          // (Cost map also needs updating.)
                           }
@@ -7674,7 +7701,7 @@
           x = Math.floor(LOCS[i] / siteGrid.height);
           y = LOCS[i] % siteGrid.height;
 
-          if (SITE.hasXY(x, y) && (!SITE.isEmpty(x, y)) && SITE.canBePassed(x, y)) {
+          if (SITE.hasXY(x, y) && (!SITE.isNull(x, y)) && SITE.canBePassed(x, y)) {
               for (d=0; d <= 1; d++) { // Try right, then down
                   const bridgeDir = dirCoords[d];
                   newX = x + bridgeDir[0];
@@ -7697,7 +7724,7 @@
                     }
                   }
 
-                  if ((!SITE.isEmpty(newX, newY)) && SITE.canBePassed(newX, newY) && (j < maxConnectionLength)) {
+                  if ((!SITE.isNull(newX, newY)) && SITE.canBePassed(newX, newY) && (j < maxConnectionLength)) {
                     PATH.calculateDistances(pathGrid, newX, newY, costGrid, false);
                     // pathGrid.fill(30000);
                     // pathGrid[newX][newY] = 0;
@@ -7799,7 +7826,7 @@
 
   function finishWalls() {
     SITE.cells.forEach( (cell, i, j) => {
-      if (cell.isEmpty()) {
+      if (cell.isNull()) {
         cell.setTile(WALL);
       }
     });
@@ -7808,39 +7835,42 @@
   dungeon.finishWalls = finishWalls;
 
 
-  function addStairs(upX, upY, downX, downY, minDistance) {
+  function addStairs(opts = {}) {
 
-    upX = upX || random.number(SITE.width);
-    upY = upY || random.number(SITE.height);
-    downX = downX || -1;
-    downY = downY || -1;
-    minDistance = minDistance || Math.floor(Math.max(SITE.width,SITE.height)/2);
+    let upLoc = opts.up || null;
+    let downLoc = opts.down || null;
+    const minDistance = opts.minDistance || Math.floor(Math.max(SITE.width,SITE.height)/2);
+    const isValidStairLoc = opts.isValid || dungeon.isValidStairLoc;
+    const setup = opts.setup || SITE.setTile.bind(SITE);
 
-    const upLoc = SITE.cells.matchingXYNear(upX, upY, dungeon.isValidStairLoc);
-  	if (!upLoc || upLoc[0] < 0) {
-      dungeon.debug('no up location');
+    if (upLoc) {
+      upLoc = SITE.cells.matchingXYNear(utils$1.x(upLoc), utils$1.y(upLoc), isValidStairLoc);
+    }
+    else {
+      upLoc = SITE.cells.randomMatchingXY( isValidStairLoc );
+    }
+    if (!upLoc || upLoc[0] < 0) {
+      dungeon.debug('No up stairs location.');
       return false;
     }
 
-    let downLoc;
-    if (downX < 0) {
-      downLoc = SITE.cells.randomMatchingXY( (v, x, y) => {
-    		if (utils$1.distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
-    		return dungeon.isValidStairLoc(v, x, y);
-    	});
+    if (downLoc) {
+      downLoc = SITE.cells.matchingXYNear(utils$1.x(downLoc), utils$1.y(downLoc), isValidStairLoc);
     }
     else {
-      downLoc = SITE.cells.matchingXYNear(downX, downY, dungeon.isValidStairLoc);
+      downLoc = SITE.cells.randomMatchingXY( (v, x, y) => {
+    		if (utils$1.distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
+    		return isValidStairLoc(v, x, y);
+    	});
     }
-
     if (!downLoc || downLoc[0] < 0) {
       dungeon.debug('No down location');
       return false;
     }
 
-    SITE.setTile(upLoc[0], upLoc[1], UP_STAIRS);
+    setup(upLoc[0], upLoc[1], UP_STAIRS);
   	SITE.locations.start = upLoc.slice();
-    SITE.setTile(downLoc[0], downLoc[1], DOWN_STAIRS);
+    setup(downLoc[0], downLoc[1], DOWN_STAIRS);
   	SITE.locations.finish = downLoc.slice();
 
     return true;

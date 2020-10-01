@@ -122,7 +122,7 @@ export class Map {
 	canBePassed(x, y, limitToPlayerKnowledge) { return this.cells[x][y].canBePassed(limitToPlayerKnowledge); }
 	isPassableNow(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isPassableNow(limitToPlayerKnowledge); }
 
-	isEmpty(x, y) { return this.cells[x][y].isEmpty(); }
+	isNull(x, y) { return this.cells[x][y].isNull(); }
 	isObstruction(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isObstruction(limitToPlayerKnowledge); }
   isDoor(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isDoor(limitToPlayerKnowledge); }
   blocksPathing(x, y, limitToPlayerKnowledge) { return this.cells[x][y].blocksPathing(limitToPlayerKnowledge); }
@@ -171,6 +171,14 @@ export class Map {
 		}
 	}
 
+	neighborCount(x, y, matchFn, only4dirs) {
+		let count = 0;
+		this.eachNeighbor(x, y, (...args) => {
+			if (matchFn(...args)) ++count;
+		}, only4dirs);
+		return count;
+	}
+
 	passableArcCount(x, y) {
 		if (!this.hasXY(x, y)) return -1;
 		return this.cells.arcCount(x, y, (c) => c.isPassableNow() );
@@ -194,7 +202,7 @@ export class Map {
 
 	fillBasicCostGrid(costGrid) {
 		this.cells.forEach( (cell, i, j) => {
-      if (cell.isEmpty()) {
+      if (cell.isNull()) {
         costGrid[i][j] = def.PDS_OBSTRUCTION;
       }
       else {
@@ -599,7 +607,7 @@ export function gridDisruptsPassability(theMap, blockingGrid, opts={})
 		if (bounds && !bounds.containsXY(i, j)) return;	// outside bounds
 		const blockingX = i + gridOffsetX;
 		const blockingY = j + gridOffsetY;
-		if (cell.isEmpty()) {
+		if (cell.isNull()) {
 			return; // do nothing
 		}
 		else if (cell.canBePassed()) {

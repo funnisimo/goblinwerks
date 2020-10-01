@@ -166,6 +166,7 @@ export class Random {
   			list[i] = buf;
   		}
   	}
+    return list;
   }
 
 }
