@@ -4450,6 +4450,10 @@
   	DFF_EVACUATE_CREATURES	: Fl$1(23),	// Creatures in the DF area get moved outside of it
   	DFF_EVACUATE_ITEMS			: Fl$1(24),	// Creatures in the DF area get moved outside of it
 
+  	DFF_BUILD_IN_WALLS			: Fl$1(25),
+  	DFF_MUST_TOUCH_WALLS		: Fl$1(26),
+  	DFF_NO_TOUCH_WALLS			: Fl$1(27),
+
   });
 
   tileEvent.Flags = Flags;
@@ -4677,13 +4681,17 @@
           for (i=0; i<map$1.width; i++) {
               for (j=0; j<map$1.height; j++) {
                   if (spawnMap[i][j]) {
-                      await tileEvent.spawn(feat.next, { map: map$1, x: i, y: j });
+  										ctx.x = i;
+  										ctx.y = j;
+                      await tileEvent.spawn(feat.next, ctx);
                   }
               }
           }
+  				ctx.x = x;
+  				ctx.y = y;
       }
   		else {
-          await tileEvent.spawn(feat.next, { map: map$1, x, y });
+          await tileEvent.spawn(feat.next, ctx);
       }
   	}
   	if (succeeded) {
@@ -4704,8 +4712,6 @@
       // }
     }
 
-
-
   	// if (succeeded && feat.flags & Flags.DFF_EMIT_EVENT && feat.eventName) {
   	// 	await GAME.emit(feat.eventName, x, y);
   	// }
@@ -4713,8 +4719,12 @@
   	if (succeeded) {
   		ui.requestUpdate();
 
-  		if (feat.flags & Flags.DFF_NO_MARK_FIRED) {
-  			succeeded = false;
+  		if (!(feat.flags & Flags.DFF_NO_MARK_FIRED)) {
+  			spawnMap.forEach( (v, i, j) => {
+  				if (v) {
+  					map$1.setCellFlags(i, j, 0, MechFlags.EVENT_FIRED_THIS_TURN);
+  				}
+  			});
   		}
   	}
 
@@ -4723,6 +4733,41 @@
   }
 
   tileEvent.spawn = spawn;
+
+
+  function cellIsOk(feat, x, y, ctx) {
+  	const map = ctx.map;
+  	if (!map.hasXY(x, y)) return false;
+  	const cell = map.cell(x, y);
+
+  	if (feat.flags & Flags.DFF_BUILD_IN_WALLS) {
+  		if (!cell.isWall()) return false;
+  	}
+  	else if (feat.flags & Flags.DFF_MUST_TOUCH_WALLS) {
+  		let ok = false;
+  		map.eachNeighbor(x, y, (c) => {
+  			if (c.isWall()) {
+  				ok = true;
+  			}
+  		});
+  		if (!ok) return false;
+  	}
+  	else if (feat.flags & Flags.DFF_NO_TOUCH_WALLS) {
+  		let ok = true;
+  		map.eachNeighbor(x, y, (c) => {
+  			if (c.isWall()) {
+  				ok = false;
+  			}
+  		});
+  		if (!ok) return false;
+  	}
+
+  	if (ctx.bounds && !ctx.bounds.containsXY(x, y)) return false;
+  	if (feat.matchTile && !cell.hasTile(feat.matchTile)) return false;
+  	if (cell.hasTileFlag(Flags$2.T_OBSTRUCTS_TILE_EFFECTS) && !feat.matchTile) return false;
+
+  	return true;
+  }
 
 
   function computeSpawnMap(feat, spawnMap, ctx)
@@ -4739,13 +4784,16 @@
   		tileEvent.debug('- bounds', bounds);
   	}
 
-  	let matchTile = feat.matchTile || 0;
-  	const requireMatch = (matchTile ? true : false);
   	let startProb = feat.spread || 0;
   	let probDec = feat.decrement || 0;
 
-  	if (typeof matchTile === 'string') {
-  		matchTile = tile.withName(matchTile).id;
+  	if (feat.matchTile && typeof feat.matchTile === 'string') {
+  		const name = feat.matchTile;
+  		const tile$1 = tile.withName(name);
+  		if (!tile$1) {
+  			utils$1.ERROR('Failed to find match tile with name:' + name);
+  		}
+  		feat.matchTile = tile$1.id;
   	}
 
   	spawnMap[x][y] = t = 1; // incremented before anything else happens
@@ -4768,9 +4816,7 @@
   	if (radius) {
   		startProb = startProb || 100;
   		spawnMap.updateCircle(x, y, radius, (v, i, j) => {
-  			if (matchTile && !map.hasTile(i, j, matchTile)) return 0;
-  			if ((!matchTile) && map.hasTileFlag(i, j, Flags$2.T_OBSTRUCTS_TILE_EFFECTS)) return 0;
-  			if (bounds && !bounds.containsXY(i, j)) return 0;
+  			if (!cellIsOk(feat, i, j, ctx)) return 0;
 
   			const dist = Math.floor(utils$1.distanceBetween(x, y, i, j));
   			const prob = startProb - (dist * probDec);
@@ -4793,20 +4839,14 @@
   				madeChange = false;
   				x2 = x2 + dir[0];
   				y2 = y2 + dir[1];
-  				if (map.hasXY(x2, y2) && !spawnMap[x2][y2]
-  					&& (!bounds || bounds.containsXY(x2, y2))
-  					&& (!requireMatch || (matchTile && map.hasTile(x2, y2, matchTile)))
-  					&& (!map.hasTileFlag(x2, y2, Flags$2.T_OBSTRUCTS_TILE_EFFECTS) || (matchTile && map.hasTile(x2, y2, matchTile)))
-  					&& random.chance(startProb))
-  				{
-  					spawnMap[x2][y2] = ++t;
+  				if (spawnMap.hasXY(x2, y2) && !spawnMap[x2][y2] && cellIsOk(feat, x2, y2, ctx) && random.chance(startProb)) {
+  					spawnMap[x2][y2] = 1;
   					madeChange = true;
   					startProb -= probDec;
   				}
   			}
   		}
   		else {
-
   			while (madeChange && startProb > 0) {
   				madeChange = false;
   				t++;
@@ -4816,12 +4856,7 @@
   							for (dir = 0; dir < 4; dir++) {
   								x2 = i + def.dirs[dir][0];
   								y2 = j + def.dirs[dir][1];
-  								if (map.hasXY(x2, y2) && !spawnMap[x2][y2]
-  									&& (!bounds || bounds.containsXY(x2, y2))
-  									&& (!requireMatch || (matchTile && map.hasTile(x2, y2, matchTile)))
-  									&& (!map.hasTileFlag(x2, y2, Flags$2.T_OBSTRUCTS_TILE_EFFECTS) || (matchTile && map.hasTile(x2, y2, matchTile)))
-  									&& random.chance(startProb))
-  								{
+  								if (spawnMap.hasXY(x2, y2) && !spawnMap[x2][y2] && cellIsOk(feat, x2, y2, ctx) && random.chance(startProb)) {
   									spawnMap[x2][y2] = t;
   									madeChange = true;
   								}
@@ -4836,9 +4871,10 @@
 
   	}
 
-  	if (requireMatch && !map.hasTile(x, y, matchTile)) {
+  	if (!cellIsOk(feat, x, y, ctx)) {
   			spawnMap[x][y] = 0;
   	}
+
   }
 
   tileEvent.computeSpawnMap = computeSpawnMap;
@@ -4880,7 +4916,7 @@
 
   					tileEvent.debug('- tile', i, j, 'tile=', tile.id);
 
-  					cell.mechFlags |= MechFlags.EVENT_FIRED_THIS_TURN;
+  					// cell.mechFlags |= CellMechFlags.EVENT_FIRED_THIS_TURN;
   					accomplishedSomething = true;
   				}
   			}
@@ -4888,12 +4924,13 @@
   			if (itemKind) {
   				if (superpriority || !cell.item) {
   					if (!cell.hasTileFlag(Flags$2.T_OBSTRUCTS_ITEMS)) {
+  						spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
   						if (cell.item) {
   							map.removeItem(cell.item);
   						}
   						const item = make.item(itemKind);
   						map.addItem(i, j, item);
-  						cell.mechFlags |= MechFlags.EVENT_FIRED_THIS_TURN;
+  						// cell.mechFlags |= CellMechFlags.EVENT_FIRED_THIS_TURN;
   						accomplishedSomething = true;
   						tileEvent.debug('- item', i, j, 'item=', itemKind.id);
   					}
@@ -4902,7 +4939,8 @@
 
   			if (feat.fn) {
   				if (await feat.fn(i, j, ctx)) {
-  					cell.mechFlags |= MechFlags.EVENT_FIRED_THIS_TURN;
+  					spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
+  					// cell.mechFlags |= CellMechFlags.EVENT_FIRED_THIS_TURN;
   					accomplishedSomething = true;
   				}
   			}
@@ -5189,8 +5227,16 @@
       return !!(flagMask & this.tileFlags());
     }
 
+    hasAllTileFlags(flags) {
+      return (flags & this.tileFlags()) === flags;
+    }
+
     hasTileMechFlag(flagMask) {
       return !!(flagMask & this.tileMechFlags());
+    }
+
+    hasAllTileMechFlags(flags) {
+      return (flags & this.tileMechFlags()) === flags;
     }
 
     setFlags(cellFlag=0, cellMechFlag=0) {
@@ -5298,6 +5344,12 @@
       let tileMechFlags = (useMemory) ? this.memory.tileMechFlags : this.tileMechFlags();
       if (tileMechFlags & MechFlags$1.TM_CONNECTS_LEVEL) return true;
       return ((tileMechFlags & MechFlags$1.TM_PROMOTES) && !(this.promotedTileFlags() & Flags$2.T_PATHING_BLOCKER));
+    }
+
+    isWall(limitToPlayerKnowledge) {
+      const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
+      let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
+      return tileFlags & Flags$2.T_OBSTRUCTS_EVERYTHING;
     }
 
     isObstruction(limitToPlayerKnowledge) {
@@ -6042,7 +6094,7 @@
     T_LAKE_PATHING_BLOCKER	: ['T_AUTO_DESCENT', 'T_LAVA', 'T_DEEP_WATER', 'T_SPONTANEOUSLY_IGNITES'],
     T_WAYPOINT_BLOCKER			: ['T_OBSTRUCTS_PASSABILITY', 'T_AUTO_DESCENT', 'T_IS_TRAP', 'T_LAVA', 'T_DEEP_WATER', 'T_SPONTANEOUSLY_IGNITES'],
     T_MOVES_ITEMS						: ['T_DEEP_WATER', 'T_LAVA'],
-    T_CAN_BE_BRIDGED				: ['T_AUTO_DESCENT'],
+    T_CAN_BE_BRIDGED				: ['T_AUTO_DESCENT', 'T_LAVA', 'T_DEEP_WATER'],
     T_OBSTRUCTS_EVERYTHING	: ['T_OBSTRUCTS_PASSABILITY', 'T_OBSTRUCTS_VISION', 'T_OBSTRUCTS_ITEMS', 'T_OBSTRUCTS_GAS', 'T_OBSTRUCTS_SURFACE',   'T_OBSTRUCTS_DIAGONAL_MOVEMENT'],
     T_HARMFUL_TERRAIN				: ['T_CAUSES_POISON', 'T_IS_FIRE', 'T_CAUSES_DAMAGE', 'T_CAUSES_PARALYSIS', 'T_CAUSES_CONFUSION', 'T_CAUSES_EXPLOSIVE_DAMAGE'],
     T_RESPIRATION_IMMUNITIES  : ['T_CAUSES_DAMAGE', 'T_CAUSES_CONFUSION', 'T_CAUSES_PARALYSIS', 'T_CAUSES_NAUSEA'],

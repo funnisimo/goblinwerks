@@ -216,8 +216,16 @@ class Cell {
     return !!(flagMask & this.tileFlags());
   }
 
+  hasAllTileFlags(flags) {
+    return (flags & this.tileFlags()) === flags;
+  }
+
   hasTileMechFlag(flagMask) {
     return !!(flagMask & this.tileMechFlags());
+  }
+
+  hasAllTileMechFlags(flags) {
+    return (flags & this.tileMechFlags()) === flags;
   }
 
   setFlags(cellFlag=0, cellMechFlag=0) {
@@ -325,6 +333,12 @@ class Cell {
     let tileMechFlags = (useMemory) ? this.memory.tileMechFlags : this.tileMechFlags();
     if (tileMechFlags & TileMechFlags.TM_CONNECTS_LEVEL) return true;
     return ((tileMechFlags & TileMechFlags.TM_PROMOTES) && !(this.promotedTileFlags() & TileFlags.T_PATHING_BLOCKER));
+  }
+
+  isWall(limitToPlayerKnowledge) {
+    const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
+    let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
+    return tileFlags & TileFlags.T_OBSTRUCTS_EVERYTHING;
   }
 
   isObstruction(limitToPlayerKnowledge) {

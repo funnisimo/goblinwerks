@@ -19,13 +19,22 @@ GW.item.installKind('BOX', {
 GW.item.installKind('TABLE', {
 	name: 'table',
 	description: 'a wooden table',
-	sprite: { ch: '\u2610', fg: 'light_brown' },
+	sprite: { ch: '\u2610', fg: 'orange' },
 	flags: 'A_NO_PICKUP, IK_BLOCKS_MOVE',
 	stats: { health: 10 }
 });
 
-const BOXES = GW.make.tileEvent({ item: 'BOX', spread: 75, decrement: 20, flags: 'DFF_ABORT_IF_BLOCKS_MAP' });
-const TABLES = GW.make.tileEvent({ item: 'TABLE', flags: 'DFF_SPREAD_LINE', spread: 75, decrement: 20, flags: 'DFF_ABORT_IF_BLOCKS_MAP' });
+GW.item.installKind('CHAIR', {
+	name: 'chair',
+	description: 'a wooden chair',
+	sprite: { ch: '\u2441', fg: 'orange' },
+	flags: 'A_PUSH, A_PULL, A_SLIDE, A_NO_PICKUP, IK_BLOCKS_MOVE',
+	stats: { health: 10 }
+});
+
+const BOXES = GW.make.tileEvent({ item: 'BOX', spread: 75, decrement: 10, flags: 'DFF_ABORT_IF_BLOCKS_MAP | DFF_MUST_TOUCH_WALLS' });
+const CHAIRS = GW.make.tileEvent({ item: 'CHAIR', spread: 90, decrement: 100, flags: 'DFF_ABORT_IF_BLOCKS_MAP, DFF_TREAT_AS_BLOCKING' });
+const TABLES = GW.make.tileEvent({ item: 'TABLE', spread: 75, decrement: 30, flags: 'DFF_ABORT_IF_BLOCKS_MAP, DFF_NO_TOUCH_WALLS, DFF_SPREAD_LINE, DFF_SUBSEQ_EVERYWHERE, DFF_TREAT_AS_BLOCKING', next: CHAIRS });
 
 
 class Node extends GW.types.Bounds {
@@ -376,6 +385,7 @@ async function drawMap(attempt=0) {
 		node.height += 2;
 
 		const tries = Math.max(5, GW.random.number(sequence.length));
+		const event = GW.random.chance(50) ? BOXES : TABLES;
 
 		let success = false;
 		for(let i = 0; i < tries && !success; ++i) {
@@ -388,7 +398,7 @@ async function drawMap(attempt=0) {
 
 			const cell = MAP.cell(x, y);
 			if (!cell.isPassableNow()) continue;
-			success = await GW.tileEvent.spawn(BOXES, { map: MAP, x, y, bounds: node });
+			success = await GW.tileEvent.spawn(event, { map: MAP, x, y, bounds: node });
 		}
 	}
 
