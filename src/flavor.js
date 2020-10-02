@@ -49,6 +49,11 @@ function drawFlavor(buffer) {
 
 flavor.draw = drawFlavor;
 
+function clearFlavor() {
+  flavor.setText('');
+}
+
+flavor.clear = clearFlavor;
 
 
 function showFlavorFor(x, y) {
@@ -150,11 +155,13 @@ function showFlavorFor(x, y) {
 
 	// if (monst) {
 	// 	return GW.actor.flavorText(monst);
-	// } else if (theItem) {
-	// 	return GW.item.flavorText(theItem);
-	// }
-
-	buf = TEXT.format("you %s %s.", (map.isVisible(x, y) ? "see" : "sense"), cell.tileText());
+	// } else
+  if (theItem) {
+    buf = TEXT.format("you %s %s.", (map.isVisible(x, y) ? "see" : "sense"), theItem.flavorText());
+	}
+  else {
+    buf = TEXT.format("you %s %s.", (map.isVisible(x, y) ? "see" : "sense"), cell.tileText());
+  }
   flavor.setText(buf);
 	return true;
 }

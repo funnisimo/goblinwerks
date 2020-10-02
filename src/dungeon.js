@@ -124,33 +124,6 @@ export function digRoom(opts={}) {
 dungeon.digRoom = digRoom;
 
 
-export function isValidStairLoc(c, x, y) {
-  let count = 0;
-  if (!c.isNull()) return false;
-
-  for(let i = 0; i < 4; ++i) {
-    const dir = def.dirs[i];
-    if (!SITE.hasXY(x + dir[0], y + dir[1])) return false;
-    if (!SITE.hasXY(x - dir[0], y - dir[1])) return false;
-    const cell = SITE.cell(x + dir[0], y + dir[1]);
-    if (cell.hasTile(FLOOR)) {
-      count += 1;
-      const va = SITE.cell(x - dir[0] + dir[1], y - dir[1] + dir[0]);
-      if (!va.isNull()) return false;
-      const vb = SITE.cell(x - dir[0] - dir[1], y - dir[1] - dir[0]);
-      if (!vb.isNull()) return false;
-    }
-    else if (!cell.isNull()) {
-      return false;
-    }
-  }
-  return count == 1;
-}
-
-dungeon.isValidStairLoc = isValidStairLoc;
-
-
-
 
 function roomAttachesAt(roomGrid, roomToSiteX, roomToSiteY) {
     let xRoom, yRoom, xSite, ySite, i, j;
@@ -629,7 +602,7 @@ function finishDoors() {
 dungeon.finishDoors = finishDoors;
 
 function finishWalls() {
-  SITE.cells.forEach( (cell, i, j) => {
+  SITE.forEach( (cell, i, j) => {
     if (cell.isNull()) {
       cell.setTile(WALL);
     }
@@ -639,45 +612,141 @@ function finishWalls() {
 dungeon.finishWalls = finishWalls;
 
 
+
+export function isValidStairLoc(c, x, y) {
+  let count = 0;
+  if (!c.isNull()) return false;
+
+  for(let i = 0; i < 4; ++i) {
+    const dir = def.dirs[i];
+    if (!SITE.hasXY(x + dir[0], y + dir[1])) return false;
+    if (!SITE.hasXY(x - dir[0], y - dir[1])) return false;
+    const cell = SITE.cell(x + dir[0], y + dir[1]);
+    if (cell.hasTile(FLOOR)) {
+      count += 1;
+      const va = SITE.cell(x - dir[0] + dir[1], y - dir[1] + dir[0]);
+      if (!va.isNull()) return false;
+      const vb = SITE.cell(x - dir[0] - dir[1], y - dir[1] - dir[0]);
+      if (!vb.isNull()) return false;
+    }
+    else if (!cell.isNull()) {
+      return false;
+    }
+  }
+  return count == 1;
+}
+
+dungeon.isValidStairLoc = isValidStairLoc;
+
+
+function setupStairs(map, x, y, tile) {
+
+	const indexes = random.shuffle(UTILS.sequence(4));
+
+	let dir;
+	for(let i = 0; i < indexes.length; ++i) {
+		dir = def.dirs[i];
+		const x0 = x + dir[0];
+		const y0 = y + dir[1];
+		const cell = map.cell(x0, y0);
+		if (cell.hasTile(1) && cell.isEmpty()) {
+			const oppCell = map.cell(x - dir[0], y - dir[1]);
+			if (oppCell.isNull()) break;
+		}
+
+		dir = null;
+	}
+
+	if (!dir) UTILS.ERROR('No stair direction found!');
+
+	map.setTile(x, y, tile);
+
+	const dirIndex = def.clockDirs.findIndex( (d) => d[0] == dir[0] && d[1] == dir[1] );
+
+	for(let i = 0; i < def.clockDirs.length; ++i) {
+		const l = i ? i - 1 : 7;
+		const r = (i + 1) % 8;
+		if (i == dirIndex || l == dirIndex || r == dirIndex ) continue;
+		const d = def.clockDirs[i];
+		map.setTile(x + d[0], y + d[1], 6);
+	}
+
+	dungeon.debug('setup stairs', x, y, tile);
+	return true;
+}
+
+dungeon.setupStairs = setupStairs;
+
+
 export function addStairs(opts = {}) {
 
-  let upLoc = opts.up || null;
-  let downLoc = opts.down || null;
+  let needUp = (opts.up !== false);
+  let needDown = (opts.down !== false);
   const minDistance = opts.minDistance || Math.floor(Math.max(SITE.width,SITE.height)/2);
   const isValidStairLoc = opts.isValid || dungeon.isValidStairLoc;
-  const setup = opts.setup || SITE.setTile.bind(SITE);
+  const setup = opts.setup || dungeon.setupStairs;
+
+  let upLoc = Array.isArray(opts.up) ? opts.up : null;
+  let downLoc = Array.isArray(opts.down) ? opts.down : null;
+
+  if (opts.start) {
+    let start = opts.start;
+    if (start === true) {
+      start = SITE.randomMatchingXY( isValidStairLoc );
+    }
+    else {
+      start = SITE.matchingXYNear(UTILS.x(start), UTILS.y(start), isValidStairLoc);
+    }
+    SITE.locations.start = start;
+  }
+
+  if (upLoc && downLoc) {
+    upLoc = SITE.matchingXYNear(UTILS.x(upLoc), UTILS.y(upLoc), isValidStairLoc);
+    downLoc = SITE.matchingXYNear(UTILS.x(downLoc), UTILS.y(downLoc), isValidStairLoc);
+  }
+  else if (upLoc && !downLoc) {
+    upLoc = SITE.matchingXYNear(UTILS.x(upLoc), UTILS.y(upLoc), isValidStairLoc);
+    if (needDown) {
+      downLoc = SITE.randomMatchingXY( (v, x, y) => {
+    		if (UTILS.distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
+    		return isValidStairLoc(v, x, y, SITE);
+    	});
+    }
+  }
+  else if (downLoc && !upLoc) {
+    downLoc = SITE.matchingXYNear(UTILS.x(downLoc), UTILS.y(downLoc), isValidStairLoc);
+    if (needUp) {
+      upLoc = SITE.randomMatchingXY( (v, x, y) => {
+    		if (UTILS.distanceBetween(x, y, downLoc[0], downLoc[1]) < minDistance) return false;
+    		return isValidStairLoc(v, x, y, SITE);
+    	});
+    }
+  }
+  else if (needUp) {
+    upLoc = SITE.randomMatchingXY( isValidStairLoc );
+    if (needDown) {
+      downLoc = SITE.randomMatchingXY( (v, x, y) => {
+    		if (UTILS.distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
+    		return isValidStairLoc(v, x, y, SITE);
+    	});
+    }
+  }
+  else if (needDown) {
+    downLoc = SITE.randomMatchingXY( isValidStairLoc );
+  }
 
   if (upLoc) {
-    upLoc = SITE.cells.matchingXYNear(UTILS.x(upLoc), UTILS.y(upLoc), isValidStairLoc);
+    SITE.locations.up = upLoc.slice();
+    setup(SITE, upLoc[0], upLoc[1], UP_STAIRS);
+    if (opts.start === 'up') SITE.locations.start = SITE.locations.up;
   }
-  else {
-    upLoc = SITE.cells.randomMatchingXY( isValidStairLoc );
-  }
-  if (!upLoc || upLoc[0] < 0) {
-    dungeon.debug('No up stairs location.');
-    return false;
-  }
-
   if (downLoc) {
-    downLoc = SITE.cells.matchingXYNear(UTILS.x(downLoc), UTILS.y(downLoc), isValidStairLoc);
-  }
-  else {
-    downLoc = SITE.cells.randomMatchingXY( (v, x, y) => {
-  		if (UTILS.distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
-  		return isValidStairLoc(v, x, y);
-  	});
-  }
-  if (!downLoc || downLoc[0] < 0) {
-    dungeon.debug('No down location');
-    return false;
+    SITE.locations.down = downLoc.slice();
+    setup(SITE, downLoc[0], downLoc[1], DOWN_STAIRS);
+    if (opts.start === 'down') SITE.locations.start = SITE.locations.down;
   }
 
-  setup(upLoc[0], upLoc[1], UP_STAIRS);
-	SITE.locations.start = upLoc.slice();
-  setup(downLoc[0], downLoc[1], DOWN_STAIRS);
-	SITE.locations.finish = downLoc.slice();
-
-  return true;
+  return !!(upLoc || downLoc);
 }
 
 dungeon.addStairs = addStairs;

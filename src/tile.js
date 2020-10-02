@@ -48,7 +48,7 @@ export const Flags = FLAG.install('tile', {
   T_PORTAL                : Fl(29),
   T_IS_DOOR								: Fl(30),
 
-  T_HAS_STAIRS						: ['T_UP_STAIRS', 'T_DOWN_STAIRS'],
+  T_HAS_STAIRS						: ['T_UP_STAIRS', 'T_DOWN_STAIRS', 'T_PORTAL'],
   T_OBSTRUCTS_SCENT				: ['T_OBSTRUCTS_PASSABILITY', 'T_OBSTRUCTS_VISION', 'T_AUTO_DESCENT', 'T_LAVA', 'T_DEEP_WATER', 'T_SPONTANEOUSLY_IGNITES', 'T_HAS_STAIRS'],
   T_PATHING_BLOCKER				: ['T_OBSTRUCTS_PASSABILITY', 'T_AUTO_DESCENT', 'T_IS_TRAP', 'T_LAVA', 'T_DEEP_WATER', 'T_IS_FIRE', 'T_SPONTANEOUSLY_IGNITES', 'T_ENTANGLES'],
   T_DIVIDES_LEVEL       	: ['T_OBSTRUCTS_PASSABILITY', 'T_AUTO_DESCENT', 'T_IS_TRAP', 'T_LAVA', 'T_DEEP_WATER'],
@@ -161,6 +161,19 @@ export class Tile {
     // if (!tile) return 0;
     // return tiles[tile].flags;
   }
+
+  hasFlag(flag) {
+    return (this.flags & flag) > 0;
+  }
+
+  hasFlags(flags, mechFlags) {
+    return (!flags || (this.flags & flags)) && (!mechFlags || (this.mechFlags & mechFlags));
+  }
+
+  hasMechFlag(flag) {
+    return (this.mechFlags & flag) > 0;
+  }
+
 }
 
 types.Tile = Tile;
@@ -225,7 +238,7 @@ async function applyInstantTileEffects(tile, cell) {
   if (tile.flags & Flags.T_LAVA && actor) {
     if (!cell.hasTileFlag(Flags.T_BRIDGE) && !actor.status[def.STATUS_LEVITATING]) {
       actor.kill();
-      await GAME.gameOver(COLORS.red, 'you fall into lava and perish.');
+      await GAME.gameOver(false, COLORS.red, 'you fall into lava and perish.');
       return true;
     }
   }

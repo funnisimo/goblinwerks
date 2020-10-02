@@ -1,6 +1,6 @@
 
 import { color as COLOR } from './color.js';
-import { make, types } from './gw.js';
+import { make, types, def } from './gw.js';
 
 export var text = {};
 
@@ -8,8 +8,8 @@ export var text = {};
 // Message String
 
 // color escapes
-const COLOR_ESCAPE =			25;
-const COLOR_END    =      26;
+const COLOR_ESCAPE = def.COLOR_ESCAPE =	25;
+const COLOR_END    = def.COLOR_END    = 26;
 const COLOR_VALUE_INTERCEPT =	0; // 25;
 const TEMP_COLOR = make.color();
 
@@ -500,7 +500,7 @@ text.hyphenate = hyphenate;
 // Returns the number of lines, including the newlines already in the text.
 // Puts the output in "to" only if we receive a "to" -- can make it null and just get a line count.
 function splitIntoLines(sourceText, width) {
-  let i, w, textLength, lineCount;
+  let w, textLength, lineCount;
   let spaceLeftOnLine, wordWidth;
 
   if (!width) GW.utils.ERROR('Need string and width');
@@ -512,18 +512,22 @@ function splitIntoLines(sourceText, width) {
   // Now go through and replace spaces with newlines as needed.
 
   // Fast foward until i points to the first character that is not a color escape.
-  for (i=0; printString.charCodeAt(i) == COLOR_ESCAPE; i+= 4);
+  // for (i=0; printString.charCodeAt(i) == COLOR_ESCAPE; i+= 4);
   spaceLeftOnLine = width;
 
+  let i = -1;
+  let lastColor = '';
   while (i < textLength) {
     // wordWidth counts the word width of the next word without color escapes.
     // w indicates the position of the space or newline or null terminator that terminates the word.
     wordWidth = 0;
     for (w = i + 1; w < textLength && printString[w] !== ' ' && printString[w] !== '\n';) {
       if (printString.charCodeAt(w) === COLOR_ESCAPE) {
+        lastColor = printString.substring(w, w + 4);
         w += 4;
       }
       else if (printString.charCodeAt(w) === COLOR_END) {
+        lastColor = '';
         w += 1;
       }
       else {
@@ -533,7 +537,9 @@ function splitIntoLines(sourceText, width) {
     }
 
     if (1 + wordWidth > spaceLeftOnLine || printString[i] === '\n') {
-      printString = text.splice(printString, i, 1, '\n');	// [i] = '\n';
+      printString = text.splice(printString, i, 1, '\n' + lastColor);	// [i] = '\n';
+      w += lastColor.length;
+      textLength += lastColor.length;
       lineCount++;
       spaceLeftOnLine = width - wordWidth; // line width minus the width of the word we just wrapped
       //printf("\n\n%s", printString);

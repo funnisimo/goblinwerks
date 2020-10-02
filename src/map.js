@@ -37,9 +37,9 @@ export class Map {
 	dump() { this.cells.dump((c) => c.dump()); }
 	cell(x, y)   { return this.cells[x][y]; }
 
-	forEach(fn) { this.cells.forEach(fn); }
-	forRect(x, y, w, h, fn) { this.cells.forRect(x, y, w, h, fn ); }
-	eachNeighbor(x, y, fn, only4dirs) { this.cells.eachNeighbor(x, y, fn, only4dirs); }
+	forEach(fn) { this.cells.forEach( (c, i, j) => fn(c, i, j, this) ); }
+	forRect(x, y, w, h, fn) { this.cells.forRect(x, y, w, h, (c, i, j) => fn(c, i, j, this) ); }
+	eachNeighbor(x, y, fn, only4dirs) { this.cells.eachNeighbor(x, y, (c, i, j) => fn(c, i, j, this), only4dirs); }
 
 	hasXY(x, y)    		 { return this.cells.hasXY(x, y); }
 	isBoundaryXY(x, y) { return this.cells.isBoundaryXY(x, y); }
@@ -211,6 +211,19 @@ export class Map {
     });
 	}
 
+	matchingNeighbor(x, y, matcher, only4dirs) {
+		const maxIndex = only4dirs ? 4 : 8;
+		for(let d = 0; d < maxIndex; ++d) {
+			const dir = def.dirs[d];
+			const i = x + dir[0];
+			const j = y + dir[1];
+			if (this.hasXY(i, j)) {
+				if (matcher(this.cells[i][j], i, j, this)) return [i, j];
+			}
+		}
+		return null;
+	}
+
 	// blockingMap is optional
 	matchingXYNear(x, y, matcher, opts={})
 	{
@@ -231,9 +244,9 @@ export class Map {
 					if (!this.hasXY(i, j)) continue;
 					const cell = this.cell(i, j);
 					// if ((i == x-k || i == x+k || j == y-k || j == y+k)
-					if ((Math.floor(UTILS.distanceBetween(x, y, i, j)) == k)
+					if ((Math.ceil(UTILS.distanceBetween(x, y, i, j)) == k)
 							&& (!blockingMap || !blockingMap[i][j])
-							&& matcher(cell, i, j)
+							&& matcher(cell, i, j, this)
 							&& (!forbidLiquid || cell.liquid == def.NOTHING)
 							&& (hallwaysAllowed || this.passableArcCount(i, j) < 2))
 	        {
@@ -281,7 +294,7 @@ export class Map {
 			y = random.range(0, this.height - 1);
 			cell = this.cell(x, y);
 
-			if (matcher(cell, x, y)) {
+			if (matcher(cell, x, y, this)) {
 				retry = false;
 			}
 		};

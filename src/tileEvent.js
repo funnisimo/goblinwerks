@@ -211,15 +211,15 @@ async function spawn(feat, ctx) {
 	tileEvent.computeSpawnMap(feat, spawnMap, ctx);
   if (!blocking || !MAP.gridDisruptsPassability(map, spawnMap, { bounds: ctx.bounds })) {
 		if (feat.flags & Flags.DFF_EVACUATE_CREATURES) { // first, evacuate creatures, so that they do not re-trigger the tile.
-				await tileEvent.evacuateCreatures(map, spawnMap);
+				tileEvent.evacuateCreatures(map, spawnMap);
 		}
 
 		if (feat.flags & Flags.DFF_EVACUATE_ITEMS) { // first, evacuate items, so that they do not re-trigger the tile.
-				await tileEvent.evacuateItems(map, spawnMap);
+				tileEvent.evacuateItems(map, spawnMap);
 		}
 
 		if (feat.flags & Flags.DFF_CLEAR_CELL) { // first, clear other tiles (not base/ground)
-				await tileEvent.clearCells(map, spawnMap);
+				tileEvent.clearCells(map, spawnMap);
 		}
 
 		if (tile || itemKind || feat.fn) {
@@ -596,7 +596,7 @@ function clearCells(map, spawnMap) {
 tileEvent.clearCells = clearCells;
 
 
-async function evacuateCreatures(map, blockingMap) {
+function evacuateCreatures(map, blockingMap) {
 	let i, j;
 	let monst;
 
@@ -614,7 +614,7 @@ async function evacuateCreatures(map, blockingMap) {
 										 return true;
 									 },
 									 { hallwaysAllowed: true, blockingMap });
-				await map.moveActor(loc[0], loc[1], monst);
+				map.moveActor(loc[0], loc[1], monst);
 			}
 		}
 	}
@@ -624,7 +624,7 @@ tileEvent.evacuateCreatures = evacuateCreatures;
 
 
 
-async function evacuateItems(map, blockingMap) {
+function evacuateItems(map, blockingMap) {
 	let i, j;
 	let item;
 

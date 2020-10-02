@@ -1,5 +1,6 @@
 
 
+import { Flags as TileFlags } from './tile.js';
 import { io as IO } from './io.js';
 import { make, data as DATA, types, ui as UI, utils as UTILS } from './gw.js';
 
@@ -78,3 +79,13 @@ function endTurn(PLAYER, turnTime) {
 }
 
 player.endTurn = endTurn;
+
+
+function isValidStartLoc(cell, x, y) {
+    if (cell.hasTileFlag(TileFlags.T_PATHING_BLOCKER | TileFlags.T_HAS_STAIRS)) {
+      return false;
+    }
+    return true;
+}
+
+player.isValidStartLoc = isValidStartLoc;

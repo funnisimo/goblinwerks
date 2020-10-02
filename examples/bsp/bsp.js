@@ -1,4 +1,7 @@
 
+const FIRST_LEVEL = 0;
+const LAST_LEVEL = 1;
+
 let canvas = null;
 let MAP = null;
 const startingXY = [40, 28];
@@ -6,6 +9,12 @@ const startingXY = [40, 28];
 GW.random.seed(12345);
 
 const TILES = GW.tiles;
+
+const PLAYER = GW.make.player({
+		sprite: GW.make.sprite('@', 'white'),
+		name: 'you',
+		speed: 120
+});
 
 
 GW.item.installKind('BOX', {
@@ -35,6 +44,17 @@ GW.item.installKind('CHAIR', {
 const BOXES = GW.make.tileEvent({ item: 'BOX', spread: 75, decrement: 10, flags: 'DFF_ABORT_IF_BLOCKS_MAP | DFF_MUST_TOUCH_WALLS' });
 const CHAIRS = GW.make.tileEvent({ item: 'CHAIR', spread: 90, decrement: 100, flags: 'DFF_ABORT_IF_BLOCKS_MAP, DFF_TREAT_AS_BLOCKING' });
 const TABLES = GW.make.tileEvent({ item: 'TABLE', spread: 75, decrement: 30, flags: 'DFF_ABORT_IF_BLOCKS_MAP, DFF_NO_TOUCH_WALLS, DFF_SPREAD_LINE, DFF_SUBSEQ_EVERYWHERE, DFF_TREAT_AS_BLOCKING', next: CHAIRS });
+
+
+async function crossedFinish() {
+	await GW.game.gameOver(true, GW.colors.teal, 'You push open the doors and feel the fresh air hit your face.  The relief is palpable, but in the back of your mind you morn for your colleagues who remain inside.');
+}
+
+const GOAL_TILE = GW.tile.install('GOAL', 'X', 'green', 'light_blue', 50, 0, 0,
+	'the building exit', 'you see the building exit.',
+	{ playerEnter: crossedFinish }
+);
+
 
 
 class Node extends GW.types.Bounds {
@@ -333,64 +353,37 @@ function digBspTree(map, tree, opts={}) {
 }
 
 
-function isValidStairs(cell, x, y) {
-	console.log('is valid stairs', cell, x, y);
+function isValidStairs(cell, x, y, map) {
+	// console.log('is valid stairs', cell, x, y);
 
 	if (!cell.hasTile(1)) return false;
 	if (!cell.isEmpty()) return false;
 
 	// must touch wall
-	const walls = MAP.neighborCount(x, y, (c) => c.isNull(), true);
+	const walls = map.neighborCount(x, y, (c) => c.isNull(), true);
 	if (!walls) return false;
 
 	// cannot be near door or items or actors
-	const doors = MAP.neighborCount(x, y, (c) => { return c.isDoor() || !c.isEmpty(); } );
+	const doors = map.neighborCount(x, y, (c) => { return c.isDoor() || !c.isEmpty(); } );
 	if (doors) return false;
 
 	// must have empty floor on one side (of 4 primary directions)
-	const exit = MAP.neighborCount(x, y, (c) => c.hasTile(1) && c.isEmpty(), true);
+	const exit = map.neighborCount(x, y, (c) => c.hasTile(1) && c.isEmpty(), true);
 	if (!exit) return false;
 
 	return true;
 }
 
 
-function setupStairs(x, y, tile) {
-	MAP.setTile(x, y, tile);
-
-	const indexes = GW.random.shuffle(GW.utils.sequence(4));
-
-	let dir;
-	for(let i = 0; i < indexes.length; ++i) {
-		dir = GW.def.dirs[i];
-		const x0 = x + dir[0];
-		const y0 = y + dir[1];
-		const cell = MAP.cell(x0, y0);
-		if (cell.hasTile(1) && cell.isEmpty()) {
-			const oppCell = MAP.cell(x - dir[0], y - dir[1]);
-			if (oppCell.isNull()) break;
-		}
-
-		dir = null;
+function setupStairs(map, x, y, tile) {
+	if (map.id == LAST_LEVEL && GW.tiles[tile].hasFlag(GW.flags.tile.T_UP_STAIRS)) {
+		tile = GOAL_TILE;
 	}
-
-	if (!dir) GW.utils.ERROR('No stair direction found!');
-
-	const dirIndex = GW.def.clockDirs.findIndex( (d) => d[0] == dir[0] && d[1] == dir[1] );
-
-	for(let i = 0; i < GW.def.clockDirs.length; ++i) {
-		const l = i ? i - 1 : 7;
-		const r = (i + 1) % 8;
-		if (i == dirIndex || l == dirIndex || r == dirIndex ) continue;
-		const d = GW.def.clockDirs[i];
-		MAP.setTile(x + d[0], y + d[1], 6);
-	}
-
-	console.log('setup stairs', x, y, tile);
+	return GW.dungeon.setupStairs(map, x, y, tile);
 }
 
 
-async function drawMap(attempt=0) {
+async function designNewLevel(id=0, attempt=0) {
 	if (attempt > 20) {
 		console.error('Failed to build map!');
 		return false;
@@ -398,16 +391,17 @@ async function drawMap(attempt=0) {
 	const seed = GW.random._v - 1;
 
 	// dig a map
-	MAP.clear();
-	GW.dungeon.start(MAP);
+	const map = GW.make.map(80, 30);
+	map.id = id;
+	GW.dungeon.start(map);
 
 	const opts = { minWidth: 7, minHeight: 5, minCount: 10, minPct: 100, start: startingXY };
 
 	let success = false;
 	let tree;
 	while(!success) {
-		tree = makeBspTree(MAP, opts);
-		success = digBspTree(MAP, tree, opts);
+		tree = makeBspTree(map, opts);
+		success = digBspTree(map, tree, opts);
 	}
 
 	// GW.dungeon.log = console.log;
@@ -421,9 +415,21 @@ async function drawMap(attempt=0) {
 	//
 	// GW.dungeon.addBridges(40, 8);
 
-	if (!GW.dungeon.addStairs({ up: startingXY, isValid: isValidStairs, setup: setupStairs })) {
+	let stairOpts = { isValid: isValidStairs, start: 'down', setup: setupStairs };
+	// if (id == LAST_LEVEL) {
+	// 	stairOpts.up = false;
+	// }
+	if (id == FIRST_LEVEL) {
+		stairOpts.start = startingXY;
+		stairOpts.down = false;
+	}
+	else {
+		stairOpts.down = GW.data.map.locations.up;
+	}
+
+	if (!GW.dungeon.addStairs(stairOpts)) {
 		console.error('Failed to place stairs.');
-		return drawMap(++attempt);
+		return designNewLevel(id, ++attempt);
 	}
 
 	GW.dungeon.finish();
@@ -453,42 +459,75 @@ async function drawMap(attempt=0) {
 			if (x == node.x || y == node.y) continue;
 			if (x == node.x + node.width - 1 || y == node.y + node.height - 1) continue;
 
-			const cell = MAP.cell(x, y);
+			const cell = map.cell(x, y);
 			if (!cell.isPassableNow()) continue;
-			success = await GW.tileEvent.spawn(event, { map: MAP, x, y, bounds: node });
+			success = await GW.tileEvent.spawn(event, { map: map, x, y, bounds: node });
 		}
 	}
 
 	// GW.tileEvent.debug = GW.utils.NOOP;
 
-	canvas.buffer.erase();
-	GW.viewport.draw(canvas.buffer, MAP);
 	console.log('MAP SEED = ', seed);
+	MAP = map;
+	return map;
 }
 
 
 function handleClick(e) {
 	startingXY[0] = canvas.toX(e.clientX);
 	startingXY[1] = canvas.toY(e.clientY);
-	drawMap();
+	designNewLevel();
 }
 
 function handleKey(e) {
 	if (e.key == 'Shift') return;
-	drawMap();
+	designNewLevel();
+}
+
+
+async function showHelp() {
+	const buf = GW.ui.startDialog();
+
+	let y = 2;
+	buf.plotText(20, y++, 'GoblinWerks Escape from ECMA Labs', 'green');
+	y++;
+	y = buf.wrapText(15, y, 50, 'You are in the basement of a secret laboratory that does experiments with toxic chemicals.  There was an accident and a toxic gas was released that will kill you.  It has already affected most of your colleagues.  You must get out quickly!', 'white');
+	y++;
+	buf.plotText(15, y, 'dir   ', 'yellow');
+	y = buf.wrapText(21, y, 42, ': Pressing an arrow key moves the player in that direction.', 'white', null, 2);
+	buf.plotText(15, y, 'space ', 'yellow');
+	y = buf.wrapText(21, y, 42, ': Wait a short time.', 'white', null, 2);
+	buf.plotText(15, y, '?', 'yellow');
+	y = buf.wrapText(21, y, 42, ': Show this screen.', 'lighter_gray');
+
+	buf.fillRect(14, 1, 52, y, null, null, 'black' );
+
+	GW.ui.draw();
+	await GW.io.nextKeyPress(-1);
+	GW.ui.finishDialog();
 }
 
 
 
 // start the environment
-function start() {
-	MAP = GW.make.map(80, 30);
-	canvas = GW.ui.start({ width: 80, height: 30, div: 'game', io: false });
+async function start() {
+	// canvas = GW.ui.start({ width: 80, height: 30, div: 'game', io: false });
 	// game.onmousedown = handleClick;
-	document.onkeydown = handleKey;
+	// document.onkeydown = handleKey;
 
-	canvas.buffer.plotText(10, 15, 'Click to draw map with starting location at click point.', [100,50,0]);
-	canvas.buffer.plotText(10, 17, 'Press any key to redesign the map at same starting point.', [100,50,0]);
+	// canvas.buffer.plotText(10, 15, 'Click to draw map with starting location at click point.', [100,50,0]);
+	// canvas.buffer.plotText(10, 17, 'Press any key to redesign the map at same starting point.', [100,50,0]);
+
+	const canvas = GW.ui.start({ width: 80, height: 36, div: 'game', messages: -5, cursor: true, flavor: true });
+	GW.io.setKeymap({
+		dir: 'moveDir', space: 'rest',
+		// '>': drawMap, '<': drawMap,
+		'?': showHelp
+	});
+
+	GW.message.add('%REscape from ECMA Labs!\nYou are in the basement of a lab where something has gone horribly wrong.\nFind your way to the surface.\nGet to Press <?> for help.', 'yellow');
+	GW.game.start({ player: PLAYER, buildMap: designNewLevel });
+
 }
 
 window.onload = start;

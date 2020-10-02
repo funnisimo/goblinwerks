@@ -138,7 +138,7 @@ class Cell {
     this.actor = null;
     this.item = null;
 
-    this.flags = 0;							// non-terrain cell flags
+    this.flags = Flags.VISIBLE | Flags.NEEDS_REDRAW;	// non-terrain cell flags
     this.mechFlags = 0;
     this.gasVolume = 0;						// quantity of gas in cell
     this.liquidVolume = 0;

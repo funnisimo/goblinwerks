@@ -1,6 +1,7 @@
 
 
 import { Flags as TileFlags, tile as TILE } from './tile.js';
+import { game as GAME } from './game.js';
 import { data as DATA, def, commands, ui as UI, message as MSG } from './gw.js';
 
 
@@ -63,6 +64,11 @@ async function moveDir(e) {
   }
   if (!fired) {
     await cell.fireEvent('enter', ctx);
+  }
+
+  if (cell.hasTileFlag(TileFlags.T_HAS_STAIRS)) {
+    console.log('Use stairs!');
+    await GAME.useStairs(newX, newY);
   }
 
   UI.requestUpdate();

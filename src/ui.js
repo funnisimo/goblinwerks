@@ -1,5 +1,6 @@
 
 import { io as IO } from './io.js';
+import { Flags as CellFlags } from './cell.js';
 import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, utils as UTILS, make } from './gw.js';
 
 ui.debug = UTILS.NOOP;
