@@ -3,7 +3,7 @@
 import { Flags as TileFlags, tile as TILE } from './tile.js';
 import { KindFlags as ItemKindFlags, ActionFlags as ItemActionFlags } from './item.js';
 import { game as GAME } from './game.js';
-import { data as DATA, def, commands, ui as UI, message as MSG } from './gw.js';
+import { data as DATA, def, commands, ui as UI, message as MSG, utils as UTILS, fx as FX } from './gw.js';
 
 
 
@@ -37,6 +37,8 @@ async function moveDir(e) {
     // TURN ENDED (1/2 turn)?
     return false;
   }
+
+  let isPush = false;
   if (cell.item && cell.item.hasKindFlag(ItemKindFlags.IK_BLOCKS_MOVE)) {
     if (!cell.item.hasActionFlag(ItemActionFlags.A_PUSH)) {
       ctx.item = cell.item;
@@ -54,6 +56,7 @@ async function moveDir(e) {
     ctx.item = cell.item;
     map.removeItem(cell.item);
     map.addItem(pushX, pushY, ctx.item);
+    isPush = true;
     // Do we need to activate stuff - key enter, key leave?
   }
 
@@ -64,10 +67,37 @@ async function moveDir(e) {
     }
   }
 
+  if (actor.grabbed && !isPush) {
+    const dirToItem = UTILS.dirFromTo(actor, actor.grabbed);
+    let destXY = [actor.grabbed.x + dir[0], actor.grabbed.y + dir[1]];
+    if (UTILS.isOppositeDir(dirToItem, dir)) {  // pull
+      if (!actor.grabbed.hasActionFlag(ItemActionFlags.A_PULL)) {
+        MSG.add('you cannot pull %s.', actor.grabbed.flavorText());
+        return false;
+      }
+    }
+    else {  // slide
+      if (!actor.grabbed.hasActionFlag(ItemActionFlags.A_SLIDE)) {
+        MSG.add('you cannot slide %s.', actor.grabbed.flavorText());
+        return false;
+      }
+    }
+    const destCell = map.cell(destXY[0], destXY[1]);
+    if (destCell.item || destCell.hasTileFlag(TileFlags.T_OBSTRUCTS_ITEMS)) {
+      MSG.moveBlocked(ctx);
+      return false;
+    }
+  }
+
   if (!map.moveActor(newX, newY, actor)) {
     MSG.moveFailed(ctx);
     // TURN ENDED (1/2 turn)?
     return false;
+  }
+
+  if (actor.grabbed && !isPush) {
+    map.removeItem(actor.grabbed);
+    map.addItem(actor.grabbed.x + dir[0], actor.grabbed.y + dir[1], actor.grabbed);
   }
 
   // APPLY EFFECTS
@@ -104,3 +134,48 @@ commands.moveDir = moveDir;
 //   actor = actor || DATA.player;
 //   return commands.moveDir(x - actor.x, y - actor.y, actor);
 // }
+
+
+async function grab(e) {
+  const actor = e.actor || DATA.player;
+  const map = DATA.map;
+
+  if (actor.grabbed) {
+    MSG.add('You let go of %s.', actor.grabbed.flavorText());
+    await FX.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+    actor.grabbed = null;
+    actor.endTurn();
+    return true;
+  }
+
+  const candidates = [];
+  map.eachNeighbor(actor.x, actor.y, (c) => {
+    if (c.item && c.item.hasActionFlag(ItemActionFlags.A_GRABBABLE)) {
+      candidates.push(c.item);
+    }
+  }, true);
+  if (!candidates.length) {
+    MSG.add('Nothing to grab.');
+    return false;
+  }
+  else if (candidates.length == 1) {
+    actor.grabbed = candidates[0];
+    MSG.add('you grab %s.', actor.grabbed.flavorText());
+    await FX.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+    actor.endTurn();
+    return true;
+  }
+
+  const choice = await UI.chooseTarget(candidates, 'Grab what?');
+  if (!choice) {
+    return false; // cancelled
+  }
+
+  actor.grabbed = choice;
+  MSG.add('you grab %s.', actor.grabbed.flavorText());
+  await FX.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+  actor.endTurn();
+  return true;
+}
+
+commands.grab = grab;

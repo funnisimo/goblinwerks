@@ -1,6 +1,7 @@
 
 import { io as IO } from './io.js';
 import { Flags as CellFlags } from './cell.js';
+import { sprite as SPRITE } from './sprite.js';
 import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, utils as UTILS, make } from './gw.js';
 
 ui.debug = UTILS.NOOP;
@@ -203,6 +204,8 @@ export function onkeydown(e) {
 
 	const ev = IO.makeKeyEvent(e);
 	IO.pushEvent(ev);
+
+	e.preventDefault();
 }
 
 ui.onkeydown = onkeydown;
@@ -284,7 +287,7 @@ ui.setCursor = setCursor;
 
 function clearCursor() {
   return ui.setCursor(-1,-1);
-  // GW.ui.flavorMessage(GW.map.cellFlavor(GW.PLAYER.x, GW.PLAYER.y));
+  // ui.flavorMessage(GW.map.cellFlavor(GW.PLAYER.x, GW.PLAYER.y));
 }
 
 ui.clearCursor = clearCursor;
@@ -380,6 +383,57 @@ function blackOutDisplay() {
 
 ui.blackOutDisplay = blackOutDisplay;
 
+
+const TARGET_SPRITE = SPRITE.install('target', 'green', 50);
+
+async function chooseTarget(choices, prompt, opts={}) {
+	console.log('choose Target');
+
+	if (!choices || choices.length == 0) return null;
+	if (choices.length == 1) return choices[0];
+
+	const buf = ui.startDialog();
+	let waiting = true;
+	let selected = 0;
+
+	function draw() {
+		ui.clearDialog();
+		buf.plotLine(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, prompt, GW.colors.orange);
+		if (selected >= 0) {
+			const choice = choices[selected];
+			buf.plot(choice.x, choice.y, TARGET_SPRITE);
+		}
+		ui.draw();
+	}
+
+	draw();
+
+	while(waiting) {
+		const ev = await GW.io.nextEvent(100);
+		await GW.io.dispatchEvent(ev, {
+			escape() { waiting = false; selected = -1; },
+			enter() { waiting = false; },
+			tab() {
+				selected = (selected + 1) % choices.length;
+				draw();
+			},
+			dir(e) {
+				if (e.dir[0] > 0 || e.dir[1] > 0) {
+					selected = (selected + 1) % choices.length;
+				}
+				else if (e.dir[0] < 0 || e.dir[1] < 0) {
+					selected = (selected + choices.length - 1) % choices.length;
+				}
+				draw();
+			}
+		});
+	}
+
+	ui.finishDialog();
+	return choices[selected] || null;
+}
+
+ui.chooseTarget = chooseTarget;
 
 // DIALOG
 

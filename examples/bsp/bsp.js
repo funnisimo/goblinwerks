@@ -29,7 +29,7 @@ GW.item.installKind('TABLE', {
 	name: 'table',
 	description: 'a wooden table',
 	sprite: { ch: '\u2610', fg: 'orange' },
-	flags: 'A_PUSH, A_NO_PICKUP, IK_BLOCKS_MOVE',
+	flags: 'A_PUSH, A_PULL, A_NO_PICKUP, IK_BLOCKS_MOVE',
 	stats: { health: 10 }
 });
 
@@ -501,7 +501,7 @@ async function showHelp() {
 async function start() {
 	const canvas = GW.ui.start({ width: 80, height: 36, div: 'game', messages: -5, cursor: true, flavor: true });
 	GW.io.setKeymap({
-		dir: 'moveDir', space: 'rest',
+		dir: 'moveDir', space: 'rest', g: 'grab',
 		'?': showHelp
 	});
 

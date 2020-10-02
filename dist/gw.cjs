@@ -170,6 +170,19 @@ function dirIndex(dir) {
 
 utils$1.dirIndex = dirIndex;
 
+function isOppositeDir(a, b) {
+  if (a[0] + b[0] != 0) return false;
+  if (a[1] + b[1] != 0) return false;
+  return true;
+}
+
+utils$1.isOppositeDir = isOppositeDir;
+
+function isSameDir(a, b) {
+  return a[0] == b[0] && a[1] == b[1];
+}
+
+utils$1.isSameDir = isSameDir;
 
 function extend(obj, name, fn) {
   const base = obj[name] || NOOP;
@@ -9056,6 +9069,8 @@ async function moveDir(e) {
     // TURN ENDED (1/2 turn)?
     return false;
   }
+
+  let isPush = false;
   if (cell.item && cell.item.hasKindFlag(KindFlags.IK_BLOCKS_MOVE)) {
     if (!cell.item.hasActionFlag(ActionFlags.A_PUSH)) {
       ctx.item = cell.item;
@@ -9073,6 +9088,7 @@ async function moveDir(e) {
     ctx.item = cell.item;
     map.removeItem(cell.item);
     map.addItem(pushX, pushY, ctx.item);
+    isPush = true;
     // Do we need to activate stuff - key enter, key leave?
   }
 
@@ -9083,10 +9099,37 @@ async function moveDir(e) {
     }
   }
 
+  if (actor.grabbed && !isPush) {
+    const dirToItem = utils$1.dirFromTo(actor, actor.grabbed);
+    let destXY = [actor.grabbed.x + dir[0], actor.grabbed.y + dir[1]];
+    if (utils$1.isOppositeDir(dirToItem, dir)) {  // pull
+      if (!actor.grabbed.hasActionFlag(ActionFlags.A_PULL)) {
+        message.add('you cannot pull %s.', actor.grabbed.flavorText());
+        return false;
+      }
+    }
+    else {  // slide
+      if (!actor.grabbed.hasActionFlag(ActionFlags.A_SLIDE)) {
+        message.add('you cannot slide %s.', actor.grabbed.flavorText());
+        return false;
+      }
+    }
+    const destCell = map.cell(destXY[0], destXY[1]);
+    if (destCell.item || destCell.hasTileFlag(Flags$2.T_OBSTRUCTS_ITEMS)) {
+      message.moveBlocked(ctx);
+      return false;
+    }
+  }
+
   if (!map.moveActor(newX, newY, actor)) {
     message.moveFailed(ctx);
     // TURN ENDED (1/2 turn)?
     return false;
+  }
+
+  if (actor.grabbed && !isPush) {
+    map.removeItem(actor.grabbed);
+    map.addItem(actor.grabbed.x + dir[0], actor.grabbed.y + dir[1], actor.grabbed);
   }
 
   // APPLY EFFECTS
@@ -9123,6 +9166,51 @@ commands.moveDir = moveDir;
 //   actor = actor || DATA.player;
 //   return commands.moveDir(x - actor.x, y - actor.y, actor);
 // }
+
+
+async function grab(e) {
+  const actor = e.actor || data.player;
+  const map = data.map;
+
+  if (actor.grabbed) {
+    message.add('You let go of %s.', actor.grabbed.flavorText());
+    await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+    actor.grabbed = null;
+    actor.endTurn();
+    return true;
+  }
+
+  const candidates = [];
+  map.eachNeighbor(actor.x, actor.y, (c) => {
+    if (c.item && c.item.hasActionFlag(ActionFlags.A_GRABBABLE)) {
+      candidates.push(c.item);
+    }
+  }, true);
+  if (!candidates.length) {
+    message.add('Nothing to grab.');
+    return false;
+  }
+  else if (candidates.length == 1) {
+    actor.grabbed = candidates[0];
+    message.add('you grab %s.', actor.grabbed.flavorText());
+    await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+    actor.endTurn();
+    return true;
+  }
+
+  const choice = await ui.chooseTarget(candidates, 'Grab what?');
+  if (!choice) {
+    return false; // cancelled
+  }
+
+  actor.grabbed = choice;
+  message.add('you grab %s.', actor.grabbed.flavorText());
+  await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+  actor.endTurn();
+  return true;
+}
+
+commands.grab = grab;
 
 var SETUP = null;
 
@@ -9798,6 +9886,8 @@ function onkeydown(e) {
 
 	const ev = io.makeKeyEvent(e);
 	io.pushEvent(ev);
+
+	e.preventDefault();
 }
 
 ui.onkeydown = onkeydown;
@@ -9879,7 +9969,7 @@ ui.setCursor = setCursor;
 
 function clearCursor() {
   return ui.setCursor(-1,-1);
-  // GW.ui.flavorMessage(GW.map.cellFlavor(GW.PLAYER.x, GW.PLAYER.y));
+  // ui.flavorMessage(GW.map.cellFlavor(GW.PLAYER.x, GW.PLAYER.y));
 }
 
 ui.clearCursor = clearCursor;
@@ -9959,6 +10049,57 @@ function blackOutDisplay() {
 
 ui.blackOutDisplay = blackOutDisplay;
 
+
+const TARGET_SPRITE = sprite.install('target', 'green', 50);
+
+async function chooseTarget(choices, prompt, opts={}) {
+	console.log('choose Target');
+
+	if (!choices || choices.length == 0) return null;
+	if (choices.length == 1) return choices[0];
+
+	const buf = ui.startDialog();
+	let waiting = true;
+	let selected = 0;
+
+	function draw() {
+		ui.clearDialog();
+		buf.plotLine(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, prompt, GW.colors.orange);
+		if (selected >= 0) {
+			const choice = choices[selected];
+			buf.plot(choice.x, choice.y, TARGET_SPRITE);
+		}
+		ui.draw();
+	}
+
+	draw();
+
+	while(waiting) {
+		const ev = await GW.io.nextEvent(100);
+		await GW.io.dispatchEvent(ev, {
+			escape() { waiting = false; selected = -1; },
+			enter() { waiting = false; },
+			tab() {
+				selected = (selected + 1) % choices.length;
+				draw();
+			},
+			dir(e) {
+				if (e.dir[0] > 0 || e.dir[1] > 0) {
+					selected = (selected + 1) % choices.length;
+				}
+				else if (e.dir[0] < 0 || e.dir[1] < 0) {
+					selected = (selected + choices.length - 1) % choices.length;
+				}
+				draw();
+			}
+		});
+	}
+
+	ui.finishDialog();
+	return choices[selected] || null;
+}
+
+ui.chooseTarget = chooseTarget;
 
 // DIALOG
 

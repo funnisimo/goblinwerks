@@ -97,6 +97,19 @@ export function dirIndex(dir) {
 
 utils.dirIndex = dirIndex;
 
+export function isOppositeDir(a, b) {
+  if (a[0] + b[0] != 0) return false;
+  if (a[1] + b[1] != 0) return false;
+  return true;
+}
+
+utils.isOppositeDir = isOppositeDir;
+
+export function isSameDir(a, b) {
+  return a[0] == b[0] && a[1] == b[1];
+}
+
+utils.isSameDir = isSameDir;
 
 export function extend(obj, name, fn) {
   const base = obj[name] || NOOP;
