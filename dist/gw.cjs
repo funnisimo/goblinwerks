@@ -5837,10 +5837,10 @@ player.endTurn = endTurn$1;
 
 
 function isValidStartLoc(cell, x, y) {
-    if (cell.hasTileFlag(Flags$2.T_PATHING_BLOCKER | Flags$2.T_HAS_STAIRS)) {
-      return false;
-    }
-    return true;
+  if (cell.hasTileFlag(Flags$2.T_PATHING_BLOCKER | Flags$2.T_HAS_STAIRS)) {
+    return false;
+  }
+  return true;
 }
 
 player.isValidStartLoc = isValidStartLoc;
@@ -6034,7 +6034,7 @@ function startMap(map, loc) {
       }
     }
 
-    startLoc = map.matchingNeighbor(startLoc[0], startLoc[1], player.isValidStartLoc, true);
+    startLoc = map.matchingXYNear(startLoc[0], startLoc[1], player.isValidStartLoc, { hallways: true });
 
     data.map.addActor(startLoc[0], startLoc[1], data.player);
   }
@@ -6437,7 +6437,7 @@ const ActionFlags = flag.install('action', {
 	A_NO_PICKUP		: Fl$4(9),
 	A_NO_DESTROY	: Fl$4(10),
 
-	A_GRABBABLE : 'A_PUSH, A_PULL, A_SLIDE',
+	A_GRABBABLE : 'A_PULL, A_SLIDE',
 });
 
 
@@ -6584,6 +6584,14 @@ class Item {
     this.flags = 0;
 		this.kind = kind || null;
 		this.stats = Object.assign({}, kind.stats);
+	}
+
+	hasKindFlag(flag) {
+		return (this.kind.flags & flag) > 0;
+	}
+
+	hasActionFlag(flag) {
+		return (this.kind.actionFlags & flag) > 0;
 	}
 
 	async applyDamage(ctx) {
@@ -9020,8 +9028,9 @@ types.FOV = FOV;
 
 async function moveDir(e) {
   const actor = e.actor || data.player;
-  const newX = e.dir[0] + actor.x;
-  const newY = e.dir[1] + actor.y;
+  const dir = e.dir;
+  const newX = dir[0] + actor.x;
+  const newY = dir[1] + actor.y;
   const map = data.map;
   const cell = map.cell(newX, newY);
 
@@ -9046,6 +9055,25 @@ async function moveDir(e) {
     message.moveBlocked(ctx);
     // TURN ENDED (1/2 turn)?
     return false;
+  }
+  if (cell.item && cell.item.hasKindFlag(KindFlags.IK_BLOCKS_MOVE)) {
+    if (!cell.item.hasActionFlag(ActionFlags.A_PUSH)) {
+      ctx.item = cell.item;
+      message.moveBlocked(ctx);
+      return false;
+    }
+    const pushX = newX + dir[0];
+    const pushY = newY + dir[1];
+    const pushCell = map.cell(pushX, pushY);
+    if (!pushCell.isEmpty() || pushCell.hasTileFlag(Flags$2.T_OBSTRUCTS_ITEMS)) {
+      message.moveBlocked(ctx);
+      return false;
+    }
+
+    ctx.item = cell.item;
+    map.removeItem(cell.item);
+    map.addItem(pushX, pushY, ctx.item);
+    // Do we need to activate stuff - key enter, key leave?
   }
 
   // CHECK SOME SANITY MOVES
@@ -9140,7 +9168,12 @@ message.setup = setup;
 // Messages
 
 function moveBlocked(ctx) {
-  message.add('Blocked!');
+  if (ctx.item) {
+    message.add('Blocked by %s!', ctx.item.flavorText());
+  }
+  else {
+    message.add('Blocked!');
+  }
 }
 
 message.moveBlocked = moveBlocked;

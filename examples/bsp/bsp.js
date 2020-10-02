@@ -29,7 +29,7 @@ GW.item.installKind('TABLE', {
 	name: 'table',
 	description: 'a wooden table',
 	sprite: { ch: '\u2610', fg: 'orange' },
-	flags: 'A_NO_PICKUP, IK_BLOCKS_MOVE',
+	flags: 'A_PUSH, A_NO_PICKUP, IK_BLOCKS_MOVE',
 	stats: { health: 10 }
 });
 
@@ -473,18 +473,6 @@ async function designNewLevel(id=0, attempt=0) {
 }
 
 
-function handleClick(e) {
-	startingXY[0] = canvas.toX(e.clientX);
-	startingXY[1] = canvas.toY(e.clientY);
-	designNewLevel();
-}
-
-function handleKey(e) {
-	if (e.key == 'Shift') return;
-	designNewLevel();
-}
-
-
 async function showHelp() {
 	const buf = GW.ui.startDialog();
 
@@ -511,17 +499,9 @@ async function showHelp() {
 
 // start the environment
 async function start() {
-	// canvas = GW.ui.start({ width: 80, height: 30, div: 'game', io: false });
-	// game.onmousedown = handleClick;
-	// document.onkeydown = handleKey;
-
-	// canvas.buffer.plotText(10, 15, 'Click to draw map with starting location at click point.', [100,50,0]);
-	// canvas.buffer.plotText(10, 17, 'Press any key to redesign the map at same starting point.', [100,50,0]);
-
 	const canvas = GW.ui.start({ width: 80, height: 36, div: 'game', messages: -5, cursor: true, flavor: true });
 	GW.io.setKeymap({
 		dir: 'moveDir', space: 'rest',
-		// '>': drawMap, '<': drawMap,
 		'?': showHelp
 	});
 

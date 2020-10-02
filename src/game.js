@@ -126,7 +126,7 @@ export function startMap(map, loc) {
       }
     }
 
-    startLoc = map.matchingNeighbor(startLoc[0], startLoc[1], PLAYER.isValidStartLoc, true);
+    startLoc = map.matchingXYNear(startLoc[0], startLoc[1], PLAYER.isValidStartLoc, { hallways: true });
 
     DATA.map.addActor(startLoc[0], startLoc[1], DATA.player);
   }

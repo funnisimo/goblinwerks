@@ -49,7 +49,12 @@ message.setup = setup;
 // Messages
 
 function moveBlocked(ctx) {
-  message.add('Blocked!');
+  if (ctx.item) {
+    message.add('Blocked by %s!', ctx.item.flavorText());
+  }
+  else {
+    message.add('Blocked!');
+  }
 }
 
 message.moveBlocked = moveBlocked;

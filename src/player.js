@@ -82,10 +82,10 @@ player.endTurn = endTurn;
 
 
 function isValidStartLoc(cell, x, y) {
-    if (cell.hasTileFlag(TileFlags.T_PATHING_BLOCKER | TileFlags.T_HAS_STAIRS)) {
-      return false;
-    }
-    return true;
+  if (cell.hasTileFlag(TileFlags.T_PATHING_BLOCKER | TileFlags.T_HAS_STAIRS)) {
+    return false;
+  }
+  return true;
 }
 
 player.isValidStartLoc = isValidStartLoc;

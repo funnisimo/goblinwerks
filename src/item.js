@@ -20,7 +20,7 @@ export const ActionFlags = GW.flag.install('action', {
 	A_NO_PICKUP		: Fl(9),
 	A_NO_DESTROY	: Fl(10),
 
-	A_GRABBABLE : 'A_PUSH, A_PULL, A_SLIDE',
+	A_GRABBABLE : 'A_PULL, A_SLIDE',
 });
 
 
@@ -167,6 +167,14 @@ class Item {
     this.flags = 0;
 		this.kind = kind || null;
 		this.stats = Object.assign({}, kind.stats);
+	}
+
+	hasKindFlag(flag) {
+		return (this.kind.flags & flag) > 0;
+	}
+
+	hasActionFlag(flag) {
+		return (this.kind.actionFlags & flag) > 0;
 	}
 
 	async applyDamage(ctx) {
