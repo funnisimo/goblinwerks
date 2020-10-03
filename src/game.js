@@ -247,10 +247,12 @@ async function useStairs(x, y) {
   if (cell.hasTileFlag(TileFlags.T_UP_STAIRS)) {
     start = 'down';
     mapId = map.id + 1;
+    MSG.add('you ascend.');
   }
   else if (cell.hasTileFlag(TileFlags.T_DOWN_STAIRS)) {
     start = 'up';
     mapId = map.id - 1;
+    MSG.add('you descend.');
   }
   else if (cell.hasTileFlag(TileFlags.T_PORTAL)) {
     start = cell.data.portalLocation;

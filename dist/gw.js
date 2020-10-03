@@ -6168,10 +6168,12 @@
     if (cell.hasTileFlag(Flags$2.T_UP_STAIRS)) {
       start = 'down';
       mapId = map.id + 1;
+      message.add('you ascend.');
     }
     else if (cell.hasTileFlag(Flags$2.T_DOWN_STAIRS)) {
       start = 'up';
       mapId = map.id - 1;
+      message.add('you descend.');
     }
     else if (cell.hasTileFlag(Flags$2.T_PORTAL)) {
       start = cell.data.portalLocation;

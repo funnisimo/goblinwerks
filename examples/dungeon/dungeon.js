@@ -1,11 +1,17 @@
 
 let canvas = null;
-let MAP = null;
 const startingXY = [40, 28];
 
 GW.random.seed(12345);
 
 const TILES = GW.tiles;
+
+const PLAYER = GW.make.player({
+		sprite: GW.make.sprite('@', 'white'),
+		name: 'you',
+		speed: 120
+});
+
 
 GW.digger.install('ROOM',     			GW.digger.rectangularRoom,  { width: 20, height: 10 });
 GW.digger.install('CROSS',         GW.digger.crossRoom,        { width: 12, height: 7 });
@@ -53,16 +59,6 @@ GW.digger.install('FIRST_ROOM',   		GW.digger.choiceRoom,
 											CHUNKY: 5,
 										} });
 
-function handleClick(e) {
-	startingXY[0] = canvas.toX(e.clientX);
-	startingXY[1] = canvas.toY(e.clientY);
-	drawMap();
-}
-
-function handleKey(e) {
-	if (e.key == 'Shift') return;
-	drawMap();
-}
 
 let time = 0;
 
@@ -78,7 +74,7 @@ function stopTimer(text) {
 	return diff;
 }
 
-function drawMap(attempt=0) {
+function designNewLevel(id=0, attempt=0) {
 	if (attempt > 20) {
 		console.error('Failed to build map!');
 		return false;
@@ -86,8 +82,9 @@ function drawMap(attempt=0) {
 	const seed = GW.random._v - 1;
 
 	// dig a map
-	MAP.clear();
-	GW.dungeon.start(MAP);
+	const map = GW.make.map(80, 30);
+	map.id = id;
+	GW.dungeon.start(map);
 
 	let loc = [startingXY[0], startingXY[1]];
 	let roomCount = 0;
@@ -111,7 +108,16 @@ function drawMap(attempt=0) {
 
 	GW.dungeon.addBridges(40, 8);
 
-	if (!GW.dungeon.addStairs({ up: startingXY })) {
+	let stairOpts = { start: 'up' };
+	if (id == 0) {
+		stairOpts.start = startingXY;
+		stairOpts.up = false;
+	}
+	else {
+		stairOpts.up = GW.data.map.locations.down;
+	}
+
+	if (!GW.dungeon.addStairs(stairOpts)) {
 		console.error('Failed to place stairs.');
 		return drawMap(++attempt);
 	}
@@ -120,20 +126,79 @@ function drawMap(attempt=0) {
 
 	stopTimer('DIG');
 
-	GW.viewport.draw(canvas.buffer, MAP);
 	console.log('MAP SEED = ', seed);
+	return map;
 }
 
 
+async function showHelp() {
+	const buf = GW.ui.startDialog();
+
+	let y = 2;
+	buf.plotText(20, y++, 'GoblinWerks Dungeon Dig Example', 'green');
+	y++;
+	y = buf.wrapText(15, y, 50, 'Explore the caves.', 'white');
+	y++;
+	buf.plotText(15, y, 'dir   ', 'yellow');
+	y = buf.wrapText(21, y, 42, ': Pressing an arrow key moves the player in that direction.', 'white', null, 2);
+	buf.plotText(15, y, 'space ', 'yellow');
+	y = buf.wrapText(21, y, 42, ': Wait a short time.', 'white', null, 2);
+	buf.plotText(15, y, '?', 'yellow');
+	y = buf.wrapText(21, y, 42, ': Show this screen.', 'lighter_gray');
+
+	buf.fillRect(14, 1, 52, y, null, null, 'black' );
+
+	GW.ui.draw();
+	await GW.io.nextKeyPress(-1);
+	GW.ui.finishDialog();
+}
+
+
+async function forceStairs(ev) {
+	const isUp = (ev.key == '<');
+
+	const mapId = GW.data.map.id + (isUp ? 1 : -1);
+
+	if (isUp && GW.data.map.id == 0) {
+		GW.message.add(GW.colors.teal, 'At start of dungeon.');
+		return false;
+	}
+	else if (isUp) {
+		GW.message.add('You ascend to level %d.', Math.abs(mapId));
+	}
+	else {
+		GW.message.add('You descend to level %d.', Math.abs(mapId));
+	}
+
+	const newMap = await GW.game.getMap(mapId);
+
+  GW.game.startMap(newMap, isUp ? 'down' : 'up');
+
+  GW.ui.requestUpdate();
+  PLAYER.endTurn();
+  return true;
+}
+
 // start the environment
 function start() {
-	MAP = GW.make.map(80, 30);
-	canvas = GW.ui.start({ width: 80, height: 30, div: 'game', io: false });
-	game.onmousedown = handleClick;
-	document.onkeydown = handleKey;
 
-	canvas.buffer.plotText(10, 15, 'Click to draw map with starting location at click point.', [100,50,0]);
-	canvas.buffer.plotText(10, 17, 'Press any key to redesign the map at same starting point.', [100,50,0]);
+	const canvas = GW.ui.start({ width: 80, height: 36, div: 'game', messages: -5, cursor: true, flavor: true });
+	GW.io.setKeymap({
+		dir: 'moveDir', space: 'rest',
+		'>': forceStairs, '<': forceStairs,
+		'?': showHelp
+	});
+
+	GW.message.add('%RWelcome to the Dungeon!\n%RSomewhere at the bottom of this labrynth is a portal that will take you back to your home town.  Find it or perish!\n%RPress <?> for help.', 'yellow', 'purple', null);
+	GW.game.start({ player: PLAYER, buildMap: designNewLevel });
+
+	// MAP = GW.make.map(80, 30);
+	// canvas = GW.ui.start({ width: 80, height: 30, div: 'game', io: false });
+	// game.onmousedown = handleClick;
+	// document.onkeydown = handleKey;
+	//
+	// canvas.buffer.plotText(10, 15, 'Click to draw map with starting location at click point.', [100,50,0]);
+	// canvas.buffer.plotText(10, 17, 'Press any key to redesign the map at same starting point.', [100,50,0]);
 }
 
 window.onload = start;
