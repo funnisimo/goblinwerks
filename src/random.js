@@ -1,6 +1,5 @@
 
-import { utils } from './utils.js';
-import { make, types } from './gw.js';
+import { make, types, utils } from './gw.js';
 
 
 // Based on random numbers in umoria
@@ -18,7 +17,7 @@ function lotteryDrawArray(rand, frequencies) {
         maxFreq += frequencies[i];
     }
 		if (maxFreq <= 0) {
-			debug.log('Lottery Draw - no frequencies', frequencies, frequencies.length);
+			utils.WARN('Lottery Draw - no frequencies', frequencies, frequencies.length);
 			return 0;
 		}
 
@@ -30,7 +29,7 @@ function lotteryDrawArray(rand, frequencies) {
           randIndex -= frequencies[i];
       }
     }
-    debug.log('Lottery Draw failed.', frequencies, frequencies.length);
+    utils.WARN('Lottery Draw failed.', frequencies, frequencies.length);
     return 0;
 }
 
@@ -46,6 +45,7 @@ function lotteryDrawObject(rand, weights) {
 
 export class Random {
   constructor(seed) {
+    this.debug = utils.NOOP;
     this.seed(seed);
   }
 
@@ -59,6 +59,7 @@ export class Random {
     this._v = ((this._seed % (RNG_M - 1)) + 1);
 		this.count = 0;
 
+    this.debug('seed', this._seed);
   	return this._seed;
   }
 
@@ -75,7 +76,9 @@ export class Random {
         this._v = (test + RNG_M);
     }
     const v = this._v - 1;
-    return max ? (v % max) : v;
+    const result = max ? (v % max) : v;
+    this.debug(result);
+    return result;
   }
 
   value() {
@@ -83,8 +86,9 @@ export class Random {
   }
 
   range(lo, hi) {
+    if (hi <= lo) return hi;
   	const diff = (hi - lo) + 1;
-  	return lo + (this.number() % diff);
+  	return lo + (this.number(diff));
   }
 
   dice(count, sides, addend) {
@@ -134,13 +138,11 @@ export class Random {
   	return (total + lo);
   }
 
-  // TODO - should this be : chance(percent)
-  percent(percent) {
+  chance(percent) {
     if (percent <= 0) return false;
     if (percent >= 100) return true;
   	return (this.range(0, 99) < percent);
   }
-
 
   item(list) {
   	return list[this.range(0, list.length - 1)];
@@ -164,6 +166,7 @@ export class Random {
   			list[i] = buf;
   		}
   	}
+    return list;
   }
 
 }
@@ -250,7 +253,6 @@ export function makeRange(config, rng) {
 	const RE = /^(?:([+-]?\d*)[Dd](\d+)([+-]?\d*)|([+-]?\d+)-(\d+):?(\d+)?|([+-]?\d+\.?\d*))/g;
   let results;
   while ((results = RE.exec(config)) !== null) {
-    // GW.debug.log(results);
     if (results[2]) {
       let count = Number.parseInt(results[1]) || 1;
       const sides = Number.parseInt(results[2]);

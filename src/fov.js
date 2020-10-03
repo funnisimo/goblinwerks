@@ -4,11 +4,12 @@
 
 import { Flags as CellFlags, MechFlags as CellMechFlags } from './cell.js';
 import { MechFlags as TileMechFlags } from './tile.js';
-import { config as CONFIG, data as DATA, types } from './gw.js';
+import { config as CONFIG, data as DATA, types, utils as UTILS } from './gw.js';
 
 
 export var fov = {};
 
+fov.debug = UTILS.NOOP;
 
 const FP_BASE = 16;
 const BIG_BASE = 16n;
@@ -306,9 +307,9 @@ export class FOV {
   _scanOctant(xLoc, yLoc, octant, maxRadius,
   				   columnsRightFromOrigin, startSlope, endSlope, cautiousOnWalls)
   {
-  	// GW.debug.log('scanOctantFOV', xLoc, yLoc, octant, maxRadius, columnsRightFromOrigin, startSlope, endSlope);
+  	// fov.debug('scanOctantFOV', xLoc, yLoc, octant, maxRadius, columnsRightFromOrigin, startSlope, endSlope);
   	if ((columnsRightFromOrigin << FP_BASE) >= maxRadius) {
-  		// GW.debug.log(' - columnsRightFromOrigin >= maxRadius', columnsRightFromOrigin << FP_BASE, maxRadius);
+  		// fov.debug(' - columnsRightFromOrigin >= maxRadius', columnsRightFromOrigin << FP_BASE, maxRadius);
   		return;
   	}
 
@@ -333,7 +334,7 @@ export class FOV {
   	let radiusSquared = Number(BigInt(maxRadius*maxRadius) >> (BIG_BASE*2n));
   	radiusSquared += (maxRadius >> FP_BASE);
   	if ((columnsRightFromOrigin*columnsRightFromOrigin + iEnd*iEnd) >= radiusSquared ) {
-  		// GW.debug.log(' - columnsRightFromOrigin^2 + iEnd^2 >= radiusSquared', columnsRightFromOrigin, iEnd, radiusSquared);
+  		// fov.debug(' - columnsRightFromOrigin^2 + iEnd^2 >= radiusSquared', columnsRightFromOrigin, iEnd, radiusSquared);
   		return;
   	}
   	if ((columnsRightFromOrigin*columnsRightFromOrigin + iStart*iStart) >= radiusSquared ) {
@@ -349,7 +350,7 @@ export class FOV {
   	y = loc[1];
   	let currentlyLit = this.isBlocked(x, y);
 
-  	// GW.debug.log(' - scan', iStart, iEnd);
+  	// fov.debug(' - scan', iStart, iEnd);
   	for (i = iStart; i <= iEnd; i++) {
   		x = xLoc + columnsRightFromOrigin;
   		y = yLoc + i;

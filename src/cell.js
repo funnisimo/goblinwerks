@@ -1,12 +1,10 @@
 
-import { utils as UTILS } from './utils.js';
-import { flag as FLAG } from './flag.js';
 import { random } from './random.js';
 import { colors as COLORS, color as COLOR } from './color.js';
-import { tiles as TILES, Flags as TileFlags, MechFlags as TileMechFlags, withName, Layer as TileLayer } from './tile.js';
+import { tiles as TILES, tile as TILE, Flags as TileFlags, MechFlags as TileMechFlags, Layer as TileLayer } from './tile.js';
 import { tileEvent as TILE_EVENT } from './tileEvent.js';
 
-import { types, make, def, config as CONFIG, data as DATA } from './gw.js';
+import { types, make, def, config as CONFIG, data as DATA, flag as FLAG, utils as UTILS } from './gw.js';
 
 
 export var cell = {};
@@ -140,13 +138,24 @@ class Cell {
     this.actor = null;
     this.item = null;
 
-    this.flags = 0;							// non-terrain cell flags
+    this.flags = Flags.VISIBLE | Flags.NEEDS_REDRAW;	// non-terrain cell flags
     this.mechFlags = 0;
     this.gasVolume = 0;						// quantity of gas in cell
     this.liquidVolume = 0;
     this.machineNumber = 0;
     this.memory.clear();
     this.layerFlags = 0;
+  }
+
+  clearTiles(includeGas=true) {
+    this.layers[1] = 0;
+    this.layers[2] = 0;
+    this.liquidVolume = 0;
+    if (includeGas) {
+      this.layers[3] = 0;
+      this.gasVolume = 0;
+    }
+    this.redraw();
   }
 
   get ground() { return this.layers[0]; }
@@ -207,8 +216,16 @@ class Cell {
     return !!(flagMask & this.tileFlags());
   }
 
+  hasAllTileFlags(flags) {
+    return (flags & this.tileFlags()) === flags;
+  }
+
   hasTileMechFlag(flagMask) {
     return !!(flagMask & this.tileMechFlags());
+  }
+
+  hasAllTileMechFlags(flags) {
+    return (flags & this.tileMechFlags()) === flags;
   }
 
   setFlags(cellFlag=0, cellMechFlag=0) {
@@ -296,8 +313,12 @@ class Cell {
     return this.highestPriorityTile().text;
   }
 
-  isEmpty() {
+  isNull() {
     return this.ground == 0;
+  }
+
+  isEmpty() {
+    return !(this.actor || this.item);
   }
 
   isPassableNow(limitToPlayerKnowledge) {
@@ -316,6 +337,12 @@ class Cell {
     let tileMechFlags = (useMemory) ? this.memory.tileMechFlags : this.tileMechFlags();
     if (tileMechFlags & TileMechFlags.TM_CONNECTS_LEVEL) return true;
     return ((tileMechFlags & TileMechFlags.TM_PROMOTES) && !(this.promotedTileFlags() & TileFlags.T_PATHING_BLOCKER));
+  }
+
+  isWall(limitToPlayerKnowledge) {
+    const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
+    let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
+    return tileFlags & TileFlags.T_OBSTRUCTS_EVERYTHING;
   }
 
   isObstruction(limitToPlayerKnowledge) {
@@ -365,7 +392,7 @@ class Cell {
   setTile(tileId=0, checkPriority=false) {
     let tile;
     if (typeof tileId === 'string') {
-      tile = withName(tileId);
+      tile = TILE.withName(tileId);
     }
     else if (tileId instanceof types.Tile) {
       tile = tileId;
@@ -399,6 +426,11 @@ class Cell {
 
     this.layerFlags &= ~Fl(tile.layer); // turn off layer flag
     this.layers[tile.layer] = tile.id;
+
+    if (tile.layer > 0 && this.layers[0] == 0) {
+      this.layers[0] = TILE.withName('FLOOR').id; // TODO - Not good
+    }
+
     this.flags |= (Flags.NEEDS_REDRAW | Flags.TILE_CHANGED);
     return (oldTile.glowLight !== tile.glowLight);
   }
@@ -446,7 +478,7 @@ class Cell {
       if (!tile.events) continue;
       const ev = tile.events[name];
       if (ev) {
-        if (ev.chance && !random.percent(ev.chance)) {
+        if (ev.chance && !random.chance(ev.chance)) {
           continue;
         }
 
@@ -468,7 +500,7 @@ class Cell {
   //     if (!id) continue;
   //     const tile = TILES[id];
   //     if (!tile.events.tick) continue;
-  //     if (random.percent(tile.events.tick.chance)) {
+  //     if (random.chance(tile.events.tick.chance)) {
   //       flag |= Fl(i);
   //     }
   //   }

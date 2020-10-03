@@ -1,9 +1,12 @@
 
 
+import { Flags as TileFlags } from './tile.js';
 import { io as IO } from './io.js';
-import { make, data as DATA, types, ui as UI } from './gw.js';
+import { make, data as DATA, types, ui as UI, utils as UTILS } from './gw.js';
 
 export var player = {};
+
+player.debug = UTILS.NOOP;
 
 
 export class Player extends types.Actor {
@@ -38,7 +41,7 @@ make.player = makePlayer;
 
 export async function takeTurn() {
   const PLAYER = DATA.player;
-  console.log('player turn...', DATA.time);
+  player.debug('player turn...', DATA.time);
   await PLAYER.startTurn();
 
   while(!PLAYER.turnTime) {
@@ -50,7 +53,7 @@ export async function takeTurn() {
     }
   }
 
-  console.log('...end turn', PLAYER.turnTime);
+  player.debug('...end turn', PLAYER.turnTime);
   return PLAYER.turnTime;
 }
 
@@ -76,3 +79,13 @@ function endTurn(PLAYER, turnTime) {
 }
 
 player.endTurn = endTurn;
+
+
+function isValidStartLoc(cell, x, y) {
+  if (cell.hasTileFlag(TileFlags.T_PATHING_BLOCKER | TileFlags.T_HAS_STAIRS)) {
+    return false;
+  }
+  return true;
+}
+
+player.isValidStartLoc = isValidStartLoc;

@@ -26,18 +26,20 @@ async function crossedFinish() {
 let ERUPT_CHANCE = 300 * 10 * 10;
 let CRUST_CHANCE = 5;
 
-async function lavaTick(ctx) {
+async function lavaTick(x, y, ctx) {
+	const ctx2 = Object.assign({}, ctx, { x, y });
 	if (GW.random.number(ERUPT_CHANCE) <= 1) {
-		return await GW.tileEvent.spawn({ tile: 'LAVA_ERUPTING' }, ctx);
+		return await GW.tileEvent.spawn({ tile: 'LAVA_ERUPTING' }, ctx2);
 	}
-	else if (GW.random.percent(CRUST_CHANCE)) {
-		return await GW.tileEvent.spawn({ tile: 'LAVA_CRUST' }, ctx);
+	else if (GW.random.chance(CRUST_CHANCE)) {
+		return await GW.tileEvent.spawn({ tile: 'LAVA_CRUST' }, ctx2);
 	}
 }
 
-async function lavaBreak(ctx) {
-	if (GW.random.percent(BREAK_CHANCE)) {
-		return await GW.tileEvent.spawn({ flags: GW.flags.tileEvent.DFF_CLEAR_OTHER_TERRAIN }, ctx);
+async function lavaBreak(x, y, ctx) {
+	const ctx2 = Object.assign({}, ctx, { x, y });
+	if (GW.random.chance(BREAK_CHANCE)) {
+		return await GW.tileEvent.spawn({ flags: GW.flags.tileEvent.DFF_CLEAR_CELL }, ctx2);
 	}
 }
 
@@ -132,7 +134,7 @@ const LAVA_CRUST_BREAKING = GW.tile.install('LAVA_CRUST_BREAKING', '~', 'lavaFor
 // LAVA_ERUPTING
 const LAVA_ERUPTING = GW.tile.install('LAVA_ERUPTING', '!', 'yellow', 'red', 91,	0,
 	0,
-	'a wave of erupting lava', 'you see a wave of hot lava.', { tick: { radius: 1, tile: 'LAVA_ERUPTING', flags: 'DFF_CLEAR_OTHER_TERRAIN', needs: 'LAVA_TILE', next: { tile: 'LAVA_ERUPTED' } }});
+	'a wave of erupting lava', 'you see a wave of hot lava.', { tick: { radius: 1, tile: 'LAVA_ERUPTING', flags: 'DFF_CLEAR_CELL | DFF_SUBSEQ_ALWAYS', needs: 'LAVA_TILE', next: { tile: 'LAVA_ERUPTED' } }});
 
 // LAVA_ERUPTED
 const LAVA_ERUPTED = GW.tile.install('LAVA_ERUPTED', '~', 'lavaForeColor', 'lavaBackColor', 92,	0,
@@ -162,7 +164,7 @@ function makeMap(id=1) {
 	GW.map.addText(MAP, 23, 28, 'START', 'blue');
 
 	// update the difficulty
-	ERUPT_CHANCE = Math.max(300, 300 * (100 - id*2));
+	ERUPT_CHANCE = Math.max(5000, 30000 - (1000 * id));
 	CRUST_CHANCE = Math.max(2, Math.floor(10 - id/2));
 	BREAK_CHANCE = Math.min(90, Math.floor(60 + id));
 

@@ -15,7 +15,8 @@ describe('GW.digger', () => {
   });
 
   test('rectangularRoom', () => {
-  	GW.digger.rectangularRoom({ width: grid.width - 2, height: grid.height - 2 }, grid);
+    GW.random.seed(12345);
+  	GW.digger.rectangularRoom({ width: grid.width - 2, height: grid.height - 2, minPct: 100 }, grid);
 
     grid.forEach( (v, i, j) => {
       if (grid.isBoundaryXY(i, j)) {

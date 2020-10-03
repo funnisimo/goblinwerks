@@ -19,7 +19,7 @@ describe('tileEvent', () => {
       'water', 'you see water.', { tick: { tile: LAKE, flags: 'DFF_SUPERPRIORITY | DFF_PROTECTED' } });
     WAVE = GW.tile.install('WAVE', 'W', 'white', 'blue', 60,	0,
       'T_DEEP_WATER',
-      'wave crest', 'you see a wave of water.', { tick: { radius: 1, tile: 'WAVE', flags: 'DFF_CLEAR_OTHER_TERRAIN', needs: LAKE, next: { tile: ROUGH_WATER } }});
+      'wave crest', 'you see a wave of water.', { tick: { radius: 1, tile: 'WAVE', flags: 'DFF_CLEAR_CELL | DFF_SUBSEQ_ALWAYS', needs: LAKE, next: { tile: ROUGH_WATER } }});
   });
 
   afterAll( () => {
@@ -42,6 +42,7 @@ describe('tileEvent', () => {
   afterEach( () => {
     if (grid) GW.grid.free(grid);
     grid = null;
+    GW.tileEvent.debug = GW.utils.NOOP;
   });
 
   function countTile(map, tile) {
@@ -65,7 +66,7 @@ describe('tileEvent', () => {
 
     // only a single tile
     feat = GW.make.tileEvent({ tile: 6 });
-    GW.tileEvent.computeSpawnMap(map, 10, 10, feat, grid);
+    GW.tileEvent.computeSpawnMap(feat, grid, ctx);
     expect(grid.count(1)).toEqual(1);
     expect(grid.count(0)).toEqual(20*20 - 1);
     expect(grid[10][10]).toEqual(1);
@@ -73,7 +74,7 @@ describe('tileEvent', () => {
     // tile and neighbors
     feat = GW.make.tileEvent({ tile: 6, spread: 100, decrement: 100 });
     grid.fill(0);
-    GW.tileEvent.computeSpawnMap(map, 10, 10, feat, grid);
+    GW.tileEvent.computeSpawnMap(feat, grid, ctx);
     expect(grid.count(0)).toEqual(20*20 - 5);
     expect(grid[10][10]).toEqual(1);
     grid.eachNeighbor(10, 10, (v) => expect(v).toEqual(2), true);
@@ -81,7 +82,7 @@ describe('tileEvent', () => {
     // 2 levels
     feat = GW.make.tileEvent({ tile: 6, spread: 200, decrement: 100 });
     grid.fill(0);
-    GW.tileEvent.computeSpawnMap(map, 10, 10, feat, grid);
+    GW.tileEvent.computeSpawnMap(feat, grid, ctx);
     expect(grid.count(0)).toEqual(20*20 - 1 - 4 - 8);
     expect(grid[10][10]).toEqual(1);
     grid.eachNeighbor(10, 10, (v) => expect(v).toEqual(2), true);
@@ -94,7 +95,7 @@ describe('tileEvent', () => {
     GW.random.seed(12345);
     grid = GW.grid.alloc(20, 20);
     feat = GW.make.tileEvent({ tile: 6, spread: 50 });
-    GW.tileEvent.computeSpawnMap(map, 10, 10, feat, grid);
+    GW.tileEvent.computeSpawnMap(feat, grid, ctx);
     // grid.dump();
     expect(grid.count( (v) => !!v )).toEqual(12);
     expect(grid[10][10]).toEqual(1);
@@ -107,7 +108,7 @@ describe('tileEvent', () => {
     GW.random.seed(12345);
     grid = GW.grid.alloc(20, 20);
     feat = GW.make.tileEvent({ tile: 6, spread: 50, matchTile: 2 });
-    GW.tileEvent.computeSpawnMap(map, 10, 10, feat, grid);
+    GW.tileEvent.computeSpawnMap(feat, grid, ctx);
     // grid.dump();
     expect(grid.count( (v) => !!v )).toEqual(0);  // There are no doors!
 
@@ -116,7 +117,7 @@ describe('tileEvent', () => {
     map.setTile(10, 9, 2);
     map.setTile(10, 11, 2);
 
-    GW.tileEvent.computeSpawnMap(map, 10, 10, feat, grid);
+    GW.tileEvent.computeSpawnMap(feat, grid, ctx);
     // grid.dump();
     expect(grid.count( (v) => !!v )).toEqual(2);  // match some doors
 
@@ -128,7 +129,7 @@ describe('tileEvent', () => {
     GW.random.seed(12345);
     grid = GW.grid.alloc(20, 20);
     feat = GW.make.tileEvent({ tile: 6, spread: 50, decrement: 10 });
-    GW.tileEvent.computeSpawnMap(map, 10, 10, feat, grid);
+    GW.tileEvent.computeSpawnMap(feat, grid, ctx);
     // grid.dump();
     expect(grid.count( (v) => !!v )).toEqual(7);
     expect(grid[10][10]).toEqual(1);
@@ -143,7 +144,7 @@ describe('tileEvent', () => {
     grid = GW.grid.alloc(20, 20);
     feat = GW.make.tileEvent({ tile: 6, spread: 90, decrement: 10, flags: 'DFF_SPREAD_CIRCLE' });
 
-    GW.tileEvent.computeSpawnMap(map, 10, 10, feat, grid);
+    GW.tileEvent.computeSpawnMap(feat, grid, ctx);
     // grid.dump();
     expect(grid.count( (v) => !!v )).toEqual(61);
     grid.forCircle(10, 10, 4, (v) => expect(v).toEqual(1) );
@@ -157,7 +158,7 @@ describe('tileEvent', () => {
     grid = GW.grid.alloc(20, 20);
     feat = GW.make.tileEvent({ tile: 6, radius: 3 });
     // console.log(feat);
-    GW.tileEvent.computeSpawnMap(map, 10, 10, feat, grid);
+    GW.tileEvent.computeSpawnMap(feat, grid, ctx);
     // grid.dump();
     expect(grid.count( (v) => !!v )).toEqual(37);
     expect(grid[10][10]).toEqual(1);
@@ -170,7 +171,7 @@ describe('tileEvent', () => {
     grid = GW.grid.alloc(20, 20);
     feat = GW.make.tileEvent({ tile: 6, radius: 3, spread: 75 });
     // console.log(feat);
-    GW.tileEvent.computeSpawnMap(map, 10, 10, feat, grid);
+    GW.tileEvent.computeSpawnMap(feat, grid, ctx);
     // grid.dump();
     expect(grid.count( (v) => !!v )).toEqual(24);
     expect(grid[10][10]).toEqual(1);
@@ -184,7 +185,7 @@ describe('tileEvent', () => {
     grid = GW.grid.alloc(20, 20);
     feat = GW.make.tileEvent({ tile: 6, radius: 3, spread: 75, decrement: 20 });
     // console.log(feat);
-    GW.tileEvent.computeSpawnMap(map, 10, 10, feat, grid);
+    GW.tileEvent.computeSpawnMap(feat, grid, ctx);
     // grid.dump();
     expect(grid.count( (v) => !!v )).toEqual(9);
     expect(grid[10][10]).toEqual(1);
@@ -204,12 +205,13 @@ describe('tileEvent', () => {
   test('will fill a map with a spawn map', async () => {
     grid = GW.grid.alloc(20, 20);
     grid.fillRect(5, 5, 3, 3, 1);
+    const feat = GW.make.tileEvent({ tile: 6 });
 
     map.forRect(5, 5, 3, 3, (cell) => expect(cell.hasTile(6)).toBeFalsy() );
-    await GW.tileEvent.spawnTiles(map, GW.tiles[6], grid);
+    await GW.tileEvent.spawnTiles(feat, grid, { map }, GW.tiles[6]);
     map.forRect(5, 5, 3, 3, (cell) => {
       expect(cell.hasTile(6)).toBeTruthy();
-      expect(cell.mechFlags & GW.flags.cellMech.EVENT_FIRED_THIS_TURN).toBeTruthy();
+      // expect(cell.mechFlags & GW.flags.cellMech.EVENT_FIRED_THIS_TURN).toBeTruthy();
     });
   });
 
@@ -224,16 +226,18 @@ describe('tileEvent', () => {
     map.setCellFlags(6, 5, 0, GW.flags.cellMech.EVENT_PROTECTED);
     map.setCellFlags(7, 5, 0, GW.flags.cellMech.EVENT_PROTECTED);
 
-    await GW.tileEvent.spawnTiles(map, GW.tiles[6], grid);
+    const feat = GW.make.tileEvent({ tile: 6 });
+
+    await GW.tileEvent.spawnTiles(feat, grid, { map }, GW.tiles[6]);
     map.forRect(5, 5, 3, 3, (cell, x, y) => {
       if (y != 5) {
         expect(cell.hasTile(6)).toBeTruthy();
-        expect(cell.mechFlags & GW.flags.cellMech.EVENT_FIRED_THIS_TURN).toBeTruthy();
+        // expect(cell.mechFlags & GW.flags.cellMech.EVENT_FIRED_THIS_TURN).toBeTruthy();
         expect(cell.mechFlags & GW.flags.cellMech.EVENT_PROTECTED).toBeFalsy();
       }
       else {
         expect(cell.hasTile(6)).toBeFalsy();
-        expect(cell.mechFlags & GW.flags.cellMech.EVENT_FIRED_THIS_TURN).toBeFalsy();
+        // expect(cell.mechFlags & GW.flags.cellMech.EVENT_FIRED_THIS_TURN).toBeFalsy();
         expect(cell.mechFlags & GW.flags.cellMech.EVENT_PROTECTED).toBeTruthy();
       }
     });
@@ -266,7 +270,7 @@ describe('tileEvent', () => {
       await GW.tileEvent.spawn(feat, ctx);
       // expect(map.hasCellMechFlag(10, 10, GW.flags.cellMech.EVENT_FIRED_THIS_TURN)).toBeTruthy();
     });
-    expect(feat.fn).toHaveBeenCalledWith(ctx);
+    expect(feat.fn).toHaveBeenCalledWith(10, 10, ctx);
     expect(feat.fn).toHaveBeenCalledTimes(1000);
   });
 
@@ -304,6 +308,32 @@ describe('tileEvent', () => {
     // expect(map.hasCellMechFlag(10, 10, GW.flags.cellMech.EVENT_FIRED_THIS_TURN)).toBeTruthy();
   });
 
+  // { item: 'BOX' }
+  test('{ item: "BOX" }', async () => {
+
+    GW.item.installKind('BOX', {
+    	name: 'box',
+    	description: 'a large wooden box',
+    	sprite: { ch: '\u2612', fg: 'light_brown' },
+    	flags: 'A_PUSH, A_PULL, A_SLIDE, A_NO_PICKUP, IK_BLOCKS_MOVE',
+    	stats: { health: 10 }
+    });
+
+    expect(GW.itemKinds.BOX).toBeDefined();
+    const feat = GW.make.tileEvent({ item: 'BOX' });
+    expect(feat.item).toEqual('BOX');
+
+    expect(map.itemAt(10, 10)).toBeNull();
+    expect(map.hasTile(10, 10, 1)).toBeTruthy();
+
+    await GW.tileEvent.spawn(feat, ctx);
+    expect(map.hasTile(10, 10, 1)).toBeTruthy();
+    expect(map.itemAt(10, 10)).not.toBeNull();
+    expect(map.hasCellFlag(10, 10, GW.flags.cell.NEEDS_REDRAW)).toBeTruthy();
+    expect(map.hasCellFlag(10, 10, GW.flags.cell.TILE_CHANGED)).toBeTruthy();
+    // expect(map.hasCellMechFlag(10, 10, GW.flags.cellMech.EVENT_FIRED_THIS_TURN)).toBeTruthy();
+  });
+
   // { tile: 'WALL' }
   test('{ tile: WALL }', async () => {
     const feat = GW.make.tileEvent({ tile: 'WALL' });
@@ -320,11 +350,11 @@ describe('tileEvent', () => {
 
 
   test('can clear extra tiles from the cell', () => {
-    const feat = GW.make.tileEvent({ flags: 'DFF_CLEAR_OTHER_TERRAIN' });
+    const feat = GW.make.tileEvent({ flags: 'DFF_CLEAR_CELL' });
 
     const cell = map.cell(5, 5);
-    cell.setTile(2);
-    expect(cell.surface).toEqual(2);
+    cell.setTile(3);
+    expect(cell.surface).toEqual(3);
     expect(cell.ground).toEqual(1);
 
     GW.tileEvent.spawn(feat, { map, x: 5, y: 5 });
@@ -376,6 +406,18 @@ describe('tileEvent', () => {
 
     expect(countTile(map, 'BRIDGE')).toEqual(map.width - 5);
 
+    for(let i = 0; i < 5; ++i) {
+      await map.tick();
+    }
+
+    // map.dump();
+    await map.tick();
+    // map.dump();
+
+    expect(map.hasTile(19,10, ROUGH_WATER)).toBeTruthy();
+
+    // expect(countTile(map, WAVE)).toEqual(0);
+
   });
 
 
@@ -416,6 +458,23 @@ describe('tileEvent', () => {
     expect(countTile(map, ROUGH_WATER)).toEqual(8);
     expect(countTile(map, WAVE)).toEqual(12);
 
+  });
+
+  // { tile: 2, line }
+  test('{ tile: 2, line }', async () => {
+    GW.random.seed(23456);
+    const feat = GW.make.tileEvent({ tile: 2, flags: 'DFF_SPREAD_LINE', spread: 200, decrement: 50 });
+
+    await GW.tileEvent.spawn(feat, ctx);
+
+    // map.dump();
+
+    expect(map.hasTile(10, 10, 2)).toBeTruthy();
+    expect(map.hasTile(9, 10, 2)).toBeTruthy();
+    expect(map.hasTile(8, 10, 2)).toBeTruthy();
+    expect(map.hasTile(7, 10, 2)).toBeTruthy();
+
+    expect(map.cells.count( (c) => c.hasTile(2) )).toEqual(4);
   });
 
 });

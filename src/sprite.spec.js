@@ -41,6 +41,30 @@ describe('Sprite', () => {
     expect(f.bg).toBeNull();
     expect(f.opacity).toEqual(50);
 
+    const g = GW.make.sprite({ ch: '@', fg: 'green'});
+    expect(g.ch).toEqual('@');
+    expect(g.fg).toEqual(GW.colors.green);
+    expect(g.bg).toBeNull();
+    expect(g.opacity).toEqual(100);
+
+    const h = GW.make.sprite();
+    expect(h.ch).toEqual(' ');
+    expect(h.fg).toEqual(GW.colors.white);
+    expect(h.bg).toEqual(GW.colors.black);
+    expect(h.opacity).toEqual(100);
+
+    const i = GW.make.sprite(null);
+    expect(i.ch).toBeNull();
+    expect(i.fg).toBeNull();
+    expect(i.bg).toBeNull();
+    expect(i.opacity).toEqual(100);
+
+    const j = GW.make.sprite(undefined);
+    expect(j.ch).toEqual(' ');
+    expect(j.fg).toEqual(GW.colors.white);
+    expect(j.bg).toEqual(GW.colors.black);
+    expect(j.opacity).toEqual(100);
+
   });
 
   test('plot', () => {

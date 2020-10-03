@@ -1,9 +1,15 @@
 
 import { Flags as TileFlags } from './tile.js';
 
-import { types, make, data as DATA, config as CONFIG, ui as UI } from './gw.js';
+import { types, make, data as DATA, config as CONFIG, ui as UI, utils as UTILS } from './gw.js';
 
 export var actor = {};
+actor.debug = UTILS.NOOP;
+
+function actorDebug(actor, ...args) {
+	// if actor.flags & DEBUG
+	actor.debug(...args);
+}
 
 export class Actor {
 	constructor(kind) {
@@ -64,7 +70,7 @@ make.actor = makeActor;
 
 // TODO - move back to game??
 export async function takeTurn(theActor) {
-  console.log('actor turn...', DATA.time);
+  actorDebug(theActor, 'actor turn...', DATA.time);
 	theActor.startTurn();
 	await theActor.act();
   return theActor.turnTime;	// actual or idle time

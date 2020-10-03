@@ -31,7 +31,6 @@ describe('Map', () => {
     expect(GW.color.diff(sprite.bg, GW.tiles[1].sprite.bg)).toBeLessThan(5);
     expect(GW.color.diff(sprite.fg, GW.tiles[1].sprite.fg)).toBeLessThan(40);
 
-    debugger;
     map.setTile(2, 2, 'DOOR');  // can use tile name too (slower)
 
     GW.map.getCellAppearance(map, 2, 2, sprite);
