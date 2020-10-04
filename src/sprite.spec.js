@@ -140,13 +140,13 @@ describe('Sprite', () => {
     expect(s.wasHanging).toBeTruthy();
     s.plotChar('o');
     expect(s.wasHanging).toBeTruthy();  // does not get turned off automatically
-    s.clear();
-    expect(s.wasHanging).toBeTruthy();  // does not get cleared
+    s.nullify();
+    expect(s.wasHanging).toBeTruthy();  // does not get nullified
 
     s.wasHanging = false;
     s.plotChar('|');
     expect(s.wasHanging).toBeTruthy();
-    s.clear();
+    s.nullify();
     expect(s.wasHanging).toBeTruthy();  // gets set
   });
 
@@ -162,7 +162,7 @@ describe('Sprite', () => {
     expect(s.wasHanging).toBeTruthy();
     s.plot(u);
     expect(s.wasHanging).toBeTruthy();  // Not auto turned off
-    s.clear();
+    s.nullify();
     expect(s.wasHanging).toBeTruthy();  // does not get cleared
   });
 

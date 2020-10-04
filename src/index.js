@@ -30,5 +30,6 @@ import './message.js';
 import './viewport.js';
 import './flavor.js';
 import './ui.js';
+export { visibility } from './visibility.js';
 
 export * from './gw.js';

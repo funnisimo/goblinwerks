@@ -179,7 +179,7 @@ describe('GW.dungeon', () => {
   test('no weird bridges', () => {
     GW.random.seed(1476405790);
 
-    map.clear();
+    map.nullify();
   	GW.dungeon.start(map);
 
   	let roomCount = 0;
@@ -210,7 +210,7 @@ describe('GW.dungeon', () => {
   //
   //   const startingXY = [40, 28];
   //
-  //   map.clear();
+  //   map.nullify();
   // 	GW.dungeon.start(map);
   //
   // 	let loc = [startingXY[0], startingXY[1]];
@@ -259,7 +259,7 @@ describe('GW.dungeon', () => {
 
     const startingXY = [39, 28];
 
-    map.clear();
+    map.nullify();
   	GW.dungeon.start(map);
 
   	let loc = [startingXY[0], startingXY[1]];

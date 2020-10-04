@@ -1,8 +1,9 @@
 
 import { random } from './random.js';
 import { grid as GRID } from './grid.js';
+import { color as COLOR, colors as COLORS } from './color.js';
 import { Flags as ItemFlags } from './item.js';
-import { Flags as TileFlags, Layer as TileLayer } from './tile.js';
+import { Flags as TileFlags, MechFlags as TileMechFlags, Layer as TileLayer } from './tile.js';
 import { Flags as CellFlags, MechFlags as CellMechFlags, cell as CELL } from './cell.js';
 import { types, def, make, data as DATA, config as CONFIG, flag as FLAG, utils as UTILS } from './gw.js';
 
@@ -33,8 +34,8 @@ export class Map {
 		this.items = null;
 	}
 
-	clear() { this.cells.forEach( (c) => c.clear() ); }
-	dump() { this.cells.dump((c) => c.dump()); }
+	nullify() { this.cells.forEach( (c) => c.nullify() ); }
+	dump(fmt) { this.cells.dump(fmt || ((c) => c.dump()) ); }
 	cell(x, y)   { return this.cells[x][y]; }
 
 	forEach(fn) { this.cells.forEach( (c, i, j) => fn(c, i, j, this) ); }
@@ -59,15 +60,26 @@ export class Map {
 	hasTileFlag(x, y, flag) 		{ return this.cell(x, y).hasTileFlag(flag); }
 	hasTileMechFlag(x, y, flag) { return this.cell(x, y).hasTileMechFlag(flag); }
 
-	redrawCell(x, y) {
-		this.cell(x, y).redraw();
-		this.flags |= Flags.MAP_CHANGED;
+	redrawCell(cell) {
+    // if (cell.isAnyKindOfVisible()) {
+      cell.flags |= CellFlags.NEEDS_REDRAW;
+  		this.flags |= Flags.MAP_CHANGED;
+    // }
 	}
 
-	redraw() {
-		this.forEach( (c) => c.redraw() );
-		this.flags |= Flags.MAP_CHANGED;
+	redraw(x, y) {
+    const cell = this.cell(x, y);
+    this.redrawCell(cell);
 	}
+
+  redrawAll() {
+    this.forEach( (c) => {
+      // if (c.isAnyKindOfVisible()) {
+        c.flags |= CellFlags.NEEDS_REDRAW;
+      // }
+    });
+		this.flags |= Flags.MAP_CHANGED;
+  }
 
 	markRevealed(x, y) { return this.cell(x, y).markRevealed(); }
 	isVisible(x, y)    { return this.cell(x, y).isVisible(); }
@@ -84,7 +96,7 @@ export class Map {
 		this.changed(true);
 	}
 
-	clearFlags(mapFlag, cellFlag, cellMechFlag) {
+	clearFlags(mapFlag=0, cellFlag=0, cellMechFlag=0) {
 		if (mapFlag) {
 			this.flags &= ~mapFlag;
 		}
@@ -123,6 +135,7 @@ export class Map {
 	isPassableNow(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isPassableNow(limitToPlayerKnowledge); }
 
 	isNull(x, y) { return this.cells[x][y].isNull(); }
+  isEmpty(x, y) { return this.cells[x][y].isEmpty(); }
 	isObstruction(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isObstruction(limitToPlayerKnowledge); }
   isDoor(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isDoor(limitToPlayerKnowledge); }
   blocksPathing(x, y, limitToPlayerKnowledge) { return this.cells[x][y].blocksPathing(limitToPlayerKnowledge); }
@@ -140,18 +153,17 @@ export class Map {
 		if (cell.setTile(tileId, checkPriority)) {
 			this.flags &= ~(Flags.MAP_STABLE_GLOW_LIGHTS);
 		}
-		this.changed(true);
 	  return true;
 	}
 
-	clearTileWithFlags(x, y, tileFlags, tileMechFlags=0) {
+	nullifyTileWithFlags(x, y, tileFlags, tileMechFlags=0) {
 		const cell = this.cell(x, y);
-		cell.clearTileWithFlags(tileFlags, tileMechFlags);
+		cell.nullifyTileWithFlags(tileFlags, tileMechFlags);
 	}
 
-	clearCellTiles(x, y, includeGas) {
+	nullifyCellTiles(x, y, includeGas) {
 		this.changed(true);
-		return this.cell(x, y).clearTiles(includeGas);
+		return this.cell(x, y).nullifyTiles(includeGas);
 	}
 
 	fill(tileId, boundaryTile) {
@@ -316,7 +328,7 @@ export class Map {
 		cell.addSprite(TileLayer.FX, anim.sprite);
 		anim.x = x;
 		anim.y = y;
-		this.flags |= Flags.MAP_CHANGED;
+		this.redrawCell(cell);
 		return true;
 	}
 
@@ -325,8 +337,9 @@ export class Map {
 		const cell = this.cell(x, y);
 		const oldCell = this.cell(anim.x, anim.y);
 		oldCell.removeSprite(anim.sprite);
+    this.redrawCell(oldCell);
 		cell.addSprite(TileLayer.FX, anim.sprite);
-		this.flags |= Flags.MAP_CHANGED;
+    this.redrawCell(cell);
 		anim.x = x;
 		anim.y = y;
 		return true;
@@ -335,6 +348,7 @@ export class Map {
 	removeFx(anim) {
 		const oldCell = this.cell(anim.x, anim.y);
 		oldCell.removeSprite(anim.sprite);
+    this.redrawCell(oldCell);
 		this.flags |= Flags.MAP_CHANGED;
 		return true;
 	}
@@ -361,7 +375,7 @@ export class Map {
 		cell.addSprite(layer, theActor.kind.sprite);
 
 		const flag = (theActor === DATA.player) ? CellFlags.HAS_PLAYER : CellFlags.HAS_MONSTER;
-		cell.flags |= (flag | CellFlags.NEEDS_REDRAW);
+		cell.flags |= flag;
 		// if (theActor.flags & ActorFlags.MK_DETECTED)
 		// {
 		// 	cell.flags |= CellFlags.MONSTER_DETECTED;
@@ -369,7 +383,7 @@ export class Map {
 
 		theActor.x = x;
 		theActor.y = y;
-		this.flags |= Flags.MAP_CHANGED;
+    this.redrawCell(cell);
 
 		return true;
 	}
@@ -404,9 +418,8 @@ export class Map {
 		if (cell.actor === actor) {
 			cell.actor = null;
 			cell.flags &= ~CellFlags.HAS_ACTOR;
-			cell.flags |= CellFlags.NEEDS_REDRAW;
-			this.flags |= Flags.MAP_CHANGED;
 			cell.removeSprite(actor.kind.sprite);
+      this.redrawCell(cell);
 		}
 	}
 
@@ -456,10 +469,9 @@ export class Map {
 		this.items = theItem;
 
 		cell.addSprite(TileLayer.ITEM, theItem.kind.sprite);
+		cell.flags |= (CellFlags.HAS_ITEM);
+    this.redrawCell(cell);
 
-		cell.flags |= (CellFlags.HAS_ITEM | CellFlags.NEEDS_REDRAW);
-
-		this.flags |= Flags.MAP_CHANGED;
 		if ( ((theItem.flags & ItemFlags.ITEM_MAGIC_DETECTED) && GW.item.magicChar(theItem)) ||
 					CONFIG.D_ITEM_OMNISCIENCE)
 		{
@@ -507,9 +519,8 @@ export class Map {
 			}
 		}
 
-		this.flags |= Flags.MAP_CHANGED;
 		cell.flags &= ~(CellFlags.HAS_ITEM | CellFlags.ITEM_DETECTED);
-		cell.flags |= CellFlags.NEEDS_REDRAW;
+    this.redrawCell(cell);
 		return true;
 	}
 
@@ -536,6 +547,7 @@ export class Map {
 	// is visible to the player; this is to prevent lights from illuminating a wall when the player is on the other
 	// side of the wall.
 	calcFov(grid, x, y, maxRadius, forbiddenFlags=0, forbiddenTerrain=TileFlags.T_OBSTRUCTS_VISION, cautiousOnWalls=true) {
+    maxRadius = maxRadius || (this.width + this.height);
 	  const FOV = new types.FOV(grid, (i, j) => {
 	    return (!this.hasXY(i, j)) || this.hasCellFlag(i, j, forbiddenFlags) || this.hasTileFlag(i, j, forbiddenTerrain) ;
 	  });
@@ -546,7 +558,7 @@ export class Map {
 
 	storeMemory(x, y) {
 		const cell = this.cell(x, y);
-		cell.storeMemory(this.itemAt(x, y));
+		cell.storeMemory();
 	}
 
 	storeMemories() {
@@ -592,10 +604,48 @@ make.map = makeMap;
 
 
 export function getCellAppearance(map, x, y, dest) {
-	dest.clear();
+	dest.blackOut();
 	if (!map.hasXY(x, y)) return;
 	const cell = map.cell(x, y);
-	CELL.getAppearance(cell, dest);
+
+  if (cell.isAnyKindOfVisible() && (cell.flags & CellFlags.CELL_CHANGED)) {
+    CELL.getAppearance(cell, dest);
+  }
+  else if (cell.isRevealed()) {
+    dest.plot(cell.memory.sprite);
+  }
+
+  if (cell.isVisible()) {
+    // keep here to allow for games that do not use fov to work
+  }
+  else if ( !cell.isRevealed()) {
+    dest.blackOut();
+  }
+  else if (!cell.isAnyKindOfVisible()) {
+    COLOR.applyMix(dest.bg, COLORS.black, 30);
+    COLOR.applyMix(dest.fg, COLORS.black, 30);
+    COLOR.bake(dest.bg);
+    COLOR.bake(dest.fg);
+  }
+
+  let needDistinctness = false;
+  if (cell.flags & (CellFlags.IS_CURSOR | CellFlags.IS_IN_PATH)) {
+    const highlight = (cell.flags & CellFlags.IS_CURSOR) ? COLORS.cursorColor : COLORS.yellow;
+    if (cell.hasTileMechFlag(TileMechFlags.TM_INVERT_WHEN_HIGHLIGHTED)) {
+      COLOR.swap(dest.fg, dest.bg);
+    } else {
+      // if (!GAME.trueColorMode || !dest.needDistinctness) {
+          COLOR.applyMix(dest.fg, highlight, CONFIG.cursorPathIntensity || 20);
+      // }
+      COLOR.applyMix(dest.bg, highlight, CONFIG.cursorPathIntensity || 20);
+    }
+    needDistinctness = true;
+  }
+
+  if (needDistinctness) {
+    COLOR.separate(dest.fg, dest.bg);
+  }
+
 	dest.bake();
 }
 

@@ -195,6 +195,7 @@ class Item {
 	forbiddenTileFlags() { return TileFlags.T_OBSTRUCTS_ITEMS; }
 
 	flavorText() { return this.kind.description || this.kind.name; }
+  name() { return this.kind.name; }
 }
 
 GW.types.Item = Item;

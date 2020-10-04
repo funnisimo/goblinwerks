@@ -30,11 +30,13 @@ async function moveDir(e) {
   if (cell.hasTileFlag(TileFlags.T_OBSTRUCTS_PASSABILITY)) {
     MSG.moveBlocked(ctx);
     // TURN ENDED (1/2 turn)?
+    await FX.flashSprite(map, newX, newY, 'hit', 50, 1);
     return false;
   }
   if (map.diagonalBlocked(actor.x, actor.y, newX, newY)) {
     MSG.moveBlocked(ctx);
     // TURN ENDED (1/2 turn)?
+    await FX.flashSprite(map, newX, newY, 'hit', 50, 1);
     return false;
   }
 

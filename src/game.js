@@ -10,6 +10,7 @@ import { scheduler } from './scheduler.js';
 import { text as TEXT } from './text.js';
 import { sprite as SPRITE } from './sprite.js';
 import { Flags as TileFlags } from './tile.js';
+import { visibility as VISIBILITY } from './visibility.js';
 
 import { viewport as VIEWPORT, data as DATA, maps as MAPS, types, fx as FX, ui as UI, message as MSG, utils as UTILS, make, config as CONFIG, flavor as FLAVOR } from './gw.js';
 
@@ -44,6 +45,10 @@ export async function startGame(opts={}) {
   }
 
   if (!map) UTILS.ERROR('No map!');
+
+  if (opts.fov) {
+    CONFIG.fov = true;
+  }
 
   game.startMap(map, opts.start);
   game.queuePlayer();
@@ -85,7 +90,7 @@ export async function getMap(id=0) {
 game.getMap = getMap;
 
 
-export function startMap(map, loc) {
+export function startMap(map, loc='start') {
 
   scheduler.clear();
 
@@ -93,12 +98,8 @@ export function startMap(map, loc) {
     DATA.map.removeActor(DATA.player);
   }
 
-  map.cells.forEach( (c) => c.redraw() );
-  map.flag |= MapFlags.MAP_CHANGED;
+  VISIBILITY.initMap(map);
   DATA.map = map;
-
-  // TODO - Add Map/Environment Updater
-
 
   if (DATA.player) {
     let startLoc;
@@ -129,8 +130,12 @@ export function startMap(map, loc) {
     startLoc = map.matchingXYNear(startLoc[0], startLoc[1], PLAYER.isValidStartLoc, { hallways: true });
 
     DATA.map.addActor(startLoc[0], startLoc[1], DATA.player);
+
+    VISIBILITY.update(map, DATA.player.x, DATA.player.y);
   }
 
+  UI.blackOutDisplay();
+  map.redrawAll();
   UI.draw();
 
   if (map.config.tick) {

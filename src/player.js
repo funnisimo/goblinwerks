@@ -2,6 +2,7 @@
 
 import { Flags as TileFlags } from './tile.js';
 import { io as IO } from './io.js';
+import { visibility as VISIBILITY } from './visibility.js';
 import { make, data as DATA, types, ui as UI, utils as UTILS } from './gw.js';
 
 export var player = {};
@@ -75,6 +76,7 @@ player.act = act;
 
 function endTurn(PLAYER, turnTime) {
   PLAYER.turnTime = turnTime || Math.floor(PLAYER.kind.speed/2);  // doing nothing takes time
+  VISIBILITY.update(DATA.map, PLAYER.x, PLAYER.y);
   UI.requestUpdate();
 }
 

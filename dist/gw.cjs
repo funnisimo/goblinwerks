@@ -1865,7 +1865,7 @@ class Sprite {
 		return other;
 	}
 
-	clear() {
+	nullify() {
 		if (HANGING_LETTERS.includes(this.ch)) {
 			this.wasHanging = true;
 		}
@@ -1876,8 +1876,8 @@ class Sprite {
 		// this.needsUpdate = false;
 	}
 
-	erase() {
-		this.clear();
+	blackOut() {
+		this.nullify();
 		this.opacity = 100;
 		this.needsUpdate = true;
 		this.wasHanging = false;
@@ -2817,37 +2817,37 @@ class Buffer extends types.Grid {
     this.needsUpdate = true;
   }
 
-  clear() {
-    this.forEach( (c) => c.clear() );
+  nullify() {
+    this.forEach( (c) => c.nullify() );
     this.needsUpdate = true;
   }
 
-  clearRect(x, y, w, h) {
-    this.forRect(x, y, w, h, (c) => c.clear() );
+  nullifyRect(x, y, w, h) {
+    this.forRect(x, y, w, h, (c) => c.nullify() );
     this.needsUpdate = true;
   }
 
-  clearCell(x, y) {
-    this[x][y].clear();
+  nullifyCell(x, y) {
+    this[x][y].nullify();
     this.needsUpdate = true;
   }
 
-  erase() {
-    this.forEach( (c) => c.erase() );
+  blackOut() {
+    this.forEach( (c) => c.blackOut() );
     this.needsUpdate = true;
   }
 
-  eraseRect(x, y, w, h) {
-    this.forRect(x, y, w, h, (c) => c.erase() );
+  blackOutRect(x, y, w, h) {
+    this.forRect(x, y, w, h, (c) => c.blackOut() );
     this.needsUpdate = true;
   }
 
-  eraseCell(x, y) {
-    this[x][y].erase();
+  blackOutCell(x, y) {
+    this[x][y].blackOut();
     this.needsUpdate = true;
   }
 
-  dump() { super.dump( (s) => s.ch ); }
+  dump(fmt) { super.dump( fmt || ((s) => s.ch) ); }
 
   plot(x, y, sprite) {
     if (sprite.opacity <= 0) return;
@@ -4479,7 +4479,7 @@ const Flags = flag.install('tileEvent', {
 	DFF_SPREAD_CIRCLE							: Fl$1(20),	// Spread in a circle around the spot (using FOV), radius calculated using spread+decrement
 	DFF_SPREAD_LINE								: Fl$1(21),	// Spread in a line in one random direction
 
-	DFF_CLEAR_CELL			  	: Fl$1(22),	// Erase other terrain in the footprint of this DF.
+	DFF_NULLIFY_CELL			  	: Fl$1(22),	// Erase other terrain in the footprint of this DF.
 	DFF_EVACUATE_CREATURES	: Fl$1(23),	// Creatures in the DF area get moved outside of it
 	DFF_EVACUATE_ITEMS			: Fl$1(24),	// Creatures in the DF area get moved outside of it
 
@@ -4657,8 +4657,8 @@ async function spawn(feat, ctx) {
 				tileEvent.evacuateItems(map$1, spawnMap);
 		}
 
-		if (feat.flags & Flags.DFF_CLEAR_CELL) { // first, clear other tiles (not base/ground)
-				tileEvent.clearCells(map$1, spawnMap);
+		if (feat.flags & Flags.DFF_NULLIFY_CELL) { // first, clear other tiles (not base/ground)
+				tileEvent.nullifyCells(map$1, spawnMap);
 		}
 
 		if (tile$1 || itemKind || feat.fn) {
@@ -4943,6 +4943,7 @@ async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
 					spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
 
 					cell.setTile(tile);
+          map.redrawCell(cell);
 					if (feat.volume && cell.gas) {
 					    cell.volume += (feat.volume || 0);
 					}
@@ -4963,6 +4964,7 @@ async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
 						}
 						const item = make.item(itemKind);
 						map.addItem(i, j, item);
+            map.redrawCell(cell);
 						// cell.mechFlags |= CellMechFlags.EVENT_FIRED_THIS_TURN;
 						accomplishedSomething = true;
 						tileEvent.debug('- item', i, j, 'item=', itemKind.id);
@@ -4973,6 +4975,7 @@ async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
 			if (feat.fn) {
 				if (await feat.fn(i, j, ctx)) {
 					spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
+          map.redrawCell(cell);
 					// cell.mechFlags |= CellMechFlags.EVENT_FIRED_THIS_TURN;
 					accomplishedSomething = true;
 				}
@@ -4989,14 +4992,14 @@ tileEvent.spawnTiles = spawnTiles;
 
 
 
-function clearCells(map, spawnMap) {
+function nullifyCells(map, spawnMap) {
 	spawnMap.forEach( (v, i, j) => {
 		if (!v) return;
-		map.clearCellTiles(i, j, false);	// skip gas
+		map.nullifyCellTiles(i, j, false);	// skip gas
 	});
 }
 
-tileEvent.clearCells = clearCells;
+tileEvent.nullifyCells = nullifyCells;
 
 
 function evacuateCreatures(map, blockingMap) {
@@ -5073,7 +5076,7 @@ const Flags$1 = flag.install('cell', {
   HAS_STAIRS					: Fl$2(8),
 
   NEEDS_REDRAW        : Fl$2(9),	// needs to be redrawn (maybe in path, etc...)
-  TILE_CHANGED				: Fl$2(10),	// one of the tiles changed
+  CELL_CHANGED				: Fl$2(10),	// one of the tiles or sprites (item, actor, fx) changed
 
   IS_IN_PATH					: Fl$2(12),	// the yellow trail leading to the cursor
   IS_CURSOR						: Fl$2(13),	// the current cursor
@@ -5095,6 +5098,7 @@ const Flags$1 = flag.install('cell', {
   MONSTER_DETECTED				: Fl$2(24),
   WAS_MONSTER_DETECTED		: Fl$2(25),
 
+  LIGHT_CHANGED           : Fl$2(27), // Light level changed this turn
   CELL_LIT                : Fl$2(28),
   IS_IN_SHADOW				    : Fl$2(29),	// so that a player gains an automatic stealth bonus
   CELL_DARK               : Fl$2(30),
@@ -5104,6 +5108,7 @@ const Flags$1 = flag.install('cell', {
 
   ANY_KIND_OF_VISIBLE			: ['VISIBLE', 'CLAIRVOYANT_VISIBLE', 'TELEPATHIC_VISIBLE'],
   HAS_ACTOR               : ['HAS_PLAYER', 'HAS_MONSTER'],
+  IS_WAS_ANY_KIND_OF_VISIBLE : ['VISIBLE', 'WAS_VISIBLE', 'CLAIRVOYANT_VISIBLE', 'WAS_CLAIRVOYANT_VISIBLE', 'TELEPATHIC_VISIBLE', 'WAS_TELEPATHIC_VISIBLE'],
 });
 
 cell.flags = Flags$1;
@@ -5139,11 +5144,11 @@ cell.mechFlags = MechFlags;
 class CellMemory {
   constructor() {
     this.sprite = make.sprite();
-    this.clear();
+    this.nullify();
   }
 
-  clear() {
-    this.sprite.clear();
+  nullify() {
+    this.sprite.nullify();
     this.itemKind = null;
     this.itemQuantity = 0;
     this.tile = null;
@@ -5166,14 +5171,14 @@ class Cell {
   constructor() {
     this.layers = [0,0,0,0];
     this.memory = new types.CellMemory();
-    this.clear();
+    this.nullify();
   }
 
   copy(other) {
     utils$1.copyObject(this, other);
   }
 
-  clear() {
+  nullify() {
     for(let i = 0; i < this.layers.length; ++i) {
       this.layers[i] = 0;
     }
@@ -5182,16 +5187,15 @@ class Cell {
     this.actor = null;
     this.item = null;
 
-    this.flags = Flags$1.VISIBLE | Flags$1.NEEDS_REDRAW;	// non-terrain cell flags
+    this.flags = Flags$1.VISIBLE | Flags$1.IN_FOV | Flags$1.NEEDS_REDRAW | Flags$1.CELL_CHANGED;	// non-terrain cell flags
     this.mechFlags = 0;
     this.gasVolume = 0;						// quantity of gas in cell
     this.liquidVolume = 0;
     this.machineNumber = 0;
-    this.memory.clear();
-    this.layerFlags = 0;
+    this.memory.nullify();
   }
 
-  clearTiles(includeGas=true) {
+  nullifyTiles(includeGas=true) {
     this.layers[1] = 0;
     this.layers[2] = 0;
     this.liquidVolume = 0;
@@ -5199,7 +5203,7 @@ class Cell {
       this.layers[3] = 0;
       this.gasVolume = 0;
     }
-    this.redraw();
+    // this.flags |= Flags.NEEDS_REDRAW;
   }
 
   get ground() { return this.layers[0]; }
@@ -5217,9 +5221,9 @@ class Cell {
   }
   isVisible() { return this.flags & Flags$1.VISIBLE; }
   isAnyKindOfVisible() { return (this.flags & Flags$1.ANY_KIND_OF_VISIBLE) || config.playbackOmniscience; }
+  isRevealed() { return this.flags & Flags$1.REVEALED; }
   hasVisibleLight() { return true; }  // TODO
-
-  redraw() { this.flags |= Flags$1.NEEDS_REDRAW; }
+  lightChanged() { return this.flags & Flags$1.LIGHT_CHANGED; }
 
   tile(layer=0) {
     const id = this.layers[layer] || 0;
@@ -5275,15 +5279,15 @@ class Cell {
   setFlags(cellFlag=0, cellMechFlag=0) {
     this.flags |= cellFlag;
     this.mechFlags |= cellMechFlag;
-    this.flags |= Flags$1.NEEDS_REDRAW;
+    // this.flags |= Flags.NEEDS_REDRAW;
   }
 
   clearFlags(cellFlag=0, cellMechFlag=0) {
     this.flags &= ~cellFlag;
     this.mechFlags &= ~cellMechFlag;
-    if ((~cellFlag) & Flags$1.NEEDS_REDRAW) {
-      this.flags |= Flags$1.NEEDS_REDRAW;
-    }
+    // if ((~cellFlag) & Flags.NEEDS_REDRAW) {
+    //   this.flags |= Flags.NEEDS_REDRAW;
+    // }
   }
 
   hasTile(id) {
@@ -5440,7 +5444,6 @@ class Cell {
     }
     else if (tileId instanceof types.Tile) {
       tile$1 = tileId;
-      tileId = tile$1.id;
     }
     else {
       tile$1 = tiles[tileId];
@@ -5448,7 +5451,6 @@ class Cell {
 
     if (!tile$1) {
       tile$1 = tiles[0];
-      tileId = 0;
     }
 
     const oldTileId = this.layers[tile$1.layer] || 0;
@@ -5475,7 +5477,8 @@ class Cell {
       this.layers[0] = tile.withName('FLOOR').id; // TODO - Not good
     }
 
-    this.flags |= (Flags$1.NEEDS_REDRAW | Flags$1.TILE_CHANGED);
+    // this.flags |= (Flags.NEEDS_REDRAW | Flags.CELL_CHANGED);
+    this.flags |= (Flags$1.CELL_CHANGED);
     return (oldTile.glowLight !== tile$1.glowLight);
   }
 
@@ -5486,10 +5489,11 @@ class Cell {
           this.layers[layer] = (layer ? 0 : floorTile);
       }
     }
-    this.flags |= (Flags$1.NEEDS_REDRAW | Flags$1.TILE_CHANGED);
+    // this.flags |= (Flags.NEEDS_REDRAW | Flags.CELL_CHANGED);
+    this.flags |= (Flags$1.CELL_CHANGED);
   }
 
-  clearTileWithFlags(tileFlags, tileMechFlags=0) {
+  nullifyTileWithFlags(tileFlags, tileMechFlags=0) {
     for( let i = 0; i < this.layers.length; ++i ) {
       const id = this.layers[i];
       if (!id) continue;
@@ -5510,7 +5514,8 @@ class Cell {
         }
       }
     }
-    this.flags |= (Flags$1.NEEDS_REDRAW | Flags$1.TILE_CHANGED);
+    // this.flags |= (Flags.NEEDS_REDRAW | Flags.CELL_CHANGED);
+    this.flags |= (Flags$1.CELL_CHANGED);
   }
 
   // EVENTS
@@ -5573,7 +5578,8 @@ class Cell {
 
   addSprite(layer, sprite, priority=50) {
 
-    this.flags |= Flags$1.NEEDS_REDRAW;
+    // this.flags |= Flags.NEEDS_REDRAW;
+    this.flags |= Flags$1.CELL_CHANGED;
 
     if (!this.sprites) {
       this.sprites = { layer, priority, sprite, next: null };
@@ -5591,7 +5597,8 @@ class Cell {
 
   removeSprite(sprite) {
 
-    this.flags |= Flags$1.NEEDS_REDRAW;
+    // this.flags |= Flags.NEEDS_REDRAW;
+    this.flags |= Flags$1.CELL_CHANGED;
 
     if (this.sprites && this.sprites.sprite === sprite) {
       this.sprites = this.sprites.next;
@@ -5612,21 +5619,22 @@ class Cell {
 
   // MEMORY
 
-  storeMemory(item) {
+  storeMemory() {
     const memory = this.memory;
     memory.tileFlags = this.tileFlags();
     memory.tileMechFlags = this.tileMechFlags();
     memory.cellFlags = this.flags;
 		memory.cellMechFlags = this.mechFlags;
     memory.tile = this.highestPriorityTile().id;
-		if (item) {
-			memory.itemKind = item.kind;
-			memory.itemQuantity = item.quantity || 1;
+		if (this.item) {
+			memory.itemKind = this.item.kind;
+			memory.itemQuantity = this.item.quantity || 1;
 		}
 		else {
 			memory.itemKind = null;
 			memory.itemQuantity = 0;
 		}
+    cell.getAppearance(this, memory.sprite);
   }
 
 }
@@ -5644,35 +5652,20 @@ make.cell = makeCell;
 
 
 function getAppearance(cell, dest) {
-  dest.clear();
+  const memory = cell.memory.sprite;
+  memory.blackOut();
+
   for( let tile of cell.tiles() ) {
-    dest.plot(tile.sprite);
+    memory.plot(tile.sprite);
   }
 
   let current = cell.sprites;
   while(current) {
-    dest.plot(current.sprite);
+    memory.plot(current.sprite);
     current = current.next;
   }
 
-  let needDistinctness = false;
-  if (cell.flags & (Flags$1.IS_CURSOR | Flags$1.IS_IN_PATH)) {
-    const highlight = (cell.flags & Flags$1.IS_CURSOR) ? colors.cursorColor : colors.yellow;
-    if (cell.hasTileMechFlag(MechFlags$1.TM_INVERT_WHEN_HIGHLIGHTED)) {
-      color.swap(dest.fg, dest.bg);
-    } else {
-      // if (!GAME.trueColorMode || !dest.needDistinctness) {
-          color.applyMix(dest.fg, highlight, config.cursorPathIntensity || 20);
-      // }
-      color.applyMix(dest.bg, highlight, config.cursorPathIntensity || 20);
-    }
-    needDistinctness = true;
-  }
-
-  if (needDistinctness) {
-    color.separate(dest.fg, dest.bg);
-  }
-
+  dest.plot(memory);
   return true;
 }
 
@@ -5776,6 +5769,141 @@ function endTurn(theActor, turnTime) {
 
 actor.endTurn = endTurn;
 
+var visibility = {};
+
+
+function demoteCellVisibility(cell, i, j, map) {
+  cell.flags &= ~Flags$1.WAS_VISIBLE;
+  if (cell.flags & Flags$1.VISIBLE) {
+    cell.flags &= ~Flags$1.VISIBLE;
+    cell.flags |= Flags$1.WAS_VISIBLE;
+  }
+}
+
+
+
+
+function promoteCellVisibility(cell, i, j, map) {
+
+	if (cell.flags & Flags$1.IN_FOV
+		&& (map.hasVisibleLight(i, j))
+		&& !(cell.flags & Flags$1.CLAIRVOYANT_DARKENED))
+	{
+		cell.flags |= Flags$1.VISIBLE;
+	}
+
+	if ((cell.flags & Flags$1.VISIBLE) && !(cell.flags & Flags$1.WAS_VISIBLE)) { // if the cell became visible this move
+		if (!(cell.flags & Flags$1.REVEALED) && data.automationActive) {
+        if (cell.item) {
+            const theItem = cell.item;
+            if (theItem.hasKindFlag(KindFlags.IK_INTERRUPT_EXPLORATION_WHEN_SEEN)) {
+                MSG.add(COLORS.itemMessageColor, 'you see %s.', theItem.name());
+            }
+        }
+        if (!(cell.flags & Flags$1.MAGIC_MAPPED)
+            && cell.hasTileMechFlag(MechFlags$1.TM_INTERRUPT_EXPLORATION_WHEN_SEEN))
+				{
+            const tile = cell.tileWithMechFlag(MechFlags$1.TM_INTERRUPT_EXPLORATION_WHEN_SEEN);
+            GW.ui.message(GW.colors.backgroundMessageColor, 'you see %s.', tile.name);
+        }
+    }
+    cell.markRevealed();
+		map.redrawCell(cell);
+	} else if (!(cell.flags & Flags$1.VISIBLE) && (cell.flags & Flags$1.WAS_VISIBLE)) { // if the cell ceased being visible this move
+    cell.storeMemory();
+		map.redrawCell(cell);
+	} else if (!(cell.flags & Flags$1.CLAIRVOYANT_VISIBLE) && (cell.flags & Flags$1.WAS_CLAIRVOYANT_VISIBLE)) { // ceased being clairvoyantly visible
+		cell.storeMemory();
+		map.redrawCell(cell);
+	} else if (!(cell.flags & Flags$1.WAS_CLAIRVOYANT_VISIBLE) && (cell.flags & Flags$1.CLAIRVOYANT_VISIBLE)) { // became clairvoyantly visible
+		cell.flags &= ~STABLE_MEMORY;
+		map.redrawCell(cell);
+	} else if (!(cell.flags & Flags$1.TELEPATHIC_VISIBLE) && (cell.flags & Flags$1.WAS_TELEPATHIC_VISIBLE)) { // ceased being telepathically visible
+    cell.storeMemory();
+		map.redrawCell(cell);
+	} else if (!(cell.flags & Flags$1.WAS_TELEPATHIC_VISIBLE) && (cell.flags & Flags$1.TELEPATHIC_VISIBLE)) { // became telepathically visible
+    if (!(cell.flags & Flags$1.REVEALED)
+			&& !cell.hasTileFlag(Flags$2.T_PATHING_BLOCKER))
+		{
+			data.xpxpThisTurn++;
+    }
+		cell.flags &= ~Flags$1.STABLE_MEMORY;
+		map.redrawCell(cell);
+	} else if (!(cell.flags & Flags$1.MONSTER_DETECTED) && (cell.flags & Flags$1.WAS_MONSTER_DETECTED)) { // ceased being detected visible
+		cell.flags &= ~Flags$1.STABLE_MEMORY;
+		map.redrawCell(cell);
+    cell.storeMemory();
+	} else if (!(cell.flags & Flags$1.WAS_MONSTER_DETECTED) && (cell.flags & Flags$1.MONSTER_DETECTED)) { // became detected visible
+		cell.flags &= ~Flags$1.STABLE_MEMORY;
+		map.redrawCell(cell);
+    cell.storeMemory();
+	} else if (cell.isAnyKindOfVisible()
+			   && cell.lightChanged()) // if the cell's light color changed this move
+	{
+   map.redrawCell(cell);
+	}
+}
+
+
+function visibilityInitMap(map) {
+  if (config.fov) {
+    map.clearFlags(0, Flags$1.IS_WAS_ANY_KIND_OF_VISIBLE);
+  }
+}
+
+visibility.initMap = visibilityInitMap;
+
+
+function updateVisibility(map, x, y) {
+
+  if (!config.fov) return;
+
+  map.forEach( demoteCellVisibility );
+  map.clearFlags(0, Flags$1.IN_FOV);
+
+  // Calculate player's field of view (distinct from what is visible, as lighting hasn't been done yet).
+  const grid = GRID.alloc(map.width, map.height, 0);
+  map.calcFov(grid, x, y);
+  grid.forEach( (v, i, j) => {
+    if (v) {
+      map.setCellFlags(i, j, Flags$1.IN_FOV);
+    }
+  });
+  GRID.free(grid);
+
+	map.setCellFlags(x, y, Flags$1.IN_FOV | Flags$1.VISIBLE);
+
+	// if (PLAYER.bonus.clairvoyance < 0) {
+  //   discoverCell(PLAYER.xLoc, PLAYER.yLoc);
+	// }
+  //
+	// if (PLAYER.bonus.clairvoyance != 0) {
+	// 	updateClairvoyance();
+	// }
+  //
+  // updateTelepathy();
+	// updateMonsterDetection();
+
+	// updateLighting();
+	map.forEach( promoteCellVisibility );
+
+	// if (PLAYER.status[STATUS_HALLUCINATING] > 0) {
+	// 	for (theItem of DUNGEON.items) {
+	// 		if ((pmap[theItem.xLoc][theItem.yLoc].flags & DISCOVERED) && refreshDisplay) {
+	// 			refreshDungeonCell(theItem.xLoc, theItem.yLoc);
+	// 		}
+	// 	}
+	// 	for (monst of DUNGEON.monsters) {
+	// 		if ((pmap[monst.xLoc][monst.yLoc].flags & DISCOVERED) && refreshDisplay) {
+	// 			refreshDungeonCell(monst.xLoc, monst.yLoc);
+	// 		}
+	// 	}
+	// }
+
+}
+
+visibility.update = updateVisibility;
+
 var player = {};
 
 player.debug = utils$1.NOOP;
@@ -5847,6 +5975,7 @@ player.act = act$1;
 
 function endTurn$1(PLAYER, turnTime) {
   PLAYER.turnTime = turnTime || Math.floor(PLAYER.kind.speed/2);  // doing nothing takes time
+  visibility.update(data.map, PLAYER.x, PLAYER.y);
   ui.requestUpdate();
 }
 
@@ -5970,6 +6099,10 @@ async function startGame(opts={}) {
 
   if (!map) utils$1.ERROR('No map!');
 
+  if (opts.fov) {
+    config.fov = true;
+  }
+
   game.startMap(map, opts.start);
   game.queuePlayer();
 
@@ -6010,7 +6143,7 @@ async function getMap(id=0) {
 game.getMap = getMap;
 
 
-function startMap(map, loc) {
+function startMap(map, loc='start') {
 
   scheduler.clear();
 
@@ -6018,12 +6151,8 @@ function startMap(map, loc) {
     data.map.removeActor(data.player);
   }
 
-  map.cells.forEach( (c) => c.redraw() );
-  map.flag |= Flags$4.MAP_CHANGED;
+  visibility.initMap(map);
   data.map = map;
-
-  // TODO - Add Map/Environment Updater
-
 
   if (data.player) {
     let startLoc;
@@ -6054,8 +6183,12 @@ function startMap(map, loc) {
     startLoc = map.matchingXYNear(startLoc[0], startLoc[1], player.isValidStartLoc, { hallways: true });
 
     data.map.addActor(startLoc[0], startLoc[1], data.player);
+
+    visibility.update(map, data.player.x, data.player.y);
   }
 
+  ui.blackOutDisplay();
+  map.redrawAll();
   ui.draw();
 
   if (map.config.tick) {
@@ -6365,6 +6498,8 @@ class Tile {
     return (this.mechFlags & flag) > 0;
   }
 
+  flavorText() { return this.text || this.desc; }
+
 }
 
 types.Tile = Tile;
@@ -6631,6 +6766,7 @@ class Item {
 	forbiddenTileFlags() { return Flags$2.T_OBSTRUCTS_ITEMS; }
 
 	flavorText() { return this.kind.description || this.kind.name; }
+  name() { return this.kind.name; }
 }
 
 types.Item = Item;
@@ -6672,8 +6808,8 @@ class Map {
 		this.items = null;
 	}
 
-	clear() { this.cells.forEach( (c) => c.clear() ); }
-	dump() { this.cells.dump((c) => c.dump()); }
+	nullify() { this.cells.forEach( (c) => c.nullify() ); }
+	dump(fmt) { this.cells.dump(fmt || ((c) => c.dump()) ); }
 	cell(x, y)   { return this.cells[x][y]; }
 
 	forEach(fn) { this.cells.forEach( (c, i, j) => fn(c, i, j, this) ); }
@@ -6698,15 +6834,26 @@ class Map {
 	hasTileFlag(x, y, flag) 		{ return this.cell(x, y).hasTileFlag(flag); }
 	hasTileMechFlag(x, y, flag) { return this.cell(x, y).hasTileMechFlag(flag); }
 
-	redrawCell(x, y) {
-		this.cell(x, y).redraw();
-		this.flags |= Flags$4.MAP_CHANGED;
+	redrawCell(cell) {
+    // if (cell.isAnyKindOfVisible()) {
+      cell.flags |= Flags$1.NEEDS_REDRAW;
+  		this.flags |= Flags$4.MAP_CHANGED;
+    // }
 	}
 
-	redraw() {
-		this.forEach( (c) => c.redraw() );
-		this.flags |= Flags$4.MAP_CHANGED;
+	redraw(x, y) {
+    const cell = this.cell(x, y);
+    this.redrawCell(cell);
 	}
+
+  redrawAll() {
+    this.forEach( (c) => {
+      // if (c.isAnyKindOfVisible()) {
+        c.flags |= Flags$1.NEEDS_REDRAW;
+      // }
+    });
+		this.flags |= Flags$4.MAP_CHANGED;
+  }
 
 	markRevealed(x, y) { return this.cell(x, y).markRevealed(); }
 	isVisible(x, y)    { return this.cell(x, y).isVisible(); }
@@ -6723,7 +6870,7 @@ class Map {
 		this.changed(true);
 	}
 
-	clearFlags(mapFlag, cellFlag, cellMechFlag) {
+	clearFlags(mapFlag=0, cellFlag=0, cellMechFlag=0) {
 		if (mapFlag) {
 			this.flags &= ~mapFlag;
 		}
@@ -6762,6 +6909,7 @@ class Map {
 	isPassableNow(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isPassableNow(limitToPlayerKnowledge); }
 
 	isNull(x, y) { return this.cells[x][y].isNull(); }
+  isEmpty(x, y) { return this.cells[x][y].isEmpty(); }
 	isObstruction(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isObstruction(limitToPlayerKnowledge); }
   isDoor(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isDoor(limitToPlayerKnowledge); }
   blocksPathing(x, y, limitToPlayerKnowledge) { return this.cells[x][y].blocksPathing(limitToPlayerKnowledge); }
@@ -6779,18 +6927,17 @@ class Map {
 		if (cell.setTile(tileId, checkPriority)) {
 			this.flags &= ~(Flags$4.MAP_STABLE_GLOW_LIGHTS);
 		}
-		this.changed(true);
 	  return true;
 	}
 
-	clearTileWithFlags(x, y, tileFlags, tileMechFlags=0) {
+	nullifyTileWithFlags(x, y, tileFlags, tileMechFlags=0) {
 		const cell = this.cell(x, y);
-		cell.clearTileWithFlags(tileFlags, tileMechFlags);
+		cell.nullifyTileWithFlags(tileFlags, tileMechFlags);
 	}
 
-	clearCellTiles(x, y, includeGas) {
+	nullifyCellTiles(x, y, includeGas) {
 		this.changed(true);
-		return this.cell(x, y).clearTiles(includeGas);
+		return this.cell(x, y).nullifyTiles(includeGas);
 	}
 
 	fill(tileId, boundaryTile) {
@@ -6952,7 +7099,7 @@ class Map {
 		cell.addSprite(Layer.FX, anim.sprite);
 		anim.x = x;
 		anim.y = y;
-		this.flags |= Flags$4.MAP_CHANGED;
+		this.redrawCell(cell);
 		return true;
 	}
 
@@ -6961,8 +7108,9 @@ class Map {
 		const cell = this.cell(x, y);
 		const oldCell = this.cell(anim.x, anim.y);
 		oldCell.removeSprite(anim.sprite);
+    this.redrawCell(oldCell);
 		cell.addSprite(Layer.FX, anim.sprite);
-		this.flags |= Flags$4.MAP_CHANGED;
+    this.redrawCell(cell);
 		anim.x = x;
 		anim.y = y;
 		return true;
@@ -6971,6 +7119,7 @@ class Map {
 	removeFx(anim) {
 		const oldCell = this.cell(anim.x, anim.y);
 		oldCell.removeSprite(anim.sprite);
+    this.redrawCell(oldCell);
 		this.flags |= Flags$4.MAP_CHANGED;
 		return true;
 	}
@@ -6997,7 +7146,7 @@ class Map {
 		cell.addSprite(layer, theActor.kind.sprite);
 
 		const flag = (theActor === data.player) ? Flags$1.HAS_PLAYER : Flags$1.HAS_MONSTER;
-		cell.flags |= (flag | Flags$1.NEEDS_REDRAW);
+		cell.flags |= flag;
 		// if (theActor.flags & ActorFlags.MK_DETECTED)
 		// {
 		// 	cell.flags |= CellFlags.MONSTER_DETECTED;
@@ -7005,7 +7154,7 @@ class Map {
 
 		theActor.x = x;
 		theActor.y = y;
-		this.flags |= Flags$4.MAP_CHANGED;
+    this.redrawCell(cell);
 
 		return true;
 	}
@@ -7040,9 +7189,8 @@ class Map {
 		if (cell.actor === actor) {
 			cell.actor = null;
 			cell.flags &= ~Flags$1.HAS_ACTOR;
-			cell.flags |= Flags$1.NEEDS_REDRAW;
-			this.flags |= Flags$4.MAP_CHANGED;
 			cell.removeSprite(actor.kind.sprite);
+      this.redrawCell(cell);
 		}
 	}
 
@@ -7092,10 +7240,9 @@ class Map {
 		this.items = theItem;
 
 		cell.addSprite(Layer.ITEM, theItem.kind.sprite);
+		cell.flags |= (Flags$1.HAS_ITEM);
+    this.redrawCell(cell);
 
-		cell.flags |= (Flags$1.HAS_ITEM | Flags$1.NEEDS_REDRAW);
-
-		this.flags |= Flags$4.MAP_CHANGED;
 		if ( ((theItem.flags & Flags$3.ITEM_MAGIC_DETECTED) && GW.item.magicChar(theItem)) ||
 					config.D_ITEM_OMNISCIENCE)
 		{
@@ -7143,9 +7290,8 @@ class Map {
 			}
 		}
 
-		this.flags |= Flags$4.MAP_CHANGED;
 		cell.flags &= ~(Flags$1.HAS_ITEM | Flags$1.ITEM_DETECTED);
-		cell.flags |= Flags$1.NEEDS_REDRAW;
+    this.redrawCell(cell);
 		return true;
 	}
 
@@ -7172,6 +7318,7 @@ class Map {
 	// is visible to the player; this is to prevent lights from illuminating a wall when the player is on the other
 	// side of the wall.
 	calcFov(grid, x, y, maxRadius, forbiddenFlags=0, forbiddenTerrain=Flags$2.T_OBSTRUCTS_VISION, cautiousOnWalls=true) {
+    maxRadius = maxRadius || (this.width + this.height);
 	  const FOV = new types.FOV(grid, (i, j) => {
 	    return (!this.hasXY(i, j)) || this.hasCellFlag(i, j, forbiddenFlags) || this.hasTileFlag(i, j, forbiddenTerrain) ;
 	  });
@@ -7182,7 +7329,7 @@ class Map {
 
 	storeMemory(x, y) {
 		const cell = this.cell(x, y);
-		cell.storeMemory(this.itemAt(x, y));
+		cell.storeMemory();
 	}
 
 	storeMemories() {
@@ -7228,10 +7375,46 @@ make.map = makeMap;
 
 
 function getCellAppearance(map, x, y, dest) {
-	dest.clear();
+	dest.blackOut();
 	if (!map.hasXY(x, y)) return;
 	const cell$1 = map.cell(x, y);
-	cell.getAppearance(cell$1, dest);
+
+  if (cell$1.isAnyKindOfVisible() && (cell$1.flags & Flags$1.CELL_CHANGED)) {
+    cell.getAppearance(cell$1, dest);
+  }
+  else if (cell$1.isRevealed()) {
+    dest.plot(cell$1.memory.sprite);
+  }
+
+  if (cell$1.isVisible()) ;
+  else if ( !cell$1.isRevealed()) {
+    dest.blackOut();
+  }
+  else if (!cell$1.isAnyKindOfVisible()) {
+    color.applyMix(dest.bg, colors.black, 30);
+    color.applyMix(dest.fg, colors.black, 30);
+    color.bake(dest.bg);
+    color.bake(dest.fg);
+  }
+
+  let needDistinctness = false;
+  if (cell$1.flags & (Flags$1.IS_CURSOR | Flags$1.IS_IN_PATH)) {
+    const highlight = (cell$1.flags & Flags$1.IS_CURSOR) ? colors.cursorColor : colors.yellow;
+    if (cell$1.hasTileMechFlag(MechFlags$1.TM_INVERT_WHEN_HIGHLIGHTED)) {
+      color.swap(dest.fg, dest.bg);
+    } else {
+      // if (!GAME.trueColorMode || !dest.needDistinctness) {
+          color.applyMix(dest.fg, highlight, config.cursorPathIntensity || 20);
+      // }
+      color.applyMix(dest.bg, highlight, config.cursorPathIntensity || 20);
+    }
+    needDistinctness = true;
+  }
+
+  if (needDistinctness) {
+    color.separate(dest.fg, dest.bg);
+  }
+
 	dest.bake();
 }
 
@@ -8719,179 +8902,6 @@ function fp_sqrt(val)
     return Number(x);
 }
 
-//
-// function updateFieldOfViewDisplay(i, j, refreshDisplay) {
-//
-// 	refreshDisplay = (refreshDisplay !== false);
-//
-//   const map = DATA.map;
-// 	const cell = map.cell(i, j);
-//
-// 	if (cell.flags & CellFlags.IN_FIELD_OF_VIEW
-// 		&& (map.hasVisibleLight(i, j))
-// 		&& !(cell.flags & CellFlags.CLAIRVOYANT_DARKENED))
-// 	{
-// 		cell.flags |= CellFlags.VISIBLE;
-// 	}
-//
-// 	if ((cell.flags & CellFlags.VISIBLE) && !(cell.flags & CellFlags.WAS_VISIBLE)) { // if the cell became visible this move
-// 		if (!(cell.flags & CellFlags.REVEALED) && DATA.automationActive) {
-//         if (cell.flags & CellFlags.HAS_ITEM) {
-//             const theItem = map.itemAt(i, j);
-//             if (theItem && theItem.category && (GW.categories[theItem.category].flags & GW.const.IC_INTERRUPT_EXPLORATION_WHEN_SEEN)) {
-//                 const name = GW.item.name(theItem, false, true, NULL);
-//                 const buf = GW.string.format("you see %s.", name);
-//                 GW.ui.message(GW.colors.itemMessageColor, buf);
-//             }
-//         }
-//         if (!(cell.flags & CellFlags.MAGIC_MAPPED)
-//             && map.hasTileMechFlag(i, j, TM_INTERRUPT_EXPLORATION_WHEN_SEEN))
-// 				{
-//             const name = map.tileWithMechFlag(i, j, TM_INTERRUPT_EXPLORATION_WHEN_SEEN).description;
-//             const buf = GW.string.format("you see %s.", name);
-//             GW.ui.message(GW.colors.backgroundMessageColor, buf);
-//         }
-//     }
-//     map.markRevealed(i, j);
-// 		if (refreshDisplay) {
-// 			map.redrawCell(i, j);
-// 		}
-// 	} else if (!(cell.flags & CellFlags.VISIBLE) && (cell.flags & CellFlags.WAS_VISIBLE)) { // if the cell ceased being visible this move
-//     map.storeMemory(i, j);
-// 		if (refreshDisplay) {
-// 			map.redrawCell(i, j);
-// 		}
-// 	} else if (!(cell.flags & CellFlags.CLAIRVOYANT_VISIBLE) && (cell.flags & CellFlags.WAS_CLAIRVOYANT_VISIBLE)) { // ceased being clairvoyantly visible
-// 		map.storeMemory(i, j);
-// 		if (refreshDisplay) {
-// 			map.redrawCell(i, j);
-// 		}
-// 	} else if (!(cell.flags & CellFlags.WAS_CLAIRVOYANT_VISIBLE) && (cell.flags & CellFlags.CLAIRVOYANT_VISIBLE)) { // became clairvoyantly visible
-// 		cell.flags &= ~STABLE_MEMORY;
-// 		if (refreshDisplay) {
-// 			map.redrawCell(i, j);
-// 		}
-// 	} else if (!(cell.flags & CellFlags.TELEPATHIC_VISIBLE) && (cell.flags & CellFlags.WAS_TELEPATHIC_VISIBLE)) { // ceased being telepathically visible
-//     map.storeMemory(i, j);
-// 		if (refreshDisplay) {
-// 			map.redrawCell(i, j);
-// 		}
-// 	} else if (!(cell.flags & CellFlags.WAS_TELEPATHIC_VISIBLE) && (cell.flags & CellFlags.TELEPATHIC_VISIBLE)) { // became telepathically visible
-//     if (!(cell.flags & CellFlags.REVEALED)
-// 			&& !map.hasTileFlag(i, j, T_PATHING_BLOCKER))
-// 		{
-// 			DATA.xpxpThisTurn++;
-//     }
-//
-// 		cell.flags &= ~STABLE_MEMORY;
-// 		if (refreshDisplay) {
-// 			map.redrawCell(i, j);
-// 		}
-// 	} else if (!(cell.flags & CellFlags.MONSTER_DETECTED) && (cell.flags & CellFlags.WAS_MONSTER_DETECTED)) { // ceased being detected visible
-// 		cell.flags &= ~STABLE_MEMORY;
-// 		if (refreshDisplay) {
-// 			map.redrawCell(i, j);
-// 			map.storeMemory(i, j);
-// 		}
-// 	} else if (!(cell.flags & CellFlags.WAS_MONSTER_DETECTED) && (cell.flags & CellFlags.MONSTER_DETECTED)) { // became detected visible
-// 		cell.flags &= ~STABLE_MEMORY;
-// 		if (refreshDisplay) {
-// 			map.redrawCell(i, j);
-// 			map.storeMemory(i, j);
-// 		}
-// 	} else if (GW.player.canSeeOrSense(i, j)
-// 			   && GW.map.lightChanged(i, j)) // if the cell's light color changed this move
-// 	{
-//    if (refreshDisplay) {
-// 	   map.redrawCell(i, j);
-//    }
-// 	}
-// }
-//
-// fov.updateCellDisplay = updateFieldOfViewDisplay;
-//
-//
-//
-// function demoteVisibility() {
-// 	let i, j;
-//
-// 	for (i=0; i<DATA.map.width; i++) {
-// 		for (j=0; j<DATA.map.height; j++) {
-// 			const cell = DATA.map.cell(i, j);
-// 			cell.flags &= ~WAS_VISIBLE;
-// 			if (cell.flags & CellFlags.VISIBLE) {
-// 				cell.flags &= ~VISIBLE;
-// 				cell.flags |= WAS_VISIBLE;
-// 			}
-// 		}
-// 	}
-// }
-//
-//
-// function updateVision(refreshDisplay) {
-// 	let i, j;
-// 	let theItem;	// item *
-// 	let monst;	// creature *
-//
-//   demoteVisibility();
-// 	for (i=0; i<DATA.map.width; i++) {
-// 		for (j=0; j<DATA.map.height; j++) {
-// 			DATA.map.cell(i, j).flags &= ~IN_FIELD_OF_VIEW;
-// 		}
-// 	}
-//
-// 	// Calculate player's field of view (distinct from what is visible, as lighting hasn't been done yet).
-// 	const maxRadius = GW.player.visionRadius();
-// 	const grid = GW.grid.alloc();
-// 	getFOVMask(grid, GW.PLAYER.x, GW.PLAYER.y, maxRadius, (T_OBSTRUCTS_VISION), 0, false);
-// 	for (i=0; i<DATA.map.width; i++) {
-// 		for (j=0; j<DATA.map.height; j++) {
-// 			if (grid[i][j]) {
-// 				DATA.map.setCellFlags(i, j, IN_FIELD_OF_VIEW);
-// 			}
-// 		}
-// 	}
-// 	GW.grid.free(grid);
-//
-// 	DATA.map.setCellFlags(GW.PLAYER.x, GW.PLAYER.y, IN_FIELD_OF_VIEW | VISIBLE);
-//
-// 	// if (PLAYER.bonus.clairvoyance < 0) {
-//   //   discoverCell(PLAYER.xLoc, PLAYER.yLoc);
-// 	// }
-// 	//
-// 	// if (PLAYER.bonus.clairvoyance != 0) {
-// 	// 	updateClairvoyance();
-// 	// }
-//
-//   // updateTelepathy();
-// 	// updateMonsterDetection();
-//
-// 	// updateLighting();
-// 	for (i=0; i<DATA.map.width; i++) {
-// 		for (j=0; j<DATA.map.height; j++) {
-// 			fov.updateCellDisplay(i, j, refreshDisplay);
-// 		}
-// 	}
-//
-// 	if (GW.PLAYER.status[GW.const.STATUS_HALLUCINATING] > 0) {
-// 		for (theItem of GW.ITEMS) {
-// 			if (DATA.map.hasCellFlag(theItem.x, theItem.y, REVEALED) && refreshDisplay) {
-// 				DATA.map.redrawCell(theItem.x, theItem.y);
-// 			}
-// 		}
-// 		for (monst of GW.ACTORS) {
-// 			if (DATA.map.hasCellFlag(monst.x, monst.y, REVEALED) && refreshDisplay) {
-// 				DATA.map.redrawCell(monst.x, monst.y);
-// 			}
-// 		}
-// 	}
-//
-// }
-//
-//
-// fov.update = updateVision;
-//
-
 
 
 //		   Octants:      //
@@ -8926,9 +8936,9 @@ function betweenOctant1andN(x, y, x0, y0, n) {
 
 
 class FOV {
-  constructor(grid, isBlocked) {
+  constructor(grid, isBlockedFn) {
     this.grid = grid;
-    this.isBlocked = isBlocked;
+    this.isBlocked = isBlockedFn;
   }
 
   isVisible(x, y) { return this.grid.hasXY(x, y) && this.grid[x][y]; }
@@ -9068,11 +9078,13 @@ async function moveDir(e) {
   if (cell.hasTileFlag(Flags$2.T_OBSTRUCTS_PASSABILITY)) {
     message.moveBlocked(ctx);
     // TURN ENDED (1/2 turn)?
+    await fx.flashSprite(map, newX, newY, 'hit', 50, 1);
     return false;
   }
   if (map.diagonalBlocked(actor.x, actor.y, newX, newY)) {
     message.moveBlocked(ctx);
     // TURN ENDED (1/2 turn)?
+    await fx.flashSprite(map, newX, newY, 'hit', 50, 1);
     return false;
   }
 
@@ -9459,7 +9471,7 @@ async function showArchive() {
 			 (reverse ? currentMessageCount >= SETUP.height : currentMessageCount <= totalMessageCount);
 			 currentMessageCount += (reverse ? -1 : 1))
 	  {
-			dbuf.clear();
+			dbuf.nullify();
 
 			// Print the message archive text to the dbuf.
 			for (j=0; j < currentMessageCount && j < dbuf.height; j++) {
@@ -9672,11 +9684,11 @@ function showFlavorFor(x, y) {
       //       object = GW.item.describeItemBasedOnParameters(cell.rememberedItemCategory, cell.rememberedItemKind, cell.rememberedItemQuantity);
       //   }
 			// } else {
-				object = tiles[cell.memory.tile].description;
+				object = tiles[cell.memory.tile].flavorText();
 			// }
 			buf = text.format("you remember seeing %s here.", object);
 		} else if (cell.flags & Flags$1.MAGIC_MAPPED) { // magic mapped
-			buf = text.format("you expect %s to be here.", tiles[cell.memory.tile].description);
+			buf = text.format("you expect %s to be here.", tiles[cell.memory.tile].flavorText());
 		}
 		flavor.setText(buf);
     return true;
@@ -9760,8 +9772,8 @@ function start$1(opts={}) {
   UI_BUFFER = UI_BUFFER || ui.canvas.allocBuffer();
   UI_BASE = UI_BASE || ui.canvas.allocBuffer();
   UI_OVERLAY = UI_OVERLAY || ui.canvas.allocBuffer();
-  UI_BASE.clear();
-  UI_OVERLAY.clear();
+  UI_BASE.nullify();
+  UI_OVERLAY.nullify();
 
   IN_DIALOG = false;
 
@@ -9940,13 +9952,14 @@ function setCursor(x, y) {
 
   if (map.hasXY(CURSOR.x, CURSOR.y)) {
     map.clearCellFlags(CURSOR.x, CURSOR.y, Flags$1.IS_CURSOR);
+    map.setCellFlags(CURSOR.x, CURSOR.y, Flags$1.NEEDS_REDRAW);
   }
   CURSOR.x = x;
   CURSOR.y = y;
 
   if (map.hasXY(x, y)) {
     // if (!DATA.player || DATA.player.x !== x || DATA.player.y !== y ) {
-      map.setCellFlags(CURSOR.x, CURSOR.y, Flags$1.IS_CURSOR);
+      map.setCellFlags(CURSOR.x, CURSOR.y, Flags$1.IS_CURSOR | Flags$1.NEEDS_REDRAW);
     // }
 
     // if (!GW.player.isMoving()) {
@@ -10050,7 +10063,7 @@ ui.confirm = confirm;
 
 
 function blackOutDisplay() {
-	UI_BUFFER.erase();
+	UI_BUFFER.blackOut();
 }
 
 ui.blackOutDisplay = blackOutDisplay;
@@ -10114,7 +10127,7 @@ function startDialog() {
   ui.canvas.copyBuffer(UI_BASE);
 	ui.canvas.copyBuffer(UI_OVERLAY);
 	UI_OVERLAY.forEach( (c) => c.opacity = 0 );
-  // UI_OVERLAY.clear();
+  // UI_OVERLAY.nullify();
   return UI_OVERLAY;
 }
 
@@ -10131,7 +10144,7 @@ ui.clearDialog = clearDialog;
 function finishDialog() {
   IN_DIALOG = false;
   ui.canvas.overlay(UI_BASE);
-  UI_OVERLAY.clear();
+  UI_OVERLAY.nullify();
 }
 
 ui.finishDialog = finishDialog;
@@ -10145,9 +10158,12 @@ function draw() {
   }
   else if (ui.canvas) {
     // const side = GW.sidebar.draw(UI_BUFFER);
-    if (viewport.bounds) viewport.draw(ui.canvas.buffer);
-		if (message.bounds) message.draw(ui.canvas.buffer);
-		if (flavor.bounds) flavor.draw(ui.canvas.buffer);
+    if (viewport.bounds) viewport.draw(UI_BUFFER);
+		if (message.bounds) message.draw(UI_BUFFER);
+		if (flavor.bounds) flavor.draw(UI_BUFFER);
+
+    // if (commitCombatMessage() || REDRAW_UI || side || map) {
+    ui.canvas.overlay(UI_BUFFER);
 			UPDATE_REQUESTED = 0;
     // }
   }
@@ -10198,3 +10214,4 @@ exports.types = types;
 exports.ui = ui;
 exports.utils = utils$1;
 exports.viewport = viewport;
+exports.visibility = visibility;
