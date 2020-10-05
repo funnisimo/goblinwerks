@@ -120,7 +120,11 @@ export class FOV {
   }
 
   isVisible(x, y) { return this.grid.hasXY(x, y) && this.grid[x][y]; }
-  setVisible(x, y) { this.grid[x][y] = 1; }
+  setVisible(x, y) {
+    if (this.grid.hasXY(x, y)) {
+      this.grid[x][y] = 1;
+    }
+  }
 
   calculate(x, y, maxRadius, cautiousOnWalls) {
     this.grid.fill(0);
@@ -155,6 +159,8 @@ export class FOV {
 
   	iStart = Math.min(a, b);
   	iEnd = Math.max(a, b);
+
+    fov.debug('SCAN OCTANT #%d @ %d,%d, crfo=%d, iStart=%d, iEnd=%d, startSlope=%d, endSlope=%d', octant, xLoc, yLoc, columnsRightFromOrigin, iStart, iEnd, startSlope, endSlope);
 
   	// restrict vision to a circle of radius maxRadius
 
