@@ -546,11 +546,22 @@ export class Map {
 	// If cautiousOnWalls is set, we will not illuminate blocking tiles unless the tile one space closer to the origin
 	// is visible to the player; this is to prevent lights from illuminating a wall when the player is on the other
 	// side of the wall.
-	calcFov(grid, x, y, maxRadius, forbiddenFlags=0, forbiddenTerrain=TileFlags.T_OBSTRUCTS_VISION, cautiousOnWalls=true) {
+	calcFov(grid, x, y, maxRadius, forbiddenFlags=0, forbiddenTerrain=TileFlags.T_OBSTRUCTS_VISION, cautiousOnWalls=false) {
     maxRadius = maxRadius || (this.width + this.height);
-	  const FOV = new types.FOV(grid, (i, j) => {
-	    return (!this.hasXY(i, j)) || this.hasCellFlag(i, j, forbiddenFlags) || this.hasTileFlag(i, j, forbiddenTerrain) ;
-	  });
+    grid.fill(0);
+    const map = this;
+	  const FOV = new types.FOV({
+      isBlocked(i, j) {
+	       return (!grid.hasXY(i, j)) || map.hasCellFlag(i, j, forbiddenFlags) || map.hasTileFlag(i, j, forbiddenTerrain) ;
+	    },
+      calcRadius(x, y) {
+        return Math.sqrt(x**2 + y ** 2);
+      },
+      setVisible(x, y, v) {
+        grid[x][y] = 1;
+      },
+      hasXY(x, y) { return grid.hasXY(x, y); }
+    });
 	  return FOV.calculate(x, y, maxRadius, cautiousOnWalls);
 	}
 

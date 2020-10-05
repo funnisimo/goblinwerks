@@ -164,6 +164,11 @@ class Cell {
   get surface() { return this.layers[2]; }
   get gas() { return this.layers[3]; }
 
+  get groundTile() { return TILES[this.layers[0]]; }
+  get liquidTile() { return TILES[this.layers[1]]; }
+  get surfaceTile() { return TILES[this.layers[2]]; }
+  get gasTile() { return TILES[this.layers[3]]; }
+
   dump() {
     for(let i = this.layers.length - 1; i >= 0; --i) {
       if (!this.layers[i]) continue;

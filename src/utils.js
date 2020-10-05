@@ -66,10 +66,17 @@ export function distanceBetween(x1, y1, x2, y2) {
 utils.distanceBetween = distanceBetween;
 
 export function distanceFromTo(a, b) {
-  return distanceBetween(utils.x(a), utils.y(a), utils.x(b), utils.y(b));
+  return utils.distanceBetween(utils.x(a), utils.y(a), utils.x(b), utils.y(b));
 }
 
 utils.distanceFromTo = distanceFromTo;
+
+export function calcRadius(x, y) {
+  return utils.distanceBetween(0,0, x, y);
+}
+
+utils.calcRadius = calcRadius;
+
 
 export function dirBetween(x, y, toX, toY) {
 	let diffX = toX - x;
