@@ -143,11 +143,11 @@ function showFlavorFor(x, y) {
       //       object = GW.item.describeItemBasedOnParameters(cell.rememberedItemCategory, cell.rememberedItemKind, cell.rememberedItemQuantity);
       //   }
 			// } else {
-				object = TILES[cell.memory.tile].description;
+				object = TILES[cell.memory.tile].flavorText();
 			// }
 			buf = TEXT.format("you remember seeing %s here.", object);
 		} else if (cell.flags & CellFlags.MAGIC_MAPPED) { // magic mapped
-			buf = TEXT.format("you expect %s to be here.", TILES[cell.memory.tile].description);
+			buf = TEXT.format("you expect %s to be here.", TILES[cell.memory.tile].flavorText());
 		}
 		flavor.setText(buf);
     return true;

@@ -19,7 +19,7 @@ async function crossedFinish() {
 	const map = makeMap(MAP.id + 1);
 	await GW.ui.messageBox('Level ' + map.id, 'light_blue', 1000);
 	GW.message.add('Level: %d', map.id);
-	await GW.game.startMap(map);
+	await GW.game.startMap(map, 'start');
 }
 
 
@@ -39,7 +39,7 @@ async function lavaTick(x, y, ctx) {
 async function lavaBreak(x, y, ctx) {
 	const ctx2 = Object.assign({}, ctx, { x, y });
 	if (GW.random.chance(BREAK_CHANCE)) {
-		return await GW.tileEvent.spawn({ flags: GW.flags.tileEvent.DFF_CLEAR_CELL }, ctx2);
+		return await GW.tileEvent.spawn({ flags: GW.flags.tileEvent.DFF_NULLIFY_CELL }, ctx2);
 	}
 }
 
@@ -134,7 +134,7 @@ const LAVA_CRUST_BREAKING = GW.tile.install('LAVA_CRUST_BREAKING', '~', 'lavaFor
 // LAVA_ERUPTING
 const LAVA_ERUPTING = GW.tile.install('LAVA_ERUPTING', '!', 'yellow', 'red', 91,	0,
 	0,
-	'a wave of erupting lava', 'you see a wave of hot lava.', { tick: { radius: 1, tile: 'LAVA_ERUPTING', flags: 'DFF_CLEAR_CELL | DFF_SUBSEQ_ALWAYS', needs: 'LAVA_TILE', next: { tile: 'LAVA_ERUPTED' } }});
+	'a wave of erupting lava', 'you see a wave of hot lava.', { tick: { radius: 1, tile: 'LAVA_ERUPTING', flags: 'DFF_NULLIFY_CELL | DFF_SUBSEQ_ALWAYS', needs: 'LAVA_TILE', next: { tile: 'LAVA_ERUPTED' } }});
 
 // LAVA_ERUPTED
 const LAVA_ERUPTED = GW.tile.install('LAVA_ERUPTED', '~', 'lavaForeColor', 'lavaBackColor', 92,	0,
@@ -154,7 +154,7 @@ GW.commands.rest = rest;
 function makeMap(id=1) {
 	// dig a map
 	MAP = GW.make.map(50, 30);
-	MAP.clear();
+	MAP.nullify();
 
 	MAP.fill(6);
 	MAP.cells.forRect(10, 0, 30, 30, (c) => c.setTile(1));
@@ -174,8 +174,6 @@ function makeMap(id=1) {
 	let top = Math.floor( (30 - height) / 2 ) + 1;
 
 	MAP.cells.forRect(10, top, 30, height, (c) => c.setTile(LAVA_TILE) );
-
-
 
 	MAP.setFlags(0, GW.flags.cell.VISIBLE);
 	MAP.id = id;

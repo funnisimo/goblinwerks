@@ -70,9 +70,9 @@ describe('CellMemory', () => {
     const a = GW.make.sprite('@', 'white', 'blue');
     const b = GW.make.sprite(null, null, 'red', 50);
 
-    c.flags = 0;
+    c.clearFlags(GW.flags.cell.CELL_CHANGED);
     c.addSprite(1, a);
-    expect(c.flags & GW.flags.cell.NEEDS_REDRAW).toBeTruthy();
+    expect(c.flags & GW.flags.cell.CELL_CHANGED).toBeTruthy();
     c.addSprite(2, b, 100);
 
     expect(c.sprites).not.toBeNull();
@@ -85,9 +85,9 @@ describe('CellMemory', () => {
     const ex = GW.make.sprite('@', 'white', [50,0,50]);
     expect(app).toEqual(ex);
 
-    c.flags = 0;
+    c.clearFlags(GW.flags.cell.CELL_CHANGED);
     c.removeSprite(a);
-    expect(c.flags & GW.flags.cell.NEEDS_REDRAW).toBeTruthy();
+    expect(c.flags & GW.flags.cell.CELL_CHANGED).toBeTruthy();
     c.removeSprite(b);
 
     GW.cell.getAppearance(c, app);

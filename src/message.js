@@ -246,7 +246,7 @@ async function showArchive() {
 			 (reverse ? currentMessageCount >= SETUP.height : currentMessageCount <= totalMessageCount);
 			 currentMessageCount += (reverse ? -1 : 1))
 	  {
-			dbuf.clear();
+			dbuf.nullify();
 
 			// Print the message archive text to the dbuf.
 			for (j=0; j < currentMessageCount && j < dbuf.height; j++) {

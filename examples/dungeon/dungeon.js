@@ -181,7 +181,6 @@ async function forceStairs(ev) {
 
 // start the environment
 function start() {
-
 	const canvas = GW.ui.start({ width: 80, height: 36, div: 'game', messages: -5, cursor: true, flavor: true });
 	GW.io.setKeymap({
 		dir: 'moveDir', space: 'rest',
@@ -190,15 +189,7 @@ function start() {
 	});
 
 	GW.message.add('%RWelcome to the Dungeon!\n%RSomewhere at the bottom of this labrynth is a portal that will take you back to your home town.  Find it or perish!\n%RPress <?> for help.', 'yellow', 'purple', null);
-	GW.game.start({ player: PLAYER, buildMap: designNewLevel });
-
-	// MAP = GW.make.map(80, 30);
-	// canvas = GW.ui.start({ width: 80, height: 30, div: 'game', io: false });
-	// game.onmousedown = handleClick;
-	// document.onkeydown = handleKey;
-	//
-	// canvas.buffer.plotText(10, 15, 'Click to draw map with starting location at click point.', [100,50,0]);
-	// canvas.buffer.plotText(10, 17, 'Press any key to redesign the map at same starting point.', [100,50,0]);
+	GW.game.start({ player: PLAYER, buildMap: designNewLevel, fov: true });
 }
 
 window.onload = start;

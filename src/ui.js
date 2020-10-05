@@ -71,8 +71,8 @@ export function start(opts={}) {
   UI_BUFFER = UI_BUFFER || ui.canvas.allocBuffer();
   UI_BASE = UI_BASE || ui.canvas.allocBuffer();
   UI_OVERLAY = UI_OVERLAY || ui.canvas.allocBuffer();
-  UI_BASE.clear();
-  UI_OVERLAY.clear();
+  UI_BASE.nullify();
+  UI_OVERLAY.nullify();
 
   IN_DIALOG = false;
   REDRAW_UI = false;
@@ -252,13 +252,14 @@ function setCursor(x, y) {
 
   if (map.hasXY(CURSOR.x, CURSOR.y)) {
     map.clearCellFlags(CURSOR.x, CURSOR.y, CellFlags.IS_CURSOR);
+    map.setCellFlags(CURSOR.x, CURSOR.y, CellFlags.NEEDS_REDRAW);
   }
   CURSOR.x = x;
   CURSOR.y = y;
 
   if (map.hasXY(x, y)) {
     // if (!DATA.player || DATA.player.x !== x || DATA.player.y !== y ) {
-      map.setCellFlags(CURSOR.x, CURSOR.y, CellFlags.IS_CURSOR);
+      map.setCellFlags(CURSOR.x, CURSOR.y, CellFlags.IS_CURSOR | CellFlags.NEEDS_REDRAW);
     // }
 
     // if (!GW.player.isMoving()) {
@@ -377,7 +378,7 @@ ui.confirm = confirm;
 
 
 function blackOutDisplay() {
-	UI_BUFFER.erase();
+	UI_BUFFER.blackOut();
 	REDRAW_UI = true;
 }
 
@@ -442,7 +443,7 @@ function startDialog() {
   ui.canvas.copyBuffer(UI_BASE);
 	ui.canvas.copyBuffer(UI_OVERLAY);
 	UI_OVERLAY.forEach( (c) => c.opacity = 0 );
-  // UI_OVERLAY.clear();
+  // UI_OVERLAY.nullify();
   return UI_OVERLAY;
 }
 
@@ -459,7 +460,7 @@ ui.clearDialog = clearDialog;
 function finishDialog() {
   IN_DIALOG = false;
   ui.canvas.overlay(UI_BASE);
-  UI_OVERLAY.clear();
+  UI_OVERLAY.nullify();
 }
 
 ui.finishDialog = finishDialog;
@@ -473,12 +474,12 @@ function draw() {
   }
   else if (ui.canvas) {
     // const side = GW.sidebar.draw(UI_BUFFER);
-    if (VIEWPORT.bounds) VIEWPORT.draw(ui.canvas.buffer);
-		if (MSG.bounds) MSG.draw(ui.canvas.buffer);
-		if (FLAVOR.bounds) FLAVOR.draw(ui.canvas.buffer);
+    if (VIEWPORT.bounds) VIEWPORT.draw(UI_BUFFER);
+		if (MSG.bounds) MSG.draw(UI_BUFFER);
+		if (FLAVOR.bounds) FLAVOR.draw(UI_BUFFER);
 
     // if (commitCombatMessage() || REDRAW_UI || side || map) {
-    // ui.canvas.overlay(UI_BUFFER);
+    ui.canvas.overlay(UI_BUFFER);
     // ui.canvas.overlay(UI_OVERLAY);
       REDRAW_UI = false;
 			UPDATE_REQUESTED = 0;

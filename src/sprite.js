@@ -73,7 +73,7 @@ export class Sprite {
 		return other;
 	}
 
-	clear() {
+	nullify() {
 		if (HANGING_LETTERS.includes(this.ch)) {
 			this.wasHanging = true;
 		}
@@ -84,8 +84,8 @@ export class Sprite {
 		// this.needsUpdate = false;
 	}
 
-	erase() {
-		this.clear();
+	blackOut() {
+		this.nullify();
 		this.opacity = 100;
 		this.needsUpdate = true;
 		this.wasHanging = false;

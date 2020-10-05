@@ -19,7 +19,7 @@ describe('tileEvent', () => {
       'water', 'you see water.', { tick: { tile: LAKE, flags: 'DFF_SUPERPRIORITY | DFF_PROTECTED' } });
     WAVE = GW.tile.install('WAVE', 'W', 'white', 'blue', 60,	0,
       'T_DEEP_WATER',
-      'wave crest', 'you see a wave of water.', { tick: { radius: 1, tile: 'WAVE', flags: 'DFF_CLEAR_CELL | DFF_SUBSEQ_ALWAYS', needs: LAKE, next: { tile: ROUGH_WATER } }});
+      'wave crest', 'you see a wave of water.', { tick: { radius: 1, tile: 'WAVE', flags: 'DFF_NULLIFY_CELL | DFF_SUBSEQ_ALWAYS', needs: LAKE, next: { tile: ROUGH_WATER } }});
   });
 
   afterAll( () => {
@@ -303,8 +303,8 @@ describe('tileEvent', () => {
     const feat = GW.make.tileEvent({ tile: 6 });
     await GW.tileEvent.spawn(feat, ctx);
     expect(map.hasTile(10, 10, 6)).toBeTruthy();
-    expect(map.hasCellFlag(10, 10, GW.flags.cell.NEEDS_REDRAW)).toBeTruthy();
-    expect(map.hasCellFlag(10, 10, GW.flags.cell.TILE_CHANGED)).toBeTruthy();
+    // expect(map.hasCellFlag(10, 10, GW.flags.cell.NEEDS_REDRAW)).toBeTruthy();
+    expect(map.hasCellFlag(10, 10, GW.flags.cell.CELL_CHANGED)).toBeTruthy();
     // expect(map.hasCellMechFlag(10, 10, GW.flags.cellMech.EVENT_FIRED_THIS_TURN)).toBeTruthy();
   });
 
@@ -329,8 +329,8 @@ describe('tileEvent', () => {
     await GW.tileEvent.spawn(feat, ctx);
     expect(map.hasTile(10, 10, 1)).toBeTruthy();
     expect(map.itemAt(10, 10)).not.toBeNull();
-    expect(map.hasCellFlag(10, 10, GW.flags.cell.NEEDS_REDRAW)).toBeTruthy();
-    expect(map.hasCellFlag(10, 10, GW.flags.cell.TILE_CHANGED)).toBeTruthy();
+    // expect(map.hasCellFlag(10, 10, GW.flags.cell.NEEDS_REDRAW)).toBeTruthy();
+    expect(map.hasCellFlag(10, 10, GW.flags.cell.CELL_CHANGED)).toBeTruthy();
     // expect(map.hasCellMechFlag(10, 10, GW.flags.cellMech.EVENT_FIRED_THIS_TURN)).toBeTruthy();
   });
 
@@ -341,8 +341,8 @@ describe('tileEvent', () => {
     await GW.tileEvent.spawn(feat, ctx);
     expect(feat.tile).toEqual(6);
     expect(map.hasTile(10, 10, 6)).toBeTruthy();
-    expect(map.hasCellFlag(10, 10, GW.flags.cell.NEEDS_REDRAW)).toBeTruthy();
-    expect(map.hasCellFlag(10, 10, GW.flags.cell.TILE_CHANGED)).toBeTruthy();
+    // expect(map.hasCellFlag(10, 10, GW.flags.cell.NEEDS_REDRAW)).toBeTruthy();
+    expect(map.hasCellFlag(10, 10, GW.flags.cell.CELL_CHANGED)).toBeTruthy();
     // expect(map.hasCellMechFlag(10, 10, GW.flags.cellMech.EVENT_FIRED_THIS_TURN)).toBeTruthy();
   });
 
@@ -350,7 +350,7 @@ describe('tileEvent', () => {
 
 
   test('can clear extra tiles from the cell', () => {
-    const feat = GW.make.tileEvent({ flags: 'DFF_CLEAR_CELL' });
+    const feat = GW.make.tileEvent({ flags: 'DFF_NULLIFY_CELL' });
 
     const cell = map.cell(5, 5);
     cell.setTile(3);

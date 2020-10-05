@@ -39,7 +39,7 @@ export const Flags = FLAG.install('tileEvent', {
 	DFF_SPREAD_CIRCLE							: Fl(20),	// Spread in a circle around the spot (using FOV), radius calculated using spread+decrement
 	DFF_SPREAD_LINE								: Fl(21),	// Spread in a line in one random direction
 
-	DFF_CLEAR_CELL			  	: Fl(22),	// Erase other terrain in the footprint of this DF.
+	DFF_NULLIFY_CELL			  	: Fl(22),	// Erase other terrain in the footprint of this DF.
 	DFF_EVACUATE_CREATURES	: Fl(23),	// Creatures in the DF area get moved outside of it
 	DFF_EVACUATE_ITEMS			: Fl(24),	// Creatures in the DF area get moved outside of it
 
@@ -218,8 +218,8 @@ async function spawn(feat, ctx) {
 				tileEvent.evacuateItems(map, spawnMap);
 		}
 
-		if (feat.flags & Flags.DFF_CLEAR_CELL) { // first, clear other tiles (not base/ground)
-				tileEvent.clearCells(map, spawnMap);
+		if (feat.flags & Flags.DFF_NULLIFY_CELL) { // first, clear other tiles (not base/ground)
+				tileEvent.nullifyCells(map, spawnMap);
 		}
 
 		if (tile || itemKind || feat.fn) {
@@ -240,7 +240,7 @@ async function spawn(feat, ctx) {
       //     await aggravateMonsters(feat.effectRadius, x, y, /* Color. */gray);
       // }
       // if (refreshCell && feat.flashColor && feat.effectRadius) {
-      //     await colorFlash(feat.flashColor, 0, (IN_FIELD_OF_VIEW | CLAIRVOYANT_VISIBLE), 4, feat.effectRadius, x, y);
+      //     await colorFlash(feat.flashColor, 0, (IN_FOV | CLAIRVOYANT_VISIBLE), 4, feat.effectRadius, x, y);
       // }
       // if (refreshCell && feat.lightFlare) {
       //     createFlare(x, y, feat.lightFlare);
@@ -518,6 +518,7 @@ async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
 					spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
 
 					cell.setTile(tile);
+          map.redrawCell(cell);
 					if (feat.volume && cell.gas) {
 					    cell.volume += (feat.volume || 0);
 					}
@@ -538,6 +539,7 @@ async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
 						}
 						const item = make.item(itemKind);
 						map.addItem(i, j, item);
+            map.redrawCell(cell);
 						// cell.mechFlags |= CellMechFlags.EVENT_FIRED_THIS_TURN;
 						accomplishedSomething = true;
 						tileEvent.debug('- item', i, j, 'item=', itemKind.id);
@@ -548,6 +550,7 @@ async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
 			if (feat.fn) {
 				if (await feat.fn(i, j, ctx)) {
 					spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
+          map.redrawCell(cell);
 					// cell.mechFlags |= CellMechFlags.EVENT_FIRED_THIS_TURN;
 					accomplishedSomething = true;
 				}
@@ -586,14 +589,14 @@ tileEvent.spawnTiles = spawnTiles;
 
 
 
-function clearCells(map, spawnMap) {
+function nullifyCells(map, spawnMap) {
 	spawnMap.forEach( (v, i, j) => {
 		if (!v) return;
-		map.clearCellTiles(i, j, false);	// skip gas
+		map.nullifyCellTiles(i, j, false);	// skip gas
 	});
 }
 
-tileEvent.clearCells = clearCells;
+tileEvent.nullifyCells = nullifyCells;
 
 
 function evacuateCreatures(map, blockingMap) {

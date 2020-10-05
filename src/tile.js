@@ -174,6 +174,8 @@ export class Tile {
     return (this.mechFlags & flag) > 0;
   }
 
+  flavorText() { return this.text || this.desc; }
+
 }
 
 types.Tile = Tile;
