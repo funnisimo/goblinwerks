@@ -22,7 +22,8 @@
     "dev": "rollup -c -w",
     "test": "jest",
     "pretest": "npm run build",
-    "test-debug": "npm run build && node --inspect-brk node_modules/.bin/jest --runInBand"
+    "test-debug": "npm run build && node --inspect-brk node_modules/.bin/jest --runInBand",
+    "coverage": "jest --coverage=true"
   },
   "files": [
     "dist"
@@ -32,6 +33,6 @@
       "jest-extended",
       "./test/matchers.js"
     ],
-    "coverageDirectory": "coverage"
+    "coverageDirectory": "./coverage"
   }
 }

@@ -8906,18 +8906,18 @@
                 let currentY = Math.floor(this.startY + deltaX * yx + deltaY * yy);
                 let outerSlope = (deltaX - 0.5) / (deltaY + 0.5);
                 let innerSlope = (deltaX + 0.5) / (deltaY - 0.5);
-                let minSlope = ((deltaX) / (deltaY + 0.5));
-                let maxSlope = ((deltaX + 0.5) / (deltaY));
+                let maxSlope = ((deltaX) / (deltaY + 0.5));
+                let minSlope = ((deltaX + 0.5) / (deltaY));
 
                 if (!this.hasXY(currentX, currentY)) {
                   continue;
                 }
 
-                // fov.debug('- test %d,%d ... start=%d, min=%d, max=%d, end=%d, dx=%d, dy=%d', currentX, currentY, startSlope.toFixed(2), minSlope.toFixed(2), maxSlope.toFixed(2), endSlope.toFixed(2), deltaX, deltaY);
+                // fov.debug('- test %d,%d ... start=%d, min=%d, max=%d, end=%d, dx=%d, dy=%d', currentX, currentY, startSlope.toFixed(2), maxSlope.toFixed(2), minSlope.toFixed(2), endSlope.toFixed(2), deltaX, deltaY);
 
-                if (startSlope < maxSlope) {
+                if (startSlope < minSlope) {
                     continue;
-                } else if (endSlope > minSlope) {
+                } else if (endSlope > maxSlope) {
                     break;
                 }
 
