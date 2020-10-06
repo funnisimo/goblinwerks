@@ -79,10 +79,11 @@ describe('GW.dungeon', () => {
     let locs = [38, 28];
     let roomCount = 4;
 
-    locs = GW.dungeon.digRoom({ digger: 'ROOM', locs, tries: 20, tile: 1 });
+    debugger;
+    locs = GW.dungeon.digRoom({ digger: 'ROOM', locs, tries: 20, tile: 'FLOOR' });
 
     for(let i = 0; i < roomCount; ++i) {
-  		locs = GW.dungeon.digRoom({ digger: 'ROOM', tries: 20, tile: 1 });
+  		locs = GW.dungeon.digRoom({ digger: 'ROOM', tries: 20, tile: 'FLOOR' });
   		if (!locs) {
         fail('Failed to dig map on room #' + (i + 1));
   		}
@@ -91,14 +92,14 @@ describe('GW.dungeon', () => {
     // map.dump();
 
     expect(locs).toEqual([[36, 1], [35,10], [27,7], [-1,-1]]);
-    expect(tileAt(38, 28)).toEqual(2);  // starting door
+    expect(tileAt(38, 28)).toEqual('DOOR');  // starting door
 
-    map.cells.forRect(35, 22, 17, 6, (c, i, j) => expect(tileAt(i, j)).toEqual(1));
+    map.cells.forRect(35, 22, 17, 6, (c, i, j) => expect(tileAt(i, j)).toEqual('FLOOR'));
 
-    expect(tileAt(52, 22)).toEqual(2);
-    expect(tileAt(47, 21)).toEqual(2);
-    expect(tileAt(45, 11)).toEqual(2);
-    expect(tileAt(44, 6)).toEqual(2);
+    expect(tileAt(52, 22)).toEqual('DOOR');
+    expect(tileAt(47, 21)).toEqual('DOOR');
+    expect(tileAt(45, 11)).toEqual('DOOR');
+    expect(tileAt(44, 6)).toEqual('DOOR');
 
   });
 
@@ -110,7 +111,7 @@ describe('GW.dungeon', () => {
     let roomCount = 5;
 
     for(let i = 0; i < roomCount; ++i) {
-  		locs = GW.dungeon.digRoom({ digger: 'ROOM', locs, tries: 20, tile: 1 });
+  		locs = GW.dungeon.digRoom({ digger: 'ROOM', locs, tries: 20, tile: 'FLOOR' });
   		if (!locs) {
         fail('Failed to dig map on room #' + (i + 1));
   		}
@@ -119,14 +120,14 @@ describe('GW.dungeon', () => {
     // map.dump();
 
     expect(locs).toEqual([[2,7], [9,13], [1,12], [-1,-1]]);
-    expect(tileAt(38, 28)).toEqual(2);  // starting door
+    expect(tileAt(38, 28)).toEqual('DOOR');
 
-    map.cells.forRect(35, 22, 17, 6, (c, i, j) => expect(tileAt(i, j)).toEqual(1));
+    map.cells.forRect(35, 22, 17, 6, (c, i, j) => expect(tileAt(i, j)).toEqual('FLOOR'));
 
-    expect(tileAt(39, 21)).toEqual(2);
-    expect(tileAt(40, 11)).toEqual(2);
-    expect(tileAt(32, 8)).toEqual(2);
-    expect(tileAt(13, 10)).toEqual(2);
+    expect(tileAt(39, 21)).toEqual('DOOR');
+    expect(tileAt(40, 11)).toEqual('DOOR');
+    expect(tileAt(32, 8)).toEqual('DOOR');
+    expect(tileAt(13, 10)).toEqual('DOOR');
 
   });
 
@@ -138,7 +139,7 @@ describe('GW.dungeon', () => {
     let roomCount = 15;
 
     for(let i = 0; i < roomCount; ++i) {
-  		const ok = GW.dungeon.digRoom({ digger: 'ROOM', locs, tile: 1, width: 14, height: 10 });
+  		const ok = GW.dungeon.digRoom({ digger: 'ROOM', locs, tile: 'FLOOR', width: 14, height: 10 });
   		if (!ok) {
         fail('Failed to dig map on room #' + (i + 1));
   		}
@@ -154,8 +155,8 @@ describe('GW.dungeon', () => {
 
     // map.dump();
 
-    expect(tileAt(23, 4)).toEqual(2); // added door
-    expect(tileAt(21, 21)).toEqual(2); // added door
+    expect(tileAt(23, 4)).toEqual('DOOR'); // added door
+    expect(tileAt(21, 21)).toEqual('DOOR'); // added door
 
   });
 
@@ -163,7 +164,8 @@ describe('GW.dungeon', () => {
   test('can add a lake and bridges', () => {
     GW.dungeon.start(map);
 
-    map.fill(1, 0);
+    map.fill('FLOOR');
+
     GW.dungeon.digLake();
     GW.dungeon.digLake();
 
@@ -171,8 +173,8 @@ describe('GW.dungeon', () => {
 
     // map.dump();
 
-    expect(tileAt(60, 18)).toEqual(7);  // LAKE
-    expect(surfaceAt(54, 18)).toEqual(3);  // BRIDGE
+    expect(tileAt(60, 18)).toEqual('LAKE');
+    expect(surfaceAt(54, 18)).toEqual('BRIDGE');
 
   });
 
@@ -184,7 +186,7 @@ describe('GW.dungeon', () => {
 
   	let roomCount = 0;
 
-  	map.cells.forRect(2, 2, 76, 26, (c) => c.setTile(1));
+  	map.cells.forRect(2, 2, 76, 26, (c) => c.setTile('FLOOR'));
   	let lakeCount = GW.random.number(5);
   	for(let i = 0; i < lakeCount; ++i) {
   		GW.dungeon.digLake();
@@ -197,8 +199,8 @@ describe('GW.dungeon', () => {
 
     // map.dump();
 
-    expect(tileAt(60, 15)).toEqual(7);  // LAKE
-    expect(surfaceAt(76, 15)).toEqual(3);  // BRIDGE
+    expect(tileAt(60, 15)).toEqual('LAKE');
+    expect(surfaceAt(76, 15)).toEqual('BRIDGE');
 
   });
 
@@ -285,7 +287,6 @@ describe('GW.dungeon', () => {
 
   	if (!GW.dungeon.addStairs({ up: startingXY })) {
   		console.error('Failed to place stairs.');
-  		return drawMap(++attempt);
   	}
 
   	GW.dungeon.finish();

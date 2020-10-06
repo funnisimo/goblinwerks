@@ -21,22 +21,22 @@ describe('Map', () => {
     GW.cosmetic.seed(12345);
 
     const map = GW.make.map(10, 10);
-    expect(GW.tiles[1]).toBeDefined();
+    expect(GW.tiles.FLOOR).toBeDefined();
 
-    map.setTile(2, 2, 1);
+    map.setTile(2, 2, 'FLOOR');
 
     const sprite = GW.make.sprite();
     GW.map.getCellAppearance(map, 2, 2, sprite);
-    expect(sprite.ch).toEqual(GW.tiles[1].sprite.ch);
-    expect(GW.color.diff(sprite.bg, GW.tiles[1].sprite.bg)).toBeLessThan(5);
-    expect(GW.color.diff(sprite.fg, GW.tiles[1].sprite.fg)).toBeLessThan(40);
+    expect(sprite.ch).toEqual(GW.tiles.FLOOR.sprite.ch);
+    expect(GW.color.diff(sprite.bg, GW.tiles.FLOOR.sprite.bg)).toBeLessThan(5);
+    expect(GW.color.diff(sprite.fg, GW.tiles.FLOOR.sprite.fg)).toBeLessThan(40);
 
     map.setTile(2, 2, 'DOOR');  // can use tile name too (slower)
 
     GW.map.getCellAppearance(map, 2, 2, sprite);
-    expect(sprite.ch).toEqual(GW.tiles[2].sprite.ch);
-    expect(GW.color.diff(sprite.bg, GW.tiles[2].sprite.bg)).toBeLessThan(5);
-    expect(GW.color.diff(sprite.fg, GW.tiles[2].sprite.fg)).toBeLessThan(5);
+    expect(sprite.ch).toEqual(GW.tiles.DOOR.sprite.ch);
+    expect(GW.color.diff(sprite.bg, GW.tiles.DOOR.sprite.bg)).toBeLessThan(5);
+    expect(GW.color.diff(sprite.fg, GW.tiles.DOOR.sprite.fg)).toBeLessThan(5);
 
   });
 

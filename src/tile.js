@@ -4,7 +4,7 @@ import { game as GAME } from './game.js';
 import { types, def, make, data as DATA, flag as FLAG, utils as UTILS } from './gw.js';
 
 export var tile = {};
-export var tiles = [];
+export var tiles = {};
 
 export const Layer = new types.Enum('GROUND', 'LIQUID', 'SURFACE', 'GAS', 'ITEM', 'ACTOR', 'PLAYER', 'FX', 'UI');
 
@@ -206,8 +206,8 @@ export function installTile(name, ...args) {
     tile = make.tile(...args);
   }
   tile.name = name;
-  tile.id = tiles.length;
-  tiles.push(tile);
+  tile.id = name;
+  tiles[name] = tile;
   return tile.id;
 }
 
@@ -217,7 +217,8 @@ tile.install = installTile;
 const NOTHING = def.NOTHING = 0;
 installTile(NOTHING,       '\u2205', 'black', 'black', 0, 0, 'T_OBSTRUCTS_PASSABILITY', "an eerie nothingness", "");
 installTile('FLOOR',       '\u00b7', [30,30,30,20], [2,2,10,0,2,2,0], 10, 0, 0, 'the floor');	// FLOOR
-installTile('DOOR',        '+', [100,40,40], [30,60,60], 30, 0, 'T_IS_DOOR, T_OBSTRUCTS_ITEMS, T_OBSTRUCTS_TILE_EFFECTS', 'a door');	// DOOR
+installTile('DOOR',        '+', [100,40,40], [30,60,60], 30, 0, 'T_IS_DOOR, T_OBSTRUCTS_ITEMS, T_OBSTRUCTS_TILE_EFFECTS, T_OBSTRUCTS_VISION', 'a door', '', { enter: { tile: 'OPEN_DOOR' }});	// DOOR
+installTile('OPEN_DOOR',   "'", [100,40,40], [30,60,60], 30, 0, 'T_IS_DOOR, T_OBSTRUCTS_TILE_EFFECTS', 'an open door', '', { exit: { tile: 'DOOR' }});	// OPEN_DOOR
 installTile('BRIDGE',      '=', [100,40,40], null, 40, Layer.SURFACE, 'T_BRIDGE', 'a bridge');	// BRIDGE (LAYER=SURFACE)
 installTile('UP_STAIRS',   '<', [100,40,40], [100,60,20], 200, 0, 'T_UP_STAIRS, T_STAIR_BLOCKERS', 'an upward staircase');	// UP
 installTile('DOWN_STAIRS', '>', [100,40,40], [100,60,20], 200, 0, 'T_DOWN_STAIRS, T_STAIR_BLOCKERS', 'a downward staircase');	// DOWN
@@ -225,7 +226,7 @@ installTile('WALL',        '#', [7,7,7,0,3,3,3],  [40,40,40,10,10,0,5], 100, 0, 
 installTile('LAKE',        '~', [5,8,20,10,0,4,15,1], [10,15,41,6,5,5,5,1], 50, 0, 'T_DEEP_WATER', 'deep water');	// LAKE
 
 export function withName(name) {
-  return tiles.find( (t) => t.name == name );
+  return tiles[name] || tiles[NOTHING];
 }
 
 tile.withName = withName;

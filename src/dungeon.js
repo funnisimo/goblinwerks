@@ -15,14 +15,13 @@ export var dungeon = {};
 dungeon.debug = UTILS.NOOP;
 
 const NOTHING = 0;
-let FLOOR = 1;
-let DOOR = 2;
-let BRIDGE = 3;
-let UP_STAIRS = 4;
-let DOWN_STAIRS = 5;
-let WALL = 6;
-
-let LAKE = 7;
+let FLOOR = 'FLOOR';
+let DOOR = 'DOOR';
+let BRIDGE = 'BRIDGE';
+let UP_STAIRS = 'UP_STAIRS';
+let DOWN_STAIRS = 'DOWN_STAIRS';
+let WALL = 'WALL';
+let LAKE = 'LAKE';
 
 
 let SITE = null;
@@ -30,14 +29,6 @@ let LOCS;
 
 
 export function start(map, opts={}) {
-
-  FLOOR       = TILE.withName('FLOOR')       ? TILE.withName('FLOOR').id        : FLOOR;
-  DOOR        = TILE.withName('DOOR')        ? TILE.withName('DOOR').id         : DOOR;
-  BRIDGE      = TILE.withName('BRIDGE')      ? TILE.withName('BRIDGE').id       : BRIDGE;
-  UP_STAIRS   = TILE.withName('UP_STAIRS')   ? TILE.withName('UP_STAIRS').id    : UP_STAIRS;
-  DOWN_STAIRS = TILE.withName('DOWN_STAIRS') ? TILE.withName('DOWN_STAIRS').id  : DOWN_STAIRS;
-  WALL        = TILE.withName('WALL')        ? TILE.withName('WALL').id         : WALL;
-  LAKE        = TILE.withName('LAKE')        ? TILE.withName('LAKE').id         : LAKE;
 
   LOCS = UTILS.sequence(map.width * map.height);
   random.shuffle(LOCS);
@@ -101,18 +92,18 @@ export function digRoom(opts={}) {
 
     if (locs) {
       // try the doors first
-      result = attachRoomAtDoors(grid, doors, locs, opts.placeDoor);
+      result = attachRoomAtDoors(grid, doors, locs, opts);
       if (!result) {
         // otherwise try everywhere
         for(let i = 0; i < locs.length && !result; ++i) {
           if (locs[i][0] > 0) {
-            result = attachRoomAtXY(grid, locs[i], doors, opts.placeDoor);
+            result = attachRoomAtXY(grid, locs[i], doors, opts);
           }
         }
       }
     }
     else {
-      result = attachRoomToDungeon(grid, doors, opts.placeDoor);
+      result = attachRoomToDungeon(grid, doors, opts);
     }
 
   }
@@ -153,7 +144,7 @@ function roomAttachesAt(roomGrid, roomToSiteX, roomToSiteY) {
 
 
 
-function attachRoomToDungeon(roomGrid, doorSites, placeDoor) {
+function attachRoomToDungeon(roomGrid, doorSites, opts={}) {
 
   // Slide hyperspace across real space, in a random but predetermined order, until the room matches up with a wall.
   for (let i = 0; i < LOCS.length; i++) {
@@ -174,9 +165,9 @@ function attachRoomToDungeon(roomGrid, doorSites, placeDoor) {
           dungeon.debug("- attachRoom: ", x, y, oppDir);
 
           // Room fits here.
-          GRID.offsetZip(SITE.cells, roomGrid, offsetX, offsetY, (d, s, i, j) => d.setTile(s) );
-          if (placeDoor !== false) {
-            SITE.setTile(x, y, (typeof placeDoor === 'number') ? placeDoor : DOOR); // Door site.
+          GRID.offsetZip(SITE.cells, roomGrid, offsetX, offsetY, (d, s, i, j) => d.setTile(opts.tile || FLOOR) );
+          if (opts.door || (opts.placeDoor !== false)) {
+            SITE.setTile(x, y, opts.door || DOOR); // Door site.
           }
           doorSites[oppDir][0] = -1;
           doorSites[oppDir][1] = -1;
@@ -195,7 +186,7 @@ function attachRoomToDungeon(roomGrid, doorSites, placeDoor) {
 }
 
 
-function attachRoomAtXY(roomGrid, xy, doors, placeDoor) {
+function attachRoomAtXY(roomGrid, xy, doors, opts={}) {
 
   // Slide hyperspace across real space, in a random but predetermined order, until the room matches up with a wall.
   for (let i = 0; i < LOCS.length; i++) {
@@ -208,9 +199,9 @@ function attachRoomAtXY(roomGrid, xy, doors, placeDoor) {
       if (dir != def.NO_DIRECTION) {
         const d = DIRS[dir];
         if (roomAttachesAt(roomGrid, xy[0] - x, xy[1] - y)) {
-          GRID.offsetZip(SITE.cells, roomGrid, xy[0] - x, xy[1] - y, (d, s, i, j) => d.setTile(s) );
-          if (placeDoor !== false) {
-            SITE.setTile(xy[0], xy[1], (typeof placeDoor === 'number') ? placeDoor : DOOR); // Door site.
+          GRID.offsetZip(SITE.cells, roomGrid, xy[0] - x, xy[1] - y, (d, s, i, j) => d.setTile(opts.tile || FLOOR) );
+          if (opts.door || (opts.placeDoor !== false)) {
+            SITE.setTile(xy[0], xy[1], opts.door || DOOR); // Door site.
           }
           doors[dir][0] = -1;
           doors[dir][1] = -1;
@@ -230,7 +221,7 @@ function attachRoomAtXY(roomGrid, xy, doors, placeDoor) {
 
 
 
-function insertRoomAtXY(x, y, roomGrid, doorSites, placeDoor) {
+function insertRoomAtXY(x, y, roomGrid, doorSites, opts={}) {
 
   const dirs = UTILS.sequence(4);
   random.shuffle(dirs);
@@ -246,9 +237,9 @@ function insertRoomAtXY(x, y, roomGrid, doorSites, placeDoor) {
       // Room fits here.
       const offX = x - doorSites[oppDir][0];
       const offY = y - doorSites[oppDir][1];
-      GRID.offsetZip(SITE.cells, roomGrid, offX, offY, (d, s, i, j) => d.setTile(s) );
-      if (placeDoor !== false) {
-        SITE.setTile(x, y, (typeof placeDoor === 'number') ? placeDoor : DOOR); // Door site.
+      GRID.offsetZip(SITE.cells, roomGrid, offX, offY, (d, s, i, j) => d.setTile(opts.tile || FLOOR) );
+      if (opts.door || (opts.placeDoor !== false)) {
+        SITE.setTile(x, y, opts.door || DOOR); // Door site.
       }
       const newDoors = doorSites.map( (site) => {
         const x0 = site[0] + offX;
@@ -263,7 +254,7 @@ function insertRoomAtXY(x, y, roomGrid, doorSites, placeDoor) {
 }
 
 
-function attachRoomAtDoors(roomGrid, roomDoors, siteDoors, placeDoor) {
+function attachRoomAtDoors(roomGrid, roomDoors, siteDoors, opts={}) {
 
   const doorIndexes = UTILS.sequence(siteDoors.length);
   random.shuffle(doorIndexes);
@@ -274,7 +265,7 @@ function attachRoomAtDoors(roomGrid, roomDoors, siteDoors, placeDoor) {
     const x = siteDoors[index][0];
     const y = siteDoors[index][1];
 
-    const doors = insertRoomAtXY(x, y, roomGrid, roomDoors, placeDoor);
+    const doors = insertRoomAtXY(x, y, roomGrid, roomDoors, opts);
     if (doors) return doors;
   }
 
@@ -649,7 +640,7 @@ function setupStairs(map, x, y, tile) {
 		const x0 = x + dir[0];
 		const y0 = y + dir[1];
 		const cell = map.cell(x0, y0);
-		if (cell.hasTile(1) && cell.isEmpty()) {
+		if (cell.hasTile(FLOOR) && cell.isEmpty()) {
 			const oppCell = map.cell(x - dir[0], y - dir[1]);
 			if (oppCell.isNull()) break;
 		}
@@ -668,7 +659,7 @@ function setupStairs(map, x, y, tile) {
 		const r = (i + 1) % 8;
 		if (i == dirIndex || l == dirIndex || r == dirIndex ) continue;
 		const d = def.clockDirs[i];
-		map.setTile(x + d[0], y + d[1], 6);
+		map.setTile(x + d[0], y + d[1], WALL);
 	}
 
 	dungeon.debug('setup stairs', x, y, tile);

@@ -95,7 +95,7 @@ export function digCavern(config, grid) {
   destY = Math.floor((grid.height - bounds.height) / 2);
 
   // ...and copy it to the master grid.
-  GRID.offsetZip(grid, blobGrid, destX - bounds.x, destY - bounds.y, config.tile);
+  GRID.offsetZip(grid, blobGrid, destX - bounds.x, destY - bounds.y, TILE);
   GRID.free(blobGrid);
   return config.id;
 }
@@ -160,8 +160,8 @@ export function digEntranceRoom(config, grid) {
   const roomY2 = grid.height - roomHeight2 - 2;
 
   grid.fill(0);
-  grid.fillRect(roomX, roomY, roomWidth, roomHeight, config.tile || TILE);
-  grid.fillRect(roomX2, roomY2, roomWidth2, roomHeight2, config.tile || TILE);
+  grid.fillRect(roomX, roomY, roomWidth, roomHeight, TILE);
+  grid.fillRect(roomX2, roomY2, roomWidth2, roomHeight2, TILE);
   return config.id;
 }
 
@@ -185,8 +185,8 @@ export function digCrossRoom(config, grid) {
 
   grid.fill(0);
 
-  grid.fillRect(roomX - 5, roomY + 5, roomWidth, roomHeight, config.tile || TILE);
-  grid.fillRect(roomX2 - 5, roomY2 + 5, roomWidth2, roomHeight2, config.tile || TILE);
+  grid.fillRect(roomX - 5, roomY + 5, roomWidth, roomHeight, TILE);
+  grid.fillRect(roomX2 - 5, roomY2 + 5, roomWidth2, roomHeight2, TILE);
   return config.id;
 }
 
@@ -210,8 +210,8 @@ export function digSymmetricalCrossRoom(config, grid) {
   }
 
   grid.fill(0);
-  grid.fillRect(Math.floor((grid.width - majorWidth)/2), Math.floor((grid.height - minorHeight)/2), majorWidth, minorHeight, config.tile || TILE);
-  grid.fillRect(Math.floor((grid.width - minorWidth)/2), Math.floor((grid.height - majorHeight)/2), minorWidth, majorHeight, config.tile || TILE);
+  grid.fillRect(Math.floor((grid.width - majorWidth)/2), Math.floor((grid.height - minorHeight)/2), majorWidth, minorHeight, TILE);
+  grid.fillRect(Math.floor((grid.width - minorWidth)/2), Math.floor((grid.height - majorHeight)/2), minorWidth, majorHeight, TILE);
   return config.id;
 }
 
@@ -226,7 +226,7 @@ export function digRectangularRoom(config, grid) {
   const height = Math.floor( config.height * random.range(config.minPct, 100) / 100);  // [2,4]
 
   grid.fill(0);
-  grid.fillRect(Math.floor((grid.width - width) / 2), Math.floor((grid.height - height) / 2), width, height, config.tile || TILE);
+  grid.fillRect(Math.floor((grid.width - width) / 2), Math.floor((grid.height - height) / 2), width, height, TILE);
   return config.id;
 }
 
@@ -241,7 +241,7 @@ export function digCircularRoom(config, grid) {
 
   grid.fill(0);
   if (radius > 1) {
-    grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, config.tile || TILE);
+    grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, TILE);
   }
 
   return config.id;
@@ -257,7 +257,7 @@ export function digBrogueDonut(config, grid) {
   const radius = Math.floor( Math.min(config.width, config.height) * random.range(75, 100) / 100);  // [5,10]
 
   grid.fill(0);
-  grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, config.tile || TILE);
+  grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, TILE);
 
   if (radius > config.ringMinWidth + config.holeMinSize
       && random.chance(config.holeChance))
@@ -298,7 +298,7 @@ export function digChunkyRoom(config, grid) {
           if (y - 2 < minY) continue;
           if (y + 2 > maxY) continue;
 
-          grid.fillCircle(x, y, 2, config.tile || TILE);
+          grid.fillCircle(x, y, 2, TILE);
           i++;
 
 //            hiliteGrid(grid, /* Color. */green, 50);

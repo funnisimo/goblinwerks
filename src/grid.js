@@ -633,7 +633,7 @@ export function floodFill(grid, x, y, matchValue, fillValue) {
 		newX = x + DIRS[dir][0];
 		newY = y + DIRS[dir][1];
 		if (!grid.hasXY(newX, newY)) {
-			break;
+			continue;
 		}
 		if (matchFn(grid[newX][newY], newX, newY)) { // If the neighbor is an unmarked region cell,
 			numberOfCells += floodFill(grid, newX, newY, matchFn, fillFn); // then recurse.

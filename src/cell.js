@@ -249,6 +249,10 @@ class Cell {
   }
 
   hasTile(id) {
+    if (typeof id === 'string') {
+      const tile = TILE.withName(id);
+      id = tile.id;
+    }
     return this.layers.includes(id);
   }
 

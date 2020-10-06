@@ -2583,7 +2583,7 @@ function floodFill(grid, x, y, matchValue, fillValue) {
 		newX = x + DIRS[dir][0];
 		newY = y + DIRS[dir][1];
 		if (!grid.hasXY(newX, newY)) {
-			break;
+			continue;
 		}
 		if (matchFn(grid[newX][newY], newX, newY)) { // If the neighbor is an unmarked region cell,
 			numberOfCells += floodFill(grid, newX, newY, matchFn, fillFn); // then recurse.
@@ -4119,7 +4119,7 @@ function digCavern(config, grid) {
   destY = Math.floor((grid.height - bounds.height) / 2);
 
   // ...and copy it to the master grid.
-  GRID.offsetZip(grid, blobGrid, destX - bounds.x, destY - bounds.y, config.tile);
+  GRID.offsetZip(grid, blobGrid, destX - bounds.x, destY - bounds.y, TILE);
   GRID.free(blobGrid);
   return config.id;
 }
@@ -4184,8 +4184,8 @@ function digEntranceRoom(config, grid) {
   const roomY2 = grid.height - roomHeight2 - 2;
 
   grid.fill(0);
-  grid.fillRect(roomX, roomY, roomWidth, roomHeight, config.tile || TILE);
-  grid.fillRect(roomX2, roomY2, roomWidth2, roomHeight2, config.tile || TILE);
+  grid.fillRect(roomX, roomY, roomWidth, roomHeight, TILE);
+  grid.fillRect(roomX2, roomY2, roomWidth2, roomHeight2, TILE);
   return config.id;
 }
 
@@ -4209,8 +4209,8 @@ function digCrossRoom(config, grid) {
 
   grid.fill(0);
 
-  grid.fillRect(roomX - 5, roomY + 5, roomWidth, roomHeight, config.tile || TILE);
-  grid.fillRect(roomX2 - 5, roomY2 + 5, roomWidth2, roomHeight2, config.tile || TILE);
+  grid.fillRect(roomX - 5, roomY + 5, roomWidth, roomHeight, TILE);
+  grid.fillRect(roomX2 - 5, roomY2 + 5, roomWidth2, roomHeight2, TILE);
   return config.id;
 }
 
@@ -4234,8 +4234,8 @@ function digSymmetricalCrossRoom(config, grid) {
   }
 
   grid.fill(0);
-  grid.fillRect(Math.floor((grid.width - majorWidth)/2), Math.floor((grid.height - minorHeight)/2), majorWidth, minorHeight, config.tile || TILE);
-  grid.fillRect(Math.floor((grid.width - minorWidth)/2), Math.floor((grid.height - majorHeight)/2), minorWidth, majorHeight, config.tile || TILE);
+  grid.fillRect(Math.floor((grid.width - majorWidth)/2), Math.floor((grid.height - minorHeight)/2), majorWidth, minorHeight, TILE);
+  grid.fillRect(Math.floor((grid.width - minorWidth)/2), Math.floor((grid.height - majorHeight)/2), minorWidth, majorHeight, TILE);
   return config.id;
 }
 
@@ -4250,7 +4250,7 @@ function digRectangularRoom(config, grid) {
   const height = Math.floor( config.height * random.range(config.minPct, 100) / 100);  // [2,4]
 
   grid.fill(0);
-  grid.fillRect(Math.floor((grid.width - width) / 2), Math.floor((grid.height - height) / 2), width, height, config.tile || TILE);
+  grid.fillRect(Math.floor((grid.width - width) / 2), Math.floor((grid.height - height) / 2), width, height, TILE);
   return config.id;
 }
 
@@ -4265,7 +4265,7 @@ function digCircularRoom(config, grid) {
 
   grid.fill(0);
   if (radius > 1) {
-    grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, config.tile || TILE);
+    grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, TILE);
   }
 
   return config.id;
@@ -4281,7 +4281,7 @@ function digBrogueDonut(config, grid) {
   const radius = Math.floor( Math.min(config.width, config.height) * random.range(75, 100) / 100);  // [5,10]
 
   grid.fill(0);
-  grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, config.tile || TILE);
+  grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, TILE);
 
   if (radius > config.ringMinWidth + config.holeMinSize
       && random.chance(config.holeChance))
@@ -4322,7 +4322,7 @@ function digChunkyRoom(config, grid) {
           if (y - 2 < minY) continue;
           if (y + 2 > maxY) continue;
 
-          grid.fillCircle(x, y, 2, config.tile || TILE);
+          grid.fillCircle(x, y, 2, TILE);
           i++;
 
 //            hiliteGrid(grid, /* Color. */green, 50);
@@ -5303,6 +5303,10 @@ class Cell {
   }
 
   hasTile(id) {
+    if (typeof id === 'string') {
+      const tile$1 = tile.withName(id);
+      id = tile$1.id;
+    }
     return this.layers.includes(id);
   }
 
@@ -6340,7 +6344,7 @@ async function useStairs(x, y) {
 game.useStairs = useStairs;
 
 var tile = {};
-var tiles = [];
+var tiles = {};
 
 const Layer = new types.Enum('GROUND', 'LIQUID', 'SURFACE', 'GAS', 'ITEM', 'ACTOR', 'PLAYER', 'FX', 'UI');
 
@@ -6542,8 +6546,8 @@ function installTile(name, ...args) {
     tile = make.tile(...args);
   }
   tile.name = name;
-  tile.id = tiles.length;
-  tiles.push(tile);
+  tile.id = name;
+  tiles[name] = tile;
   return tile.id;
 }
 
@@ -6553,7 +6557,8 @@ tile.install = installTile;
 const NOTHING = def.NOTHING = 0;
 installTile(NOTHING,       '\u2205', 'black', 'black', 0, 0, 'T_OBSTRUCTS_PASSABILITY', "an eerie nothingness", "");
 installTile('FLOOR',       '\u00b7', [30,30,30,20], [2,2,10,0,2,2,0], 10, 0, 0, 'the floor');	// FLOOR
-installTile('DOOR',        '+', [100,40,40], [30,60,60], 30, 0, 'T_IS_DOOR, T_OBSTRUCTS_ITEMS, T_OBSTRUCTS_TILE_EFFECTS', 'a door');	// DOOR
+installTile('DOOR',        '+', [100,40,40], [30,60,60], 30, 0, 'T_IS_DOOR, T_OBSTRUCTS_ITEMS, T_OBSTRUCTS_TILE_EFFECTS, T_OBSTRUCTS_VISION', 'a door', '', { enter: { tile: 'OPEN_DOOR' }});	// DOOR
+installTile('OPEN_DOOR',   "'", [100,40,40], [30,60,60], 30, 0, 'T_IS_DOOR, T_OBSTRUCTS_TILE_EFFECTS', 'an open door', '', { exit: { tile: 'DOOR' }});	// OPEN_DOOR
 installTile('BRIDGE',      '=', [100,40,40], null, 40, Layer.SURFACE, 'T_BRIDGE', 'a bridge');	// BRIDGE (LAYER=SURFACE)
 installTile('UP_STAIRS',   '<', [100,40,40], [100,60,20], 200, 0, 'T_UP_STAIRS, T_STAIR_BLOCKERS', 'an upward staircase');	// UP
 installTile('DOWN_STAIRS', '>', [100,40,40], [100,60,20], 200, 0, 'T_DOWN_STAIRS, T_STAIR_BLOCKERS', 'a downward staircase');	// DOWN
@@ -6561,7 +6566,7 @@ installTile('WALL',        '#', [7,7,7,0,3,3,3],  [40,40,40,10,10,0,5], 100, 0, 
 installTile('LAKE',        '~', [5,8,20,10,0,4,15,1], [10,15,41,6,5,5,5,1], 50, 0, 'T_DEEP_WATER', 'deep water');	// LAKE
 
 function withName(name) {
-  return tiles.find( (t) => t.name == name );
+  return tiles[name] || tiles[NOTHING];
 }
 
 tile.withName = withName;
@@ -7590,14 +7595,13 @@ var dungeon = {};
 dungeon.debug = utils$1.NOOP;
 
 const NOTHING$1 = 0;
-let FLOOR = 1;
-let DOOR = 2;
-let BRIDGE = 3;
-let UP_STAIRS = 4;
-let DOWN_STAIRS = 5;
-let WALL = 6;
-
-let LAKE = 7;
+let FLOOR = 'FLOOR';
+let DOOR = 'DOOR';
+let BRIDGE = 'BRIDGE';
+let UP_STAIRS = 'UP_STAIRS';
+let DOWN_STAIRS = 'DOWN_STAIRS';
+let WALL = 'WALL';
+let LAKE = 'LAKE';
 
 
 let SITE = null;
@@ -7605,14 +7609,6 @@ let LOCS;
 
 
 function start(map, opts={}) {
-
-  FLOOR       = tile.withName('FLOOR')       ? tile.withName('FLOOR').id        : FLOOR;
-  DOOR        = tile.withName('DOOR')        ? tile.withName('DOOR').id         : DOOR;
-  BRIDGE      = tile.withName('BRIDGE')      ? tile.withName('BRIDGE').id       : BRIDGE;
-  UP_STAIRS   = tile.withName('UP_STAIRS')   ? tile.withName('UP_STAIRS').id    : UP_STAIRS;
-  DOWN_STAIRS = tile.withName('DOWN_STAIRS') ? tile.withName('DOWN_STAIRS').id  : DOWN_STAIRS;
-  WALL        = tile.withName('WALL')        ? tile.withName('WALL').id         : WALL;
-  LAKE        = tile.withName('LAKE')        ? tile.withName('LAKE').id         : LAKE;
 
   LOCS = utils$1.sequence(map.width * map.height);
   random.shuffle(LOCS);
@@ -7676,18 +7672,18 @@ function digRoom(opts={}) {
 
     if (locs) {
       // try the doors first
-      result = attachRoomAtDoors(grid, doors, locs, opts.placeDoor);
+      result = attachRoomAtDoors(grid, doors, locs, opts);
       if (!result) {
         // otherwise try everywhere
         for(let i = 0; i < locs.length && !result; ++i) {
           if (locs[i][0] > 0) {
-            result = attachRoomAtXY(grid, locs[i], doors, opts.placeDoor);
+            result = attachRoomAtXY(grid, locs[i], doors, opts);
           }
         }
       }
     }
     else {
-      result = attachRoomToDungeon(grid, doors, opts.placeDoor);
+      result = attachRoomToDungeon(grid, doors, opts);
     }
 
   }
@@ -7728,7 +7724,7 @@ function roomAttachesAt(roomGrid, roomToSiteX, roomToSiteY) {
 
 
 
-function attachRoomToDungeon(roomGrid, doorSites, placeDoor) {
+function attachRoomToDungeon(roomGrid, doorSites, opts={}) {
 
   // Slide hyperspace across real space, in a random but predetermined order, until the room matches up with a wall.
   for (let i = 0; i < LOCS.length; i++) {
@@ -7749,9 +7745,9 @@ function attachRoomToDungeon(roomGrid, doorSites, placeDoor) {
           dungeon.debug("- attachRoom: ", x, y, oppDir);
 
           // Room fits here.
-          GRID.offsetZip(SITE.cells, roomGrid, offsetX, offsetY, (d, s, i, j) => d.setTile(s) );
-          if (placeDoor !== false) {
-            SITE.setTile(x, y, (typeof placeDoor === 'number') ? placeDoor : DOOR); // Door site.
+          GRID.offsetZip(SITE.cells, roomGrid, offsetX, offsetY, (d, s, i, j) => d.setTile(opts.tile || FLOOR) );
+          if (opts.door || (opts.placeDoor !== false)) {
+            SITE.setTile(x, y, opts.door || DOOR); // Door site.
           }
           doorSites[oppDir][0] = -1;
           doorSites[oppDir][1] = -1;
@@ -7770,7 +7766,7 @@ function attachRoomToDungeon(roomGrid, doorSites, placeDoor) {
 }
 
 
-function attachRoomAtXY(roomGrid, xy, doors, placeDoor) {
+function attachRoomAtXY(roomGrid, xy, doors, opts={}) {
 
   // Slide hyperspace across real space, in a random but predetermined order, until the room matches up with a wall.
   for (let i = 0; i < LOCS.length; i++) {
@@ -7783,9 +7779,9 @@ function attachRoomAtXY(roomGrid, xy, doors, placeDoor) {
       if (dir != def.NO_DIRECTION) {
         const d = DIRS$3[dir];
         if (roomAttachesAt(roomGrid, xy[0] - x, xy[1] - y)) {
-          GRID.offsetZip(SITE.cells, roomGrid, xy[0] - x, xy[1] - y, (d, s, i, j) => d.setTile(s) );
-          if (placeDoor !== false) {
-            SITE.setTile(xy[0], xy[1], (typeof placeDoor === 'number') ? placeDoor : DOOR); // Door site.
+          GRID.offsetZip(SITE.cells, roomGrid, xy[0] - x, xy[1] - y, (d, s, i, j) => d.setTile(opts.tile || FLOOR) );
+          if (opts.door || (opts.placeDoor !== false)) {
+            SITE.setTile(xy[0], xy[1], opts.door || DOOR); // Door site.
           }
           doors[dir][0] = -1;
           doors[dir][1] = -1;
@@ -7805,7 +7801,7 @@ function attachRoomAtXY(roomGrid, xy, doors, placeDoor) {
 
 
 
-function insertRoomAtXY(x, y, roomGrid, doorSites, placeDoor) {
+function insertRoomAtXY(x, y, roomGrid, doorSites, opts={}) {
 
   const dirs = utils$1.sequence(4);
   random.shuffle(dirs);
@@ -7821,9 +7817,9 @@ function insertRoomAtXY(x, y, roomGrid, doorSites, placeDoor) {
       // Room fits here.
       const offX = x - doorSites[oppDir][0];
       const offY = y - doorSites[oppDir][1];
-      GRID.offsetZip(SITE.cells, roomGrid, offX, offY, (d, s, i, j) => d.setTile(s) );
-      if (placeDoor !== false) {
-        SITE.setTile(x, y, (typeof placeDoor === 'number') ? placeDoor : DOOR); // Door site.
+      GRID.offsetZip(SITE.cells, roomGrid, offX, offY, (d, s, i, j) => d.setTile(opts.tile || FLOOR) );
+      if (opts.door || (opts.placeDoor !== false)) {
+        SITE.setTile(x, y, opts.door || DOOR); // Door site.
       }
       const newDoors = doorSites.map( (site) => {
         const x0 = site[0] + offX;
@@ -7838,7 +7834,7 @@ function insertRoomAtXY(x, y, roomGrid, doorSites, placeDoor) {
 }
 
 
-function attachRoomAtDoors(roomGrid, roomDoors, siteDoors, placeDoor) {
+function attachRoomAtDoors(roomGrid, roomDoors, siteDoors, opts={}) {
 
   const doorIndexes = utils$1.sequence(siteDoors.length);
   random.shuffle(doorIndexes);
@@ -7849,7 +7845,7 @@ function attachRoomAtDoors(roomGrid, roomDoors, siteDoors, placeDoor) {
     const x = siteDoors[index][0];
     const y = siteDoors[index][1];
 
-    const doors = insertRoomAtXY(x, y, roomGrid, roomDoors, placeDoor);
+    const doors = insertRoomAtXY(x, y, roomGrid, roomDoors, opts);
     if (doors) return doors;
   }
 
@@ -8222,7 +8218,7 @@ function setupStairs(map, x, y, tile) {
 		const x0 = x + dir[0];
 		const y0 = y + dir[1];
 		const cell = map.cell(x0, y0);
-		if (cell.hasTile(1) && cell.isEmpty()) {
+		if (cell.hasTile(FLOOR) && cell.isEmpty()) {
 			const oppCell = map.cell(x - dir[0], y - dir[1]);
 			if (oppCell.isNull()) break;
 		}
@@ -8241,7 +8237,7 @@ function setupStairs(map, x, y, tile) {
 		const r = (i + 1) % 8;
 		if (i == dirIndex || l == dirIndex || r == dirIndex ) continue;
 		const d = def.clockDirs[i];
-		map.setTile(x + d[0], y + d[1], 6);
+		map.setTile(x + d[0], y + d[1], WALL);
 	}
 
 	dungeon.debug('setup stairs', x, y, tile);
