@@ -9,6 +9,7 @@ import { types, make, def, config as CONFIG, data as DATA, flag as FLAG, utils a
 
 export var cell = {};
 
+cell.debug = UTILS.NOOP;
 
 COLOR.install('cursorColor', 25, 100, 150);
 CONFIG.cursorPathIntensity = 50;
@@ -494,6 +495,7 @@ class Cell {
         }
 
         ctx.tile = tile;
+        cell.debug('- fireEvent @%d,%d - %s', ctx.x, ctx.y, name);
         fired = await TILE_EVENT.spawn(ev, ctx) || fired;
       }
     }

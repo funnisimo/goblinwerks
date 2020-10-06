@@ -4474,12 +4474,14 @@ const Flags = flag.install('tileEvent', {
 	DFF_EMIT_EVENT								: Fl$1(10), // Will emit the event when activated
 	DFF_NO_REDRAW_CELL						: Fl$1(11),
 	DFF_ABORT_IF_BLOCKS_MAP				: Fl$1(12),
+  DFF_BLOCKED_BY_ITEMS          : Fl$1(13), // Do not fire this event in a cell that has an item.
+  DFF_BLOCKED_BY_ACTORS         : Fl$1(13), // Do not fire this event in a cell that has an item.
 
-	DFF_ALWAYS_FIRE								: Fl$1(14),	// Fire even if the cell is marked as having fired this turn
-	DFF_NO_MARK_FIRED							: Fl$1(15),	// Do not mark this cell as having fired an event
+	DFF_ALWAYS_FIRE								: Fl$1(15),	// Fire even if the cell is marked as having fired this turn
+	DFF_NO_MARK_FIRED							: Fl$1(16),	// Do not mark this cell as having fired an event
 	// MUST_REPLACE_LAYER
 	// NEEDS_EMPTY_LAYER
-	DFF_PROTECTED									: Fl$1(18),
+	DFF_PROTECTED									: Fl$1(19),
 
 	DFF_SPREAD_CIRCLE							: Fl$1(20),	// Spread in a circle around the spot (using FOV), radius calculated using spread+decrement
 	DFF_SPREAD_LINE								: Fl$1(21),	// Spread in a line in one random direction
@@ -4491,6 +4493,8 @@ const Flags = flag.install('tileEvent', {
 	DFF_BUILD_IN_WALLS			: Fl$1(25),
 	DFF_MUST_TOUCH_WALLS		: Fl$1(26),
 	DFF_NO_TOUCH_WALLS			: Fl$1(27),
+
+  DFF_ONLY_IF_EMPTY       : 'DFF_BLOCKED_BY_ITEMS, DFF_BLOCKED_BY_ACTORS',
 
 });
 
@@ -4618,16 +4622,7 @@ async function spawn(feat, ctx) {
 	}
 
   if (feat.tile) {
-		if (typeof feat.tile === 'string') {
-			tile$1 = tile.withName(feat.tile);
-			if (tile$1) {
-				feat.tile = tile$1.id;
-			}
-		}
-		else {
-			tile$1 = tiles[feat.tile];
-		}
-
+		tile$1 = tiles[feat.tile];
 		if (!tile$1) {
 			utils$1.ERROR('Unknown tile: ' + feat.tile);
 		}
@@ -4766,6 +4761,8 @@ async function spawn(feat, ctx) {
 		}
 	}
 
+  tileEvent.debug('- spawn complete : @%d,%d, ok=%s, feat=%s', ctx.x, ctx.y, succeeded, feat.id);
+
 	GRID.free(spawnMap);
 	return succeeded;
 }
@@ -4802,7 +4799,7 @@ function cellIsOk(feat, x, y, ctx) {
 
 	if (ctx.bounds && !ctx.bounds.containsXY(x, y)) return false;
 	if (feat.matchTile && !cell.hasTile(feat.matchTile)) return false;
-	if (cell.hasTileFlag(Flags$2.T_OBSTRUCTS_TILE_EFFECTS) && !feat.matchTile) return false;
+	if (cell.hasTileFlag(Flags$2.T_OBSTRUCTS_TILE_EFFECTS) && !feat.matchTile && (ctx.x != x || ctx.y != y)) return false;
 
 	return true;
 }
@@ -4942,7 +4939,9 @@ async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
 			if (tile) {
 				if ( (cell.layers[tile.layer] !== tile.id)  														// If the new cell does not already contains the fill terrain,
 					&& (superpriority || cell.tile(tile.layer).priority < tile.priority)  // If the terrain in the layer to be overwritten has a higher priority number (unless superpriority),
-					&& (!cell.obstructsLayer(tile.layer)) 																// If we will be painting into the surface layer when that cell forbids it,
+					&& (!cell.obstructsLayer(tile.layer))															    // If we will be painting into the surface layer when that cell forbids it,
+          && ((!cell.item) || !(feat.flags & Flags.DFF_BLOCKED_BY_ITEMS))
+          && ((!cell.actor) || !(feat.flags & Flags.DFF_BLOCKED_BY_ACTORS))
 					&& (!blockedByOtherLayers || cell.highestPriorityTile().priority < tile.priority))  // if the fill won't violate the priority of the most important terrain in this cell:
 				{
 					spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
@@ -5061,6 +5060,7 @@ tileEvent.evacuateItems = evacuateItems;
 
 var cell = {};
 
+cell.debug = utils$1.NOOP;
 
 color.install('cursorColor', 25, 100, 150);
 config.cursorPathIntensity = 50;
@@ -5546,6 +5546,7 @@ class Cell {
         }
 
         ctx.tile = tile;
+        cell.debug('- fireEvent @%d,%d - %s', ctx.x, ctx.y, name);
         fired = await tileEvent.spawn(ev, ctx) || fired;
       }
     }
@@ -6526,6 +6527,8 @@ function makeTile(ch, fg, bg, priority, layer, allFlags, text, desc, opts={}) {
   // TODO - tile.events.discover = opts.discover
   if (opts.playerEnter) { tile.events.playerEnter = make.tileEvent(opts.playerEnter); }
   if (opts.enter) { tile.events.enter = make.tileEvent(opts.enter); }
+  if (opts.exit) { tile.events.exit = make.tileEvent(opts.exit); }
+  if (opts.playerExit) { tile.events.playerExit = make.tileEvent(opts.playerExit); }
   if (opts.tick) {
     const tick = tile.events.tick = make.tileEvent(opts.tick);
     tick.chance = tick.chance || 100;
@@ -6555,8 +6558,8 @@ tile.install = installTile;
 const NOTHING = def.NOTHING = 0;
 installTile(NOTHING,       '\u2205', 'black', 'black', 0, 0, 'T_OBSTRUCTS_PASSABILITY', "an eerie nothingness", "");
 installTile('FLOOR',       '\u00b7', [30,30,30,20], [2,2,10,0,2,2,0], 10, 0, 0, 'the floor');	// FLOOR
-installTile('DOOR',        '+', [100,40,40], [30,60,60], 30, 0, 'T_IS_DOOR, T_OBSTRUCTS_ITEMS, T_OBSTRUCTS_TILE_EFFECTS, T_OBSTRUCTS_VISION', 'a door', '', { enter: { tile: 'OPEN_DOOR' }});	// DOOR
-installTile('OPEN_DOOR',   "'", [100,40,40], [30,60,60], 30, 0, 'T_IS_DOOR, T_OBSTRUCTS_TILE_EFFECTS', 'an open door', '', { exit: { tile: 'DOOR' }});	// OPEN_DOOR
+installTile('DOOR',        '+', [100,40,40], [30,60,60], 30, 0, 'T_IS_DOOR, T_OBSTRUCTS_TILE_EFFECTS, T_OBSTRUCTS_ITEMS, T_OBSTRUCTS_VISION', 'a door', '', { enter: { tile: 'OPEN_DOOR' }});	// DOOR
+installTile('OPEN_DOOR',   "'", [100,40,40], [30,60,60], 40, 0, 'T_IS_DOOR, T_OBSTRUCTS_TILE_EFFECTS', 'an open door', '', { tick: { tile: 'DOOR', flags: 'DFF_SUPERPRIORITY, DFF_ONLY_IF_EMPTY' }});	// OPEN_DOOR
 installTile('BRIDGE',      '=', [100,40,40], null, 40, Layer.SURFACE, 'T_BRIDGE', 'a bridge');	// BRIDGE (LAYER=SURFACE)
 installTile('UP_STAIRS',   '<', [100,40,40], [100,60,20], 200, 0, 'T_UP_STAIRS, T_STAIR_BLOCKERS', 'an upward staircase');	// UP
 installTile('DOWN_STAIRS', '>', [100,40,40], [100,60,20], 200, 0, 'T_DOWN_STAIRS, T_STAIR_BLOCKERS', 'a downward staircase');	// DOWN
@@ -8941,6 +8944,8 @@ class FOV {
 
 types.FOV = FOV;
 
+commands.debug = utils$1.NOOP;
+
 async function moveDir(e) {
   const actor = e.actor || data.player;
   const dir = e.dir;
@@ -8951,7 +8956,10 @@ async function moveDir(e) {
 
   const ctx = { actor, map, x: newX, y: newY, cell };
 
+  commands.debug('moveDir');
+
   if (!map.hasXY(newX, newY)) {
+    commands.debug('move blocked - invalid xy: %d,%d', newX, newY);
     message.moveBlocked(ctx);
     // TURN ENDED (1/2 turn)?
     return false;
@@ -9002,6 +9010,12 @@ async function moveDir(e) {
       return false;
     }
   }
+  else if (cell.hasTileFlag(Flags$2.T_HAS_STAIRS)) {
+    if (actor.grabbed) {
+      message.add('You cannot use stairs while holding %s.', actor.grabbed.flavorText());
+      return false;
+    }
+  }
 
   if (actor.grabbed && !isPush) {
     const dirToItem = utils$1.dirFromTo(actor, actor.grabbed);
@@ -9020,6 +9034,7 @@ async function moveDir(e) {
     }
     const destCell = map.cell(destXY[0], destXY[1]);
     if (destCell.item || destCell.hasTileFlag(Flags$2.T_OBSTRUCTS_ITEMS)) {
+      commands.debug('move blocked - item obstructed: %d,%d', destXY[0], destXY[1]);
       message.moveBlocked(ctx);
       return false;
     }
@@ -9045,7 +9060,7 @@ async function moveDir(e) {
   }
 
   // PROMOTES ON ENTER, PLAYER ENTER, KEY(?)
-  let fired;
+  let fired = false;
   if (data.player === actor) {
     fired = await cell.fireEvent('playerEnter', ctx);
   }
@@ -9057,6 +9072,8 @@ async function moveDir(e) {
     console.log('Use stairs!');
     await game.useStairs(newX, newY);
   }
+
+  commands.debug('moveComplete');
 
   ui.requestUpdate();
   actor.endTurn();

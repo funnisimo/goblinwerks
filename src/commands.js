@@ -6,6 +6,7 @@ import { game as GAME } from './game.js';
 import { data as DATA, def, commands, ui as UI, message as MSG, utils as UTILS, fx as FX } from './gw.js';
 
 
+commands.debug = UTILS.NOOP;
 
 async function moveDir(e) {
   const actor = e.actor || DATA.player;
@@ -17,7 +18,10 @@ async function moveDir(e) {
 
   const ctx = { actor, map, x: newX, y: newY, cell };
 
+  commands.debug('moveDir');
+
   if (!map.hasXY(newX, newY)) {
+    commands.debug('move blocked - invalid xy: %d,%d', newX, newY);
     MSG.moveBlocked(ctx);
     // TURN ENDED (1/2 turn)?
     return false;
@@ -68,6 +72,12 @@ async function moveDir(e) {
       return false;
     }
   }
+  else if (cell.hasTileFlag(TileFlags.T_HAS_STAIRS)) {
+    if (actor.grabbed) {
+      MSG.add('You cannot use stairs while holding %s.', actor.grabbed.flavorText());
+      return false;
+    }
+  }
 
   if (actor.grabbed && !isPush) {
     const dirToItem = UTILS.dirFromTo(actor, actor.grabbed);
@@ -86,6 +96,7 @@ async function moveDir(e) {
     }
     const destCell = map.cell(destXY[0], destXY[1]);
     if (destCell.item || destCell.hasTileFlag(TileFlags.T_OBSTRUCTS_ITEMS)) {
+      commands.debug('move blocked - item obstructed: %d,%d', destXY[0], destXY[1]);
       MSG.moveBlocked(ctx);
       return false;
     }
@@ -111,7 +122,7 @@ async function moveDir(e) {
   }
 
   // PROMOTES ON ENTER, PLAYER ENTER, KEY(?)
-  let fired;
+  let fired = false;
   if (DATA.player === actor) {
     fired = await cell.fireEvent('playerEnter', ctx);
   }
@@ -123,6 +134,8 @@ async function moveDir(e) {
     console.log('Use stairs!');
     await GAME.useStairs(newX, newY);
   }
+
+  commands.debug('moveComplete');
 
   UI.requestUpdate();
   actor.endTurn();

@@ -12,6 +12,9 @@ const PLAYER = GW.make.player({
 		speed: 120
 });
 
+GW.cell.debug = console.log;
+GW.tileEvent.debug = console.log;
+
 
 GW.digger.install('ROOM',     			GW.digger.rectangularRoom,  { width: 20, height: 10 });
 GW.digger.install('CROSS',         GW.digger.crossRoom,        { width: 12, height: 7 });

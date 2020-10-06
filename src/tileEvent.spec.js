@@ -46,16 +46,6 @@ describe('tileEvent', () => {
     GW.tileEvent.debug = GW.utils.NOOP;
   });
 
-  function countTile(map, tile) {
-    let count = 0;
-    map.forEach( (c) => {
-      if (c.hasTile(tile)) {
-        ++count;
-      }
-    });
-    return count;
-  }
-
 
   // COMPUTE SPAWN MAP
 
@@ -369,39 +359,39 @@ describe('tileEvent', () => {
     }
     map.setTile(10, 10, WAVE);
 
-    expect(countTile(map, 'BRIDGE')).toEqual(map.width);
+    expect(UTILS.countTile(map, 'BRIDGE')).toEqual(map.width);
 
     await map.tick();
     // map.dump();
     expect(map.hasTile(10, 10, ROUGH_WATER)).toBeTruthy();
-    expect(countTile(map, ROUGH_WATER)).toEqual(1);
-    expect(countTile(map, WAVE)).toEqual(4);
+    expect(UTILS.countTile(map, ROUGH_WATER)).toEqual(1);
+    expect(UTILS.countTile(map, WAVE)).toEqual(4);
 
-    expect(countTile(map, 'BRIDGE')).toEqual(map.width);
-
-    await map.tick();
-    // map.dump();
-    expect(map.hasTile(10, 10, LAKE)).toBeTruthy();
-    expect(countTile(map, ROUGH_WATER)).toEqual(4);
-    expect(countTile(map, WAVE)).toEqual(8);
-
-    expect(countTile(map, 'BRIDGE')).toEqual(map.width - 1);
+    expect(UTILS.countTile(map, 'BRIDGE')).toEqual(map.width);
 
     await map.tick();
     // map.dump();
     expect(map.hasTile(10, 10, LAKE)).toBeTruthy();
-    expect(countTile(map, ROUGH_WATER)).toEqual(8);
-    expect(countTile(map, WAVE)).toEqual(12);
+    expect(UTILS.countTile(map, ROUGH_WATER)).toEqual(4);
+    expect(UTILS.countTile(map, WAVE)).toEqual(8);
 
-    expect(countTile(map, 'BRIDGE')).toEqual(map.width - 3);
+    expect(UTILS.countTile(map, 'BRIDGE')).toEqual(map.width - 1);
 
     await map.tick();
     // map.dump();
     expect(map.hasTile(10, 10, LAKE)).toBeTruthy();
-    expect(countTile(map, ROUGH_WATER)).toEqual(12);
-    expect(countTile(map, WAVE)).toEqual(16);
+    expect(UTILS.countTile(map, ROUGH_WATER)).toEqual(8);
+    expect(UTILS.countTile(map, WAVE)).toEqual(12);
 
-    expect(countTile(map, 'BRIDGE')).toEqual(map.width - 5);
+    expect(UTILS.countTile(map, 'BRIDGE')).toEqual(map.width - 3);
+
+    await map.tick();
+    // map.dump();
+    expect(map.hasTile(10, 10, LAKE)).toBeTruthy();
+    expect(UTILS.countTile(map, ROUGH_WATER)).toEqual(12);
+    expect(UTILS.countTile(map, WAVE)).toEqual(16);
+
+    expect(UTILS.countTile(map, 'BRIDGE')).toEqual(map.width - 5);
 
     for(let i = 0; i < 5; ++i) {
       await map.tick();
@@ -413,7 +403,7 @@ describe('tileEvent', () => {
 
     expect(map.hasTile(19,10, ROUGH_WATER)).toBeTruthy();
 
-    // expect(countTile(map, WAVE)).toEqual(0);
+    // expect(UTILS.countTile(map, WAVE)).toEqual(0);
 
   });
 
@@ -426,8 +416,8 @@ describe('tileEvent', () => {
     await map.tick();
     // map.dump();
     expect(map.hasTile(10, 10, ROUGH_WATER)).toBeTruthy();
-    expect(countTile(map, ROUGH_WATER)).toEqual(1);
-    expect(countTile(map, WAVE)).toEqual(4);
+    expect(UTILS.countTile(map, ROUGH_WATER)).toEqual(1);
+    expect(UTILS.countTile(map, WAVE)).toEqual(4);
 
     // begin map.tick
     map.forEach( (c) => c.mechFlags &= ~(GW.flags.cellMech.EVENT_FIRED_THIS_TURN | GW.flags.cellMech.EVENT_PROTECTED));
@@ -445,15 +435,15 @@ describe('tileEvent', () => {
 
     // map.dump();
     expect(map.hasTile(10, 10, LAKE)).toBeTruthy();
-    expect(countTile(map, ROUGH_WATER)).toEqual(4);
-    expect(countTile(map, WAVE)).toEqual(8);
+    expect(UTILS.countTile(map, ROUGH_WATER)).toEqual(4);
+    expect(UTILS.countTile(map, WAVE)).toEqual(8);
 
 
     await map.tick();
     // map.dump();
     expect(map.hasTile(10, 10, LAKE)).toBeTruthy();
-    expect(countTile(map, ROUGH_WATER)).toEqual(8);
-    expect(countTile(map, WAVE)).toEqual(12);
+    expect(UTILS.countTile(map, ROUGH_WATER)).toEqual(8);
+    expect(UTILS.countTile(map, WAVE)).toEqual(12);
 
   });
 
