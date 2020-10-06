@@ -8,8 +8,8 @@ describe('FOV', () => {
 
     const map = GW.make.map(50, 50);
 
-    map.setTile(20, 25, 6); // wall
-    map.setTile(25, 20, 6);
+    map.setTile(20, 25, 'WALL');
+    map.setTile(25, 20, 'WALL');
 
     const grid = GW.grid.alloc(map.width, map.height);
 
@@ -43,7 +43,7 @@ describe('FOV', () => {
       pattern.forEach( (line, j) => {
         for(let i = 0; i < line.length; ++i) {
           const ch = line[i];
-          const tile = (ch == '#') ? 6 : 1;
+          const tile = (ch == '#' || ch == '+') ? 'WALL' : 'FLOOR';
           map.setTile(i, j, tile);
         }
       });
@@ -56,7 +56,7 @@ describe('FOV', () => {
         for(let x = 0; x < grid.width; ++x) {
           const v = grid[x][y];
           const cell = map.cell(x, y);
-          const ch = cell.actor ? '@' : (cell.ground == 1 ? '.' : cell.groundTile.sprite.ch);
+          const ch = cell.actor ? '@' : (cell.ground == 'FLOOR' ? '.' : cell.groundTile.sprite.ch);
           row += (v > 0) ? ch : (ch == '#' ? '+' : 's');
         }
         pattern.push(row);

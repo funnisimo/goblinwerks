@@ -199,11 +199,11 @@ GW.commands.showExplosionStar = showExplosionStar;
 
 async function toggleWall(e) {
 	const cell = MAP.cell(e.x, e.y);
-	if (cell.ground === 6) {
-		MAP.setTile(e.x, e.y, 1);
+	if (cell.groundTile.name === 'WALL') {
+		MAP.setTile(e.x, e.y, 'FLOOR');
 	}
 	else {
-		MAP.setTile(e.x, e.y, 6);
+		MAP.setTile(e.x, e.y, 'WALL');
 	}
   MAP.redrawCell(cell);
 	GW.ui.draw();
@@ -228,7 +228,7 @@ function makeMap() {
 	MAP.nullify();
 	GW.dungeon.start(MAP);
 
-	MAP.cells.forRect(2, 2, 76, 26, (c) => c.setTile(1));
+	MAP.cells.forRect(2, 2, 76, 26, (c) => c.setTile('FLOOR'));
 	// TODO - GW.dungeon.digRoom({ digger: 'HUGE_ROOM', center: true, placeDoor: false });
 
 	let lakeCount = GW.random.number(5);

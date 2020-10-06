@@ -156,8 +156,8 @@ function makeMap(id=1) {
 	MAP = GW.make.map(50, 30);
 	MAP.nullify();
 
-	MAP.fill(6);
-	MAP.cells.forRect(10, 0, 30, 30, (c) => c.setTile(1));
+	MAP.fill('WALL');
+	MAP.cells.forRect(10, 0, 30, 30, (c) => c.setTile('FLOOR'));
 	MAP.cells.forRect(10, 1, 30, 1, (c) => c.setTile(GOAL_TILE) );
 	GW.map.addText(MAP, 22, 1, 'FINISH', 'green');
 	MAP.cells.forRect(10, 28, 30, 1, (c) => c.setTile(START_TILE) );

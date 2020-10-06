@@ -8,13 +8,13 @@ describe('FX', () => {
 
     GW.cosmetic.seed(12345);
 
-    const m = GW.make.map(20, 20, { tile: 1, boundary: 6 });
+    const m = GW.make.map(20, 20, { tile: 'FLOOR', boundary: 'WALL' });
     const cell = m.cell(2, 2);
     expect(cell.sprites).toBeNull();
 
     const sprite = GW.make.sprite();
     GW.map.getCellAppearance(m, 2, 2, sprite);
-    expect(sprite.ch).toEqual(GW.tiles[1].sprite.ch);
+    expect(sprite.ch).toEqual(GW.tiles.FLOOR.sprite.ch);
     expect(GW.color.css(sprite.fg)).toEqual('#5c5c5c');
     expect(GW.color.css(sprite.bg)).toEqual('#05051a');
 
@@ -36,7 +36,7 @@ describe('FX', () => {
     expect(cell.sprites).toBeNull();
 
     GW.map.getCellAppearance(m, 2, 2, sprite);
-    expect(sprite.ch).toEqual(GW.tiles[1].sprite.ch);
+    expect(sprite.ch).toEqual(GW.tiles.FLOOR.sprite.ch);
     expect(GW.color.css(sprite.fg)).toEqual('#4f4f4f'); // cosmetic difference
     expect(GW.color.css(sprite.bg)).toEqual('#08051a'); // cosmetic difference
 

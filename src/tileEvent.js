@@ -29,12 +29,14 @@ export const Flags = FLAG.install('tileEvent', {
 	DFF_EMIT_EVENT								: Fl(10), // Will emit the event when activated
 	DFF_NO_REDRAW_CELL						: Fl(11),
 	DFF_ABORT_IF_BLOCKS_MAP				: Fl(12),
+  DFF_BLOCKED_BY_ITEMS          : Fl(13), // Do not fire this event in a cell that has an item.
+  DFF_BLOCKED_BY_ACTORS         : Fl(13), // Do not fire this event in a cell that has an item.
 
-	DFF_ALWAYS_FIRE								: Fl(14),	// Fire even if the cell is marked as having fired this turn
-	DFF_NO_MARK_FIRED							: Fl(15),	// Do not mark this cell as having fired an event
+	DFF_ALWAYS_FIRE								: Fl(15),	// Fire even if the cell is marked as having fired this turn
+	DFF_NO_MARK_FIRED							: Fl(16),	// Do not mark this cell as having fired an event
 	// MUST_REPLACE_LAYER
 	// NEEDS_EMPTY_LAYER
-	DFF_PROTECTED									: Fl(18),
+	DFF_PROTECTED									: Fl(19),
 
 	DFF_SPREAD_CIRCLE							: Fl(20),	// Spread in a circle around the spot (using FOV), radius calculated using spread+decrement
 	DFF_SPREAD_LINE								: Fl(21),	// Spread in a line in one random direction
@@ -46,6 +48,8 @@ export const Flags = FLAG.install('tileEvent', {
 	DFF_BUILD_IN_WALLS			: Fl(25),
 	DFF_MUST_TOUCH_WALLS		: Fl(26),
 	DFF_NO_TOUCH_WALLS			: Fl(27),
+
+  DFF_ONLY_IF_EMPTY       : 'DFF_BLOCKED_BY_ITEMS, DFF_BLOCKED_BY_ACTORS',
 
 });
 
@@ -174,16 +178,7 @@ async function spawn(feat, ctx) {
 	}
 
   if (feat.tile) {
-		if (typeof feat.tile === 'string') {
-			tile = TILE.withName(feat.tile);
-			if (tile) {
-				feat.tile = tile.id;
-			}
-		}
-		else {
-			tile = TILES[feat.tile];
-		}
-
+		tile = TILES[feat.tile];
 		if (!tile) {
 			UTILS.ERROR('Unknown tile: ' + feat.tile);
 		}
@@ -334,6 +329,8 @@ async function spawn(feat, ctx) {
 		}
 	}
 
+  tileEvent.debug('- spawn complete : @%d,%d, ok=%s, feat=%s', ctx.x, ctx.y, succeeded, feat.id);
+
 	GRID.free(spawnMap);
 	return succeeded;
 }
@@ -370,7 +367,7 @@ function cellIsOk(feat, x, y, ctx) {
 
 	if (ctx.bounds && !ctx.bounds.containsXY(x, y)) return false;
 	if (feat.matchTile && !cell.hasTile(feat.matchTile)) return false;
-	if (cell.hasTileFlag(TileFlags.T_OBSTRUCTS_TILE_EFFECTS) && !feat.matchTile) return false;
+	if (cell.hasTileFlag(TileFlags.T_OBSTRUCTS_TILE_EFFECTS) && !feat.matchTile && (ctx.x != x || ctx.y != y)) return false;
 
 	return true;
 }
@@ -512,7 +509,9 @@ async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
 			if (tile) {
 				if ( (cell.layers[tile.layer] !== tile.id)  														// If the new cell does not already contains the fill terrain,
 					&& (superpriority || cell.tile(tile.layer).priority < tile.priority)  // If the terrain in the layer to be overwritten has a higher priority number (unless superpriority),
-					&& (!cell.obstructsLayer(tile.layer)) 																// If we will be painting into the surface layer when that cell forbids it,
+					&& (!cell.obstructsLayer(tile.layer))															    // If we will be painting into the surface layer when that cell forbids it,
+          && ((!cell.item) || !(feat.flags & Flags.DFF_BLOCKED_BY_ITEMS))
+          && ((!cell.actor) || !(feat.flags & Flags.DFF_BLOCKED_BY_ACTORS))
 					&& (!blockedByOtherLayers || cell.highestPriorityTile().priority < tile.priority))  // if the fill won't violate the priority of the most important terrain in this cell:
 				{
 					spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built

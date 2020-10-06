@@ -22,8 +22,20 @@ function extractBufferText(buffer, x, y, width) {
   return text.trim();
 }
 
+function countTile(map, tile) {
+  let count = 0;
+  map.forEach( (c) => {
+    if (c.hasTile(tile)) {
+      ++count;
+    }
+  });
+  return count;
+}
+
+
 module.exports = {
   always,
   alwaysAsync,
   extractBufferText,
+  countTile,
 };

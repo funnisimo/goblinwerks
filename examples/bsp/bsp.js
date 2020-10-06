@@ -356,7 +356,7 @@ function digBspTree(map, tree, opts={}) {
 function isValidStairs(cell, x, y, map) {
 	// console.log('is valid stairs', cell, x, y);
 
-	if (!cell.hasTile(1)) return false;
+	if (!cell.hasTile('FLOOR')) return false;
 	if (!cell.isEmpty()) return false;
 
 	// must touch wall
@@ -368,7 +368,7 @@ function isValidStairs(cell, x, y, map) {
 	if (doors) return false;
 
 	// must have empty floor on one side (of 4 primary directions)
-	const exit = map.neighborCount(x, y, (c) => c.hasTile(1) && c.isEmpty(), true);
+	const exit = map.neighborCount(x, y, (c) => c.hasTile('FLOOR') && c.isEmpty(), true);
 	if (!exit) return false;
 
 	return true;

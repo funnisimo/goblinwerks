@@ -12,6 +12,9 @@ const PLAYER = GW.make.player({
 		speed: 120
 });
 
+GW.cell.debug = console.log;
+GW.tileEvent.debug = console.log;
+
 
 GW.digger.install('ROOM',     			GW.digger.rectangularRoom,  { width: 20, height: 10 });
 GW.digger.install('CROSS',         GW.digger.crossRoom,        { width: 12, height: 7 });
@@ -62,18 +65,6 @@ GW.digger.install('FIRST_ROOM',   		GW.digger.choiceRoom,
 
 let time = 0;
 
-function startTimer() {
-	time = performance.now();
-	return time;
-}
-
-function stopTimer(text) {
-	const now = performance.now();
-	diff = now - time;
-	console.log(text, diff);
-	return diff;
-}
-
 function designNewLevel(id=0, attempt=0) {
 	if (attempt > 20) {
 		console.error('Failed to build map!');
@@ -89,7 +80,6 @@ function designNewLevel(id=0, attempt=0) {
 	let loc = [startingXY[0], startingXY[1]];
 	let roomCount = 0;
 
-	const start = startTimer();
 	GW.dungeon.digRoom({ digger: 'FIRST_ROOM', loc, tries: 20, placeDoor: false });
 
 	let fails = 0;
@@ -123,8 +113,6 @@ function designNewLevel(id=0, attempt=0) {
 	}
 
 	GW.dungeon.finish();
-
-	stopTimer('DIG');
 
 	console.log('MAP SEED = ', seed);
 	return map;
