@@ -1,5 +1,5 @@
 
-const GW = require('../dist/gw.cjs');
+import * as GW from './index.js';
 
 const Fl = GW.flag.fl;
 

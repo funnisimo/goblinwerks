@@ -1,5 +1,6 @@
 
-import * as UTILS from './utils.js';
+import * as GW from './index.js';
+const UTILS = GW.utils;
 
 
 describe('GW.utils', () => {
