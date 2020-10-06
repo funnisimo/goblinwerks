@@ -106,7 +106,7 @@ describe('FOV', () => {
       fillMap(text);
       calcFov(text, captureDebug);
       const actual = toText();
-      expected = text.map( (line) => line.replace('@', '.') );
+      const expected = text.map( (line) => line.replace('@', '.') );
       check(expected, actual);
     }
 

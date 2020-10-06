@@ -1,6 +1,5 @@
 
-const GW = require('../dist/gw.cjs');
-const UTILS = GW.utils;
+import * as UTILS from './utils.js';
 
 
 describe('GW.utils', () => {
