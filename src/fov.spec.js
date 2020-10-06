@@ -1,5 +1,6 @@
 
-const GW = require('../dist/gw.cjs');
+// const GW = require('../dist/gw.cjs');
+import * as GW from './index.js';
 
 
 describe('FOV', () => {
@@ -106,7 +107,7 @@ describe('FOV', () => {
       fillMap(text);
       calcFov(text, captureDebug);
       const actual = toText();
-      expected = text.map( (line) => line.replace('@', '.') );
+      const expected = text.map( (line) => line.replace('@', '.') );
       check(expected, actual);
     }
 

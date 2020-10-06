@@ -1,6 +1,6 @@
 
-const GW = require('../dist/gw.cjs');
-const UTILS = require('../test/utils.js');
+import * as GW from './index.js';
+import * as UTILS from '../test/utils.js';
 
 
 describe('visibility', () => {
