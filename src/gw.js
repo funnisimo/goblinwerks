@@ -2,10 +2,11 @@
 
 export var def = {};
 export var types = {};
-export var debug = {};
 
 export var make = {};
 export var install = {};
+
+export var utils = {};
 
 export var ui = {};
 export var message = {};
@@ -15,10 +16,17 @@ export var flavor = {};
 export var fx = {};
 export var commands = {};
 
+export var itemKinds = {};
+export var item = {};
+
+export var flag = {};
+export var flags = {};
+
 export var config = {
   fx: {},
 };
 export var data = {};
+export var maps = {};
 
 def.dirs    = [[0,-1], [0,1],  [-1,0], [1,0],  [-1,-1], [1,1],   [-1,1], [1,-1]];
 def.oppDirs = [[0,1],  [0,-1], [1,0],  [-1,0], [1,1],   [-1,-1], [1,-1], [-1,1]];
@@ -33,5 +41,3 @@ def.LEFT_UP = 4;
 def.RIGHT_DOWN = 5;
 def.LEFT_DOWN = 6;
 def.RIGHT_UP = 7;
-
-debug.log = console.log;

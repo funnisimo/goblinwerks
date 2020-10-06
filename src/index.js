@@ -1,7 +1,7 @@
 
 import './bounds.js';
-export { utils } from './utils.js';
-export { flag, flags } from './flag.js';
+import './utils.js';
+import './flag.js';
 import './enum.js';
 export { random, cosmetic } from './random.js';
 export { color, colors } from './color.js';
@@ -25,9 +25,11 @@ export { player } from './player.js';
 export { fov } from './fov.js';
 import './commands.js';
 export { tileEvent, tileEvents } from './tileEvent.js';
+import './item.js';
 import './message.js';
 import './viewport.js';
 import './flavor.js';
 import './ui.js';
+export { visibility } from './visibility.js';
 
 export * from './gw.js';

@@ -49,6 +49,11 @@ function drawFlavor(buffer) {
 
 flavor.draw = drawFlavor;
 
+function clearFlavor() {
+  flavor.setText('');
+}
+
+flavor.clear = clearFlavor;
 
 
 function showFlavorFor(x, y) {
@@ -138,11 +143,11 @@ function showFlavorFor(x, y) {
       //       object = GW.item.describeItemBasedOnParameters(cell.rememberedItemCategory, cell.rememberedItemKind, cell.rememberedItemQuantity);
       //   }
 			// } else {
-				object = TILES[cell.memory.tile].description;
+				object = TILES[cell.memory.tile].flavorText();
 			// }
 			buf = TEXT.format("you remember seeing %s here.", object);
 		} else if (cell.flags & CellFlags.MAGIC_MAPPED) { // magic mapped
-			buf = TEXT.format("you expect %s to be here.", TILES[cell.memory.tile].description);
+			buf = TEXT.format("you expect %s to be here.", TILES[cell.memory.tile].flavorText());
 		}
 		flavor.setText(buf);
     return true;
@@ -150,11 +155,13 @@ function showFlavorFor(x, y) {
 
 	// if (monst) {
 	// 	return GW.actor.flavorText(monst);
-	// } else if (theItem) {
-	// 	return GW.item.flavorText(theItem);
-	// }
-
-	buf = TEXT.format("you %s %s.", (map.isVisible(x, y) ? "see" : "sense"), cell.tileText());
+	// } else
+  if (theItem) {
+    buf = TEXT.format("you %s %s.", (map.isVisible(x, y) ? "see" : "sense"), theItem.flavorText());
+	}
+  else {
+    buf = TEXT.format("you %s %s.", (map.isVisible(x, y) ? "see" : "sense"), cell.tileText());
+  }
   flavor.setText(buf);
 	return true;
 }

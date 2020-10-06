@@ -1,6 +1,5 @@
 
 
-import { utils as UTILS } from './utils.js';
 import { colors as COLORS } from './color.js';
 import { Flags as CellFlags } from './cell.js';
 import { Flags as MapFlags, map as MAP } from './map.js';
@@ -10,10 +9,14 @@ import { player as PLAYER } from './player.js';
 import { scheduler } from './scheduler.js';
 import { text as TEXT } from './text.js';
 import { sprite as SPRITE } from './sprite.js';
+import { Flags as TileFlags } from './tile.js';
+import { visibility as VISIBILITY } from './visibility.js';
 
-import { data as DATA, types, fx as FX, ui as UI, message as MSG } from './gw.js';
+import { viewport as VIEWPORT, data as DATA, maps as MAPS, types, fx as FX, ui as UI, message as MSG, utils as UTILS, make, config as CONFIG, flavor as FLAVOR } from './gw.js';
 
 export var game = {};
+
+game.debug = UTILS.NOOP;
 
 DATA.time = 0;
 DATA.running = false;
@@ -21,14 +24,33 @@ DATA.turnTime = 10;
 
 
 
-export function startGame(opts={}) {
-  if (!opts.map) UTILS.ERROR('map is required.');
+export async function startGame(opts={}) {
 
   DATA.time = 0;
   DATA.running = true;
   DATA.player = opts.player || null;
 
-  game.startMap(opts.map, opts.x, opts.y);
+  if (opts.width) {
+    CONFIG.width = opts.width;
+    CONFIG.height = opts.height;
+  }
+
+  if (opts.buildMap) {
+    game.buildMap = opts.buildMap;
+  }
+
+  let map = opts.map;
+  if (typeof map === 'number' || !map) {
+    map = await game.getMap(map);
+  }
+
+  if (!map) UTILS.ERROR('No map!');
+
+  if (opts.fov) {
+    CONFIG.fov = true;
+  }
+
+  game.startMap(map, opts.start);
   game.queuePlayer();
 
   return game.loop();
@@ -37,7 +59,38 @@ export function startGame(opts={}) {
 game.start = startGame;
 
 
-export function startMap(map, playerX, playerY) {
+export function buildMap(id=0) {
+  let width = 80;
+  let height = 30;
+  if (CONFIG.width) {
+    width = CONFIG.width;
+    height = CONFIG.height;
+  }
+  else if (VIEWPORT.bounds) {
+    width = VIEWPORT.bounds.width;
+    height = VIEWPORT.bounds.height;
+  }
+  const map = make.map(width, height, { tile: 'FLOOR', boundary: 'WALL' });
+  map.id = id;
+  return map;
+}
+
+game.buildMap = buildMap;
+
+
+export async function getMap(id=0) {
+  let map = MAPS[id];
+  if (!map) {
+    map = await game.buildMap(id);
+    MAPS[id] = map;
+  }
+  return map;
+}
+
+game.getMap = getMap;
+
+
+export function startMap(map, loc='start') {
 
   scheduler.clear();
 
@@ -45,27 +98,44 @@ export function startMap(map, playerX, playerY) {
     DATA.map.removeActor(DATA.player);
   }
 
-  map.cells.forEach( (c) => c.redraw() );
-  map.flag |= MapFlags.MAP_CHANGED;
+  VISIBILITY.initMap(map);
   DATA.map = map;
 
-  // TODO - Add Map/Environment Updater
-
   if (DATA.player) {
-    let x = playerX || 0;
-    let y = playerY || 0;
-    if (x <= 0) {
-      const start = map.locations.start;
-      x = start[0];
-      y = start[1];
+    let startLoc;
+    if (!loc) {
+      if (DATA.player.x >= 0 && DATA.player.y >= 0) {
+        loc = [DATA.player.x, DATA.player.y];
+      }
+      else {
+        loc = 'start';
+      }
     }
-    if (x <= 0) {
-      x = DATA.player.x || Math.floor(map.width / 2);
-      y = DATA.player.y || Math.floor(map.height / 2);
+
+    if (Array.isArray(loc)) {
+      startLoc = loc;
     }
-    DATA.map.addActor(x, y, DATA.player);
+    else if (typeof loc === 'string') {
+      if (loc === 'player') {
+        startLoc = [DATA.player.x, DATA.player.y];
+      }
+      else {
+        startLoc = map.locations[loc];
+      }
+      if (!startLoc) {
+        startLoc = [Math.floor(map.width / 2), Math.floor(map.height / 2)];
+      }
+    }
+
+    startLoc = map.matchingXYNear(startLoc[0], startLoc[1], PLAYER.isValidStartLoc, { hallways: true });
+
+    DATA.map.addActor(startLoc[0], startLoc[1], DATA.player);
+
+    VISIBILITY.update(map, DATA.player.x, DATA.player.y);
   }
 
+  UI.blackOutDisplay();
+  map.redrawAll();
   UI.draw();
 
   if (map.config.tick) {
@@ -95,7 +165,7 @@ async function gameLoop() {
       }
       const turnTime = await fn();
       if (turnTime) {
-        console.log('- push actor: %d + %d = %d', scheduler.time, turnTime, scheduler.time + turnTime);
+        game.debug('- push actor: %d + %d = %d', scheduler.time, turnTime, scheduler.time + turnTime);
         scheduler.push(fn, turnTime);
       }
     }
@@ -137,7 +207,7 @@ game.cancelDelay = cancelDelay;
 
 export async function updateEnvironment() {
 
-  console.log('update environment');
+  game.debug('update environment');
 
   const map = DATA.map;
   if (!map) return 0;
@@ -153,10 +223,17 @@ game.updateEnvironment = updateEnvironment;
 
 SPRITE.install('hilite', COLORS.white);
 
-async function gameOver(...args) {
+async function gameOver(isWin, ...args) {
   const msg = TEXT.format(...args);
+
+  FLAVOR.clear();
   MSG.add(msg);
-  MSG.add(COLORS.red, 'GAME OVER');
+  if (isWin) {
+    MSG.add(COLORS.yellow, 'WINNER!');
+  }
+  else {
+    MSG.add(COLORS.red, 'GAME OVER');
+  }
   UI.updateNow();
   await FX.flashSprite(DATA.map, DATA.player.x, DATA.player.y, 'hilite', 500, 3);
   DATA.gameHasEnded = true;
@@ -165,3 +242,38 @@ async function gameOver(...args) {
 }
 
 game.gameOver = gameOver;
+
+async function useStairs(x, y) {
+  const player = DATA.player;
+  const map = DATA.map;
+  const cell = map.cell(x, y);
+  let start = [player.x, player.y];
+  let mapId = -1;
+  if (cell.hasTileFlag(TileFlags.T_UP_STAIRS)) {
+    start = 'down';
+    mapId = map.id + 1;
+    MSG.add('you ascend.');
+  }
+  else if (cell.hasTileFlag(TileFlags.T_DOWN_STAIRS)) {
+    start = 'up';
+    mapId = map.id - 1;
+    MSG.add('you descend.');
+  }
+  else if (cell.hasTileFlag(TileFlags.T_PORTAL)) {
+    start = cell.data.portalLocation;
+    mapId = cell.data.portalMap;
+  }
+  else {  // FALL
+    mapId = map.id - 1;
+  }
+
+  game.debug('use stairs : was on: %d [%d,%d], going to: %d %s', map.id, x, y, mapId, start);
+
+  const newMap = await game.getMap(mapId);
+
+  startMap(newMap, start);
+
+  return true;
+}
+
+game.useStairs = useStairs;

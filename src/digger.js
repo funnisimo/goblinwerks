@@ -1,12 +1,12 @@
 
-import { utils as UTILS } from './utils.js';
 import { grid as GRID } from './grid.js';
 import { random } from './random.js';
-import { debug, def } from './gw.js';
-
+import { make, def, utils as UTILS } from './gw.js';
 
 export var digger = {};
 export var diggers = {};
+
+digger.debug = UTILS.NOOP;
 
 const DIRS = def.dirs;
 
@@ -15,7 +15,7 @@ const TILE = 1;
 
 
 export function installDigger(id, fn, config) {
-  config = fn(config || {});	// call to have function bind itself to the config
+  config = fn(config || {});	// call to have function setup the config
   config.fn = fn;
   config.id = id;
   diggers[id] = config;
@@ -28,6 +28,8 @@ digger.install = installDigger;
 function checkDiggerConfig(config, opts) {
   config = config || {};
   opts = opts || {};
+
+  if (!config.width || !config.height) UTILS.ERROR('All diggers require config to include width and height.');
 
   Object.entries(opts).forEach( ([key,expect]) => {
     const have = config[key];
@@ -69,7 +71,7 @@ digger.checkConfig = checkDiggerConfig;
 
 
 export function digCavern(config, grid) {
-  config = digger.checkConfig(config, { width: [3,12], height: [4,8] });
+  config = digger.checkConfig(config, { width: 12, height: 8 });
   if (!grid) return config;
 
   let destX, destY;
@@ -80,10 +82,10 @@ export function digCavern(config, grid) {
 
   blobGrid = GRID.alloc(grid.width, grid.height, 0);
 
-  const minWidth  = config.width[0];
-  const maxWidth  = config.width[1];
-  const minHeight = config.height[0];
-  const maxHeight = config.height[1];
+  const minWidth  = Math.floor(0.5 * config.width); // 6
+  const maxWidth  = config.width;
+  const minHeight = Math.floor(0.5 * config.height);  // 4
+  const maxHeight = config.height;
 
   grid.fill(0);
   const bounds = GRID.fillBlob(blobGrid, 5, minWidth, minHeight, maxWidth, maxHeight, 55, "ffffffttt", "ffffttttt");
@@ -93,7 +95,7 @@ export function digCavern(config, grid) {
   destY = Math.floor((grid.height - bounds.height) / 2);
 
   // ...and copy it to the master grid.
-  GRID.offsetZip(grid, blobGrid, destX - bounds.x, destY - bounds.y, config.tile);
+  GRID.offsetZip(grid, blobGrid, destX - bounds.x, destY - bounds.y, TILE);
   GRID.free(blobGrid);
   return config.id;
 }
@@ -129,23 +131,27 @@ export function digChoiceRoom(config, grid) {
     id = random.lottery(config.choices);
   }
   const digger = diggers[id];
-  // debug.log('Choose room: ', id);
-  digger.fn(digger, grid);
+  let digConfig = digger;
+  if (config.opts) {
+    digConfig = Object.assign({}, digger, config.opts);
+  }
+  // digger.debug('Chose room: ', id);
+  digger.fn(digConfig, grid);
   return digger.id;
 }
 
 digger.choiceRoom = digChoiceRoom;
 
 
-// This is a special room that appears at the entrance to the dungeon on depth 1.
+// From BROGUE => This is a special room that appears at the entrance to the dungeon on depth 1.
 export function digEntranceRoom(config, grid) {
-  config = digger.checkConfig(config, { width: [8,20], height: [10,5] });
+  config = digger.checkConfig(config, { width: 20, height: 10 });
   if (!grid) return config;
 
-  const roomWidth = config.width[0];
-  const roomHeight = config.height[0];
-  const roomWidth2 = config.width[1];
-  const roomHeight2 = config.height[1];
+  const roomWidth = Math.floor(0.4 * config.width); // 8
+  const roomHeight = config.height;
+  const roomWidth2 = config.width;
+  const roomHeight2 = Math.floor(0.5 * config.height);  // 5
 
   // ALWAYS start at bottom+center of map
   const roomX = Math.floor(grid.width/2 - roomWidth/2 - 1);
@@ -154,8 +160,8 @@ export function digEntranceRoom(config, grid) {
   const roomY2 = grid.height - roomHeight2 - 2;
 
   grid.fill(0);
-  grid.fillRect(roomX, roomY, roomWidth, roomHeight, config.tile || TILE);
-  grid.fillRect(roomX2, roomY2, roomWidth2, roomHeight2, config.tile || TILE);
+  grid.fillRect(roomX, roomY, roomWidth, roomHeight, TILE);
+  grid.fillRect(roomX2, roomY2, roomWidth2, roomHeight2, TILE);
   return config.id;
 }
 
@@ -164,13 +170,13 @@ digger.entranceRoom = digEntranceRoom;
 
 
 export function digCrossRoom(config, grid) {
-  config = digger.checkConfig(config, { width: [3,12], height: [3,7], width2: [4,20], height2: [2,5] });
+  config = digger.checkConfig(config, { width: 12, height: 20 });
   if (!grid) return config;
 
-  const roomWidth = random.range(config.width[0], config.width[1]);
-  const roomWidth2 = random.range(config.width2[0], config.width2[1]);
-  const roomHeight = random.range(config.height[0], config.height[1]);
-  const roomHeight2 = random.range(config.height2[0], config.height2[1]);
+  const roomWidth = Math.max(2, Math.floor( config.width * random.range(15, 60) / 100)); // [3,12]
+  const roomWidth2 = Math.max(2, Math.floor( config.width * random.range(20, 100) / 100)); // [4,20]
+  const roomHeight = Math.max(2, Math.floor( config.height * random.range(50, 100) / 100));  // [3,7]
+  const roomHeight2 = Math.max(2, Math.floor( config.height * random.range(25, 75) / 100));  // [2,5]
 
   const roomX = random.range(Math.max(0, Math.floor(grid.width/2) - (roomWidth - 1)), Math.min(grid.width, Math.floor(grid.width/2)));
   const roomX2 = (roomX + Math.floor(roomWidth / 2) + random.range(0, 2) + random.range(0, 2) - 3) - Math.floor(roomWidth2 / 2);
@@ -179,8 +185,8 @@ export function digCrossRoom(config, grid) {
 
   grid.fill(0);
 
-  grid.fillRect(roomX - 5, roomY + 5, roomWidth, roomHeight, config.tile || TILE);
-  grid.fillRect(roomX2 - 5, roomY2 + 5, roomWidth2, roomHeight2, config.tile || TILE);
+  grid.fillRect(roomX - 5, roomY + 5, roomWidth, roomHeight, TILE);
+  grid.fillRect(roomX2 - 5, roomY2 + 5, roomWidth2, roomHeight2, TILE);
   return config.id;
 }
 
@@ -188,24 +194,24 @@ digger.crossRoom = digCrossRoom;
 
 
 export function digSymmetricalCrossRoom(config, grid) {
-  config = digger.checkConfig(config, { width: [4,8], height: [4,5], width2: [3,4], height2: [3,3] });
+  config = digger.checkConfig(config, { width: 8, height: 5 });
   if (!grid) return config;
 
-  let majorWidth = random.range(config.width[0], config.width[1]);
-  let majorHeight = random.range(config.height[0], config.height[1]);
+  let majorWidth = Math.floor( config.width * random.range(50, 100) / 100); // [4,8]
+  let majorHeight = Math.floor( config.height * random.range(75, 100) / 100); // [4,5]
 
-  let minorWidth = random.range(config.width2[0], config.width2[1]);
-  if (majorHeight % 2 == 0) {
+  let minorWidth = Math.max(2, Math.floor( config.width * random.range(25, 50) / 100));  // [2,4]
+  if (majorHeight % 2 == 0 && minorWidth > 2) {
       minorWidth -= 1;
   }
-  let minorHeight = random.range(config.height2[0], config.height2[1]);	// originally 2,3?
-  if (majorWidth % 2 == 0) {
+  let minorHeight = Math.max(2, Math.floor( config.height * random.range(25, 50) / 100));	// [2,3]?
+  if (majorWidth % 2 == 0 && minorHeight > 2) {
       minorHeight -= 1;
   }
 
   grid.fill(0);
-  grid.fillRect(Math.floor((grid.width - majorWidth)/2), Math.floor((grid.height - minorHeight)/2), majorWidth, minorHeight, config.tile || TILE);
-  grid.fillRect(Math.floor((grid.width - minorWidth)/2), Math.floor((grid.height - majorHeight)/2), minorWidth, majorHeight, config.tile || TILE);
+  grid.fillRect(Math.floor((grid.width - majorWidth)/2), Math.floor((grid.height - minorHeight)/2), majorWidth, minorHeight, TILE);
+  grid.fillRect(Math.floor((grid.width - minorWidth)/2), Math.floor((grid.height - majorHeight)/2), minorWidth, majorHeight, TILE);
   return config.id;
 }
 
@@ -213,14 +219,14 @@ digger.symmetricalCrossRoom = digSymmetricalCrossRoom;
 
 
 export function digRectangularRoom(config, grid) {
-  config = digger.checkConfig(config, { width: [3,6], height: [2,4] });
+  config = digger.checkConfig(config, { width: 6, height: 4, minPct: 50 });
   if (!grid) return config;
 
-  const width = random.range(config.width[0], config.width[1]);
-  const height = random.range(config.height[0], config.height[1]);
+  const width = Math.floor( config.width * random.range(config.minPct, 100) / 100);  // [3,6]
+  const height = Math.floor( config.height * random.range(config.minPct, 100) / 100);  // [2,4]
 
   grid.fill(0);
-  grid.fillRect(Math.floor((grid.width - width) / 2), Math.floor((grid.height - height) / 2), width, height, config.tile || TILE);
+  grid.fillRect(Math.floor((grid.width - width) / 2), Math.floor((grid.height - height) / 2), width, height, TILE);
   return config.id;
 }
 
@@ -228,13 +234,15 @@ digger.rectangularRoom = digRectangularRoom;
 
 
 export function digCircularRoom(config, grid) {
-  config = digger.checkConfig(config, { radius: [2,4] });
+  config = digger.checkConfig(config, { width: 6, height: 6 });
   if (!grid) return config;
 
-  const radius = random.range(config.radius[0], config.radius[1]);
+  const radius = Math.floor( (Math.min(config.width, config.height)-1) * random.range(75, 100) / 200);  // [3,4]
 
   grid.fill(0);
-  grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, config.tile || TILE);
+  if (radius > 1) {
+    grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, TILE);
+  }
 
   return config.id;
 }
@@ -242,41 +250,41 @@ export function digCircularRoom(config, grid) {
 digger.circularRoom = digCircularRoom;
 
 
-export function digBrogueCircularRoom(config, grid) {
-  config = digger.checkConfig(config, { radius: [2,4], radius2: [4,10], altChance: 5, ringMinWidth: 3, holeMinSize: 3, holeChance: 50 });
+export function digBrogueDonut(config, grid) {
+  config = digger.checkConfig(config, { width: 10, height: 10, altChance: 5, ringMinWidth: 3, holeMinSize: 3, holeChance: 50 });
   if (!grid) return config;
 
-  const params = random.percent(config.altChance || 5) ? config.radius2 : config.radius;
-  const radius = random.range(params[0], params[1]);
+  const radius = Math.floor( Math.min(config.width, config.height) * random.range(75, 100) / 100);  // [5,10]
 
   grid.fill(0);
-  grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, config.tile || TILE);
+  grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, TILE);
 
   if (radius > config.ringMinWidth + config.holeMinSize
-      && random.percent(config.holeChance))
+      && random.chance(config.holeChance))
   {
       grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), random.range(config.holeMinSize, radius - config.holeMinSize), 0);
   }
   return config.id;
 }
 
-digger.brogueCircularRoom = digBrogueCircularRoom;
+digger.brogueDonut = digBrogueDonut;
 
 
 export function digChunkyRoom(config, grid) {
-  config = digger.checkConfig(config, { count: [2,8] });
+  config = digger.checkConfig(config, { count: 8 });
   if (!grid) return config;
 
   let i, x, y;
   let minX, maxX, minY, maxY;
-  let chunkCount = random.range(config.count[0], config.count[1]);
+  let chunkCount = Math.floor( config.count * random.range(25, 100) / 100); // [2,8]
+
+  minX = Math.floor(grid.width/2) - Math.floor(config.width/2);
+  maxX = Math.floor(grid.width/2) + Math.floor(config.width/2);
+  minY = Math.floor(grid.height/2) - Math.floor(config.height/2);
+  maxY = Math.floor(grid.height/2) + Math.floor(config.height/2);
 
   grid.fill(0);
   grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), 2, 1);
-  minX = Math.floor(grid.width/2) - 3;
-  maxX = Math.floor(grid.width/2) + 3;
-  minY = Math.floor(grid.height/2) - 3;
-  maxY = Math.floor(grid.height/2) + 3;
 
   for (i=0; i<chunkCount;) {
       x = random.range(minX, maxX);
@@ -285,12 +293,13 @@ export function digChunkyRoom(config, grid) {
 //            colorOverDungeon(/* Color. */darkGray);
 //            hiliteGrid(grid, /* Color. */white, 100);
 
-          grid.fillCircle(x, y, 2, config.tile || TILE);
+          if (x - 2 < minX) continue;
+          if (x + 2 > maxX) continue;
+          if (y - 2 < minY) continue;
+          if (y + 2 > maxY) continue;
+
+          grid.fillCircle(x, y, 2, TILE);
           i++;
-          minX = Math.max(1, Math.min(x - 3, minX));
-          maxX = Math.min(grid.width - 2, Math.max(x + 3, maxX));
-          minY = Math.max(1, Math.min(y - 3, minY));
-          maxY = Math.min(grid.height - 2, Math.max(y + 3, maxY));
 
 //            hiliteGrid(grid, /* Color. */green, 50);
 //            temporaryMessage("Added a chunk:", true);
@@ -402,7 +411,7 @@ export function attachHallway(grid, doorSitesArray, opts) {
     }
     x = UTILS.clamp(x - DIRS[dir][0], 0, grid.width - 1);
     y = UTILS.clamp(y - DIRS[dir][1], 0, grid.height - 1); // Now (x, y) points at the last interior cell of the hallway.
-    allowObliqueHallwayExit = random.percent(15);
+    allowObliqueHallwayExit = random.chance(15);
     for (dir2 = 0; dir2 < 4; dir2++) {
         newX = x + DIRS[dir2][0];
         newY = y + DIRS[dir2][1];

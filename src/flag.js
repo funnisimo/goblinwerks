@@ -1,8 +1,6 @@
 
-import { types, def } from './gw.js';
+import { types, make, def, flag, flags } from './gw.js';
 
-export var flag = {};
-export var flags = {};
 
 ///////////////////////////////////
 // FLAG
@@ -38,7 +36,7 @@ function flagToText(flagObj, value) {
   return out.join(' | ');
 }
 
-function makeFlag(obj, ...args) {
+function toFlag(obj, ...args) {
   let result = 0;
   for(let index = 0; index < args.length; ++index) {
     let value = args[index];
@@ -75,13 +73,13 @@ function makeFlag(obj, ...args) {
 
 
 export class Flag {
-  constructor(name) {
+  constructor() {
   }
   toString(v) {
     return flagToText(this, v);
   }
   toFlag(...args) {
-    return makeFlag(this, ...args);
+    return toFlag(this, ...args);
   }
   install(obj) {
     Object.getOwnPropertyNames(this).forEach( (name) => {
@@ -92,9 +90,12 @@ export class Flag {
 
 types.Flag = Flag;
 
-export function installFlag(flagName, values) {
-  const flag = new Flag(flagName);
+export function makeFlag(values) {
+  const flag = new Flag();
   Object.entries(values).forEach( ([key, value]) => {
+    if (typeof value === 'string') {
+      value = value.split(/[,|]/).map( (t) => t.trim() );
+    }
     if (Array.isArray(value)) {
       value = value.reduce( (out, name) => {
         return out | flag[name];
@@ -102,7 +103,13 @@ export function installFlag(flagName, values) {
     }
     flag[key] = def[key] = value;
   });
+  return flag;
+}
 
+make.flag = makeFlag;
+
+export function installFlag(flagName, values) {
+  const flag = make.flag(values);
   flags[flagName] = flag;
   return flag;
 }

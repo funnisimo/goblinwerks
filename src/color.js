@@ -1,7 +1,6 @@
 
-import { utils as UTILS } from './utils.js';
 import { cosmetic } from './random.js';
-import { types, make } from './gw.js';
+import { types, make, utils as UTILS } from './gw.js';
 
 export var color = {};
 export var colors = {};

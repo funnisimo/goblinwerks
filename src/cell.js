@@ -1,16 +1,15 @@
 
-import { utils as UTILS } from './utils.js';
-import { flag as FLAG } from './flag.js';
 import { random } from './random.js';
 import { colors as COLORS, color as COLOR } from './color.js';
-import { tiles as TILES, Flags as TileFlags, MechFlags as TileMechFlags, withName, Layer as TileLayer } from './tile.js';
+import { tiles as TILES, tile as TILE, Flags as TileFlags, MechFlags as TileMechFlags, Layer as TileLayer } from './tile.js';
 import { tileEvent as TILE_EVENT } from './tileEvent.js';
 
-import { types, make, def, config as CONFIG, data as DATA } from './gw.js';
+import { types, make, def, config as CONFIG, data as DATA, flag as FLAG, utils as UTILS } from './gw.js';
 
 
 export var cell = {};
 
+cell.debug = UTILS.NOOP;
 
 COLOR.install('cursorColor', 25, 100, 150);
 CONFIG.cursorPathIntensity = 50;
@@ -31,7 +30,7 @@ export const Flags = FLAG.install('cell', {
   HAS_STAIRS					: Fl(8),
 
   NEEDS_REDRAW        : Fl(9),	// needs to be redrawn (maybe in path, etc...)
-  TILE_CHANGED				: Fl(10),	// one of the tiles changed
+  CELL_CHANGED				: Fl(10),	// one of the tiles or sprites (item, actor, fx) changed
 
   IS_IN_PATH					: Fl(12),	// the yellow trail leading to the cursor
   IS_CURSOR						: Fl(13),	// the current cursor
@@ -53,6 +52,7 @@ export const Flags = FLAG.install('cell', {
   MONSTER_DETECTED				: Fl(24),
   WAS_MONSTER_DETECTED		: Fl(25),
 
+  LIGHT_CHANGED           : Fl(27), // Light level changed this turn
   CELL_LIT                : Fl(28),
   IS_IN_SHADOW				    : Fl(29),	// so that a player gains an automatic stealth bonus
   CELL_DARK               : Fl(30),
@@ -62,6 +62,7 @@ export const Flags = FLAG.install('cell', {
 
   ANY_KIND_OF_VISIBLE			: ['VISIBLE', 'CLAIRVOYANT_VISIBLE', 'TELEPATHIC_VISIBLE'],
   HAS_ACTOR               : ['HAS_PLAYER', 'HAS_MONSTER'],
+  IS_WAS_ANY_KIND_OF_VISIBLE : ['VISIBLE', 'WAS_VISIBLE', 'CLAIRVOYANT_VISIBLE', 'WAS_CLAIRVOYANT_VISIBLE', 'TELEPATHIC_VISIBLE', 'WAS_TELEPATHIC_VISIBLE'],
 });
 
 cell.flags = Flags;
@@ -97,11 +98,11 @@ cell.mechFlags = MechFlags;
 class CellMemory {
   constructor() {
     this.sprite = make.sprite();
-    this.clear();
+    this.nullify();
   }
 
-  clear() {
-    this.sprite.clear();
+  nullify() {
+    this.sprite.nullify();
     this.itemKind = null;
     this.itemQuantity = 0;
     this.tile = null;
@@ -124,14 +125,14 @@ class Cell {
   constructor() {
     this.layers = [0,0,0,0];
     this.memory = new types.CellMemory();
-    this.clear();
+    this.nullify();
   }
 
   copy(other) {
     UTILS.copyObject(this, other);
   }
 
-  clear() {
+  nullify() {
     for(let i = 0; i < this.layers.length; ++i) {
       this.layers[i] = 0;
     }
@@ -140,19 +141,34 @@ class Cell {
     this.actor = null;
     this.item = null;
 
-    this.flags = 0;							// non-terrain cell flags
+    this.flags = Flags.VISIBLE | Flags.IN_FOV | Flags.NEEDS_REDRAW | Flags.CELL_CHANGED;	// non-terrain cell flags
     this.mechFlags = 0;
     this.gasVolume = 0;						// quantity of gas in cell
     this.liquidVolume = 0;
     this.machineNumber = 0;
-    this.memory.clear();
-    this.layerFlags = 0;
+    this.memory.nullify();
+  }
+
+  nullifyTiles(includeGas=true) {
+    this.layers[1] = 0;
+    this.layers[2] = 0;
+    this.liquidVolume = 0;
+    if (includeGas) {
+      this.layers[3] = 0;
+      this.gasVolume = 0;
+    }
+    // this.flags |= Flags.NEEDS_REDRAW;
   }
 
   get ground() { return this.layers[0]; }
   get liquid() { return this.layers[1]; }
   get surface() { return this.layers[2]; }
   get gas() { return this.layers[3]; }
+
+  get groundTile() { return TILES[this.layers[0]]; }
+  get liquidTile() { return TILES[this.layers[1]]; }
+  get surfaceTile() { return TILES[this.layers[2]]; }
+  get gasTile() { return TILES[this.layers[3]]; }
 
   dump() {
     for(let i = this.layers.length - 1; i >= 0; --i) {
@@ -164,9 +180,9 @@ class Cell {
   }
   isVisible() { return this.flags & Flags.VISIBLE; }
   isAnyKindOfVisible() { return (this.flags & Flags.ANY_KIND_OF_VISIBLE) || CONFIG.playbackOmniscience; }
+  isRevealed() { return this.flags & Flags.REVEALED; }
   hasVisibleLight() { return true; }  // TODO
-
-  redraw() { this.flags |= Flags.NEEDS_REDRAW; }
+  lightChanged() { return this.flags & Flags.LIGHT_CHANGED; }
 
   tile(layer=0) {
     const id = this.layers[layer] || 0;
@@ -207,25 +223,37 @@ class Cell {
     return !!(flagMask & this.tileFlags());
   }
 
+  hasAllTileFlags(flags) {
+    return (flags & this.tileFlags()) === flags;
+  }
+
   hasTileMechFlag(flagMask) {
     return !!(flagMask & this.tileMechFlags());
+  }
+
+  hasAllTileMechFlags(flags) {
+    return (flags & this.tileMechFlags()) === flags;
   }
 
   setFlags(cellFlag=0, cellMechFlag=0) {
     this.flags |= cellFlag;
     this.mechFlags |= cellMechFlag;
-    this.flags |= Flags.NEEDS_REDRAW;
+    // this.flags |= Flags.NEEDS_REDRAW;
   }
 
   clearFlags(cellFlag=0, cellMechFlag=0) {
     this.flags &= ~cellFlag;
     this.mechFlags &= ~cellMechFlag;
-    if ((~cellFlag) & Flags.NEEDS_REDRAW) {
-      this.flags |= Flags.NEEDS_REDRAW;
-    }
+    // if ((~cellFlag) & Flags.NEEDS_REDRAW) {
+    //   this.flags |= Flags.NEEDS_REDRAW;
+    // }
   }
 
   hasTile(id) {
+    if (typeof id === 'string') {
+      const tile = TILE.withName(id);
+      id = tile.id;
+    }
     return this.layers.includes(id);
   }
 
@@ -296,8 +324,12 @@ class Cell {
     return this.highestPriorityTile().text;
   }
 
-  isEmpty() {
+  isNull() {
     return this.ground == 0;
+  }
+
+  isEmpty() {
+    return !(this.actor || this.item);
   }
 
   isPassableNow(limitToPlayerKnowledge) {
@@ -316,6 +348,12 @@ class Cell {
     let tileMechFlags = (useMemory) ? this.memory.tileMechFlags : this.tileMechFlags();
     if (tileMechFlags & TileMechFlags.TM_CONNECTS_LEVEL) return true;
     return ((tileMechFlags & TileMechFlags.TM_PROMOTES) && !(this.promotedTileFlags() & TileFlags.T_PATHING_BLOCKER));
+  }
+
+  isWall(limitToPlayerKnowledge) {
+    const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
+    let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
+    return tileFlags & TileFlags.T_OBSTRUCTS_EVERYTHING;
   }
 
   isObstruction(limitToPlayerKnowledge) {
@@ -365,11 +403,10 @@ class Cell {
   setTile(tileId=0, checkPriority=false) {
     let tile;
     if (typeof tileId === 'string') {
-      tile = withName(tileId);
+      tile = TILE.withName(tileId);
     }
     else if (tileId instanceof types.Tile) {
       tile = tileId;
-      tileId = tile.id;
     }
     else {
       tile = TILES[tileId];
@@ -377,7 +414,6 @@ class Cell {
 
     if (!tile) {
       tile = TILES[0];
-      tileId = 0;
     }
 
     const oldTileId = this.layers[tile.layer] || 0;
@@ -399,7 +435,13 @@ class Cell {
 
     this.layerFlags &= ~Fl(tile.layer); // turn off layer flag
     this.layers[tile.layer] = tile.id;
-    this.flags |= (Flags.NEEDS_REDRAW | Flags.TILE_CHANGED);
+
+    if (tile.layer > 0 && this.layers[0] == 0) {
+      this.layers[0] = TILE.withName('FLOOR').id; // TODO - Not good
+    }
+
+    // this.flags |= (Flags.NEEDS_REDRAW | Flags.CELL_CHANGED);
+    this.flags |= (Flags.CELL_CHANGED);
     return (oldTile.glowLight !== tile.glowLight);
   }
 
@@ -410,10 +452,11 @@ class Cell {
           this.layers[layer] = (layer ? 0 : floorTile);
       }
     }
-    this.flags |= (Flags.NEEDS_REDRAW | Flags.TILE_CHANGED);
+    // this.flags |= (Flags.NEEDS_REDRAW | Flags.CELL_CHANGED);
+    this.flags |= (Flags.CELL_CHANGED);
   }
 
-  clearTileWithFlags(tileFlags, tileMechFlags=0) {
+  nullifyTileWithFlags(tileFlags, tileMechFlags=0) {
     for( let i = 0; i < this.layers.length; ++i ) {
       const id = this.layers[i];
       if (!id) continue;
@@ -434,7 +477,8 @@ class Cell {
         }
       }
     }
-    this.flags |= (Flags.NEEDS_REDRAW | Flags.TILE_CHANGED);
+    // this.flags |= (Flags.NEEDS_REDRAW | Flags.CELL_CHANGED);
+    this.flags |= (Flags.CELL_CHANGED);
   }
 
   // EVENTS
@@ -446,11 +490,12 @@ class Cell {
       if (!tile.events) continue;
       const ev = tile.events[name];
       if (ev) {
-        if (ev.chance && !random.percent(ev.chance)) {
+        if (ev.chance && !random.chance(ev.chance)) {
           continue;
         }
 
         ctx.tile = tile;
+        cell.debug('- fireEvent @%d,%d - %s', ctx.x, ctx.y, name);
         fired = await TILE_EVENT.spawn(ev, ctx) || fired;
       }
     }
@@ -468,7 +513,7 @@ class Cell {
   //     if (!id) continue;
   //     const tile = TILES[id];
   //     if (!tile.events.tick) continue;
-  //     if (random.percent(tile.events.tick.chance)) {
+  //     if (random.chance(tile.events.tick.chance)) {
   //       flag |= Fl(i);
   //     }
   //   }
@@ -497,7 +542,8 @@ class Cell {
 
   addSprite(layer, sprite, priority=50) {
 
-    this.flags |= Flags.NEEDS_REDRAW;
+    // this.flags |= Flags.NEEDS_REDRAW;
+    this.flags |= Flags.CELL_CHANGED;
 
     if (!this.sprites) {
       this.sprites = { layer, priority, sprite, next: null };
@@ -515,7 +561,8 @@ class Cell {
 
   removeSprite(sprite) {
 
-    this.flags |= Flags.NEEDS_REDRAW;
+    // this.flags |= Flags.NEEDS_REDRAW;
+    this.flags |= Flags.CELL_CHANGED;
 
     if (this.sprites && this.sprites.sprite === sprite) {
       this.sprites = this.sprites.next;
@@ -536,21 +583,22 @@ class Cell {
 
   // MEMORY
 
-  storeMemory(item) {
+  storeMemory() {
     const memory = this.memory;
     memory.tileFlags = this.tileFlags();
     memory.tileMechFlags = this.tileMechFlags();
     memory.cellFlags = this.flags;
 		memory.cellMechFlags = this.mechFlags;
     memory.tile = this.highestPriorityTile().id;
-		if (item) {
-			memory.itemKind = item.kind;
-			memory.itemQuantity = item.quantity || 1;
+		if (this.item) {
+			memory.itemKind = this.item.kind;
+			memory.itemQuantity = this.item.quantity || 1;
 		}
 		else {
 			memory.itemKind = null;
 			memory.itemQuantity = 0;
 		}
+    cell.getAppearance(this, memory.sprite);
   }
 
 }
@@ -568,35 +616,20 @@ make.cell = makeCell;
 
 
 export function getAppearance(cell, dest) {
-  dest.clear();
+  const memory = cell.memory.sprite;
+  memory.blackOut();
+
   for( let tile of cell.tiles() ) {
-    dest.plot(tile.sprite);
+    memory.plot(tile.sprite);
   }
 
   let current = cell.sprites;
   while(current) {
-    dest.plot(current.sprite);
+    memory.plot(current.sprite);
     current = current.next;
   }
 
-  let needDistinctness = false;
-  if (cell.flags & (Flags.IS_CURSOR | Flags.IS_IN_PATH)) {
-    const highlight = (cell.flags & Flags.IS_CURSOR) ? COLORS.cursorColor : COLORS.yellow;
-    if (cell.hasTileMechFlag(TileMechFlags.TM_INVERT_WHEN_HIGHLIGHTED)) {
-      COLOR.swap(dest.fg, dest.bg);
-    } else {
-      // if (!GAME.trueColorMode || !dest.needDistinctness) {
-          COLOR.applyMix(dest.fg, highlight, CONFIG.cursorPathIntensity || 20);
-      // }
-      COLOR.applyMix(dest.bg, highlight, CONFIG.cursorPathIntensity || 20);
-    }
-    needDistinctness = true;
-  }
-
-  if (needDistinctness) {
-    COLOR.separate(dest.fg, dest.bg);
-  }
-
+  dest.plot(memory);
   return true;
 }
 

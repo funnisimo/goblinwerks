@@ -1,5 +1,6 @@
 
-const GW = require('../dist/gw.cjs');
+import * as GW from './index.js';
+
 
 function always(testFn, count=1000) {
   for(let i = 0; i < count; ++i) {

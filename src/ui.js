@@ -1,8 +1,10 @@
 
-import { utils as UTILS } from './utils.js';
 import { io as IO } from './io.js';
-import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR } from './gw.js';
+import { Flags as CellFlags } from './cell.js';
+import { sprite as SPRITE } from './sprite.js';
+import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, utils as UTILS, make } from './gw.js';
 
+ui.debug = UTILS.NOOP;
 
 let SHOW_FLAVOR = false;
 let SHOW_SIDEBAR = false;
@@ -69,8 +71,8 @@ export function start(opts={}) {
   UI_BUFFER = UI_BUFFER || ui.canvas.allocBuffer();
   UI_BASE = UI_BASE || ui.canvas.allocBuffer();
   UI_OVERLAY = UI_OVERLAY || ui.canvas.allocBuffer();
-  UI_BASE.clear();
-  UI_OVERLAY.clear();
+  UI_BASE.nullify();
+  UI_OVERLAY.nullify();
 
   IN_DIALOG = false;
   REDRAW_UI = false;
@@ -131,25 +133,25 @@ ui.stop = stop;
 export async function dispatchEvent(ev) {
 
 	if (ev.type === def.CLICK) {
-		if (MSG.bounds && MSG.bounds.hasCanvasLoc(ev.x, ev.y)) {
+		if (MSG.bounds && MSG.bounds.containsXY(ev.x, ev.y)) {
 			await MSG.showArchive();
 			return true;
 		}
-		if (FLAVOR.bounds && FLAVOR.bounds.hasCanvasLoc(ev.x, ev.y)) {
+		if (FLAVOR.bounds && FLAVOR.bounds.containsXY(ev.x, ev.y)) {
 			return true;
 		}
 	}
 	else if (ev.type === def.MOUSEMOVE) {
-		if (VIEWPORT.bounds && VIEWPORT.bounds.hasCanvasLoc(ev.x, ev.y)) {
+		if (VIEWPORT.bounds && VIEWPORT.bounds.containsXY(ev.x, ev.y)) {
 			if (SHOW_CURSOR) {
-				ui.setCursor(VIEWPORT.bounds.toLocalX(ev.x), VIEWPORT.bounds.toLocalY(ev.y));
+				ui.setCursor(VIEWPORT.bounds.toInnerX(ev.x), VIEWPORT.bounds.toInnerY(ev.y));
 			}
 			return true;
 		}
 		else {
 			ui.clearCursor();
 		}
-		if (FLAVOR.bounds && FLAVOR.bounds.hasCanvasLoc(ev.x, ev.y)) {
+		if (FLAVOR.bounds && FLAVOR.bounds.containsXY(ev.x, ev.y)) {
 			return true;
 		}
 	}
@@ -175,9 +177,9 @@ export async function updateNow(t=1) {
 	ui.canvas.draw();
 	if (t) {
 		// const now = performance.now();
-		// console.log('UI update - with timeout:', t);
+		// ui.debug('UI update - with timeout:', t);
 		const r = await IO.tickMs(t);
-		// console.log('- done', r, Math.floor(performance.now() - now));
+		// ui.debug('- done', r, Math.floor(performance.now() - now));
 	}
 }
 
@@ -202,6 +204,8 @@ export function onkeydown(e) {
 
 	const ev = IO.makeKeyEvent(e);
 	IO.pushEvent(ev);
+
+	e.preventDefault();
 }
 
 ui.onkeydown = onkeydown;
@@ -244,17 +248,18 @@ function setCursor(x, y) {
 
   if (CURSOR.x == x && CURSOR.y == y) return false;
 
-  // console.log('set cursor', x, y);
+  // ui.debug('set cursor', x, y);
 
   if (map.hasXY(CURSOR.x, CURSOR.y)) {
     map.clearCellFlags(CURSOR.x, CURSOR.y, CellFlags.IS_CURSOR);
+    map.setCellFlags(CURSOR.x, CURSOR.y, CellFlags.NEEDS_REDRAW);
   }
   CURSOR.x = x;
   CURSOR.y = y;
 
   if (map.hasXY(x, y)) {
     // if (!DATA.player || DATA.player.x !== x || DATA.player.y !== y ) {
-      map.setCellFlags(CURSOR.x, CURSOR.y, CellFlags.IS_CURSOR);
+      map.setCellFlags(CURSOR.x, CURSOR.y, CellFlags.IS_CURSOR | CellFlags.NEEDS_REDRAW);
     // }
 
     // if (!GW.player.isMoving()) {
@@ -283,7 +288,7 @@ ui.setCursor = setCursor;
 
 function clearCursor() {
   return ui.setCursor(-1,-1);
-  // GW.ui.flavorMessage(GW.map.cellFlavor(GW.PLAYER.x, GW.PLAYER.y));
+  // ui.flavorMessage(GW.map.cellFlavor(GW.PLAYER.x, GW.PLAYER.y));
 }
 
 ui.clearCursor = clearCursor;
@@ -373,12 +378,63 @@ ui.confirm = confirm;
 
 
 function blackOutDisplay() {
-	UI_BUFFER.erase();
+	UI_BUFFER.blackOut();
 	REDRAW_UI = true;
 }
 
 ui.blackOutDisplay = blackOutDisplay;
 
+
+const TARGET_SPRITE = SPRITE.install('target', 'green', 50);
+
+async function chooseTarget(choices, prompt, opts={}) {
+	console.log('choose Target');
+
+	if (!choices || choices.length == 0) return null;
+	if (choices.length == 1) return choices[0];
+
+	const buf = ui.startDialog();
+	let waiting = true;
+	let selected = 0;
+
+	function draw() {
+		ui.clearDialog();
+		buf.plotLine(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, prompt, GW.colors.orange);
+		if (selected >= 0) {
+			const choice = choices[selected];
+			buf.plot(choice.x, choice.y, TARGET_SPRITE);
+		}
+		ui.draw();
+	}
+
+	draw();
+
+	while(waiting) {
+		const ev = await GW.io.nextEvent(100);
+		await GW.io.dispatchEvent(ev, {
+			escape() { waiting = false; selected = -1; },
+			enter() { waiting = false; },
+			tab() {
+				selected = (selected + 1) % choices.length;
+				draw();
+			},
+			dir(e) {
+				if (e.dir[0] > 0 || e.dir[1] > 0) {
+					selected = (selected + 1) % choices.length;
+				}
+				else if (e.dir[0] < 0 || e.dir[1] < 0) {
+					selected = (selected + choices.length - 1) % choices.length;
+				}
+				draw();
+			}
+		});
+	}
+
+	ui.finishDialog();
+	return choices[selected] || null;
+}
+
+ui.chooseTarget = chooseTarget;
 
 // DIALOG
 
@@ -387,7 +443,7 @@ function startDialog() {
   ui.canvas.copyBuffer(UI_BASE);
 	ui.canvas.copyBuffer(UI_OVERLAY);
 	UI_OVERLAY.forEach( (c) => c.opacity = 0 );
-  // UI_OVERLAY.clear();
+  // UI_OVERLAY.nullify();
   return UI_OVERLAY;
 }
 
@@ -404,7 +460,7 @@ ui.clearDialog = clearDialog;
 function finishDialog() {
   IN_DIALOG = false;
   ui.canvas.overlay(UI_BASE);
-  UI_OVERLAY.clear();
+  UI_OVERLAY.nullify();
 }
 
 ui.finishDialog = finishDialog;
@@ -418,12 +474,12 @@ function draw() {
   }
   else if (ui.canvas) {
     // const side = GW.sidebar.draw(UI_BUFFER);
-    if (VIEWPORT.bounds) VIEWPORT.draw(ui.canvas.buffer);
-		if (MSG.bounds) MSG.draw(ui.canvas.buffer);
-		if (FLAVOR.bounds) FLAVOR.draw(ui.canvas.buffer);
+    if (VIEWPORT.bounds) VIEWPORT.draw(UI_BUFFER);
+		if (MSG.bounds) MSG.draw(UI_BUFFER);
+		if (FLAVOR.bounds) FLAVOR.draw(UI_BUFFER);
 
     // if (commitCombatMessage() || REDRAW_UI || side || map) {
-    // ui.canvas.overlay(UI_BUFFER);
+    ui.canvas.overlay(UI_BUFFER);
     // ui.canvas.overlay(UI_OVERLAY);
       REDRAW_UI = false;
 			UPDATE_REQUESTED = 0;

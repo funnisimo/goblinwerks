@@ -1,5 +1,6 @@
-const GW = require('../dist/gw.cjs');
-const UTILS = require('../test/utils.js');
+
+import * as GW from './index.js';
+import * as UTILS from '../test/utils.js';
 
 
 describe('Message', () => {
@@ -94,7 +95,25 @@ describe('Message', () => {
       expect(lines).toEqual(["This is a", "superextra-", "long string", "of text", "that has", "extremely", "long", "alphabetic-", "al strings."]);
     });
 
-    test.todo('Splitting a line will keep color settings on new line.');
+    test('Splitting a line will keep color settings on new line.', () => {
+      const text = GW.text.format(GW.colors.blue, 'testing a long message that will need to be split into multiple lines in order%R to be shown on the screen completely.', null);
+
+      const lines = GW.text.splitIntoLines(text, 30);
+      expect(lines.length).toEqual(4);
+      expect(lines[0].charCodeAt(0)).toEqual(GW.def.COLOR_ESCAPE);
+      expect(lines[1].charCodeAt(0)).toEqual(GW.def.COLOR_ESCAPE);
+      expect(lines[2].charCodeAt(0)).toEqual(GW.def.COLOR_ESCAPE);
+      expect(lines[3].charCodeAt(0)).not.toEqual(GW.def.COLOR_ESCAPE);
+    });
+
+    test('split game over', () => {
+      const text = GW.text.format(GW.colors.teal, 'You push open the doors and feel the fresh air hit your face.  The relief is palpable, but in the back of your mind you morn for your colleagues who remain inside.');
+      const lines = GW.text.splitIntoLines(text, 80);
+      expect(lines.length).toEqual(3);
+      expect(lines[0].length).toBeLessThan(84); // 80 text + color
+      expect(lines[1].length).toBeLessThan(84); // 80 text + color
+      expect(lines[2].length).toBeLessThan(84); // 80 text + color
+    });
 
   });
 });

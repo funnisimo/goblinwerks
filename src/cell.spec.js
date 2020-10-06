@@ -1,6 +1,6 @@
 
 
-const GW = require('../dist/gw.cjs');
+import * as GW from './index.js';
 
 
 describe('CellMemory', () => {
@@ -28,23 +28,26 @@ describe('CellMemory', () => {
   test('setTile', () => {
     const c = GW.make.cell();
 
-    expect(GW.tiles[1].priority).toBeLessThan(GW.tiles[2].priority);
+    expect(GW.tiles.FLOOR.priority).toBeLessThan(GW.tiles.DOOR.priority);
+
+    const floor = 'FLOOR';
+    const wall = 'WALL';
 
     expect(c.ground).toEqual(0);
-    c.setTile(1);
-    expect(c.ground).toEqual(1);
-    c.setTile(6);
-    expect(c.ground).toEqual(6);
-    c.setTile(1, true); // checks priority
-    expect(c.ground).toEqual(6);  // 2 has better priority
-    c.setTile(1);
-    expect(c.ground).toEqual(1);  // ignored priority
+    c.setTile(floor);
+    expect(c.ground).toEqual(floor);
+    c.setTile(wall);
+    expect(c.ground).toEqual(wall);
+    c.setTile(floor, true); // checks priority
+    expect(c.ground).toEqual(wall);  // 2 has better priority
+    c.setTile(floor);
+    expect(c.ground).toEqual(floor);  // ignored priority
   });
 
   test('can support many layers', () => {
 
     const c = GW.make.cell();
-    c.setTile(1); // FLOOR
+    c.setTile('FLOOR');
 
     const a = GW.make.sprite('@', 'white', 'blue');
     const b = GW.make.sprite(null, null, 'red');
@@ -65,14 +68,14 @@ describe('CellMemory', () => {
 
   test('layers will blend opacities', () => {
     const c = GW.make.cell();
-    c.setTile(1); // FLOOR
+    c.setTile('FLOOR');
 
     const a = GW.make.sprite('@', 'white', 'blue');
     const b = GW.make.sprite(null, null, 'red', 50);
 
-    c.flags = 0;
+    c.clearFlags(GW.flags.cell.CELL_CHANGED);
     c.addSprite(1, a);
-    expect(c.flags & GW.flags.cell.NEEDS_REDRAW).toBeTruthy();
+    expect(c.flags & GW.flags.cell.CELL_CHANGED).toBeTruthy();
     c.addSprite(2, b, 100);
 
     expect(c.sprites).not.toBeNull();
@@ -85,13 +88,13 @@ describe('CellMemory', () => {
     const ex = GW.make.sprite('@', 'white', [50,0,50]);
     expect(app).toEqual(ex);
 
-    c.flags = 0;
+    c.clearFlags(GW.flags.cell.CELL_CHANGED);
     c.removeSprite(a);
-    expect(c.flags & GW.flags.cell.NEEDS_REDRAW).toBeTruthy();
+    expect(c.flags & GW.flags.cell.CELL_CHANGED).toBeTruthy();
     c.removeSprite(b);
 
     GW.cell.getAppearance(c, app);
-    expect(app).toEqual(GW.tiles[1].sprite);
+    expect(app).toEqual(GW.tiles.FLOOR.sprite);
   });
 
 });

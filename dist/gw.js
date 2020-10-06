@@ -6,10 +6,11 @@
 
   var def = {};
   var types = {};
-  var debug$1 = {};
 
   var make = {};
   var install = {};
+
+  var utils$1 = {};
 
   var ui = {};
   var message = {};
@@ -19,10 +20,17 @@
   var fx = {};
   var commands = {};
 
+  var itemKinds = {};
+  var item = {};
+
+  var flag = {};
+  var flags = {};
+
   var config = {
     fx: {},
   };
   var data = {};
+  var maps = {};
 
   def.dirs    = [[0,-1], [0,1],  [-1,0], [1,0],  [-1,-1], [1,1],   [-1,1], [1,-1]];
   def.oppDirs = [[0,1],  [0,-1], [1,0],  [-1,0], [1,1],   [-1,-1], [1,-1], [-1,1]];
@@ -38,8 +46,6 @@
   def.LEFT_DOWN = 6;
   def.RIGHT_UP = 7;
 
-  debug$1.log = console.log;
-
   class Bounds {
     constructor(x, y, w, h) {
       this.x = x || 0;
@@ -48,7 +54,7 @@
       this.height = h || 0;
     }
 
-    hasCanvasLoc(x, y) {
+    containsXY(x, y) {
       return this.width > 0
         && this.x <= x
         && this.y <= y
@@ -56,15 +62,15 @@
         && this.y + this.height > y;
     }
 
-    toLocalX(x) { return x - this.x; }
-    toLocalY(y) { return y - this.y; }
+    toInnerX(x) { return x - this.x; }
+    toInnerY(y) { return y - this.y; }
 
-    toCanvasX(x) {
+    toOuterX(x) {
       let offset = 0;
       if (x < 0) { offset = this.width - 1; }
       return x + this.x + offset;
     }
-    toCanvasY(y) {
+    toOuterY(y) {
       let offset = 0;
       if (y < 0) { offset = this.height - 1; }
       return y + this.y + offset;
@@ -72,8 +78,6 @@
   }
 
   types.Bounds = Bounds;
-
-  var utils$1 = {};
 
   function NOOP()  {}
   utils$1.NOOP = NOOP;
@@ -96,23 +100,35 @@
 
   utils$1.clamp = clamp;
 
+  function x(src) {
+    return src.x || src[0] || 0;
+  }
+
+  utils$1.x = x;
+
+  function y(src) {
+    return src.y || src[1] || 0;
+  }
+
+  utils$1.y = y;
+
   function copyXY(dest, src) {
-    dest.x = src.x || src[0] || 0;
-    dest.y = src.y || src[1] || 0;
+    dest.x = utils$1.x(src);
+    dest.y = utils$1.y(src);
   }
 
   utils$1.copyXY = copyXY;
 
   function addXY(dest, src) {
-    dest.x += src.x || src[0] || 0;
-    dest.y += src.y || src[1] || 0;
+    dest.x += utils$1.x(src);
+    dest.y += utils$1.y(src);
   }
 
   utils$1.addXY = addXY;
 
   function equalsXY(dest, src) {
-    return (dest.x == (src.x || src[0] || 0))
-    && (dest.y == (src.y || src[1] || 0));
+    return (dest.x == utils$1.x(src))
+    && (dest.y == utils$1.y(src));
   }
 
   utils$1.equalsXY = equalsXY;
@@ -127,10 +143,17 @@
   utils$1.distanceBetween = distanceBetween;
 
   function distanceFromTo(a, b) {
-    return distanceBetween(a.x || a[0] || 0, a.y || a[1] || 0, b.x || b[0] || 0, b.y || b[1] || 0);
+    return utils$1.distanceBetween(utils$1.x(a), utils$1.y(a), utils$1.x(b), utils$1.y(b));
   }
 
   utils$1.distanceFromTo = distanceFromTo;
+
+  function calcRadius(x, y) {
+    return utils$1.distanceBetween(0,0, x, y);
+  }
+
+  utils$1.calcRadius = calcRadius;
+
 
   function dirBetween(x, y, toX, toY) {
   	let diffX = toX - x;
@@ -147,7 +170,7 @@
   utils$1.dirBetween = dirBetween;
 
   function dirFromTo(a, b) {
-    return dirBetween(a.x || a[0] || 0, a.y || a[1] || 0, b.x || b[0] || 0, b.y || b[1] || 0);
+    return dirBetween(utils$1.x(a), utils$1.y(a), utils$1.x(b), utils$1.y(b));
   }
 
   utils$1.dirFromTo = dirFromTo;
@@ -160,6 +183,19 @@
 
   utils$1.dirIndex = dirIndex;
 
+  function isOppositeDir(a, b) {
+    if (a[0] + b[0] != 0) return false;
+    if (a[1] + b[1] != 0) return false;
+    return true;
+  }
+
+  utils$1.isOppositeDir = isOppositeDir;
+
+  function isSameDir(a, b) {
+    return a[0] == b[0] && a[1] == b[1];
+  }
+
+  utils$1.isSameDir = isSameDir;
 
   function extend(obj, name, fn) {
     const base = obj[name] || NOOP;
@@ -309,9 +345,6 @@
 
   utils$1.sequence = sequence;
 
-  var flag = {};
-  var flags = {};
-
   ///////////////////////////////////
   // FLAG
 
@@ -335,7 +368,7 @@
     return out.join(' | ');
   }
 
-  function makeFlag(obj, ...args) {
+  function toFlag(obj, ...args) {
     let result = 0;
     for(let index = 0; index < args.length; ++index) {
       let value = args[index];
@@ -372,13 +405,13 @@
 
 
   class Flag {
-    constructor(name) {
+    constructor() {
     }
     toString(v) {
       return flagToText(this, v);
     }
     toFlag(...args) {
-      return makeFlag(this, ...args);
+      return toFlag(this, ...args);
     }
     install(obj) {
       Object.getOwnPropertyNames(this).forEach( (name) => {
@@ -389,9 +422,12 @@
 
   types.Flag = Flag;
 
-  function installFlag(flagName, values) {
-    const flag = new Flag(flagName);
+  function makeFlag(values) {
+    const flag = new Flag();
     Object.entries(values).forEach( ([key, value]) => {
+      if (typeof value === 'string') {
+        value = value.split(/[,|]/).map( (t) => t.trim() );
+      }
       if (Array.isArray(value)) {
         value = value.reduce( (out, name) => {
           return out | flag[name];
@@ -399,7 +435,13 @@
       }
       flag[key] = def[key] = value;
     });
+    return flag;
+  }
 
+  make.flag = makeFlag;
+
+  function installFlag(flagName, values) {
+    const flag = make.flag(values);
     flags[flagName] = flag;
     return flag;
   }
@@ -454,7 +496,7 @@
           maxFreq += frequencies[i];
       }
   		if (maxFreq <= 0) {
-  			debug.log('Lottery Draw - no frequencies', frequencies, frequencies.length);
+  			utils$1.WARN('Lottery Draw - no frequencies', frequencies, frequencies.length);
   			return 0;
   		}
 
@@ -466,7 +508,7 @@
             randIndex -= frequencies[i];
         }
       }
-      debug.log('Lottery Draw failed.', frequencies, frequencies.length);
+      utils$1.WARN('Lottery Draw failed.', frequencies, frequencies.length);
       return 0;
   }
 
@@ -482,6 +524,7 @@
 
   class Random {
     constructor(seed) {
+      this.debug = utils$1.NOOP;
       this.seed(seed);
     }
 
@@ -495,6 +538,7 @@
       this._v = ((this._seed % (RNG_M - 1)) + 1);
   		this.count = 0;
 
+      this.debug('seed', this._seed);
     	return this._seed;
     }
 
@@ -511,7 +555,9 @@
           this._v = (test + RNG_M);
       }
       const v = this._v - 1;
-      return max ? (v % max) : v;
+      const result = max ? (v % max) : v;
+      this.debug(result);
+      return result;
     }
 
     value() {
@@ -519,8 +565,9 @@
     }
 
     range(lo, hi) {
+      if (hi <= lo) return hi;
     	const diff = (hi - lo) + 1;
-    	return lo + (this.number() % diff);
+    	return lo + (this.number(diff));
     }
 
     dice(count, sides, addend) {
@@ -570,13 +617,11 @@
     	return (total + lo);
     }
 
-    // TODO - should this be : chance(percent)
-    percent(percent) {
+    chance(percent) {
       if (percent <= 0) return false;
       if (percent >= 100) return true;
     	return (this.range(0, 99) < percent);
     }
-
 
     item(list) {
     	return list[this.range(0, list.length - 1)];
@@ -600,6 +645,7 @@
     			list[i] = buf;
     		}
     	}
+      return list;
     }
 
   }
@@ -686,7 +732,6 @@
   	const RE = /^(?:([+-]?\d*)[Dd](\d+)([+-]?\d*)|([+-]?\d+)-(\d+):?(\d+)?|([+-]?\d+\.?\d*))/g;
     let results;
     while ((results = RE.exec(config)) !== null) {
-      // GW.debug.log(results);
       if (results[2]) {
         let count = Number.parseInt(results[1]) || 1;
         const sides = Number.parseInt(results[2]);
@@ -1101,14 +1146,12 @@
 
   var text = {};
 
-
-
   ///////////////////////////////////
   // Message String
 
   // color escapes
-  const COLOR_ESCAPE =			25;
-  const COLOR_END    =      26;
+  const COLOR_ESCAPE = def.COLOR_ESCAPE =	25;
+  const COLOR_END    = def.COLOR_END    = 26;
   const COLOR_VALUE_INTERCEPT =	0; // 25;
   const TEMP_COLOR = make.color();
 
@@ -1595,7 +1638,7 @@
   // Returns the number of lines, including the newlines already in the text.
   // Puts the output in "to" only if we receive a "to" -- can make it null and just get a line count.
   function splitIntoLines(sourceText, width) {
-    let i, w, textLength;
+    let w, textLength;
     let spaceLeftOnLine, wordWidth;
 
     if (!width) GW.utils.ERROR('Need string and width');
@@ -1606,18 +1649,22 @@
     // Now go through and replace spaces with newlines as needed.
 
     // Fast foward until i points to the first character that is not a color escape.
-    for (i=0; printString.charCodeAt(i) == COLOR_ESCAPE; i+= 4);
+    // for (i=0; printString.charCodeAt(i) == COLOR_ESCAPE; i+= 4);
     spaceLeftOnLine = width;
 
+    let i = -1;
+    let lastColor = '';
     while (i < textLength) {
       // wordWidth counts the word width of the next word without color escapes.
       // w indicates the position of the space or newline or null terminator that terminates the word.
       wordWidth = 0;
       for (w = i + 1; w < textLength && printString[w] !== ' ' && printString[w] !== '\n';) {
         if (printString.charCodeAt(w) === COLOR_ESCAPE) {
+          lastColor = printString.substring(w, w + 4);
           w += 4;
         }
         else if (printString.charCodeAt(w) === COLOR_END) {
+          lastColor = '';
           w += 1;
         }
         else {
@@ -1627,7 +1674,9 @@
       }
 
       if (1 + wordWidth > spaceLeftOnLine || printString[i] === '\n') {
-        printString = text.splice(printString, i, 1, '\n');	// [i] = '\n';
+        printString = text.splice(printString, i, 1, '\n' + lastColor);	// [i] = '\n';
+        w += lastColor.length;
+        textLength += lastColor.length;
         spaceLeftOnLine = width - wordWidth; // line width minus the width of the word we just wrapped
         //printf("\n\n%s", printString);
       } else {
@@ -1654,7 +1703,6 @@
     }
 
     let result = fmt.replace(RE, (m, p1, p2, p3, p4, p5, offset) => {
-      // GW.debug.log(m, p1, p2, p3, p4, p5, offset);
 
       p1 = p1 || '';
       p2 = p2 || '';
@@ -1828,7 +1876,7 @@
   		return other;
   	}
 
-  	clear() {
+  	nullify() {
   		if (HANGING_LETTERS.includes(this.ch)) {
   			this.wasHanging = true;
   		}
@@ -1839,8 +1887,8 @@
   		// this.needsUpdate = false;
   	}
 
-  	erase() {
-  		this.clear();
+  	blackOut() {
+  		this.nullify();
   		this.opacity = 100;
   		this.needsUpdate = true;
   		this.wasHanging = false;
@@ -1907,6 +1955,12 @@
   types.Sprite = Sprite;
 
   function makeSprite(ch, fg, bg, opacity) {
+  	if (arguments.length == 1 && typeof arguments[0] === 'object' && ch !== null) {
+  		opacity = ch.opacity || null;
+  		bg = ch.bg || null;
+  		fg = ch.fg || null;
+  		ch = ch.ch || null;
+  	}
     return new Sprite(ch, fg, bg, opacity);
   }
 
@@ -2009,6 +2063,18 @@
   		return this.hasXY(x, y) && ((x == 0) || (x == this.width - 1) || (y == 0) || (y == this.height - 1));
   	}
 
+  	calcBounds() {
+  		const bounds = { left: this.width, top: this.height, right: 0, bottom: 0 };
+  		this.forEach( (v, i, j) => {
+  			if (!v) return;
+  			if (bounds.left > i) bounds.left = i;
+  			if (bounds.right < i) bounds.right = i;
+  			if (bounds.top > j) bounds.top = j;
+  			if (bounds.bottom < j ) bounds.bottom = j;
+  		});
+  		return bounds;
+  	}
+
   	update(fn) {
   		let i, j;
   		for(i = 0; i < this.width; i++) {
@@ -2056,6 +2122,12 @@
   		this.updateCircle(x, y, radius, fn);
   	}
 
+
+  	replace(findValue, replaceValue)
+  	{
+  		this.update( (v, x, y) => (v == findValue) ? replaceValue : v );
+  	}
+
   	copy(from) {
   		// TODO - check width, height?
   		this.update( (v, i, j) => from[i][j] );
@@ -2084,7 +2156,7 @@
   					bestLoc[1] = j;
   					bestDistance = dist;
   				}
-  				else if (dist == bestDistance && random.percent(50)) {
+  				else if (dist == bestDistance && random.chance(50)) {
   					bestLoc[0] = i;
   					bestLoc[1] = j;
   				}
@@ -2410,8 +2482,7 @@
   	let newX, newY, fillCount = 1;
 
     if (fillValue >= eligibleValueMin && fillValue <= eligibleValueMax) {
-  		console.error('Invalid grid flood fill');
-  		return 0;
+  		utils$1.ERROR('Invalid grid flood fill');
   	}
 
     grid[x][y] = fillValue;
@@ -2516,7 +2587,7 @@
   		newX = x + DIRS[dir][0];
   		newY = y + DIRS[dir][1];
   		if (!grid.hasXY(newX, newY)) {
-  			break;
+  			continue;
   		}
   		if (matchFn(grid[newX][newY], newX, newY)) { // If the neighbor is an unmarked region cell,
   			numberOfCells += floodFill(grid, newX, newY, matchFn, fillFn); // then recurse.
@@ -2530,13 +2601,13 @@
 
 
   function offsetZip(destGrid, srcGrid, srcToDestX, srcToDestY, value) {
-  	const fn = (typeof value === 'function') ? value : ((d, s, i, j) => destGrid[i][j] = value || s);
+  	const fn = (typeof value === 'function') ? value : ((d, s, dx, dy, sx, sy) => destGrid[dx][dy] = value || s);
   	srcGrid.forEach( (c, i, j) => {
   		const destX = i + srcToDestX;
   		const destY = j + srcToDestY;
   		if (!destGrid.hasXY(destX, destY)) return;
   		if (!c) return;
-  		fn(destGrid[destX][destY], c, i, j);
+  		fn(destGrid[destX][destY], c, destX, destY, i, j);
   	});
   }
 
@@ -2647,7 +2718,7 @@
   		// Fill relevant portion with noise based on the percentSeeded argument.
   		for(i=0; i<maxBlobWidth; i++) {
   			for(j=0; j<maxBlobHeight; j++) {
-  				grid[i + left][j + top] = (random.percent(percentSeeded) ? 1 : 0);
+  				grid[i + left][j + top] = (random.chance(percentSeeded) ? 1 : 0);
   			}
   		}
 
@@ -2757,43 +2828,43 @@
       this.needsUpdate = true;
     }
 
-    clear() {
-      this.forEach( (c) => c.clear() );
+    nullify() {
+      this.forEach( (c) => c.nullify() );
       this.needsUpdate = true;
     }
 
-    clearRect(x, y, w, h) {
-      this.forRect(x, y, w, h, (c) => c.clear() );
+    nullifyRect(x, y, w, h) {
+      this.forRect(x, y, w, h, (c) => c.nullify() );
       this.needsUpdate = true;
     }
 
-    clearCell(x, y) {
-      this[x][y].clear();
+    nullifyCell(x, y) {
+      this[x][y].nullify();
       this.needsUpdate = true;
     }
 
-    erase() {
-      this.forEach( (c) => c.erase() );
+    blackOut() {
+      this.forEach( (c) => c.blackOut() );
       this.needsUpdate = true;
     }
 
-    eraseRect(x, y, w, h) {
-      this.forRect(x, y, w, h, (c) => c.erase() );
+    blackOutRect(x, y, w, h) {
+      this.forRect(x, y, w, h, (c) => c.blackOut() );
       this.needsUpdate = true;
     }
 
-    eraseCell(x, y) {
-      this[x][y].erase();
+    blackOutCell(x, y) {
+      this[x][y].blackOut();
       this.needsUpdate = true;
     }
 
-    dump() { super.dump( (s) => s.ch ); }
+    dump(fmt) { super.dump( fmt || ((s) => s.ch) ); }
 
     plot(x, y, sprite) {
       if (sprite.opacity <= 0) return;
 
       if (!this.hasXY(x, y)) {
-        debug.log('invalid coordinates: ' + x + ', ' + y);
+        utils$1.warn('invalid coordinates: ' + x + ', ' + y);
         return false;
       }
       const destCell = this[x][y];
@@ -2805,7 +2876,7 @@
 
     plotChar(x, y, ch, fg, bg) {
       if (!this.hasXY(x, y)) {
-        debug.log('invalid coordinates: ' + x + ', ' + y);
+        utils$1.warn('invalid coordinates: ' + x + ', ' + y);
         return;
       }
 
@@ -2900,7 +2971,6 @@
 
   const DEFAULT_FONT = 'monospace';
 
-
   var canvas = {};
 
 
@@ -2918,10 +2988,9 @@
     const rect = this.element.getBoundingClientRect();
     this.pxWidth  = rect.width;
     this.pxHeight = rect.height;
-    console.log('canvas resize', rect);
+    ui.debug('canvas resize', rect);
 
     this.buffer.forEach((c) => { c.needsUpdate = true; });
-
   }
 
 
@@ -3103,6 +3172,8 @@
   types.Canvas = Canvas;
 
   var io = {};
+
+  io.debug = utils$1.NOOP;
 
   let KEYMAP = {};
   // const KEYMAPS = [];
@@ -3365,7 +3436,7 @@
   function pauseEvents() {
   	if (PAUSED) return;
   	PAUSED = CURRENT_HANDLER;
-  	// console.log('events paused');
+  	// io.debug('events paused');
   }
 
   io.pauseEvents = pauseEvents;
@@ -3373,15 +3444,15 @@
   function resumeEvents() {
   	CURRENT_HANDLER = PAUSED;
   	PAUSED = null;
-  	// console.log('resuming events');
+  	// io.debug('resuming events');
 
   	if (EVENTS.length && CURRENT_HANDLER) {
   		const e = EVENTS.shift();
-  		// console.log('- processing paused event', e.type);
+  		// io.debug('- processing paused event', e.type);
   		CURRENT_HANDLER(e);
   		// io.recycleEvent(e);	// DO NOT DO THIS B/C THE HANDLER MAY PUT IT BACK ON THE QUEUE (see tickMs)
   	}
-  	// console.log('events resumed');
+  	// io.debug('events resumed');
   }
 
   io.resumeEvents = resumeEvents;
@@ -3966,6 +4037,8 @@
   var digger = {};
   var diggers = {};
 
+  digger.debug = utils$1.NOOP;
+
   const DIRS$2 = def.dirs;
 
 
@@ -3973,7 +4046,7 @@
 
 
   function installDigger(id, fn, config) {
-    config = fn(config || {});	// call to have function bind itself to the config
+    config = fn(config || {});	// call to have function setup the config
     config.fn = fn;
     config.id = id;
     diggers[id] = config;
@@ -3986,6 +4059,8 @@
   function checkDiggerConfig(config, opts) {
     config = config || {};
     opts = opts || {};
+
+    if (!config.width || !config.height) utils$1.ERROR('All diggers require config to include width and height.');
 
     Object.entries(opts).forEach( ([key,expect]) => {
       const have = config[key];
@@ -4027,7 +4102,7 @@
 
 
   function digCavern(config, grid) {
-    config = digger.checkConfig(config, { width: [3,12], height: [4,8] });
+    config = digger.checkConfig(config, { width: 12, height: 8 });
     if (!grid) return config;
 
     let destX, destY;
@@ -4035,10 +4110,10 @@
 
     blobGrid = GRID.alloc(grid.width, grid.height, 0);
 
-    const minWidth  = config.width[0];
-    const maxWidth  = config.width[1];
-    const minHeight = config.height[0];
-    const maxHeight = config.height[1];
+    const minWidth  = Math.floor(0.5 * config.width); // 6
+    const maxWidth  = config.width;
+    const minHeight = Math.floor(0.5 * config.height);  // 4
+    const maxHeight = config.height;
 
     grid.fill(0);
     const bounds = GRID.fillBlob(blobGrid, 5, minWidth, minHeight, maxWidth, maxHeight, 55, "ffffffttt", "ffffttttt");
@@ -4048,7 +4123,7 @@
     destY = Math.floor((grid.height - bounds.height) / 2);
 
     // ...and copy it to the master grid.
-    GRID.offsetZip(grid, blobGrid, destX - bounds.x, destY - bounds.y, config.tile);
+    GRID.offsetZip(grid, blobGrid, destX - bounds.x, destY - bounds.y, TILE);
     GRID.free(blobGrid);
     return config.id;
   }
@@ -4084,23 +4159,27 @@
       id = random.lottery(config.choices);
     }
     const digger = diggers[id];
-    // debug.log('Choose room: ', id);
-    digger.fn(digger, grid);
+    let digConfig = digger;
+    if (config.opts) {
+      digConfig = Object.assign({}, digger, config.opts);
+    }
+    // digger.debug('Chose room: ', id);
+    digger.fn(digConfig, grid);
     return digger.id;
   }
 
   digger.choiceRoom = digChoiceRoom;
 
 
-  // This is a special room that appears at the entrance to the dungeon on depth 1.
+  // From BROGUE => This is a special room that appears at the entrance to the dungeon on depth 1.
   function digEntranceRoom(config, grid) {
-    config = digger.checkConfig(config, { width: [8,20], height: [10,5] });
+    config = digger.checkConfig(config, { width: 20, height: 10 });
     if (!grid) return config;
 
-    const roomWidth = config.width[0];
-    const roomHeight = config.height[0];
-    const roomWidth2 = config.width[1];
-    const roomHeight2 = config.height[1];
+    const roomWidth = Math.floor(0.4 * config.width); // 8
+    const roomHeight = config.height;
+    const roomWidth2 = config.width;
+    const roomHeight2 = Math.floor(0.5 * config.height);  // 5
 
     // ALWAYS start at bottom+center of map
     const roomX = Math.floor(grid.width/2 - roomWidth/2 - 1);
@@ -4109,8 +4188,8 @@
     const roomY2 = grid.height - roomHeight2 - 2;
 
     grid.fill(0);
-    grid.fillRect(roomX, roomY, roomWidth, roomHeight, config.tile || TILE);
-    grid.fillRect(roomX2, roomY2, roomWidth2, roomHeight2, config.tile || TILE);
+    grid.fillRect(roomX, roomY, roomWidth, roomHeight, TILE);
+    grid.fillRect(roomX2, roomY2, roomWidth2, roomHeight2, TILE);
     return config.id;
   }
 
@@ -4119,13 +4198,13 @@
 
 
   function digCrossRoom(config, grid) {
-    config = digger.checkConfig(config, { width: [3,12], height: [3,7], width2: [4,20], height2: [2,5] });
+    config = digger.checkConfig(config, { width: 12, height: 20 });
     if (!grid) return config;
 
-    const roomWidth = random.range(config.width[0], config.width[1]);
-    const roomWidth2 = random.range(config.width2[0], config.width2[1]);
-    const roomHeight = random.range(config.height[0], config.height[1]);
-    const roomHeight2 = random.range(config.height2[0], config.height2[1]);
+    const roomWidth = Math.max(2, Math.floor( config.width * random.range(15, 60) / 100)); // [3,12]
+    const roomWidth2 = Math.max(2, Math.floor( config.width * random.range(20, 100) / 100)); // [4,20]
+    const roomHeight = Math.max(2, Math.floor( config.height * random.range(50, 100) / 100));  // [3,7]
+    const roomHeight2 = Math.max(2, Math.floor( config.height * random.range(25, 75) / 100));  // [2,5]
 
     const roomX = random.range(Math.max(0, Math.floor(grid.width/2) - (roomWidth - 1)), Math.min(grid.width, Math.floor(grid.width/2)));
     const roomX2 = (roomX + Math.floor(roomWidth / 2) + random.range(0, 2) + random.range(0, 2) - 3) - Math.floor(roomWidth2 / 2);
@@ -4134,8 +4213,8 @@
 
     grid.fill(0);
 
-    grid.fillRect(roomX - 5, roomY + 5, roomWidth, roomHeight, config.tile || TILE);
-    grid.fillRect(roomX2 - 5, roomY2 + 5, roomWidth2, roomHeight2, config.tile || TILE);
+    grid.fillRect(roomX - 5, roomY + 5, roomWidth, roomHeight, TILE);
+    grid.fillRect(roomX2 - 5, roomY2 + 5, roomWidth2, roomHeight2, TILE);
     return config.id;
   }
 
@@ -4143,24 +4222,24 @@
 
 
   function digSymmetricalCrossRoom(config, grid) {
-    config = digger.checkConfig(config, { width: [4,8], height: [4,5], width2: [3,4], height2: [3,3] });
+    config = digger.checkConfig(config, { width: 8, height: 5 });
     if (!grid) return config;
 
-    let majorWidth = random.range(config.width[0], config.width[1]);
-    let majorHeight = random.range(config.height[0], config.height[1]);
+    let majorWidth = Math.floor( config.width * random.range(50, 100) / 100); // [4,8]
+    let majorHeight = Math.floor( config.height * random.range(75, 100) / 100); // [4,5]
 
-    let minorWidth = random.range(config.width2[0], config.width2[1]);
-    if (majorHeight % 2 == 0) {
+    let minorWidth = Math.max(2, Math.floor( config.width * random.range(25, 50) / 100));  // [2,4]
+    if (majorHeight % 2 == 0 && minorWidth > 2) {
         minorWidth -= 1;
     }
-    let minorHeight = random.range(config.height2[0], config.height2[1]);	// originally 2,3?
-    if (majorWidth % 2 == 0) {
+    let minorHeight = Math.max(2, Math.floor( config.height * random.range(25, 50) / 100));	// [2,3]?
+    if (majorWidth % 2 == 0 && minorHeight > 2) {
         minorHeight -= 1;
     }
 
     grid.fill(0);
-    grid.fillRect(Math.floor((grid.width - majorWidth)/2), Math.floor((grid.height - minorHeight)/2), majorWidth, minorHeight, config.tile || TILE);
-    grid.fillRect(Math.floor((grid.width - minorWidth)/2), Math.floor((grid.height - majorHeight)/2), minorWidth, majorHeight, config.tile || TILE);
+    grid.fillRect(Math.floor((grid.width - majorWidth)/2), Math.floor((grid.height - minorHeight)/2), majorWidth, minorHeight, TILE);
+    grid.fillRect(Math.floor((grid.width - minorWidth)/2), Math.floor((grid.height - majorHeight)/2), minorWidth, majorHeight, TILE);
     return config.id;
   }
 
@@ -4168,14 +4247,14 @@
 
 
   function digRectangularRoom(config, grid) {
-    config = digger.checkConfig(config, { width: [3,6], height: [2,4] });
+    config = digger.checkConfig(config, { width: 6, height: 4, minPct: 50 });
     if (!grid) return config;
 
-    const width = random.range(config.width[0], config.width[1]);
-    const height = random.range(config.height[0], config.height[1]);
+    const width = Math.floor( config.width * random.range(config.minPct, 100) / 100);  // [3,6]
+    const height = Math.floor( config.height * random.range(config.minPct, 100) / 100);  // [2,4]
 
     grid.fill(0);
-    grid.fillRect(Math.floor((grid.width - width) / 2), Math.floor((grid.height - height) / 2), width, height, config.tile || TILE);
+    grid.fillRect(Math.floor((grid.width - width) / 2), Math.floor((grid.height - height) / 2), width, height, TILE);
     return config.id;
   }
 
@@ -4183,13 +4262,15 @@
 
 
   function digCircularRoom(config, grid) {
-    config = digger.checkConfig(config, { radius: [2,4] });
+    config = digger.checkConfig(config, { width: 6, height: 6 });
     if (!grid) return config;
 
-    const radius = random.range(config.radius[0], config.radius[1]);
+    const radius = Math.floor( (Math.min(config.width, config.height)-1) * random.range(75, 100) / 200);  // [3,4]
 
     grid.fill(0);
-    grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, config.tile || TILE);
+    if (radius > 1) {
+      grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, TILE);
+    }
 
     return config.id;
   }
@@ -4197,41 +4278,41 @@
   digger.circularRoom = digCircularRoom;
 
 
-  function digBrogueCircularRoom(config, grid) {
-    config = digger.checkConfig(config, { radius: [2,4], radius2: [4,10], altChance: 5, ringMinWidth: 3, holeMinSize: 3, holeChance: 50 });
+  function digBrogueDonut(config, grid) {
+    config = digger.checkConfig(config, { width: 10, height: 10, altChance: 5, ringMinWidth: 3, holeMinSize: 3, holeChance: 50 });
     if (!grid) return config;
 
-    const params = random.percent(config.altChance || 5) ? config.radius2 : config.radius;
-    const radius = random.range(params[0], params[1]);
+    const radius = Math.floor( Math.min(config.width, config.height) * random.range(75, 100) / 100);  // [5,10]
 
     grid.fill(0);
-    grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, config.tile || TILE);
+    grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), radius, TILE);
 
     if (radius > config.ringMinWidth + config.holeMinSize
-        && random.percent(config.holeChance))
+        && random.chance(config.holeChance))
     {
         grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), random.range(config.holeMinSize, radius - config.holeMinSize), 0);
     }
     return config.id;
   }
 
-  digger.brogueCircularRoom = digBrogueCircularRoom;
+  digger.brogueDonut = digBrogueDonut;
 
 
   function digChunkyRoom(config, grid) {
-    config = digger.checkConfig(config, { count: [2,8] });
+    config = digger.checkConfig(config, { count: 8 });
     if (!grid) return config;
 
     let i, x, y;
     let minX, maxX, minY, maxY;
-    let chunkCount = random.range(config.count[0], config.count[1]);
+    let chunkCount = Math.floor( config.count * random.range(25, 100) / 100); // [2,8]
+
+    minX = Math.floor(grid.width/2) - Math.floor(config.width/2);
+    maxX = Math.floor(grid.width/2) + Math.floor(config.width/2);
+    minY = Math.floor(grid.height/2) - Math.floor(config.height/2);
+    maxY = Math.floor(grid.height/2) + Math.floor(config.height/2);
 
     grid.fill(0);
     grid.fillCircle(Math.floor(grid.width/2), Math.floor(grid.height/2), 2, 1);
-    minX = Math.floor(grid.width/2) - 3;
-    maxX = Math.floor(grid.width/2) + 3;
-    minY = Math.floor(grid.height/2) - 3;
-    maxY = Math.floor(grid.height/2) + 3;
 
     for (i=0; i<chunkCount;) {
         x = random.range(minX, maxX);
@@ -4240,12 +4321,13 @@
   //            colorOverDungeon(/* Color. */darkGray);
   //            hiliteGrid(grid, /* Color. */white, 100);
 
-            grid.fillCircle(x, y, 2, config.tile || TILE);
+            if (x - 2 < minX) continue;
+            if (x + 2 > maxX) continue;
+            if (y - 2 < minY) continue;
+            if (y + 2 > maxY) continue;
+
+            grid.fillCircle(x, y, 2, TILE);
             i++;
-            minX = Math.max(1, Math.min(x - 3, minX));
-            maxX = Math.min(grid.width - 2, Math.max(x + 3, maxX));
-            minY = Math.max(1, Math.min(y - 3, minY));
-            maxY = Math.min(grid.height - 2, Math.max(y + 3, maxY));
 
   //            hiliteGrid(grid, /* Color. */green, 50);
   //            temporaryMessage("Added a chunk:", true);
@@ -4356,7 +4438,7 @@
       }
       x = utils$1.clamp(x - DIRS$2[dir][0], 0, grid.width - 1);
       y = utils$1.clamp(y - DIRS$2[dir][1], 0, grid.height - 1); // Now (x, y) points at the last interior cell of the hallway.
-      allowObliqueHallwayExit = random.percent(15);
+      allowObliqueHallwayExit = random.chance(15);
       for (dir2 = 0; dir2 < 4; dir2++) {
           newX = x + DIRS$2[dir2][0];
           newY = y + DIRS$2[dir2][1];
@@ -4381,15 +4463,16 @@
   var tileEvent = {};
   var tileEvents = {};
 
+  tileEvent.debug = utils$1.NOOP;
+
   const Fl$1 = flag.fl;
 
   const Flags = flag.install('tileEvent', {
-  	DFF_EVACUATE_CREATURES_FIRST	: Fl$1(0),	// Creatures in the DF area get moved outside of it
+  	DFF_SUBSEQ_ALWAYS							: Fl$1(0),	// Always fire the subsequent event, even if no tiles changed.
   	DFF_SUBSEQ_EVERYWHERE			    : Fl$1(1),	// Subsequent DF spawns in every cell that this DF spawns in, instead of only the origin
   	DFF_TREAT_AS_BLOCKING			    : Fl$1(2),	// If filling the footprint of this DF with walls would disrupt level connectivity, then abort.
   	DFF_PERMIT_BLOCKING				    : Fl$1(3),	// Generate this DF without regard to level connectivity.
   	DFF_ACTIVATE_DORMANT_MONSTER	: Fl$1(4),	// Dormant monsters on this tile will appear -- e.g. when a statue bursts to reveal a monster.
-  	DFF_CLEAR_OTHER_TERRAIN			  : Fl$1(5),	// Erase other terrain in the footprint of this DF.
   	DFF_BLOCKED_BY_OTHER_LAYERS		: Fl$1(6),	// Will not propagate into a cell if any layer in that cell has a superior priority.
   	DFF_SUPERPRIORITY				      : Fl$1(7),	// Will overwrite terrain of a superior priority.
     DFF_AGGRAVATES_MONSTERS       : Fl$1(8),  // Will act as though an aggravate monster scroll of effectRadius radius had been read at that point.
@@ -4397,39 +4480,63 @@
   	DFF_EMIT_EVENT								: Fl$1(10), // Will emit the event when activated
   	DFF_NO_REDRAW_CELL						: Fl$1(11),
   	DFF_ABORT_IF_BLOCKS_MAP				: Fl$1(12),
-  	DFF_SPREAD_CIRCLE							: Fl$1(13),	// Spread in a circle around the spot (using FOV), radius calculated using spread+decrement
-  	DFF_ALWAYS_FIRE								: Fl$1(14),	// Fire even if the cell is marked as having fired this turn
-  	DFF_NO_MARK_FIRED							: Fl$1(15),	// Do not mark this cell as having fired an event
+    DFF_BLOCKED_BY_ITEMS          : Fl$1(13), // Do not fire this event in a cell that has an item.
+    DFF_BLOCKED_BY_ACTORS         : Fl$1(13), // Do not fire this event in a cell that has an item.
+
+  	DFF_ALWAYS_FIRE								: Fl$1(15),	// Fire even if the cell is marked as having fired this turn
+  	DFF_NO_MARK_FIRED							: Fl$1(16),	// Do not mark this cell as having fired an event
   	// MUST_REPLACE_LAYER
   	// NEEDS_EMPTY_LAYER
-  	DFF_PROTECTED									: Fl$1(18),
+  	DFF_PROTECTED									: Fl$1(19),
+
+  	DFF_SPREAD_CIRCLE							: Fl$1(20),	// Spread in a circle around the spot (using FOV), radius calculated using spread+decrement
+  	DFF_SPREAD_LINE								: Fl$1(21),	// Spread in a line in one random direction
+
+  	DFF_NULLIFY_CELL			  	: Fl$1(22),	// Erase other terrain in the footprint of this DF.
+  	DFF_EVACUATE_CREATURES	: Fl$1(23),	// Creatures in the DF area get moved outside of it
+  	DFF_EVACUATE_ITEMS			: Fl$1(24),	// Creatures in the DF area get moved outside of it
+
+  	DFF_BUILD_IN_WALLS			: Fl$1(25),
+  	DFF_MUST_TOUCH_WALLS		: Fl$1(26),
+  	DFF_NO_TOUCH_WALLS			: Fl$1(27),
+
+    DFF_ONLY_IF_EMPTY       : 'DFF_BLOCKED_BY_ITEMS, DFF_BLOCKED_BY_ACTORS',
+
   });
 
   tileEvent.Flags = Flags;
 
 
   class TileEvent {
-  	constructor(tile, spread, decr, flag, text, flare, color$1, radius, matchTile, subEvent, eventName, fn)
+  	constructor(opts={})
   	{
-  		this.tile = tile || 0;
-  		this.fn = fn || null;
-  		this.chance = 0;
+  		if (typeof opts === 'function') {
+  			opts = {
+  				fn: opts,
+  			};
+  		}
+
+  		this.tile = opts.tile || 0;
+  		this.fn = opts.fn || null;
+  		this.item = opts.item || null;
+  		this.chance = opts.chance || 0;
+  		this.volume = opts.volume || 0;
 
   		// spawning pattern:
-  		this.spread = spread || 0;
-  		this.radius = radius || 0;
-  		this.decrement = decr || 0;
-  		this.flags = flag || 0;
-  		this.matchTile = matchTile || 0;	/* ENUM tileType */
-  		this.next = subEvent || 0;	/* ENUM makeEventTypes */
+  		this.spread = opts.spread || 0;
+  		this.radius = opts.radius || 0;
+  		this.decrement = opts.decrement || 0;
+  		this.flags = Flags.toFlag(opts.flags);
+  		this.matchTile = opts.matchTile || opts.needs || 0;	/* ENUM tileType */
+  		this.next = opts.next || null;	/* ENUM makeEventTypes */
 
-  		this.message = text || null;
-  	  this.lightFlare = flare || 0;
-  		this.flashColor = color$1 ? color.from(color$1) : null;
+  		this.message = opts.message || null;
+  	  this.lightFlare = opts.flare || 0;
+  		this.flashColor = opts.flash ? color.from(opts.flash) : null;
   		// this.effectRadius = radius || 0;
   		this.messageDisplayed = false;
-  		this.eventName = eventName || null;	// name of the event to emit when activated
-  		this.id = null;
+  		this.eventName = opts.event || null;	// name of the event to emit when activated
+  		this.id = opts.id || null;
   	}
 
   }
@@ -4438,35 +4545,8 @@
 
 
   // Dungeon features, spawned from Architect.c:
-  function makeEvent(tile, spread, decr, flag, text, flare, color, radius, matchTile, subEvent, eventName, fn) {
-  	let chance = 0;
-  	if (arguments.length == 1 && tile) {
-  		if (typeof tile === 'object') {
-  			const opts = tile;
-  			tile = opts.tile || 0;
-  			spread = opts.spread || 0;
-  			decr = opts.decrement || 0;
-  			flag = opts.flags || opts.flag || 0;
-  			text = opts.message || null;
-  			flare = opts.flare || null;
-  			color = opts.flash || null;
-  			radius = opts.radius || null;
-  			matchTile = opts.matchTile || opts.needs || 0;
-  			subEvent = opts.next || null;
-  			eventName = opts.event || null;
-  			fn = opts.fn || null;
-  			chance = opts.chance || 0;
-  		}
-  		else if (typeof tile === 'function') {
-  			fn = tile;
-  			tile = 0;
-  			spread = 100;
-  		}
-  	}
-
-  	flag = Flags.toFlag(flag);
-  	const te = new types.TileEvent(tile, spread, decr, flag, text, flare, color, radius, matchTile, subEvent, eventName, fn);
-  	te.chance = chance;
+  function makeEvent(opts) {
+  	const te = new types.TileEvent(opts);
   	return te;
   }
 
@@ -4503,8 +4583,7 @@
   // returns whether the feature was successfully generated (false if we aborted because of blocking)
   async function spawn(feat, ctx) {
   	let i, j;
-  	let succeeded;
-  	let tile$1;
+  	let tile$1, itemKind;
 
   	if (!feat) return false;
   	if (!ctx) return false;
@@ -4519,124 +4598,84 @@
   		return feat(ctx);
   	}
 
-  	const map = ctx.map;
+  	const map$1 = ctx.map;
   	const x = ctx.x;
   	const y = ctx.y;
 
-  	if (!map || x === undefined || y === undefined) {
+  	if (!map$1 || x === undefined || y === undefined) {
   		utils$1.ERROR('MAP, x, y are required in context.');
   	}
 
-  	if (map.hasCellMechFlag(x, y, MechFlags.EVENT_FIRED_THIS_TURN)) {
+  	if (map$1.hasCellMechFlag(x, y, MechFlags.EVENT_FIRED_THIS_TURN)) {
   		if (!(feat.flags & Flags.DFF_ALWAYS_FIRE)) {
   			return false;
   		}
   	}
 
-  	const refreshCell = ctx.refreshCell || !(feat.flags & Flags.DFF_NO_REDRAW_CELL);
-  	const abortIfBlocking = ctx.abortIfBlocking || (feat.flags & Flags.DFF_ABORT_IF_BLOCKS_MAP);
+  	tileEvent.debug('spawn', x, y, 'id=', feat.id, 'tile=', feat.tile, 'item=', feat.item);
+
+  	const refreshCell = ctx.refreshCell = ctx.refreshCell || !(feat.flags & Flags.DFF_NO_REDRAW_CELL);
+  	const abortIfBlocking = ctx.abortIfBlocking = ctx.abortIfBlocking || (feat.flags & Flags.DFF_ABORT_IF_BLOCKS_MAP);
 
     // if ((feat.flags & DFF_RESURRECT_ALLY) && !resurrectAlly(x, y))
   	// {
     //     return false;
     // }
 
-    if (feat.message && feat.message.length && !feat.messageDisplayed && map.isVisible(x, y)) {
+    if (feat.message && feat.message.length && !feat.messageDisplayed && map$1.isVisible(x, y)) {
   		feat.messageDisplayed = true;
   		message.add(feat.message);
   	}
 
-  	const spawnMap = GRID.alloc(map.width, map.height);
-
-  	if (feat.fn) {
-  		succeeded = await feat.fn(ctx) || false;
-  	}
-
-
     if (feat.tile) {
-
-  		if (typeof feat.tile === 'string') {
-  			tile$1 = tile.withName(feat.tile);
-  			if (tile$1) {
-  				feat.tile = tile$1.id;
-  			}
-  		}
-  		else {
-  			tile$1 = tiles[feat.tile];
-  		}
-
+  		tile$1 = tiles[feat.tile];
   		if (!tile$1) {
   			utils$1.ERROR('Unknown tile: ' + feat.tile);
   		}
+  	}
 
-  		// Blocking keeps track of whether to abort if it turns out that the DF would obstruct the level.
-  	  const blocking = ((abortIfBlocking
-  	               && !(feat.flags & Flags.DFF_PERMIT_BLOCKING)
-  	               && ((feat.tile && (tile$1.flags & (Flags$2.T_PATHING_BLOCKER)))
-  	                   || (feat.flags & Flags.DFF_TREAT_AS_BLOCKING))) ? true : false);
+  	if (feat.item) {
+  		itemKind = itemKinds[feat.item];
+  		if (!itemKind) {
+  			utils$1.ERROR('Unknown item: ' + feat.item);
+  		}
+  	}
 
+  	// Blocking keeps track of whether to abort if it turns out that the DF would obstruct the level.
+  	const blocking = ctx.blocking = ((abortIfBlocking
+  							 && !(feat.flags & Flags.DFF_PERMIT_BLOCKING)
+  							 && ((tile$1 && (tile$1.flags & (Flags$2.T_PATHING_BLOCKER)))
+  										|| (itemKind && (itemKind.flags & KindFlags.IK_BLOCKS_MOVE))
+  										|| (feat.flags & Flags.DFF_TREAT_AS_BLOCKING))) ? true : false);
 
-      // if (tile.layer == GAS) {
-      //     pmap[x][y].volume += feat.chance;
-      //     pmap[x][y].layers[GAS] = feat.tile;
-      //     if (refreshCell) {
-      //         map.redrawCell(x, y);
-      //     }
-      //     succeeded = true;
-      // } else {
+  	tileEvent.debug('- blocking', blocking);
 
-      tileEvent.computeSpawnMap(map, x, y, feat, spawnMap);
+  	const spawnMap = GRID.alloc(map$1.width, map$1.height);
 
-  		// if (GW.config.D_INSPECT_AUTOGENERATORS) {
-  		// 	let spawnCount = 0;
-  		// 	for(i = 0; i < map.width; ++i) {
-  		// 		for(j = 0; j < map.height; ++j) {
-  		// 			if (spawnMap[i][j]) {
-  		// 				spawnCount += 1;
-  		// 			}
-  		// 		}
-  		// 	}
-  		// 	await temporaryMessage(`Spawn ${spawnCount} cells.`, true);
-  		// }
+  	let succeeded = false;
+  	tileEvent.computeSpawnMap(feat, spawnMap, ctx);
+    if (!blocking || !map.gridDisruptsPassability(map$1, spawnMap, { bounds: ctx.bounds })) {
+  		if (feat.flags & Flags.DFF_EVACUATE_CREATURES) { // first, evacuate creatures, so that they do not re-trigger the tile.
+  				tileEvent.evacuateCreatures(map$1, spawnMap);
+  		}
 
-      if (!blocking || !MAP.gridDisruptsPassability(map, spawnMap)) {
-          if (feat.flags & Flags.DFF_EVACUATE_CREATURES_FIRST) { // first, evacuate creatures if necessary, so that they do not re-trigger the tile.
-              await tileEvent.evacuateCreatures(map, spawnMap);
-          }
+  		if (feat.flags & Flags.DFF_EVACUATE_ITEMS) { // first, evacuate items, so that they do not re-trigger the tile.
+  				tileEvent.evacuateItems(map$1, spawnMap);
+  		}
 
-          //succeeded = spawnTiles(tile.layer, feat.tile, spawnMap, (feat.flags & DFF_BLOCKED_BY_OTHER_LAYERS), refreshCell, (feat.flags & DFF_SUPERPRIORITY));
-          await tileEvent.spawnTiles(map, tile$1, spawnMap,
-                       (feat.flags & Flags.DFF_BLOCKED_BY_OTHER_LAYERS),
-                       (feat.flags & Flags.DFF_SUPERPRIORITY),
-  									 		refreshCell); // this can tweak the spawn map too
-          succeeded = true; // fail ONLY if we blocked the level. We succeed even if, thanks to priority, nothing gets built.
-      } else {
-          succeeded = false;
-      }
-    	// }
-    } else {
-        spawnMap[x][y] = 1;
-        succeeded = true; // Automatically succeed if there is no terrain to place.
-        if (feat.flags & Flags.DFF_EVACUATE_CREATURES_FIRST) { // first, evacuate creatures if necessary, so that they do not re-trigger the tile.
-            await tileEvent.evacuateCreatures(map, spawnMap);
-        }
-    }
+  		if (feat.flags & Flags.DFF_NULLIFY_CELL) { // first, clear other tiles (not base/ground)
+  				tileEvent.nullifyCells(map$1, spawnMap);
+  		}
 
-    if (succeeded && (feat.flags & Flags.DFF_CLEAR_OTHER_TERRAIN)) {
-  		// const exceptLayer = feat.tile ? tile.layer : TileLayer.GROUND;
-  		const exceptLayer = Layer.GROUND;
-  		spawnMap.forEach( (v, i, j) => {
-  			if (!v) return;
-  			const cell = map.cell(i, j);
-  			// console.log('Clear other terrain', i, j);
-  			cell.clearLayers(exceptLayer); // , map.floorTile);
-  		});
+  		if (tile$1 || itemKind || feat.fn) {
+  			succeeded = await tileEvent.spawnTiles(feat, spawnMap, ctx, tile$1, itemKind);
+  		}
   	}
 
   	if (succeeded && (feat.flags & Flags.DFF_PROTECTED)) {
   		spawnMap.forEach( (v, i, j) => {
   			if (!v) return;
-  			const cell = map.cell(i, j);
+  			const cell = map$1.cell(i, j);
   			cell.mechFlags |= MechFlags.EVENT_PROTECTED;
   		});
   	}
@@ -4654,7 +4693,7 @@
   			for(let j = 0; j < spawnMap.height; ++j) {
   				const v = spawnMap[i][j];
   				if (!v || data.gameHasEnded) continue;
-  				const cell = map.cell(i, j);
+  				const cell = map$1.cell(i, j);
   				if (cell.actor || cell.item) {
   					for(let t of cell.tiles()) {
   						await tile.applyInstantEffects(t, cell);
@@ -4676,39 +4715,41 @@
     //		feat.messageDisplayed = true;
     //		message(feat.message, false);
     //	}
-    if (succeeded) {
-        if (feat.next) {
-            if (feat.flags & Flags.DFF_SUBSEQ_EVERYWHERE) {
-                for (i=0; i<map.width; i++) {
-                    for (j=0; j<map.height; j++) {
-                        if (spawnMap[i][j]) {
-                            await tileEvent.spawn(feat.next, { map, x: i, y: j });
-                        }
-                    }
-                }
-            }
-  					else {
-                await tileEvent.spawn(feat.next, { map, x, y });
-            }
-        }
-        if (feat.tile
-            && (tile$1.flags & (Flags$2.T_IS_DEEP_WATER | Flags$2.T_LAVA | Flags$2.T_AUTO_DESCENT)))
-  			{
-            data.updatedMapToShoreThisTurn = false;
-        }
+    if (feat.next && (succeeded || feat.flags & Flags.DFF_SUBSEQ_ALWAYS)) {
+      if (feat.flags & Flags.DFF_SUBSEQ_EVERYWHERE) {
+          for (i=0; i<map$1.width; i++) {
+              for (j=0; j<map$1.height; j++) {
+                  if (spawnMap[i][j]) {
+  										ctx.x = i;
+  										ctx.y = j;
+                      await tileEvent.spawn(feat.next, ctx);
+                  }
+              }
+          }
+  				ctx.x = x;
+  				ctx.y = y;
+      }
+  		else {
+          await tileEvent.spawn(feat.next, ctx);
+      }
+  	}
+  	if (succeeded) {
+      if (feat.tile
+          && (tile$1.flags & (Flags$2.T_IS_DEEP_WATER | Flags$2.T_LAVA | Flags$2.T_AUTO_DESCENT)))
+  		{
+          data.updatedMapToShoreThisTurn = false;
+      }
 
-        // awaken dormant creatures?
-        // if (feat.flags & Flags.DFF_ACTIVATE_DORMANT_MONSTER) {
-        //     for (monst of map.dormant) {
-        //         if (monst.x == x && monst.y == y || spawnMap[monst.x][monst.y]) {
-        //             // found it!
-        //             toggleMonsterDormancy(monst);
-        //         }
-        //     }
-        // }
+      // awaken dormant creatures?
+      // if (feat.flags & Flags.DFF_ACTIVATE_DORMANT_MONSTER) {
+      //     for (monst of map.dormant) {
+      //         if (monst.x == x && monst.y == y || spawnMap[monst.x][monst.y]) {
+      //             // found it!
+      //             toggleMonsterDormancy(monst);
+      //         }
+      //     }
+      // }
     }
-
-
 
   	// if (succeeded && feat.flags & Flags.DFF_EMIT_EVENT && feat.eventName) {
   	// 	await GAME.emit(feat.eventName, x, y);
@@ -4717,10 +4758,16 @@
   	if (succeeded) {
   		ui.requestUpdate();
 
-  		if (feat.flags & Flags.DFF_NO_MARK_FIRED) {
-  			succeeded = false;
+  		if (!(feat.flags & Flags.DFF_NO_MARK_FIRED)) {
+  			spawnMap.forEach( (v, i, j) => {
+  				if (v) {
+  					map$1.setCellFlags(i, j, 0, MechFlags.EVENT_FIRED_THIS_TURN);
+  				}
+  			});
   		}
   	}
+
+    tileEvent.debug('- spawn complete : @%d,%d, ok=%s, feat=%s', ctx.x, ctx.y, succeeded, feat.id);
 
   	GRID.free(spawnMap);
   	return succeeded;
@@ -4729,18 +4776,65 @@
   tileEvent.spawn = spawn;
 
 
-  function computeSpawnMap(map, x, y, feat, spawnMap)
+  function cellIsOk(feat, x, y, ctx) {
+  	const map = ctx.map;
+  	if (!map.hasXY(x, y)) return false;
+  	const cell = map.cell(x, y);
+
+  	if (feat.flags & Flags.DFF_BUILD_IN_WALLS) {
+  		if (!cell.isWall()) return false;
+  	}
+  	else if (feat.flags & Flags.DFF_MUST_TOUCH_WALLS) {
+  		let ok = false;
+  		map.eachNeighbor(x, y, (c) => {
+  			if (c.isWall()) {
+  				ok = true;
+  			}
+  		});
+  		if (!ok) return false;
+  	}
+  	else if (feat.flags & Flags.DFF_NO_TOUCH_WALLS) {
+  		let ok = true;
+  		map.eachNeighbor(x, y, (c) => {
+  			if (c.isWall()) {
+  				ok = false;
+  			}
+  		});
+  		if (!ok) return false;
+  	}
+
+  	if (ctx.bounds && !ctx.bounds.containsXY(x, y)) return false;
+  	if (feat.matchTile && !cell.hasTile(feat.matchTile)) return false;
+  	if (cell.hasTileFlag(Flags$2.T_OBSTRUCTS_TILE_EFFECTS) && !feat.matchTile && (ctx.x != x || ctx.y != y)) return false;
+
+  	return true;
+  }
+
+
+  function computeSpawnMap(feat, spawnMap, ctx)
   {
   	let i, j, dir, t, x2, y2;
   	let madeChange;
 
-  	let matchTile = feat.matchTile || 0;
-  	const requireMatch = (matchTile ? true : false);
+  	const map = ctx.map;
+  	const x = ctx.x;
+  	const y = ctx.y;
+  	const bounds = ctx.bounds || null;
+
+  	if (bounds) {
+  		tileEvent.debug('- bounds', bounds);
+  	}
+
   	let startProb = feat.spread || 0;
   	let probDec = feat.decrement || 0;
 
-  	if (typeof matchTile === 'string') {
-  		matchTile = tile.withName(matchTile).id;
+  	if (feat.matchTile && typeof feat.matchTile === 'string') {
+  		const name = feat.matchTile;
+  		const tile$1 = tile.withName(name);
+  		if (!tile$1) {
+  			utils$1.ERROR('Failed to find match tile with name:' + name);
+  		}
+  		feat.matchTile = tile$1.id;
   	}
 
   	spawnMap[x][y] = t = 1; // incremented before anything else happens
@@ -4752,7 +4846,7 @@
   		if (startProb >= 100) {
   			probDec = probDec || 100;
   		}
-  		while ( random.percent(startProb) ) {
+  		while ( random.chance(startProb) ) {
   			startProb -= probDec;
   			++radius;
   		}
@@ -4763,12 +4857,11 @@
   	if (radius) {
   		startProb = startProb || 100;
   		spawnMap.updateCircle(x, y, radius, (v, i, j) => {
-  			if (matchTile && !map.hasTile(i, j, matchTile)) return 0;
-  			if ((!matchTile) && map.hasTileFlag(i, j, Flags$2.T_OBSTRUCTS_TILE_EFFECTS)) return 0;
+  			if (!cellIsOk(feat, i, j, ctx)) return 0;
 
   			const dist = Math.floor(utils$1.distanceBetween(x, y, i, j));
   			const prob = startProb - (dist * probDec);
-  			if (!random.percent(prob)) return 0;
+  			if (!random.chance(prob)) return 0;
   			return 1;
   		});
   		spawnMap[x][y] = 1;
@@ -4779,73 +4872,124 @@
   			probDec = probDec || 100;
   		}
 
-  		while (madeChange && startProb > 0) {
-  			madeChange = false;
-  			t++;
-  			for (i = 0; i < map.width; i++) {
-  				for (j=0; j < map.height; j++) {
-  					if (spawnMap[i][j] == t - 1) {
-  						for (dir = 0; dir < 4; dir++) {
-  							x2 = i + def.dirs[dir][0];
-  							y2 = j + def.dirs[dir][1];
-  							if (map.hasXY(x2, y2) && !spawnMap[x2][y2]
-  								&& (!requireMatch || (matchTile && map.hasTile(x2, y2, matchTile)))
-  								&& (!map.hasTileFlag(x2, y2, Flags$2.T_OBSTRUCTS_TILE_EFFECTS) || (matchTile && map.hasTile(x2, y2, matchTile)))
-  								&& random.percent(startProb))
-  							{
-  								spawnMap[x2][y2] = t;
-  								madeChange = true;
+  		if (feat.flags & Flags.DFF_SPREAD_LINE) {
+  			x2 = x;
+  			y2 = y;
+  			const dir = def.dirs[random.number(4)];
+  			while(madeChange) {
+  				madeChange = false;
+  				x2 = x2 + dir[0];
+  				y2 = y2 + dir[1];
+  				if (spawnMap.hasXY(x2, y2) && !spawnMap[x2][y2] && cellIsOk(feat, x2, y2, ctx) && random.chance(startProb)) {
+  					spawnMap[x2][y2] = 1;
+  					madeChange = true;
+  					startProb -= probDec;
+  				}
+  			}
+  		}
+  		else {
+  			while (madeChange && startProb > 0) {
+  				madeChange = false;
+  				t++;
+  				for (i = 0; i < map.width; i++) {
+  					for (j=0; j < map.height; j++) {
+  						if (spawnMap[i][j] == t - 1) {
+  							for (dir = 0; dir < 4; dir++) {
+  								x2 = i + def.dirs[dir][0];
+  								y2 = j + def.dirs[dir][1];
+  								if (spawnMap.hasXY(x2, y2) && !spawnMap[x2][y2] && cellIsOk(feat, x2, y2, ctx) && random.chance(startProb)) {
+  									spawnMap[x2][y2] = t;
+  									madeChange = true;
+  								}
   							}
   						}
   					}
   				}
+  				startProb -= probDec;
   			}
-  			startProb -= probDec;
+
   		}
+
   	}
 
-  	if (requireMatch && !map.hasTile(x, y, matchTile)) {
+  	if (!cellIsOk(feat, x, y, ctx)) {
   			spawnMap[x][y] = 0;
   	}
+
   }
 
   tileEvent.computeSpawnMap = computeSpawnMap;
 
 
-  async function spawnTiles(map, tile, 	// layer, surfaceTileType,
-  					 spawnMap,
-  					 blockedByOtherLayers,
-  					 superpriority,
-  				 		applyEffects)
+  async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
   {
   	let i, j;
   	let accomplishedSomething;
 
   	accomplishedSomething = false;
 
-  	for (i=0; i<map.width; i++) {
-  		for (j=0; j<map.height; j++) {
+  	const blockedByOtherLayers = (feat.flags & Flags.DFF_BLOCKED_BY_OTHER_LAYERS);
+  	const superpriority = (feat.flags & Flags.DFF_SUPERPRIORITY);
+  	const applyEffects = ctx.refreshCell;
+  	const map = ctx.map;
+
+  	for (i=0; i<spawnMap.width; i++) {
+  		for (j=0; j<spawnMap.height; j++) {
 
   			if (!spawnMap[i][j]) continue;	// If it's not flagged for building in the spawn map,
   			spawnMap[i][j] = 0; // so that the spawnmap reflects what actually got built
 
   			const cell = map.cell(i, j);
   			if (cell.mechFlags & MechFlags.EVENT_PROTECTED) continue;
-  			if (cell.layers[tile.layer] == tile.id) continue; // If the new cell already contains the fill terrain,
-  			if ((!superpriority) && cell.tile(tile.layer).priority >= tile.priority) continue; // If the terrain in the layer to be overwritten has a higher priority number (unless superpriority),
-  			if (cell.obstructsLayer(tile.layer)) continue; // If we will be painting into the surface layer when that cell forbids it,
-  			if (blockedByOtherLayers && cell.highestPriorityTile().priority >= tile.priority) continue; // if the fill won't violate the priority of the most important terrain in this cell:
 
+  			if (tile) {
+  				if ( (cell.layers[tile.layer] !== tile.id)  														// If the new cell does not already contains the fill terrain,
+  					&& (superpriority || cell.tile(tile.layer).priority < tile.priority)  // If the terrain in the layer to be overwritten has a higher priority number (unless superpriority),
+  					&& (!cell.obstructsLayer(tile.layer))															    // If we will be painting into the surface layer when that cell forbids it,
+            && ((!cell.item) || !(feat.flags & Flags.DFF_BLOCKED_BY_ITEMS))
+            && ((!cell.actor) || !(feat.flags & Flags.DFF_BLOCKED_BY_ACTORS))
+  					&& (!blockedByOtherLayers || cell.highestPriorityTile().priority < tile.priority))  // if the fill won't violate the priority of the most important terrain in this cell:
+  				{
+  					spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
 
-  			spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
+  					cell.setTile(tile);
+            map.redrawCell(cell);
+  					if (feat.volume && cell.gas) {
+  					    cell.volume += (feat.volume || 0);
+  					}
 
-  			cell.setTile(tile);
-  			cell.mechFlags |= MechFlags.EVENT_FIRED_THIS_TURN;
+  					tileEvent.debug('- tile', i, j, 'tile=', tile.id);
 
-  			// const oldTile = cell.tile(tile.layer);
-  			// cell.layers[tile.layer] = tile.id; // Place the terrain!
-  			// cell.redraw();
-  			accomplishedSomething = true;
+  					// cell.mechFlags |= CellMechFlags.EVENT_FIRED_THIS_TURN;
+  					accomplishedSomething = true;
+  				}
+  			}
+
+  			if (itemKind) {
+  				if (superpriority || !cell.item) {
+  					if (!cell.hasTileFlag(Flags$2.T_OBSTRUCTS_ITEMS)) {
+  						spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
+  						if (cell.item) {
+  							map.removeItem(cell.item);
+  						}
+  						const item = make.item(itemKind);
+  						map.addItem(i, j, item);
+              map.redrawCell(cell);
+  						// cell.mechFlags |= CellMechFlags.EVENT_FIRED_THIS_TURN;
+  						accomplishedSomething = true;
+  						tileEvent.debug('- item', i, j, 'item=', itemKind.id);
+  					}
+  				}
+  			}
+
+  			if (feat.fn) {
+  				if (await feat.fn(i, j, ctx)) {
+  					spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
+            map.redrawCell(cell);
+  					// cell.mechFlags |= CellMechFlags.EVENT_FIRED_THIS_TURN;
+  					accomplishedSomething = true;
+  				}
+  			}
   		}
   	}
   	if (accomplishedSomething) {
@@ -4857,7 +5001,18 @@
   tileEvent.spawnTiles = spawnTiles;
 
 
-  async function evacuateCreatures(map, blockingMap) {
+
+  function nullifyCells(map, spawnMap) {
+  	spawnMap.forEach( (v, i, j) => {
+  		if (!v) return;
+  		map.nullifyCellTiles(i, j, false);	// skip gas
+  	});
+  }
+
+  tileEvent.nullifyCells = nullifyCells;
+
+
+  function evacuateCreatures(map, blockingMap) {
   	let i, j;
   	let monst;
 
@@ -4875,7 +5030,7 @@
   										 return true;
   									 },
   									 { hallwaysAllowed: true, blockingMap });
-  				await map.moveActor(loc[0], loc[1], monst);
+  				map.moveActor(loc[0], loc[1], monst);
   			}
   		}
   	}
@@ -4883,8 +5038,35 @@
 
   tileEvent.evacuateCreatures = evacuateCreatures;
 
+
+
+  function evacuateItems(map, blockingMap) {
+
+  	blockingMap.forEach( (v, i, j) => {
+  		if (!v) return;
+  		const cell = map.cell(i, j);
+  		if (!cell.item) return;
+
+  		const forbidFlags = cell.item.forbiddenTileFlags();
+  		const loc = map.matchingXYNear(
+  							 i, j, (cell) => {
+  								 if (cell.hasFlags(Flags$1.HAS_ITEM)) return false;
+  								 if (cell.hasTileFlags(forbidFlags)) return false;
+  								 return true;
+  							 },
+  							 { hallwaysAllowed: true, blockingMap });
+  		if (loc) {
+  			map.removeItem(cell.item);
+  			map.addItem(loc[0], loc[1], cell.item);
+  		}
+  	});
+  }
+
+  tileEvent.evacuateItems = evacuateItems;
+
   var cell = {};
 
+  cell.debug = utils$1.NOOP;
 
   color.install('cursorColor', 25, 100, 150);
   config.cursorPathIntensity = 50;
@@ -4905,7 +5087,7 @@
     HAS_STAIRS					: Fl$2(8),
 
     NEEDS_REDRAW        : Fl$2(9),	// needs to be redrawn (maybe in path, etc...)
-    TILE_CHANGED				: Fl$2(10),	// one of the tiles changed
+    CELL_CHANGED				: Fl$2(10),	// one of the tiles or sprites (item, actor, fx) changed
 
     IS_IN_PATH					: Fl$2(12),	// the yellow trail leading to the cursor
     IS_CURSOR						: Fl$2(13),	// the current cursor
@@ -4927,6 +5109,7 @@
     MONSTER_DETECTED				: Fl$2(24),
     WAS_MONSTER_DETECTED		: Fl$2(25),
 
+    LIGHT_CHANGED           : Fl$2(27), // Light level changed this turn
     CELL_LIT                : Fl$2(28),
     IS_IN_SHADOW				    : Fl$2(29),	// so that a player gains an automatic stealth bonus
     CELL_DARK               : Fl$2(30),
@@ -4936,6 +5119,7 @@
 
     ANY_KIND_OF_VISIBLE			: ['VISIBLE', 'CLAIRVOYANT_VISIBLE', 'TELEPATHIC_VISIBLE'],
     HAS_ACTOR               : ['HAS_PLAYER', 'HAS_MONSTER'],
+    IS_WAS_ANY_KIND_OF_VISIBLE : ['VISIBLE', 'WAS_VISIBLE', 'CLAIRVOYANT_VISIBLE', 'WAS_CLAIRVOYANT_VISIBLE', 'TELEPATHIC_VISIBLE', 'WAS_TELEPATHIC_VISIBLE'],
   });
 
   cell.flags = Flags$1;
@@ -4971,11 +5155,11 @@
   class CellMemory {
     constructor() {
       this.sprite = make.sprite();
-      this.clear();
+      this.nullify();
     }
 
-    clear() {
-      this.sprite.clear();
+    nullify() {
+      this.sprite.nullify();
       this.itemKind = null;
       this.itemQuantity = 0;
       this.tile = null;
@@ -4998,14 +5182,14 @@
     constructor() {
       this.layers = [0,0,0,0];
       this.memory = new types.CellMemory();
-      this.clear();
+      this.nullify();
     }
 
     copy(other) {
       utils$1.copyObject(this, other);
     }
 
-    clear() {
+    nullify() {
       for(let i = 0; i < this.layers.length; ++i) {
         this.layers[i] = 0;
       }
@@ -5014,19 +5198,34 @@
       this.actor = null;
       this.item = null;
 
-      this.flags = 0;							// non-terrain cell flags
+      this.flags = Flags$1.VISIBLE | Flags$1.IN_FOV | Flags$1.NEEDS_REDRAW | Flags$1.CELL_CHANGED;	// non-terrain cell flags
       this.mechFlags = 0;
       this.gasVolume = 0;						// quantity of gas in cell
       this.liquidVolume = 0;
       this.machineNumber = 0;
-      this.memory.clear();
-      this.layerFlags = 0;
+      this.memory.nullify();
+    }
+
+    nullifyTiles(includeGas=true) {
+      this.layers[1] = 0;
+      this.layers[2] = 0;
+      this.liquidVolume = 0;
+      if (includeGas) {
+        this.layers[3] = 0;
+        this.gasVolume = 0;
+      }
+      // this.flags |= Flags.NEEDS_REDRAW;
     }
 
     get ground() { return this.layers[0]; }
     get liquid() { return this.layers[1]; }
     get surface() { return this.layers[2]; }
     get gas() { return this.layers[3]; }
+
+    get groundTile() { return tiles[this.layers[0]]; }
+    get liquidTile() { return tiles[this.layers[1]]; }
+    get surfaceTile() { return tiles[this.layers[2]]; }
+    get gasTile() { return tiles[this.layers[3]]; }
 
     dump() {
       for(let i = this.layers.length - 1; i >= 0; --i) {
@@ -5038,9 +5237,9 @@
     }
     isVisible() { return this.flags & Flags$1.VISIBLE; }
     isAnyKindOfVisible() { return (this.flags & Flags$1.ANY_KIND_OF_VISIBLE) || config.playbackOmniscience; }
+    isRevealed() { return this.flags & Flags$1.REVEALED; }
     hasVisibleLight() { return true; }  // TODO
-
-    redraw() { this.flags |= Flags$1.NEEDS_REDRAW; }
+    lightChanged() { return this.flags & Flags$1.LIGHT_CHANGED; }
 
     tile(layer=0) {
       const id = this.layers[layer] || 0;
@@ -5081,25 +5280,37 @@
       return !!(flagMask & this.tileFlags());
     }
 
+    hasAllTileFlags(flags) {
+      return (flags & this.tileFlags()) === flags;
+    }
+
     hasTileMechFlag(flagMask) {
       return !!(flagMask & this.tileMechFlags());
+    }
+
+    hasAllTileMechFlags(flags) {
+      return (flags & this.tileMechFlags()) === flags;
     }
 
     setFlags(cellFlag=0, cellMechFlag=0) {
       this.flags |= cellFlag;
       this.mechFlags |= cellMechFlag;
-      this.flags |= Flags$1.NEEDS_REDRAW;
+      // this.flags |= Flags.NEEDS_REDRAW;
     }
 
     clearFlags(cellFlag=0, cellMechFlag=0) {
       this.flags &= ~cellFlag;
       this.mechFlags &= ~cellMechFlag;
-      if ((~cellFlag) & Flags$1.NEEDS_REDRAW) {
-        this.flags |= Flags$1.NEEDS_REDRAW;
-      }
+      // if ((~cellFlag) & Flags.NEEDS_REDRAW) {
+      //   this.flags |= Flags.NEEDS_REDRAW;
+      // }
     }
 
     hasTile(id) {
+      if (typeof id === 'string') {
+        const tile$1 = tile.withName(id);
+        id = tile$1.id;
+      }
       return this.layers.includes(id);
     }
 
@@ -5170,8 +5381,12 @@
       return this.highestPriorityTile().text;
     }
 
-    isEmpty() {
+    isNull() {
       return this.ground == 0;
+    }
+
+    isEmpty() {
+      return !(this.actor || this.item);
     }
 
     isPassableNow(limitToPlayerKnowledge) {
@@ -5190,6 +5405,12 @@
       let tileMechFlags = (useMemory) ? this.memory.tileMechFlags : this.tileMechFlags();
       if (tileMechFlags & MechFlags$1.TM_CONNECTS_LEVEL) return true;
       return ((tileMechFlags & MechFlags$1.TM_PROMOTES) && !(this.promotedTileFlags() & Flags$2.T_PATHING_BLOCKER));
+    }
+
+    isWall(limitToPlayerKnowledge) {
+      const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
+      let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
+      return tileFlags & Flags$2.T_OBSTRUCTS_EVERYTHING;
     }
 
     isObstruction(limitToPlayerKnowledge) {
@@ -5237,44 +5458,48 @@
     }
 
     setTile(tileId=0, checkPriority=false) {
-      let tile;
+      let tile$1;
       if (typeof tileId === 'string') {
-        tile = withName(tileId);
+        tile$1 = tile.withName(tileId);
       }
       else if (tileId instanceof types.Tile) {
-        tile = tileId;
-        tileId = tile.id;
+        tile$1 = tileId;
       }
       else {
-        tile = tiles[tileId];
+        tile$1 = tiles[tileId];
       }
 
-      if (!tile) {
-        tile = tiles[0];
-        tileId = 0;
+      if (!tile$1) {
+        tile$1 = tiles[0];
       }
 
-      const oldTileId = this.layers[tile.layer] || 0;
+      const oldTileId = this.layers[tile$1.layer] || 0;
       const oldTile = tiles[oldTileId] || tiles[0];
 
-      if (checkPriority && oldTile.priority > tile.priority) return false;
+      if (checkPriority && oldTile.priority > tile$1.priority) return false;
 
       if ((oldTile.flags & Flags$2.T_PATHING_BLOCKER)
-        != (tile.flags & Flags$2.T_PATHING_BLOCKER))
+        != (tile$1.flags & Flags$2.T_PATHING_BLOCKER))
       {
         data.staleLoopMap = true;
       }
 
-      if ((tile.flags & Flags$2.T_IS_FIRE)
+      if ((tile$1.flags & Flags$2.T_IS_FIRE)
         && !(oldTile.flags & Flags$2.T_IS_FIRE))
       {
         this.setFlags(0, CellMechFlags.CAUGHT_FIRE_THIS_TURN);
       }
 
-      this.layerFlags &= ~Fl$2(tile.layer); // turn off layer flag
-      this.layers[tile.layer] = tile.id;
-      this.flags |= (Flags$1.NEEDS_REDRAW | Flags$1.TILE_CHANGED);
-      return (oldTile.glowLight !== tile.glowLight);
+      this.layerFlags &= ~Fl$2(tile$1.layer); // turn off layer flag
+      this.layers[tile$1.layer] = tile$1.id;
+
+      if (tile$1.layer > 0 && this.layers[0] == 0) {
+        this.layers[0] = tile.withName('FLOOR').id; // TODO - Not good
+      }
+
+      // this.flags |= (Flags.NEEDS_REDRAW | Flags.CELL_CHANGED);
+      this.flags |= (Flags$1.CELL_CHANGED);
+      return (oldTile.glowLight !== tile$1.glowLight);
     }
 
     clearLayers(except, floorTile) {
@@ -5284,10 +5509,11 @@
             this.layers[layer] = (layer ? 0 : floorTile);
         }
       }
-      this.flags |= (Flags$1.NEEDS_REDRAW | Flags$1.TILE_CHANGED);
+      // this.flags |= (Flags.NEEDS_REDRAW | Flags.CELL_CHANGED);
+      this.flags |= (Flags$1.CELL_CHANGED);
     }
 
-    clearTileWithFlags(tileFlags, tileMechFlags=0) {
+    nullifyTileWithFlags(tileFlags, tileMechFlags=0) {
       for( let i = 0; i < this.layers.length; ++i ) {
         const id = this.layers[i];
         if (!id) continue;
@@ -5308,7 +5534,8 @@
           }
         }
       }
-      this.flags |= (Flags$1.NEEDS_REDRAW | Flags$1.TILE_CHANGED);
+      // this.flags |= (Flags.NEEDS_REDRAW | Flags.CELL_CHANGED);
+      this.flags |= (Flags$1.CELL_CHANGED);
     }
 
     // EVENTS
@@ -5320,11 +5547,12 @@
         if (!tile.events) continue;
         const ev = tile.events[name];
         if (ev) {
-          if (ev.chance && !random.percent(ev.chance)) {
+          if (ev.chance && !random.chance(ev.chance)) {
             continue;
           }
 
           ctx.tile = tile;
+          cell.debug('- fireEvent @%d,%d - %s', ctx.x, ctx.y, name);
           fired = await tileEvent.spawn(ev, ctx) || fired;
         }
       }
@@ -5342,7 +5570,7 @@
     //     if (!id) continue;
     //     const tile = TILES[id];
     //     if (!tile.events.tick) continue;
-    //     if (random.percent(tile.events.tick.chance)) {
+    //     if (random.chance(tile.events.tick.chance)) {
     //       flag |= Fl(i);
     //     }
     //   }
@@ -5371,7 +5599,8 @@
 
     addSprite(layer, sprite, priority=50) {
 
-      this.flags |= Flags$1.NEEDS_REDRAW;
+      // this.flags |= Flags.NEEDS_REDRAW;
+      this.flags |= Flags$1.CELL_CHANGED;
 
       if (!this.sprites) {
         this.sprites = { layer, priority, sprite, next: null };
@@ -5389,7 +5618,8 @@
 
     removeSprite(sprite) {
 
-      this.flags |= Flags$1.NEEDS_REDRAW;
+      // this.flags |= Flags.NEEDS_REDRAW;
+      this.flags |= Flags$1.CELL_CHANGED;
 
       if (this.sprites && this.sprites.sprite === sprite) {
         this.sprites = this.sprites.next;
@@ -5410,21 +5640,22 @@
 
     // MEMORY
 
-    storeMemory(item) {
+    storeMemory() {
       const memory = this.memory;
       memory.tileFlags = this.tileFlags();
       memory.tileMechFlags = this.tileMechFlags();
       memory.cellFlags = this.flags;
   		memory.cellMechFlags = this.mechFlags;
       memory.tile = this.highestPriorityTile().id;
-  		if (item) {
-  			memory.itemKind = item.kind;
-  			memory.itemQuantity = item.quantity || 1;
+  		if (this.item) {
+  			memory.itemKind = this.item.kind;
+  			memory.itemQuantity = this.item.quantity || 1;
   		}
   		else {
   			memory.itemKind = null;
   			memory.itemQuantity = 0;
   		}
+      cell.getAppearance(this, memory.sprite);
     }
 
   }
@@ -5442,41 +5673,32 @@
 
 
   function getAppearance(cell, dest) {
-    dest.clear();
+    const memory = cell.memory.sprite;
+    memory.blackOut();
+
     for( let tile of cell.tiles() ) {
-      dest.plot(tile.sprite);
+      memory.plot(tile.sprite);
     }
 
     let current = cell.sprites;
     while(current) {
-      dest.plot(current.sprite);
+      memory.plot(current.sprite);
       current = current.next;
     }
 
-    let needDistinctness = false;
-    if (cell.flags & (Flags$1.IS_CURSOR | Flags$1.IS_IN_PATH)) {
-      const highlight = (cell.flags & Flags$1.IS_CURSOR) ? colors.cursorColor : colors.yellow;
-      if (cell.hasTileMechFlag(MechFlags$1.TM_INVERT_WHEN_HIGHLIGHTED)) {
-        color.swap(dest.fg, dest.bg);
-      } else {
-        // if (!GAME.trueColorMode || !dest.needDistinctness) {
-            color.applyMix(dest.fg, highlight, config.cursorPathIntensity || 20);
-        // }
-        color.applyMix(dest.bg, highlight, config.cursorPathIntensity || 20);
-      }
-      needDistinctness = true;
-    }
-
-    if (needDistinctness) {
-      color.separate(dest.fg, dest.bg);
-    }
-
+    dest.plot(memory);
     return true;
   }
 
   cell.getAppearance = getAppearance;
 
   var actor = {};
+  actor.debug = utils$1.NOOP;
+
+  function actorDebug(actor, ...args) {
+  	// if actor.flags & DEBUG
+  	actor.debug(...args);
+  }
 
   class Actor {
   	constructor(kind) {
@@ -5537,7 +5759,7 @@
 
   // TODO - move back to game??
   async function takeTurn(theActor) {
-    console.log('actor turn...', data.time);
+    actorDebug(theActor, 'actor turn...', data.time);
   	theActor.startTurn();
   	await theActor.act();
     return theActor.turnTime;	// actual or idle time
@@ -5568,7 +5790,144 @@
 
   actor.endTurn = endTurn;
 
+  var visibility = {};
+
+
+  function demoteCellVisibility(cell, i, j, map) {
+    cell.flags &= ~Flags$1.WAS_VISIBLE;
+    if (cell.flags & Flags$1.VISIBLE) {
+      cell.flags &= ~Flags$1.VISIBLE;
+      cell.flags |= Flags$1.WAS_VISIBLE;
+    }
+  }
+
+
+
+
+  function promoteCellVisibility(cell, i, j, map) {
+
+  	if (cell.flags & Flags$1.IN_FOV
+  		&& (map.hasVisibleLight(i, j))
+  		&& !(cell.flags & Flags$1.CLAIRVOYANT_DARKENED))
+  	{
+  		cell.flags |= Flags$1.VISIBLE;
+  	}
+
+  	if ((cell.flags & Flags$1.VISIBLE) && !(cell.flags & Flags$1.WAS_VISIBLE)) { // if the cell became visible this move
+  		if (!(cell.flags & Flags$1.REVEALED) && data.automationActive) {
+          if (cell.item) {
+              const theItem = cell.item;
+              if (theItem.hasKindFlag(KindFlags.IK_INTERRUPT_EXPLORATION_WHEN_SEEN)) {
+                  MSG.add(COLORS.itemMessageColor, 'you see %s.', theItem.name());
+              }
+          }
+          if (!(cell.flags & Flags$1.MAGIC_MAPPED)
+              && cell.hasTileMechFlag(MechFlags$1.TM_INTERRUPT_EXPLORATION_WHEN_SEEN))
+  				{
+              const tile = cell.tileWithMechFlag(MechFlags$1.TM_INTERRUPT_EXPLORATION_WHEN_SEEN);
+              GW.ui.message(GW.colors.backgroundMessageColor, 'you see %s.', tile.name);
+          }
+      }
+      cell.markRevealed();
+  		map.redrawCell(cell);
+  	} else if (!(cell.flags & Flags$1.VISIBLE) && (cell.flags & Flags$1.WAS_VISIBLE)) { // if the cell ceased being visible this move
+      cell.storeMemory();
+  		map.redrawCell(cell);
+  	} else if (!(cell.flags & Flags$1.CLAIRVOYANT_VISIBLE) && (cell.flags & Flags$1.WAS_CLAIRVOYANT_VISIBLE)) { // ceased being clairvoyantly visible
+  		cell.storeMemory();
+  		map.redrawCell(cell);
+  	} else if (!(cell.flags & Flags$1.WAS_CLAIRVOYANT_VISIBLE) && (cell.flags & Flags$1.CLAIRVOYANT_VISIBLE)) { // became clairvoyantly visible
+  		cell.flags &= ~STABLE_MEMORY;
+  		map.redrawCell(cell);
+  	} else if (!(cell.flags & Flags$1.TELEPATHIC_VISIBLE) && (cell.flags & Flags$1.WAS_TELEPATHIC_VISIBLE)) { // ceased being telepathically visible
+      cell.storeMemory();
+  		map.redrawCell(cell);
+  	} else if (!(cell.flags & Flags$1.WAS_TELEPATHIC_VISIBLE) && (cell.flags & Flags$1.TELEPATHIC_VISIBLE)) { // became telepathically visible
+      if (!(cell.flags & Flags$1.REVEALED)
+  			&& !cell.hasTileFlag(Flags$2.T_PATHING_BLOCKER))
+  		{
+  			data.xpxpThisTurn++;
+      }
+  		cell.flags &= ~Flags$1.STABLE_MEMORY;
+  		map.redrawCell(cell);
+  	} else if (!(cell.flags & Flags$1.MONSTER_DETECTED) && (cell.flags & Flags$1.WAS_MONSTER_DETECTED)) { // ceased being detected visible
+  		cell.flags &= ~Flags$1.STABLE_MEMORY;
+  		map.redrawCell(cell);
+      cell.storeMemory();
+  	} else if (!(cell.flags & Flags$1.WAS_MONSTER_DETECTED) && (cell.flags & Flags$1.MONSTER_DETECTED)) { // became detected visible
+  		cell.flags &= ~Flags$1.STABLE_MEMORY;
+  		map.redrawCell(cell);
+      cell.storeMemory();
+  	} else if (cell.isAnyKindOfVisible()
+  			   && cell.lightChanged()) // if the cell's light color changed this move
+  	{
+     map.redrawCell(cell);
+  	}
+  }
+
+
+  function visibilityInitMap(map) {
+    if (config.fov) {
+      map.clearFlags(0, Flags$1.IS_WAS_ANY_KIND_OF_VISIBLE);
+    }
+  }
+
+  visibility.initMap = visibilityInitMap;
+
+
+  function updateVisibility(map, x, y) {
+
+    if (!config.fov) return;
+
+    map.forEach( demoteCellVisibility );
+    map.clearFlags(0, Flags$1.IN_FOV);
+
+    // Calculate player's field of view (distinct from what is visible, as lighting hasn't been done yet).
+    const grid = GRID.alloc(map.width, map.height, 0);
+    map.calcFov(grid, x, y);
+    grid.forEach( (v, i, j) => {
+      if (v) {
+        map.setCellFlags(i, j, Flags$1.IN_FOV);
+      }
+    });
+    GRID.free(grid);
+
+  	map.setCellFlags(x, y, Flags$1.IN_FOV | Flags$1.VISIBLE);
+
+  	// if (PLAYER.bonus.clairvoyance < 0) {
+    //   discoverCell(PLAYER.xLoc, PLAYER.yLoc);
+  	// }
+    //
+  	// if (PLAYER.bonus.clairvoyance != 0) {
+  	// 	updateClairvoyance();
+  	// }
+    //
+    // updateTelepathy();
+  	// updateMonsterDetection();
+
+  	// updateLighting();
+  	map.forEach( promoteCellVisibility );
+
+  	// if (PLAYER.status[STATUS_HALLUCINATING] > 0) {
+  	// 	for (theItem of DUNGEON.items) {
+  	// 		if ((pmap[theItem.xLoc][theItem.yLoc].flags & DISCOVERED) && refreshDisplay) {
+  	// 			refreshDungeonCell(theItem.xLoc, theItem.yLoc);
+  	// 		}
+  	// 	}
+  	// 	for (monst of DUNGEON.monsters) {
+  	// 		if ((pmap[monst.xLoc][monst.yLoc].flags & DISCOVERED) && refreshDisplay) {
+  	// 			refreshDungeonCell(monst.xLoc, monst.yLoc);
+  	// 		}
+  	// 	}
+  	// }
+
+  }
+
+  visibility.update = updateVisibility;
+
   var player = {};
+
+  player.debug = utils$1.NOOP;
 
 
   class Player extends types.Actor {
@@ -5603,7 +5962,7 @@
 
   async function takeTurn$1() {
     const PLAYER = data.player;
-    console.log('player turn...', data.time);
+    player.debug('player turn...', data.time);
     await PLAYER.startTurn();
 
     while(!PLAYER.turnTime) {
@@ -5615,7 +5974,7 @@
       }
     }
 
-    console.log('...end turn', PLAYER.turnTime);
+    player.debug('...end turn', PLAYER.turnTime);
     return PLAYER.turnTime;
   }
 
@@ -5637,10 +5996,21 @@
 
   function endTurn$1(PLAYER, turnTime) {
     PLAYER.turnTime = turnTime || Math.floor(PLAYER.kind.speed/2);  // doing nothing takes time
+    visibility.update(data.map, PLAYER.x, PLAYER.y);
     ui.requestUpdate();
   }
 
   player.endTurn = endTurn$1;
+
+
+  function isValidStartLoc(cell, x, y) {
+    if (cell.hasTileFlag(Flags$2.T_PATHING_BLOCKER | Flags$2.T_HAS_STAIRS)) {
+      return false;
+    }
+    return true;
+  }
+
+  player.isValidStartLoc = isValidStartLoc;
 
   class Scheduler {
   	constructor() {
@@ -5720,20 +6090,41 @@
 
   var game = {};
 
+  game.debug = utils$1.NOOP;
+
   data.time = 0;
   data.running = false;
   data.turnTime = 10;
 
 
 
-  function startGame(opts={}) {
-    if (!opts.map) utils$1.ERROR('map is required.');
+  async function startGame(opts={}) {
 
     data.time = 0;
     data.running = true;
     data.player = opts.player || null;
 
-    game.startMap(opts.map, opts.x, opts.y);
+    if (opts.width) {
+      config.width = opts.width;
+      config.height = opts.height;
+    }
+
+    if (opts.buildMap) {
+      game.buildMap = opts.buildMap;
+    }
+
+    let map = opts.map;
+    if (typeof map === 'number' || !map) {
+      map = await game.getMap(map);
+    }
+
+    if (!map) utils$1.ERROR('No map!');
+
+    if (opts.fov) {
+      config.fov = true;
+    }
+
+    game.startMap(map, opts.start);
     game.queuePlayer();
 
     return game.loop();
@@ -5742,7 +6133,38 @@
   game.start = startGame;
 
 
-  function startMap(map, playerX, playerY) {
+  function buildMap(id=0) {
+    let width = 80;
+    let height = 30;
+    if (config.width) {
+      width = config.width;
+      height = config.height;
+    }
+    else if (viewport.bounds) {
+      width = viewport.bounds.width;
+      height = viewport.bounds.height;
+    }
+    const map = make.map(width, height, { tile: 'FLOOR', boundary: 'WALL' });
+    map.id = id;
+    return map;
+  }
+
+  game.buildMap = buildMap;
+
+
+  async function getMap(id=0) {
+    let map = maps[id];
+    if (!map) {
+      map = await game.buildMap(id);
+      maps[id] = map;
+    }
+    return map;
+  }
+
+  game.getMap = getMap;
+
+
+  function startMap(map, loc='start') {
 
     scheduler.clear();
 
@@ -5750,27 +6172,44 @@
       data.map.removeActor(data.player);
     }
 
-    map.cells.forEach( (c) => c.redraw() );
-    map.flag |= Flags$3.MAP_CHANGED;
+    visibility.initMap(map);
     data.map = map;
 
-    // TODO - Add Map/Environment Updater
-
     if (data.player) {
-      let x = playerX || 0;
-      let y = playerY || 0;
-      if (x <= 0) {
-        const start = map.locations.start;
-        x = start[0];
-        y = start[1];
+      let startLoc;
+      if (!loc) {
+        if (data.player.x >= 0 && data.player.y >= 0) {
+          loc = [data.player.x, data.player.y];
+        }
+        else {
+          loc = 'start';
+        }
       }
-      if (x <= 0) {
-        x = data.player.x || Math.floor(map.width / 2);
-        y = data.player.y || Math.floor(map.height / 2);
+
+      if (Array.isArray(loc)) {
+        startLoc = loc;
       }
-      data.map.addActor(x, y, data.player);
+      else if (typeof loc === 'string') {
+        if (loc === 'player') {
+          startLoc = [data.player.x, data.player.y];
+        }
+        else {
+          startLoc = map.locations[loc];
+        }
+        if (!startLoc) {
+          startLoc = [Math.floor(map.width / 2), Math.floor(map.height / 2)];
+        }
+      }
+
+      startLoc = map.matchingXYNear(startLoc[0], startLoc[1], player.isValidStartLoc, { hallways: true });
+
+      data.map.addActor(startLoc[0], startLoc[1], data.player);
+
+      visibility.update(map, data.player.x, data.player.y);
     }
 
+    ui.blackOutDisplay();
+    map.redrawAll();
     ui.draw();
 
     if (map.config.tick) {
@@ -5800,7 +6239,7 @@
         }
         const turnTime = await fn();
         if (turnTime) {
-          console.log('- push actor: %d + %d = %d', scheduler.time, turnTime, scheduler.time + turnTime);
+          game.debug('- push actor: %d + %d = %d', scheduler.time, turnTime, scheduler.time + turnTime);
           scheduler.push(fn, turnTime);
         }
       }
@@ -5838,7 +6277,7 @@
 
   async function updateEnvironment() {
 
-    console.log('update environment');
+    game.debug('update environment');
 
     const map = data.map;
     if (!map) return 0;
@@ -5854,10 +6293,17 @@
 
   sprite.install('hilite', colors.white);
 
-  async function gameOver(...args) {
+  async function gameOver(isWin, ...args) {
     const msg = text.format(...args);
+
+    flavor.clear();
     message.add(msg);
-    message.add(colors.red, 'GAME OVER');
+    if (isWin) {
+      message.add(colors.yellow, 'WINNER!');
+    }
+    else {
+      message.add(colors.red, 'GAME OVER');
+    }
     ui.updateNow();
     await fx.flashSprite(data.map, data.player.x, data.player.y, 'hilite', 500, 3);
     data.gameHasEnded = true;
@@ -5867,8 +6313,43 @@
 
   game.gameOver = gameOver;
 
+  async function useStairs(x, y) {
+    const player = data.player;
+    const map = data.map;
+    const cell = map.cell(x, y);
+    let start = [player.x, player.y];
+    let mapId = -1;
+    if (cell.hasTileFlag(Flags$2.T_UP_STAIRS)) {
+      start = 'down';
+      mapId = map.id + 1;
+      message.add('you ascend.');
+    }
+    else if (cell.hasTileFlag(Flags$2.T_DOWN_STAIRS)) {
+      start = 'up';
+      mapId = map.id - 1;
+      message.add('you descend.');
+    }
+    else if (cell.hasTileFlag(Flags$2.T_PORTAL)) {
+      start = cell.data.portalLocation;
+      mapId = cell.data.portalMap;
+    }
+    else {  // FALL
+      mapId = map.id - 1;
+    }
+
+    game.debug('use stairs : was on: %d [%d,%d], going to: %d %s', map.id, x, y, mapId, start);
+
+    const newMap = await game.getMap(mapId);
+
+    startMap(newMap, start);
+
+    return true;
+  }
+
+  game.useStairs = useStairs;
+
   var tile = {};
-  var tiles = [];
+  var tiles = {};
 
   const Layer = new types.Enum('GROUND', 'LIQUID', 'SURFACE', 'GAS', 'ITEM', 'ACTOR', 'PLAYER', 'FX', 'UI');
 
@@ -5912,18 +6393,19 @@
     T_PORTAL                : Fl$3(29),
     T_IS_DOOR								: Fl$3(30),
 
-    T_HAS_STAIRS						: ['T_UP_STAIRS', 'T_DOWN_STAIRS'],
+    T_HAS_STAIRS						: ['T_UP_STAIRS', 'T_DOWN_STAIRS', 'T_PORTAL'],
     T_OBSTRUCTS_SCENT				: ['T_OBSTRUCTS_PASSABILITY', 'T_OBSTRUCTS_VISION', 'T_AUTO_DESCENT', 'T_LAVA', 'T_DEEP_WATER', 'T_SPONTANEOUSLY_IGNITES', 'T_HAS_STAIRS'],
     T_PATHING_BLOCKER				: ['T_OBSTRUCTS_PASSABILITY', 'T_AUTO_DESCENT', 'T_IS_TRAP', 'T_LAVA', 'T_DEEP_WATER', 'T_IS_FIRE', 'T_SPONTANEOUSLY_IGNITES', 'T_ENTANGLES'],
     T_DIVIDES_LEVEL       	: ['T_OBSTRUCTS_PASSABILITY', 'T_AUTO_DESCENT', 'T_IS_TRAP', 'T_LAVA', 'T_DEEP_WATER'],
     T_LAKE_PATHING_BLOCKER	: ['T_AUTO_DESCENT', 'T_LAVA', 'T_DEEP_WATER', 'T_SPONTANEOUSLY_IGNITES'],
     T_WAYPOINT_BLOCKER			: ['T_OBSTRUCTS_PASSABILITY', 'T_AUTO_DESCENT', 'T_IS_TRAP', 'T_LAVA', 'T_DEEP_WATER', 'T_SPONTANEOUSLY_IGNITES'],
     T_MOVES_ITEMS						: ['T_DEEP_WATER', 'T_LAVA'],
-    T_CAN_BE_BRIDGED				: ['T_AUTO_DESCENT'],
+    T_CAN_BE_BRIDGED				: ['T_AUTO_DESCENT', 'T_LAVA', 'T_DEEP_WATER'],
     T_OBSTRUCTS_EVERYTHING	: ['T_OBSTRUCTS_PASSABILITY', 'T_OBSTRUCTS_VISION', 'T_OBSTRUCTS_ITEMS', 'T_OBSTRUCTS_GAS', 'T_OBSTRUCTS_SURFACE',   'T_OBSTRUCTS_DIAGONAL_MOVEMENT'],
     T_HARMFUL_TERRAIN				: ['T_CAUSES_POISON', 'T_IS_FIRE', 'T_CAUSES_DAMAGE', 'T_CAUSES_PARALYSIS', 'T_CAUSES_CONFUSION', 'T_CAUSES_EXPLOSIVE_DAMAGE'],
     T_RESPIRATION_IMMUNITIES  : ['T_CAUSES_DAMAGE', 'T_CAUSES_CONFUSION', 'T_CAUSES_PARALYSIS', 'T_CAUSES_NAUSEA'],
     T_IS_LIQUID               : ['T_LAVA', 'T_AUTO_DESCENT', 'T_DEEP_WATER'],
+    T_STAIR_BLOCKERS          : 'T_OBSTRUCTS_ITEMS, T_OBSTRUCTS_SURFACE, T_OBSTRUCTS_GAS, T_OBSTRUCTS_LIQUID, T_OBSTRUCTS_TILE_EFFECTS',
   });
 
   tile.flags = Flags$2;
@@ -6024,6 +6506,21 @@
       // if (!tile) return 0;
       // return tiles[tile].flags;
     }
+
+    hasFlag(flag) {
+      return (this.flags & flag) > 0;
+    }
+
+    hasFlags(flags, mechFlags) {
+      return (!flags || (this.flags & flags)) && (!mechFlags || (this.mechFlags & mechFlags));
+    }
+
+    hasMechFlag(flag) {
+      return (this.mechFlags & flag) > 0;
+    }
+
+    flavorText() { return this.text || this.desc; }
+
   }
 
   types.Tile = Tile;
@@ -6036,6 +6533,8 @@
     // TODO - tile.events.discover = opts.discover
     if (opts.playerEnter) { tile.events.playerEnter = make.tileEvent(opts.playerEnter); }
     if (opts.enter) { tile.events.enter = make.tileEvent(opts.enter); }
+    if (opts.exit) { tile.events.exit = make.tileEvent(opts.exit); }
+    if (opts.playerExit) { tile.events.playerExit = make.tileEvent(opts.playerExit); }
     if (opts.tick) {
       const tick = tile.events.tick = make.tileEvent(opts.tick);
       tick.chance = tick.chance || 100;
@@ -6054,8 +6553,8 @@
       tile = make.tile(...args);
     }
     tile.name = name;
-    tile.id = tiles.length;
-    tiles.push(tile);
+    tile.id = name;
+    tiles[name] = tile;
     return tile.id;
   }
 
@@ -6065,15 +6564,16 @@
   const NOTHING = def.NOTHING = 0;
   installTile(NOTHING,       '\u2205', 'black', 'black', 0, 0, 'T_OBSTRUCTS_PASSABILITY', "an eerie nothingness", "");
   installTile('FLOOR',       '\u00b7', [30,30,30,20], [2,2,10,0,2,2,0], 10, 0, 0, 'the floor');	// FLOOR
-  installTile('DOOR',        '+', [100,40,40], [30,60,60], 30, Layer.SURFACE, 'T_IS_DOOR', 'a door');	// DOOR (LAYER=SURFACE)
+  installTile('DOOR',        '+', [100,40,40], [30,60,60], 30, 0, 'T_IS_DOOR, T_OBSTRUCTS_TILE_EFFECTS, T_OBSTRUCTS_ITEMS, T_OBSTRUCTS_VISION', 'a door', '', { enter: { tile: 'OPEN_DOOR' }});	// DOOR
+  installTile('OPEN_DOOR',   "'", [100,40,40], [30,60,60], 40, 0, 'T_IS_DOOR, T_OBSTRUCTS_TILE_EFFECTS', 'an open door', '', { tick: { tile: 'DOOR', flags: 'DFF_SUPERPRIORITY, DFF_ONLY_IF_EMPTY' }});	// OPEN_DOOR
   installTile('BRIDGE',      '=', [100,40,40], null, 40, Layer.SURFACE, 'T_BRIDGE', 'a bridge');	// BRIDGE (LAYER=SURFACE)
-  installTile('UP_STAIRS',   '<', [100,40,40], [100,60,20], 200, 0, 'T_UP_STAIRS', 'an upward staircase');	// UP
-  installTile('DOWN_STAIRS', '>', [100,40,40], [100,60,20], 200, 0, 'T_DOWN_STAIRS', 'a downward staircase');	// DOWN
+  installTile('UP_STAIRS',   '<', [100,40,40], [100,60,20], 200, 0, 'T_UP_STAIRS, T_STAIR_BLOCKERS', 'an upward staircase');	// UP
+  installTile('DOWN_STAIRS', '>', [100,40,40], [100,60,20], 200, 0, 'T_DOWN_STAIRS, T_STAIR_BLOCKERS', 'a downward staircase');	// DOWN
   installTile('WALL',        '#', [7,7,7,0,3,3,3],  [40,40,40,10,10,0,5], 100, 0, 'T_OBSTRUCTS_EVERYTHING', 'a wall');	// WALL
   installTile('LAKE',        '~', [5,8,20,10,0,4,15,1], [10,15,41,6,5,5,5,1], 50, 0, 'T_DEEP_WATER', 'deep water');	// LAKE
 
   function withName(name) {
-    return tiles.find( (t) => t.name == name );
+    return tiles[name] || tiles[NOTHING];
   }
 
   tile.withName = withName;
@@ -6087,7 +6587,7 @@
     if (tile.flags & Flags$2.T_LAVA && actor) {
       if (!cell.hasTileFlag(Flags$2.T_BRIDGE) && !actor.status[def.STATUS_LEVITATING]) {
         actor.kill();
-        await game.gameOver(colors.red, 'you fall into lava and perish.');
+        await game.gameOver(false, colors.red, 'you fall into lava and perish.');
         return true;
       }
     }
@@ -6097,15 +6597,225 @@
 
   tile.applyInstantEffects = applyInstantTileEffects;
 
-  var map = {};
-
   const Fl$4 = flag.fl;
 
-  const Flags$3 = flag.install('map', {
-  	MAP_CHANGED: Fl$4(0),
-  	MAP_STABLE_GLOW_LIGHTS:  Fl$4(1),
-  	MAP_STABLE_LIGHTS: Fl$4(2),
-  	MAP_ALWAYS_LIT:	Fl$4(3),
+
+  const ActionFlags = flag.install('action', {
+  	A_USE			: Fl$4(0),
+  	A_EQUIP		: Fl$4(1),
+  	A_PUSH		: Fl$4(2),
+  	A_RENAME	: Fl$4(3),
+  	A_ENCHANT	: Fl$4(4),
+  	A_THROW		: Fl$4(5),
+  	A_SPECIAL	: Fl$4(6),
+
+  	A_PULL		: Fl$4(7),
+  	A_SLIDE		: Fl$4(8),
+
+  	A_NO_PICKUP		: Fl$4(9),
+  	A_NO_DESTROY	: Fl$4(10),
+
+  	A_GRABBABLE : 'A_PULL, A_SLIDE',
+  });
+
+
+  const KindFlags = flag.install('itemKind', {
+  	IK_ENCHANT_SPECIALIST 	: Fl$4(0),
+  	IK_HIDE_FLAVOR_DETAILS	: Fl$4(1),
+
+  	IK_AUTO_TARGET					: Fl$4(2),
+
+  	IK_HALF_STACK_STOLEN		: Fl$4(3),
+  	IK_ENCHANT_USES_STR 		: Fl$4(4),
+
+  	IK_ARTICLE_THE					: Fl$4(5),
+  	IK_NO_ARTICLE						: Fl$4(6),
+  	IK_PRENAMED	  					: Fl$4(7),
+
+  	IK_BREAKS_ON_FALL				: Fl$4(8),
+  	IK_DESTROY_ON_USE				: Fl$4(9),
+  	IK_FLAMMABLE						: Fl$4(10),
+
+    IK_ALWAYS_IDENTIFIED  	: Fl$4(11),
+  	IK_IDENTIFY_BY_KIND			: Fl$4(12),
+  	IK_CURSED								: Fl$4(13),
+
+  	IK_BLOCKS_MOVE					: Fl$4(14),
+  	IK_BLOCKS_VISION				: Fl$4(15),
+
+  	IK_PLACE_ANYWHERE				: Fl$4(16),
+  	IK_KIND_AUTO_ID       	: Fl$4(17),	// the item type will become known when the item is picked up.
+  	IK_PLAYER_AVOIDS				: Fl$4(18),	// explore and travel will try to avoid picking the item up
+
+  	IK_TWO_HANDED						: Fl$4(19),
+  	IK_NAME_PLURAL					: Fl$4(20),
+
+  	IK_STACKABLE						: Fl$4(21),
+  	IK_STACK_SMALL					: Fl$4(22),
+  	IK_STACK_LARGE					: Fl$4(23),
+  	IK_SLOW_RECHARGE				: Fl$4(24),
+
+  	IK_CAN_BE_SWAPPED      	: Fl$4(25),
+  	IK_CAN_BE_RUNIC					: Fl$4(26),
+  	IK_CAN_BE_DETECTED		  : Fl$4(27),
+
+  	IK_TREASURE							: Fl$4(28),
+  	IK_INTERRUPT_EXPLORATION_WHEN_SEEN:	Fl$4(29),
+  });
+  //
+  //
+  // class ItemCategory {
+  // 	constructor() {
+  // 		this.name = '';
+  // 		this.flags = 0;
+  // 	}
+  // }
+  //
+  // GW.types.ItemCategory = ItemCategory;
+  //
+  //
+  // function installItemCategory() {
+  //
+  // }
+  //
+  // GW.item.installCategory = installItemCategory;
+
+
+  const AttackFlags = flag.install('itemAttack', {
+  	IA_MELEE:		Fl$4(0),
+  	IA_THROWN:	Fl$4(1),
+  	IA_RANGED:	Fl$4(2),
+  	IA_AMMO:		Fl$4(3),
+
+  	IA_RANGE_5:				Fl$4(5),	// Could move this to range field of kind
+  	IA_RANGE_10:			Fl$4(6),
+  	IA_RANGE_15:			Fl$4(7),
+  	IA_CAN_LONG_SHOT:	Fl$4(8),
+
+  	IA_ATTACKS_SLOWLY				: Fl$4(10),	// mace, hammer
+  	IA_ATTACKS_QUICKLY    	: Fl$4(11),   // rapier
+
+  	IA_HITS_STAGGER					: Fl$4(15),		// mace, hammer
+  	IA_EXPLODES_ON_IMPACT		: Fl$4(16),
+
+    IA_ATTACKS_EXTEND     	: Fl$4(20),   // whip???
+  	IA_ATTACKS_PENETRATE		: Fl$4(21),		// spear, pike	???
+  	IA_ATTACKS_ALL_ADJACENT : Fl$4(22),		// whirlwind
+    IA_LUNGE_ATTACKS      	: Fl$4(23),   // rapier
+  	IA_PASS_ATTACKS       	: Fl$4(24),   // flail	???
+    IA_SNEAK_ATTACK_BONUS 	: Fl$4(25),   // dagger
+  	IA_ATTACKS_WIDE					: Fl$4(26),		// axe
+
+  });
+
+
+  const Flags$3 = flag.install('item', {
+  	ITEM_IDENTIFIED			: Fl$4(0),
+  	ITEM_EQUIPPED				: Fl$4(1),
+  	ITEM_CURSED					: Fl$4(2),
+  	ITEM_PROTECTED			: Fl$4(3),
+  	ITEM_INDESTRUCTABLE	: Fl$4(4),		// Cannot die - even if falls into T_LAVA_INSTA_DEATH
+  	ITEM_RUNIC					: Fl$4(5),
+  	ITEM_RUNIC_HINTED		: Fl$4(6),
+  	ITEM_RUNIC_IDENTIFIED		: Fl$4(7),
+  	ITEM_CAN_BE_IDENTIFIED	: Fl$4(8),
+  	ITEM_PREPLACED					: Fl$4(9),
+  	ITEM_MAGIC_DETECTED			: Fl$4(11),
+  	ITEM_MAX_CHARGES_KNOWN	: Fl$4(12),
+  	ITEM_IS_KEY							: Fl$4(13),
+
+
+  	ITEM_DESTROYED					: Fl$4(30),
+  });
+
+
+
+  class ItemKind {
+    constructor(opts={}) {
+  		this.name = opts.name || 'item';
+  		this.description = opts.description || opts.desc || '';
+  		this.sprite = make.sprite(opts.sprite);
+      this.flags = KindFlags.toFlag(opts.flags);
+  		this.actionFlags = ActionFlags.toFlag(opts.flags);
+  		this.attackFlags = AttackFlags.toFlag(opts.flags);
+  		this.stats = Object.assign({}, opts.stats || {});
+  		this.id = opts.id || null;
+    }
+  }
+
+  types.ItemKind = ItemKind;
+
+  function installItemKind(id, opts={}) {
+  	opts.id = id;
+  	const kind = new types.ItemKind(opts);
+  	itemKinds[id] = kind;
+  	return kind;
+  }
+
+  item.installKind = installItemKind;
+
+
+  class Item {
+  	constructor(kind) {
+  		this.x = -1;
+      this.y = -1;
+      this.flags = 0;
+  		this.kind = kind || null;
+  		this.stats = Object.assign({}, kind.stats);
+  	}
+
+  	hasKindFlag(flag) {
+  		return (this.kind.flags & flag) > 0;
+  	}
+
+  	hasActionFlag(flag) {
+  		return (this.kind.actionFlags & flag) > 0;
+  	}
+
+  	async applyDamage(ctx) {
+  		if (this.kind.actionFlags & ActionFlags.A_NO_DESTROY) return false;
+  		if (this.stats.health) {
+  			ctx.damageDone = Math.max(this.stats.health, ctx.damage);
+  			this.stats.health -= ctx.damageDone;
+  			if (this.stats.health <= 0) {
+  				this.flags |= Flags$3.ITEM_DESTROYED;
+  			}
+  			return true;
+  		}
+  		return false;
+  	}
+
+  	isDestroyed() { return this.flags & Flags$3.ITEM_DESTROYED; }
+
+  	forbiddenTileFlags() { return Flags$2.T_OBSTRUCTS_ITEMS; }
+
+  	flavorText() { return this.kind.description || this.kind.name; }
+    name() { return this.kind.name; }
+  }
+
+  types.Item = Item;
+
+  function makeItem(kind) {
+  	if (typeof kind === 'string') {
+  		const name = kind;
+  		kind = itemKinds[name];
+  		if (!kind) utils$1.ERROR('Unknown Item Kind: ' + name);
+  	}
+  	return new types.Item(kind);
+  }
+
+  make.item = makeItem;
+
+  var map = {};
+  map.debug = utils$1.NOOP;
+
+  const Fl$5 = flag.fl;
+
+  const Flags$4 = flag.install('map', {
+  	MAP_CHANGED: Fl$5(0),
+  	MAP_STABLE_GLOW_LIGHTS:  Fl$5(1),
+  	MAP_STABLE_LIGHTS: Fl$5(2),
+  	MAP_ALWAYS_LIT:	Fl$5(3),
   });
 
 
@@ -6118,29 +6828,29 @@
   		this.locations = opts.locations || {};
   		this.config = Object.assign({}, opts);
   		this.config.tick = this.config.tick || 100;
+  		this.actors = null;
+  		this.items = null;
   	}
 
-  	clear() { this.cells.forEach( (c) => c.clear() ); }
-  	dump() { this.cells.dump((c) => c.dump()); }
+  	nullify() { this.cells.forEach( (c) => c.nullify() ); }
+  	dump(fmt) { this.cells.dump(fmt || ((c) => c.dump()) ); }
   	cell(x, y)   { return this.cells[x][y]; }
 
-  	forEach(fn) { this.cells.forEach(fn); }
-  	forRect(x, y, w, h, fn) { this.cells.forRect(x, y, w, h, fn ); }
-  	eachNeighbor(x, y, fn, only4dirs) { this.cells.eachNeighbor(x, y, fn, only4dirs); }
+  	forEach(fn) { this.cells.forEach( (c, i, j) => fn(c, i, j, this) ); }
+  	forRect(x, y, w, h, fn) { this.cells.forRect(x, y, w, h, (c, i, j) => fn(c, i, j, this) ); }
+  	eachNeighbor(x, y, fn, only4dirs) { this.cells.eachNeighbor(x, y, (c, i, j) => fn(c, i, j, this), only4dirs); }
 
   	hasXY(x, y)    		 { return this.cells.hasXY(x, y); }
   	isBoundaryXY(x, y) { return this.cells.isBoundaryXY(x, y); }
 
   	changed(v) {
-  		if (arguments.length == 1) {
-  			if (v) {
-  				this.flags |= Flags$3.MAP_CHANGED;
-  			}
-  			else {
-  				this.flags &= ~Flags$3.MAP_CHANGED;
-  			}
+  		if (v === true) {
+  			this.flags |= Flags$4.MAP_CHANGED;
   		}
-  		return (this.flags & Flags$3.MAP_CHANGED);
+  		else if (v === false) {
+  			this.flags &= ~Flags$4.MAP_CHANGED;
+  		}
+  		return (this.flags & Flags$4.MAP_CHANGED);
   	}
 
   	hasCellFlag(x, y, flag) 		{ return this.cell(x, y).flags & flag; }
@@ -6148,20 +6858,31 @@
   	hasTileFlag(x, y, flag) 		{ return this.cell(x, y).hasTileFlag(flag); }
   	hasTileMechFlag(x, y, flag) { return this.cell(x, y).hasTileMechFlag(flag); }
 
-  	redrawCell(x, y) {
-  		this.cell(x, y).redraw();
-  		this.flags |= Flags$3.MAP_CHANGED;
+  	redrawCell(cell) {
+      // if (cell.isAnyKindOfVisible()) {
+        cell.flags |= Flags$1.NEEDS_REDRAW;
+    		this.flags |= Flags$4.MAP_CHANGED;
+      // }
   	}
 
-  	redraw() {
-  		this.forEach( (c) => c.redraw() );
-  		this.flags |= Flags$3.MAP_CHANGED;
+  	redraw(x, y) {
+      const cell = this.cell(x, y);
+      this.redrawCell(cell);
   	}
+
+    redrawAll() {
+      this.forEach( (c) => {
+        // if (c.isAnyKindOfVisible()) {
+          c.flags |= Flags$1.NEEDS_REDRAW;
+        // }
+      });
+  		this.flags |= Flags$4.MAP_CHANGED;
+    }
 
   	markRevealed(x, y) { return this.cell(x, y).markRevealed(); }
   	isVisible(x, y)    { return this.cell(x, y).isVisible(); }
   	isAnyKindOfVisible(x, y) { return this.cell(x, y).isAnyKindOfVisible(); }
-  	hasVisibleLight(x, y) { return (this.flags & Flags$3.MAP_ALWAYS_LIT) || this.cell(x, y).hasVisibleLight(); }
+  	hasVisibleLight(x, y) { return (this.flags & Flags$4.MAP_ALWAYS_LIT) || this.cell(x, y).hasVisibleLight(); }
 
   	setFlags(mapFlag, cellFlag, cellMechFlag) {
   		if (mapFlag) {
@@ -6170,27 +6891,27 @@
   		if (cellFlag || cellMechFlag) {
   			this.forEach( (c) => c.setFlags(cellFlag, cellMechFlag) );
   		}
-  		this.flags |= Flags$3.MAP_CHANGED;
+  		this.changed(true);
   	}
 
-  	clearFlags(mapFlag, cellFlag, cellMechFlag) {
+  	clearFlags(mapFlag=0, cellFlag=0, cellMechFlag=0) {
   		if (mapFlag) {
   			this.flags &= ~mapFlag;
   		}
   		if (cellFlag || cellMechFlag) {
   			this.forEach( (cell) => cell.clearFlags(cellFlag, cellMechFlag) );
   		}
-  		this.flags |= Flags$3.MAP_CHANGED;
+  		this.changed(true);
   	}
 
   	setCellFlags(x, y, cellFlag, cellMechFlag) {
   		this.cell(x, y).setFlags(cellFlag, cellMechFlag);
-  		this.flags |= Flags$3.MAP_CHANGED;
+  		this.flags |= Flags$4.MAP_CHANGED;
   	}
 
   	clearCellFlags(x, y, cellFlags, cellMechFlags) {
   		this.cell(x, y).clearFlags(cellFlags, cellMechFlags);
-  		this.flags |= Flags$3.MAP_CHANGED;
+  		this.changed(true);
   	}
 
   	hasTile(x, y, tile)	{ return this.cells[x][y].hasTile(tile); }
@@ -6211,7 +6932,8 @@
   	canBePassed(x, y, limitToPlayerKnowledge) { return this.cells[x][y].canBePassed(limitToPlayerKnowledge); }
   	isPassableNow(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isPassableNow(limitToPlayerKnowledge); }
 
-  	isEmpty(x, y) { return this.cells[x][y].isEmpty(); }
+  	isNull(x, y) { return this.cells[x][y].isNull(); }
+    isEmpty(x, y) { return this.cells[x][y].isEmpty(); }
   	isObstruction(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isObstruction(limitToPlayerKnowledge); }
     isDoor(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isDoor(limitToPlayerKnowledge); }
     blocksPathing(x, y, limitToPlayerKnowledge) { return this.cells[x][y].blocksPathing(limitToPlayerKnowledge); }
@@ -6227,15 +6949,19 @@
   	setTile(x, y, tileId, checkPriority) {
   		const cell = this.cell(x, y);
   		if (cell.setTile(tileId, checkPriority)) {
-  			this.flags &= ~(Flags$3.MAP_STABLE_GLOW_LIGHTS);
+  			this.flags &= ~(Flags$4.MAP_STABLE_GLOW_LIGHTS);
   		}
-  		this.flags |= Flags$3.MAP_CHANGED;
   	  return true;
   	}
 
-  	clearTileWithFlags(x, y, tileFlags, tileMechFlags=0) {
+  	nullifyTileWithFlags(x, y, tileFlags, tileMechFlags=0) {
   		const cell = this.cell(x, y);
-  		cell.clearTileWithFlags(tileFlags, tileMechFlags);
+  		cell.nullifyTileWithFlags(tileFlags, tileMechFlags);
+  	}
+
+  	nullifyCellTiles(x, y, includeGas) {
+  		this.changed(true);
+  		return this.cell(x, y).nullifyTiles(includeGas);
   	}
 
   	fill(tileId, boundaryTile) {
@@ -6253,6 +6979,14 @@
   				}
   			}
   		}
+  	}
+
+  	neighborCount(x, y, matchFn, only4dirs) {
+  		let count = 0;
+  		this.eachNeighbor(x, y, (...args) => {
+  			if (matchFn(...args)) ++count;
+  		}, only4dirs);
+  		return count;
   	}
 
   	passableArcCount(x, y) {
@@ -6277,13 +7011,26 @@
 
   	fillBasicCostGrid(costGrid) {
   		this.cells.forEach( (cell, i, j) => {
-        if (cell.isEmpty()) {
+        if (cell.isNull()) {
           costGrid[i][j] = def.PDS_OBSTRUCTION;
         }
         else {
           costGrid[i][j] = cell.canBePassed() ? 1 : def.PDS_OBSTRUCTION;
         }
       });
+  	}
+
+  	matchingNeighbor(x, y, matcher, only4dirs) {
+  		const maxIndex = only4dirs ? 4 : 8;
+  		for(let d = 0; d < maxIndex; ++d) {
+  			const dir = def.dirs[d];
+  			const i = x + dir[0];
+  			const j = y + dir[1];
+  			if (this.hasXY(i, j)) {
+  				if (matcher(this.cells[i][j], i, j, this)) return [i, j];
+  			}
+  		}
+  		return null;
   	}
 
   	// blockingMap is optional
@@ -6305,9 +7052,9 @@
   					if (!this.hasXY(i, j)) continue;
   					const cell = this.cell(i, j);
   					// if ((i == x-k || i == x+k || j == y-k || j == y+k)
-  					if ((Math.floor(utils$1.distanceBetween(x, y, i, j)) == k)
+  					if ((Math.ceil(utils$1.distanceBetween(x, y, i, j)) == k)
   							&& (!blockingMap || !blockingMap[i][j])
-  							&& matcher(cell, i, j)
+  							&& matcher(cell, i, j, this)
   							&& (!forbidLiquid || cell.liquid == def.NOTHING)
   							&& (hallwaysAllowed || this.passableArcCount(i, j) < 2))
   	        {
@@ -6326,7 +7073,7 @@
   		if (deterministic) {
   	    randIndex = Math.floor(candidateLocs.length / 2);
   		} else {
-  			randIndex = random.number(candidateLocs.length) - 1;
+  			randIndex = random.number(candidateLocs.length);
   		}
   		return candidateLocs[randIndex];
   	}
@@ -6355,16 +7102,16 @@
   			y = random.range(0, this.height - 1);
   			cell = this.cell(x, y);
 
-  			if (matcher(cell, x, y)) {
+  			if (matcher(cell, x, y, this)) {
   				retry = false;
   			}
   		}
   		if (failsafeCount >= 500) {
-  			// GW.debug.log('randomMatchingLocation', dungeonType, liquidType, terrainType, ' => FAIL');
+  			// map.debug('randomMatchingLocation', dungeonType, liquidType, terrainType, ' => FAIL');
   			return false;
   		}
 
-  		// GW.debug.log('randomMatchingLocation', dungeonType, liquidType, terrainType, ' => ', x, y);
+  		// map.debug('randomMatchingLocation', dungeonType, liquidType, terrainType, ' => ', x, y);
   		return [ x, y ];
   	}
 
@@ -6376,7 +7123,7 @@
   		cell.addSprite(Layer.FX, anim.sprite);
   		anim.x = x;
   		anim.y = y;
-  		this.flags |= Flags$3.MAP_CHANGED;
+  		this.redrawCell(cell);
   		return true;
   	}
 
@@ -6385,8 +7132,9 @@
   		const cell = this.cell(x, y);
   		const oldCell = this.cell(anim.x, anim.y);
   		oldCell.removeSprite(anim.sprite);
+      this.redrawCell(oldCell);
   		cell.addSprite(Layer.FX, anim.sprite);
-  		this.flags |= Flags$3.MAP_CHANGED;
+      this.redrawCell(cell);
   		anim.x = x;
   		anim.y = y;
   		return true;
@@ -6395,7 +7143,8 @@
   	removeFx(anim) {
   		const oldCell = this.cell(anim.x, anim.y);
   		oldCell.removeSprite(anim.sprite);
-  		this.flags |= Flags$3.MAP_CHANGED;
+      this.redrawCell(oldCell);
+  		this.flags |= Flags$4.MAP_CHANGED;
   		return true;
   	}
 
@@ -6421,7 +7170,7 @@
   		cell.addSprite(layer, theActor.kind.sprite);
 
   		const flag = (theActor === data.player) ? Flags$1.HAS_PLAYER : Flags$1.HAS_MONSTER;
-  		cell.flags |= (flag | Flags$1.NEEDS_REDRAW);
+  		cell.flags |= flag;
   		// if (theActor.flags & ActorFlags.MK_DETECTED)
   		// {
   		// 	cell.flags |= CellFlags.MONSTER_DETECTED;
@@ -6429,14 +7178,14 @@
 
   		theActor.x = x;
   		theActor.y = y;
-  		this.flags |= Flags$3.MAP_CHANGED;
+      this.redrawCell(cell);
 
   		return true;
   	}
 
   	addActorNear(x, y, theActor) {
   		const forbidTileFlags = GW.actor.avoidedFlags(theActor);
-  		const loc = this.getMatchingLocNear(x, y, (cell, i, j) => {
+  		const loc = this.matchingXYNear(x, y, (cell, i, j) => {
   			if (cell.flags & (Flags$1.HAS_ACTOR)) return false;
   			return !cell.hasTileFlag(forbidTileFlags);
   		});
@@ -6464,9 +7213,8 @@
   		if (cell.actor === actor) {
   			cell.actor = null;
   			cell.flags &= ~Flags$1.HAS_ACTOR;
-  			cell.flags |= Flags$1.NEEDS_REDRAW;
-  			this.flags |= Flags$3.MAP_CHANGED;
   			cell.removeSprite(actor.kind.sprite);
+        this.redrawCell(cell);
   		}
   	}
 
@@ -6497,10 +7245,8 @@
   	// ITEMS
 
   	itemAt(x, y) {
-  		if (!(this.cell(x, y).flags & Flags$1.HAS_ITEM)) {
-  			return null;
-  		}
-  		return this.items.find( (i) => i.x == x && i.y == y );
+  		const cell = this.cell(x, y);
+  		return cell.item;
   	}
 
   	addItem(x, y, theItem) {
@@ -6512,11 +7258,16 @@
   		}
   		theItem.x = x;
   		theItem.y = y;
-  		this.items.add(theItem);
-  		cell.flags |= (Flags$1.HAS_ITEM | Flags$1.NEEDS_REDRAW);
 
-  		this.flags |= Flags$3.MAP_CHANGED;
-  		if ( ((theItem.flags & ItemFlags.ITEM_MAGIC_DETECTED) && GW.item.magicChar(theItem)) ||
+  		cell.item = theItem;
+  		theItem.next = this.items;
+  		this.items = theItem;
+
+  		cell.addSprite(Layer.ITEM, theItem.kind.sprite);
+  		cell.flags |= (Flags$1.HAS_ITEM);
+      this.redrawCell(cell);
+
+  		if ( ((theItem.flags & Flags$3.ITEM_MAGIC_DETECTED) && GW.item.magicChar(theItem)) ||
   					config.D_ITEM_OMNISCIENCE)
   		{
   			cell.flags |= Flags$1.ITEM_DETECTED;
@@ -6526,9 +7277,9 @@
   	}
 
   	addItemNear(x, y, theItem) {
-  		const loc = this.getMatchingLocNear(x, y, (cell, i, j) => {
+  		const loc = this.matchingXYNear(x, y, (cell, i, j) => {
   			if (cell.flags & Flags$1.HAS_ITEM) return false;
-  			return !cell.hasTileFlag(Flags$2.T_OBSTRUCTS_ITEMS);
+  			return !cell.hasTileFlag(theItem.forbiddenTileFlags());
   		});
   		if (!loc || loc[0] < 0) {
   			// GW.ui.message(colors.badMessageColor, 'There is no place to put the item.');
@@ -6542,14 +7293,30 @@
   	removeItem(theItem, skipRefresh) {
   		const x = theItem.x;
   		const y = theItem.y;
-  		if (this.items.remove(theItem)) {
-  			this.flags |= Flags$3.MAP_CHANGED;
-  			const cell = this.cell(x, y);
-  			cell.flags &= ~(Flags$1.HAS_ITEM | Flags$1.ITEM_DETECTED);
-  			cell.flags |= Flags$1.NEEDS_REDRAW;
-  			return true;
+  		const cell = this.cell(x, y);
+  		if (cell.item !== theItem) return false;
+
+  		cell.removeSprite(theItem.kind.sprite);
+
+  		cell.item = null;
+  		if (this.items === theItem) {
+  			this.items = theItem.next;
   		}
-  		return false;
+  		else {
+  			let prev = this.items;
+  			let current = prev.next;
+  			while(current && current !== theItem) {
+  				prev = current;
+  				current = prev.next;
+  			}
+  			if (current === theItem) {
+  				prev.next = current.next;
+  			}
+  		}
+
+  		cell.flags &= ~(Flags$1.HAS_ITEM | Flags$1.ITEM_DETECTED);
+      this.redrawCell(cell);
+  		return true;
   	}
 
   	// // PROMOTE
@@ -6574,10 +7341,22 @@
   	// If cautiousOnWalls is set, we will not illuminate blocking tiles unless the tile one space closer to the origin
   	// is visible to the player; this is to prevent lights from illuminating a wall when the player is on the other
   	// side of the wall.
-  	calcFov(grid, x, y, maxRadius, forbiddenFlags=0, forbiddenTerrain=Flags$2.T_OBSTRUCTS_VISION, cautiousOnWalls=true) {
-  	  const FOV = new types.FOV(grid, (i, j) => {
-  	    return (!this.hasXY(i, j)) || this.hasCellFlag(i, j, forbiddenFlags) || this.hasTileFlag(i, j, forbiddenTerrain) ;
-  	  });
+  	calcFov(grid, x, y, maxRadius, forbiddenFlags=0, forbiddenTerrain=Flags$2.T_OBSTRUCTS_VISION, cautiousOnWalls=false) {
+      maxRadius = maxRadius || (this.width + this.height);
+      grid.fill(0);
+      const map = this;
+  	  const FOV = new types.FOV({
+        isBlocked(i, j) {
+  	       return (!grid.hasXY(i, j)) || map.hasCellFlag(i, j, forbiddenFlags) || map.hasTileFlag(i, j, forbiddenTerrain) ;
+  	    },
+        calcRadius(x, y) {
+          return Math.sqrt(x**2 + y ** 2);
+        },
+        setVisible(x, y, v) {
+          grid[x][y] = 1;
+        },
+        hasXY(x, y) { return grid.hasXY(x, y); }
+      });
   	  return FOV.calculate(x, y, maxRadius, cautiousOnWalls);
   	}
 
@@ -6585,7 +7364,7 @@
 
   	storeMemory(x, y) {
   		const cell = this.cell(x, y);
-  		cell.storeMemory(this.itemAt(x, y));
+  		cell.storeMemory();
   	}
 
   	storeMemories() {
@@ -6631,26 +7410,67 @@
 
 
   function getCellAppearance(map, x, y, dest) {
-  	dest.clear();
+  	dest.blackOut();
   	if (!map.hasXY(x, y)) return;
   	const cell$1 = map.cell(x, y);
-  	cell.getAppearance(cell$1, dest);
+
+    if (cell$1.isAnyKindOfVisible() && (cell$1.flags & Flags$1.CELL_CHANGED)) {
+      cell.getAppearance(cell$1, dest);
+    }
+    else if (cell$1.isRevealed()) {
+      dest.plot(cell$1.memory.sprite);
+    }
+
+    if (cell$1.isVisible()) ;
+    else if ( !cell$1.isRevealed()) {
+      dest.blackOut();
+    }
+    else if (!cell$1.isAnyKindOfVisible()) {
+      color.applyMix(dest.bg, colors.black, 30);
+      color.applyMix(dest.fg, colors.black, 30);
+      color.bake(dest.bg);
+      color.bake(dest.fg);
+    }
+
+    let needDistinctness = false;
+    if (cell$1.flags & (Flags$1.IS_CURSOR | Flags$1.IS_IN_PATH)) {
+      const highlight = (cell$1.flags & Flags$1.IS_CURSOR) ? colors.cursorColor : colors.yellow;
+      if (cell$1.hasTileMechFlag(MechFlags$1.TM_INVERT_WHEN_HIGHLIGHTED)) {
+        color.swap(dest.fg, dest.bg);
+      } else {
+        // if (!GAME.trueColorMode || !dest.needDistinctness) {
+            color.applyMix(dest.fg, highlight, config.cursorPathIntensity || 20);
+        // }
+        color.applyMix(dest.bg, highlight, config.cursorPathIntensity || 20);
+      }
+      needDistinctness = true;
+    }
+
+    if (needDistinctness) {
+      color.separate(dest.fg, dest.bg);
+    }
+
   	dest.bake();
   }
 
   map.getCellAppearance = getCellAppearance;
 
 
-  function gridDisruptsPassability(map, blockingGrid, mapToGridX=0, mapToGridY=0)
+  function gridDisruptsPassability(theMap, blockingGrid, opts={})
   {
 
-  	const walkableGrid = GRID.alloc(map.width, map.height);
+  	const walkableGrid = GRID.alloc(theMap.width, theMap.height);
   	let disrupts = false;
+
+  	const gridOffsetX = opts.gridOffsetX || 0;
+  	const gridOffsetY = opts.gridOffsetY || 0;
+  	const bounds = opts.bounds || null;
   	// Get all walkable locations after lake added
-  	map.cells.forEach( (cell, i, j) => {
-  		const blockingX = i + mapToGridX;
-  		const blockingY = j + mapToGridY;
-  		if (cell.isEmpty()) {
+  	theMap.cells.forEach( (cell, i, j) => {
+  		if (bounds && !bounds.containsXY(i, j)) return;	// outside bounds
+  		const blockingX = i + gridOffsetX;
+  		const blockingY = j + gridOffsetY;
+  		if (cell.isNull()) {
   			return; // do nothing
   		}
   		else if (cell.canBePassed()) {
@@ -6779,17 +7599,16 @@
 
   var dungeon = {};
 
-  dungeon.log = utils$1.NOOP;
+  dungeon.debug = utils$1.NOOP;
 
   const NOTHING$1 = 0;
-  let FLOOR = 1;
-  let DOOR = 2;
-  let BRIDGE = 3;
-  let UP_STAIRS = 4;
-  let DOWN_STAIRS = 5;
-  let WALL = 6;
-
-  let LAKE = 7;
+  let FLOOR = 'FLOOR';
+  let DOOR = 'DOOR';
+  let BRIDGE = 'BRIDGE';
+  let UP_STAIRS = 'UP_STAIRS';
+  let DOWN_STAIRS = 'DOWN_STAIRS';
+  let WALL = 'WALL';
+  let LAKE = 'LAKE';
 
 
   let SITE = null;
@@ -6797,14 +7616,6 @@
 
 
   function start(map, opts={}) {
-
-    FLOOR       = tile.withName('FLOOR')       ? tile.withName('FLOOR').id        : FLOOR;
-    DOOR        = tile.withName('DOOR')        ? tile.withName('DOOR').id         : DOOR;
-    BRIDGE      = tile.withName('BRIDGE')      ? tile.withName('BRIDGE').id       : BRIDGE;
-    UP_STAIRS   = tile.withName('UP_STAIRS')   ? tile.withName('UP_STAIRS').id    : UP_STAIRS;
-    DOWN_STAIRS = tile.withName('DOWN_STAIRS') ? tile.withName('DOWN_STAIRS').id  : DOWN_STAIRS;
-    WALL        = tile.withName('WALL')        ? tile.withName('WALL').id         : WALL;
-    LAKE        = tile.withName('LAKE')        ? tile.withName('LAKE').id         : LAKE;
 
     LOCS = utils$1.sequence(map.width * map.height);
     random.shuffle(LOCS);
@@ -6860,26 +7671,26 @@
       grid.fill(NOTHING$1);
 
       const id = digger$1.fn(config, grid);
-      dungeon.log('Dig room:', id);
+      dungeon.debug('Dig room:', id);
       const doors = digger.chooseRandomDoorSites(grid);
-      if (random.percent(hallChance)) {
+      if (random.chance(hallChance)) {
         digger.attachHallway(grid, doors, SITE.config);
       }
 
       if (locs) {
         // try the doors first
-        result = attachRoomAtDoors(grid, doors, locs, opts.placeDoor);
+        result = attachRoomAtDoors(grid, doors, locs, opts);
         if (!result) {
           // otherwise try everywhere
           for(let i = 0; i < locs.length && !result; ++i) {
             if (locs[i][0] > 0) {
-              result = attachRoomAtXY(grid, locs[i], doors, opts.placeDoor);
+              result = attachRoomAtXY(grid, locs[i], doors, opts);
             }
           }
         }
       }
       else {
-        result = attachRoomToDungeon(grid, doors, opts.placeDoor);
+        result = attachRoomToDungeon(grid, doors, opts);
       }
 
     }
@@ -6889,32 +7700,6 @@
   }
 
   dungeon.digRoom = digRoom;
-
-
-  function isValidStairLoc(c, x, y) {
-    let count = 0;
-    if (!c.isEmpty()) return false;
-
-    for(let i = 0; i < 4; ++i) {
-      const dir = def.dirs[i];
-      if (!SITE.hasXY(x + dir[0], y + dir[1])) return false;
-      const cell = SITE.cell(x + dir[0], y + dir[1]);
-      if (cell.hasTile(FLOOR)) {
-        count += 1;
-        const va = SITE.cell(x - dir[0] + dir[1], y - dir[1] + dir[0]);
-        if (!va.isEmpty()) return false;
-        const vb = SITE.cell(x - dir[0] - dir[1], y - dir[1] - dir[0]);
-        if (!vb.isEmpty()) return false;
-      }
-      else if (!cell.isEmpty()) {
-        return false;
-      }
-    }
-    return count == 1;
-  }
-
-  dungeon.isValidStairLoc = isValidStairLoc;
-
 
 
 
@@ -6931,7 +7716,7 @@
                       for (j = ySite - 1; j <= ySite + 1; j++) {
                           if (!SITE.hasXY(i, j)
                               || SITE.isBoundaryXY(i, j)
-                              || !SITE.cell(i, j).isEmpty())
+                              || !SITE.cell(i, j).isNull())
                           {
                               return false;
                           }
@@ -6946,14 +7731,14 @@
 
 
 
-  function attachRoomToDungeon(roomGrid, doorSites, placeDoor) {
+  function attachRoomToDungeon(roomGrid, doorSites, opts={}) {
 
     // Slide hyperspace across real space, in a random but predetermined order, until the room matches up with a wall.
     for (let i = 0; i < LOCS.length; i++) {
         const x = Math.floor(LOCS[i] / SITE.height);
         const y = LOCS[i] % SITE.height;
 
-        if (!SITE.cell(x, y).isEmpty()) continue;
+        if (!SITE.cell(x, y).isNull()) continue;
         const dir = GRID.directionOfDoorSite(SITE.cells, x, y, (c) => (c.hasTile(FLOOR) && !c.isLiquid()) );
         if (dir != def.NO_DIRECTION) {
           const oppDir = OPP_DIRS[dir];
@@ -6964,12 +7749,12 @@
           if (doorSites[oppDir][0] != -1
               && roomAttachesAt(roomGrid, offsetX, offsetY))
           {
-            // GW.dungeon.log("attachRoom: ", x, y, oppDir);
+            dungeon.debug("- attachRoom: ", x, y, oppDir);
 
             // Room fits here.
-            GRID.offsetZip(SITE.cells, roomGrid, offsetX, offsetY, (d, s, i, j) => d.setTile(s) );
-            if (placeDoor !== false) {
-              SITE.setTile(x, y, (typeof placeDoor === 'number') ? placeDoor : DOOR); // Door site.
+            GRID.offsetZip(SITE.cells, roomGrid, offsetX, offsetY, (d, s, i, j) => d.setTile(opts.tile || FLOOR) );
+            if (opts.door || (opts.placeDoor !== false)) {
+              SITE.setTile(x, y, opts.door || DOOR); // Door site.
             }
             doorSites[oppDir][0] = -1;
             doorSites[oppDir][1] = -1;
@@ -6988,7 +7773,7 @@
   }
 
 
-  function attachRoomAtXY(roomGrid, xy, doors, placeDoor) {
+  function attachRoomAtXY(roomGrid, xy, doors, opts={}) {
 
     // Slide hyperspace across real space, in a random but predetermined order, until the room matches up with a wall.
     for (let i = 0; i < LOCS.length; i++) {
@@ -7001,9 +7786,9 @@
         if (dir != def.NO_DIRECTION) {
           const d = DIRS$3[dir];
           if (roomAttachesAt(roomGrid, xy[0] - x, xy[1] - y)) {
-            GRID.offsetZip(SITE.cells, roomGrid, xy[0] - x, xy[1] - y, (d, s, i, j) => d.setTile(s) );
-            if (placeDoor !== false) {
-              SITE.setTile(xy[0], xy[1], (typeof placeDoor === 'number') ? placeDoor : DOOR); // Door site.
+            GRID.offsetZip(SITE.cells, roomGrid, xy[0] - x, xy[1] - y, (d, s, i, j) => d.setTile(opts.tile || FLOOR) );
+            if (opts.door || (opts.placeDoor !== false)) {
+              SITE.setTile(xy[0], xy[1], opts.door || DOOR); // Door site.
             }
             doors[dir][0] = -1;
             doors[dir][1] = -1;
@@ -7023,7 +7808,7 @@
 
 
 
-  function insertRoomAtXY(x, y, roomGrid, doorSites, placeDoor) {
+  function insertRoomAtXY(x, y, roomGrid, doorSites, opts={}) {
 
     const dirs = utils$1.sequence(4);
     random.shuffle(dirs);
@@ -7034,14 +7819,14 @@
       if (doorSites[oppDir][0] != -1
           && roomAttachesAt(roomGrid, x - doorSites[oppDir][0], y - doorSites[oppDir][1]))
       {
-        // GW.dungeon.log("attachRoom: ", x, y, oppDir);
+        // dungeon.debug("attachRoom: ", x, y, oppDir);
 
         // Room fits here.
         const offX = x - doorSites[oppDir][0];
         const offY = y - doorSites[oppDir][1];
-        GRID.offsetZip(SITE.cells, roomGrid, offX, offY, (d, s, i, j) => d.setTile(s) );
-        if (placeDoor !== false) {
-          SITE.setTile(x, y, (typeof placeDoor === 'number') ? placeDoor : DOOR); // Door site.
+        GRID.offsetZip(SITE.cells, roomGrid, offX, offY, (d, s, i, j) => d.setTile(opts.tile || FLOOR) );
+        if (opts.door || (opts.placeDoor !== false)) {
+          SITE.setTile(x, y, opts.door || DOOR); // Door site.
         }
         const newDoors = doorSites.map( (site) => {
           const x0 = site[0] + offX;
@@ -7056,7 +7841,7 @@
   }
 
 
-  function attachRoomAtDoors(roomGrid, roomDoors, siteDoors, placeDoor) {
+  function attachRoomAtDoors(roomGrid, roomDoors, siteDoors, opts={}) {
 
     const doorIndexes = utils$1.sequence(siteDoors.length);
     random.shuffle(doorIndexes);
@@ -7067,7 +7852,7 @@
       const x = siteDoors[index][0];
       const y = siteDoors[index][1];
 
-      const doors = insertRoomAtXY(x, y, roomGrid, roomDoors, placeDoor);
+      const doors = insertRoomAtXY(x, y, roomGrid, roomDoors, opts);
       if (doors) return doors;
     }
 
@@ -7101,7 +7886,7 @@
           y = random.range(1 - bounds.y, lakeGrid.height - bounds.height - bounds.y - 2);
 
         if (canDisrupt || !lakeDisruptsPassability(lakeGrid, -x, -y)) { // level with lake is completely connected
-          dungeon.log("Placed a lake!", x, y);
+          dungeon.debug("Placed a lake!", x, y);
 
           ++count;
           // copy in lake
@@ -7127,14 +7912,14 @@
 
 
   function lakeDisruptsPassability(lakeGrid, dungeonToGridX, dungeonToGridY) {
-    return map.gridDisruptsPassability(SITE, lakeGrid, dungeonToGridX, dungeonToGridY);
+    return map.gridDisruptsPassability(SITE, lakeGrid, { gridOffsetX: dungeonToGridX, gridOffsetY: dungeonToGridY });
   }
 
 
 
   // Add some loops to the otherwise simply connected network of rooms.
   function addLoops(minimumPathingDistance, maxConnectionLength) {
-      let newX, newY, oppX, oppY;
+      let startX, startY, endX, endY;
       let i, j, d, x, y;
 
       minimumPathingDistance = minimumPathingDistance || Math.floor(Math.min(SITE.width,SITE.height)/2);
@@ -7148,63 +7933,85 @@
 
       SITE.fillBasicCostGrid(costGrid);
 
+      function isValidTunnelStart(x, y, dir) {
+        if (!SITE.hasXY(x, y)) return false;
+        if (!SITE.hasXY(x + dir[1], y + dir[0])) return false;
+        if (!SITE.hasXY(x - dir[1], y - dir[0])) return false;
+        if (!SITE.cell(x, y).isNull()) return false;
+        if (!SITE.cell(x + dir[1], y + dir[0]).isNull()) return false;
+        if (!SITE.cell(x - dir[1], y - dir[0]).isNull()) return false;
+        return true;
+      }
+
+      function isValidTunnelEnd(x, y, dir) {
+        if (!SITE.hasXY(x, y)) return false;
+        if (!SITE.hasXY(x + dir[1], y + dir[0])) return false;
+        if (!SITE.hasXY(x - dir[1], y - dir[0])) return false;
+        if (!SITE.cell(x, y).isNull()) return true;
+        if (!SITE.cell(x + dir[1], y + dir[0]).isNull()) return true;
+        if (!SITE.cell(x - dir[1], y - dir[0]).isNull()) return true;
+        return false;
+      }
+
       for (i = 0; i < LOCS.length; i++) {
           x = Math.floor(LOCS[i] / siteGrid.height);
           y = LOCS[i] % siteGrid.height;
 
           const cell = siteGrid[x][y];
-          if (cell.isEmpty()) {
+          if (cell.isNull()) {
               for (d=0; d <= 1; d++) { // Try a horizontal door, and then a vertical door.
-                  newX = x + dirCoords[d][0];
-                  newY = y + dirCoords[d][1];
-                  oppX = x - dirCoords[d][0];
-                  oppY = y - dirCoords[d][1];
+                  let dir = dirCoords[d];
+                  if (!isValidTunnelStart(x, y, dir)) continue;
                   j = maxConnectionLength;
 
                   // check up/left
-                  if (SITE.hasXY(newX, newY) && !SITE.cell(newX, newY).isEmpty()) {
-                    oppX = x;
-                    oppY = y;
-
-                    for(j = 0; j < maxConnectionLength; ++j) {
-                      oppX -= dirCoords[d][0];
-                      oppY -= dirCoords[d][1];
-
-                      if (SITE.hasXY(oppX, oppY) && !SITE.cell(oppX, oppY).isEmpty()) {
-                        break;
-                      }
+                  if (SITE.hasXY(x + dir[0], y + dir[1]) && SITE.cell(x + dir[0], y + dir[1]).hasTile(FLOOR)) {
+                    // just can't build directly into a door
+                    if (!SITE.hasXY(x - dir[0], y - dir[1]) || SITE.cell(x - dir[0], y - dir[1]).hasTile(DOOR)) {
+                      continue;
                     }
                   }
-                  else if (SITE.hasXY(oppX, oppY) && !SITE.cell(oppX, oppY).isEmpty()) {
-                    newX = x;
-                    newY = y;
+                  else if (SITE.hasXY(x - dir[0], y - dir[1]) && SITE.cell(x - dir[0], y - dir[1]).hasTile(FLOOR)) {
+                    if (!SITE.hasXY(x + dir[0], y + dir[1]) || SITE.cell(x + dir[0], y + dir[1]).hasTile(DOOR)) {
+                      continue;
+                    }
+                    dir = dir.map( (v) => -1*v );
+                  }
+                  else {
+                    continue; // not valid start for tunnel
+                  }
 
-                    for(j = 0; j < maxConnectionLength; ++j) {
-                      newX += dirCoords[d][0];
-                      newY += dirCoords[d][1];
+                  startX = x + dir[0];
+                  startY = y + dir[1];
+                  endX = x;
+                  endY = y;
 
-                      if (SITE.hasXY(newX, newY) && !SITE.cell(newX, newY).isEmpty()) {
-                        break;
-                      }
+                  for(j = 0; j < maxConnectionLength; ++j) {
+                    endX -= dir[0];
+                    endY -= dir[1];
+
+                    // if (SITE.hasXY(endX, endY) && !SITE.cell(endX, endY).isNull()) {
+                    if (isValidTunnelEnd(endX, endY, dir)) {
+                      break;
                     }
                   }
 
                   if (j < maxConnectionLength) {
-                    PATH.calculateDistances(pathGrid, newX, newY, costGrid, false);
+                    PATH.calculateDistances(pathGrid, startX, startY, costGrid, false);
                     // pathGrid.fill(30000);
-                    // pathGrid[newX][newY] = 0;
+                    // pathGrid[startX][startY] = 0;
                     // dijkstraScan(pathGrid, costGrid, false);
-                    if (pathGrid[oppX][oppY] > minimumPathingDistance) { // and if the pathing distance between the two flanking floor tiles exceeds minimumPathingDistance,
+                    if (pathGrid[endX][endY] > minimumPathingDistance && pathGrid[endX][endY] < 30000) { // and if the pathing distance between the two flanking floor tiles exceeds minimumPathingDistance,
 
-                        dungeon.log('Adding Loop', newX, newY, ' => ', oppX, oppY);
+                        dungeon.debug('Adding Loop', startX, startY, ' => ', endX, endY, ' : ', pathGrid[endX][endY]);
 
-                        while(oppX !== newX || oppY !== newY) {
-                          if (SITE.cell(oppX, oppY).isEmpty()) {
-                            SITE.setTile(oppX, oppY, FLOOR);
-                            costGrid[oppX][oppY] = 1;          // (Cost map also needs updating.)
+                        while(endX !== startX || endY !== startY) {
+                          if (SITE.cell(endX, endY).isNull()) {
+                            SITE.setTile(endX, endY, FLOOR);
+                            costGrid[endX][endY] = 1;          // (Cost map also needs updating.)
                           }
-                          oppX += dirCoords[d][0];
-                          oppY += dirCoords[d][1];
+                          endX += dir[0];
+                          endY += dir[1];
                         }
                         SITE.setTile(x, y, DOOR);             // then turn the tile into a doorway.
                         break;
@@ -7247,7 +8054,7 @@
           x = Math.floor(LOCS[i] / siteGrid.height);
           y = LOCS[i] % siteGrid.height;
 
-          if (SITE.hasXY(x, y) && (!SITE.isEmpty(x, y)) && SITE.canBePassed(x, y)) {
+          if (SITE.hasXY(x, y) && (!SITE.isNull(x, y)) && SITE.canBePassed(x, y)) {
               for (d=0; d <= 1; d++) { // Try right, then down
                   const bridgeDir = dirCoords[d];
                   newX = x + bridgeDir[0];
@@ -7270,14 +8077,14 @@
                     }
                   }
 
-                  if ((!SITE.isEmpty(newX, newY)) && SITE.canBePassed(newX, newY) && (j < maxConnectionLength)) {
+                  if ((!SITE.isNull(newX, newY)) && SITE.canBePassed(newX, newY) && (j < maxConnectionLength)) {
                     PATH.calculateDistances(pathGrid, newX, newY, costGrid, false);
                     // pathGrid.fill(30000);
                     // pathGrid[newX][newY] = 0;
                     // dijkstraScan(pathGrid, costGrid, false);
                     if (pathGrid[x][y] > minimumPathingDistance && pathGrid[x][y] < def.PDS_NO_PATH) { // and if the pathing distance between the two flanking floor tiles exceeds minimumPathingDistance,
 
-                        dungeon.log('Adding Bridge', x, y, ' => ', newX, newY);
+                        dungeon.debug('Adding Bridge', x, y, ' => ', newX, newY);
 
                         while(x !== newX || y !== newY) {
                           if (isBridgeCandidate(x, y, bridgeDir)) {
@@ -7321,7 +8128,7 @@
   						&& (SITE.isObstruction(i + k, j+1))
   						&& (SITE.canBePassed(i + (1-k), j+1)))
             {
-  						if (random.percent(50)) {
+  						if (random.chance(50)) {
   							x1 = i + (1-k);
   							y1 = j;
   						} else {
@@ -7330,7 +8137,7 @@
   						}
               diagonalCornerRemoved = true;
               SITE.setTile(x1, y1, FLOOR);
-              dungeon.log('Removed diagonal opening', x1, y1);
+              dungeon.debug('Removed diagonal opening', x1, y1);
   					}
   				}
   			}
@@ -7352,16 +8159,16 @@
   					&& (SITE.canBePassed(i, j+1) || SITE.canBePassed(i, j-1))) {
   					// If there's passable terrain to the left or right, and there's passable terrain
   					// above or below, then the door is orphaned and must be removed.
-  					SITE.clearTileWithFlags(i, j, Flags$2.T_IS_DOOR);
-            dungeon.log('Removed orphan door', i, j);
+  					SITE.setTile(i, j, FLOOR);
+            dungeon.debug('Removed orphan door', i, j);
   				} else if ((SITE.blocksPathing(i+1, j) ? 1 : 0)
   						   + (SITE.blocksPathing(i-1, j) ? 1 : 0)
   						   + (SITE.blocksPathing(i, j+1) ? 1 : 0)
   						   + (SITE.blocksPathing(i, j-1) ? 1 : 0) >= 3) {
   					// If the door has three or more pathing blocker neighbors in the four cardinal directions,
   					// then the door is orphaned and must be removed.
-            SITE.clearTileWithFlags(i, j, Flags$2.T_IS_DOOR);
-            dungeon.log('Removed blocked door', i, j);
+            SITE.setTile(i, j, FLOOR);
+            dungeon.debug('Removed blocked door', i, j);
   				}
   			}
   		}
@@ -7371,8 +8178,8 @@
   dungeon.finishDoors = finishDoors;
 
   function finishWalls() {
-    SITE.cells.forEach( (cell, i, j) => {
-      if (cell.isEmpty()) {
+    SITE.forEach( (cell, i, j) => {
+      if (cell.isNull()) {
         cell.setTile(WALL);
       }
     });
@@ -7381,45 +8188,146 @@
   dungeon.finishWalls = finishWalls;
 
 
-  function addStairs(upX, upY, downX, downY, minDistance) {
 
-    upX = upX || random.number(SITE.width);
-    upY = upY || random.number(SITE.height);
-    downX = downX || -1;
-    downY = downY || -1;
-    minDistance = minDistance || Math.floor(Math.max(SITE.width,SITE.height)/2);
+  function isValidStairLoc(c, x, y) {
+    let count = 0;
+    if (!c.isNull()) return false;
 
-    const upLoc = SITE.cells.matchingXYNear(upX, upY, dungeon.isValidStairLoc);
-  	if (!upLoc || upLoc[0] < 0) {
-      dungeon.log('no up location');
-      return false;
+    for(let i = 0; i < 4; ++i) {
+      const dir = def.dirs[i];
+      if (!SITE.hasXY(x + dir[0], y + dir[1])) return false;
+      if (!SITE.hasXY(x - dir[0], y - dir[1])) return false;
+      const cell = SITE.cell(x + dir[0], y + dir[1]);
+      if (cell.hasTile(FLOOR)) {
+        count += 1;
+        const va = SITE.cell(x - dir[0] + dir[1], y - dir[1] + dir[0]);
+        if (!va.isNull()) return false;
+        const vb = SITE.cell(x - dir[0] - dir[1], y - dir[1] - dir[0]);
+        if (!vb.isNull()) return false;
+      }
+      else if (!cell.isNull()) {
+        return false;
+      }
+    }
+    return count == 1;
+  }
+
+  dungeon.isValidStairLoc = isValidStairLoc;
+
+
+  function setupStairs(map, x, y, tile) {
+
+  	const indexes = random.shuffle(utils$1.sequence(4));
+
+  	let dir;
+  	for(let i = 0; i < indexes.length; ++i) {
+  		dir = def.dirs[i];
+  		const x0 = x + dir[0];
+  		const y0 = y + dir[1];
+  		const cell = map.cell(x0, y0);
+  		if (cell.hasTile(FLOOR) && cell.isEmpty()) {
+  			const oppCell = map.cell(x - dir[0], y - dir[1]);
+  			if (oppCell.isNull()) break;
+  		}
+
+  		dir = null;
+  	}
+
+  	if (!dir) utils$1.ERROR('No stair direction found!');
+
+  	map.setTile(x, y, tile);
+
+  	const dirIndex = def.clockDirs.findIndex( (d) => d[0] == dir[0] && d[1] == dir[1] );
+
+  	for(let i = 0; i < def.clockDirs.length; ++i) {
+  		const l = i ? i - 1 : 7;
+  		const r = (i + 1) % 8;
+  		if (i == dirIndex || l == dirIndex || r == dirIndex ) continue;
+  		const d = def.clockDirs[i];
+  		map.setTile(x + d[0], y + d[1], WALL);
+  	}
+
+  	dungeon.debug('setup stairs', x, y, tile);
+  	return true;
+  }
+
+  dungeon.setupStairs = setupStairs;
+
+
+  function addStairs(opts = {}) {
+
+    let needUp = (opts.up !== false);
+    let needDown = (opts.down !== false);
+    const minDistance = opts.minDistance || Math.floor(Math.max(SITE.width,SITE.height)/2);
+    const isValidStairLoc = opts.isValid || dungeon.isValidStairLoc;
+    const setup = opts.setup || dungeon.setupStairs;
+
+    let upLoc = Array.isArray(opts.up) ? opts.up : null;
+    let downLoc = Array.isArray(opts.down) ? opts.down : null;
+
+    if (opts.start) {
+      let start = opts.start;
+      if (start === true) {
+        start = SITE.randomMatchingXY( isValidStairLoc );
+      }
+      else {
+        start = SITE.matchingXYNear(utils$1.x(start), utils$1.y(start), isValidStairLoc);
+      }
+      SITE.locations.start = start;
     }
 
-    let downLoc;
-    if (downX < 0) {
-      downLoc = SITE.cells.randomMatchingXY( (v, x, y) => {
-    		if (utils$1.distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
-    		return dungeon.isValidStairLoc(v, x, y);
-    	});
+    if (upLoc && downLoc) {
+      upLoc = SITE.matchingXYNear(utils$1.x(upLoc), utils$1.y(upLoc), isValidStairLoc);
+      downLoc = SITE.matchingXYNear(utils$1.x(downLoc), utils$1.y(downLoc), isValidStairLoc);
     }
-    else {
-      downLoc = SITE.cells.matchingXYNear(downX, downY, dungeon.isValidStairLoc);
+    else if (upLoc && !downLoc) {
+      upLoc = SITE.matchingXYNear(utils$1.x(upLoc), utils$1.y(upLoc), isValidStairLoc);
+      if (needDown) {
+        downLoc = SITE.randomMatchingXY( (v, x, y) => {
+      		if (utils$1.distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
+      		return isValidStairLoc(v, x, y, SITE);
+      	});
+      }
+    }
+    else if (downLoc && !upLoc) {
+      downLoc = SITE.matchingXYNear(utils$1.x(downLoc), utils$1.y(downLoc), isValidStairLoc);
+      if (needUp) {
+        upLoc = SITE.randomMatchingXY( (v, x, y) => {
+      		if (utils$1.distanceBetween(x, y, downLoc[0], downLoc[1]) < minDistance) return false;
+      		return isValidStairLoc(v, x, y, SITE);
+      	});
+      }
+    }
+    else if (needUp) {
+      upLoc = SITE.randomMatchingXY( isValidStairLoc );
+      if (needDown) {
+        downLoc = SITE.randomMatchingXY( (v, x, y) => {
+      		if (utils$1.distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
+      		return isValidStairLoc(v, x, y, SITE);
+      	});
+      }
+    }
+    else if (needDown) {
+      downLoc = SITE.randomMatchingXY( isValidStairLoc );
     }
 
-    if (!downLoc || downLoc[0] < 0) {
-      dungeon.log('No down location');
-      return false;
+    if (upLoc) {
+      SITE.locations.up = upLoc.slice();
+      setup(SITE, upLoc[0], upLoc[1], UP_STAIRS);
+      if (opts.start === 'up') SITE.locations.start = SITE.locations.up;
+    }
+    if (downLoc) {
+      SITE.locations.down = downLoc.slice();
+      setup(SITE, downLoc[0], downLoc[1], DOWN_STAIRS);
+      if (opts.start === 'down') SITE.locations.start = SITE.locations.down;
     }
 
-    SITE.setTile(upLoc[0], upLoc[1], UP_STAIRS);
-  	SITE.locations.start = upLoc.slice();
-    SITE.setTile(downLoc[0], downLoc[1], DOWN_STAIRS);
-  	SITE.locations.finish = downLoc.slice();
-
-    return true;
+    return !!(upLoc || downLoc);
   }
 
   dungeon.addStairs = addStairs;
+
+  fx.debug = utils$1.NOOP;
 
   let ANIMATIONS = [];
 
@@ -7778,7 +8686,7 @@
 
     moveTo(x, y) {
       if (!this.map.hasXY(x, y)) {
-        console.log('BEAM - invalid x,y', x, y);
+        fx.debug('BEAM - invalid x,y', x, y);
         return;
       }
       this.x = x;
@@ -7874,7 +8782,7 @@
       }
       ui.requestUpdate(48);
 
-      // console.log('returning...', done);
+      // fx.debug('returning...', done);
       if (done && (this.count == 0)) {
         return this.stop(this); // xy of explosion is callback value
       }
@@ -7949,412 +8857,115 @@
 
   var fov = {};
 
+  fov.debug = utils$1.NOOP;
 
-  const FP_BASE$1 = 16;
-  const BIG_BASE = 16n;
-  const LOS_SLOPE_GRANULARITY =	32768;		// how finely we divide up the squares when calculating slope;
+  // strategy =
+  // {
+  //    isBlocked(x, y)
+  //    calcRadius(x, y)
+  //    setVisible(x, y, v)
+  //    hasXY(x, y)
+  // }
+  class FOV {
+    constructor(strategy) {
+      this.isBlocked = strategy.isBlocked;
+      this.calcRadius = strategy.calcRadius || utils$1.calcRadius;
+      this.setVisible = strategy.setVisible;
+      this.hasXY = strategy.hasXY || utils$1.TRUE;
+    }
 
+    calculate(x, y, maxRadius) {
+      this.setVisible(x, y, 1);
+      this.startX = x;
+      this.startY = y;
+      this.maxRadius = maxRadius + 1;
 
-  config.DEFAULT_CELL_FLAGS = 0;
-
-
-
-
-  /* Computing the number of leading zeros in a word. */
-  function clz(x)
-  {
-      let n;
-
-      /* See "Hacker's Delight" book for more details */
-      if (x == 0) return 32;
-      n = 0;
-      if (x <= 0x0000FFFF) {n = n +16; x = (x <<16) >>> 0;}
-      if (x <= 0x00FFFFFF) {n = n + 8; x = (x << 8) >>> 0;}
-      if (x <= 0x0FFFFFFF) {n = n + 4; x = (x << 4) >>> 0;}
-      if (x <= 0x3FFFFFFF) {n = n + 2; x = (x << 2) >>> 0;}
-      if (x <= 0x7FFFFFFF) {n = n + 1;}
-
-      return n;
-  }
-
-
-  function fp_sqrt(val)
-  {
-      let x;
-      let bitpos;
-      let v;		// int64
-
-      if(!val)
-          return val;
-
-      if (val < 0) {
-      	throw new Error('MATH OVERFLOW - limit is 32767 << FP_BASE (about 181 * 181)! Received: ' + val);
+      // uses the diagonals
+      for (let i = 4; i < 8; ++i) {
+        const d = def.dirs[i];
+        this.castLight(1, 1.0, 0.0, 0, d[0], d[1], 0);
+        this.castLight(1, 1.0, 0.0, d[0], 0, 0, d[1]);
       }
 
-      /* clz = count-leading-zeros. bitpos is the position of the most significant bit,
-          relative to "1" or 1 << FP_BASE */
-      bitpos = FP_BASE$1 - clz(val);
-
-      /* Calculate our first estimate.
-          We use the identity 2^a * 2^a = 2^(2*a) or:
-           sqrt(2^a) = 2^(a/2)
-      */
-      if(bitpos > 0) /* val > 1 */
-          x = BigInt((1<<FP_BASE$1) << (bitpos >> 1));
-      else if(bitpos < 0) /* 0 < val < 1 */
-          x = BigInt((1<<FP_BASE$1) << ((~bitpos) << 1));
-      else /* val == 1 */
-          x = BigInt((1<<FP_BASE$1));
-
-      /* We need to scale val with FP_BASE due to the division.
-         Also val /= 2, hence the subtraction of one*/
-      v = BigInt(val) << (BIG_BASE - 1n);  // v = val <<  (FP_BASE - 1);
-
-      /* The actual iteration */
-      x = (x >> 1n) + (v/x);
-      x = (x >> 1n) + (v/x);
-      x = (x >> 1n) + (v/x);
-      x = (x >> 1n) + (v/x);
-
-      return Number(x);
-  }
-
-  //
-  // function updateFieldOfViewDisplay(i, j, refreshDisplay) {
-  //
-  // 	refreshDisplay = (refreshDisplay !== false);
-  //
-  //   const map = DATA.map;
-  // 	const cell = map.cell(i, j);
-  //
-  // 	if (cell.flags & CellFlags.IN_FIELD_OF_VIEW
-  // 		&& (map.hasVisibleLight(i, j))
-  // 		&& !(cell.flags & CellFlags.CLAIRVOYANT_DARKENED))
-  // 	{
-  // 		cell.flags |= CellFlags.VISIBLE;
-  // 	}
-  //
-  // 	if ((cell.flags & CellFlags.VISIBLE) && !(cell.flags & CellFlags.WAS_VISIBLE)) { // if the cell became visible this move
-  // 		if (!(cell.flags & CellFlags.REVEALED) && DATA.automationActive) {
-  //         if (cell.flags & CellFlags.HAS_ITEM) {
-  //             const theItem = map.itemAt(i, j);
-  //             if (theItem && theItem.category && (GW.categories[theItem.category].flags & GW.const.IC_INTERRUPT_EXPLORATION_WHEN_SEEN)) {
-  //                 const name = GW.item.name(theItem, false, true, NULL);
-  //                 const buf = GW.string.format("you see %s.", name);
-  //                 GW.ui.message(GW.colors.itemMessageColor, buf);
-  //             }
-  //         }
-  //         if (!(cell.flags & CellFlags.MAGIC_MAPPED)
-  //             && map.hasTileMechFlag(i, j, TM_INTERRUPT_EXPLORATION_WHEN_SEEN))
-  // 				{
-  //             const name = map.tileWithMechFlag(i, j, TM_INTERRUPT_EXPLORATION_WHEN_SEEN).description;
-  //             const buf = GW.string.format("you see %s.", name);
-  //             GW.ui.message(GW.colors.backgroundMessageColor, buf);
-  //         }
-  //     }
-  //     map.markRevealed(i, j);
-  // 		if (refreshDisplay) {
-  // 			map.redrawCell(i, j);
-  // 		}
-  // 	} else if (!(cell.flags & CellFlags.VISIBLE) && (cell.flags & CellFlags.WAS_VISIBLE)) { // if the cell ceased being visible this move
-  //     map.storeMemory(i, j);
-  // 		if (refreshDisplay) {
-  // 			map.redrawCell(i, j);
-  // 		}
-  // 	} else if (!(cell.flags & CellFlags.CLAIRVOYANT_VISIBLE) && (cell.flags & CellFlags.WAS_CLAIRVOYANT_VISIBLE)) { // ceased being clairvoyantly visible
-  // 		map.storeMemory(i, j);
-  // 		if (refreshDisplay) {
-  // 			map.redrawCell(i, j);
-  // 		}
-  // 	} else if (!(cell.flags & CellFlags.WAS_CLAIRVOYANT_VISIBLE) && (cell.flags & CellFlags.CLAIRVOYANT_VISIBLE)) { // became clairvoyantly visible
-  // 		cell.flags &= ~STABLE_MEMORY;
-  // 		if (refreshDisplay) {
-  // 			map.redrawCell(i, j);
-  // 		}
-  // 	} else if (!(cell.flags & CellFlags.TELEPATHIC_VISIBLE) && (cell.flags & CellFlags.WAS_TELEPATHIC_VISIBLE)) { // ceased being telepathically visible
-  //     map.storeMemory(i, j);
-  // 		if (refreshDisplay) {
-  // 			map.redrawCell(i, j);
-  // 		}
-  // 	} else if (!(cell.flags & CellFlags.WAS_TELEPATHIC_VISIBLE) && (cell.flags & CellFlags.TELEPATHIC_VISIBLE)) { // became telepathically visible
-  //     if (!(cell.flags & CellFlags.REVEALED)
-  // 			&& !map.hasTileFlag(i, j, T_PATHING_BLOCKER))
-  // 		{
-  // 			DATA.xpxpThisTurn++;
-  //     }
-  //
-  // 		cell.flags &= ~STABLE_MEMORY;
-  // 		if (refreshDisplay) {
-  // 			map.redrawCell(i, j);
-  // 		}
-  // 	} else if (!(cell.flags & CellFlags.MONSTER_DETECTED) && (cell.flags & CellFlags.WAS_MONSTER_DETECTED)) { // ceased being detected visible
-  // 		cell.flags &= ~STABLE_MEMORY;
-  // 		if (refreshDisplay) {
-  // 			map.redrawCell(i, j);
-  // 			map.storeMemory(i, j);
-  // 		}
-  // 	} else if (!(cell.flags & CellFlags.WAS_MONSTER_DETECTED) && (cell.flags & CellFlags.MONSTER_DETECTED)) { // became detected visible
-  // 		cell.flags &= ~STABLE_MEMORY;
-  // 		if (refreshDisplay) {
-  // 			map.redrawCell(i, j);
-  // 			map.storeMemory(i, j);
-  // 		}
-  // 	} else if (GW.player.canSeeOrSense(i, j)
-  // 			   && GW.map.lightChanged(i, j)) // if the cell's light color changed this move
-  // 	{
-  //    if (refreshDisplay) {
-  // 	   map.redrawCell(i, j);
-  //    }
-  // 	}
-  // }
-  //
-  // fov.updateCellDisplay = updateFieldOfViewDisplay;
-  //
-  //
-  //
-  // function demoteVisibility() {
-  // 	let i, j;
-  //
-  // 	for (i=0; i<DATA.map.width; i++) {
-  // 		for (j=0; j<DATA.map.height; j++) {
-  // 			const cell = DATA.map.cell(i, j);
-  // 			cell.flags &= ~WAS_VISIBLE;
-  // 			if (cell.flags & CellFlags.VISIBLE) {
-  // 				cell.flags &= ~VISIBLE;
-  // 				cell.flags |= WAS_VISIBLE;
-  // 			}
-  // 		}
-  // 	}
-  // }
-  //
-  //
-  // function updateVision(refreshDisplay) {
-  // 	let i, j;
-  // 	let theItem;	// item *
-  // 	let monst;	// creature *
-  //
-  //   demoteVisibility();
-  // 	for (i=0; i<DATA.map.width; i++) {
-  // 		for (j=0; j<DATA.map.height; j++) {
-  // 			DATA.map.cell(i, j).flags &= ~IN_FIELD_OF_VIEW;
-  // 		}
-  // 	}
-  //
-  // 	// Calculate player's field of view (distinct from what is visible, as lighting hasn't been done yet).
-  // 	const maxRadius = GW.player.visionRadius();
-  // 	const grid = GW.grid.alloc();
-  // 	getFOVMask(grid, GW.PLAYER.x, GW.PLAYER.y, maxRadius, (T_OBSTRUCTS_VISION), 0, false);
-  // 	for (i=0; i<DATA.map.width; i++) {
-  // 		for (j=0; j<DATA.map.height; j++) {
-  // 			if (grid[i][j]) {
-  // 				DATA.map.setCellFlags(i, j, IN_FIELD_OF_VIEW);
-  // 			}
-  // 		}
-  // 	}
-  // 	GW.grid.free(grid);
-  //
-  // 	DATA.map.setCellFlags(GW.PLAYER.x, GW.PLAYER.y, IN_FIELD_OF_VIEW | VISIBLE);
-  //
-  // 	// if (PLAYER.bonus.clairvoyance < 0) {
-  //   //   discoverCell(PLAYER.xLoc, PLAYER.yLoc);
-  // 	// }
-  // 	//
-  // 	// if (PLAYER.bonus.clairvoyance != 0) {
-  // 	// 	updateClairvoyance();
-  // 	// }
-  //
-  //   // updateTelepathy();
-  // 	// updateMonsterDetection();
-  //
-  // 	// updateLighting();
-  // 	for (i=0; i<DATA.map.width; i++) {
-  // 		for (j=0; j<DATA.map.height; j++) {
-  // 			fov.updateCellDisplay(i, j, refreshDisplay);
-  // 		}
-  // 	}
-  //
-  // 	if (GW.PLAYER.status[GW.const.STATUS_HALLUCINATING] > 0) {
-  // 		for (theItem of GW.ITEMS) {
-  // 			if (DATA.map.hasCellFlag(theItem.x, theItem.y, REVEALED) && refreshDisplay) {
-  // 				DATA.map.redrawCell(theItem.x, theItem.y);
-  // 			}
-  // 		}
-  // 		for (monst of GW.ACTORS) {
-  // 			if (DATA.map.hasCellFlag(monst.x, monst.y, REVEALED) && refreshDisplay) {
-  // 				DATA.map.redrawCell(monst.x, monst.y);
-  // 			}
-  // 		}
-  // 	}
-  //
-  // }
-  //
-  //
-  // fov.update = updateVision;
-  //
-
-
-
-  //		   Octants:      //
-  //			\7|8/        //
-  //			6\|/1        //
-  //			--@--        //
-  //			5/|\2        //
-  //			/4|3\        //
-
-  function betweenOctant1andN(x, y, x0, y0, n) {
-  	let x1 = x, y1 = y;
-  	let dx = x1 - x0, dy = y1 - y0;
-  	switch (n) {
-  		case 1:
-  			return [x,y];
-  		case 2:
-  			return [x, y0 - dy];
-  		case 5:
-  			return [x0 - dx, y0 - dy];
-  		case 6:
-  			return [x0 - dx, y];
-  		case 8:
-  			return [x0 - dy, y0 - dx];
-  		case 3:
-  			return [x0 - dy, y0 + dx];
-  		case 7:
-  			return [x0 + dy, y0 - dx];
-  		case 4:
-  			return [x0 + dy, y0 + dx];
-  	}
-  }
-
-
-  class FOV {
-    constructor(grid, isBlocked) {
-      this.grid = grid;
-      this.isBlocked = isBlocked;
     }
 
-    isVisible(x, y) { return this.grid.hasXY(x, y) && this.grid[x][y]; }
-    setVisible(x, y) { this.grid[x][y] = 1; }
+    // NOTE: slope starts a 1 and ends at 0.
+    castLight(row, startSlope, endSlope, xx, xy, yx, yy) {
+        let newStart = 0.0;
+        if (startSlope < endSlope) {
+            return;
+        }
+        // fov.debug('CAST: row=%d, start=%d, end=%d, x=%d,%d, y=%d,%d', row, startSlope, endSlope, xx, xy, yx, yy);
 
-    calculate(x, y, maxRadius, cautiousOnWalls) {
-      this.grid.fill(0);
-      this.grid[x][y] = 1;
-      for (let i=1; i<=8; i++) {
-    		this._scanOctant(x, y, i, (maxRadius + 1) << FP_BASE$1, 1, LOS_SLOPE_GRANULARITY * -1, 0, cautiousOnWalls);
-    	}
-    }
+        let blocked = false;
+        for (let distance = row; distance < this.maxRadius && !blocked; distance++) {
+            let deltaY = -distance;
+            for (let deltaX = -distance; deltaX <= 0; deltaX++) {
+                let currentX = Math.floor(this.startX + deltaX * xx + deltaY * xy);
+                let currentY = Math.floor(this.startY + deltaX * yx + deltaY * yy);
+                let outerSlope = (deltaX - 0.5) / (deltaY + 0.5);
+                let innerSlope = (deltaX + 0.5) / (deltaY - 0.5);
+                let maxSlope = ((deltaX) / (deltaY + 0.5));
+                let minSlope = ((deltaX + 0.5) / (deltaY));
 
-    // This is a custom implementation of recursive shadowcasting.
-    _scanOctant(xLoc, yLoc, octant, maxRadius,
-    				   columnsRightFromOrigin, startSlope, endSlope, cautiousOnWalls)
-    {
-    	// GW.debug.log('scanOctantFOV', xLoc, yLoc, octant, maxRadius, columnsRightFromOrigin, startSlope, endSlope);
-    	if ((columnsRightFromOrigin << FP_BASE$1) >= maxRadius) {
-    		// GW.debug.log(' - columnsRightFromOrigin >= maxRadius', columnsRightFromOrigin << FP_BASE, maxRadius);
-    		return;
-    	}
+                if (!this.hasXY(currentX, currentY)) {
+                  continue;
+                }
 
-    	let i, a, b, iStart, iEnd, x, y, x2, y2; // x and y are temporary variables on which we do the octant transform
-    	let newStartSlope, newEndSlope;
-    	let cellObstructed;
-    	let loc;
+                // fov.debug('- test %d,%d ... start=%d, min=%d, max=%d, end=%d, dx=%d, dy=%d', currentX, currentY, startSlope.toFixed(2), maxSlope.toFixed(2), minSlope.toFixed(2), endSlope.toFixed(2), deltaX, deltaY);
 
-    	// if (Math.floor(maxRadius) != maxRadius) {
-    	// 		maxRadius = Math.floor(maxRadius);
-    	// }
-    	newStartSlope = startSlope;
+                if (startSlope < minSlope) {
+                    continue;
+                } else if (endSlope > maxSlope) {
+                    break;
+                }
 
-    	a = (((LOS_SLOPE_GRANULARITY / -2 + 1) + startSlope * columnsRightFromOrigin) / LOS_SLOPE_GRANULARITY) >> 0;
-    	b = (((LOS_SLOPE_GRANULARITY / -2 + 1) + endSlope * columnsRightFromOrigin) / LOS_SLOPE_GRANULARITY) >> 0;
+                //check if it's within the lightable area and light if needed
+                const radius = this.calcRadius(deltaX, deltaY);
+                if (radius < this.maxRadius) {
+                    const bright = (1 - (radius / this.maxRadius));
+                    this.setVisible(currentX, currentY, bright);
+                    // fov.debug('       - visible');
+                }
 
-    	iStart = Math.min(a, b);
-    	iEnd = Math.max(a, b);
-
-    	// restrict vision to a circle of radius maxRadius
-
-    	let radiusSquared = Number(BigInt(maxRadius*maxRadius) >> (BIG_BASE*2n));
-    	radiusSquared += (maxRadius >> FP_BASE$1);
-    	if ((columnsRightFromOrigin*columnsRightFromOrigin + iEnd*iEnd) >= radiusSquared ) {
-    		// GW.debug.log(' - columnsRightFromOrigin^2 + iEnd^2 >= radiusSquared', columnsRightFromOrigin, iEnd, radiusSquared);
-    		return;
-    	}
-    	if ((columnsRightFromOrigin*columnsRightFromOrigin + iStart*iStart) >= radiusSquared ) {
-    		const bigRadiusSquared = Number(BigInt(maxRadius*maxRadius) >> BIG_BASE); // (maxRadius*maxRadius >> FP_BASE)
-    		const bigColumsRightFromOriginSquared = Number(BigInt(columnsRightFromOrigin*columnsRightFromOrigin) << BIG_BASE);	// (columnsRightFromOrigin*columnsRightFromOrigin << FP_BASE)
-    		iStart = Math.floor(-1 * fp_sqrt(bigRadiusSquared - bigColumsRightFromOriginSquared) >> FP_BASE$1);
-    	}
-
-    	x = xLoc + columnsRightFromOrigin;
-    	y = yLoc + iStart;
-    	loc = betweenOctant1andN(x, y, xLoc, yLoc, octant);
-    	x = loc[0];
-    	y = loc[1];
-    	let currentlyLit = this.isBlocked(x, y);
-
-    	// GW.debug.log(' - scan', iStart, iEnd);
-    	for (i = iStart; i <= iEnd; i++) {
-    		x = xLoc + columnsRightFromOrigin;
-    		y = yLoc + i;
-    		loc = betweenOctant1andN(x, y, xLoc, yLoc, octant);
-    		x = loc[0];
-    		y = loc[1];
-
-    		cellObstructed = this.isBlocked(x, y);
-    		// if we're cautious on walls and this is a wall:
-    		if (cautiousOnWalls && cellObstructed) {
-    			// (x2, y2) is the tile one space closer to the origin from the tile we're on:
-    			x2 = xLoc + columnsRightFromOrigin - 1;
-    			y2 = yLoc + i;
-    			if (i < 0) {
-    				y2++;
-    			} else if (i > 0) {
-    				y2--;
-    			}
-    			loc = betweenOctant1andN(x2, y2, xLoc, yLoc, octant);
-    			x2 = loc[0];
-    			y2 = loc[1];
-
-    			if (this.isVisible(x2, y2)) {
-    				// previous tile is visible, so illuminate
-    				this.setVisible(x, y);
-    			}
-    		} else {
-    			// illuminate
-          this.setVisible(x, y);
-    		}
-    		if (!cellObstructed && !currentlyLit) { // next column slope starts here
-    			newStartSlope = ((LOS_SLOPE_GRANULARITY * (i) - LOS_SLOPE_GRANULARITY / 2) / (columnsRightFromOrigin * 2 + 1) * 2) >> 0;
-    			currentlyLit = true;
-    		} else if (cellObstructed && currentlyLit) { // next column slope ends here
-    			newEndSlope = ((LOS_SLOPE_GRANULARITY * (i) - LOS_SLOPE_GRANULARITY / 2)
-    							/ (columnsRightFromOrigin * 2 - 1) * 2) >> 0;
-    			if (newStartSlope <= newEndSlope) {
-    				// run next column
-    				this._scanOctant(xLoc, yLoc, octant, maxRadius, columnsRightFromOrigin + 1, newStartSlope, newEndSlope, cautiousOnWalls);
-    			}
-    			currentlyLit = false;
-    		}
-    	}
-    	if (currentlyLit) { // got to the bottom of the scan while lit
-    		newEndSlope = endSlope;
-    		if (newStartSlope <= newEndSlope) {
-    			// run next column
-    			this._scanOctant(xLoc, yLoc, octant, maxRadius, columnsRightFromOrigin + 1, newStartSlope, newEndSlope, cautiousOnWalls);
-    		}
-    	}
+                if (blocked) { //previous cell was a blocking one
+                    if (this.isBlocked(currentX,currentY)) {//hit a wall
+                        newStart = innerSlope;
+                        continue;
+                    } else {
+                        blocked = false;
+                        startSlope = newStart;
+                    }
+                } else {
+                    if (this.isBlocked(currentX, currentY) && distance < this.maxRadius) {//hit a wall within sight line
+                        blocked = true;
+                        this.castLight(distance + 1, startSlope, outerSlope, xx, xy, yx, yy);
+                        newStart = innerSlope;
+                    }
+                }
+            }
+        }
     }
   }
 
   types.FOV = FOV;
 
+  commands.debug = utils$1.NOOP;
+
   async function moveDir(e) {
     const actor = e.actor || data.player;
-    const newX = e.dir[0] + actor.x;
-    const newY = e.dir[1] + actor.y;
+    const dir = e.dir;
+    const newX = dir[0] + actor.x;
+    const newY = dir[1] + actor.y;
     const map = data.map;
     const cell = map.cell(newX, newY);
 
     const ctx = { actor, map, x: newX, y: newY, cell };
 
+    commands.debug('moveDir');
+
     if (!map.hasXY(newX, newY)) {
+      commands.debug('move blocked - invalid xy: %d,%d', newX, newY);
       message.moveBlocked(ctx);
       // TURN ENDED (1/2 turn)?
       return false;
@@ -8367,12 +8978,36 @@
     if (cell.hasTileFlag(Flags$2.T_OBSTRUCTS_PASSABILITY)) {
       message.moveBlocked(ctx);
       // TURN ENDED (1/2 turn)?
+      await fx.flashSprite(map, newX, newY, 'hit', 50, 1);
       return false;
     }
     if (map.diagonalBlocked(actor.x, actor.y, newX, newY)) {
       message.moveBlocked(ctx);
       // TURN ENDED (1/2 turn)?
+      await fx.flashSprite(map, newX, newY, 'hit', 50, 1);
       return false;
+    }
+
+    let isPush = false;
+    if (cell.item && cell.item.hasKindFlag(KindFlags.IK_BLOCKS_MOVE)) {
+      if (!cell.item.hasActionFlag(ActionFlags.A_PUSH)) {
+        ctx.item = cell.item;
+        message.moveBlocked(ctx);
+        return false;
+      }
+      const pushX = newX + dir[0];
+      const pushY = newY + dir[1];
+      const pushCell = map.cell(pushX, pushY);
+      if (!pushCell.isEmpty() || pushCell.hasTileFlag(Flags$2.T_OBSTRUCTS_ITEMS)) {
+        message.moveBlocked(ctx);
+        return false;
+      }
+
+      ctx.item = cell.item;
+      map.removeItem(cell.item);
+      map.addItem(pushX, pushY, ctx.item);
+      isPush = true;
+      // Do we need to activate stuff - key enter, key leave?
     }
 
     // CHECK SOME SANITY MOVES
@@ -8381,11 +9016,45 @@
         return false;
       }
     }
+    else if (cell.hasTileFlag(Flags$2.T_HAS_STAIRS)) {
+      if (actor.grabbed) {
+        message.add('You cannot use stairs while holding %s.', actor.grabbed.flavorText());
+        return false;
+      }
+    }
+
+    if (actor.grabbed && !isPush) {
+      const dirToItem = utils$1.dirFromTo(actor, actor.grabbed);
+      let destXY = [actor.grabbed.x + dir[0], actor.grabbed.y + dir[1]];
+      if (utils$1.isOppositeDir(dirToItem, dir)) {  // pull
+        if (!actor.grabbed.hasActionFlag(ActionFlags.A_PULL)) {
+          message.add('you cannot pull %s.', actor.grabbed.flavorText());
+          return false;
+        }
+      }
+      else {  // slide
+        if (!actor.grabbed.hasActionFlag(ActionFlags.A_SLIDE)) {
+          message.add('you cannot slide %s.', actor.grabbed.flavorText());
+          return false;
+        }
+      }
+      const destCell = map.cell(destXY[0], destXY[1]);
+      if (destCell.item || destCell.hasTileFlag(Flags$2.T_OBSTRUCTS_ITEMS)) {
+        commands.debug('move blocked - item obstructed: %d,%d', destXY[0], destXY[1]);
+        message.moveBlocked(ctx);
+        return false;
+      }
+    }
 
     if (!map.moveActor(newX, newY, actor)) {
       message.moveFailed(ctx);
       // TURN ENDED (1/2 turn)?
       return false;
+    }
+
+    if (actor.grabbed && !isPush) {
+      map.removeItem(actor.grabbed);
+      map.addItem(actor.grabbed.x + dir[0], actor.grabbed.y + dir[1], actor.grabbed);
     }
 
     // APPLY EFFECTS
@@ -8397,13 +9066,20 @@
     }
 
     // PROMOTES ON ENTER, PLAYER ENTER, KEY(?)
-    let fired;
+    let fired = false;
     if (data.player === actor) {
       fired = await cell.fireEvent('playerEnter', ctx);
     }
     if (!fired) {
       await cell.fireEvent('enter', ctx);
     }
+
+    if (cell.hasTileFlag(Flags$2.T_HAS_STAIRS)) {
+      console.log('Use stairs!');
+      await game.useStairs(newX, newY);
+    }
+
+    commands.debug('moveComplete');
 
     ui.requestUpdate();
     actor.endTurn();
@@ -8417,6 +9093,51 @@
   //   actor = actor || DATA.player;
   //   return commands.moveDir(x - actor.x, y - actor.y, actor);
   // }
+
+
+  async function grab(e) {
+    const actor = e.actor || data.player;
+    const map = data.map;
+
+    if (actor.grabbed) {
+      message.add('You let go of %s.', actor.grabbed.flavorText());
+      await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+      actor.grabbed = null;
+      actor.endTurn();
+      return true;
+    }
+
+    const candidates = [];
+    map.eachNeighbor(actor.x, actor.y, (c) => {
+      if (c.item && c.item.hasActionFlag(ActionFlags.A_GRABBABLE)) {
+        candidates.push(c.item);
+      }
+    }, true);
+    if (!candidates.length) {
+      message.add('Nothing to grab.');
+      return false;
+    }
+    else if (candidates.length == 1) {
+      actor.grabbed = candidates[0];
+      message.add('you grab %s.', actor.grabbed.flavorText());
+      await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+      actor.endTurn();
+      return true;
+    }
+
+    const choice = await ui.chooseTarget(candidates, 'Grab what?');
+    if (!choice) {
+      return false; // cancelled
+    }
+
+    actor.grabbed = choice;
+    message.add('you grab %s.', actor.grabbed.flavorText());
+    await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+    actor.endTurn();
+    return true;
+  }
+
+  commands.grab = grab;
 
   var SETUP = null;
 
@@ -8462,7 +9183,12 @@
   // Messages
 
   function moveBlocked(ctx) {
-    message.add('Blocked!');
+    if (ctx.item) {
+      message.add('Blocked by %s!', ctx.item.flavorText());
+    }
+    else {
+      message.add('Blocked!');
+    }
   }
 
   message.moveBlocked = moveBlocked;
@@ -8503,10 +9229,10 @@
   		}
 
       const localY = isOnTop ? (SETUP.height - i - 1) : i;
-      const y = SETUP.toCanvasY(localY);
+      const y = SETUP.toOuterY(localY);
 
   		text.eachChar( DISPLAYED[i], (c, color$1, j) => {
-  			const x = SETUP.toCanvasX(j);
+  			const x = SETUP.toOuterX(j);
 
   			if (color$1 && (messageColor !== color$1) && CONFIRMED[i]) {
   				color.applyMix(color$1, colors.black, 50);
@@ -8517,7 +9243,7 @@
   		});
 
   		for (let j = text.length(DISPLAYED[i]); j < SETUP.width; j++) {
-  			const x = SETUP.toCanvasX(j);
+  			const x = SETUP.toOuterX(j);
   			buffer.plotChar(x, y, ' ', colors.black, colors.black);
   		}
   	}
@@ -8654,21 +9380,21 @@
   			 (reverse ? currentMessageCount >= SETUP.height : currentMessageCount <= totalMessageCount);
   			 currentMessageCount += (reverse ? -1 : 1))
   	  {
-  			dbuf.clear();
+  			dbuf.nullify();
 
   			// Print the message archive text to the dbuf.
   			for (j=0; j < currentMessageCount && j < dbuf.height; j++) {
   				const pos = (CURRENT_ARCHIVE_POS - currentMessageCount + ARCHIVE_LINES + j) % ARCHIVE_LINES;
           const y = isOnTop ? j : dbuf.height - j - 1;
 
-  				dbuf.plotLine(SETUP.toCanvasX(0), y, SETUP.width, ARCHIVE[pos], colors.white, colors.black);
+  				dbuf.plotLine(SETUP.toOuterX(0), y, SETUP.width, ARCHIVE[pos], colors.white, colors.black);
   			}
 
   			// Set the dbuf opacity, and do a fade from bottom to top to make it clear that the bottom messages are the most recent.
   			for (j=0; j < currentMessageCount && j < dbuf.height; j++) {
   				fadePercent = 40 * (j + totalMessageCount - currentMessageCount) / totalMessageCount + 60;
   				for (i=0; i<SETUP.width; i++) {
-  					const x = SETUP.toCanvasX(i);
+  					const x = SETUP.toOuterX(i);
 
             const y = isOnTop ? j : dbuf.height - j - 1;
   					dbuf[x][y].opacity = INTERFACE_OPACITY;
@@ -8692,7 +9418,7 @@
   		if (!reverse) {
       	if (!data.autoPlayingLevel) {
           const y = isOnTop ? 0 : dbuf.height - 1;
-          dbuf.plotText(SETUP.toCanvasX(-8), y, "--DONE--", colors.black, colors.white);
+          dbuf.plotText(SETUP.toOuterX(-8), y, "--DONE--", colors.black, colors.white);
         	ui.draw();
         	await io.waitForAck();
       	}
@@ -8722,10 +9448,10 @@
   function drawViewport(buffer, map$1) {
     map$1 = map$1 || data.map;
     if (!map$1) return;
-    if (!map$1.flags & Flags$3.MAP_CHANGED) return;
+    if (!map$1.flags & Flags$4.MAP_CHANGED) return;
 
     map$1.cells.forEach( (c, i, j) => {
-      if (!VIEWPORT.hasCanvasLoc(i + VIEWPORT.x, j + VIEWPORT.y)) return;
+      if (!VIEWPORT.containsXY(i + VIEWPORT.x, j + VIEWPORT.y)) return;
 
       if (c.flags & Flags$1.NEEDS_REDRAW) {
         const buf = buffer[i + VIEWPORT.x][j + VIEWPORT.y];
@@ -8735,7 +9461,7 @@
       }
     });
 
-    map$1.flags &= ~Flags$3.MAP_CHANGED;
+    map$1.flags &= ~Flags$4.MAP_CHANGED;
   }
 
 
@@ -8783,6 +9509,11 @@
 
   flavor.draw = drawFlavor;
 
+  function clearFlavor() {
+    flavor.setText('');
+  }
+
+  flavor.clear = clearFlavor;
 
 
   function showFlavorFor(x, y) {
@@ -8862,11 +9593,11 @@
         //       object = GW.item.describeItemBasedOnParameters(cell.rememberedItemCategory, cell.rememberedItemKind, cell.rememberedItemQuantity);
         //   }
   			// } else {
-  				object = tiles[cell.memory.tile].description;
+  				object = tiles[cell.memory.tile].flavorText();
   			// }
   			buf = text.format("you remember seeing %s here.", object);
   		} else if (cell.flags & Flags$1.MAGIC_MAPPED) { // magic mapped
-  			buf = text.format("you expect %s to be here.", tiles[cell.memory.tile].description);
+  			buf = text.format("you expect %s to be here.", tiles[cell.memory.tile].flavorText());
   		}
   		flavor.setText(buf);
       return true;
@@ -8874,17 +9605,20 @@
 
   	// if (monst) {
   	// 	return GW.actor.flavorText(monst);
-  	// } else if (theItem) {
-  	// 	return GW.item.flavorText(theItem);
-  	// }
-
-  	buf = text.format("you %s %s.", (map.isVisible(x, y) ? "see" : "sense"), cell.tileText());
+  	// } else
+    if (theItem) {
+      buf = text.format("you %s %s.", (map.isVisible(x, y) ? "see" : "sense"), theItem.flavorText());
+  	}
+    else {
+      buf = text.format("you %s %s.", (map.isVisible(x, y) ? "see" : "sense"), cell.tileText());
+    }
     flavor.setText(buf);
   	return true;
   }
 
   flavor.showFor = showFlavorFor;
 
+  ui.debug = utils$1.NOOP;
   let SHOW_CURSOR = false;
 
   let UI_BUFFER = null;
@@ -8947,8 +9681,8 @@
     UI_BUFFER = UI_BUFFER || ui.canvas.allocBuffer();
     UI_BASE = UI_BASE || ui.canvas.allocBuffer();
     UI_OVERLAY = UI_OVERLAY || ui.canvas.allocBuffer();
-    UI_BASE.clear();
-    UI_OVERLAY.clear();
+    UI_BASE.nullify();
+    UI_OVERLAY.nullify();
 
     IN_DIALOG = false;
 
@@ -9008,25 +9742,25 @@
   async function dispatchEvent$1(ev) {
 
   	if (ev.type === def.CLICK) {
-  		if (message.bounds && message.bounds.hasCanvasLoc(ev.x, ev.y)) {
+  		if (message.bounds && message.bounds.containsXY(ev.x, ev.y)) {
   			await message.showArchive();
   			return true;
   		}
-  		if (flavor.bounds && flavor.bounds.hasCanvasLoc(ev.x, ev.y)) {
+  		if (flavor.bounds && flavor.bounds.containsXY(ev.x, ev.y)) {
   			return true;
   		}
   	}
   	else if (ev.type === def.MOUSEMOVE) {
-  		if (viewport.bounds && viewport.bounds.hasCanvasLoc(ev.x, ev.y)) {
+  		if (viewport.bounds && viewport.bounds.containsXY(ev.x, ev.y)) {
   			if (SHOW_CURSOR) {
-  				ui.setCursor(viewport.bounds.toLocalX(ev.x), viewport.bounds.toLocalY(ev.y));
+  				ui.setCursor(viewport.bounds.toInnerX(ev.x), viewport.bounds.toInnerY(ev.y));
   			}
   			return true;
   		}
   		else {
   			ui.clearCursor();
   		}
-  		if (flavor.bounds && flavor.bounds.hasCanvasLoc(ev.x, ev.y)) {
+  		if (flavor.bounds && flavor.bounds.containsXY(ev.x, ev.y)) {
   			return true;
   		}
   	}
@@ -9052,9 +9786,9 @@
   	ui.canvas.draw();
   	if (t) {
   		// const now = performance.now();
-  		// console.log('UI update - with timeout:', t);
+  		// ui.debug('UI update - with timeout:', t);
   		const r = await io.tickMs(t);
-  		// console.log('- done', r, Math.floor(performance.now() - now));
+  		// ui.debug('- done', r, Math.floor(performance.now() - now));
   	}
   }
 
@@ -9079,6 +9813,8 @@
 
   	const ev = io.makeKeyEvent(e);
   	io.pushEvent(ev);
+
+  	e.preventDefault();
   }
 
   ui.onkeydown = onkeydown;
@@ -9121,17 +9857,18 @@
 
     if (CURSOR.x == x && CURSOR.y == y) return false;
 
-    // console.log('set cursor', x, y);
+    // ui.debug('set cursor', x, y);
 
     if (map.hasXY(CURSOR.x, CURSOR.y)) {
-      map.clearCellFlags(CURSOR.x, CURSOR.y, CellFlags.IS_CURSOR);
+      map.clearCellFlags(CURSOR.x, CURSOR.y, Flags$1.IS_CURSOR);
+      map.setCellFlags(CURSOR.x, CURSOR.y, Flags$1.NEEDS_REDRAW);
     }
     CURSOR.x = x;
     CURSOR.y = y;
 
     if (map.hasXY(x, y)) {
       // if (!DATA.player || DATA.player.x !== x || DATA.player.y !== y ) {
-        map.setCellFlags(CURSOR.x, CURSOR.y, CellFlags.IS_CURSOR);
+        map.setCellFlags(CURSOR.x, CURSOR.y, Flags$1.IS_CURSOR | Flags$1.NEEDS_REDRAW);
       // }
 
       // if (!GW.player.isMoving()) {
@@ -9160,7 +9897,7 @@
 
   function clearCursor() {
     return ui.setCursor(-1,-1);
-    // GW.ui.flavorMessage(GW.map.cellFlavor(GW.PLAYER.x, GW.PLAYER.y));
+    // ui.flavorMessage(GW.map.cellFlavor(GW.PLAYER.x, GW.PLAYER.y));
   }
 
   ui.clearCursor = clearCursor;
@@ -9235,11 +9972,62 @@
 
 
   function blackOutDisplay() {
-  	UI_BUFFER.erase();
+  	UI_BUFFER.blackOut();
   }
 
   ui.blackOutDisplay = blackOutDisplay;
 
+
+  const TARGET_SPRITE = sprite.install('target', 'green', 50);
+
+  async function chooseTarget(choices, prompt, opts={}) {
+  	console.log('choose Target');
+
+  	if (!choices || choices.length == 0) return null;
+  	if (choices.length == 1) return choices[0];
+
+  	const buf = ui.startDialog();
+  	let waiting = true;
+  	let selected = 0;
+
+  	function draw() {
+  		ui.clearDialog();
+  		buf.plotLine(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, prompt, GW.colors.orange);
+  		if (selected >= 0) {
+  			const choice = choices[selected];
+  			buf.plot(choice.x, choice.y, TARGET_SPRITE);
+  		}
+  		ui.draw();
+  	}
+
+  	draw();
+
+  	while(waiting) {
+  		const ev = await GW.io.nextEvent(100);
+  		await GW.io.dispatchEvent(ev, {
+  			escape() { waiting = false; selected = -1; },
+  			enter() { waiting = false; },
+  			tab() {
+  				selected = (selected + 1) % choices.length;
+  				draw();
+  			},
+  			dir(e) {
+  				if (e.dir[0] > 0 || e.dir[1] > 0) {
+  					selected = (selected + 1) % choices.length;
+  				}
+  				else if (e.dir[0] < 0 || e.dir[1] < 0) {
+  					selected = (selected + choices.length - 1) % choices.length;
+  				}
+  				draw();
+  			}
+  		});
+  	}
+
+  	ui.finishDialog();
+  	return choices[selected] || null;
+  }
+
+  ui.chooseTarget = chooseTarget;
 
   // DIALOG
 
@@ -9248,7 +10036,7 @@
     ui.canvas.copyBuffer(UI_BASE);
   	ui.canvas.copyBuffer(UI_OVERLAY);
   	UI_OVERLAY.forEach( (c) => c.opacity = 0 );
-    // UI_OVERLAY.clear();
+    // UI_OVERLAY.nullify();
     return UI_OVERLAY;
   }
 
@@ -9265,7 +10053,7 @@
   function finishDialog() {
     IN_DIALOG = false;
     ui.canvas.overlay(UI_BASE);
-    UI_OVERLAY.clear();
+    UI_OVERLAY.nullify();
   }
 
   ui.finishDialog = finishDialog;
@@ -9279,9 +10067,12 @@
     }
     else if (ui.canvas) {
       // const side = GW.sidebar.draw(UI_BUFFER);
-      if (viewport.bounds) viewport.draw(ui.canvas.buffer);
-  		if (message.bounds) message.draw(ui.canvas.buffer);
-  		if (flavor.bounds) flavor.draw(ui.canvas.buffer);
+      if (viewport.bounds) viewport.draw(UI_BUFFER);
+  		if (message.bounds) message.draw(UI_BUFFER);
+  		if (flavor.bounds) flavor.draw(UI_BUFFER);
+
+      // if (commitCombatMessage() || REDRAW_UI || side || map) {
+      ui.canvas.overlay(UI_BUFFER);
   			UPDATE_REQUESTED = 0;
       // }
     }
@@ -9298,7 +10089,6 @@
   exports.config = config;
   exports.cosmetic = cosmetic;
   exports.data = data;
-  exports.debug = debug$1;
   exports.def = def;
   exports.digger = digger;
   exports.diggers = diggers;
@@ -9312,8 +10102,11 @@
   exports.grid = GRID;
   exports.install = install;
   exports.io = io;
+  exports.item = item;
+  exports.itemKinds = itemKinds;
   exports.make = make;
   exports.map = map;
+  exports.maps = maps;
   exports.message = message;
   exports.path = PATH;
   exports.player = player;
@@ -9330,5 +10123,6 @@
   exports.ui = ui;
   exports.utils = utils$1;
   exports.viewport = viewport;
+  exports.visibility = visibility;
 
 })));
