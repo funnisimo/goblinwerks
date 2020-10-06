@@ -506,7 +506,7 @@ async function start() {
 	});
 
 	GW.message.add('%REscape from ECMA Labs!\n%RYou are in the basement of a lab where something has gone horribly wrong.\nFind your way to the surface.\n%RPress <?> for help.', 'yellow', 'purple', null);
-	GW.game.start({ player: PLAYER, buildMap: designNewLevel });
+	GW.game.start({ player: PLAYER, buildMap: designNewLevel, fov: true });
 
 }
 
