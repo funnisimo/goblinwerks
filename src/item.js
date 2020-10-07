@@ -149,6 +149,29 @@ class ItemKind {
 		this.stats = Object.assign({}, opts.stats || {});
 		this.id = opts.id || null;
   }
+
+  getName(opts={}) {
+    if (opts === true) { opts = { article: true }; }
+    if (opts === false) { opts = {}; }
+    if (typeof opts === 'string') { opts = { article: opts }; }
+
+    if (!opts.article && !opts.color) return this.name;
+
+    let result = this.name;
+    if (opts.color) {
+      let color = this.sprite.fg;
+      if (opts.color instanceof types.Color) {
+        color = opts.color;
+      }
+      result = TEXT.format('%R%s%R', color, this.name, null);
+    }
+
+    if (opts.article) {
+      let article = (opts.article === true) ? this.article : opts.article;
+      result = article + ' ' + result;
+    }
+    return result;
+  }
 }
 
 GW.types.ItemKind = ItemKind;
@@ -188,17 +211,16 @@ class Item {
 		return (this.kind.actionFlags & flag) > 0;
 	}
 
-	async applyDamage(ctx) {
-		if (this.kind.actionFlags & ActionFlags.A_NO_DESTROY) return false;
-		if (this.stats.health) {
-			ctx.damageDone = Math.max(this.stats.health, ctx.damage);
-			this.stats.health -= ctx.damageDone;
+	async applyDamage(damage, actor, ctx) {
+		if (this.stats.health > 0) {
+			const damageDone = Math.min(this.stats.health, damage);
+			this.stats.health -= damageDone;
 			if (this.stats.health <= 0) {
 				this.flags |= Flags.ITEM_DESTROYED;
 			}
-			return true;
+			return damageDone;
 		}
-		return false;
+		return 0;
 	}
 
 	isDestroyed() { return this.flags & Flags.ITEM_DESTROYED; }
@@ -206,7 +228,9 @@ class Item {
 	forbiddenTileFlags() { return TileFlags.T_OBSTRUCTS_ITEMS; }
 
 	flavorText() { return this.kind.description || this.kind.name; }
-  name() { return this.kind.name; }
+  name(opts={}) {
+    return this.kind.getName(opts);
+  }
 }
 
 GW.types.Item = Item;

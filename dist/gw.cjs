@@ -1,7 +1,7 @@
 'use strict';
 
 var def = {};
-var types = {};
+var types$1 = {};
 
 var make = {};
 var install = {};
@@ -73,7 +73,7 @@ class Bounds {
   }
 }
 
-types.Bounds = Bounds;
+types$1.Bounds = Bounds;
 
 function NOOP()  {}
 utils$1.NOOP = NOOP;
@@ -438,7 +438,7 @@ class Flag {
   }
 }
 
-types.Flag = Flag;
+types$1.Flag = Flag;
 
 function makeFlag(values) {
   const flag = new Flag();
@@ -489,7 +489,7 @@ class Enum {
   }
 }
 
-types.Enum = Enum;
+types$1.Enum = Enum;
 
 // export function installEnum(enumName, ...names) {
 //   const out = new types.Enum(...names);
@@ -670,13 +670,13 @@ class Random {
 
 Random.MAX = RNG_M;
 
-types.Random = Random;
+types$1.Random = Random;
 
 
 var RANDOM_SEED = Date.now();
 
 function makeRng(seed) {
-  return new types.Random(seed);
+  return new types$1.Random(seed);
 }
 
 make.rng = makeRng;
@@ -720,7 +720,7 @@ class Range {
   }
 }
 
-types.Range = Range;
+types$1.Range = Range;
 
 
 function makeRange(config, rng) {
@@ -837,19 +837,19 @@ class Color extends Array {
 
 }
 
-types.Color = Color;
+types$1.Color = Color;
 
 function makeColor(...args) {
   let hex = args[0];
-  if (args.length == 0) { return new types.Color(0,0,0); }
-  if (args.length == 1 && hex instanceof types.Color) {
+  if (args.length == 0) { return new types$1.Color(0,0,0); }
+  if (args.length == 1 && hex instanceof types$1.Color) {
     return hex.clone();
   }
   else if (Array.isArray(hex)) {
-    return new types.Color(...hex);
+    return new types$1.Color(...hex);
   }
   else if (args.length >= 3) {
-    return new types.Color(...args);
+    return new types$1.Color(...args);
   }
   if (typeof hex === 'string') {
     let color = colors[hex] || null;
@@ -869,7 +869,7 @@ function makeColor(...args) {
     const r = Math.floor( ((hex & 0xFF0000) >> 16) / 2.55 );
     const g = Math.floor( ((hex & 0x00FF00) >> 8)  / 2.55 );
     const b = Math.floor( (hex & 0x0000FF) / 2.55 );
-    return new types.Color(r,g,b);
+    return new types$1.Color(r,g,b);
   }
 
   return null;
@@ -1714,7 +1714,7 @@ function format(fmt, ...args) {
 
   const RE = /%([\-\+0\ \#]+)?(\d+|\*)?(\.\*|\.\d+)?([hLIw]|l{1,2}|I32|I64)?([cCdiouxXeEfgGaAnpsRSZ%])/g;
 
-  if (fmt instanceof types.Color) {
+  if (fmt instanceof types$1.Color) {
     const buf = encodeColor(fmt) + args.shift();
     fmt = buf;
   }
@@ -1777,7 +1777,7 @@ function format(fmt, ...args) {
     }
     else if (p5 == 'R') {
       let color$1 = args.shift() || null;
-      if (color$1 && !(color$1 instanceof types.Color)) {
+      if (color$1 && !(color$1 instanceof types$1.Color)) {
         color$1 = color.from(color$1);
       }
       r = encodeColor(color$1);
@@ -1825,7 +1825,7 @@ text.format = format;
 //
 // text.sprintf = sprintf;
 
-const TEMP_BG = new types.Color();
+const TEMP_BG = new types$1.Color();
 
 var sprites = {};
 var sprite = {};
@@ -1902,7 +1902,7 @@ class Sprite {
 	}
 
 	clone() {
-		const other = new types.Sprite(this.ch, this.fg, this.bg, this.opacity);
+		const other = new types$1.Sprite(this.ch, this.fg, this.bg, this.opacity);
 		other.wasHanging = this.wasHanging;
 		other.needsUpdate = this.needsUpdate;
 		return other;
@@ -1984,7 +1984,7 @@ class Sprite {
 	}
 }
 
-types.Sprite = Sprite;
+types$1.Sprite = Sprite;
 
 function makeSprite(ch, fg, bg, opacity) {
 	if (arguments.length == 1 && typeof arguments[0] === 'object' && ch !== null) {
@@ -2334,11 +2334,11 @@ class Grid extends Array {
 
 }
 
-types.Grid = Grid;
+types$1.Grid = Grid;
 
 
 function makeGrid(w, h, v) {
-	return new types.Grid(w, h, v);
+	return new types$1.Grid(w, h, v);
 }
 
 make.grid = makeGrid;
@@ -2849,9 +2849,9 @@ function fillBlob(grid,
 
 GRID.fillBlob = fillBlob;
 
-class Buffer extends types.Grid {
+class Buffer extends types$1.Grid {
   constructor(w, h) {
-    super(w, h, () => new types.Sprite() );
+    super(w, h, () => new types$1.Sprite() );
     this.needsUpdate = true;
   }
 
@@ -2993,10 +2993,10 @@ class Buffer extends types.Grid {
 
 }
 
-types.Buffer = Buffer;
+types$1.Buffer = Buffer;
 
 function makeBuffer(w, h) {
-  return new types.Buffer(w, h);
+  return new types$1.Buffer(w, h);
 }
 
 make.buffer = makeBuffer;
@@ -3154,7 +3154,7 @@ class Canvas {
       buf = this.dead.pop();
     }
     else {
-      buf = new types.Buffer(this.buffer.width, this.buffer.height);
+      buf = new types$1.Buffer(this.buffer.width, this.buffer.height);
     }
 
     buf.copy(this.buffer);
@@ -3201,7 +3201,7 @@ class Canvas {
 
 }
 
-types.Canvas = Canvas;
+types$1.Canvas = Canvas;
 
 var io = {};
 
@@ -4573,12 +4573,12 @@ class TileEvent {
 
 }
 
-types.TileEvent = TileEvent;
+types$1.TileEvent = TileEvent;
 
 
 // Dungeon features, spawned from Architect.c:
 function makeEvent(opts) {
-	const te = new types.TileEvent(opts);
+	const te = new types$1.TileEvent(opts);
 	return te;
 }
 
@@ -4586,7 +4586,7 @@ make.tileEvent = makeEvent;
 
 
 function installEvent(id, event) {
-	if (arguments.length > 2 || !(event instanceof types.TileEvent)) {
+	if (arguments.length > 2 || !(event instanceof types$1.TileEvent)) {
 		event = make.tileEvent(...[].slice.call(arguments, 1));
 	}
   tileEvents[id] = event;
@@ -4602,7 +4602,7 @@ installEvent('DF_NONE');
 
 function resetAllMessages() {
 	Object.values(tileEvents).forEach( (f) => {
-		if (f instanceof types.Event) {
+		if (f instanceof types$1.Event) {
 			f.messageDisplayed = false;
 		}
 	});
@@ -5230,14 +5230,14 @@ class CellMemory {
   }
 }
 
-types.CellMemory = CellMemory;
+types$1.CellMemory = CellMemory;
 
 
 
 class Cell {
   constructor() {
     this.layers = [0,0,0,0];
-    this.memory = new types.CellMemory();
+    this.memory = new types$1.CellMemory();
     this.nullify();
   }
 
@@ -5515,7 +5515,7 @@ class Cell {
     if (typeof tileId === 'string') {
       tile = tiles[tileId];
     }
-    else if (tileId instanceof types.Tile) {
+    else if (tileId instanceof types$1.Tile) {
       tile = tileId;
     }
     else if (tileId !== 0){
@@ -5679,11 +5679,11 @@ class Cell {
 
 }
 
-types.Cell = Cell;
+types$1.Cell = Cell;
 
 
 function makeCell(...args) {
-  const cell = new types.Cell(...args);
+  const cell = new types$1.Cell(...args);
   return cell;
 }
 
@@ -5766,11 +5766,11 @@ class Actor {
 
 }
 
-types.Actor = Actor;
+types$1.Actor = Actor;
 
 
 function makeActor(kind) {
-  return new types.Actor(kind);
+  return new types$1.Actor(kind);
 }
 
 make.actor = makeActor;
@@ -5949,7 +5949,7 @@ var player = {};
 player.debug = utils$1.NOOP;
 
 
-class Player extends types.Actor {
+class Player extends types$1.Actor {
   constructor(kind) {
     super(kind);
   }
@@ -5968,11 +5968,11 @@ class Player extends types.Actor {
 
 }
 
-types.Player = Player;
+types$1.Player = Player;
 
 
 function makePlayer(kind) {
-  return new types.Player(kind);
+  return new types$1.Player(kind);
 }
 
 make.player = makePlayer;
@@ -6370,7 +6370,7 @@ game.useStairs = useStairs;
 var tile = {};
 var tiles = {};
 
-const Layer = new types.Enum('GROUND', 'LIQUID', 'SURFACE', 'GAS', 'ITEM', 'ACTOR', 'PLAYER', 'FX', 'UI');
+const Layer = new types$1.Enum('GROUND', 'LIQUID', 'SURFACE', 'GAS', 'ITEM', 'ACTOR', 'PLAYER', 'FX', 'UI');
 
 tile.Layer = Layer;
 
@@ -6523,7 +6523,7 @@ class Tile {
     let result = this.name;
     if (opts.color) {
       let color = this.sprite.fg;
-      if (opts.color instanceof types.Color) {
+      if (opts.color instanceof types$1.Color) {
         color = opts.color;
       }
       result = text.format('%R%s%R', color, this.name, null);
@@ -6541,7 +6541,7 @@ class Tile {
 
 }
 
-types.Tile = Tile;
+types$1.Tile = Tile;
 
 
 function addTileKind(id, base, config) {
@@ -6561,7 +6561,7 @@ function addTileKind(id, base, config) {
 
   config.name = config.name || id.toLowerCase();
   config.id = id;
-  const tile = new types.Tile(config, base);
+  const tile = new types$1.Tile(config, base);
   tiles[id] = tile;
   return tile;
 }
@@ -6807,13 +6807,36 @@ class ItemKind {
 		this.stats = Object.assign({}, opts.stats || {});
 		this.id = opts.id || null;
   }
+
+  getName(opts={}) {
+    if (opts === true) { opts = { article: true }; }
+    if (opts === false) { opts = {}; }
+    if (typeof opts === 'string') { opts = { article: opts }; }
+
+    if (!opts.article && !opts.color) return this.name;
+
+    let result = this.name;
+    if (opts.color) {
+      let color = this.sprite.fg;
+      if (opts.color instanceof types.Color) {
+        color = opts.color;
+      }
+      result = TEXT.format('%R%s%R', color, this.name, null);
+    }
+
+    if (opts.article) {
+      let article = (opts.article === true) ? this.article : opts.article;
+      result = article + ' ' + result;
+    }
+    return result;
+  }
 }
 
-types.ItemKind = ItemKind;
+types$1.ItemKind = ItemKind;
 
 function addItemKind(id, opts={}) {
 	opts.id = id;
-	const kind = new types.ItemKind(opts);
+	const kind = new types$1.ItemKind(opts);
 	itemKinds[id] = kind;
 	return kind;
 }
@@ -6846,17 +6869,16 @@ class Item {
 		return (this.kind.actionFlags & flag) > 0;
 	}
 
-	async applyDamage(ctx) {
-		if (this.kind.actionFlags & ActionFlags.A_NO_DESTROY) return false;
-		if (this.stats.health) {
-			ctx.damageDone = Math.max(this.stats.health, ctx.damage);
-			this.stats.health -= ctx.damageDone;
+	async applyDamage(damage, actor, ctx) {
+		if (this.stats.health > 0) {
+			const damageDone = Math.min(this.stats.health, damage);
+			this.stats.health -= damageDone;
 			if (this.stats.health <= 0) {
 				this.flags |= Flags$3.ITEM_DESTROYED;
 			}
-			return true;
+			return damageDone;
 		}
-		return false;
+		return 0;
 	}
 
 	isDestroyed() { return this.flags & Flags$3.ITEM_DESTROYED; }
@@ -6864,10 +6886,12 @@ class Item {
 	forbiddenTileFlags() { return Flags$2.T_OBSTRUCTS_ITEMS; }
 
 	flavorText() { return this.kind.description || this.kind.name; }
-  name() { return this.kind.name; }
+  name(opts={}) {
+    return this.kind.getName(opts);
+  }
 }
 
-types.Item = Item;
+types$1.Item = Item;
 
 function makeItem(kind) {
 	if (typeof kind === 'string') {
@@ -6875,7 +6899,7 @@ function makeItem(kind) {
 		kind = itemKinds[name];
 		if (!kind) utils$1.ERROR('Unknown Item Kind: ' + name);
 	}
-	return new types.Item(kind);
+	return new types$1.Item(kind);
 }
 
 make.item = makeItem;
@@ -6898,7 +6922,7 @@ class Map {
 	constructor(w, h, opts={}) {
 		this.width = w;
 		this.height = h;
-		this.cells = make.grid(w, h, () => new types.Cell() );
+		this.cells = make.grid(w, h, () => new types$1.Cell() );
 		this.locations = opts.locations || {};
 		this.config = Object.assign({}, opts);
 		this.config.tick = this.config.tick || 100;
@@ -7419,7 +7443,7 @@ class Map {
     maxRadius = maxRadius || (this.width + this.height);
     grid.fill(0);
     const map = this;
-	  const FOV = new types.FOV({
+	  const FOV = new types$1.FOV({
       isBlocked(i, j) {
 	       return (!grid.hasXY(i, j)) || map.hasCellFlag(i, j, forbiddenFlags) || map.hasTileFlag(i, j, forbiddenTerrain) ;
 	    },
@@ -7469,14 +7493,14 @@ class Map {
 
 }
 
-types.Map = Map;
+types$1.Map = Map;
 
 
 function makeMap(w, h, opts={}) {
   if (typeof opts === 'string') {
     opts = { tile: opts };
   }
-	const map = new types.Map(w, h, opts);
+	const map = new types$1.Map(w, h, opts);
 	if (opts.tile) {
 		map.fill(opts.tile, opts.boundary);
 	}
@@ -8496,7 +8520,7 @@ class FX {
 
 }
 
-types.FX = FX;
+types$1.FX = FX;
 
 
 class SpriteFX extends FX {
@@ -8609,7 +8633,7 @@ class MovingSpriteFX extends SpriteFX {
   }
 }
 
-types.MovingSpriteFX = MovingSpriteFX;
+types$1.MovingSpriteFX = MovingSpriteFX;
 
 
 async function bolt(map, source, target, sprite, opts={}) {
@@ -8776,7 +8800,7 @@ class BeamFX extends FX {
 
 }
 
-types.BeamFX = BeamFX;
+types$1.BeamFX = BeamFX;
 
 function beam(map, from, to, sprite, opts={}) {
   opts.fade = opts.fade || 5;
@@ -9025,7 +9049,7 @@ class FOV {
   }
 }
 
-types.FOV = FOV;
+types$1.FOV = FOV;
 
 async function grab(e) {
   const actor = e.actor || data.player;
@@ -9205,6 +9229,66 @@ async function moveDir(e) {
 
 commands.moveDir = moveDir;
 
+var itemActions = {};
+
+async function bashItem(item, actor, ctx) {
+
+  const map = ctx.map;
+
+  if (!item.hasActionFlag(ActionFlags.A_BASH)) {
+    message.add('You cannot bash %s.', item.name());
+    return false;
+  }
+
+  message.add('You bash %s.', item.name('the'));
+
+  if (item.applyDamage(1, actor, ctx)) {
+    await fx.flashSprite(map, item.x, item.y, 'hit', 100, 1);
+  }
+
+  if (item.isDestroyed()) {
+    map.removeItem(item);
+    message.add('%s is destroyed.', item.name('the'));
+  }
+  return true;
+}
+
+itemActions.bash = bashItem;
+
+async function bash(e) {
+  const actor = e.actor || data.player;
+  const map = data.map;
+
+  const candidates = [];
+  let choice;
+  map.eachNeighbor(actor.x, actor.y, (c) => {
+    if (c.item && c.item.hasActionFlag(ActionFlags.A_GRABBABLE)) {
+      candidates.push(c.item);
+    }
+  }, true);
+  if (!candidates.length) {
+    message.add('Nothing to bash.');
+    return false;
+  }
+  else if (candidates.length == 1) {
+    choice = candidates[0];
+  }
+  else {
+    choice = await ui.chooseTarget(candidates, 'Bash what?');
+  }
+  if (!choice) {
+    return false; // cancelled
+  }
+
+  if (!await itemActions.bash(choice, actor, { map, actor, x: choice.x, y: choice.y, item: choice })) {
+    return false;
+  }
+  actor.endTurn();
+  return true;
+}
+
+commands.bash = bash;
+
 commands.debug = utils$1.NOOP;
 
 async function rest(e) {
@@ -9234,7 +9318,7 @@ function setup(opts) {
     DISPLAYED[i] = null;
   }
 
-  SETUP = message.bounds = new types.Bounds(opts.x, opts.y, opts.w || opts.width, opts.h || opts.height);
+  SETUP = message.bounds = new types$1.Bounds(opts.x, opts.y, opts.w || opts.width, opts.h || opts.height);
   ARCHIVE_LINES = opts.archive || 0;
   if (!ARCHIVE_LINES) {
     if (ui.canvas) {
@@ -9513,7 +9597,7 @@ let VIEWPORT = null;
 
 
 function setup$1(opts={}) {
-  VIEWPORT = viewport.bounds = new types.Bounds(opts.x, opts.y, opts.w, opts.h);
+  VIEWPORT = viewport.bounds = new types$1.Bounds(opts.x, opts.y, opts.w, opts.h);
 }
 
 viewport.setup = setup$1;
@@ -9551,7 +9635,7 @@ let SETUP$1 = null;
 let IS_PROMPT = false;
 
 function setupFlavor(opts={}) {
-  SETUP$1 = flavor.bounds = new types.Bounds(opts.x, opts.y, opts.w, 1);
+  SETUP$1 = flavor.bounds = new types$1.Bounds(opts.x, opts.y, opts.w, 1);
 }
 
 flavor.setup = setupFlavor;
@@ -9743,7 +9827,7 @@ function start$1(opts={}) {
   });
 
   if (!ui.canvas) {
-    ui.canvas = new types.Canvas(opts.width, opts.height, opts.div, opts);
+    ui.canvas = new types$1.Canvas(opts.width, opts.height, opts.div, opts);
 
     if (opts.io && typeof document !== 'undefined') {
       ui.canvas.element.onmousedown = ui.onmousedown;
@@ -10178,6 +10262,7 @@ exports.grid = GRID;
 exports.install = install;
 exports.io = io;
 exports.item = item;
+exports.itemActions = itemActions;
 exports.itemKinds = itemKinds;
 exports.make = make;
 exports.map = map;
@@ -10194,7 +10279,7 @@ exports.tile = tile;
 exports.tileEvent = tileEvent;
 exports.tileEvents = tileEvents;
 exports.tiles = tiles;
-exports.types = types;
+exports.types = types$1;
 exports.ui = ui;
 exports.utils = utils$1;
 exports.viewport = viewport;

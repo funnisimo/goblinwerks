@@ -31,5 +31,6 @@ import './viewport.js';
 import './flavor.js';
 import './ui.js';
 export { visibility } from './visibility.js';
+export { itemActions } from './itemActions.js';
 
 export * from './gw.js';

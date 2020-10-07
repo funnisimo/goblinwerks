@@ -3,6 +3,7 @@
 import { data as DATA, commands, utils as UTILS } from '../gw.js';
 import './grab.js';
 import './moveDir.js';
+import './bash.js';
 
 commands.debug = UTILS.NOOP;
 

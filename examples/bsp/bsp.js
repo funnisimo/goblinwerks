@@ -537,7 +537,7 @@ async function showHelp() {
 async function start() {
 	const canvas = GW.ui.start({ width: 80, height: 36, div: 'game', messages: -5, cursor: true, flavor: true });
 	GW.io.setKeymap({
-		dir: 'moveDir', space: 'rest', g: 'grab',
+		dir: 'moveDir', space: 'rest', g: 'grab', b: 'bash',
 		'?': showHelp
 	});
 
