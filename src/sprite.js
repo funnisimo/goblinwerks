@@ -164,7 +164,10 @@ export class Sprite {
 types.Sprite = Sprite;
 
 export function makeSprite(ch, fg, bg, opacity) {
-	if (arguments.length == 1 && typeof arguments[0] === 'object' && ch !== null) {
+  if (arguments.length == 1 && Array.isArray(arguments[0]) && arguments[0].length) {
+    [ch, fg, bg, opacity] = arguments[0];
+  }
+	else if (arguments.length == 1 && typeof arguments[0] === 'object' && ch) {
 		opacity = ch.opacity || null;
 		bg = ch.bg || null;
 		fg = ch.fg || null;

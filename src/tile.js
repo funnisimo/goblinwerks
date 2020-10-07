@@ -280,7 +280,7 @@ addTileKind('OPEN_DOOR',  "DOOR", {
 });
 
 addTileKind('BRIDGE', {
-  sprite: { ch: '=', fg: [100,40,40] },
+  sprite: { ch: '=', fg: [100,40,40], bg: null },
   priority: 40, layer: 'SURFACE',
   flags: 'T_BRIDGE',
   article: 'a'

@@ -1991,7 +1991,10 @@
   types$1.Sprite = Sprite;
 
   function makeSprite(ch, fg, bg, opacity) {
-  	if (arguments.length == 1 && typeof arguments[0] === 'object' && ch !== null) {
+    if (arguments.length == 1 && Array.isArray(arguments[0]) && arguments[0].length) {
+      [ch, fg, bg, opacity] = arguments[0];
+    }
+  	else if (arguments.length == 1 && typeof arguments[0] === 'object' && ch) {
   		opacity = ch.opacity || null;
   		bg = ch.bg || null;
   		fg = ch.fg || null;
@@ -6613,7 +6616,7 @@
   });
 
   addTileKind('BRIDGE', {
-    sprite: { ch: '=', fg: [100,40,40] },
+    sprite: { ch: '=', fg: [100,40,40], bg: null },
     priority: 40, layer: 'SURFACE',
     flags: 'T_BRIDGE',
     article: 'a'

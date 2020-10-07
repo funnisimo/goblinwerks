@@ -65,6 +65,18 @@ describe('Sprite', () => {
     expect(j.bg).toEqual(GW.colors.black);
     expect(j.opacity).toEqual(100);
 
+    const k = GW.make.sprite(['$', 'blue']);
+    expect(k.ch).toEqual('$');
+    expect(k.fg).toEqual(GW.colors.blue);
+    expect(k.bg).toBeNull();
+    expect(k.opacity).toEqual(100);
+
+    const l = GW.make.sprite(['blue']);
+    expect(l.ch).toBeNull();
+    expect(l.fg).toBeNull();
+    expect(l.bg).toEqual(GW.colors.blue);
+    expect(l.opacity).toEqual(100);
+
   });
 
   test('copy', () => {
