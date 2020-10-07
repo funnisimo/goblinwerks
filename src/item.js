@@ -18,7 +18,7 @@ export const ActionFlags = GW.flag.install('action', {
 	A_SLIDE		: Fl(8),
 
 	A_NO_PICKUP		: Fl(9),
-	A_DESTROY	    : Fl(10),
+	A_BASH	    : Fl(10),
 
   A_OPEN        : Fl(11),
   A_CLOSE       : Fl(12),

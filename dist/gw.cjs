@@ -5253,6 +5253,7 @@ class Cell {
     this.sprites = null;
     this.actor = null;
     this.item = null;
+    this.data = {};
 
     this.flags = Flags$1.VISIBLE | Flags$1.IN_FOV | Flags$1.NEEDS_REDRAW | Flags$1.CELL_CHANGED;	// non-terrain cell flags
     this.mechFlags = 0;
@@ -5542,11 +5543,10 @@ class Cell {
       this.setFlags(0, CellMechFlags.CAUGHT_FIRE_THIS_TURN);
     }
 
-    this.layerFlags &= ~Fl$2(tile.layer); // turn off layer flag
     this.layers[tile.layer] = tile.id;
 
     if (tile.layer > 0 && this.layers[0] == 0) {
-      this.layers[0] = tiles.FLOOR.id; // TODO - Not good
+      this.layers[0] = 'FLOOR'; // TODO - Not good
     }
 
     // this.flags |= (Flags.NEEDS_REDRAW | Flags.CELL_CHANGED);
@@ -5613,39 +5613,6 @@ class Cell {
     }
     return fired;
   }
-
-
-  // setTickFlag() {
-  //   let flag = 0;
-  //   for(let i = 0; i < this.layers.length; ++i) {
-  //     const id = this.layers[i];
-  //     if (!id) continue;
-  //     const tile = TILES[id];
-  //     if (!tile.events.tick) continue;
-  //     if (random.chance(tile.events.tick.chance)) {
-  //       flag |= Fl(i);
-  //     }
-  //   }
-  //   this.layerFlags = flag;
-  //   return flag;
-  // }
-  //
-  // async fireTick(ctx) {
-  //   if (!this.layerFlags) return false;
-  //
-  //   ctx.cell = this;
-  //   let fired = false;
-  //   for(let i = 0; i < this.layers.length; ++i) {
-  //     if (this.layerFlags & Fl(i)) {
-  //       const tile = TILES[this.layers[i]];
-  //       ctx.tile = tile;
-  //       await TILE_EVENT.spawn(tile.events.tick, ctx);
-  //       fired = true;
-  //     }
-  //   }
-  //   this.layerFlags = 0;
-  //   return fired;
-  // }
 
   // SPRITES
 
@@ -6709,7 +6676,7 @@ const ActionFlags = flag.install('action', {
 	A_SLIDE		: Fl$4(8),
 
 	A_NO_PICKUP		: Fl$4(9),
-	A_DESTROY	    : Fl$4(10),
+	A_BASH	    : Fl$4(10),
 
   A_OPEN        : Fl$4(11),
   A_CLOSE       : Fl$4(12),
@@ -9060,15 +9027,47 @@ class FOV {
 
 types.FOV = FOV;
 
-commands.debug = utils$1.NOOP;
+async function grab(e) {
+  const actor = e.actor || data.player;
+  const map = data.map;
 
-async function rest(e) {
-	PLAYER.endTurn();
-	return true;
+  if (actor.grabbed) {
+    message.add('You let go of %s.', actor.grabbed.flavorText());
+    await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+    actor.grabbed = null;
+    actor.endTurn();
+    return true;
+  }
+
+  const candidates = [];
+  let choice;
+  map.eachNeighbor(actor.x, actor.y, (c) => {
+    if (c.item && c.item.hasActionFlag(ActionFlags.A_GRABBABLE)) {
+      candidates.push(c.item);
+    }
+  }, true);
+  if (!candidates.length) {
+    message.add('Nothing to grab.');
+    return false;
+  }
+  else if (candidates.length == 1) {
+    choice = candidates[0];
+  }
+  else {
+    choice = await ui.chooseTarget(candidates, 'Grab what?');
+  }
+  if (!choice) {
+    return false; // cancelled
+  }
+
+  actor.grabbed = choice;
+  message.add('you grab %s.', actor.grabbed.flavorText());
+  await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+  actor.endTurn();
+  return true;
 }
 
-commands.rest = rest;
-
+commands.grab = grab;
 
 async function moveDir(e) {
   const actor = e.actor || data.player;
@@ -9206,104 +9205,14 @@ async function moveDir(e) {
 
 commands.moveDir = moveDir;
 
+commands.debug = utils$1.NOOP;
 
-// async function moveTo(x, y, actor) {
-//   actor = actor || DATA.player;
-//   return commands.moveDir(x - actor.x, y - actor.y, actor);
-// }
-
-
-async function grab(e) {
-  const actor = e.actor || data.player;
-  const map = data.map;
-
-  if (actor.grabbed) {
-    message.add('You let go of %s.', actor.grabbed.flavorText());
-    await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
-    actor.grabbed = null;
-    actor.endTurn();
-    return true;
-  }
-
-  const candidates = [];
-  let choice;
-  map.eachNeighbor(actor.x, actor.y, (c) => {
-    if (c.item && c.item.hasActionFlag(ActionFlags.A_GRABBABLE)) {
-      candidates.push(c.item);
-    }
-  }, true);
-  if (!candidates.length) {
-    message.add('Nothing to grab.');
-    return false;
-  }
-  else if (candidates.length == 1) {
-    choice = candidates[0];
-  }
-  else {
-    choice = await ui.chooseTarget(candidates, 'Grab what?');
-  }
-  if (!choice) {
-    return false; // cancelled
-  }
-
-  actor.grabbed = choice;
-  message.add('you grab %s.', actor.grabbed.flavorText());
-  await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
-  actor.endTurn();
-  return true;
+async function rest(e) {
+	data.player.endTurn();
+	return true;
 }
 
-commands.grab = grab;
-
-//
-//
-// async function attack(e) {
-//   const actor = e.actor || DATA.player;
-//   const map = DATA.map;
-//
-//   if (actor.target && actor.target.isDead()) {
-//     actor.target = null;
-//   }
-//
-//   const candidates = [];
-//   let choice;
-//   map.eachNeighbor(actor.x, actor.y, (c) => {
-//     if (c.actor && actor.willAttack(c.actor)) {
-//       candidates.shift(c.actor);
-//     }
-//     else if (c.item && c.item.hasActionFlag(ItemActionFlags.A_DESTROY)) {
-//       candidates.push(c.item);
-//     }
-//   });
-//   if (!candidates.length) {
-//     MSG.add('No targets.');
-//     return false;
-//   }
-//   else if (candidates.length == 1) {
-//     choice = candidates[0];
-//   }
-//   else {
-//     choice = await UI.chooseTarget(candidates, 'Attack where?');
-//   }
-//   if (!choice) {
-//     return false; // cancelled
-//   }
-//
-//   if (choice instanceOf GW.types.Item) {
-//     actor.target = choice;
-//     MSG.add('you bash %s.', actor.grabbed.flavorText());
-//     await FX.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
-//     actor.endTurn();
-//     return true;
-//   }
-//   else {
-//     MSG.add('Not implemented.');
-//     return false;
-//   }
-//
-// }
-//
-// commands.grab = grab;
+commands.rest = rest;
 
 var SETUP = null;
 

@@ -23,7 +23,7 @@ import './fx.js';
 export { actor } from './actor.js';
 export { player } from './player.js';
 export { fov } from './fov.js';
-import './commands.js';
+import './commands/index.js';
 export { tileEvent, tileEvents } from './tileEvent.js';
 import './item.js';
 import './message.js';

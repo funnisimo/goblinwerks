@@ -21,7 +21,7 @@ GW.item.addKind('BOX', {
 	name: 'box',
 	description: 'a large wooden box',
 	sprite: { ch: '\u2612', fg: 'light_brown' },
-	flags: 'A_PUSH, A_PULL, A_SLIDE, A_NO_PICKUP, IK_BLOCKS_MOVE',
+	flags: 'A_PUSH, A_PULL, A_SLIDE, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE',
 	stats: { health: 8 }
 });
 
@@ -29,7 +29,7 @@ GW.item.addKind('TABLE', {
 	name: 'table',
 	description: 'a wooden table',
 	sprite: { ch: '\u2610', fg: 'orange' },
-	flags: 'A_PUSH, A_PULL, A_NO_PICKUP, IK_BLOCKS_MOVE',
+	flags: 'A_PUSH, A_PULL, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE',
 	stats: { health: 10 }
 });
 
@@ -37,7 +37,7 @@ GW.item.addKind('CHAIR', {
 	name: 'chair',
 	description: 'a wooden chair',
 	sprite: { ch: '\u2441', fg: 'orange' },
-	flags: 'A_PUSH, A_PULL, A_SLIDE, A_NO_PICKUP, IK_BLOCKS_MOVE',
+	flags: 'A_PUSH, A_PULL, A_SLIDE, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE',
 	stats: { health: 4 }
 });
 
@@ -45,7 +45,7 @@ GW.item.addKind('TRASHCAN', {
 	name: 'trashcan',
 	description: 'a trashcan',
 	sprite: { ch: 'u', fg: 'green' },
-	flags: 'A_PUSH, A_PULL, A_SLIDE, A_NO_PICKUP, IK_BLOCKS_MOVE',
+	flags: 'A_PUSH, A_PULL, A_SLIDE, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE',
 	stats: { health: 2 }
 });
 
@@ -53,7 +53,7 @@ GW.item.addKind('SHELVES', {
 	name: 'shelves',
 	description: 'shelves',
 	sprite: { ch: '\u25a4', fg: 'orange' },
-	flags: 'A_PUSH, A_PULL, A_NO_PICKUP, IK_BLOCKS_MOVE',
+	flags: 'A_PUSH, A_PULL, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE',
 	stats: { health: 6 }
 });
 
@@ -61,7 +61,7 @@ GW.item.addKind('CRATE', {
 	name: 'crate',
 	description: 'a crate',
 	sprite: { ch: '\u25a7', fg: 'orange' },
-	flags: 'A_PUSH, A_PULL, A_OPEN, A_CLOSE, A_NO_PICKUP, IK_BLOCKS_MOVE',
+	flags: 'A_PUSH, A_PULL, A_OPEN, A_CLOSE, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE',
 	stats: { health: 8 }
 });
 
@@ -69,7 +69,7 @@ GW.item.addKind('CHEST', {
 	name: 'chest',
 	description: 'a chest',
 	sprite: { ch: '\u234c', fg: 'orange' },
-	flags: 'A_PUSH, A_PULL, A_OPEN, A_CLOSE, A_NO_PICKUP, IK_BLOCKS_MOVE',
+	flags: 'A_PUSH, A_PULL, A_OPEN, A_CLOSE, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE',
 	stats: { health: 8 }
 });
 
