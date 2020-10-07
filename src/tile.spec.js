@@ -20,6 +20,13 @@ describe('tiles', () => {
     grid = null;
   });
 
+  describe('BRIDGE', () => {
+    test('has see through bg', () => {
+      const tile = GW.tiles.BRIDGE;
+      expect(tile.sprite.bg).toBeNull();
+    });
+  });
+
   describe('DOOR', () => {
 
     test('can do doors (open/close)', async () => {
@@ -109,6 +116,15 @@ describe('RL.Tile', () => {
     expect(tile.getDescription()).toEqual(tile.getName());
   });
 
+  test('can create tiles with see through bg', () => {
+    const tile = GW.tile.addKind('TEST', {
+      name: 'Test',
+      sprite: { ch: '#', fg: 'light_gray', bg: null },
+    });
+
+    expect(tile.sprite.bg).toBeNull();
+  });
+
   test('can extend another tile', () => {
 
     const wall = GW.tile.addKind('WALL', {
@@ -124,7 +140,7 @@ describe('RL.Tile', () => {
     const glassWall = GW.tile.addKind('GLASS_WALL', {
       Extends: 'WALL',
       name: 'Glass Wall',
-      sprite: { fg: 'teal', bg: 'silver' },
+      sprite: { ch: '+', fg: 'teal' },
       flags: ['!T_OBSTRUCTS_VISION']
     });
 
@@ -136,7 +152,7 @@ describe('RL.Tile', () => {
     expect(glassWall.flags & GW.tile.flags.T_OBSTRUCTS_PASSABILITY).toBeTruthy();
     expect(glassWall.getName()).toEqual('Glass Wall');
     expect(glassWall.sprite).not.toBe(wall.sprite);
-    expect(glassWall.sprite).toMatchObject({ ch: '#', fg: GW.colors.teal, bg: GW.colors.silver });
+    expect(glassWall.sprite).toMatchObject({ ch: '+', fg: GW.colors.teal, bg: null });
   });
 
   test('can add multiple from an object', () => {
@@ -177,10 +193,8 @@ describe('RL.Tile', () => {
 
   test('can use objects for activations', async () => {
     const carpet = GW.tile.addKind('CARPET', {
-      description: 'Carpet',
-      char: '+',
-      color: '#f66',
-      bgColor: '#ff6',
+      name: 'Carpet',
+      sprite: { ch: '+', fg: '#f66', bg: '#ff6' },
       events: {
         tick: { chance: 0, log: 'testing' },
       },
@@ -200,11 +214,11 @@ describe('RL.Tile', () => {
     expect(WALL).toBeDefined();
 
     const custom = GW.tile.addKind('CUSTOM', 'WALL', {
-      sprite: { ch: '+'},
+      sprite: { ch: '+', fg: 'white' },
       name: 'Custom Wall'
     });
 
-    expect(custom.sprite).toMatchObject({ ch: '+', fg: WALL.sprite.fg, bg: WALL.sprite.bg });
+    expect(custom.sprite).toMatchObject({ ch: '+', fg: GW.colors.white, bg: null });
     expect(custom.name).toEqual('Custom Wall');
   });
 

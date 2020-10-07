@@ -153,8 +153,11 @@ export class Tile {
       id: null,
     });
     UTILS.assignObject(this, base);
-    UTILS.assignOmitting(['Extends', 'flags', 'mechFlags'], this, config);
+    UTILS.assignOmitting(['Extends', 'flags', 'mechFlags', 'sprite'], this, config);
     this.layer = Layer[this.layer] || this.layer;
+    if (config.sprite) {
+      this.sprite = make.sprite(config.sprite);
+    }
     this.flags = Flags.toFlag(this.flags, config.flags);
     this.mechFlags = MechFlags.toFlag(this.mechFlags, config.mechFlags || config.flags);
     Object.keys(this.events).forEach( (key) => {
@@ -280,7 +283,7 @@ addTileKind('OPEN_DOOR',  "DOOR", {
 });
 
 addTileKind('BRIDGE', {
-  sprite: { ch: '=', fg: [100,40,40], bg: null },
+  sprite: { ch: '=', fg: [100,40,40] },
   priority: 40, layer: 'SURFACE',
   flags: 'T_BRIDGE',
   article: 'a'

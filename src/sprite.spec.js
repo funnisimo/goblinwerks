@@ -89,7 +89,20 @@ describe('Sprite', () => {
     expect(b.opacity).toEqual(50);
 
     b.copy({ fg: 'red' });
+    expect(b.ch).toEqual('!');
     expect(b.fg).toEqual(GW.colors.red);
+    expect(b.bg).toEqual(GW.colors.blue);
+
+    b.copy({ fg: 'white', bg: null });
+    expect(b.ch).toEqual('!');
+    expect(b.fg).toEqual(GW.colors.white);
+    expect(b.bg).toBeNull();
+
+    b.copy({ fg: 'red', bg: 'blue' });
+    expect(b.ch).toEqual('!');
+    expect(b.fg).toEqual(GW.colors.red);
+    expect(b.bg).toEqual(GW.colors.blue);
+
   });
 
   test('plot', () => {

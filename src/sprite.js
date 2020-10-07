@@ -55,18 +55,24 @@ export class Sprite {
       this.ch = other.ch;
     }
 
-    if (other.fg) {
+    if (other.fg !== undefined) {
       if (typeof other.fg === 'string') {
         this.fg = make.color(other.fg);
+      }
+      else if (other.fg === null) {
+        this.fg = null;
       }
       else if (this.fg && this.bg) { this.fg.copy(other.fg); }
   		else if (this.fg) { this.fg.clear(); }
   		else { this.fg = other.fg.clone(); }
     }
 
-    if (other.bg) {
+    if (other.bg !== undefined) {
       if (typeof other.bg === 'string') {
         this.bg = make.color(other.bg);
+      }
+      else if (other.bg === null) {
+        this.bg = null;
       }
       else if (this.bg && other.bg) { this.bg.copy(other.bg); }
   		else if (this.bg) { this.bg.clear(); }
