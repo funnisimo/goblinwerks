@@ -18,7 +18,10 @@ export const ActionFlags = GW.flag.install('action', {
 	A_SLIDE		: Fl(8),
 
 	A_NO_PICKUP		: Fl(9),
-	A_NO_DESTROY	: Fl(10),
+	A_DESTROY	    : Fl(10),
+
+  A_OPEN        : Fl(11),
+  A_CLOSE       : Fl(12),
 
 	A_GRABBABLE : 'A_PULL, A_SLIDE',
 });
@@ -150,14 +153,22 @@ class ItemKind {
 
 GW.types.ItemKind = ItemKind;
 
-function installItemKind(id, opts={}) {
+function addItemKind(id, opts={}) {
 	opts.id = id;
 	const kind = new GW.types.ItemKind(opts);
 	GW.itemKinds[id] = kind;
 	return kind;
 }
 
-GW.item.installKind = installItemKind;
+GW.item.addKind = addItemKind;
+
+function addItemKinds(opts={}) {
+  Object.entries(opts).forEach( ([key, config]) => {
+    GW.item.addKind(key, config);
+  });
+}
+
+GW.item.addKinds = addItemKinds;
 
 
 class Item {

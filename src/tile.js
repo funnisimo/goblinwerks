@@ -1,6 +1,7 @@
 
 import { colors as COLORS } from './color.js';
 import { game as GAME } from './game.js';
+import { text as TEXT } from './text.js';
 import { types, def, make, data as DATA, flag as FLAG, utils as UTILS } from './gw.js';
 
 export var tile = {};
@@ -137,19 +138,28 @@ function setFlags(tile, allFlags) {
 
 
 export class Tile {
-  constructor(ch, fg, bg, priority, layer, allFlags, text, desc) {
-    this.flags = 0;
-    this.mechFlags = 0;
-    this.layer = layer || 0;
-    this.priority = priority || 0; // lower means higher priority (50 = average)
-    this.sprite = make.sprite(ch, fg, bg);
-    this.events = {};
-    this.light = null;
-    this.desc = desc || '';
-    this.text = text || '';
-    this.name = null;
-
-    setFlags(this, allFlags);
+  constructor(config={}, base={}) {
+    Object.assign(this, {
+      flags: 0,
+      mechFlags: 0,
+      layer: 0,
+      priority: 0,
+      sprite: make.sprite(),
+      events: {},
+      light: null,
+      desc: '',
+      name: '',
+      article: 'a',
+      id: null,
+    });
+    UTILS.assignObject(this, base);
+    UTILS.assignOmitting(['Extends', 'flags', 'mechFlags'], this, config);
+    this.layer = Layer[this.layer] || this.layer;
+    this.flags = Flags.toFlag(this.flags, config.flags);
+    this.mechFlags = MechFlags.toFlag(this.mechFlags, config.mechFlags || config.flags);
+    Object.keys(this.events).forEach( (key) => {
+      this.events[key] = make.tileEvent(this.events[key]);
+    });
   }
 
   successorFlags(event) {
@@ -174,65 +184,134 @@ export class Tile {
     return (this.mechFlags & flag) > 0;
   }
 
+  getName(opts={}) {
+    if (opts === true) { opts = { article: true }; }
+    if (opts === false) { opts = {}; }
+    if (typeof opts === 'string') { opts = { article: opts }; }
+
+    if (!opts.article && !opts.color) return this.name;
+
+    let result = this.name;
+    if (opts.color) {
+      let color = this.sprite.fg;
+      if (opts.color instanceof types.Color) {
+        color = opts.color;
+      }
+      result = TEXT.format('%R%s%R', color, this.name, null);
+    }
+
+    if (opts.article) {
+      let article = (opts.article === true) ? this.article : opts.article;
+      result = article + ' ' + result;
+    }
+    return result;
+  }
+  getDescription(opts={}) { return this.getName(opts); }
+
   flavorText() { return this.text || this.desc; }
 
 }
 
 types.Tile = Tile;
 
-export function makeTile(ch, fg, bg, priority, layer, allFlags, text, desc, opts={}) {
-  const tile = new types.Tile(ch, fg, bg, priority, layer, allFlags, text, desc);
-  // TODO - tile.light = opts.light || null;
-  // TODO - tile.events.fire = opts.fire
-  // TODO - tile.events.promote = opts.promote
-  // TODO - tile.events.discover = opts.discover
-  if (opts.playerEnter) { tile.events.playerEnter = make.tileEvent(opts.playerEnter); }
-  if (opts.enter) { tile.events.enter = make.tileEvent(opts.enter); }
-  if (opts.exit) { tile.events.exit = make.tileEvent(opts.exit); }
-  if (opts.playerExit) { tile.events.playerExit = make.tileEvent(opts.playerExit); }
-  if (opts.tick) {
-    const tick = tile.events.tick = make.tileEvent(opts.tick);
-    tick.chance = tick.chance || 100;
+
+export function addTileKind(id, base, config) {
+  if (arguments.length == 1) {
+    config = args[0];
+    base = config.Extends || {};
+    id = config.id || config.name;
   }
+  else if (arguments.length == 2) {
+    config = base;
+    base = config.Extends || {};
+  }
+
+  if (typeof base === 'string') {
+    base = tiles[base] || UTILS.ERROR('Unknown base tile: ' + base);
+  }
+
+  config.name = config.name || id.toLowerCase();
+  config.id = id;
+  const tile = new types.Tile(config, base);
+  tiles[id] = tile;
   return tile;
 }
 
-make.tile = makeTile;
+tile.addKind = addTileKind;
 
-export function installTile(name, ...args) {
-  let tile;
-  if (args.length == 1 && args[0] instanceof Tile) {
-    tile = args[0];
-  }
-  else {
-    tile = make.tile(...args);
-  }
-  tile.name = name;
-  tile.id = name;
-  tiles[name] = tile;
-  return tile.id;
+export function addTileKinds(config={}) {
+  Object.entries(config).forEach( ([name, opts]) => {
+    tile.addKind(name, opts);
+  });
 }
 
-tile.install = installTile;
+tile.addKinds = addTileKinds;
+
 
 // These are the minimal set of tiles to make the diggers work
 const NOTHING = def.NOTHING = 0;
-installTile(NOTHING,       '\u2205', 'black', 'black', 0, 0, 'T_OBSTRUCTS_PASSABILITY', "an eerie nothingness", "");
-installTile('FLOOR',       '\u00b7', [30,30,30,20], [2,2,10,0,2,2,0], 10, 0, 0, 'the floor');	// FLOOR
-installTile('DOOR',        '+', [100,40,40], [30,60,60], 30, 0, 'T_IS_DOOR, T_OBSTRUCTS_TILE_EFFECTS, T_OBSTRUCTS_ITEMS, T_OBSTRUCTS_VISION', 'a door', '', { enter: { tile: 'OPEN_DOOR' }});	// DOOR
-installTile('OPEN_DOOR',   "'", [100,40,40], [30,60,60], 40, 0, 'T_IS_DOOR, T_OBSTRUCTS_TILE_EFFECTS', 'an open door', '', { tick: { tile: 'DOOR', flags: 'DFF_SUPERPRIORITY, DFF_ONLY_IF_EMPTY' }});	// OPEN_DOOR
-installTile('BRIDGE',      '=', [100,40,40], null, 40, Layer.SURFACE, 'T_BRIDGE', 'a bridge');	// BRIDGE (LAYER=SURFACE)
-installTile('UP_STAIRS',   '<', [100,40,40], [100,60,20], 200, 0, 'T_UP_STAIRS, T_STAIR_BLOCKERS', 'an upward staircase');	// UP
-installTile('DOWN_STAIRS', '>', [100,40,40], [100,60,20], 200, 0, 'T_DOWN_STAIRS, T_STAIR_BLOCKERS', 'a downward staircase');	// DOWN
-installTile('WALL',        '#', [7,7,7,0,3,3,3],  [40,40,40,10,10,0,5], 100, 0, 'T_OBSTRUCTS_EVERYTHING', 'a wall');	// WALL
-installTile('LAKE',        '~', [5,8,20,10,0,4,15,1], [10,15,41,6,5,5,5,1], 50, 0, 'T_DEEP_WATER', 'deep water');	// LAKE
+addTileKind(NOTHING, {
+  sprite: { ch:'\u2205', fg: 'white', bg: 'black' },
+  flags: 'T_OBSTRUCTS_PASSABILITY',
+  name: "eerie nothingness", article: 'an'
+});
 
-export function withName(name) {
-  return tiles[name] || tiles[NOTHING];
-}
+addTileKind('FLOOR', {
+  sprite: { ch: '\u00b7', fg: [30,30,30,20], bg: [2,2,10,0,2,2,0] },
+  priority: 10,
+  article: 'the'
+});
 
-tile.withName = withName;
+addTileKind('DOOR', {
+  sprite: { ch: '+', fg: [100,40,40], bg: [30,60,60] },
+  priority: 30,
+  flags: 'T_IS_DOOR, T_OBSTRUCTS_TILE_EFFECTS, T_OBSTRUCTS_ITEMS, T_OBSTRUCTS_VISION',
+  article: 'a',
+  events: { enter: { tile: 'OPEN_DOOR' }}
+});
 
+addTileKind('OPEN_DOOR',  "DOOR", {
+  sprite: { ch: "'" },
+  priority: 40,
+  flags: '!T_OBSTRUCTS_ITEMS, !T_OBSTRUCTS_VISION',
+  name: 'open door',
+  article: 'an',
+  events: { tick: { tile: 'DOOR', flags: 'DFF_SUPERPRIORITY, DFF_ONLY_IF_EMPTY', enter: null }}
+});
+
+addTileKind('BRIDGE', {
+  sprite: { ch: '=', fg: [100,40,40] },
+  priority: 40, layer: 'SURFACE',
+  flags: 'T_BRIDGE',
+  article: 'a'
+});
+
+addTileKind('UP_STAIRS',   {
+  sprite: { ch: '<', fg: [100,40,40], bg: [100,60,20] },
+  priority: 200,
+  flags: 'T_UP_STAIRS, T_STAIR_BLOCKERS',
+  name: 'upward staircase', article: 'an'
+});
+addTileKind('DOWN_STAIRS', {
+  sprite: { ch: '>', fg: [100,40,40], bg: [100,60,20] },
+  priority: 200,
+  flags: 'T_DOWN_STAIRS, T_STAIR_BLOCKERS',
+  name: 'downward staircase', article: 'a'
+});
+
+addTileKind('WALL', {
+  sprite: { ch: '#', fg: [7,7,7,0,3,3,3],  bg: [40,40,40,10,10,0,5] },
+  priority: 100,
+  flags: 'T_OBSTRUCTS_EVERYTHING',
+  article: 'a'
+});
+
+addTileKind('LAKE', {
+  sprite: { ch: '~', fg: [5,8,20,10,0,4,15,1], bg: [10,15,41,6,5,5,5,1] },
+  priority: 50,
+  flags: 'T_DEEP_WATER',
+  name: 'deep water', article: 'the'
+});
 
 
 async function applyInstantTileEffects(tile, cell) {

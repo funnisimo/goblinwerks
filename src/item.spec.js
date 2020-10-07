@@ -8,7 +8,7 @@ describe('GW.item', () => {
   let MAP;
 
   beforeAll( () => {
-    BOX = GW.item.installKind('BOX', {
+    BOX = GW.item.addKind('BOX', {
       name: 'box',
       description: 'a large wooden box',
       sprite: { ch: '#', fg: 'brown' },

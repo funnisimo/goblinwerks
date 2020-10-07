@@ -8,6 +8,14 @@ import { data as DATA, def, commands, ui as UI, message as MSG, utils as UTILS, 
 
 commands.debug = UTILS.NOOP;
 
+async function rest(e) {
+	PLAYER.endTurn();
+	return true;
+}
+
+commands.rest = rest;
+
+
 async function moveDir(e) {
   const actor = e.actor || DATA.player;
   const dir = e.dir;
@@ -164,6 +172,7 @@ async function grab(e) {
   }
 
   const candidates = [];
+  let choice;
   map.eachNeighbor(actor.x, actor.y, (c) => {
     if (c.item && c.item.hasActionFlag(ItemActionFlags.A_GRABBABLE)) {
       candidates.push(c.item);
@@ -174,14 +183,11 @@ async function grab(e) {
     return false;
   }
   else if (candidates.length == 1) {
-    actor.grabbed = candidates[0];
-    MSG.add('you grab %s.', actor.grabbed.flavorText());
-    await FX.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
-    actor.endTurn();
-    return true;
+    choice = candidates[0];
   }
-
-  const choice = await UI.chooseTarget(candidates, 'Grab what?');
+  else {
+    choice = await UI.chooseTarget(candidates, 'Grab what?');
+  }
   if (!choice) {
     return false; // cancelled
   }
@@ -194,3 +200,53 @@ async function grab(e) {
 }
 
 commands.grab = grab;
+
+//
+//
+// async function attack(e) {
+//   const actor = e.actor || DATA.player;
+//   const map = DATA.map;
+//
+//   if (actor.target && actor.target.isDead()) {
+//     actor.target = null;
+//   }
+//
+//   const candidates = [];
+//   let choice;
+//   map.eachNeighbor(actor.x, actor.y, (c) => {
+//     if (c.actor && actor.willAttack(c.actor)) {
+//       candidates.shift(c.actor);
+//     }
+//     else if (c.item && c.item.hasActionFlag(ItemActionFlags.A_DESTROY)) {
+//       candidates.push(c.item);
+//     }
+//   });
+//   if (!candidates.length) {
+//     MSG.add('No targets.');
+//     return false;
+//   }
+//   else if (candidates.length == 1) {
+//     choice = candidates[0];
+//   }
+//   else {
+//     choice = await UI.chooseTarget(candidates, 'Attack where?');
+//   }
+//   if (!choice) {
+//     return false; // cancelled
+//   }
+//
+//   if (choice instanceOf GW.types.Item) {
+//     actor.target = choice;
+//     MSG.add('you bash %s.', actor.grabbed.flavorText());
+//     await FX.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+//     actor.endTurn();
+//     return true;
+//   }
+//   else {
+//     MSG.add('Not implemented.');
+//     return false;
+//   }
+//
+// }
+//
+// commands.grab = grab;

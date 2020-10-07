@@ -51,19 +51,31 @@ export class Sprite {
 	}
 
 	copy(other) {
-		this.ch = other.ch;
+    if (other.ch !== undefined) {
+      this.ch = other.ch;
+    }
 
-		if (this.fg && this.bg) { this.fg.copy(other.fg); }
-		else if (this.fg) { this.fg.clear(); }
-		else { this.fg = other.fg.clone(); }
+    if (other.fg) {
+      if (typeof other.fg === 'string') {
+        this.fg = make.color(other.fg);
+      }
+      else if (this.fg && this.bg) { this.fg.copy(other.fg); }
+  		else if (this.fg) { this.fg.clear(); }
+  		else { this.fg = other.fg.clone(); }
+    }
 
-		if (this.bg && other.bg) { this.bg.copy(other.bg); }
-		else if (this.bg) { this.bg.clear(); }
-		else { this.bg = other.bg.clone(); }
+    if (other.bg) {
+      if (typeof other.bg === 'string') {
+        this.bg = make.color(other.bg);
+      }
+      else if (this.bg && other.bg) { this.bg.copy(other.bg); }
+  		else if (this.bg) { this.bg.clear(); }
+  		else { this.bg = other.bg.clone(); }
+    }
 
-		this.opacity = other.opacity || 0;
-		this.needsUpdate = other.needsUpdate || false;
-		this.wasHanging = other.wasHanging || false;
+		this.opacity = other.opacity || this.opacity;
+		this.needsUpdate = other.needsUpdate || this.needsUpdate;
+		this.wasHanging = other.wasHanging || this.wasHanging;
 	}
 
 	clone() {

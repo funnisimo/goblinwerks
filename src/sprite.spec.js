@@ -67,6 +67,19 @@ describe('Sprite', () => {
 
   });
 
+  test('copy', () => {
+    const b = GW.make.sprite('@', 'green', 'blue', 50);
+
+    b.copy({ ch: '!' });
+    expect(b.ch).toEqual('!');
+    expect(b.fg).toEqual(GW.colors.green);
+    expect(b.bg).toEqual(GW.colors.blue);
+    expect(b.opacity).toEqual(50);
+
+    b.copy({ fg: 'red' });
+    expect(b.fg).toEqual(GW.colors.red);
+  });
+
   test('plot', () => {
     const s = GW.make.sprite('@', [100,0,0], [50,50,50]);
     const t = GW.make.sprite('$', [0, 100, 0], [0, 100, 50], 50);

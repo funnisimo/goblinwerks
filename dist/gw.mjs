@@ -237,6 +237,9 @@ function assignField(dest, src, key) {
   else if (current && current.clear && !updated) {
     current.clear();
   }
+  else if (current && current.nullify && !updated) {
+    current.nullify();
+  }
   else if (updated && updated.clone) {
     dest[key] = updated.clone();	// just use same object (shallow copy)
   }
@@ -266,6 +269,18 @@ function assignObject(dest, src) {
 }
 
 utils$1.assignObject = assignObject;
+
+function assignOmitting(omit, dest, src) {
+  if (typeof omit === 'string') {
+    omit = omit.split(/[,|]/g).map( (t) => t.trim() );
+  }
+  Object.keys(src).forEach( (key) => {
+    if (omit.includes(key)) return;
+    assignField(dest, src, key);
+  });
+}
+
+utils$1.assignOmitting = assignOmitting;
 
 function setDefault(obj, field, val) {
   if (obj[field] === undefined) {
@@ -372,7 +387,11 @@ function toFlag(obj, ...args) {
       continue;	// next
     }
     else if (typeof value === 'string') {
-      value = value.split(/[,|]/).map( (t) => t.trim() );
+      value = value.split(/[,|]/).map( (t) => t.trim() ).map( (u) => {
+        const n = Number.parseInt(u);
+        if (n >= 0) return n;
+        return u;
+      });
     }
 
     if (Array.isArray(value)) {
@@ -387,6 +406,9 @@ function toFlag(obj, ...args) {
             const f = obj[v];
             if (f) { result |= f; }
           }
+        }
+        else if (v === 0) { // to allow clearing flags when extending objects
+          result = 0;
         }
         else {
           result |= v;
@@ -1137,6 +1159,8 @@ installColorSpread('turquoise', 	0,    100,  75);
 installColorSpread('sea', 				0,    100,  50);
 installColorSpread('sky', 				0,    75,   100);
 installColorSpread('azure', 			0,    50,   100);
+installColorSpread('silver',      75,   75,   75);
+installColorSpread('gold',        100,  85,   0);
 
 var text = {};
 
@@ -1848,19 +1872,31 @@ class Sprite {
 	}
 
 	copy(other) {
-		this.ch = other.ch;
+    if (other.ch !== undefined) {
+      this.ch = other.ch;
+    }
 
-		if (this.fg && this.bg) { this.fg.copy(other.fg); }
-		else if (this.fg) { this.fg.clear(); }
-		else { this.fg = other.fg.clone(); }
+    if (other.fg) {
+      if (typeof other.fg === 'string') {
+        this.fg = make.color(other.fg);
+      }
+      else if (this.fg && this.bg) { this.fg.copy(other.fg); }
+  		else if (this.fg) { this.fg.clear(); }
+  		else { this.fg = other.fg.clone(); }
+    }
 
-		if (this.bg && other.bg) { this.bg.copy(other.bg); }
-		else if (this.bg) { this.bg.clear(); }
-		else { this.bg = other.bg.clone(); }
+    if (other.bg) {
+      if (typeof other.bg === 'string') {
+        this.bg = make.color(other.bg);
+      }
+      else if (this.bg && other.bg) { this.bg.copy(other.bg); }
+  		else if (this.bg) { this.bg.clear(); }
+  		else { this.bg = other.bg.clone(); }
+    }
 
-		this.opacity = other.opacity || 0;
-		this.needsUpdate = other.needsUpdate || false;
-		this.wasHanging = other.wasHanging || false;
+		this.opacity = other.opacity || this.opacity;
+		this.needsUpdate = other.needsUpdate || this.needsUpdate;
+		this.wasHanging = other.wasHanging || this.wasHanging;
 	}
 
 	clone() {
@@ -4646,27 +4682,35 @@ async function spawn(feat, ctx) {
 
 	const spawnMap = GRID.alloc(map$1.width, map$1.height);
 
-	let succeeded = false;
+	let didSomething = false;
 	tileEvent.computeSpawnMap(feat, spawnMap, ctx);
   if (!blocking || !map.gridDisruptsPassability(map$1, spawnMap, { bounds: ctx.bounds })) {
 		if (feat.flags & Flags.DFF_EVACUATE_CREATURES) { // first, evacuate creatures, so that they do not re-trigger the tile.
-				tileEvent.evacuateCreatures(map$1, spawnMap);
+				if (tileEvent.evacuateCreatures(map$1, spawnMap)) {
+          didSomething = true;
+        }
 		}
 
 		if (feat.flags & Flags.DFF_EVACUATE_ITEMS) { // first, evacuate items, so that they do not re-trigger the tile.
-				tileEvent.evacuateItems(map$1, spawnMap);
+				if (tileEvent.evacuateItems(map$1, spawnMap)) {
+          didSomething = true;
+        }
 		}
 
 		if (feat.flags & Flags.DFF_NULLIFY_CELL) { // first, clear other tiles (not base/ground)
-				tileEvent.nullifyCells(map$1, spawnMap);
+				if (tileEvent.nullifyCells(map$1, spawnMap)) {
+          didSomething = true;
+        }
 		}
 
 		if (tile$1 || itemKind || feat.fn) {
-			succeeded = await tileEvent.spawnTiles(feat, spawnMap, ctx, tile$1, itemKind);
+			if (await tileEvent.spawnTiles(feat, spawnMap, ctx, tile$1, itemKind)) {
+        didSomething = true;
+      }
 		}
 	}
 
-	if (succeeded && (feat.flags & Flags.DFF_PROTECTED)) {
+	if (didSomething && (feat.flags & Flags.DFF_PROTECTED)) {
 		spawnMap.forEach( (v, i, j) => {
 			if (!v) return;
 			const cell = map$1.cell(i, j);
@@ -4682,7 +4726,7 @@ async function spawn(feat, ctx) {
 	// }
 
 	// apply tile effects
-	if (succeeded) {
+	if (didSomething) {
 		for(let i = 0; i < spawnMap.width; ++i) {
 			for(let j = 0; j < spawnMap.height; ++j) {
 				const v = spawnMap[i][j];
@@ -4702,14 +4746,15 @@ async function spawn(feat, ctx) {
 
 	if (data.gameHasEnded) {
 		GRID.free(spawnMap);
-		return succeeded;
+		return didSomething;
 	}
 
   //	if (succeeded && feat.message[0] && !feat.messageDisplayed && isVisible(x, y)) {
   //		feat.messageDisplayed = true;
   //		message(feat.message, false);
   //	}
-  if (feat.next && (succeeded || feat.flags & Flags.DFF_SUBSEQ_ALWAYS)) {
+  if (feat.next && (didSomething || feat.flags & Flags.DFF_SUBSEQ_ALWAYS)) {
+    tileEvent.debug('- subsequent: %s, everywhere=%s', feat.next, feat.flags & Flags.DFF_SUBSEQ_EVERYWHERE);
     if (feat.flags & Flags.DFF_SUBSEQ_EVERYWHERE) {
         for (i=0; i<map$1.width; i++) {
             for (j=0; j<map$1.height; j++) {
@@ -4727,7 +4772,7 @@ async function spawn(feat, ctx) {
         await tileEvent.spawn(feat.next, ctx);
     }
 	}
-	if (succeeded) {
+	if (didSomething) {
     if (feat.tile
         && (tile$1.flags & (Flags$2.T_IS_DEEP_WATER | Flags$2.T_LAVA | Flags$2.T_AUTO_DESCENT)))
 		{
@@ -4745,11 +4790,15 @@ async function spawn(feat, ctx) {
     // }
   }
 
-	// if (succeeded && feat.flags & Flags.DFF_EMIT_EVENT && feat.eventName) {
+	// if (didSomething && feat.flags & Flags.DFF_EMIT_EVENT && feat.eventName) {
 	// 	await GAME.emit(feat.eventName, x, y);
 	// }
 
-	if (succeeded) {
+	if (didSomething) {
+    spawnMap.forEach( (v, i, j) => {
+      if (v) map$1.redrawXY(i, j);
+    });
+
 		ui.requestUpdate();
 
 		if (!(feat.flags & Flags.DFF_NO_MARK_FIRED)) {
@@ -4761,10 +4810,10 @@ async function spawn(feat, ctx) {
 		}
 	}
 
-  tileEvent.debug('- spawn complete : @%d,%d, ok=%s, feat=%s', ctx.x, ctx.y, succeeded, feat.id);
+  tileEvent.debug('- spawn complete : @%d,%d, ok=%s, feat=%s', ctx.x, ctx.y, didSomething, feat.id);
 
 	GRID.free(spawnMap);
-	return succeeded;
+	return didSomething;
 }
 
 tileEvent.spawn = spawn;
@@ -4824,11 +4873,11 @@ function computeSpawnMap(feat, spawnMap, ctx)
 
 	if (feat.matchTile && typeof feat.matchTile === 'string') {
 		const name = feat.matchTile;
-		const tile$1 = tile.withName(name);
-		if (!tile$1) {
+		const tile = tiles[name];
+		if (!tile) {
 			utils$1.ERROR('Failed to find match tile with name:' + name);
 		}
-		feat.matchTile = tile$1.id;
+		feat.matchTile = tile.id;
 	}
 
 	spawnMap[x][y] = t = 1; // incremented before anything else happens
@@ -4947,7 +4996,7 @@ async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
 					spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
 
 					cell.setTile(tile);
-          map.redrawCell(cell);
+          // map.redrawCell(cell);
 					if (feat.volume && cell.gas) {
 					    cell.volume += (feat.volume || 0);
 					}
@@ -4968,7 +5017,7 @@ async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
 						}
 						const item = make.item(itemKind);
 						map.addItem(i, j, item);
-            map.redrawCell(cell);
+            // map.redrawCell(cell);
 						// cell.mechFlags |= CellMechFlags.EVENT_FIRED_THIS_TURN;
 						accomplishedSomething = true;
 						tileEvent.debug('- item', i, j, 'item=', itemKind.id);
@@ -4979,7 +5028,7 @@ async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
 			if (feat.fn) {
 				if (await feat.fn(i, j, ctx)) {
 					spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
-          map.redrawCell(cell);
+          // map.redrawCell(cell);
 					// cell.mechFlags |= CellMechFlags.EVENT_FIRED_THIS_TURN;
 					accomplishedSomething = true;
 				}
@@ -4997,10 +5046,13 @@ tileEvent.spawnTiles = spawnTiles;
 
 
 function nullifyCells(map, spawnMap) {
+  let didSomething = false;
 	spawnMap.forEach( (v, i, j) => {
 		if (!v) return;
 		map.nullifyCellTiles(i, j, false);	// skip gas
+    didSomething = true;
 	});
+  return didSomething;
 }
 
 tileEvent.nullifyCells = nullifyCells;
@@ -5010,6 +5062,7 @@ function evacuateCreatures(map, blockingMap) {
 	let i, j;
 	let monst;
 
+  let didSomething = false;
 	for (i=0; i<map.width; i++) {
 		for (j=0; j<map.height; j++) {
 			if (blockingMap[i][j]
@@ -5025,9 +5078,12 @@ function evacuateCreatures(map, blockingMap) {
 									 },
 									 { hallwaysAllowed: true, blockingMap });
 				map.moveActor(loc[0], loc[1], monst);
+        map.redrawXY(loc[0], loc[1]);
+        didSomething = true;
 			}
 		}
 	}
+  return didSomething;
 }
 
 tileEvent.evacuateCreatures = evacuateCreatures;
@@ -5036,6 +5092,7 @@ tileEvent.evacuateCreatures = evacuateCreatures;
 
 function evacuateItems(map, blockingMap) {
 
+  let didSomething = false;
 	blockingMap.forEach( (v, i, j) => {
 		if (!v) return;
 		const cell = map.cell(i, j);
@@ -5052,8 +5109,11 @@ function evacuateItems(map, blockingMap) {
 		if (loc) {
 			map.removeItem(cell.item);
 			map.addItem(loc[0], loc[1], cell.item);
+      map.redrawXY(loc[0], loc[1]);
+      didSomething = true;
 		}
 	});
+  return didSomething;
 }
 
 tileEvent.evacuateItems = evacuateItems;
@@ -5208,7 +5268,7 @@ class Cell {
       this.layers[3] = 0;
       this.gasVolume = 0;
     }
-    // this.flags |= Flags.NEEDS_REDRAW;
+    this.flags |= Flags$1.CELL_CHANGED;
   }
 
   get ground() { return this.layers[0]; }
@@ -5301,10 +5361,6 @@ class Cell {
   }
 
   hasTile(id) {
-    if (typeof id === 'string') {
-      const tile$1 = tile.withName(id);
-      id = tile$1.id;
-    }
     return this.layers.includes(id);
   }
 
@@ -5452,48 +5508,48 @@ class Cell {
   }
 
   setTile(tileId=0, checkPriority=false) {
-    let tile$1;
+    let tile;
     if (typeof tileId === 'string') {
-      tile$1 = tile.withName(tileId);
+      tile = tiles[tileId];
     }
     else if (tileId instanceof types.Tile) {
-      tile$1 = tileId;
+      tile = tileId;
     }
-    else {
-      tile$1 = tiles[tileId];
-    }
-
-    if (!tile$1) {
-      tile$1 = tiles[0];
+    else if (tileId !== 0){
+      utils$1.ERROR('Unknown tile: ' + tileId);
     }
 
-    const oldTileId = this.layers[tile$1.layer] || 0;
+    if (!tile) {
+      tile = tiles[0];
+    }
+
+    const oldTileId = this.layers[tile.layer] || 0;
     const oldTile = tiles[oldTileId] || tiles[0];
 
-    if (checkPriority && oldTile.priority > tile$1.priority) return false;
+    if (checkPriority && oldTile.priority > tile.priority) return false;
 
     if ((oldTile.flags & Flags$2.T_PATHING_BLOCKER)
-      != (tile$1.flags & Flags$2.T_PATHING_BLOCKER))
+      != (tile.flags & Flags$2.T_PATHING_BLOCKER))
     {
       data.staleLoopMap = true;
     }
 
-    if ((tile$1.flags & Flags$2.T_IS_FIRE)
+    if ((tile.flags & Flags$2.T_IS_FIRE)
       && !(oldTile.flags & Flags$2.T_IS_FIRE))
     {
       this.setFlags(0, CellMechFlags.CAUGHT_FIRE_THIS_TURN);
     }
 
-    this.layerFlags &= ~Fl$2(tile$1.layer); // turn off layer flag
-    this.layers[tile$1.layer] = tile$1.id;
+    this.layerFlags &= ~Fl$2(tile.layer); // turn off layer flag
+    this.layers[tile.layer] = tile.id;
 
-    if (tile$1.layer > 0 && this.layers[0] == 0) {
-      this.layers[0] = tile.withName('FLOOR').id; // TODO - Not good
+    if (tile.layer > 0 && this.layers[0] == 0) {
+      this.layers[0] = tiles.FLOOR.id; // TODO - Not good
     }
 
     // this.flags |= (Flags.NEEDS_REDRAW | Flags.CELL_CHANGED);
     this.flags |= (Flags$1.CELL_CHANGED);
-    return (oldTile.glowLight !== tile$1.glowLight);
+    return (oldTile.glowLight !== tile.glowLight);
   }
 
   clearLayers(except, floorTile) {
@@ -6440,55 +6496,30 @@ const MechFlags$1 = flag.install('tileMech', {
 
 tile.mechFlags = MechFlags$1;
 
-function setFlags(tile, allFlags) {
-  let flags = [];
-  if (!allFlags) return;  // no flags
-
-  if (typeof allFlags === 'string') {
-    flags = allFlags.split(/[,|]/).map( (t) => t.trim() );
-  }
-  else if (!Array.isArray(allFlags)) {
-    return utils$1.WARN('Invalid tile flags: ' + allFlags);
-  }
-  else if (allFlags.length <= 2) {
-    if (typeof allFlags[0] === 'number') {
-      tile.flags = allFlags[0] || 0;
-      tile.mechFlags = allFlags[1] || 0;
-      return;
-    }
-  }
-
-  flags.forEach((f) => {
-    if (typeof f !== 'string') {
-      utils$1.WARN('Invalid tile flag: ' + f);
-    }
-    else if (Flags$2[f]) {
-      tile.flags |= Flags$2[f];
-    }
-    else if (MechFlags$1[f]) {
-      tile.mechFlags |= MechFlags$1[f];
-    }
-    else {
-      utils$1.WARN('Invalid tile flag: ' + f);
-    }
-  });
-}
-
 
 class Tile {
-  constructor(ch, fg, bg, priority, layer, allFlags, text, desc) {
-    this.flags = 0;
-    this.mechFlags = 0;
-    this.layer = layer || 0;
-    this.priority = priority || 0; // lower means higher priority (50 = average)
-    this.sprite = make.sprite(ch, fg, bg);
-    this.events = {};
-    this.light = null;
-    this.desc = desc || '';
-    this.text = text || '';
-    this.name = null;
-
-    setFlags(this, allFlags);
+  constructor(config={}, base={}) {
+    Object.assign(this, {
+      flags: 0,
+      mechFlags: 0,
+      layer: 0,
+      priority: 0,
+      sprite: make.sprite(),
+      events: {},
+      light: null,
+      desc: '',
+      name: '',
+      article: 'a',
+      id: null,
+    });
+    utils$1.assignObject(this, base);
+    utils$1.assignOmitting(['Extends', 'flags', 'mechFlags'], this, config);
+    this.layer = Layer[this.layer] || this.layer;
+    this.flags = Flags$2.toFlag(this.flags, config.flags);
+    this.mechFlags = MechFlags$1.toFlag(this.mechFlags, config.mechFlags || config.flags);
+    Object.keys(this.events).forEach( (key) => {
+      this.events[key] = make.tileEvent(this.events[key]);
+    });
   }
 
   successorFlags(event) {
@@ -6513,65 +6544,134 @@ class Tile {
     return (this.mechFlags & flag) > 0;
   }
 
+  getName(opts={}) {
+    if (opts === true) { opts = { article: true }; }
+    if (opts === false) { opts = {}; }
+    if (typeof opts === 'string') { opts = { article: opts }; }
+
+    if (!opts.article && !opts.color) return this.name;
+
+    let result = this.name;
+    if (opts.color) {
+      let color = this.sprite.fg;
+      if (opts.color instanceof types.Color) {
+        color = opts.color;
+      }
+      result = text.format('%R%s%R', color, this.name, null);
+    }
+
+    if (opts.article) {
+      let article = (opts.article === true) ? this.article : opts.article;
+      result = article + ' ' + result;
+    }
+    return result;
+  }
+  getDescription(opts={}) { return this.getName(opts); }
+
   flavorText() { return this.text || this.desc; }
 
 }
 
 types.Tile = Tile;
 
-function makeTile(ch, fg, bg, priority, layer, allFlags, text, desc, opts={}) {
-  const tile = new types.Tile(ch, fg, bg, priority, layer, allFlags, text, desc);
-  // TODO - tile.light = opts.light || null;
-  // TODO - tile.events.fire = opts.fire
-  // TODO - tile.events.promote = opts.promote
-  // TODO - tile.events.discover = opts.discover
-  if (opts.playerEnter) { tile.events.playerEnter = make.tileEvent(opts.playerEnter); }
-  if (opts.enter) { tile.events.enter = make.tileEvent(opts.enter); }
-  if (opts.exit) { tile.events.exit = make.tileEvent(opts.exit); }
-  if (opts.playerExit) { tile.events.playerExit = make.tileEvent(opts.playerExit); }
-  if (opts.tick) {
-    const tick = tile.events.tick = make.tileEvent(opts.tick);
-    tick.chance = tick.chance || 100;
+
+function addTileKind(id, base, config) {
+  if (arguments.length == 1) {
+    config = args[0];
+    base = config.Extends || {};
+    id = config.id || config.name;
   }
+  else if (arguments.length == 2) {
+    config = base;
+    base = config.Extends || {};
+  }
+
+  if (typeof base === 'string') {
+    base = tiles[base] || utils$1.ERROR('Unknown base tile: ' + base);
+  }
+
+  config.name = config.name || id.toLowerCase();
+  config.id = id;
+  const tile = new types.Tile(config, base);
+  tiles[id] = tile;
   return tile;
 }
 
-make.tile = makeTile;
+tile.addKind = addTileKind;
 
-function installTile(name, ...args) {
-  let tile;
-  if (args.length == 1 && args[0] instanceof Tile) {
-    tile = args[0];
-  }
-  else {
-    tile = make.tile(...args);
-  }
-  tile.name = name;
-  tile.id = name;
-  tiles[name] = tile;
-  return tile.id;
+function addTileKinds(config={}) {
+  Object.entries(config).forEach( ([name, opts]) => {
+    tile.addKind(name, opts);
+  });
 }
 
-tile.install = installTile;
+tile.addKinds = addTileKinds;
+
 
 // These are the minimal set of tiles to make the diggers work
 const NOTHING = def.NOTHING = 0;
-installTile(NOTHING,       '\u2205', 'black', 'black', 0, 0, 'T_OBSTRUCTS_PASSABILITY', "an eerie nothingness", "");
-installTile('FLOOR',       '\u00b7', [30,30,30,20], [2,2,10,0,2,2,0], 10, 0, 0, 'the floor');	// FLOOR
-installTile('DOOR',        '+', [100,40,40], [30,60,60], 30, 0, 'T_IS_DOOR, T_OBSTRUCTS_TILE_EFFECTS, T_OBSTRUCTS_ITEMS, T_OBSTRUCTS_VISION', 'a door', '', { enter: { tile: 'OPEN_DOOR' }});	// DOOR
-installTile('OPEN_DOOR',   "'", [100,40,40], [30,60,60], 40, 0, 'T_IS_DOOR, T_OBSTRUCTS_TILE_EFFECTS', 'an open door', '', { tick: { tile: 'DOOR', flags: 'DFF_SUPERPRIORITY, DFF_ONLY_IF_EMPTY' }});	// OPEN_DOOR
-installTile('BRIDGE',      '=', [100,40,40], null, 40, Layer.SURFACE, 'T_BRIDGE', 'a bridge');	// BRIDGE (LAYER=SURFACE)
-installTile('UP_STAIRS',   '<', [100,40,40], [100,60,20], 200, 0, 'T_UP_STAIRS, T_STAIR_BLOCKERS', 'an upward staircase');	// UP
-installTile('DOWN_STAIRS', '>', [100,40,40], [100,60,20], 200, 0, 'T_DOWN_STAIRS, T_STAIR_BLOCKERS', 'a downward staircase');	// DOWN
-installTile('WALL',        '#', [7,7,7,0,3,3,3],  [40,40,40,10,10,0,5], 100, 0, 'T_OBSTRUCTS_EVERYTHING', 'a wall');	// WALL
-installTile('LAKE',        '~', [5,8,20,10,0,4,15,1], [10,15,41,6,5,5,5,1], 50, 0, 'T_DEEP_WATER', 'deep water');	// LAKE
+addTileKind(NOTHING, {
+  sprite: { ch:'\u2205', fg: 'white', bg: 'black' },
+  flags: 'T_OBSTRUCTS_PASSABILITY',
+  name: "eerie nothingness", article: 'an'
+});
 
-function withName(name) {
-  return tiles[name] || tiles[NOTHING];
-}
+addTileKind('FLOOR', {
+  sprite: { ch: '\u00b7', fg: [30,30,30,20], bg: [2,2,10,0,2,2,0] },
+  priority: 10,
+  article: 'the'
+});
 
-tile.withName = withName;
+addTileKind('DOOR', {
+  sprite: { ch: '+', fg: [100,40,40], bg: [30,60,60] },
+  priority: 30,
+  flags: 'T_IS_DOOR, T_OBSTRUCTS_TILE_EFFECTS, T_OBSTRUCTS_ITEMS, T_OBSTRUCTS_VISION',
+  article: 'a',
+  events: { enter: { tile: 'OPEN_DOOR' }}
+});
 
+addTileKind('OPEN_DOOR',  "DOOR", {
+  sprite: { ch: "'" },
+  priority: 40,
+  flags: '!T_OBSTRUCTS_ITEMS, !T_OBSTRUCTS_VISION',
+  name: 'open door',
+  article: 'an',
+  events: { tick: { tile: 'DOOR', flags: 'DFF_SUPERPRIORITY, DFF_ONLY_IF_EMPTY', enter: null }}
+});
+
+addTileKind('BRIDGE', {
+  sprite: { ch: '=', fg: [100,40,40] },
+  priority: 40, layer: 'SURFACE',
+  flags: 'T_BRIDGE',
+  article: 'a'
+});
+
+addTileKind('UP_STAIRS',   {
+  sprite: { ch: '<', fg: [100,40,40], bg: [100,60,20] },
+  priority: 200,
+  flags: 'T_UP_STAIRS, T_STAIR_BLOCKERS',
+  name: 'upward staircase', article: 'an'
+});
+addTileKind('DOWN_STAIRS', {
+  sprite: { ch: '>', fg: [100,40,40], bg: [100,60,20] },
+  priority: 200,
+  flags: 'T_DOWN_STAIRS, T_STAIR_BLOCKERS',
+  name: 'downward staircase', article: 'a'
+});
+
+addTileKind('WALL', {
+  sprite: { ch: '#', fg: [7,7,7,0,3,3,3],  bg: [40,40,40,10,10,0,5] },
+  priority: 100,
+  flags: 'T_OBSTRUCTS_EVERYTHING',
+  article: 'a'
+});
+
+addTileKind('LAKE', {
+  sprite: { ch: '~', fg: [5,8,20,10,0,4,15,1], bg: [10,15,41,6,5,5,5,1] },
+  priority: 50,
+  flags: 'T_DEEP_WATER',
+  name: 'deep water', article: 'the'
+});
 
 
 async function applyInstantTileEffects(tile, cell) {
@@ -6607,7 +6707,10 @@ const ActionFlags = flag.install('action', {
 	A_SLIDE		: Fl$4(8),
 
 	A_NO_PICKUP		: Fl$4(9),
-	A_NO_DESTROY	: Fl$4(10),
+	A_DESTROY	    : Fl$4(10),
+
+  A_OPEN        : Fl$4(11),
+  A_CLOSE       : Fl$4(12),
 
 	A_GRABBABLE : 'A_PULL, A_SLIDE',
 });
@@ -6739,14 +6842,22 @@ class ItemKind {
 
 types.ItemKind = ItemKind;
 
-function installItemKind(id, opts={}) {
+function addItemKind(id, opts={}) {
 	opts.id = id;
 	const kind = new types.ItemKind(opts);
 	itemKinds[id] = kind;
 	return kind;
 }
 
-item.installKind = installItemKind;
+item.addKind = addItemKind;
+
+function addItemKinds(opts={}) {
+  Object.entries(opts).forEach( ([key, config]) => {
+    item.addKind(key, config);
+  });
+}
+
+item.addKinds = addItemKinds;
 
 
 class Item {
@@ -6859,7 +6970,7 @@ class Map {
     // }
 	}
 
-	redraw(x, y) {
+	redrawXY(x, y) {
     const cell = this.cell(x, y);
     this.redrawCell(cell);
 	}
@@ -7393,6 +7504,9 @@ types.Map = Map;
 
 
 function makeMap(w, h, opts={}) {
+  if (typeof opts === 'string') {
+    opts = { tile: opts };
+  }
 	const map = new types.Map(w, h, opts);
 	if (opts.tile) {
 		map.fill(opts.tile, opts.boundary);
@@ -8946,6 +9060,14 @@ types.FOV = FOV;
 
 commands.debug = utils$1.NOOP;
 
+async function rest(e) {
+	PLAYER.endTurn();
+	return true;
+}
+
+commands.rest = rest;
+
+
 async function moveDir(e) {
   const actor = e.actor || data.player;
   const dir = e.dir;
@@ -9102,6 +9224,7 @@ async function grab(e) {
   }
 
   const candidates = [];
+  let choice;
   map.eachNeighbor(actor.x, actor.y, (c) => {
     if (c.item && c.item.hasActionFlag(ActionFlags.A_GRABBABLE)) {
       candidates.push(c.item);
@@ -9112,14 +9235,11 @@ async function grab(e) {
     return false;
   }
   else if (candidates.length == 1) {
-    actor.grabbed = candidates[0];
-    message.add('you grab %s.', actor.grabbed.flavorText());
-    await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
-    actor.endTurn();
-    return true;
+    choice = candidates[0];
   }
-
-  const choice = await ui.chooseTarget(candidates, 'Grab what?');
+  else {
+    choice = await ui.chooseTarget(candidates, 'Grab what?');
+  }
   if (!choice) {
     return false; // cancelled
   }
@@ -9132,6 +9252,56 @@ async function grab(e) {
 }
 
 commands.grab = grab;
+
+//
+//
+// async function attack(e) {
+//   const actor = e.actor || DATA.player;
+//   const map = DATA.map;
+//
+//   if (actor.target && actor.target.isDead()) {
+//     actor.target = null;
+//   }
+//
+//   const candidates = [];
+//   let choice;
+//   map.eachNeighbor(actor.x, actor.y, (c) => {
+//     if (c.actor && actor.willAttack(c.actor)) {
+//       candidates.shift(c.actor);
+//     }
+//     else if (c.item && c.item.hasActionFlag(ItemActionFlags.A_DESTROY)) {
+//       candidates.push(c.item);
+//     }
+//   });
+//   if (!candidates.length) {
+//     MSG.add('No targets.');
+//     return false;
+//   }
+//   else if (candidates.length == 1) {
+//     choice = candidates[0];
+//   }
+//   else {
+//     choice = await UI.chooseTarget(candidates, 'Attack where?');
+//   }
+//   if (!choice) {
+//     return false; // cancelled
+//   }
+//
+//   if (choice instanceOf GW.types.Item) {
+//     actor.target = choice;
+//     MSG.add('you bash %s.', actor.grabbed.flavorText());
+//     await FX.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+//     actor.endTurn();
+//     return true;
+//   }
+//   else {
+//     MSG.add('Not implemented.');
+//     return false;
+//   }
+//
+// }
+//
+// commands.grab = grab;
 
 var SETUP = null;
 

@@ -140,6 +140,7 @@ class Cell {
     this.sprites = null;
     this.actor = null;
     this.item = null;
+    this.data = {};
 
     this.flags = Flags.VISIBLE | Flags.IN_FOV | Flags.NEEDS_REDRAW | Flags.CELL_CHANGED;	// non-terrain cell flags
     this.mechFlags = 0;
@@ -157,7 +158,7 @@ class Cell {
       this.layers[3] = 0;
       this.gasVolume = 0;
     }
-    // this.flags |= Flags.NEEDS_REDRAW;
+    this.flags |= Flags.CELL_CHANGED;
   }
 
   get ground() { return this.layers[0]; }
@@ -250,10 +251,6 @@ class Cell {
   }
 
   hasTile(id) {
-    if (typeof id === 'string') {
-      const tile = TILE.withName(id);
-      id = tile.id;
-    }
     return this.layers.includes(id);
   }
 
@@ -403,13 +400,13 @@ class Cell {
   setTile(tileId=0, checkPriority=false) {
     let tile;
     if (typeof tileId === 'string') {
-      tile = TILE.withName(tileId);
+      tile = TILES[tileId];
     }
     else if (tileId instanceof types.Tile) {
       tile = tileId;
     }
-    else {
-      tile = TILES[tileId];
+    else if (tileId !== 0){
+      UTILS.ERROR('Unknown tile: ' + tileId);
     }
 
     if (!tile) {
@@ -433,11 +430,10 @@ class Cell {
       this.setFlags(0, CellMechFlags.CAUGHT_FIRE_THIS_TURN);
     }
 
-    this.layerFlags &= ~Fl(tile.layer); // turn off layer flag
     this.layers[tile.layer] = tile.id;
 
     if (tile.layer > 0 && this.layers[0] == 0) {
-      this.layers[0] = TILE.withName('FLOOR').id; // TODO - Not good
+      this.layers[0] = 'FLOOR'; // TODO - Not good
     }
 
     // this.flags |= (Flags.NEEDS_REDRAW | Flags.CELL_CHANGED);
@@ -504,39 +500,6 @@ class Cell {
     }
     return fired;
   }
-
-
-  // setTickFlag() {
-  //   let flag = 0;
-  //   for(let i = 0; i < this.layers.length; ++i) {
-  //     const id = this.layers[i];
-  //     if (!id) continue;
-  //     const tile = TILES[id];
-  //     if (!tile.events.tick) continue;
-  //     if (random.chance(tile.events.tick.chance)) {
-  //       flag |= Fl(i);
-  //     }
-  //   }
-  //   this.layerFlags = flag;
-  //   return flag;
-  // }
-  //
-  // async fireTick(ctx) {
-  //   if (!this.layerFlags) return false;
-  //
-  //   ctx.cell = this;
-  //   let fired = false;
-  //   for(let i = 0; i < this.layers.length; ++i) {
-  //     if (this.layerFlags & Fl(i)) {
-  //       const tile = TILES[this.layers[i]];
-  //       ctx.tile = tile;
-  //       await TILE_EVENT.spawn(tile.events.tick, ctx);
-  //       fired = true;
-  //     }
-  //   }
-  //   this.layerFlags = 0;
-  //   return fired;
-  // }
 
   // SPRITES
 

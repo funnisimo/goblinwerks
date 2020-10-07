@@ -67,7 +67,7 @@ export class Map {
     // }
 	}
 
-	redraw(x, y) {
+	redrawXY(x, y) {
     const cell = this.cell(x, y);
     this.redrawCell(cell);
 	}
@@ -604,6 +604,9 @@ types.Map = Map;
 
 
 export function makeMap(w, h, opts={}) {
+  if (typeof opts === 'string') {
+    opts = { tile: opts };
+  }
 	const map = new types.Map(w, h, opts);
 	if (opts.tile) {
 		map.fill(opts.tile, opts.boundary);
