@@ -65,6 +65,44 @@ describe('Sprite', () => {
     expect(j.bg).toEqual(GW.colors.black);
     expect(j.opacity).toEqual(100);
 
+    const k = GW.make.sprite(['$', 'blue']);
+    expect(k.ch).toEqual('$');
+    expect(k.fg).toEqual(GW.colors.blue);
+    expect(k.bg).toBeNull();
+    expect(k.opacity).toEqual(100);
+
+    const l = GW.make.sprite(['blue']);
+    expect(l.ch).toBeNull();
+    expect(l.fg).toBeNull();
+    expect(l.bg).toEqual(GW.colors.blue);
+    expect(l.opacity).toEqual(100);
+
+  });
+
+  test('copy', () => {
+    const b = GW.make.sprite('@', 'green', 'blue', 50);
+
+    b.copy({ ch: '!' });
+    expect(b.ch).toEqual('!');
+    expect(b.fg).toEqual(GW.colors.green);
+    expect(b.bg).toEqual(GW.colors.blue);
+    expect(b.opacity).toEqual(50);
+
+    b.copy({ fg: 'red' });
+    expect(b.ch).toEqual('!');
+    expect(b.fg).toEqual(GW.colors.red);
+    expect(b.bg).toEqual(GW.colors.blue);
+
+    b.copy({ fg: 'white', bg: null });
+    expect(b.ch).toEqual('!');
+    expect(b.fg).toEqual(GW.colors.white);
+    expect(b.bg).toBeNull();
+
+    b.copy({ fg: 'red', bg: 'blue' });
+    expect(b.ch).toEqual('!');
+    expect(b.fg).toEqual(GW.colors.red);
+    expect(b.bg).toEqual(GW.colors.blue);
+
   });
 
   test('plot', () => {

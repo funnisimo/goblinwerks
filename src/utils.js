@@ -166,6 +166,9 @@ function assignField(dest, src, key) {
   else if (current && current.clear && !updated) {
     current.clear();
   }
+  else if (current && current.nullify && !updated) {
+    current.nullify();
+  }
   else if (updated && updated.clone) {
     dest[key] = updated.clone();	// just use same object (shallow copy)
   }
@@ -195,6 +198,18 @@ export function assignObject(dest, src) {
 }
 
 utils.assignObject = assignObject;
+
+export function assignOmitting(omit, dest, src) {
+  if (typeof omit === 'string') {
+    omit = omit.split(/[,|]/g).map( (t) => t.trim() );
+  }
+  Object.keys(src).forEach( (key) => {
+    if (omit.includes(key)) return;
+    assignField(dest, src, key);
+  });
+}
+
+utils.assignOmitting = assignOmitting;
 
 export function setDefault(obj, field, val) {
   if (obj[field] === undefined) {

@@ -11,6 +11,7 @@ import { text as TEXT } from './text.js';
 import { sprite as SPRITE } from './sprite.js';
 import { Flags as TileFlags } from './tile.js';
 import { visibility as VISIBILITY } from './visibility.js';
+import { MechFlags as CellMechFlags } from './cell.js';
 
 import { viewport as VIEWPORT, data as DATA, maps as MAPS, types, fx as FX, ui as UI, message as MSG, utils as UTILS, make, config as CONFIG, flavor as FLAVOR } from './gw.js';
 
@@ -168,6 +169,7 @@ async function gameLoop() {
         game.debug('- push actor: %d + %d = %d', scheduler.time, turnTime, scheduler.time + turnTime);
         scheduler.push(fn, turnTime);
       }
+      DATA.map.resetEvents();
     }
 
   }

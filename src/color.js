@@ -386,3 +386,5 @@ installColorSpread('turquoise', 	0,    100,  75);
 installColorSpread('sea', 				0,    100,  50);
 installColorSpread('sky', 				0,    75,   100);
 installColorSpread('azure', 			0,    50,   100);
+installColorSpread('silver',      75,   75,   75);
+installColorSpread('gold',        100,  85,   0);

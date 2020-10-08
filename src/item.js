@@ -18,7 +18,10 @@ export const ActionFlags = GW.flag.install('action', {
 	A_SLIDE		: Fl(8),
 
 	A_NO_PICKUP		: Fl(9),
-	A_NO_DESTROY	: Fl(10),
+	A_BASH	    : Fl(10),
+
+  A_OPEN        : Fl(11),
+  A_CLOSE       : Fl(12),
 
 	A_GRABBABLE : 'A_PULL, A_SLIDE',
 });
@@ -145,19 +148,51 @@ class ItemKind {
 		this.attackFlags = AttackFlags.toFlag(opts.flags);
 		this.stats = Object.assign({}, opts.stats || {});
 		this.id = opts.id || null;
+    this.corpse = GW.make.tileEvent(opts.corpse);
+  }
+
+  getName(opts={}) {
+    if (opts === true) { opts = { article: true }; }
+    if (opts === false) { opts = {}; }
+    if (typeof opts === 'string') { opts = { article: opts }; }
+
+    if (!opts.article && !opts.color) return this.name;
+
+    let result = this.name;
+    if (opts.color) {
+      let color = this.sprite.fg;
+      if (opts.color instanceof types.Color) {
+        color = opts.color;
+      }
+      result = TEXT.format('%R%s%R', color, this.name, null);
+    }
+
+    if (opts.article) {
+      let article = (opts.article === true) ? this.article : opts.article;
+      result = article + ' ' + result;
+    }
+    return result;
   }
 }
 
 GW.types.ItemKind = ItemKind;
 
-function installItemKind(id, opts={}) {
+function addItemKind(id, opts={}) {
 	opts.id = id;
 	const kind = new GW.types.ItemKind(opts);
 	GW.itemKinds[id] = kind;
 	return kind;
 }
 
-GW.item.installKind = installItemKind;
+GW.item.addKind = addItemKind;
+
+function addItemKinds(opts={}) {
+  Object.entries(opts).forEach( ([key, config]) => {
+    GW.item.addKind(key, config);
+  });
+}
+
+GW.item.addKinds = addItemKinds;
 
 
 class Item {
@@ -177,25 +212,26 @@ class Item {
 		return (this.kind.actionFlags & flag) > 0;
 	}
 
-	async applyDamage(ctx) {
-		if (this.kind.actionFlags & ActionFlags.A_NO_DESTROY) return false;
-		if (this.stats.health) {
-			ctx.damageDone = Math.max(this.stats.health, ctx.damage);
-			this.stats.health -= ctx.damageDone;
+	async applyDamage(damage, actor, ctx) {
+		if (this.stats.health > 0) {
+			const damageDone = Math.min(this.stats.health, damage);
+			this.stats.health -= damageDone;
 			if (this.stats.health <= 0) {
 				this.flags |= Flags.ITEM_DESTROYED;
 			}
-			return true;
+			return damageDone;
 		}
-		return false;
+		return 0;
 	}
 
 	isDestroyed() { return this.flags & Flags.ITEM_DESTROYED; }
 
 	forbiddenTileFlags() { return TileFlags.T_OBSTRUCTS_ITEMS; }
 
-	flavorText() { return this.kind.description || this.kind.name; }
-  name() { return this.kind.name; }
+	flavorText() { return this.kind.description || this.kind.getName(true); }
+  name(opts={}) {
+    return this.kind.getName(opts);
+  }
 }
 
 GW.types.Item = Item;

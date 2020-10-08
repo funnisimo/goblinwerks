@@ -95,6 +95,10 @@ types.TileEvent = TileEvent;
 
 // Dungeon features, spawned from Architect.c:
 function makeEvent(opts) {
+  if (!opts) return null;
+  if (typeof opts === 'string') {
+    opts = { tile: opts };
+  }
 	const te = new types.TileEvent(opts);
 	return te;
 }
@@ -158,6 +162,7 @@ async function spawn(feat, ctx) {
 
 	if (map.hasCellMechFlag(x, y, CellMechFlags.EVENT_FIRED_THIS_TURN)) {
 		if (!(feat.flags & Flags.DFF_ALWAYS_FIRE)) {
+      tileEvent.debug('spawn - already fired.');
 			return false;
 		}
 	}
@@ -202,27 +207,35 @@ async function spawn(feat, ctx) {
 
 	const spawnMap = GRID.alloc(map.width, map.height);
 
-	let succeeded = false;
+	let didSomething = false;
 	tileEvent.computeSpawnMap(feat, spawnMap, ctx);
   if (!blocking || !MAP.gridDisruptsPassability(map, spawnMap, { bounds: ctx.bounds })) {
 		if (feat.flags & Flags.DFF_EVACUATE_CREATURES) { // first, evacuate creatures, so that they do not re-trigger the tile.
-				tileEvent.evacuateCreatures(map, spawnMap);
+				if (tileEvent.evacuateCreatures(map, spawnMap)) {
+          didSomething = true;
+        }
 		}
 
 		if (feat.flags & Flags.DFF_EVACUATE_ITEMS) { // first, evacuate items, so that they do not re-trigger the tile.
-				tileEvent.evacuateItems(map, spawnMap);
+				if (tileEvent.evacuateItems(map, spawnMap)) {
+          didSomething = true;
+        }
 		}
 
 		if (feat.flags & Flags.DFF_NULLIFY_CELL) { // first, clear other tiles (not base/ground)
-				tileEvent.nullifyCells(map, spawnMap);
+				if (tileEvent.nullifyCells(map, spawnMap)) {
+          didSomething = true;
+        }
 		}
 
 		if (tile || itemKind || feat.fn) {
-			succeeded = await tileEvent.spawnTiles(feat, spawnMap, ctx, tile, itemKind);
+			if (await tileEvent.spawnTiles(feat, spawnMap, ctx, tile, itemKind)) {
+        didSomething = true;
+      }
 		}
 	}
 
-	if (succeeded && (feat.flags & Flags.DFF_PROTECTED)) {
+	if (didSomething && (feat.flags & Flags.DFF_PROTECTED)) {
 		spawnMap.forEach( (v, i, j) => {
 			if (!v) return;
 			const cell = map.cell(i, j);
@@ -230,7 +243,7 @@ async function spawn(feat, ctx) {
 		});
 	}
 
-  if (succeeded) {
+  if (didSomething) {
       // if ((feat.flags & Flags.DFF_AGGRAVATES_MONSTERS) && feat.effectRadius) {
       //     await aggravateMonsters(feat.effectRadius, x, y, /* Color. */gray);
       // }
@@ -250,7 +263,7 @@ async function spawn(feat, ctx) {
 	// }
 
 	// apply tile effects
-	if (succeeded) {
+	if (didSomething) {
 		for(let i = 0; i < spawnMap.width; ++i) {
 			for(let j = 0; j < spawnMap.height; ++j) {
 				const v = spawnMap[i][j];
@@ -270,14 +283,15 @@ async function spawn(feat, ctx) {
 
 	if (DATA.gameHasEnded) {
 		GRID.free(spawnMap);
-		return succeeded;
+		return didSomething;
 	}
 
   //	if (succeeded && feat.message[0] && !feat.messageDisplayed && isVisible(x, y)) {
   //		feat.messageDisplayed = true;
   //		message(feat.message, false);
   //	}
-  if (feat.next && (succeeded || feat.flags & Flags.DFF_SUBSEQ_ALWAYS)) {
+  if (feat.next && (didSomething || feat.flags & Flags.DFF_SUBSEQ_ALWAYS)) {
+    tileEvent.debug('- subsequent: %s, everywhere=%s', feat.next, feat.flags & Flags.DFF_SUBSEQ_EVERYWHERE);
     if (feat.flags & Flags.DFF_SUBSEQ_EVERYWHERE) {
         for (i=0; i<map.width; i++) {
             for (j=0; j<map.height; j++) {
@@ -295,7 +309,7 @@ async function spawn(feat, ctx) {
         await tileEvent.spawn(feat.next, ctx);
     }
 	}
-	if (succeeded) {
+	if (didSomething) {
     if (feat.tile
         && (tile.flags & (TileFlags.T_IS_DEEP_WATER | TileFlags.T_LAVA | TileFlags.T_AUTO_DESCENT)))
 		{
@@ -313,11 +327,15 @@ async function spawn(feat, ctx) {
     // }
   }
 
-	// if (succeeded && feat.flags & Flags.DFF_EMIT_EVENT && feat.eventName) {
+	// if (didSomething && feat.flags & Flags.DFF_EMIT_EVENT && feat.eventName) {
 	// 	await GAME.emit(feat.eventName, x, y);
 	// }
 
-	if (succeeded) {
+	if (didSomething) {
+    spawnMap.forEach( (v, i, j) => {
+      if (v) map.redrawXY(i, j);
+    });
+
 		UI.requestUpdate();
 
 		if (!(feat.flags & Flags.DFF_NO_MARK_FIRED)) {
@@ -329,10 +347,10 @@ async function spawn(feat, ctx) {
 		}
 	}
 
-  tileEvent.debug('- spawn complete : @%d,%d, ok=%s, feat=%s', ctx.x, ctx.y, succeeded, feat.id);
+  tileEvent.debug('- spawn complete : @%d,%d, ok=%s, feat=%s', ctx.x, ctx.y, didSomething, feat.id);
 
 	GRID.free(spawnMap);
-	return succeeded;
+	return didSomething;
 }
 
 tileEvent.spawn = spawn;
@@ -392,7 +410,7 @@ function computeSpawnMap(feat, spawnMap, ctx)
 
 	if (feat.matchTile && typeof feat.matchTile === 'string') {
 		const name = feat.matchTile;
-		const tile = TILE.withName(name);
+		const tile = TILES[name];
 		if (!tile) {
 			UTILS.ERROR('Failed to find match tile with name:' + name);
 		}
@@ -517,7 +535,7 @@ async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
 					spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
 
 					cell.setTile(tile);
-          map.redrawCell(cell);
+          // map.redrawCell(cell);
 					if (feat.volume && cell.gas) {
 					    cell.volume += (feat.volume || 0);
 					}
@@ -538,7 +556,7 @@ async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
 						}
 						const item = make.item(itemKind);
 						map.addItem(i, j, item);
-            map.redrawCell(cell);
+            // map.redrawCell(cell);
 						// cell.mechFlags |= CellMechFlags.EVENT_FIRED_THIS_TURN;
 						accomplishedSomething = true;
 						tileEvent.debug('- item', i, j, 'item=', itemKind.id);
@@ -549,7 +567,7 @@ async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
 			if (feat.fn) {
 				if (await feat.fn(i, j, ctx)) {
 					spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
-          map.redrawCell(cell);
+          // map.redrawCell(cell);
 					// cell.mechFlags |= CellMechFlags.EVENT_FIRED_THIS_TURN;
 					accomplishedSomething = true;
 				}
@@ -589,10 +607,13 @@ tileEvent.spawnTiles = spawnTiles;
 
 
 function nullifyCells(map, spawnMap) {
+  let didSomething = false;
 	spawnMap.forEach( (v, i, j) => {
 		if (!v) return;
 		map.nullifyCellTiles(i, j, false);	// skip gas
+    didSomething = true;
 	});
+  return didSomething;
 }
 
 tileEvent.nullifyCells = nullifyCells;
@@ -602,6 +623,7 @@ function evacuateCreatures(map, blockingMap) {
 	let i, j;
 	let monst;
 
+  let didSomething = false;
 	for (i=0; i<map.width; i++) {
 		for (j=0; j<map.height; j++) {
 			if (blockingMap[i][j]
@@ -617,9 +639,12 @@ function evacuateCreatures(map, blockingMap) {
 									 },
 									 { hallwaysAllowed: true, blockingMap });
 				map.moveActor(loc[0], loc[1], monst);
+        map.redrawXY(loc[0], loc[1]);
+        didSomething = true;
 			}
 		}
 	}
+  return didSomething;
 }
 
 tileEvent.evacuateCreatures = evacuateCreatures;
@@ -630,6 +655,7 @@ function evacuateItems(map, blockingMap) {
 	let i, j;
 	let item;
 
+  let didSomething = false;
 	blockingMap.forEach( (v, i, j) => {
 		if (!v) return;
 		const cell = map.cell(i, j);
@@ -646,8 +672,11 @@ function evacuateItems(map, blockingMap) {
 		if (loc) {
 			map.removeItem(cell.item);
 			map.addItem(loc[0], loc[1], cell.item);
+      map.redrawXY(loc[0], loc[1]);
+      didSomething = true;
 		}
 	});
+  return didSomething;
 }
 
 tileEvent.evacuateItems = evacuateItems;

@@ -67,7 +67,7 @@ export class Map {
     // }
 	}
 
-	redraw(x, y) {
+	redrawXY(x, y) {
     const cell = this.cell(x, y);
     this.redrawCell(cell);
 	}
@@ -146,7 +146,7 @@ export class Map {
 	highestPriorityTile(x, y, skipGas) { return this.cells[x][y].highestPriorityTile(x, y); }
 
 	tileFlavor(x, y) { return this.cells[x][y].tileFlavor(); }
-	tileText(x, y)   { return this.cells[x][y].tileText(); }
+	tileFlavor(x, y)   { return this.cells[x][y].tileFlavor(); }
 
 	setTile(x, y, tileId, checkPriority) {
 		const cell = this.cell(x, y);
@@ -589,6 +589,7 @@ export class Map {
 	// TICK
 
 	async tick() {
+    map.debug('tick');
 		this.forEach( (c) => c.mechFlags &= ~(CellMechFlags.EVENT_FIRED_THIS_TURN | CellMechFlags.EVENT_PROTECTED));
 		for(let x = 0; x < this.width; ++x) {
 			for(let y = 0; y < this.height; ++y) {
@@ -598,12 +599,19 @@ export class Map {
 		}
 	}
 
+  resetEvents() {
+    this.forEach( (c) => c.mechFlags &= ~(CellMechFlags.EVENT_FIRED_THIS_TURN | CellMechFlags.EVENT_PROTECTED));
+  }
+
 }
 
 types.Map = Map;
 
 
 export function makeMap(w, h, opts={}) {
+  if (typeof opts === 'string') {
+    opts = { tile: opts };
+  }
 	const map = new types.Map(w, h, opts);
 	if (opts.tile) {
 		map.fill(opts.tile, opts.boundary);

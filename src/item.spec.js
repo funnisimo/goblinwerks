@@ -8,7 +8,7 @@ describe('GW.item', () => {
   let MAP;
 
   beforeAll( () => {
-    BOX = GW.item.installKind('BOX', {
+    BOX = GW.item.addKind('BOX', {
       name: 'box',
       description: 'a large wooden box',
       sprite: { ch: '#', fg: 'brown' },
@@ -66,7 +66,7 @@ describe('GW.item', () => {
       expect(MAP.itemAt(3, 4)).toBe(ITEM);
       expect(MAP.items).toBe(ITEM);
 
-      expect(await ITEM.applyDamage({ damage: 20 })).toBeTruthy();
+      expect(await ITEM.applyDamage(20)).toEqual(10);
       expect(ITEM.isDestroyed()).toBeTruthy();
       expect(MAP.itemAt(3, 4)).toBe(ITEM);  // does not remove from map
       MAP.removeItem(ITEM);

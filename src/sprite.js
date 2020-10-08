@@ -51,19 +51,37 @@ export class Sprite {
 	}
 
 	copy(other) {
-		this.ch = other.ch;
+    if (other.ch !== undefined) {
+      this.ch = other.ch;
+    }
 
-		if (this.fg && this.bg) { this.fg.copy(other.fg); }
-		else if (this.fg) { this.fg.clear(); }
-		else { this.fg = other.fg.clone(); }
+    if (other.fg !== undefined) {
+      if (typeof other.fg === 'string') {
+        this.fg = make.color(other.fg);
+      }
+      else if (other.fg === null) {
+        this.fg = null;
+      }
+      else if (this.fg && this.bg) { this.fg.copy(other.fg); }
+  		else if (this.fg) { this.fg.clear(); }
+  		else { this.fg = other.fg.clone(); }
+    }
 
-		if (this.bg && other.bg) { this.bg.copy(other.bg); }
-		else if (this.bg) { this.bg.clear(); }
-		else { this.bg = other.bg.clone(); }
+    if (other.bg !== undefined) {
+      if (typeof other.bg === 'string') {
+        this.bg = make.color(other.bg);
+      }
+      else if (other.bg === null) {
+        this.bg = null;
+      }
+      else if (this.bg && other.bg) { this.bg.copy(other.bg); }
+  		else if (this.bg) { this.bg.clear(); }
+  		else { this.bg = other.bg.clone(); }
+    }
 
-		this.opacity = other.opacity || 0;
-		this.needsUpdate = other.needsUpdate || false;
-		this.wasHanging = other.wasHanging || false;
+		this.opacity = other.opacity || this.opacity;
+		this.needsUpdate = other.needsUpdate || this.needsUpdate;
+		this.wasHanging = other.wasHanging || this.wasHanging;
 	}
 
 	clone() {
@@ -152,7 +170,10 @@ export class Sprite {
 types.Sprite = Sprite;
 
 export function makeSprite(ch, fg, bg, opacity) {
-	if (arguments.length == 1 && typeof arguments[0] === 'object' && ch !== null) {
+  if (arguments.length == 1 && Array.isArray(arguments[0]) && arguments[0].length) {
+    [ch, fg, bg, opacity] = arguments[0];
+  }
+	else if (arguments.length == 1 && typeof arguments[0] === 'object' && ch) {
 		opacity = ch.opacity || null;
 		bg = ch.bg || null;
 		fg = ch.fg || null;
