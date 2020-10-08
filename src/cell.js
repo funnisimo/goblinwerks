@@ -311,12 +311,10 @@ class Cell {
     return null;
   }
 
-  // Retrieves a pointer to the flavor text of the highest-priority terrain at the given location
   tileDesc() {
     return this.highestPriorityTile().desc;
   }
 
-  // Retrieves a pointer to the description text of the highest-priority terrain at the given location
   tileFlavor() {
     return this.highestPriorityTile().flavorText();
   }
