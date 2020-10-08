@@ -240,7 +240,10 @@ function makeItem(kind) {
 	if (typeof kind === 'string') {
 		const name = kind;
 		kind = GW.itemKinds[name];
-		if (!kind) GW.utils.ERROR('Unknown Item Kind: ' + name);
+		if (!kind) {
+      GW.utils.WARN('Unknown Item Kind: ' + name);
+      return null;
+    }
 	}
 	return new GW.types.Item(kind);
 }

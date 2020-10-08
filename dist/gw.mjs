@@ -1134,7 +1134,7 @@ installColor('black', 				0,		0,		0);
 
 installColorSpread('teal', 				30,		100,	100);
 installColorSpread('brown', 			60,		40,		0);
-installColorSpread('tanColor', 		80,		67,		15);
+installColorSpread('tan', 		    80,		70,   55); // 80, 67,		15);
 installColorSpread('pink', 				100,	60,		66);
 installColorSpread('gray', 				50,		50,		50);
 installColorSpread('yellow', 			100,	100,	0);
@@ -5436,12 +5436,10 @@ class Cell {
     return null;
   }
 
-  // Retrieves a pointer to the flavor text of the highest-priority terrain at the given location
   tileDesc() {
     return this.highestPriorityTile().desc;
   }
 
-  // Retrieves a pointer to the description text of the highest-priority terrain at the given location
   tileFlavor() {
     return this.highestPriorityTile().flavorText();
   }
@@ -6951,7 +6949,10 @@ function makeItem(kind) {
 	if (typeof kind === 'string') {
 		const name = kind;
 		kind = itemKinds[name];
-		if (!kind) utils$1.ERROR('Unknown Item Kind: ' + name);
+		if (!kind) {
+      utils$1.WARN('Unknown Item Kind: ' + name);
+      return null;
+    }
 	}
 	return new types$1.Item(kind);
 }

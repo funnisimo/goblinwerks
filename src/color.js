@@ -361,7 +361,7 @@ installColor('black', 				0,		0,		0);
 
 installColorSpread('teal', 				30,		100,	100);
 installColorSpread('brown', 			60,		40,		0);
-installColorSpread('tanColor', 		80,		67,		15);
+installColorSpread('tan', 		    80,		70,   55); // 80, 67,		15);
 installColorSpread('pink', 				100,	60,		66);
 installColorSpread('gray', 				50,		50,		50);
 installColorSpread('yellow', 			100,	100,	0);
