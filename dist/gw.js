@@ -4653,6 +4653,7 @@
 
   	if (map$1.hasCellMechFlag(x, y, MechFlags.EVENT_FIRED_THIS_TURN)) {
   		if (!(feat.flags & Flags.DFF_ALWAYS_FIRE)) {
+        tileEvent.debug('spawn - already fired.');
   			return false;
   		}
   	}
@@ -5608,23 +5609,33 @@
     async fireEvent(name, ctx) {
       ctx.cell = this;
       let fired = false;
+      cell.debug('fire event - %s', name);
       for (let tile of this.tiles()) {
         if (!tile.events) continue;
         const ev = tile.events[name];
         if (ev) {
+          cell.debug(' - has event');
           if (ev.chance && !random.chance(ev.chance)) {
             continue;
           }
 
           ctx.tile = tile;
-          cell.debug('- fireEvent @%d,%d - %s', ctx.x, ctx.y, name);
+          cell.debug(' - spawn event @%d,%d - %s', ctx.x, ctx.y, name);
           fired = await tileEvent.spawn(ev, ctx) || fired;
+          cell.debug(' - spawned');
         }
       }
       if (fired) {
         this.mechFlags |= MechFlags.EVENT_FIRED_THIS_TURN;
       }
       return fired;
+    }
+
+    hasTileWithEvent(name) {
+      for (let tile of this.tiles()) {
+        if (tile.hasEvent(name)) return true;
+      }
+      return false;
     }
 
     // SPRITES
@@ -6274,6 +6285,7 @@
           game.debug('- push actor: %d + %d = %d', scheduler.time, turnTime, scheduler.time + turnTime);
           scheduler.push(fn, turnTime);
         }
+        data.map.resetEvents();
       }
 
     }
@@ -6494,17 +6506,28 @@
         article: 'a',
         id: null,
       });
-      utils$1.assignObject(this, base);
-      utils$1.assignOmitting(['Extends', 'flags', 'mechFlags', 'sprite'], this, config);
+      utils$1.assignOmitting(['events'], this, base);
+      utils$1.assignOmitting(['Extends', 'flags', 'mechFlags', 'sprite', 'events'], this, config);
       this.layer = Layer[this.layer] || this.layer;
+      this.flags = Flags$2.toFlag(this.flags, config.flags);
+      this.mechFlags = MechFlags$1.toFlag(this.mechFlags, config.mechFlags || config.flags);
+
       if (config.sprite) {
         this.sprite = make.sprite(config.sprite);
       }
-      this.flags = Flags$2.toFlag(this.flags, config.flags);
-      this.mechFlags = MechFlags$1.toFlag(this.mechFlags, config.mechFlags || config.flags);
-      Object.keys(this.events).forEach( (key) => {
-        this.events[key] = make.tileEvent(this.events[key]);
-      });
+      if (base.events) {
+        Object.assign(this.events, base.events);
+      }
+      if (config.events) {
+        Object.entries(config.events).forEach( ([key,info]) => {
+          if (info) {
+            this.events[key] = make.tileEvent(info);
+          }
+          else {
+            delete this.events[key];
+          }
+        });
+      }
     }
 
     successorFlags(event) {
@@ -6527,6 +6550,10 @@
 
     hasMechFlag(flag) {
       return (this.mechFlags & flag) > 0;
+    }
+
+    hasEvent(name) {
+      return !!this.events[name];
     }
 
     getName(opts={}) {
@@ -6612,16 +6639,28 @@
     priority: 30,
     flags: 'T_IS_DOOR, T_OBSTRUCTS_TILE_EFFECTS, T_OBSTRUCTS_ITEMS, T_OBSTRUCTS_VISION',
     article: 'a',
-    events: { enter: { tile: 'OPEN_DOOR' }}
+    events: {
+      enter: { tile: 'DOOR_OPEN' },
+      open:  { tile: 'DOOR_OPEN_ALWAYS' }
+    }
   });
 
-  addTileKind('OPEN_DOOR',  "DOOR", {
-    sprite: { ch: "'" },
+  addTileKind('DOOR_OPEN',  "DOOR", {
+    sprite: { ch: "'", fg: [100,40,40], bg: [30,60,60] },
     priority: 40,
     flags: '!T_OBSTRUCTS_ITEMS, !T_OBSTRUCTS_VISION',
     name: 'open door',
     article: 'an',
-    events: { tick: { tile: 'DOOR', flags: 'DFF_SUPERPRIORITY, DFF_ONLY_IF_EMPTY', enter: null }}
+    events: {
+      tick: { tile: 'DOOR', flags: 'DFF_SUPERPRIORITY, DFF_ONLY_IF_EMPTY' },
+      enter: null,
+      open: null,
+      close: { tile: 'DOOR', flags: 'DFF_SUPERPRIORITY, DFF_ONLY_IF_EMPTY' }
+    }
+  });
+
+  addTileKind('DOOR_OPEN_ALWAYS',  "DOOR_OPEN", {
+    events: { tick: null, close: { tile: 'DOOR', flags: 'DFF_SUPERPRIORITY, DFF_ONLY_IF_EMPTY' } }
   });
 
   addTileKind('BRIDGE', {
@@ -7498,6 +7537,7 @@
   	// TICK
 
   	async tick() {
+      map.debug('tick');
   		this.forEach( (c) => c.mechFlags &= ~(MechFlags.EVENT_FIRED_THIS_TURN | MechFlags.EVENT_PROTECTED));
   		for(let x = 0; x < this.width; ++x) {
   			for(let y = 0; y < this.height; ++y) {
@@ -7506,6 +7546,10 @@
   			}
   		}
   	}
+
+    resetEvents() {
+      this.forEach( (c) => c.mechFlags &= ~(MechFlags.EVENT_FIRED_THIS_TURN | MechFlags.EVENT_PROTECTED));
+    }
 
   }
 
@@ -9278,7 +9322,7 @@
     const candidates = [];
     let choice;
     map.eachNeighbor(actor.x, actor.y, (c) => {
-      if (c.item && c.item.hasActionFlag(ActionFlags.A_GRABBABLE)) {
+      if (c.item && c.item.hasActionFlag(ActionFlags.A_BASH)) {
         candidates.push(c.item);
       }
     }, true);
@@ -9304,6 +9348,98 @@
   }
 
   commands.bash = bash;
+
+  async function open(e) {
+    const actor = e.actor || data.player;
+    const map = data.map;
+
+    console.log('open');
+
+    const candidates = [];
+    let choice;
+    map.eachNeighbor(actor.x, actor.y, (c, i, j) => {
+      if (c.item && c.item.hasActionFlag(ActionFlags.A_OPEN)) {
+        candidates.push({ item: c.item, cell: c, x: i, y: j, map, actor });
+      }
+      else if (c.hasTileWithEvent('open')) {
+        candidates.push({ cell: c, x: i, y: j, map, actor });
+      }
+    }, true);
+    console.log('- candidates:', candidates.length);
+    if (!candidates.length) {
+      message.add('Nothing to open.');
+      return false;
+    }
+    else if (candidates.length == 1) {
+      choice = candidates[0];
+    }
+    else {
+      choice = await ui.chooseTarget(candidates, 'Open what?');
+    }
+    if (!choice) {
+      return false; // cancelled
+    }
+
+    if (choice.item) {
+      if (!await itemActions.open(choice, actor, choice)) {
+        return false;
+      }
+    }
+    else {
+      console.log('fire event');
+      await choice.cell.fireEvent('open', choice);
+    }
+    actor.endTurn();
+    return true;
+  }
+
+  commands.open = open;
+
+  async function close(e) {
+    const actor = e.actor || data.player;
+    const map = data.map;
+
+    console.log('close');
+
+    const candidates = [];
+    let choice;
+    map.eachNeighbor(actor.x, actor.y, (c, i, j) => {
+      if (c.item && c.item.hasActionFlag(ActionFlags.A_CLOSE)) {
+        candidates.push({ item: c.item, cell: c, x: i, y: j, map, actor });
+      }
+      else {
+        if (c.hasTileWithEvent('close')) {
+          candidates.push({ cell: c, x: i, y: j, map, actor });
+        }
+      }
+    }, true);
+    if (!candidates.length) {
+      message.add('Nothing to close.');
+      return false;
+    }
+    else if (candidates.length == 1) {
+      choice = candidates[0];
+    }
+    else {
+      choice = await ui.chooseTarget(candidates, 'Close what?');
+    }
+    if (!choice) {
+      return false; // cancelled
+    }
+
+    if (choice.item) {
+      if (!await itemActions.close(choice, actor, choice)) {
+        return false;
+      }
+    }
+    else {
+      await choice.cell.fireEvent('close', choice);
+    }
+    actor.endTurn();
+    return true;
+  }
+
+  commands.close = close;
 
   commands.debug = utils$1.NOOP;
 

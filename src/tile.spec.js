@@ -33,9 +33,16 @@ describe('tiles', () => {
       map.setTile(10, 10, 'DOOR');
       const cell = map.cell(10, 10);
 
+      expect(GW.tiles.DOOR.events.enter).toBeDefined();
+      expect(GW.tiles.DOOR.events.open).toBeDefined();
+
+      expect(GW.tiles.DOOR_OPEN.events.tick).toBeDefined();
+      expect(GW.tiles.DOOR_OPEN.events.enter).not.toBeDefined();
+      expect(GW.tiles.DOOR_OPEN.events.open).not.toBeDefined();
+
       expect(cell.ground).toEqual('DOOR');
       await cell.fireEvent('enter', ctx);
-      expect(cell.ground).toEqual('OPEN_DOOR');
+      expect(cell.ground).toEqual('DOOR_OPEN');
 
       cell.clearFlags(0, GW.flags.cellMech.EVENT_FIRED_THIS_TURN);
       await cell.fireEvent('tick', ctx);
@@ -46,7 +53,7 @@ describe('tiles', () => {
 
       cell.clearFlags(0, GW.flags.cellMech.EVENT_FIRED_THIS_TURN);
       await cell.fireEvent('enter', ctx);
-      expect(cell.ground).toEqual('OPEN_DOOR');
+      expect(cell.ground).toEqual('DOOR_OPEN');
 
       // drop item to block door
       map.addItem(10, 10, item);
@@ -54,7 +61,7 @@ describe('tiles', () => {
 
       cell.clearFlags(0, GW.flags.cellMech.EVENT_FIRED_THIS_TURN);
       await cell.fireEvent('tick', ctx);
-      expect(cell.ground).toEqual('OPEN_DOOR');
+      expect(cell.ground).toEqual('DOOR_OPEN');
 
       map.removeItem(item);
       expect(cell.item).toBeNull();
@@ -65,7 +72,7 @@ describe('tiles', () => {
 
       cell.clearFlags(0, GW.flags.cellMech.EVENT_FIRED_THIS_TURN);
       await cell.fireEvent('enter', ctx);
-      expect(cell.ground).toEqual('OPEN_DOOR');
+      expect(cell.ground).toEqual('DOOR_OPEN');
 
       const player = GW.make.player({ name: 'player' });
       map.addActor(10, 10, player);
@@ -73,7 +80,7 @@ describe('tiles', () => {
 
       cell.clearFlags(0, GW.flags.cellMech.EVENT_FIRED_THIS_TURN);
       await cell.fireEvent('tick', ctx);
-      expect(cell.ground).toEqual('OPEN_DOOR');
+      expect(cell.ground).toEqual('DOOR_OPEN');
 
     });
 

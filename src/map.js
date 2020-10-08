@@ -589,6 +589,7 @@ export class Map {
 	// TICK
 
 	async tick() {
+    map.debug('tick');
 		this.forEach( (c) => c.mechFlags &= ~(CellMechFlags.EVENT_FIRED_THIS_TURN | CellMechFlags.EVENT_PROTECTED));
 		for(let x = 0; x < this.width; ++x) {
 			for(let y = 0; y < this.height; ++y) {
@@ -597,6 +598,10 @@ export class Map {
 			}
 		}
 	}
+
+  resetEvents() {
+    this.forEach( (c) => c.mechFlags &= ~(CellMechFlags.EVENT_FIRED_THIS_TURN | CellMechFlags.EVENT_PROTECTED));
+  }
 
 }
 

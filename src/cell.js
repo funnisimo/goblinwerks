@@ -482,23 +482,33 @@ class Cell {
   async fireEvent(name, ctx) {
     ctx.cell = this;
     let fired = false;
+    cell.debug('fire event - %s', name);
     for (let tile of this.tiles()) {
       if (!tile.events) continue;
       const ev = tile.events[name];
       if (ev) {
+        cell.debug(' - has event');
         if (ev.chance && !random.chance(ev.chance)) {
           continue;
         }
 
         ctx.tile = tile;
-        cell.debug('- fireEvent @%d,%d - %s', ctx.x, ctx.y, name);
+        cell.debug(' - spawn event @%d,%d - %s', ctx.x, ctx.y, name);
         fired = await TILE_EVENT.spawn(ev, ctx) || fired;
+        cell.debug(' - spawned');
       }
     }
     if (fired) {
       this.mechFlags |= MechFlags.EVENT_FIRED_THIS_TURN;
     }
     return fired;
+  }
+
+  hasTileWithEvent(name) {
+    for (let tile of this.tiles()) {
+      if (tile.hasEvent(name)) return true;
+    }
+    return false;
   }
 
   // SPRITES

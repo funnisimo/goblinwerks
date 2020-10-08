@@ -158,6 +158,7 @@ async function spawn(feat, ctx) {
 
 	if (map.hasCellMechFlag(x, y, CellMechFlags.EVENT_FIRED_THIS_TURN)) {
 		if (!(feat.flags & Flags.DFF_ALWAYS_FIRE)) {
+      tileEvent.debug('spawn - already fired.');
 			return false;
 		}
 	}

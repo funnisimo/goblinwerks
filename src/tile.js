@@ -152,17 +152,28 @@ export class Tile {
       article: 'a',
       id: null,
     });
-    UTILS.assignObject(this, base);
-    UTILS.assignOmitting(['Extends', 'flags', 'mechFlags', 'sprite'], this, config);
+    UTILS.assignOmitting(['events'], this, base);
+    UTILS.assignOmitting(['Extends', 'flags', 'mechFlags', 'sprite', 'events'], this, config);
     this.layer = Layer[this.layer] || this.layer;
+    this.flags = Flags.toFlag(this.flags, config.flags);
+    this.mechFlags = MechFlags.toFlag(this.mechFlags, config.mechFlags || config.flags);
+
     if (config.sprite) {
       this.sprite = make.sprite(config.sprite);
     }
-    this.flags = Flags.toFlag(this.flags, config.flags);
-    this.mechFlags = MechFlags.toFlag(this.mechFlags, config.mechFlags || config.flags);
-    Object.keys(this.events).forEach( (key) => {
-      this.events[key] = make.tileEvent(this.events[key]);
-    });
+    if (base.events) {
+      Object.assign(this.events, base.events);
+    }
+    if (config.events) {
+      Object.entries(config.events).forEach( ([key,info]) => {
+        if (info) {
+          this.events[key] = make.tileEvent(info);
+        }
+        else {
+          delete this.events[key];
+        }
+      });
+    }
   }
 
   successorFlags(event) {
@@ -185,6 +196,10 @@ export class Tile {
 
   hasMechFlag(flag) {
     return (this.mechFlags & flag) > 0;
+  }
+
+  hasEvent(name) {
+    return !!this.events[name];
   }
 
   getName(opts={}) {
@@ -270,16 +285,28 @@ addTileKind('DOOR', {
   priority: 30,
   flags: 'T_IS_DOOR, T_OBSTRUCTS_TILE_EFFECTS, T_OBSTRUCTS_ITEMS, T_OBSTRUCTS_VISION',
   article: 'a',
-  events: { enter: { tile: 'OPEN_DOOR' }}
+  events: {
+    enter: { tile: 'DOOR_OPEN' },
+    open:  { tile: 'DOOR_OPEN_ALWAYS' }
+  }
 });
 
-addTileKind('OPEN_DOOR',  "DOOR", {
-  sprite: { ch: "'" },
+addTileKind('DOOR_OPEN',  "DOOR", {
+  sprite: { ch: "'", fg: [100,40,40], bg: [30,60,60] },
   priority: 40,
   flags: '!T_OBSTRUCTS_ITEMS, !T_OBSTRUCTS_VISION',
   name: 'open door',
   article: 'an',
-  events: { tick: { tile: 'DOOR', flags: 'DFF_SUPERPRIORITY, DFF_ONLY_IF_EMPTY', enter: null }}
+  events: {
+    tick: { tile: 'DOOR', flags: 'DFF_SUPERPRIORITY, DFF_ONLY_IF_EMPTY' },
+    enter: null,
+    open: null,
+    close: { tile: 'DOOR', flags: 'DFF_SUPERPRIORITY, DFF_ONLY_IF_EMPTY' }
+  }
+});
+
+addTileKind('DOOR_OPEN_ALWAYS',  "DOOR_OPEN", {
+  events: { tick: null, close: { tile: 'DOOR', flags: 'DFF_SUPERPRIORITY, DFF_ONLY_IF_EMPTY' } }
 });
 
 addTileKind('BRIDGE', {
