@@ -17,11 +17,18 @@ const PLAYER = GW.make.player({
 });
 
 
+GW.tile.addKind('BROKEN_BOX', {
+  layer: 'SURFACE', priority: 20,
+  name: 'broken box', article: 'a',
+  sprite: { ch: ';', fg: 'light_brown' }
+});
+
 GW.item.addKind('BOX', {
 	name: 'box',
 	description: 'a large wooden box',
 	sprite: { ch: '\u2612', fg: 'light_brown' },
 	flags: 'A_PUSH, A_PULL, A_SLIDE, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE',
+  corpse: 'BROKEN_BOX',
 	stats: { health: 8 }
 });
 

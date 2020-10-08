@@ -4585,6 +4585,10 @@ types$1.TileEvent = TileEvent;
 
 // Dungeon features, spawned from Architect.c:
 function makeEvent(opts) {
+  if (!opts) return null;
+  if (typeof opts === 'string') {
+    opts = { tile: opts };
+  }
 	const te = new types$1.TileEvent(opts);
 	return te;
 }
@@ -5438,8 +5442,8 @@ class Cell {
   }
 
   // Retrieves a pointer to the description text of the highest-priority terrain at the given location
-  tileText() {
-    return this.highestPriorityTile().text;
+  tileFlavor() {
+    return this.highestPriorityTile().flavorText();
   }
 
   isNull() {
@@ -6495,7 +6499,7 @@ class Tile {
       sprite: make.sprite(),
       events: {},
       light: null,
-      desc: '',
+      flavor: null,
       name: '',
       article: 'a',
       id: null,
@@ -6574,7 +6578,7 @@ class Tile {
   }
   getDescription(opts={}) { return this.getName(opts); }
 
-  flavorText() { return this.text || this.desc; }
+  flavorText() { return this.flavor || this.getName(true); }
 
 }
 
@@ -6855,6 +6859,7 @@ class ItemKind {
 		this.attackFlags = AttackFlags.toFlag(opts.flags);
 		this.stats = Object.assign({}, opts.stats || {});
 		this.id = opts.id || null;
+    this.corpse = make.tileEvent(opts.corpse);
   }
 
   getName(opts={}) {
@@ -6934,7 +6939,7 @@ class Item {
 
 	forbiddenTileFlags() { return Flags$2.T_OBSTRUCTS_ITEMS; }
 
-	flavorText() { return this.kind.description || this.kind.name; }
+	flavorText() { return this.kind.description || this.kind.getName(true); }
   name(opts={}) {
     return this.kind.getName(opts);
   }
@@ -7091,7 +7096,7 @@ class Map {
 	highestPriorityTile(x, y, skipGas) { return this.cells[x][y].highestPriorityTile(x, y); }
 
 	tileFlavor(x, y) { return this.cells[x][y].tileFlavor(); }
-	tileText(x, y)   { return this.cells[x][y].tileText(); }
+	tileFlavor(x, y)   { return this.cells[x][y].tileFlavor(); }
 
 	setTile(x, y, tileId, checkPriority) {
 		const cell = this.cell(x, y);
@@ -9303,6 +9308,9 @@ async function bashItem(item, actor, ctx) {
   if (item.isDestroyed()) {
     map.removeItem(item);
     message.add('%s is destroyed.', item.name('the'));
+    if (item.kind.corpse) {
+      await tileEvent.spawn(item.kind.corpse, { map, x: item.x, y: item.y });
+    }
   }
   return true;
 }
@@ -9845,7 +9853,7 @@ function showFlavorFor(x, y) {
 
 	if (player && x == player.x && y == player.y) {
 		if (player.status[def.STATUS_LEVITATING]) {
-			buf = text.format("you are hovering above %s.", cell.tileText());
+			buf = text.format("you are hovering above %s.", cell.tileFlavor());
 		}
     else {
 			// if (theItem) {
@@ -9915,7 +9923,7 @@ function showFlavorFor(x, y) {
     buf = text.format("you %s %s.", (map.isVisible(x, y) ? "see" : "sense"), theItem.flavorText());
 	}
   else {
-    buf = text.format("you %s %s.", (map.isVisible(x, y) ? "see" : "sense"), cell.tileText());
+    buf = text.format("you %s %s.", (map.isVisible(x, y) ? "see" : "sense"), cell.tileFlavor());
   }
   flavor.setText(buf);
 	return true;

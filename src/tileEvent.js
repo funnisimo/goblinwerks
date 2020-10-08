@@ -95,6 +95,10 @@ types.TileEvent = TileEvent;
 
 // Dungeon features, spawned from Architect.c:
 function makeEvent(opts) {
+  if (!opts) return null;
+  if (typeof opts === 'string') {
+    opts = { tile: opts };
+  }
 	const te = new types.TileEvent(opts);
 	return te;
 }

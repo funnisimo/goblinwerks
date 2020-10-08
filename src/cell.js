@@ -317,8 +317,8 @@ class Cell {
   }
 
   // Retrieves a pointer to the description text of the highest-priority terrain at the given location
-  tileText() {
-    return this.highestPriorityTile().text;
+  tileFlavor() {
+    return this.highestPriorityTile().flavorText();
   }
 
   isNull() {

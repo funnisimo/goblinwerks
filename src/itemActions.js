@@ -1,5 +1,6 @@
 
 import { Flags as ItemFlags, ActionFlags as ItemActionFlags } from './item.js';
+import { tileEvent as TILE_EVENT } from './tileEvent.js';
 import { message as MSG, utils as UTILS, fx as FX } from './gw.js';
 
 export var itemActions = {};
@@ -22,6 +23,9 @@ async function bashItem(item, actor, ctx) {
   if (item.isDestroyed()) {
     map.removeItem(item);
     MSG.add('%s is destroyed.', item.name('the'));
+    if (item.kind.corpse) {
+      await TILE_EVENT.spawn(item.kind.corpse, { map, x: item.x, y: item.y });
+    }
   }
   return true;
 }

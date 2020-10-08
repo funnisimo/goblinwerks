@@ -147,7 +147,7 @@ export class Tile {
       sprite: make.sprite(),
       events: {},
       light: null,
-      desc: '',
+      flavor: null,
       name: '',
       article: 'a',
       id: null,
@@ -226,7 +226,7 @@ export class Tile {
   }
   getDescription(opts={}) { return this.getName(opts); }
 
-  flavorText() { return this.text || this.desc; }
+  flavorText() { return this.flavor || this.getName(true); }
 
 }
 

@@ -90,7 +90,7 @@ function showFlavorFor(x, y) {
 
 	if (player && x == player.x && y == player.y) {
 		if (player.status[def.STATUS_LEVITATING]) {
-			buf = TEXT.format("you are hovering above %s.", cell.tileText());
+			buf = TEXT.format("you are hovering above %s.", cell.tileFlavor());
 		}
     else {
 			// if (theItem) {
@@ -160,7 +160,7 @@ function showFlavorFor(x, y) {
     buf = TEXT.format("you %s %s.", (map.isVisible(x, y) ? "see" : "sense"), theItem.flavorText());
 	}
   else {
-    buf = TEXT.format("you %s %s.", (map.isVisible(x, y) ? "see" : "sense"), cell.tileText());
+    buf = TEXT.format("you %s %s.", (map.isVisible(x, y) ? "see" : "sense"), cell.tileFlavor());
   }
   flavor.setText(buf);
 	return true;

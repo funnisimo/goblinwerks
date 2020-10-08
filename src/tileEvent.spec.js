@@ -339,7 +339,7 @@ describe('tileEvent', () => {
   // { tile: 8, next: 'OTHER' }
 
 
-  test('can clear extra tiles from the cell', () => {
+  test('can clear extra tiles from the cell', async () => {
     const feat = GW.make.tileEvent({ flags: 'DFF_NULLIFY_CELL' });
 
     const cell = map.cell(5, 5);
@@ -347,7 +347,7 @@ describe('tileEvent', () => {
     expect(cell.surface).toEqual('BRIDGE');
     expect(cell.ground).toEqual('FLOOR');
 
-    GW.tileEvent.spawn(feat, { map, x: 5, y: 5 });
+    await GW.tileEvent.spawn(feat, { map, x: 5, y: 5 });
     expect(cell.ground).toEqual('FLOOR');
     expect(cell.surface).toEqual(0);
   });

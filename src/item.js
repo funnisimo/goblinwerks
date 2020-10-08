@@ -148,6 +148,7 @@ class ItemKind {
 		this.attackFlags = AttackFlags.toFlag(opts.flags);
 		this.stats = Object.assign({}, opts.stats || {});
 		this.id = opts.id || null;
+    this.corpse = GW.make.tileEvent(opts.corpse);
   }
 
   getName(opts={}) {
@@ -227,7 +228,7 @@ class Item {
 
 	forbiddenTileFlags() { return TileFlags.T_OBSTRUCTS_ITEMS; }
 
-	flavorText() { return this.kind.description || this.kind.name; }
+	flavorText() { return this.kind.description || this.kind.getName(true); }
   name(opts={}) {
     return this.kind.getName(opts);
   }
