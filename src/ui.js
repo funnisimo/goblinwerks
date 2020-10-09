@@ -168,6 +168,9 @@ export async function dispatchEvent(ev) {
       }
 			return true;
 		}
+    else if (SIDEBAR.bounds && SIDEBAR.bounds.containsXY(ev.x, ev.y)) {
+      SIDEBAR.highlightRow(ev.y);
+    }
 		else {
 			ui.clearCursor();
       SIDEBAR.focus(-1, -1);

@@ -171,25 +171,41 @@ function focusSidebar(x, y) {
 sidebar.focus = focusSidebar;
 
 
-function highlightSidebarRow(y) {
+function highlightSidebarRow(sy) {
+
+  let x = -1;
+  let y = -1;
 
 	if (!SIDEBAR_ENTRIES || SIDEBAR_ENTRIES.length == 0) {
-		GW.ui.setCursor(DATA.player.x, DATA.player.y);
+    x = DATA.player.x;
+    y = DATA.player.y;
 	}
 	else {
 		let best = { row: -1 };
 		SIDEBAR_ENTRIES.forEach( (item, i) => {
-			if (item.row > best.row && item.row <= y) {
+			if (item.row > best.row && item.row <= sy) {
 				best = item;
 			}
 		});
 		if (best.row > 0) {
-			GW.ui.setCursor(best.x, best.y);
+			x = best.x;
+      y = best.y;
 		}
 		else if (best.row < 0) {
-			GW.ui.setCursor(DATA.player.x, DATA.player.y);
+      x = DATA.player.x;
+      y = DATA.player.y;
 		}
 	}
+
+  if (x !== SIDEBAR_FOCUS[0] || y !== SIDEBAR_FOCUS[1]) {
+		SIDEBAR_FOCUS[0] = x;
+		SIDEBAR_FOCUS[1] = y;
+		SIDEBAR_CHANGED = true;
+    GW.ui.setCursor(x, y);
+		// GW.ui.showLocDetails(x, y);
+    return true;
+	}
+
 }
 
 sidebar.highlightRow = highlightSidebarRow;

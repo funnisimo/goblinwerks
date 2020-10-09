@@ -10023,25 +10023,41 @@
   sidebar$1.focus = focusSidebar;
 
 
-  function highlightSidebarRow(y) {
+  function highlightSidebarRow(sy) {
+
+    let x = -1;
+    let y = -1;
 
   	if (!SIDEBAR_ENTRIES || SIDEBAR_ENTRIES.length == 0) {
-  		ui.setCursor(DATA.player.x, DATA.player.y);
+      x = DATA.player.x;
+      y = DATA.player.y;
   	}
   	else {
   		let best = { row: -1 };
   		SIDEBAR_ENTRIES.forEach( (item, i) => {
-  			if (item.row > best.row && item.row <= y) {
+  			if (item.row > best.row && item.row <= sy) {
   				best = item;
   			}
   		});
   		if (best.row > 0) {
-  			ui.setCursor(best.x, best.y);
+  			x = best.x;
+        y = best.y;
   		}
   		else if (best.row < 0) {
-  			ui.setCursor(DATA.player.x, DATA.player.y);
+        x = DATA.player.x;
+        y = DATA.player.y;
   		}
   	}
+
+    if (x !== SIDEBAR_FOCUS[0] || y !== SIDEBAR_FOCUS[1]) {
+  		SIDEBAR_FOCUS[0] = x;
+  		SIDEBAR_FOCUS[1] = y;
+  		SIDEBAR_CHANGED = true;
+      ui.setCursor(x, y);
+  		// GW.ui.showLocDetails(x, y);
+      return true;
+  	}
+
   }
 
   sidebar$1.highlightRow = highlightSidebarRow;
@@ -10836,6 +10852,9 @@
         }
   			return true;
   		}
+      else if (sidebar.bounds && sidebar.bounds.containsXY(ev.x, ev.y)) {
+        sidebar.highlightRow(ev.y);
+      }
   		else {
   			ui.clearCursor();
         sidebar.focus(-1, -1);
