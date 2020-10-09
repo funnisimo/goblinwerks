@@ -24,6 +24,7 @@ export const ActionFlags = GW.flag.install('action', {
   A_CLOSE       : Fl(12),
 
 	A_GRABBABLE : 'A_PULL, A_SLIDE',
+  A_WIELD     : 'A_EQUIP',
 });
 
 

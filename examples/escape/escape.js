@@ -82,6 +82,80 @@ GW.item.addKind('CHEST', {
 	stats: { health: 8 }
 });
 
+GW.item.addKind('UMBRELLA', {
+	name: 'umbrella',
+	description: 'an umbrella',
+	sprite: { ch: '\u2602', fg: 'teal' },
+	flags: 'A_WIELD',
+	stats: { damage: 2 },
+  verb: 'poke',
+  slot: 'melee',
+});
+
+GW.item.addKind('FOLDING_CHAIR', {
+	name: 'folding chair',
+	description: 'a folding chair',
+	sprite: { ch: '}', fg: 'orange' },
+	flags: 'A_WIELD',
+	stats: { damage: 3 },
+  verb: 'clobber',
+  slot: 'melee',
+});
+
+GW.item.addKind('MEAT_TENDERIZER', {
+	name: 'meat tenderizer',
+	description: 'a meat tenderizer',
+	sprite: { ch: '}', fg: 'red' },
+	flags: 'A_WIELD',
+	stats: { damage: 4 },
+  verb: 'tenderize',
+  slot: 'melee',
+});
+
+GW.item.addKind('POINTY_STICK', {
+	name: 'pointy stick',
+	description: 'a pointy stick',
+	sprite: { ch: '/', fg: 'brown' },
+	flags: 'A_WIELD',
+	stats: { damage: 5 },
+  verb: 'stab',
+  slot: 'melee',
+});
+
+GW.item.addKind('PISTOL', {
+	name: 'pistol',
+	description: 'a pistol',
+	sprite: { ch: 'r', fg: 'gray' },
+	flags: 'A_WIELD',
+	stats: { damage: 2, range: 5 },
+  verb: 'shoot',
+  slot: 'ranged',
+});
+
+GW.item.addKind('MEDKIT', {
+    name: 'Medkit',
+    description: 'a Medkit',
+    sprite: { ch: '+', fg: 'red', bg: 'white' },
+    flags: 'A_USE',
+    stats: { heal: 7 },
+});
+
+GW.item.addKind('ASPIRIN', {
+    name: 'Aspirin',
+    description: 'an aspirin',
+    sprite: { ch: ':', fg: 'white' },
+    flags: 'A_USE',
+    stats: { heal: 3 },
+});
+
+GW.item.addKind('BANDAGE', {
+    name: 'Bandage',
+    description: 'a bandage',
+    sprite: { ch: 'o', fg: 'white' },
+    flags: 'A_USE',
+    stats: { heal: 1 },
+});
+
 
 // DESTROYABLE DOORS??
 
@@ -126,11 +200,11 @@ const mapPrefab = {
     '#...z.............#.z......#',
     '#.................#.TTTTTTT#',
     '###+##########+####+########',
-    '#...zzzzzzz......3#........#',
+    '#...zzz.zzz......3#........#',
     '#..z..............#...z....#',
-    '#...z......zzzzzz.+...zz...#',
-    '#.................#...z....#',
-    '#...zzzzzzz.......#...z....#',
+    '#...z......zzz.zz.+...zz...#',
+    '#.......6.........#...z....#',
+    '#...z.zz.zz.......#...z....#',
     '##############+#######+#####',
     '#...........#...#.+........#',
     '#..zz.......#...#.#........#',
@@ -160,6 +234,7 @@ const mapPrefab = {
     '3': { item: 'FOLDING_CHAIR' },
     '4': { item: 'MEAT_TENDERIZER' },
     '5': { item: 'POINTY_STICK' },
+    '6': { item: 'PISTOL' },
 
     m: { item: 'MEDKIT' },
     b: { item: 'BANDAGE' },
