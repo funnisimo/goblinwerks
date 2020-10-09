@@ -9,9 +9,11 @@ const PLAYER = GW.make.player({
 		name: 'you',
 		speed: 120,
     stats: { health: 20 },
-    sidebar(entity, y, dim, highlight, buf) {
+    sidebar(entry, y, dim, highlight, buf) {
     	y = GW.sidebar.addName(entry, y, dim, highlight, buf);
       y = GW.sidebar.addHealthBar(entry, y, dim, highlight, buf);
+      y = GW.sidebar.addText(buf, y, 'Melee : None', null, null, dim, highlight);
+      y = GW.sidebar.addText(buf, y, 'Ranged: None', null, null, dim, highlight);
       return y;
     },
 });

@@ -317,6 +317,26 @@ function UiDrawSidebar(buf) {
 sidebar.draw = UiDrawSidebar;
 
 
+function sidebarAddText(buf, y, text, fg, bg, dim, highlight) {
+  fg = fg || COLORS.white;
+  bg = bg || COLORS.black;
+
+  if (dim) {
+    fg = fg.clone();
+    bg = bg.clone();
+    COLOR.applyAverage(fg, COLORS.black, 50);
+    COLOR.applyAverage(bg, COLORS.black, 50);
+  }
+  else if (highlight) {
+    /// ???
+  }
+
+  y = buf.wrapText(SIDE_BOUNDS.x, y, SIDE_BOUNDS.width, text, fg, bg);
+
+  return y;
+}
+
+sidebar.addText = sidebarAddText;
 
 // Sidebar Actor
 
@@ -328,25 +348,31 @@ function smoothHiliteGradient(currentXValue, maxXValue) {
 
 
 // returns the y-coordinate after the last line printed
-function sidebarAddMonsterInfo(entry, y, dim, highlight, buf)
+function sidebarAddActor(entry, y, dim, highlight, buf)
 {
 	if (y >= SIDE_BOUNDS.height - 1) {
 		return SIDE_BOUNDS.height - 1;
 	}
 
 	const initialY = y;
+  const actor = entry.entity;
 
-  // name and mutation, if any
-	y = sidebar.addName(entry, y, dim, highlight, buf);
-	y = sidebar.addMutationInfo(entry, y, dim, highlight, buf);
+  if (actor.kind.sidebar) {
+    y = actor.kind.sidebar(entry, y, dim, highlight, buf);
+  }
+  else {
+    // name and mutation, if any
+  	y = sidebar.addName(entry, y, dim, highlight, buf);
+  	y = sidebar.addMutationInfo(entry, y, dim, highlight, buf);
 
-	// Progress Bars
-	y = sidebar.addHealthBar(entry, y, dim, highlight, buf);
-	y = sidebar.addManaBar(entry, y, dim, highlight, buf);
-	y = sidebar.addNutritionBar(entry, y, dim, highlight, buf);
-	y = sidebar.addStatuses(entry, y, dim, highlight, buf);
-	y = sidebar.addStateInfo(entry, y, dim, highlight, buf);
-	y = sidebar.addPlayerInfo(entry, y, dim, highlight, buf);
+  	// Progress Bars
+  	y = sidebar.addHealthBar(entry, y, dim, highlight, buf);
+  	y = sidebar.addManaBar(entry, y, dim, highlight, buf);
+  	y = sidebar.addNutritionBar(entry, y, dim, highlight, buf);
+  	y = sidebar.addStatuses(entry, y, dim, highlight, buf);
+  	y = sidebar.addStateInfo(entry, y, dim, highlight, buf);
+  	y = sidebar.addPlayerInfo(entry, y, dim, highlight, buf);
+  }
 
   const x = SIDE_BOUNDS.x;
 	if (y < SIDE_BOUNDS.height - 1) {
@@ -365,7 +391,7 @@ function sidebarAddMonsterInfo(entry, y, dim, highlight, buf)
 	return y;
 }
 
-sidebar.addActor = sidebarAddMonsterInfo;
+sidebar.addActor = sidebarAddActor;
 
 
 
