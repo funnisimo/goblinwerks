@@ -10096,6 +10096,8 @@ function drawSidebar(buf, forceFocused) {
 	let focusShown = !dim;
 	let highlight = false;
 
+  buf.fillRect(SIDE_BOUNDS.x, SIDE_BOUNDS.y, SIDE_BOUNDS.width, SIDE_BOUNDS.height, ' ', colors.black, colors.black);
+
 	if (DATA.player) {
 		highlight = (SIDEBAR_FOCUS[0] === DATA.player.x && SIDEBAR_FOCUS[1] === DATA.player.y ) || (ui.HIGHLIGHTED === DATA.player);
 		y = sidebar$1.addActor({ entity: DATA.player, map: DATA.map, x: DATA.player.x, y: DATA.player.y }, y, dim && !highlight, highlight, buf);
@@ -10106,7 +10108,7 @@ function drawSidebar(buf, forceFocused) {
 		const info = SIDEBAR_ENTRIES.find( (i) => (i.x == SIDEBAR_FOCUS[0] && i.y == SIDEBAR_FOCUS[1]) || (i.entity && ui.HIGHLIGHTED === i.entity) );
 		if (info) {
 			info.row = y;
-			y = info.draw(y, false, true, buf);
+			y = info.draw(info, y, false, true, buf);
 			focusShown = true;
 		}
 	}
@@ -10262,7 +10264,7 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
   }
 
   buf.plotText(x + 1, y, ': ', fg, bg);
-	buf.plotLine(x + 3, y++, SIDE_BOUNDS.width - 3, monstName, fg, bg);
+	y = buf.wrapText(x + 3, y, SIDE_BOUNDS.width - 3, monstName, fg, bg);
 
 	return y;
 }
@@ -10318,8 +10320,8 @@ function addProgressBar(y, buf, barText, current, max, color$1, dim) {
   const textColor = make.color();
 	for (let i=0; i<SIDE_BOUNDS.width; i++) {
 		currentFillColor.copy(i <= (SIDE_BOUNDS.width * current / max) ? color$1 : darkenedBarColor);
-		if (i == SIDE_BOUNDS.width * current / max) {
-			color.applyAverage(currentFillColor, colors.black, 75 - Math.floor(75 * (current % (max / 20)) / (max / 20)));
+		if (i == Math.floor(SIDE_BOUNDS.width * current / max)) {
+			color.applyAverage(currentFillColor, colors.black, 75 - Math.floor(75 * (current % (max / SIDE_BOUNDS.width)) / (max / SIDE_BOUNDS.width)));
 		}
 		textColor.copy(dim ? colors.gray : colors.white);
 		color.applyAverage(textColor, currentFillColor, (dim ? 50 : 33));
@@ -10425,7 +10427,7 @@ function sidebarAddMapCell(entry, y, dim, highlight, buf) {
 		color.applyAverage(app.bg, bg, 50);
 	}
 
-	buf.plotText(x + 1, y, ":                  ", fg, bg);
+	buf.plotChar(x + 1, y, ":", fg, bg);
 	let name = cell$1.getName();
 	name = text.capitalize(name);
   y = buf.wrapText(x + 3, y, SIDE_BOUNDS.width - 3, name, textColor, bg);
@@ -10470,7 +10472,7 @@ function sidebarAddItemInfo(entry, y, dim, highlight, buf) {
 		color.applyAverage(app.bg, colors.black, 50);
 	}
 
-	buf.plotText(x + 1, y, ":                  ", fg, colors.black);
+	buf.plotChar(x + 1, y, ":", fg, colors.black);
 	if (config.playbackOmniscience || !DATA.player.status.hallucinating) {
 		name = theItem.getName();
 	} else {
