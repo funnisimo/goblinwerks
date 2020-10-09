@@ -9937,7 +9937,7 @@ function refreshSidebar(map) {
 		}
 		else if (cell.isRevealed(true) && actor.alwaysVisible())
 		{
-			entries.push({ map, x, y, dist: 0, priority: 3, draw: sidebar$1.addActor, entity: actor, changed });
+			entries.push({ map, x, y, dist: 0, priority: 3, draw: sidebar$1.addActor, entity: actor, changed, dim: true });
 		}
     actor = actor.next;
 	}
@@ -9970,7 +9970,7 @@ function refreshSidebar(map) {
 		}
 		else if (cell.isRevealed())
 		{
-			entries.push({ map, x: x, y: y, dist: 0, priority: 3, draw: sidebar$1.addItem, entity: item, changed });
+			entries.push({ map, x: x, y: y, dist: 0, priority: 3, draw: sidebar$1.addItem, entity: item, changed, dim: true });
 		}
     item = item.next;
 	}
@@ -9985,7 +9985,8 @@ function refreshSidebar(map) {
 		const changed = cell.changed();
 		if (cell.listInSidebar()) {
 			const priority = (cell.isVisible() ? 1 : (cell.isAnyKindOfVisible() ? 2 : 3));
-			entries.push({ map, x: i, y: j, dist: 0, priority, draw: sidebar$1.addMapCell, entity: cell, changed });
+      const dim = !cell.isAnyKindOfVisible();
+			entries.push({ map, x: i, y: j, dist: 0, priority, draw: sidebar$1.addMapCell, entity: cell, changed, dim });
 		}
 	});
 
@@ -10152,6 +10153,7 @@ function drawSidebar(buf, forceFocused) {
 	while( y < SIDE_BOUNDS.height && i < SIDEBAR_ENTRIES.length ) {
 		const entry = SIDEBAR_ENTRIES[i];
 		highlight = false;
+    let dimEntry = entry.dim || dim;
 		if ((SIDEBAR_FOCUS[0] === entry.x && SIDEBAR_FOCUS[1] === entry.y))
 		{
 			if (focusShown) {
@@ -10159,9 +10161,10 @@ function drawSidebar(buf, forceFocused) {
 				continue;
 			}
 			highlight = true;
+      dimEntry = false;
 		}
 		entry.row = y;
-		y = entry.draw(entry, y, dim && !highlight, highlight, buf);
+		y = entry.draw(entry, y, dimEntry, highlight, buf);
 		if (highlight && y <= SIDE_BOUNDS.height) {
 			focusShown = true;
 		}
