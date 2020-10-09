@@ -1,6 +1,7 @@
 
 import { color as COLOR, colors as COLORS } from './color.js';
 import { Flags as ActorFlags, KindFlags as ActorKindFlags } from './actor.js';
+import { KindFlags as ItemKindFlags } from './item.js';
 import { Flags as CellFlags } from './cell.js';
 import { Flags as MapFlags } from './map.js';
 import { grid as GRID } from './grid.js';
@@ -69,7 +70,10 @@ function refreshSidebar(map) {
 	while (actor) {
 		const x = actor.x;
 		const y = actor.y;
-		if (doneCells[x][y]) continue;
+		if (doneCells[x][y]) {
+      actor = actor.next;
+      continue;
+    }
 		doneCells[x][y] = 1;
 
 		const cell = map.cell(x, y);
@@ -93,7 +97,16 @@ function refreshSidebar(map) {
 	while (item) {
 		const x = item.x;
 		const y = item.y;
-		if (doneCells[x][y]) continue;
+		if (doneCells[x][y]) {
+      item = item.next;
+      continue;
+    }
+
+    if (item.hasKindFlag(ItemKindFlags.IK_NO_SIDEBAR)) {
+      item = item.next;
+      continue;
+    }
+
 		doneCells[x][y] = 1;
 
 		const cell = map.cell(x, y);

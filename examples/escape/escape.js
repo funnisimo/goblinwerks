@@ -29,7 +29,7 @@ GW.item.addKind('BOX', {
 	name: 'box',
 	description: 'a large wooden box',
 	sprite: { ch: '\u2612', fg: 'yellow' },
-	flags: 'A_PUSH, A_PULL, A_SLIDE, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE',
+	flags: 'A_PUSH, A_PULL, A_SLIDE, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE, IK_NO_SIDEBAR',
   corpse: 'BROKEN_BOX',
 	stats: { health: 8 }
 });
@@ -38,7 +38,7 @@ GW.item.addKind('TABLE', {
 	name: 'table',
 	description: 'a wooden table',
 	sprite: { ch: 'T', fg: 'purple' }, // ch: '\u2610'
-	flags: 'A_PUSH, A_PULL, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE',
+	flags: 'A_PUSH, A_PULL, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE, IK_NO_SIDEBAR',
 	stats: { health: 10 }
 });
 
@@ -46,7 +46,7 @@ GW.item.addKind('CHAIR', {
 	name: 'chair',
 	description: 'a wooden chair',
 	sprite: { ch: '\u2441', fg: 'orange' },
-	flags: 'A_PUSH, A_PULL, A_SLIDE, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE',
+	flags: 'A_PUSH, A_PULL, A_SLIDE, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE, IK_NO_SIDEBAR',
 	stats: { health: 4 }
 });
 
@@ -62,7 +62,7 @@ GW.item.addKind('SHELVES', {
 	name: 'shelves',
 	description: 'shelves',
 	sprite: { ch: '\u25a4', fg: 'tan' },
-	flags: 'A_PUSH, A_PULL, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE',
+	flags: 'A_PUSH, A_PULL, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE, IK_NO_SIDEBAR',
 	stats: { health: 6 }
 });
 

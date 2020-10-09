@@ -36,9 +36,11 @@ export const KindFlags = GW.flag.install('itemKind', {
 	IK_HALF_STACK_STOLEN		: Fl(3),
 	IK_ENCHANT_USES_STR 		: Fl(4),
 
-	IK_ARTICLE_THE					: Fl(5),
-	IK_NO_ARTICLE						: Fl(6),
-	IK_PRENAMED	  					: Fl(7),
+	// IK_ARTICLE_THE					: Fl(5),
+	// IK_NO_ARTICLE						: Fl(6),
+	// IK_PRENAMED	  					: Fl(7),
+
+  IK_NO_SIDEBAR           : Fl(5),  // Do not show this item in the sidebar
 
 	IK_BREAKS_ON_FALL				: Fl(8),
 	IK_DESTROY_ON_USE				: Fl(9),

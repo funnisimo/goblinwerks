@@ -6818,9 +6818,11 @@ const KindFlags$1 = flag.install('itemKind', {
 	IK_HALF_STACK_STOLEN		: Fl$5(3),
 	IK_ENCHANT_USES_STR 		: Fl$5(4),
 
-	IK_ARTICLE_THE					: Fl$5(5),
-	IK_NO_ARTICLE						: Fl$5(6),
-	IK_PRENAMED	  					: Fl$5(7),
+	// IK_ARTICLE_THE					: Fl(5),
+	// IK_NO_ARTICLE						: Fl(6),
+	// IK_PRENAMED	  					: Fl(7),
+
+  IK_NO_SIDEBAR           : Fl$5(5),  // Do not show this item in the sidebar
 
 	IK_BREAKS_ON_FALL				: Fl$5(8),
 	IK_DESTROY_ON_USE				: Fl$5(9),
@@ -9915,7 +9917,10 @@ function refreshSidebar(map) {
 	while (actor) {
 		const x = actor.x;
 		const y = actor.y;
-		if (doneCells[x][y]) continue;
+		if (doneCells[x][y]) {
+      actor = actor.next;
+      continue;
+    }
 		doneCells[x][y] = 1;
 
 		const cell = map.cell(x, y);
@@ -9939,7 +9944,16 @@ function refreshSidebar(map) {
 	while (item) {
 		const x = item.x;
 		const y = item.y;
-		if (doneCells[x][y]) continue;
+		if (doneCells[x][y]) {
+      item = item.next;
+      continue;
+    }
+
+    if (item.hasKindFlag(KindFlags$1.IK_NO_SIDEBAR)) {
+      item = item.next;
+      continue;
+    }
+
 		doneCells[x][y] = 1;
 
 		const cell = map.cell(x, y);
