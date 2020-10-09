@@ -350,7 +350,7 @@ async function applyInstantTileEffects(tile, cell) {
   const isPlayer = (actor === DATA.player);
 
   if (tile.flags & Flags.T_LAVA && actor) {
-    if (!cell.hasTileFlag(Flags.T_BRIDGE) && !actor.status[def.STATUS_LEVITATING]) {
+    if (!cell.hasTileFlag(Flags.T_BRIDGE) && !actor.status.levitating) {
       actor.kill();
       await GAME.gameOver(false, COLORS.red, 'you fall into lava and perish.');
       return true;

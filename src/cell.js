@@ -179,10 +179,19 @@ class Cell {
     }
     return TILES[0].sprite.ch;
   }
+  changed() { return this.flags & Flags.CELL_CHANGED; }
   isVisible() { return this.flags & Flags.VISIBLE; }
   isAnyKindOfVisible() { return (this.flags & Flags.ANY_KIND_OF_VISIBLE) || CONFIG.playbackOmniscience; }
-  isRevealed() { return this.flags & Flags.REVEALED; }
+  isRevealed(orMapped) {
+    const flag = Flags.REVEALED | (orMapped ? Flags.MAGIC_MAPPED : 0);
+    return this.flags & flag;
+  }
+  listInSidebar() {
+    return this.hasTileMechFlag(TileMechFlags.TM_LIST_IN_SIDEBAR);
+  }
+
   hasVisibleLight() { return true; }  // TODO
+  isDark() { return false; }  // TODO
   lightChanged() { return this.flags & Flags.LIGHT_CHANGED; }
 
   tile(layer=0) {
@@ -317,6 +326,10 @@ class Cell {
 
   tileFlavor() {
     return this.highestPriorityTile().flavorText();
+  }
+
+  getName(opts={}) {
+    return this.highestPriorityTile().getName(opts);
   }
 
   isNull() {

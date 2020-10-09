@@ -50,7 +50,7 @@ class Buffer extends types.Grid {
     if (sprite.opacity <= 0) return;
 
     if (!this.hasXY(x, y)) {
-      UTILS.warn('invalid coordinates: ' + x + ', ' + y);
+      UTILS.WARN('invalid coordinates: ' + x + ', ' + y);
       return false;
     }
     const destCell = this[x][y];
@@ -62,7 +62,7 @@ class Buffer extends types.Grid {
 
   plotChar(x, y, ch, fg, bg) {
     if (!this.hasXY(x, y)) {
-      UTILS.warn('invalid coordinates: ' + x + ', ' + y);
+      UTILS.WARN('invalid coordinates: ' + x + ', ' + y);
       return;
     }
 
@@ -144,6 +144,16 @@ class Buffer extends types.Grid {
     });
     this.needsUpdate = true;
   }
+
+  // // Very low-level. Changes displayBuffer directly.
+	highlight(x, y, highlightColor, strength)
+	{
+		const cell = this[x][y];
+		COLOR.applyAugment(cell.fg, highlightColor, strength);
+		COLOR.applyAugment(cell.bg, highlightColor, strength);
+		cell.needsUpdate = true;
+    this.needsUpdate = true;
+	}
 
 }
 

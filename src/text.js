@@ -497,13 +497,14 @@ text.hyphenate = hyphenate;
 
 // Returns the number of lines, including the newlines already in the text.
 // Puts the output in "to" only if we receive a "to" -- can make it null and just get a line count.
-function splitIntoLines(sourceText, width) {
+function splitIntoLines(sourceText, width, firstWidth) {
   let w, textLength, lineCount;
   let spaceLeftOnLine, wordWidth;
 
   if (!width) GW.utils.ERROR('Need string and width');
+  firstWidth = firstWidth || width;
 
-  let printString = text.hyphenate(sourceText, width, true); // break up any words that are wider than the width.
+  let printString = text.hyphenate(sourceText, Math.min(width, firstWidth), true); // break up any words that are wider than the width.
   textLength = text.length(printString); // do NOT discount escape sequences
   lineCount = 1;
 
@@ -511,7 +512,7 @@ function splitIntoLines(sourceText, width) {
 
   // Fast foward until i points to the first character that is not a color escape.
   // for (i=0; printString.charCodeAt(i) == COLOR_ESCAPE; i+= 4);
-  spaceLeftOnLine = width;
+  spaceLeftOnLine = firstWidth;
 
   let i = -1;
   let lastColor = '';

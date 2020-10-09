@@ -2,7 +2,7 @@
 import { io as IO } from './io.js';
 import { Flags as CellFlags } from './cell.js';
 import { sprite as SPRITE } from './sprite.js';
-import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, utils as UTILS, make } from './gw.js';
+import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, utils as UTILS, make, sidebar as SIDEBAR } from './gw.js';
 
 ui.debug = UTILS.NOOP;
 
@@ -84,9 +84,24 @@ export function start(opts={}) {
 
 	let flavorLine = -1;
 
+  if (opts.sidebar) {
+    if (opts.sidebar === true) {
+      opts.sidebar = 20;
+    }
+    if (opts.sidebar < 0) { // right side
+      viewW += opts.sidebar;  // subtract
+      SIDEBAR.setup({ x: viewW, y: 0, width: -opts.sidebar, height: viewH });
+    }
+    else {  // left side
+      viewW -= opts.sidebar;
+      viewX = opts.sidebar;
+      SIDEBAR.setup({ x: 0, y: 0, width: opts.sidebar, height: viewH });
+    }
+  }
+
 	if (opts.messages) {
 		if (opts.messages < 0) {	// on bottom of screen
-			MSG.setup({x: 0, y: ui.canvas.height + opts.messages, width: ui.canvas.width, height: -opts.messages, archive: ui.canvas.height });
+			MSG.setup({x: 0, y: ui.canvas.height + opts.messages, width: viewW, height: -opts.messages, archive: ui.canvas.height });
 			viewH += opts.messages;	// subtract off message height
 			if (opts.flavor) {
 				viewH -= 1;
@@ -94,7 +109,7 @@ export function start(opts={}) {
 			}
 		}
 		else {	// on top of screen
-			MSG.setup({x: 0, y: 0, width: ui.canvas.width, height: opts.messages, archive: ui.canvas.height });
+			MSG.setup({x: 0, y: 0, width: viewW, height: opts.messages, archive: ui.canvas.height });
 			viewY = opts.messages;
 			viewH -= opts.messages;
 			if (opts.flavor) {
@@ -143,13 +158,19 @@ export async function dispatchEvent(ev) {
 	}
 	else if (ev.type === def.MOUSEMOVE) {
 		if (VIEWPORT.bounds && VIEWPORT.bounds.containsXY(ev.x, ev.y)) {
+      const x0 = VIEWPORT.bounds.toInnerX(ev.x);
+      const y0 = VIEWPORT.bounds.toInnerY(ev.y)
 			if (SHOW_CURSOR) {
-				ui.setCursor(VIEWPORT.bounds.toInnerX(ev.x), VIEWPORT.bounds.toInnerY(ev.y));
+				ui.setCursor(x0, y0);
 			}
+      if (SIDEBAR.bounds) {
+        SIDEBAR.focus(x0, y0);
+      }
 			return true;
 		}
 		else {
 			ui.clearCursor();
+      SIDEBAR.focus(-1, -1);
 		}
 		if (FLAVOR.bounds && FLAVOR.bounds.containsXY(ev.x, ev.y)) {
 			return true;
@@ -477,6 +498,7 @@ function draw() {
     if (VIEWPORT.bounds) VIEWPORT.draw(UI_BUFFER);
 		if (MSG.bounds) MSG.draw(UI_BUFFER);
 		if (FLAVOR.bounds) FLAVOR.draw(UI_BUFFER);
+    if (SIDEBAR.bounds) SIDEBAR.draw(UI_BUFFER);
 
     // if (commitCombatMessage() || REDRAW_UI || side || map) {
     ui.canvas.overlay(UI_BUFFER);

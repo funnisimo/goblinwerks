@@ -225,11 +225,12 @@ class Item {
 	}
 
 	isDestroyed() { return this.flags & Flags.ITEM_DESTROYED; }
+  changed() { return false; } // ITEM_CHANGED
 
 	forbiddenTileFlags() { return TileFlags.T_OBSTRUCTS_ITEMS; }
 
 	flavorText() { return this.kind.description || this.kind.getName(true); }
-  name(opts={}) {
+  getName(opts={}) {
     return this.kind.getName(opts);
   }
 }

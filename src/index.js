@@ -28,6 +28,7 @@ export { tileEvent, tileEvents } from './tileEvent.js';
 import './item.js';
 import './message.js';
 import './viewport.js';
+import './sidebar.js';
 import './flavor.js';
 import './ui.js';
 export { visibility } from './visibility.js';

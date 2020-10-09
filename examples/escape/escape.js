@@ -7,7 +7,13 @@ GW.random.seed(12345);
 const PLAYER = GW.make.player({
 		sprite: GW.make.sprite('@', 'white'),
 		name: 'you',
-		speed: 120
+		speed: 120,
+    stats: { health: 20 },
+    sidebar(entity, y, dim, highlight, buf) {
+    	y = GW.sidebar.addName(entry, y, dim, highlight, buf);
+      y = GW.sidebar.addHealthBar(entry, y, dim, highlight, buf);
+      return y;
+    },
 });
 
 
@@ -235,12 +241,20 @@ async function start() {
 
   const map = mapFromPrefab(mapPrefab);
 
-	const canvas = GW.ui.start({ width: Math.max(map.width, 80), height: Math.max(map.height + 6, 36), div: 'game', messages: -5, cursor: true, flavor: true });
+	const canvas = GW.ui.start({
+      div: 'game',  // use this canvas element
+      width: Math.max(map.width + 30, 80),  // total width of canvas in cells
+      height: Math.max(map.height + 6, 36), // total height of canvas in cells
+      messages: -5, // show 5 recent message lines
+      cursor: true, // highlight cursor in map view
+      flavor: true, // show flavor for cells under cursor
+      sidebar: -30, // right side, 30 wide
+  });
 	GW.io.setKeymap({
-		dir: 'moveDir', space: 'rest', g: 'grab', b: 'bash', o: 'open', c: 'close',
+		dir: 'moveDir', space: 'rest',
+    g: 'grab', b: 'bash', o: 'open', c: 'close',
 		'?': showHelp
 	});
-
 
 	GW.message.add('%REscape from ECMA Labs!\n%RYou are in the basement of a lab where something has gone horribly wrong.\nFind your way to the surface.\n%RPress <?> for help.', 'yellow', 'purple', null);
 	GW.game.start({ player: PLAYER, map, fov: true });

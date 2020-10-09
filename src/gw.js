@@ -12,6 +12,7 @@ export var ui = {};
 export var message = {};
 export var viewport = {};
 export var flavor = {};
+export var sidebar = {};
 
 export var fx = {};
 export var commands = {};

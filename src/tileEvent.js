@@ -574,7 +574,7 @@ async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
 			}
 
 			if (applyEffects) {
-				// if (PLAYER.xLoc == i && PLAYER.yLoc == j && !PLAYER.status[STATUS_LEVITATING] && refresh) {
+				// if (PLAYER.xLoc == i && PLAYER.yLoc == j && !PLAYER.status.levitating && refresh) {
 				// 	flavorMessage(tileFlavor(PLAYER.xLoc, PLAYER.yLoc));
 				// }
 				// if (cell.actor || cell.item) {

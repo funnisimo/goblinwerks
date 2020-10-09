@@ -89,7 +89,7 @@ function showFlavorFor(x, y) {
 	}
 
 	if (player && x == player.x && y == player.y) {
-		if (player.status[def.STATUS_LEVITATING]) {
+		if (player.status.levitating) {
 			buf = TEXT.format("you are hovering above %s.", cell.tileFlavor());
 		}
     else {
@@ -137,7 +137,7 @@ function showFlavorFor(x, y) {
     buf = '';
 		if (cell.flags & CellFlags.REVEALED) { // memory
 			// if (cell.rememberedItemCategory) {
-      //   if (player.status[GW.const.STATUS_HALLUCINATING] && !GW.GAME.playbackOmniscience) {
+      //   if (player.status.hallucinating && !GW.GAME.playbackOmniscience) {
       //       object = GW.item.describeHallucinatedItem();
       //   } else {
       //       object = GW.item.describeItemBasedOnParameters(cell.rememberedItemCategory, cell.rememberedItemKind, cell.rememberedItemQuantity);
