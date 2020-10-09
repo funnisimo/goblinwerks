@@ -179,6 +179,24 @@ export async function dispatchEvent(ev) {
 			return true;
 		}
 	}
+  else if (ev.type === def.KEYPRESS) {
+    if (SIDEBAR.bounds) {
+      if (ev.key === 'Tab') {
+        const loc = SIDEBAR.nextTarget();
+        ui.setCursor(loc[0], loc[1]);
+        return true;
+      }
+      else if (ev.key === 'TAB') {
+        const loc = SIDEBAR.prevTarget();
+        ui.setCursor(loc[0], loc[1]);
+        return true;
+      }
+      else if (ev.key === 'Escape') {
+        SIDEBAR.focus(-1, -1);
+        ui.clearCursor();
+      }
+    }
+  }
 
 	await IO.dispatchEvent(ev);
 }

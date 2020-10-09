@@ -227,21 +227,22 @@ sidebar.highlightRow = highlightSidebarRow;
 function sidebarNextTarget() {
 	let index = 0;
 	if (SIDEBAR_ENTRIES.length == 0) {
-		GW.ui.setCursor(DATA.player.x, DATA.player.y);
-		return;
+		sidebar.focus(DATA.player.x, DATA.player.y);
+		return SIDEBAR_FOCUS;
 	}
 	if (SIDEBAR_FOCUS[0] < 0) {
-		GW.ui.setCursor(SIDEBAR_ENTRIES[0].x, SIDEBAR_ENTRIES[0].y);
-		return;
+		sidebar.focus(SIDEBAR_ENTRIES[0].x, SIDEBAR_ENTRIES[0].y);
+    return SIDEBAR_FOCUS;
 	}
 
 	index = SIDEBAR_ENTRIES.findIndex( (i) => i.x == SIDEBAR_FOCUS[0] && i.y == SIDEBAR_FOCUS[1] ) + 1;
 	if (index >= SIDEBAR_ENTRIES.length) {
-		GW.ui.setCursor(DATA.player.x, DATA.player.y);
+		sidebar.focus(DATA.player.x, DATA.player.y);
 	}
 	else {
-		GW.ui.setCursor(SIDEBAR_ENTRIES[index].x, SIDEBAR_ENTRIES[index].y);
+		sidebar.focus(SIDEBAR_ENTRIES[index].x, SIDEBAR_ENTRIES[index].y);
 	}
+  return SIDEBAR_FOCUS;
 }
 
 sidebar.nextTarget = sidebarNextTarget;
@@ -250,21 +251,22 @@ sidebar.nextTarget = sidebarNextTarget;
 function sidebarPrevTarget() {
 	let index = 0;
 	if (SIDEBAR_ENTRIES.length == 0) {
-		GW.ui.setCursor(DATA.player.x, DATA.player.y);
-		return;
+		sidebar.focus(DATA.player.x, DATA.player.y);
+    return SIDEBAR_FOCUS;
 	}
 	if (SIDEBAR_FOCUS[0] < 0 || GW.utils.equalsXY(DATA.player, SIDEBAR_FOCUS)) {
-		GW.ui.setCursor(SIDEBAR_ENTRIES[SIDEBAR_ENTRIES.length - 1].x, SIDEBAR_ENTRIES[SIDEBAR_ENTRIES.length - 1].y);
-		return;
+		sidebar.focus(SIDEBAR_ENTRIES[SIDEBAR_ENTRIES.length - 1].x, SIDEBAR_ENTRIES[SIDEBAR_ENTRIES.length - 1].y);
+    return SIDEBAR_FOCUS;
 	}
 
 	index = SIDEBAR_ENTRIES.findIndex( (i) => i.x == SIDEBAR_FOCUS[0] && i.y == SIDEBAR_FOCUS[1] ) - 1;
 	if (index < 0) {
-		GW.ui.setCursor(DATA.player.x, DATA.player.y);
+		sidebar.focus(DATA.player.x, DATA.player.y);
 	}
 	else {
-		GW.ui.setCursor(SIDEBAR_ENTRIES[index].x, SIDEBAR_ENTRIES[index].y);
+		sidebar.focus(SIDEBAR_ENTRIES[index].x, SIDEBAR_ENTRIES[index].y);
 	}
+  return SIDEBAR_FOCUS;
 }
 
 sidebar.prevTarget = sidebarPrevTarget;
@@ -282,13 +284,13 @@ function drawSidebar(buf, forceFocused) {
   buf.fillRect(SIDE_BOUNDS.x, SIDE_BOUNDS.y, SIDE_BOUNDS.width, SIDE_BOUNDS.height, ' ', COLORS.black, COLORS.black);
 
 	if (DATA.player) {
-		highlight = (SIDEBAR_FOCUS[0] === DATA.player.x && SIDEBAR_FOCUS[1] === DATA.player.y ) || (GW.ui.HIGHLIGHTED === DATA.player);
+		highlight = (SIDEBAR_FOCUS[0] === DATA.player.x && SIDEBAR_FOCUS[1] === DATA.player.y );
 		y = sidebar.addActor({ entity: DATA.player, map: DATA.map, x: DATA.player.x, y: DATA.player.y }, y, dim && !highlight, highlight, buf);
 		focusShown = focusShown || highlight;
 	}
 
 	if (forceFocused) {
-		const info = SIDEBAR_ENTRIES.find( (i) => (i.x == SIDEBAR_FOCUS[0] && i.y == SIDEBAR_FOCUS[1]) || (i.entity && GW.ui.HIGHLIGHTED === i.entity) );
+		const info = SIDEBAR_ENTRIES.find( (i) => (i.x == SIDEBAR_FOCUS[0] && i.y == SIDEBAR_FOCUS[1]));
 		if (info) {
 			info.row = y;
 			y = info.draw(info, y, false, true, buf);
@@ -300,8 +302,7 @@ function drawSidebar(buf, forceFocused) {
 	while( y < SIDE_BOUNDS.height && i < SIDEBAR_ENTRIES.length ) {
 		const entry = SIDEBAR_ENTRIES[i];
 		highlight = false;
-		if ((SIDEBAR_FOCUS[0] === entry.x && SIDEBAR_FOCUS[1] === entry.y)
-				|| (entry.entity && GW.ui.HIGHLIGHTED === entry.entity))
+		if ((SIDEBAR_FOCUS[0] === entry.x && SIDEBAR_FOCUS[1] === entry.y))
 		{
 			if (focusShown) {
 				++i;
@@ -318,7 +319,7 @@ function drawSidebar(buf, forceFocused) {
 	}
 
 	if (!focusShown && !forceFocused) {
-		sidebar.debug('Sidebar focus NOT shown: ', SIDEBAR_FOCUS, GW.ui.HIGHLIGHTED);
+		sidebar.debug('Sidebar focus NOT shown: ', SIDEBAR_FOCUS);
 		drawSidebar(buf, true);
 	}
 

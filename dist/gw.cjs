@@ -6808,6 +6808,7 @@ const ActionFlags = flag.install('action', {
   A_CLOSE       : Fl$5(12),
 
 	A_GRABBABLE : 'A_PULL, A_SLIDE',
+  A_WIELD     : 'A_EQUIP',
 });
 
 
@@ -10076,21 +10077,22 @@ sidebar$1.highlightRow = highlightSidebarRow;
 function sidebarNextTarget() {
 	let index = 0;
 	if (SIDEBAR_ENTRIES.length == 0) {
-		ui.setCursor(DATA.player.x, DATA.player.y);
-		return;
+		sidebar$1.focus(DATA.player.x, DATA.player.y);
+		return SIDEBAR_FOCUS;
 	}
 	if (SIDEBAR_FOCUS[0] < 0) {
-		ui.setCursor(SIDEBAR_ENTRIES[0].x, SIDEBAR_ENTRIES[0].y);
-		return;
+		sidebar$1.focus(SIDEBAR_ENTRIES[0].x, SIDEBAR_ENTRIES[0].y);
+    return SIDEBAR_FOCUS;
 	}
 
 	index = SIDEBAR_ENTRIES.findIndex( (i) => i.x == SIDEBAR_FOCUS[0] && i.y == SIDEBAR_FOCUS[1] ) + 1;
 	if (index >= SIDEBAR_ENTRIES.length) {
-		ui.setCursor(DATA.player.x, DATA.player.y);
+		sidebar$1.focus(DATA.player.x, DATA.player.y);
 	}
 	else {
-		ui.setCursor(SIDEBAR_ENTRIES[index].x, SIDEBAR_ENTRIES[index].y);
+		sidebar$1.focus(SIDEBAR_ENTRIES[index].x, SIDEBAR_ENTRIES[index].y);
 	}
+  return SIDEBAR_FOCUS;
 }
 
 sidebar$1.nextTarget = sidebarNextTarget;
@@ -10099,21 +10101,22 @@ sidebar$1.nextTarget = sidebarNextTarget;
 function sidebarPrevTarget() {
 	let index = 0;
 	if (SIDEBAR_ENTRIES.length == 0) {
-		ui.setCursor(DATA.player.x, DATA.player.y);
-		return;
+		sidebar$1.focus(DATA.player.x, DATA.player.y);
+    return SIDEBAR_FOCUS;
 	}
 	if (SIDEBAR_FOCUS[0] < 0 || utils$1.equalsXY(DATA.player, SIDEBAR_FOCUS)) {
-		ui.setCursor(SIDEBAR_ENTRIES[SIDEBAR_ENTRIES.length - 1].x, SIDEBAR_ENTRIES[SIDEBAR_ENTRIES.length - 1].y);
-		return;
+		sidebar$1.focus(SIDEBAR_ENTRIES[SIDEBAR_ENTRIES.length - 1].x, SIDEBAR_ENTRIES[SIDEBAR_ENTRIES.length - 1].y);
+    return SIDEBAR_FOCUS;
 	}
 
 	index = SIDEBAR_ENTRIES.findIndex( (i) => i.x == SIDEBAR_FOCUS[0] && i.y == SIDEBAR_FOCUS[1] ) - 1;
 	if (index < 0) {
-		ui.setCursor(DATA.player.x, DATA.player.y);
+		sidebar$1.focus(DATA.player.x, DATA.player.y);
 	}
 	else {
-		ui.setCursor(SIDEBAR_ENTRIES[index].x, SIDEBAR_ENTRIES[index].y);
+		sidebar$1.focus(SIDEBAR_ENTRIES[index].x, SIDEBAR_ENTRIES[index].y);
 	}
+  return SIDEBAR_FOCUS;
 }
 
 sidebar$1.prevTarget = sidebarPrevTarget;
@@ -10131,13 +10134,13 @@ function drawSidebar(buf, forceFocused) {
   buf.fillRect(SIDE_BOUNDS.x, SIDE_BOUNDS.y, SIDE_BOUNDS.width, SIDE_BOUNDS.height, ' ', colors.black, colors.black);
 
 	if (DATA.player) {
-		highlight = (SIDEBAR_FOCUS[0] === DATA.player.x && SIDEBAR_FOCUS[1] === DATA.player.y ) || (ui.HIGHLIGHTED === DATA.player);
+		highlight = (SIDEBAR_FOCUS[0] === DATA.player.x && SIDEBAR_FOCUS[1] === DATA.player.y );
 		y = sidebar$1.addActor({ entity: DATA.player, map: DATA.map, x: DATA.player.x, y: DATA.player.y }, y, dim && !highlight, highlight, buf);
 		focusShown = focusShown || highlight;
 	}
 
 	if (forceFocused) {
-		const info = SIDEBAR_ENTRIES.find( (i) => (i.x == SIDEBAR_FOCUS[0] && i.y == SIDEBAR_FOCUS[1]) || (i.entity && ui.HIGHLIGHTED === i.entity) );
+		const info = SIDEBAR_ENTRIES.find( (i) => (i.x == SIDEBAR_FOCUS[0] && i.y == SIDEBAR_FOCUS[1]));
 		if (info) {
 			info.row = y;
 			y = info.draw(info, y, false, true, buf);
@@ -10149,8 +10152,7 @@ function drawSidebar(buf, forceFocused) {
 	while( y < SIDE_BOUNDS.height && i < SIDEBAR_ENTRIES.length ) {
 		const entry = SIDEBAR_ENTRIES[i];
 		highlight = false;
-		if ((SIDEBAR_FOCUS[0] === entry.x && SIDEBAR_FOCUS[1] === entry.y)
-				|| (entry.entity && ui.HIGHLIGHTED === entry.entity))
+		if ((SIDEBAR_FOCUS[0] === entry.x && SIDEBAR_FOCUS[1] === entry.y))
 		{
 			if (focusShown) {
 				++i;
@@ -10167,7 +10169,7 @@ function drawSidebar(buf, forceFocused) {
 	}
 
 	if (!focusShown && !forceFocused) {
-		sidebar$1.debug('Sidebar focus NOT shown: ', SIDEBAR_FOCUS, ui.HIGHLIGHTED);
+		sidebar$1.debug('Sidebar focus NOT shown: ', SIDEBAR_FOCUS);
 		drawSidebar(buf, true);
 	}
 
@@ -10873,6 +10875,24 @@ async function dispatchEvent$1(ev) {
 			return true;
 		}
 	}
+  else if (ev.type === def.KEYPRESS) {
+    if (sidebar.bounds) {
+      if (ev.key === 'Tab') {
+        const loc = sidebar.nextTarget();
+        ui.setCursor(loc[0], loc[1]);
+        return true;
+      }
+      else if (ev.key === 'TAB') {
+        const loc = sidebar.prevTarget();
+        ui.setCursor(loc[0], loc[1]);
+        return true;
+      }
+      else if (ev.key === 'Escape') {
+        sidebar.focus(-1, -1);
+        ui.clearCursor();
+      }
+    }
+  }
 
 	await io.dispatchEvent(ev);
 }
