@@ -568,7 +568,7 @@ function addHealthBar(entry, y, dim, highlight, buf) {
 		if (actor.current.health <= 0) {
 				text = "Dead";
 		} else if (percent != 0) {
-				text = TEXT.format("Health (%s%d)", percent > 0 ? "+" : "", percent);
+				text = TEXT.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
 		}
 		y = sidebar.addProgressBar(y, buf, text, actor.current.health, actor.max.health, healthBarColor, dim);
 	}
@@ -692,7 +692,7 @@ function sidebarAddItemInfo(entry, y, dim, highlight, buf) {
 
 	buf.plotChar(x + 1, y, ":", fg, COLORS.black);
 	if (GW.config.playbackOmniscience || !DATA.player.status.hallucinating) {
-		name = theItem.getName();
+		name = theItem.getName({ color: !dim, details: true });
 	} else {
     name = GW.item.describeHallucinatedItem();
 	}

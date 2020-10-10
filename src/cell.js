@@ -529,8 +529,8 @@ class Cell {
     // this.flags |= Flags.NEEDS_REDRAW;
     this.flags |= Flags.CELL_CHANGED;
 
-    if (!this.sprites) {
-      this.sprites = { layer, priority, sprite, next: null };
+    if (!this.sprites || ((this.sprites.layer > layer) || ((this.sprites.layer == layer) && (this.sprites.priority > priority)))) {
+      this.sprites = { layer, priority, sprite, next: this.sprites };
       return;
     }
 

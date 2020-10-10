@@ -2,9 +2,11 @@
 
 import { Flags as TileFlags, tile as TILE } from '../tile.js';
 import { KindFlags as ItemKindFlags, ActionFlags as ItemActionFlags } from '../item.js';
+import { itemActions as ITEM_ACTIONS } from '../itemActions.js';
 import { game as GAME } from '../game.js';
-import { data as DATA, def, commands, ui as UI, message as MSG, utils as UTILS, fx as FX } from '../gw.js';
+import { data as DATA, def, commands, ui as UI, message as MSG, utils as UTILS, fx as FX, config as CONFIG } from '../gw.js';
 
+CONFIG.autoPickup = true;
 
 
 async function moveDir(e) {
@@ -53,7 +55,7 @@ async function moveDir(e) {
     const pushX = newX + dir[0];
     const pushY = newY + dir[1];
     const pushCell = map.cell(pushX, pushY);
-    if (!pushCell.isEmpty() || pushCell.hasTileFlag(TileFlags.T_OBSTRUCTS_ITEMS)) {
+    if (!pushCell.isEmpty() || pushCell.hasTileFlag(TileFlags.T_OBSTRUCTS_ITEMS | TileFlags.T_OBSTRUCTS_PASSABILITY)) {
       MSG.moveBlocked(ctx);
       return false;
     }
@@ -94,7 +96,7 @@ async function moveDir(e) {
       }
     }
     const destCell = map.cell(destXY[0], destXY[1]);
-    if (destCell.item || destCell.hasTileFlag(TileFlags.T_OBSTRUCTS_ITEMS)) {
+    if (destCell.item || destCell.hasTileFlag(TileFlags.T_OBSTRUCTS_ITEMS | TileFlags.T_OBSTRUCTS_PASSABILITY)) {
       commands.debug('move blocked - item obstructed: %d,%d', destXY[0], destXY[1]);
       MSG.moveBlocked(ctx);
       return false;
@@ -132,6 +134,11 @@ async function moveDir(e) {
   if (cell.hasTileFlag(TileFlags.T_HAS_STAIRS)) {
     console.log('Use stairs!');
     await GAME.useStairs(newX, newY);
+  }
+
+  // auto pickup any items
+  if (CONFIG.autoPickup && cell.item) {
+    await ITEM_ACTIONS.pickup(cell.item, actor, ctx);
   }
 
   commands.debug('moveComplete');

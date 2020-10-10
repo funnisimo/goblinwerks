@@ -44,6 +44,17 @@ describe('CellMemory', () => {
     expect(c.ground).toEqual(floor);  // ignored priority
   });
 
+  test.only('will keep sprites in sorted order by layer, priority increasing', () => {
+    const c = GW.make.cell();
+
+    c.addSprite(6, '@');
+    expect(c.sprites).toEqual({ layer: 6, sprite: '@', priority: 50, next: null });
+
+    c.addSprite(4, 'i');
+    expect(c.sprites).toMatchObject({ layer: 4, sprite: 'i', priority: 50 });
+    expect(c.sprites.next).toEqual({ layer: 6, sprite: '@', priority: 50, next: null });
+  });
+
   test('can support many layers', () => {
 
     const c = GW.make.cell();

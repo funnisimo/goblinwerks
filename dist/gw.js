@@ -5,7 +5,7 @@
 }(this, (function (exports) { 'use strict';
 
   var def = {};
-  var types$1 = {};
+  var types = {};
 
   var make = {};
   var install = {};
@@ -78,7 +78,7 @@
     }
   }
 
-  types$1.Bounds = Bounds;
+  types.Bounds = Bounds;
 
   function NOOP()  {}
   utils$1.NOOP = NOOP;
@@ -443,7 +443,7 @@
     }
   }
 
-  types$1.Flag = Flag;
+  types.Flag = Flag;
 
   function makeFlag(values) {
     const flag = new Flag();
@@ -494,7 +494,7 @@
     }
   }
 
-  types$1.Enum = Enum;
+  types.Enum = Enum;
 
   // export function installEnum(enumName, ...names) {
   //   const out = new types.Enum(...names);
@@ -675,13 +675,13 @@
 
   Random.MAX = RNG_M;
 
-  types$1.Random = Random;
+  types.Random = Random;
 
 
   var RANDOM_SEED = Date.now();
 
   function makeRng(seed) {
-    return new types$1.Random(seed);
+    return new types.Random(seed);
   }
 
   make.rng = makeRng;
@@ -725,7 +725,7 @@
     }
   }
 
-  types$1.Range = Range;
+  types.Range = Range;
 
 
   function makeRange(config, rng) {
@@ -842,19 +842,19 @@
 
   }
 
-  types$1.Color = Color;
+  types.Color = Color;
 
   function makeColor(...args) {
     let hex = args[0];
-    if (args.length == 0) { return new types$1.Color(0,0,0); }
-    if (args.length == 1 && hex instanceof types$1.Color) {
+    if (args.length == 0) { return new types.Color(0,0,0); }
+    if (args.length == 1 && hex instanceof types.Color) {
       return hex.clone();
     }
     else if (Array.isArray(hex)) {
-      return new types$1.Color(...hex);
+      return new types.Color(...hex);
     }
     else if (args.length >= 3) {
-      return new types$1.Color(...args);
+      return new types.Color(...args);
     }
     if (typeof hex === 'string') {
       let color = colors[hex] || null;
@@ -874,7 +874,7 @@
       const r = Math.floor( ((hex & 0xFF0000) >> 16) / 2.55 );
       const g = Math.floor( ((hex & 0x00FF00) >> 8)  / 2.55 );
       const b = Math.floor( (hex & 0x0000FF) / 2.55 );
-      return new types$1.Color(r,g,b);
+      return new types.Color(r,g,b);
     }
 
     return null;
@@ -1181,194 +1181,31 @@
   const TEMP_COLOR = make.color();
 
 
+  function firstChar(text) {
+    let i = 0;
+    while( i < text.length ) {
+      const code = text.charCodeAt(i);
+      if (code === COLOR_ESCAPE) {
+        i += 4;
+      }
+      else if (code === COLOR_END) {
+        i += 1;
+      }
+      else {
+        return text[i];
+      }
+    }
+    return null;
+  }
 
-  // class Message {
-  //   constructor(value) {
-  //     this.text = value || '';
-  //     this._textLength = -1;
-  //   }
-  //
-  //   get fullLength() { return this.text.length; }
-  //
-  //   get length() {
-  //     throw new Error('Convert to fullLength or textLength');
-  //   }
-  //
-  //   get textLength() {
-  //     if (this._textLength > -1) return this._textLength;
-  //
-  //     let length = 0;
-  //
-  //     for(let i = 0; i < this.text.length; ++i) {
-  //       const ch = this.text.charCodeAt(i);
-  //       if (ch === COLOR_ESCAPE) {
-  //           i += 3;	// skip color parts
-  //       }
-  //       else if (ch === COLOR_END) {
-  //           // skip
-  //       }
-  //       else {
-  //         ++length;
-  //       }
-  //     }
-  //
-  //     this._textLength = length;
-  //     return this._textLength;
-  //   }
-  //
-  //   eachChar(callback) {
-  //     let color = null;
-  //     const components = [100, 100, 100];
-  //     let index = 0;
-  //
-  //     for(let i = 0; i < this.text.length; ++i) {
-  //       const ch = this.text.charCodeAt(i);
-  //       if (ch === COLOR_ESCAPE) {
-  //           components[0] = this.text.charCodeAt(i + 1) - COLOR_VALUE_INTERCEPT;
-  //           components[1] = this.text.charCodeAt(i + 2) - COLOR_VALUE_INTERCEPT;
-  //           components[2] = this.text.charCodeAt(i + 3) - COLOR_VALUE_INTERCEPT;
-  //           color = TEMP_COLOR.copy(components);
-  //           i += 3;
-  //       }
-  //       else if (ch === COLOR_END) {
-  //         color = null;
-  //       }
-  //       else {
-  //         callback(this.text[i], color, index);
-  //         ++index;
-  //       }
-  //     }
-  //
-  //   }
-  //
-  //   encodeColor(color, i) {
-  //     let colorText;
-  //     if (!color) {
-  //       colorText = String.fromCharCode(COLOR_END);
-  //     }
-  //     else {
-  //       const copy = color.clone();
-  //       bakeColor(copy);
-  //       clampColor(copy);
-  //       colorText = String.fromCharCode(COLOR_ESCAPE, copy.red + COLOR_VALUE_INTERCEPT, copy.green + COLOR_VALUE_INTERCEPT, copy.blue + COLOR_VALUE_INTERCEPT);
-  //     }
-  //     if (i == 0) {
-  //       this.text = colorText;
-  //     }
-  //     else if (i < this.text.length) {
-  //       this.splice(i, 4, colorText);
-  //     }
-  //     else {
-  //       this.text += colorText;
-  //     }
-  //     return this;
-  //   }
-  //
-  //   setText(value) {
-  //     if (value instanceof BrogueString) {
-  //       this.text = value.text;
-  //       this._textLength = value._textLength;
-  //       return this;
-  //     }
-  //
-  //     this.text = value || '';
-  //     this._textLength = -1;
-  //     return this;
-  //   }
-  //
-  //   append(value) {
-  //     if (value instanceof BrogueString) {
-  //       this.text += value.text;
-  //       this._textLength = -1;
-  //       return this;
-  //     }
-  //
-  //     this.text += value;
-  //     this._textLength = -1;
-  //     return this;
-  //   }
-  //
-  //   clear() {
-  //     this.text = '';
-  //     this._textLength = 0;
-  //     return this;
-  //   }
-  //
-  //   capitalize() {
-  //     if (!this.text.length) return;
-  //
-  //     let index = 0;
-  //     let ch = this.text.charCodeAt(index);
-  //     while (ch === COLOR_ESCAPE) {
-  //       index += 4;
-  //       ch = this.text.charCodeAt(index);
-  //     }
-  //
-  //     const preText = index ? this.text.substring(0, index) : '';
-  //     this.text = preText + this.text[index].toUpperCase() + this.text.substring(index + 1);
-  //     return this;
-  //   }
-  //
-  //   padStart(finalLength) {
-  //     const diff = (finalLength - this.textLength);
-  //     if (diff <= 0) return this;
-  //     this.text = this.text.padStart(diff + this.text.length, ' ');
-  //     this._textLength += diff;
-  //     return this;
-  //   }
-  //
-  //   padEnd(finalLength) {
-  //     const diff = (finalLength - this.textLength);
-  //     if (diff <= 0) return this;
-  //     this.text = this.text.padEnd(diff + this.text.length, ' ');
-  //     this._textLength += diff;
-  //     return this;
-  //   }
-  //
-  //   toString() {
-  //     return this.text;
-  //   }
-  //
-  //   charAt(index) {
-  //     return this.text.charAt(index);
-  //   }
-  //
-  //   charCodeAt(index) {
-  //     return this.text.charCodeAt(index);
-  //   }
-  //
-  //   copy(other) {
-  //     this.text = other.text;
-  //     this._textLength = other._textLength;
-  //     return this;
-  //   }
-  //
-  //   splice(begin, length, add) {
-  //     const preText = this.text.substring(0, begin);
-  //     const postText = this.text.substring(begin + length);
-  //     add = (add && add.text) ? add.text : (add || '');
-  //
-  //     this.text = preText + add + postText;
-  //     this._textLength = -1;
-  //   }
-  //
-  //   toString() {
-  //     return this.text;
-  //   }
-  //
-  // }
-  //
-  //
-  // types.String = BrogueString;
-  //
-  //
-  // // return a new string object
-  // function STRING(text) {
-  //   if (text instanceof BrogueString) return text;
-  //   return new BrogueString(text);
-  // }
-  //
-  // make.string = STRING;
+  text.firstChar = firstChar;
+
+  function isVowel(ch) {
+    return 'aeiouAEIOU'.includes(ch);
+  }
+
+  text.isVowel = isVowel;
+
 
   function eachChar(msg, fn) {
     let color = null;
@@ -1720,7 +1557,7 @@
 
     const RE = /%([\-\+0\ \#]+)?(\d+|\*)?(\.\*|\.\d+)?([hLIw]|l{1,2}|I32|I64)?([cCdiouxXeEfgGaAnpsRSZ%])/g;
 
-    if (fmt instanceof types$1.Color) {
+    if (fmt instanceof types.Color) {
       const buf = encodeColor(fmt) + args.shift();
       fmt = buf;
     }
@@ -1783,7 +1620,7 @@
       }
       else if (p5 == 'R') {
         let color$1 = args.shift() || null;
-        if (color$1 && !(color$1 instanceof types$1.Color)) {
+        if (color$1 && !(color$1 instanceof types.Color)) {
           color$1 = color.from(color$1);
         }
         r = encodeColor(color$1);
@@ -1831,7 +1668,7 @@
   //
   // text.sprintf = sprintf;
 
-  const TEMP_BG = new types$1.Color();
+  const TEMP_BG = new types.Color();
 
   var sprites = {};
   var sprite = {};
@@ -1914,7 +1751,7 @@
   	}
 
   	clone() {
-  		const other = new types$1.Sprite(this.ch, this.fg, this.bg, this.opacity);
+  		const other = new types.Sprite(this.ch, this.fg, this.bg, this.opacity);
   		other.wasHanging = this.wasHanging;
   		other.needsUpdate = this.needsUpdate;
   		return other;
@@ -1996,7 +1833,7 @@
   	}
   }
 
-  types$1.Sprite = Sprite;
+  types.Sprite = Sprite;
 
   function makeSprite(ch, fg, bg, opacity) {
     if (arguments.length == 1 && Array.isArray(arguments[0]) && arguments[0].length) {
@@ -2349,11 +2186,11 @@
 
   }
 
-  types$1.Grid = Grid;
+  types.Grid = Grid;
 
 
   function makeGrid(w, h, v) {
-  	return new types$1.Grid(w, h, v);
+  	return new types.Grid(w, h, v);
   }
 
   make.grid = makeGrid;
@@ -2864,9 +2701,9 @@
 
   GRID.fillBlob = fillBlob;
 
-  class Buffer extends types$1.Grid {
+  class Buffer extends types.Grid {
     constructor(w, h) {
-      super(w, h, () => new types$1.Sprite() );
+      super(w, h, () => new types.Sprite() );
       this.needsUpdate = true;
     }
 
@@ -2955,25 +2792,25 @@
       }
     }
 
-    wrapText(x, y, width, text, fg, bg, opts={}) {
+    wrapText(x, y, width, text$1, fg, bg, opts={}) {
       if (typeof opts === 'number') { opts = { indent: opts }; }
       if (typeof fg === 'string') { fg = colors[fg]; }
       if (typeof bg === 'string') { bg = colors[bg]; }
       width = Math.min(width, this.width - x);
-      if (text.length <= width) {
-        this.plotText(x, y, text, fg, bg);
+      if (text.length(text$1) <= width) {
+        this.plotText(x, y, text$1, fg, bg);
         return y + 1;
       }
       let first = true;
       let start = 0;
       let last = 0;
-      for(let index = 0; index < text.length; ++index) {
-        const ch = text[index];
+      for(let index = 0; index < text$1.length; ++index) {
+        const ch = text$1[index];
         if (ch === '\n') {
           last = index;
         }
         if ((index - start >= width) || (ch === '\n')) {
-          const sub = text.substring(start, last);
+          const sub = text$1.substring(start, last);
           this.plotText(x, y++, sub, fg, bg);
           if (first) {
             x += (opts.indent || 0);
@@ -2986,8 +2823,8 @@
         }
       }
 
-      if (start < text.length - 1) {
-        const sub = text.substring(start);
+      if (start < text$1.length - 1) {
+        const sub = text$1.substring(start);
         this.plotText(x, y++, sub, fg, bg);
       }
       return y;
@@ -3018,10 +2855,10 @@
 
   }
 
-  types$1.Buffer = Buffer;
+  types.Buffer = Buffer;
 
   function makeBuffer(w, h) {
-    return new types$1.Buffer(w, h);
+    return new types.Buffer(w, h);
   }
 
   make.buffer = makeBuffer;
@@ -3179,7 +3016,7 @@
         buf = this.dead.pop();
       }
       else {
-        buf = new types$1.Buffer(this.buffer.width, this.buffer.height);
+        buf = new types.Buffer(this.buffer.width, this.buffer.height);
       }
 
       buf.copy(this.buffer);
@@ -3226,7 +3063,7 @@
 
   }
 
-  types$1.Canvas = Canvas;
+  types.Canvas = Canvas;
 
   var io = {};
 
@@ -4598,7 +4435,7 @@
 
   }
 
-  types$1.TileEvent = TileEvent;
+  types.TileEvent = TileEvent;
 
 
   // Dungeon features, spawned from Architect.c:
@@ -4607,7 +4444,7 @@
     if (typeof opts === 'string') {
       opts = { tile: opts };
     }
-  	const te = new types$1.TileEvent(opts);
+  	const te = new types.TileEvent(opts);
   	return te;
   }
 
@@ -4615,7 +4452,7 @@
 
 
   function installEvent(id, event) {
-  	if (arguments.length > 2 || !(event instanceof types$1.TileEvent)) {
+  	if (arguments.length > 2 || !(event instanceof types.TileEvent)) {
   		event = make.tileEvent(...[].slice.call(arguments, 1));
   	}
     tileEvents[id] = event;
@@ -4631,7 +4468,7 @@
 
   function resetAllMessages() {
   	Object.values(tileEvents).forEach( (f) => {
-  		if (f instanceof types$1.Event) {
+  		if (f instanceof types.Event) {
   			f.messageDisplayed = false;
   		}
   	});
@@ -5260,14 +5097,14 @@
     }
   }
 
-  types$1.CellMemory = CellMemory;
+  types.CellMemory = CellMemory;
 
 
 
   class Cell {
     constructor() {
       this.layers = [0,0,0,0];
-      this.memory = new types$1.CellMemory();
+      this.memory = new types.CellMemory();
       this.nullify();
     }
 
@@ -5556,7 +5393,7 @@
       if (typeof tileId === 'string') {
         tile = tiles[tileId];
       }
-      else if (tileId instanceof types$1.Tile) {
+      else if (tileId instanceof types.Tile) {
         tile = tileId;
       }
       else if (tileId !== 0){
@@ -5672,8 +5509,8 @@
       // this.flags |= Flags.NEEDS_REDRAW;
       this.flags |= Flags$1.CELL_CHANGED;
 
-      if (!this.sprites) {
-        this.sprites = { layer, priority, sprite, next: null };
+      if (!this.sprites || ((this.sprites.layer > layer) || ((this.sprites.layer == layer) && (this.sprites.priority > priority)))) {
+        this.sprites = { layer, priority, sprite, next: this.sprites };
         return;
       }
 
@@ -5730,11 +5567,11 @@
 
   }
 
-  types$1.Cell = Cell;
+  types.Cell = Cell;
 
 
   function makeCell(...args) {
-    const cell = new types$1.Cell(...args);
+    const cell = new types.Cell(...args);
     return cell;
   }
 
@@ -5805,6 +5642,8 @@
       }
     }
 
+    isPlayer() { return this === data.player; }
+
   	startTurn() {
   		actor.startTurn(this);
   	}
@@ -5825,6 +5664,11 @@
   		return Flags$3.T_PATHING_BLOCKER;
   	}
 
+    heal(amount=0) {
+      this.current.health = Math.min(this.current.health + amount, this.max.health);
+      this.changed(true);
+    }
+
   	kill() {
   		const map = data.map;
       this.current.health = 0;
@@ -5841,35 +5685,48 @@
       return this.kind.flags & (KindFlags.AF_IMMOBILE | KindFlags.AF_INANIMATE);
     }
 
-    changed() {
+    changed(v) {
+      if (v) {
+        this.flags |= Flags$2.AF_CHANGED;
+      }
+      else if (v !== undefined) {
+        this.flags &= ~Flags$2.AF_CHANGED;
+      }
       return (this.flags & Flags$2.AF_CHANGED);
     }
 
     statChangePercent(name) {
       const current = this.current[name] || 0;
       const prior = this.prior[name] || 0;
+      const max = Math.max(this.max[name] || 0, current, prior);
 
-      if (prior && current) {
-        return Math.floor(100 * (current - prior)/prior);
-      }
-      else if (prior) {
-        return -100;
-      }
-
-      return 100;
+      return Math.floor(100 * (current - prior)/max);
     }
 
     getName(opts={}) {
-      return this.kind.name;
+      let base = this.kind.name;
+      if (opts.color !== false) {
+        let color = this.kind.consoleColor || this.kind.sprite.fg;
+        if (opts.color instanceof types.Color) {
+          color = opts.color;
+        }
+        base = text.format('%R%s%R', color, base, null);
+      }
+      return base;
+    }
+
+    calcBashDamage(item, ctx) {
+      if (this.kind.calcBashDamage) return this.kind.calcBashDamage(this, item, ctx);
+      return 1;
     }
 
   }
 
-  types$1.Actor = Actor;
+  types.Actor = Actor;
 
 
   function makeActor(kind) {
-    return new types$1.Actor(kind);
+    return new types.Actor(kind);
   }
 
   make.actor = makeActor;
@@ -6048,7 +5905,7 @@
   player.debug = utils$1.NOOP;
 
 
-  class Player extends types$1.Actor {
+  class Player extends types.Actor {
     constructor(kind) {
       super(kind);
     }
@@ -6067,11 +5924,11 @@
 
   }
 
-  types$1.Player = Player;
+  types.Player = Player;
 
 
   function makePlayer(kind) {
-    return new types$1.Player(kind);
+    return new types.Player(kind);
   }
 
   make.player = makePlayer;
@@ -6101,6 +5958,7 @@
 
   function startTurn$1(PLAYER) {
   	PLAYER.turnTime = 0;
+    Object.assign(PLAYER.prior, PLAYER.current);
   }
 
   player.startTurn = startTurn$1;
@@ -6470,7 +6328,7 @@
   var tile = {};
   var tiles = {};
 
-  const Layer = new types$1.Enum('GROUND', 'LIQUID', 'SURFACE', 'GAS', 'ITEM', 'ACTOR', 'PLAYER', 'FX', 'UI');
+  const Layer = new types.Enum('GROUND', 'LIQUID', 'SURFACE', 'GAS', 'ITEM', 'ACTOR', 'PLAYER', 'FX', 'UI');
 
   tile.Layer = Layer;
 
@@ -6641,7 +6499,7 @@
       let result = this.name;
       if (opts.color) {
         let color = this.sprite.fg;
-        if (opts.color instanceof types$1.Color) {
+        if (opts.color instanceof types.Color) {
           color = opts.color;
         }
         result = text.format('%R%s%R', color, this.name, null);
@@ -6659,7 +6517,7 @@
 
   }
 
-  types$1.Tile = Tile;
+  types.Tile = Tile;
 
 
   function addTileKind(id, base, config) {
@@ -6679,7 +6537,7 @@
 
     config.name = config.name || id.toLowerCase();
     config.id = id;
-    const tile = new types$1.Tile(config, base);
+    const tile = new types.Tile(config, base);
     tiles[id] = tile;
     return tile;
   }
@@ -6939,7 +6797,17 @@
   		this.attackFlags = AttackFlags.toFlag(opts.flags);
   		this.stats = Object.assign({}, opts.stats || {});
   		this.id = opts.id || null;
+      this.slot = opts.slot || null;
       this.corpse = make.tileEvent(opts.corpse);
+      if (opts.consoleColor === false) {
+        this.consoleColor = false;
+      }
+      else {
+        this.consoleColor = opts.consoleColor || true;
+        if (typeof this.consoleColor === 'string') {
+          this.consoleColor = color.from(this.consoleColor);
+        }
+      }
     }
 
     getName(opts={}) {
@@ -6947,30 +6815,40 @@
       if (opts === false) { opts = {}; }
       if (typeof opts === 'string') { opts = { article: opts }; }
 
-      if (!opts.article && !opts.color) return this.name;
-
       let result = this.name;
-      if (opts.color) {
+      if (opts.color || (this.consoleColor && (opts.color !== false))) {
         let color = this.sprite.fg;
+        if (this.consoleColor instanceof types.Color) {
+          color = this.consoleColor;
+        }
         if (opts.color instanceof types.Color) {
           color = opts.color;
         }
-        result = TEXT.format('%R%s%R', color, this.name, null);
+        result = text.format('%R%s%R', color, this.name, null);
       }
 
       if (opts.article) {
         let article = (opts.article === true) ? this.article : opts.article;
+        if (article == 'a' && text.isVowel(text.firstChar(result))) {
+          article = 'an';
+        }
         result = article + ' ' + result;
       }
       return result;
     }
   }
 
-  types$1.ItemKind = ItemKind;
+  types.ItemKind = ItemKind;
 
   function addItemKind(id, opts={}) {
   	opts.id = id;
-  	const kind = new types$1.ItemKind(opts);
+    let kind;
+    if (opts instanceof types.ItemKind) {
+      kind = opts;
+    }
+    else {
+      kind = new types.ItemKind(opts);
+    }
   	itemKinds[id] = kind;
   	return kind;
   }
@@ -7026,7 +6904,7 @@
     }
   }
 
-  types$1.Item = Item;
+  types.Item = Item;
 
   function makeItem(kind) {
   	if (typeof kind === 'string') {
@@ -7037,7 +6915,7 @@
         return null;
       }
   	}
-  	return new types$1.Item(kind);
+  	return new types.Item(kind);
   }
 
   make.item = makeItem;
@@ -7060,7 +6938,7 @@
   	constructor(w, h, opts={}) {
   		this.width = w;
   		this.height = h;
-  		this.cells = make.grid(w, h, () => new types$1.Cell() );
+  		this.cells = make.grid(w, h, () => new types.Cell() );
   		this.locations = opts.locations || {};
   		this.config = Object.assign({}, opts);
   		this.config.tick = this.config.tick || 100;
@@ -7581,7 +7459,7 @@
       maxRadius = maxRadius || (this.width + this.height);
       grid.fill(0);
       const map = this;
-  	  const FOV = new types$1.FOV({
+  	  const FOV = new types.FOV({
         isBlocked(i, j) {
   	       return (!grid.hasXY(i, j)) || map.hasCellFlag(i, j, forbiddenFlags) || map.hasTileFlag(i, j, forbiddenTerrain) ;
   	    },
@@ -7636,14 +7514,14 @@
 
   }
 
-  types$1.Map = Map;
+  types.Map = Map;
 
 
   function makeMap(w, h, opts={}) {
     if (typeof opts === 'string') {
       opts = { tile: opts };
     }
-  	const map = new types$1.Map(w, h, opts);
+  	const map = new types.Map(w, h, opts);
   	if (opts.tile) {
   		map.fill(opts.tile, opts.boundary);
   	}
@@ -8663,7 +8541,7 @@
 
   }
 
-  types$1.FX = FX;
+  types.FX = FX;
 
 
   class SpriteFX extends FX {
@@ -8776,7 +8654,7 @@
     }
   }
 
-  types$1.MovingSpriteFX = MovingSpriteFX;
+  types.MovingSpriteFX = MovingSpriteFX;
 
 
   async function bolt(map, source, target, sprite, opts={}) {
@@ -8943,7 +8821,7 @@
 
   }
 
-  types$1.BeamFX = BeamFX;
+  types.BeamFX = BeamFX;
 
   function beam(map, from, to, sprite, opts={}) {
     opts.fade = opts.fade || 5;
@@ -9192,14 +9070,14 @@
     }
   }
 
-  types$1.FOV = FOV;
+  types.FOV = FOV;
 
   async function grab(e) {
     const actor = e.actor || data.player;
     const map = data.map;
 
     if (actor.grabbed) {
-      message.add('You let go of %s.', actor.grabbed.flavorText());
+      message.add('%s let go of %s.', actor.getName(), actor.grabbed.getName('a'));
       await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
       actor.grabbed = null;
       actor.endTurn();
@@ -9228,13 +9106,79 @@
     }
 
     actor.grabbed = choice;
-    message.add('you grab %s.', actor.grabbed.flavorText());
+    message.add('%s grab %s.', actor.getName(), actor.grabbed.getName('a'));
     await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
     actor.endTurn();
     return true;
   }
 
   commands.grab = grab;
+
+  var itemActions = {};
+
+  async function bashItem(item, actor, ctx) {
+
+    const map = ctx.map;
+
+    if (!item.hasActionFlag(ActionFlags.A_BASH)) {
+      message.add('%s cannot bash %s.', actor.getName(), item.getName());
+      return false;
+    }
+
+    let success = false;
+    if (item.kind.bash) {
+      success = await item.kind.bash(item, actor, ctx);
+      if (!success) return false;
+    }
+    else {
+      const damage = actor.calcBashDamage(item, ctx);
+      if (item.applyDamage(damage, actor, ctx)) {
+        message.add('%s bash %s [-%d].', actor.getName(), item.getName('the'), damage);
+        await fx.flashSprite(map, item.x, item.y, 'hit', 100, 1);
+      }
+    }
+
+    if (item.isDestroyed()) {
+      map.removeItem(item);
+      message.add('%s is destroyed.', item.getName('the'));
+      if (item.kind.corpse) {
+        await tileEvent.spawn(item.kind.corpse, { map, x: item.x, y: item.y });
+      }
+    }
+    return true;
+  }
+
+  itemActions.bash = bashItem;
+
+
+  async function pickupItem(item, actor, ctx) {
+
+    if (item.hasActionFlag(ActionFlags.A_NO_PICKUP)) return false;
+
+    let success;
+    if (item.kind.pickup) {
+      success = await item.kind.pickup(item, actor, ctx);
+      if (!success) return false;
+    }
+    else {
+      // if no room in inventory - return false
+      // add to inventory
+      success = true;
+    }
+
+    const map = ctx.map;
+    map.removeItem(item);
+
+    if (success instanceof types.Item) {
+      map.addItem(item.x, item.y, success);
+    }
+    return true;
+  }
+
+  itemActions.pickup = pickupItem;
+
+  config.autoPickup = true;
+
 
   async function moveDir(e) {
     const actor = e.actor || data.player;
@@ -9282,7 +9226,7 @@
       const pushX = newX + dir[0];
       const pushY = newY + dir[1];
       const pushCell = map.cell(pushX, pushY);
-      if (!pushCell.isEmpty() || pushCell.hasTileFlag(Flags$3.T_OBSTRUCTS_ITEMS)) {
+      if (!pushCell.isEmpty() || pushCell.hasTileFlag(Flags$3.T_OBSTRUCTS_ITEMS | Flags$3.T_OBSTRUCTS_PASSABILITY)) {
         message.moveBlocked(ctx);
         return false;
       }
@@ -9323,7 +9267,7 @@
         }
       }
       const destCell = map.cell(destXY[0], destXY[1]);
-      if (destCell.item || destCell.hasTileFlag(Flags$3.T_OBSTRUCTS_ITEMS)) {
+      if (destCell.item || destCell.hasTileFlag(Flags$3.T_OBSTRUCTS_ITEMS | Flags$3.T_OBSTRUCTS_PASSABILITY)) {
         commands.debug('move blocked - item obstructed: %d,%d', destXY[0], destXY[1]);
         message.moveBlocked(ctx);
         return false;
@@ -9363,6 +9307,11 @@
       await game.useStairs(newX, newY);
     }
 
+    // auto pickup any items
+    if (config.autoPickup && cell.item) {
+      await itemActions.pickup(cell.item, actor, ctx);
+    }
+
     commands.debug('moveComplete');
 
     ui.requestUpdate();
@@ -9371,35 +9320,6 @@
   }
 
   commands.moveDir = moveDir;
-
-  var itemActions = {};
-
-  async function bashItem(item, actor, ctx) {
-
-    const map = ctx.map;
-
-    if (!item.hasActionFlag(ActionFlags.A_BASH)) {
-      message.add('You cannot bash %s.', item.getName());
-      return false;
-    }
-
-    message.add('You bash %s.', item.getName('the'));
-
-    if (item.applyDamage(1, actor, ctx)) {
-      await fx.flashSprite(map, item.x, item.y, 'hit', 100, 1);
-    }
-
-    if (item.isDestroyed()) {
-      map.removeItem(item);
-      message.add('%s is destroyed.', item.getName('the'));
-      if (item.kind.corpse) {
-        await tileEvent.spawn(item.kind.corpse, { map, x: item.x, y: item.y });
-      }
-    }
-    return true;
-  }
-
-  itemActions.bash = bashItem;
 
   async function bash(e) {
     const actor = e.actor || data.player;
@@ -9556,7 +9476,7 @@
       DISPLAYED[i] = null;
     }
 
-    SETUP = message.bounds = new types$1.Bounds(opts.x, opts.y, opts.w || opts.width, opts.h || opts.height);
+    SETUP = message.bounds = new types.Bounds(opts.x, opts.y, opts.w || opts.width, opts.h || opts.height);
     ARCHIVE_LINES = opts.archive || 0;
     if (!ARCHIVE_LINES) {
       if (ui.canvas) {
@@ -9635,7 +9555,7 @@
   				color.applyMix(color$1, colors.black, 50);
   				color.applyMix(color$1, colors.black, 75 * i / (2*SETUP.height));
   			}
-  			messageColor = color$1 || messageColor;
+  			messageColor = color$1 || tempColor;
   			buffer.plotChar(x, y, c, messageColor, colors.black);
   		});
 
@@ -9835,7 +9755,7 @@
 
 
   function setup$1(opts={}) {
-    VIEWPORT = viewport.bounds = new types$1.Bounds(opts.x, opts.y, opts.w, opts.h);
+    VIEWPORT = viewport.bounds = new types.Bounds(opts.x, opts.y, opts.w, opts.h);
   }
 
   viewport.setup = setup$1;
@@ -9881,7 +9801,7 @@
 
 
   function setup$2(opts={}) {
-    SIDE_BOUNDS = sidebar$1.bounds = new types$1.Bounds(opts.x, opts.y, opts.width, opts.height);
+    SIDE_BOUNDS = sidebar$1.bounds = new types.Bounds(opts.x, opts.y, opts.width, opts.height);
   }
 
   sidebar$1.setup = setup$2;
@@ -10419,7 +10339,7 @@
   		if (actor.current.health <= 0) {
   				text$1 = "Dead";
   		} else if (percent != 0) {
-  				text$1 = text.format("Health (%s%d)", percent > 0 ? "+" : "", percent);
+  				text$1 = text.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
   		}
   		y = sidebar$1.addProgressBar(y, buf, text$1, actor.current.health, actor.max.health, healthBarColor, dim);
   	}
@@ -10538,7 +10458,7 @@
 
   	buf.plotChar(x + 1, y, ":", fg, colors.black);
   	if (config.playbackOmniscience || !DATA.player.status.hallucinating) {
-  		name = theItem.getName();
+  		name = theItem.getName({ color: !dim, details: true });
   	} else {
       name = item.describeHallucinatedItem();
   	}
@@ -10570,7 +10490,7 @@
   let IS_PROMPT = false;
 
   function setupFlavor(opts={}) {
-    SETUP$1 = flavor.bounds = new types$1.Bounds(opts.x, opts.y, opts.w, 1);
+    SETUP$1 = flavor.bounds = new types.Bounds(opts.x, opts.y, opts.w, 1);
   }
 
   flavor.setup = setupFlavor;
@@ -10754,6 +10674,7 @@
       bg: 'black',
       sidebar: false,
       messages: false,
+      wideMessages: false,
   		cursor: false,
   		flavor: false,
       menu: false,
@@ -10762,7 +10683,7 @@
     });
 
     if (!ui.canvas) {
-      ui.canvas = new types$1.Canvas(opts.width, opts.height, opts.div, opts);
+      ui.canvas = new types.Canvas(opts.width, opts.height, opts.div, opts);
 
       if (opts.io && typeof document !== 'undefined') {
         ui.canvas.element.onmousedown = ui.onmousedown;
@@ -10787,6 +10708,10 @@
 
   	let flavorLine = -1;
 
+    if (opts.wideMessages && opts.messages) {
+      viewH -= Math.abs(opts.messages);
+    }
+
     if (opts.sidebar) {
       if (opts.sidebar === true) {
         opts.sidebar = 20;
@@ -10802,19 +10727,25 @@
       }
     }
 
+    const msgW = (opts.wideMessages ? opts.width : viewW);
+
   	if (opts.messages) {
   		if (opts.messages < 0) {	// on bottom of screen
-  			message.setup({x: 0, y: ui.canvas.height + opts.messages, width: viewW, height: -opts.messages, archive: ui.canvas.height });
-  			viewH += opts.messages;	// subtract off message height
+  			message.setup({x: 0, y: ui.canvas.height + opts.messages, width: msgW, height: -opts.messages, archive: ui.canvas.height });
+        if (!opts.wideMessages) {
+          viewH += opts.messages;	// subtract off message height
+        }
   			if (opts.flavor) {
   				viewH -= 1;
   				flavorLine = ui.canvas.height + opts.messages - 1;
   			}
   		}
   		else {	// on top of screen
-  			message.setup({x: 0, y: 0, width: viewW, height: opts.messages, archive: ui.canvas.height });
+  			message.setup({x: 0, y: 0, width: msgW, height: opts.messages, archive: ui.canvas.height });
   			viewY = opts.messages;
-  			viewH -= opts.messages;
+        if (! opts.wideMessages) {
+          viewH -= opts.messages;
+        }
   			if (opts.flavor) {
   				viewY += 1;
   				viewH -= 1;
@@ -10824,7 +10755,7 @@
   	}
 
   	if (opts.flavor) {
-  		flavor.setup({ x: viewX, y: flavorLine, w: viewW, h: 1 });
+  		flavor.setup({ x: viewX, y: flavorLine, w: msgW, h: 1 });
   	}
 
   	viewport.setup({ x: viewX, y: viewY, w: viewW, h: viewH });
@@ -11258,7 +11189,7 @@
   exports.tileEvent = tileEvent;
   exports.tileEvents = tileEvents;
   exports.tiles = tiles;
-  exports.types = types$1;
+  exports.types = types;
   exports.ui = ui;
   exports.utils = utils$1;
   exports.viewport = viewport;

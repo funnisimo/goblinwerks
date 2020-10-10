@@ -1,6 +1,6 @@
 
 import { Flags as TileFlags } from './tile.js';
-
+import { text as TEXT } from './text.js';
 import { types, make, data as DATA, config as CONFIG, ui as UI, utils as UTILS, flags, flag } from './gw.js';
 
 export var actor = {};
@@ -46,6 +46,8 @@ export class Actor {
     }
   }
 
+  isPlayer() { return this === DATA.player; }
+
 	startTurn() {
 		actor.startTurn(this);
 	}
@@ -66,6 +68,11 @@ export class Actor {
 		return TileFlags.T_PATHING_BLOCKER;
 	}
 
+  heal(amount=0) {
+    this.current.health = Math.min(this.current.health + amount, this.max.health);
+    this.changed(true);
+  }
+
 	kill() {
 		const map = DATA.map;
     this.current.health = 0;
@@ -82,26 +89,39 @@ export class Actor {
     return this.kind.flags & (KindFlags.AF_IMMOBILE | KindFlags.AF_INANIMATE);
   }
 
-  changed() {
+  changed(v) {
+    if (v) {
+      this.flags |= Flags.AF_CHANGED;
+    }
+    else if (v !== undefined) {
+      this.flags &= ~Flags.AF_CHANGED;
+    }
     return (this.flags & Flags.AF_CHANGED);
   }
 
   statChangePercent(name) {
     const current = this.current[name] || 0;
     const prior = this.prior[name] || 0;
+    const max = Math.max(this.max[name] || 0, current, prior);
 
-    if (prior && current) {
-      return Math.floor(100 * (current - prior)/prior);
-    }
-    else if (prior) {
-      return -100;
-    }
-
-    return 100;
+    return Math.floor(100 * (current - prior)/max);
   }
 
   getName(opts={}) {
-    return this.kind.name;
+    let base = this.kind.name;
+    if (opts.color !== false) {
+      let color = this.kind.consoleColor || this.kind.sprite.fg;
+      if (opts.color instanceof types.Color) {
+        color = opts.color;
+      }
+      base = TEXT.format('%R%s%R', color, base, null);
+    }
+    return base;
+  }
+
+  calcBashDamage(item, ctx) {
+    if (this.kind.calcBashDamage) return this.kind.calcBashDamage(this, item, ctx);
+    return 1;
   }
 
 }

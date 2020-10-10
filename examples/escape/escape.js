@@ -8,20 +8,90 @@ const PLAYER = GW.make.player({
 		sprite: GW.make.sprite('@', 'white'),
 		name: 'you',
 		speed: 120,
+    consoleColor: 'green',
     stats: { health: 20 },
+    calcBashDamage(actor, item, ctx) {
+      if (actor.melee) return actor.melee.stats.damage;
+      return 1;
+    },
     sidebar(entry, y, dim, highlight, buf) {
+      const player = entry.entity;
     	y = GW.sidebar.addName(entry, y, dim, highlight, buf);
       y = GW.sidebar.addHealthBar(entry, y, dim, highlight, buf);
-      y = GW.sidebar.addText(buf, y, 'Melee : None', null, null, dim, highlight);
-      y = GW.sidebar.addText(buf, y, 'Ranged: None', null, null, dim, highlight);
+
+      let melee = 'Fists [1]';
+      if (player.melee) {
+        melee = GW.text.capitalize(player.melee.getName({ details: true, color: !dim }));
+      }
+      y = GW.sidebar.addText(buf, y, 'Melee : ' + melee, null, null, dim, highlight);
+
+      let ranged = 'None';
+      if (player.ranged) {
+        ranged = GW.text.capitalize(player.ranged.getName({ details: true, color: !dim }));
+      }
+      y = GW.sidebar.addText(buf, y, 'Ranged: ' + ranged, null, null, dim, highlight);
       return y;
     },
 });
 
+class EscapeItem extends GW.types.ItemKind {
+  constructor(opts={}) {
+    super(opts);
+  }
 
-GW.tile.addKind('BROKEN_BOX', {
+  getName(opts={}) {
+    let base = super.getName(opts);
+    if (opts.details) {
+      if (this.stats.damage) {
+        base += GW.text.format(' [%d]', this.stats.damage);
+      }
+      if (this.stats.range) {
+        base += GW.text.format(' <%d>', this.stats.range);
+      }
+      if (this.stats.heal) {
+        base += GW.text.format(' /+%d HP/', this.stats.heal);
+      }
+    }
+    return base;
+  }
+
+  pickup(item, actor, ctx) {
+    if (!actor.isPlayer()) return false;
+
+    let current;
+    if (item.kind.slot) {
+      const slot = item.kind.slot;
+      current = true;
+      if (actor[slot]) {
+        current = actor[slot];
+        if (current.stats.damage > item.stats.damage) {
+          GW.message.add('%s find %s, but your %s is better.', actor.getName(), item.getName({ article: 'a', details: true }), current.getName({ details: true }));
+          return false;
+        }
+      }
+      actor[slot] = item;
+    }
+    else if (item.stats.heal) {
+      if (actor.current.health >= actor.max.health) {
+        GW.message.add('%s find %s, but you do not need it.', actor.getName(), item.getName({ article: 'a', details: true }));
+        return false;
+      }
+      actor.heal(item.stats.heal);
+      current = true;
+    }
+    GW.message.add('%s pickup %s.', actor.getName(), item.getName({ article: 'a', details: true }));
+    actor.flags |= GW.flags.actor.AF_CHANGED;
+    return current;
+  }
+}
+
+
+
+
+GW.tile.addKind('BROKEN_FURNITURE', {
   layer: 'SURFACE', priority: 20,
-  name: 'broken box', article: 'a',
+  name: 'broken furniture', article: 'some',
+  flags: 'T_OBSTRUCTS_PASSABILITY',
   sprite: { ch: ';', fg: 'light_brown' }
 });
 
@@ -30,7 +100,7 @@ GW.item.addKind('BOX', {
 	description: 'a large wooden box',
 	sprite: { ch: '\u2612', fg: 'yellow' },
 	flags: 'A_PUSH, A_PULL, A_SLIDE, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE, IK_NO_SIDEBAR',
-  corpse: 'BROKEN_BOX',
+  corpse: 'BROKEN_FURNITURE',
 	stats: { health: 8 }
 });
 
@@ -39,6 +109,7 @@ GW.item.addKind('TABLE', {
 	description: 'a wooden table',
 	sprite: { ch: 'T', fg: 'purple' }, // ch: '\u2610'
 	flags: 'A_PUSH, A_PULL, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE, IK_NO_SIDEBAR',
+  corpse: 'BROKEN_FURNITURE',
 	stats: { health: 10 }
 });
 
@@ -47,6 +118,7 @@ GW.item.addKind('CHAIR', {
 	description: 'a wooden chair',
 	sprite: { ch: '\u2441', fg: 'orange' },
 	flags: 'A_PUSH, A_PULL, A_SLIDE, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE, IK_NO_SIDEBAR',
+  corpse: 'BROKEN_FURNITURE',
 	stats: { health: 4 }
 });
 
@@ -63,6 +135,7 @@ GW.item.addKind('SHELVES', {
 	description: 'shelves',
 	sprite: { ch: '\u25a4', fg: 'tan' },
 	flags: 'A_PUSH, A_PULL, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE, IK_NO_SIDEBAR',
+  corpse: 'BROKEN_FURNITURE',
 	stats: { health: 6 }
 });
 
@@ -71,6 +144,7 @@ GW.item.addKind('CRATE', {
 	description: 'a crate',
 	sprite: { ch: '\u25a7', fg: 'yellow' },
 	flags: 'A_PUSH, A_PULL, A_OPEN, A_CLOSE, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE',
+  corpse: 'BROKEN_FURNITURE',
 	stats: { health: 8 }
 });
 
@@ -79,10 +153,11 @@ GW.item.addKind('CHEST', {
 	description: 'a chest',
 	sprite: { ch: '\u234c', fg: 'yellow' },
 	flags: 'A_PUSH, A_PULL, A_OPEN, A_CLOSE, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE',
+  corpse: 'BROKEN_FURNITURE',
 	stats: { health: 8 }
 });
 
-GW.item.addKind('UMBRELLA', {
+GW.item.addKind('UMBRELLA', new EscapeItem({
 	name: 'umbrella',
 	description: 'an umbrella',
 	sprite: { ch: '\u2602', fg: 'teal' },
@@ -90,9 +165,9 @@ GW.item.addKind('UMBRELLA', {
 	stats: { damage: 2 },
   verb: 'poke',
   slot: 'melee',
-});
+}));
 
-GW.item.addKind('FOLDING_CHAIR', {
+GW.item.addKind('FOLDING_CHAIR', new EscapeItem({
 	name: 'folding chair',
 	description: 'a folding chair',
 	sprite: { ch: '}', fg: 'orange' },
@@ -100,9 +175,9 @@ GW.item.addKind('FOLDING_CHAIR', {
 	stats: { damage: 3 },
   verb: 'clobber',
   slot: 'melee',
-});
+}));
 
-GW.item.addKind('MEAT_TENDERIZER', {
+GW.item.addKind('MEAT_TENDERIZER', new EscapeItem({
 	name: 'meat tenderizer',
 	description: 'a meat tenderizer',
 	sprite: { ch: '}', fg: 'red' },
@@ -110,9 +185,9 @@ GW.item.addKind('MEAT_TENDERIZER', {
 	stats: { damage: 4 },
   verb: 'tenderize',
   slot: 'melee',
-});
+}));
 
-GW.item.addKind('POINTY_STICK', {
+GW.item.addKind('POINTY_STICK', new EscapeItem({
 	name: 'pointy stick',
 	description: 'a pointy stick',
 	sprite: { ch: '/', fg: 'brown' },
@@ -120,9 +195,9 @@ GW.item.addKind('POINTY_STICK', {
 	stats: { damage: 5 },
   verb: 'stab',
   slot: 'melee',
-});
+}));
 
-GW.item.addKind('PISTOL', {
+GW.item.addKind('PISTOL', new EscapeItem({
 	name: 'pistol',
 	description: 'a pistol',
 	sprite: { ch: 'r', fg: 'gray' },
@@ -130,31 +205,35 @@ GW.item.addKind('PISTOL', {
 	stats: { damage: 2, range: 5 },
   verb: 'shoot',
   slot: 'ranged',
-});
+  consoleColor: 'white',
+}));
 
-GW.item.addKind('MEDKIT', {
+GW.item.addKind('MEDKIT', new EscapeItem({
     name: 'Medkit',
     description: 'a Medkit',
     sprite: { ch: '+', fg: 'red', bg: 'white' },
     flags: 'A_USE',
     stats: { heal: 7 },
-});
+    consoleColor: 'pink',
+}));
 
-GW.item.addKind('ASPIRIN', {
+GW.item.addKind('ASPIRIN', new EscapeItem({
     name: 'Aspirin',
     description: 'an aspirin',
     sprite: { ch: ':', fg: 'white' },
     flags: 'A_USE',
     stats: { heal: 3 },
-});
+    consoleColor: 'pink',
+}));
 
-GW.item.addKind('BANDAGE', {
+GW.item.addKind('BANDAGE', new EscapeItem({
     name: 'Bandage',
     description: 'a bandage',
     sprite: { ch: 'o', fg: 'white' },
     flags: 'A_USE',
     stats: { heal: 1 },
-});
+    consoleColor: 'pink',
+}));
 
 
 // DESTROYABLE DOORS??
@@ -168,7 +247,7 @@ async function crossedFinish() {
 	await GW.game.gameOver(true, GW.colors.teal, 'You push open the doors and feel the fresh air hit your face.  The relief is palpable, but in the back of your mind you morn for your colleagues who remain inside.');
 }
 
-const GOAL_TILE = GW.tile.addKind('EXIT', {
+GW.tile.addKind('EXIT', {
 	sprite: { ch: 'X', fg: 'green', bg: 'light_blue' }, priority: 50,
 	name: 'building exit', article: 'the',
 	events: { playerEnter: crossedFinish }
@@ -326,6 +405,7 @@ async function start() {
       cursor: true, // highlight cursor in map view
       flavor: true, // show flavor for cells under cursor
       sidebar: -30, // right side, 30 wide
+      wideMessages: true, // messages go full width of canvas, not just width of map
   });
 	GW.io.setKeymap({
 		dir: 'moveDir', space: 'rest',

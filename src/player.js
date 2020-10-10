@@ -63,6 +63,7 @@ player.takeTurn = takeTurn;
 
 function startTurn(PLAYER) {
 	PLAYER.turnTime = 0;
+  Object.assign(PLAYER.prior, PLAYER.current);
 }
 
 player.startTurn = startTurn;

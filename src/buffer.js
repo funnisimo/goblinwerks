@@ -99,7 +99,7 @@ class Buffer extends types.Grid {
     if (typeof fg === 'string') { fg = COLORS[fg]; }
     if (typeof bg === 'string') { bg = COLORS[bg]; }
     width = Math.min(width, this.width - x);
-    if (text.length <= width) {
+    if (TEXT.length(text) <= width) {
       this.plotText(x, y, text, fg, bg);
       return y + 1;
     }

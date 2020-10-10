@@ -50,6 +50,7 @@ export function start(opts={}) {
     bg: 'black',
     sidebar: false,
     messages: false,
+    wideMessages: false,
 		cursor: false,
 		flavor: false,
     menu: false,
@@ -84,6 +85,10 @@ export function start(opts={}) {
 
 	let flavorLine = -1;
 
+  if (opts.wideMessages && opts.messages) {
+    viewH -= Math.abs(opts.messages);
+  }
+
   if (opts.sidebar) {
     if (opts.sidebar === true) {
       opts.sidebar = 20;
@@ -99,19 +104,25 @@ export function start(opts={}) {
     }
   }
 
+  const msgW = (opts.wideMessages ? opts.width : viewW);
+
 	if (opts.messages) {
 		if (opts.messages < 0) {	// on bottom of screen
-			MSG.setup({x: 0, y: ui.canvas.height + opts.messages, width: viewW, height: -opts.messages, archive: ui.canvas.height });
-			viewH += opts.messages;	// subtract off message height
+			MSG.setup({x: 0, y: ui.canvas.height + opts.messages, width: msgW, height: -opts.messages, archive: ui.canvas.height });
+      if (!opts.wideMessages) {
+        viewH += opts.messages;	// subtract off message height
+      }
 			if (opts.flavor) {
 				viewH -= 1;
 				flavorLine = ui.canvas.height + opts.messages - 1;
 			}
 		}
 		else {	// on top of screen
-			MSG.setup({x: 0, y: 0, width: viewW, height: opts.messages, archive: ui.canvas.height });
+			MSG.setup({x: 0, y: 0, width: msgW, height: opts.messages, archive: ui.canvas.height });
 			viewY = opts.messages;
-			viewH -= opts.messages;
+      if (! opts.wideMessages) {
+        viewH -= opts.messages;
+      }
 			if (opts.flavor) {
 				viewY += 1;
 				viewH -= 1;
@@ -121,7 +132,7 @@ export function start(opts={}) {
 	}
 
 	if (opts.flavor) {
-		FLAVOR.setup({ x: viewX, y: flavorLine, w: viewW, h: 1 });
+		FLAVOR.setup({ x: viewX, y: flavorLine, w: msgW, h: 1 });
 	}
 
 	VIEWPORT.setup({ x: viewX, y: viewY, w: viewW, h: viewH });
