@@ -476,7 +476,18 @@ async function chooseTarget(choices, prompt, opts={}) {
 		buf.plotLine(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, prompt, GW.colors.orange);
 		if (selected >= 0) {
 			const choice = choices[selected];
-			buf.plot(choice.x, choice.y, TARGET_SPRITE);
+
+      let offsetX = 0;
+      let offsetY = 0;
+      if (CONFIG.followPlayer && DATA.player && DATA.player.x >= 0) {
+        offsetX = DATA.player.x - VIEWPORT.bounds.centerX();
+        offsetY = DATA.player.y - VIEWPORT.bounds.centerY();
+      }
+
+      const x = choice.x + VIEWPORT.bounds.x - offsetX;
+      const y = choice.y + VIEWPORT.bounds.y - offsetY;
+
+			buf.plot(x, y, TARGET_SPRITE);
 		}
 		ui.draw();
 	}
