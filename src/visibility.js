@@ -124,7 +124,7 @@ function updateVisibility(map, x, y) {
 	// updateLighting();
 	map.forEach( promoteCellVisibility );
 
-	// if (PLAYER.status[STATUS_HALLUCINATING] > 0) {
+	// if (PLAYER.status.hallucinating > 0) {
 	// 	for (theItem of DUNGEON.items) {
 	// 		if ((pmap[theItem.xLoc][theItem.yLoc].flags & DISCOVERED) && refreshDisplay) {
 	// 			refreshDungeonCell(theItem.xLoc, theItem.yLoc);

@@ -12,8 +12,8 @@ const PLAYER = GW.make.player({
 		speed: 120
 });
 
-GW.cell.debug = console.log;
-GW.tileEvent.debug = console.log;
+// GW.cell.debug = console.log;
+// GW.tileEvent.debug = console.log;
 
 
 GW.digger.install('ROOM',     			GW.digger.rectangularRoom,  { width: 20, height: 10 });

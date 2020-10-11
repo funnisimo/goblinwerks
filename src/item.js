@@ -1,5 +1,7 @@
 
+import { color as COLOR } from './color.js';
 import { Flags as TileFlags } from './tile.js';
+import { text as TEXT } from './text.js';
 import * as GW from './gw.js';
 
 const Fl = GW.flag.fl;
@@ -24,6 +26,7 @@ export const ActionFlags = GW.flag.install('action', {
   A_CLOSE       : Fl(12),
 
 	A_GRABBABLE : 'A_PULL, A_SLIDE',
+  A_WIELD     : 'A_EQUIP',
 });
 
 
@@ -36,9 +39,11 @@ export const KindFlags = GW.flag.install('itemKind', {
 	IK_HALF_STACK_STOLEN		: Fl(3),
 	IK_ENCHANT_USES_STR 		: Fl(4),
 
-	IK_ARTICLE_THE					: Fl(5),
-	IK_NO_ARTICLE						: Fl(6),
-	IK_PRENAMED	  					: Fl(7),
+	// IK_ARTICLE_THE					: Fl(5),
+	// IK_NO_ARTICLE						: Fl(6),
+	// IK_PRENAMED	  					: Fl(7),
+
+  IK_NO_SIDEBAR           : Fl(5),  // Do not show this item in the sidebar
 
 	IK_BREAKS_ON_FALL				: Fl(8),
 	IK_DESTROY_ON_USE				: Fl(9),
@@ -148,7 +153,17 @@ class ItemKind {
 		this.attackFlags = AttackFlags.toFlag(opts.flags);
 		this.stats = Object.assign({}, opts.stats || {});
 		this.id = opts.id || null;
+    this.slot = opts.slot || null;
     this.corpse = GW.make.tileEvent(opts.corpse);
+    if (opts.consoleColor === false) {
+      this.consoleColor = false;
+    }
+    else {
+      this.consoleColor = opts.consoleColor || true;
+      if (typeof this.consoleColor === 'string') {
+        this.consoleColor = COLOR.from(this.consoleColor);
+      }
+    }
   }
 
   getName(opts={}) {
@@ -156,12 +171,13 @@ class ItemKind {
     if (opts === false) { opts = {}; }
     if (typeof opts === 'string') { opts = { article: opts }; }
 
-    if (!opts.article && !opts.color) return this.name;
-
     let result = this.name;
-    if (opts.color) {
+    if (opts.color || (this.consoleColor && (opts.color !== false))) {
       let color = this.sprite.fg;
-      if (opts.color instanceof types.Color) {
+      if (this.consoleColor instanceof GW.types.Color) {
+        color = this.consoleColor;
+      }
+      if (opts.color instanceof GW.types.Color) {
         color = opts.color;
       }
       result = TEXT.format('%R%s%R', color, this.name, null);
@@ -169,6 +185,9 @@ class ItemKind {
 
     if (opts.article) {
       let article = (opts.article === true) ? this.article : opts.article;
+      if (article == 'a' && TEXT.isVowel(TEXT.firstChar(result))) {
+        article = 'an';
+      }
       result = article + ' ' + result;
     }
     return result;
@@ -179,7 +198,13 @@ GW.types.ItemKind = ItemKind;
 
 function addItemKind(id, opts={}) {
 	opts.id = id;
-	const kind = new GW.types.ItemKind(opts);
+  let kind;
+  if (opts instanceof GW.types.ItemKind) {
+    kind = opts;
+  }
+  else {
+    kind = new GW.types.ItemKind(opts);
+  }
 	GW.itemKinds[id] = kind;
 	return kind;
 }
@@ -225,11 +250,12 @@ class Item {
 	}
 
 	isDestroyed() { return this.flags & Flags.ITEM_DESTROYED; }
+  changed() { return false; } // ITEM_CHANGED
 
 	forbiddenTileFlags() { return TileFlags.T_OBSTRUCTS_ITEMS; }
 
 	flavorText() { return this.kind.description || this.kind.getName(true); }
-  name(opts={}) {
+  getName(opts={}) {
     return this.kind.getName(opts);
   }
 }

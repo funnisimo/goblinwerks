@@ -11,7 +11,7 @@ async function grab(e) {
   const map = DATA.map;
 
   if (actor.grabbed) {
-    MSG.add('You let go of %s.', actor.grabbed.flavorText());
+    MSG.add('%s let go of %s.', actor.getName(), actor.grabbed.getName('a'));
     await FX.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
     actor.grabbed = null;
     actor.endTurn();
@@ -40,7 +40,7 @@ async function grab(e) {
   }
 
   actor.grabbed = choice;
-  MSG.add('you grab %s.', actor.grabbed.flavorText());
+  MSG.add('%s grab %s.', actor.getName(), actor.grabbed.getName('a'));
   await FX.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
   actor.endTurn();
   return true;

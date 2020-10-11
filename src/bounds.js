@@ -18,6 +18,9 @@ class Bounds {
       && this.y + this.height > y;
   }
 
+  centerX() { return Math.round(this.width / 2) + this.x; }
+  centerY() { return Math.round(this.height / 2) + this.y; }
+
   toInnerX(x) { return x - this.x; }
   toInnerY(y) { return y - this.y; }
 

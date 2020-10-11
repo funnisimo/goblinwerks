@@ -104,7 +104,7 @@ function drawMessages(buffer) {
 				COLOR.applyMix(color, COLORS.black, 50);
 				COLOR.applyMix(color, COLORS.black, 75 * i / (2*SETUP.height));
 			}
-			messageColor = color || messageColor;
+			messageColor = color || tempColor;
 			buffer.plotChar(x, y, c, messageColor, COLORS.black);
 		});
 

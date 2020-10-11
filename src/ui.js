@@ -2,7 +2,7 @@
 import { io as IO } from './io.js';
 import { Flags as CellFlags } from './cell.js';
 import { sprite as SPRITE } from './sprite.js';
-import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, utils as UTILS, make } from './gw.js';
+import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, utils as UTILS, make, sidebar as SIDEBAR, config as CONFIG } from './gw.js';
 
 ui.debug = UTILS.NOOP;
 
@@ -50,11 +50,13 @@ export function start(opts={}) {
     bg: 'black',
     sidebar: false,
     messages: false,
+    wideMessages: false,
 		cursor: false,
 		flavor: false,
     menu: false,
     div: 'canvas',
     io: true,
+    followPlayer: false,
   });
 
   if (!ui.canvas) {
@@ -84,19 +86,44 @@ export function start(opts={}) {
 
 	let flavorLine = -1;
 
+  if (opts.wideMessages && opts.messages) {
+    viewH -= Math.abs(opts.messages);
+  }
+
+  if (opts.sidebar) {
+    if (opts.sidebar === true) {
+      opts.sidebar = 20;
+    }
+    if (opts.sidebar < 0) { // right side
+      viewW += opts.sidebar;  // subtract
+      SIDEBAR.setup({ x: viewW, y: 0, width: -opts.sidebar, height: viewH });
+    }
+    else {  // left side
+      viewW -= opts.sidebar;
+      viewX = opts.sidebar;
+      SIDEBAR.setup({ x: 0, y: 0, width: opts.sidebar, height: viewH });
+    }
+  }
+
+  const msgW = (opts.wideMessages ? opts.width : viewW);
+
 	if (opts.messages) {
 		if (opts.messages < 0) {	// on bottom of screen
-			MSG.setup({x: 0, y: ui.canvas.height + opts.messages, width: ui.canvas.width, height: -opts.messages, archive: ui.canvas.height });
-			viewH += opts.messages;	// subtract off message height
+			MSG.setup({x: 0, y: ui.canvas.height + opts.messages, width: msgW, height: -opts.messages, archive: ui.canvas.height });
+      if (!opts.wideMessages) {
+        viewH += opts.messages;	// subtract off message height
+      }
 			if (opts.flavor) {
 				viewH -= 1;
 				flavorLine = ui.canvas.height + opts.messages - 1;
 			}
 		}
 		else {	// on top of screen
-			MSG.setup({x: 0, y: 0, width: ui.canvas.width, height: opts.messages, archive: ui.canvas.height });
+			MSG.setup({x: 0, y: 0, width: msgW, height: opts.messages, archive: ui.canvas.height });
 			viewY = opts.messages;
-			viewH -= opts.messages;
+      if (! opts.wideMessages) {
+        viewH -= opts.messages;
+      }
 			if (opts.flavor) {
 				viewY += 1;
 				viewH -= 1;
@@ -106,10 +133,10 @@ export function start(opts={}) {
 	}
 
 	if (opts.flavor) {
-		FLAVOR.setup({ x: viewX, y: flavorLine, w: viewW, h: 1 });
+		FLAVOR.setup({ x: viewX, y: flavorLine, w: msgW, h: 1 });
 	}
 
-	VIEWPORT.setup({ x: viewX, y: viewY, w: viewW, h: viewH });
+	VIEWPORT.setup({ x: viewX, y: viewY, w: viewW, h: viewH, followPlayer: opts.followPlayer });
 	SHOW_CURSOR = opts.cursor;
 
   ui.blackOutDisplay();
@@ -137,24 +164,71 @@ export async function dispatchEvent(ev) {
 			await MSG.showArchive();
 			return true;
 		}
-		if (FLAVOR.bounds && FLAVOR.bounds.containsXY(ev.x, ev.y)) {
+		else if (FLAVOR.bounds && FLAVOR.bounds.containsXY(ev.x, ev.y)) {
 			return true;
 		}
+    if (VIEWPORT.bounds && VIEWPORT.bounds.containsXY(ev.x, ev.y)) {
+      let x0 = VIEWPORT.bounds.toInnerX(ev.x);
+      let y0 = VIEWPORT.bounds.toInnerY(ev.y);
+      if (CONFIG.followPlayer && DATA.player && (DATA.player.x >= 0)) {
+        const offsetX = DATA.player.x - VIEWPORT.bounds.centerX();
+        const offsetY = DATA.player.y - VIEWPORT.bounds.centerY();
+        x0 += offsetX;
+        y0 += offsetY;
+      }
+      ev.mapX = x0;
+      ev.mapY = y0;
+    }
 	}
 	else if (ev.type === def.MOUSEMOVE) {
 		if (VIEWPORT.bounds && VIEWPORT.bounds.containsXY(ev.x, ev.y)) {
+      let x0 = VIEWPORT.bounds.toInnerX(ev.x);
+      let y0 = VIEWPORT.bounds.toInnerY(ev.y);
+      if (CONFIG.followPlayer && DATA.player && (DATA.player.x >= 0)) {
+        const offsetX = DATA.player.x - VIEWPORT.bounds.centerX();
+        const offsetY = DATA.player.y - VIEWPORT.bounds.centerY();
+        x0 += offsetX;
+        y0 += offsetY;
+      }
+      ev.mapX = x0;
+      ev.mapY = y0;
 			if (SHOW_CURSOR) {
-				ui.setCursor(VIEWPORT.bounds.toInnerX(ev.x), VIEWPORT.bounds.toInnerY(ev.y));
+				ui.setCursor(x0, y0);
 			}
+      if (SIDEBAR.bounds) {
+        SIDEBAR.focus(x0, y0);
+      }
 			return true;
 		}
+    else if (SIDEBAR.bounds && SIDEBAR.bounds.containsXY(ev.x, ev.y)) {
+      SIDEBAR.highlightRow(ev.y);
+    }
 		else {
 			ui.clearCursor();
+      SIDEBAR.focus(-1, -1);
 		}
 		if (FLAVOR.bounds && FLAVOR.bounds.containsXY(ev.x, ev.y)) {
 			return true;
 		}
 	}
+  else if (ev.type === def.KEYPRESS) {
+    if (SIDEBAR.bounds) {
+      if (ev.key === 'Tab') {
+        const loc = SIDEBAR.nextTarget();
+        ui.setCursor(loc[0], loc[1]);
+        return true;
+      }
+      else if (ev.key === 'TAB') {
+        const loc = SIDEBAR.prevTarget();
+        ui.setCursor(loc[0], loc[1]);
+        return true;
+      }
+      else if (ev.key === 'Escape') {
+        SIDEBAR.focus(-1, -1);
+        ui.clearCursor();
+      }
+    }
+  }
 
 	await IO.dispatchEvent(ev);
 }
@@ -402,7 +476,18 @@ async function chooseTarget(choices, prompt, opts={}) {
 		buf.plotLine(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, prompt, GW.colors.orange);
 		if (selected >= 0) {
 			const choice = choices[selected];
-			buf.plot(choice.x, choice.y, TARGET_SPRITE);
+
+      let offsetX = 0;
+      let offsetY = 0;
+      if (CONFIG.followPlayer && DATA.player && DATA.player.x >= 0) {
+        offsetX = DATA.player.x - VIEWPORT.bounds.centerX();
+        offsetY = DATA.player.y - VIEWPORT.bounds.centerY();
+      }
+
+      const x = choice.x + VIEWPORT.bounds.x - offsetX;
+      const y = choice.y + VIEWPORT.bounds.y - offsetY;
+
+			buf.plot(x, y, TARGET_SPRITE);
 		}
 		ui.draw();
 	}
@@ -477,6 +562,7 @@ function draw() {
     if (VIEWPORT.bounds) VIEWPORT.draw(UI_BUFFER);
 		if (MSG.bounds) MSG.draw(UI_BUFFER);
 		if (FLAVOR.bounds) FLAVOR.draw(UI_BUFFER);
+    if (SIDEBAR.bounds) SIDEBAR.draw(UI_BUFFER);
 
     // if (commitCombatMessage() || REDRAW_UI || side || map) {
     ui.canvas.overlay(UI_BUFFER);
