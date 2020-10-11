@@ -2,7 +2,7 @@
 import { io as IO } from './io.js';
 import { Flags as CellFlags } from './cell.js';
 import { sprite as SPRITE } from './sprite.js';
-import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, utils as UTILS, make, sidebar as SIDEBAR } from './gw.js';
+import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, utils as UTILS, make, sidebar as SIDEBAR, config as CONFIG } from './gw.js';
 
 ui.debug = UTILS.NOOP;
 
@@ -164,14 +164,34 @@ export async function dispatchEvent(ev) {
 			await MSG.showArchive();
 			return true;
 		}
-		if (FLAVOR.bounds && FLAVOR.bounds.containsXY(ev.x, ev.y)) {
+		else if (FLAVOR.bounds && FLAVOR.bounds.containsXY(ev.x, ev.y)) {
 			return true;
 		}
+    if (VIEWPORT.bounds && VIEWPORT.bounds.containsXY(ev.x, ev.y)) {
+      let x0 = VIEWPORT.bounds.toInnerX(ev.x);
+      let y0 = VIEWPORT.bounds.toInnerY(ev.y);
+      if (CONFIG.followPlayer && DATA.player && (DATA.player.x >= 0)) {
+        const offsetX = DATA.player.x - VIEWPORT.bounds.centerX();
+        const offsetY = DATA.player.y - VIEWPORT.bounds.centerY();
+        x0 += offsetX;
+        y0 += offsetY;
+      }
+      ev.mapX = x0;
+      ev.mapY = y0;
+    }
 	}
 	else if (ev.type === def.MOUSEMOVE) {
 		if (VIEWPORT.bounds && VIEWPORT.bounds.containsXY(ev.x, ev.y)) {
-      const x0 = VIEWPORT.bounds.toInnerX(ev.x);
-      const y0 = VIEWPORT.bounds.toInnerY(ev.y)
+      let x0 = VIEWPORT.bounds.toInnerX(ev.x);
+      let y0 = VIEWPORT.bounds.toInnerY(ev.y);
+      if (CONFIG.followPlayer && DATA.player && (DATA.player.x >= 0)) {
+        const offsetX = DATA.player.x - VIEWPORT.bounds.centerX();
+        const offsetY = DATA.player.y - VIEWPORT.bounds.centerY();
+        x0 += offsetX;
+        y0 += offsetY;
+      }
+      ev.mapX = x0;
+      ev.mapY = y0;
 			if (SHOW_CURSOR) {
 				ui.setCursor(x0, y0);
 			}

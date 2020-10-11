@@ -627,7 +627,7 @@ export function getCellAppearance(map, x, y, dest) {
 	if (!map.hasXY(x, y)) return;
 	const cell = map.cell(x, y);
 
-  if (cell.isAnyKindOfVisible() && (cell.flags & CellFlags.CELL_CHANGED)) {
+  if (cell.isAnyKindOfVisible() && (cell.flags & (CellFlags.CELL_CHANGED | CellFlags.NEEDS_REDRAW))) {
     CELL.getAppearance(cell, dest);
   }
   else if (cell.isRevealed()) {
@@ -643,8 +643,8 @@ export function getCellAppearance(map, x, y, dest) {
   else if (!cell.isAnyKindOfVisible()) {
     COLOR.applyMix(dest.bg, COLORS.black, 30);
     COLOR.applyMix(dest.fg, COLORS.black, 30);
-    COLOR.bake(dest.bg);
-    COLOR.bake(dest.fg);
+    // COLOR.bake(dest.bg);
+    // COLOR.bake(dest.fg);
   }
 
   let needDistinctness = false;
@@ -665,7 +665,7 @@ export function getCellAppearance(map, x, y, dest) {
     COLOR.separate(dest.fg, dest.bg);
   }
 
-	dest.bake();
+	// dest.bake();
 }
 
 map.getCellAppearance = getCellAppearance;

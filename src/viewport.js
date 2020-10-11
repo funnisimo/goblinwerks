@@ -39,7 +39,7 @@ function drawViewport(buffer, map) {
         }
       }
     }
-    map.clearFlags(MapFlags.MAP_CHANGED, CellFlags.NEEDS_REDRAW);
+    map.clearFlags(MapFlags.MAP_CHANGED, CellFlags.NEEDS_REDRAW | CellFlags.CELL_CHANGED);
     buffer.needsUpdate = true;
   }
   else {

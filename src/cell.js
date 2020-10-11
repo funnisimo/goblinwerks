@@ -613,6 +613,7 @@ export function getAppearance(cell, dest) {
     current = current.next;
   }
 
+  memory.bake();
   dest.plot(memory);
   return true;
 }

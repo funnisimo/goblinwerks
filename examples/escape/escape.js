@@ -378,12 +378,20 @@ async function showHelp() {
 	y++;
 	buf.plotText(15, y, 'dir   ', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Pressing an arrow key moves the player in that direction.', 'white', null, 2);
+  buf.plotText(15, y, 'b', 'yellow');
+	y = buf.wrapText(21, y, 42, ': Bash something.', 'lighter_gray');
+  buf.plotText(15, y, 'g', 'yellow');
+	y = buf.wrapText(21, y, 42, ': Grab something.', 'white', null, 2);
+  buf.plotText(15, y, 'o', 'yellow');
+	y = buf.wrapText(21, y, 42, ': Open something.', 'lighter_gray');
+  buf.plotText(15, y, 'c', 'yellow');
+	y = buf.wrapText(21, y, 42, ': Close something.', 'white', null, 2);
 	buf.plotText(15, y, 'space ', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Wait a short time.', 'white', null, 2);
 	buf.plotText(15, y, '?', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Show this screen.', 'lighter_gray');
 
-	buf.fillRect(14, 1, 52, y, null, null, 'black' );
+	buf.fillRect(12, 0, 54, y + 2, null, null, 'darkest_gray' );
 
 	GW.ui.draw();
 	await GW.io.nextKeyPress(-1);

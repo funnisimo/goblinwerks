@@ -5596,6 +5596,7 @@
       current = current.next;
     }
 
+    memory.bake();
     dest.plot(memory);
     return true;
   }
@@ -7539,7 +7540,7 @@
   	if (!map.hasXY(x, y)) return;
   	const cell$1 = map.cell(x, y);
 
-    if (cell$1.isAnyKindOfVisible() && (cell$1.flags & Flags$1.CELL_CHANGED)) {
+    if (cell$1.isAnyKindOfVisible() && (cell$1.flags & (Flags$1.CELL_CHANGED | Flags$1.NEEDS_REDRAW))) {
       cell.getAppearance(cell$1, dest);
     }
     else if (cell$1.isRevealed()) {
@@ -7553,8 +7554,8 @@
     else if (!cell$1.isAnyKindOfVisible()) {
       color.applyMix(dest.bg, colors.black, 30);
       color.applyMix(dest.fg, colors.black, 30);
-      color.bake(dest.bg);
-      color.bake(dest.fg);
+      // COLOR.bake(dest.bg);
+      // COLOR.bake(dest.fg);
     }
 
     let needDistinctness = false;
@@ -7575,7 +7576,7 @@
       color.separate(dest.fg, dest.bg);
     }
 
-  	dest.bake();
+  	// dest.bake();
   }
 
   map.getCellAppearance = getCellAppearance;
@@ -9788,7 +9789,7 @@
           }
         }
       }
-      map$1.clearFlags(Flags$5.MAP_CHANGED, Flags$1.NEEDS_REDRAW);
+      map$1.clearFlags(Flags$5.MAP_CHANGED, Flags$1.NEEDS_REDRAW | Flags$1.CELL_CHANGED);
       buffer.needsUpdate = true;
     }
     else {
@@ -10813,14 +10814,34 @@
   			await message.showArchive();
   			return true;
   		}
-  		if (flavor.bounds && flavor.bounds.containsXY(ev.x, ev.y)) {
+  		else if (flavor.bounds && flavor.bounds.containsXY(ev.x, ev.y)) {
   			return true;
   		}
+      if (viewport.bounds && viewport.bounds.containsXY(ev.x, ev.y)) {
+        let x0 = viewport.bounds.toInnerX(ev.x);
+        let y0 = viewport.bounds.toInnerY(ev.y);
+        if (config.followPlayer && data.player && (data.player.x >= 0)) {
+          const offsetX = data.player.x - viewport.bounds.centerX();
+          const offsetY = data.player.y - viewport.bounds.centerY();
+          x0 += offsetX;
+          y0 += offsetY;
+        }
+        ev.mapX = x0;
+        ev.mapY = y0;
+      }
   	}
   	else if (ev.type === def.MOUSEMOVE) {
   		if (viewport.bounds && viewport.bounds.containsXY(ev.x, ev.y)) {
-        const x0 = viewport.bounds.toInnerX(ev.x);
-        const y0 = viewport.bounds.toInnerY(ev.y);
+        let x0 = viewport.bounds.toInnerX(ev.x);
+        let y0 = viewport.bounds.toInnerY(ev.y);
+        if (config.followPlayer && data.player && (data.player.x >= 0)) {
+          const offsetX = data.player.x - viewport.bounds.centerX();
+          const offsetY = data.player.y - viewport.bounds.centerY();
+          x0 += offsetX;
+          y0 += offsetY;
+        }
+        ev.mapX = x0;
+        ev.mapY = y0;
   			if (SHOW_CURSOR) {
   				ui.setCursor(x0, y0);
   			}
