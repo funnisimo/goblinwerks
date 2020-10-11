@@ -398,14 +398,15 @@ async function start() {
   const map = mapFromPrefab(mapPrefab);
 
 	const canvas = GW.ui.start({
-      div: 'game',  // use this canvas element
-      width: Math.max(map.width + 30, 80),  // total width of canvas in cells
-      height: Math.max(map.height + 6, 36), // total height of canvas in cells
+      div: 'game',  // use this canvas element ID
+      width: 80,    // total width of canvas in cells
+      height: 36,   // total height of canvas in cells
       messages: -5, // show 5 recent message lines
       cursor: true, // highlight cursor in map view
       flavor: true, // show flavor for cells under cursor
-      sidebar: -30, // right side, 30 wide
+      sidebar: -40, // right side, 30 wide
       wideMessages: true, // messages go full width of canvas, not just width of map
+      followPlayer: true, // The player stays at the center of the map
   });
 	GW.io.setKeymap({
 		dir: 'moveDir', space: 'rest',

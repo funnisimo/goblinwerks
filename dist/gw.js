@@ -63,6 +63,9 @@
         && this.y + this.height > y;
     }
 
+    centerX() { return Math.round(this.width / 2) + this.x; }
+    centerY() { return Math.round(this.height / 2) + this.y; }
+
     toInnerX(x) { return x - this.x; }
     toInnerY(y) { return y - this.y; }
 
@@ -9753,9 +9756,9 @@
 
   let VIEWPORT = null;
 
-
   function setup$1(opts={}) {
     VIEWPORT = viewport.bounds = new types.Bounds(opts.x, opts.y, opts.w, opts.h);
+    config.followPlayer = opts.followPlayer || false;
   }
 
   viewport.setup = setup$1;
@@ -9767,18 +9770,41 @@
     if (!map$1) return;
     if (!map$1.flags & Flags$5.MAP_CHANGED) return;
 
-    map$1.cells.forEach( (c, i, j) => {
-      if (!VIEWPORT.containsXY(i + VIEWPORT.x, j + VIEWPORT.y)) return;
+    if (config.followPlayer && data.player && data.player.x >= 0) {
+      const offsetX = data.player.x - VIEWPORT.centerX();
+      const offsetY = data.player.y - VIEWPORT.centerY();
 
-      if (c.flags & Flags$1.NEEDS_REDRAW) {
-        const buf = buffer[i + VIEWPORT.x][j + VIEWPORT.y];
-        map.getCellAppearance(map$1, i, j, buf);
-        c.clearFlags(Flags$1.NEEDS_REDRAW);
-        buffer.needsUpdate = true;
+      for(let x = 0; x < VIEWPORT.width; ++x) {
+        for(let y = 0; y < VIEWPORT.height; ++y) {
+
+          const buf = buffer[x + VIEWPORT.x][y + VIEWPORT.y];
+          const mapX= x + offsetX;
+          const mapY = y + offsetY;
+          if (map$1.hasXY(mapX, mapY)) {
+            map.getCellAppearance(map$1, mapX, mapY, buf);
+          }
+          else {
+            buf.blackOut();
+          }
+        }
       }
-    });
+      map$1.clearFlags(Flags$5.MAP_CHANGED, Flags$1.NEEDS_REDRAW);
+      buffer.needsUpdate = true;
+    }
+    else {
+      map$1.cells.forEach( (c, i, j) => {
+        if (!VIEWPORT.containsXY(i + VIEWPORT.x, j + VIEWPORT.y)) return;
 
-    map$1.flags &= ~Flags$5.MAP_CHANGED;
+        if (c.flags & Flags$1.NEEDS_REDRAW) {
+          const buf = buffer[i + VIEWPORT.x][j + VIEWPORT.y];
+          map.getCellAppearance(map$1, i, j, buf);
+          c.clearFlags(Flags$1.NEEDS_REDRAW);
+          buffer.needsUpdate = true;
+        }
+      });
+      map$1.flags &= ~Flags$5.MAP_CHANGED;
+    }
+
   }
 
 
@@ -10680,6 +10706,7 @@
       menu: false,
       div: 'canvas',
       io: true,
+      followPlayer: false,
     });
 
     if (!ui.canvas) {
@@ -10758,7 +10785,7 @@
   		flavor.setup({ x: viewX, y: flavorLine, w: msgW, h: 1 });
   	}
 
-  	viewport.setup({ x: viewX, y: viewY, w: viewW, h: viewH });
+  	viewport.setup({ x: viewX, y: viewY, w: viewW, h: viewH, followPlayer: opts.followPlayer });
   	SHOW_CURSOR = opts.cursor;
 
     ui.blackOutDisplay();

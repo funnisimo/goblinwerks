@@ -56,6 +56,7 @@ export function start(opts={}) {
     menu: false,
     div: 'canvas',
     io: true,
+    followPlayer: false,
   });
 
   if (!ui.canvas) {
@@ -135,7 +136,7 @@ export function start(opts={}) {
 		FLAVOR.setup({ x: viewX, y: flavorLine, w: msgW, h: 1 });
 	}
 
-	VIEWPORT.setup({ x: viewX, y: viewY, w: viewW, h: viewH });
+	VIEWPORT.setup({ x: viewX, y: viewY, w: viewW, h: viewH, followPlayer: opts.followPlayer });
 	SHOW_CURSOR = opts.cursor;
 
   ui.blackOutDisplay();
