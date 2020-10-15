@@ -1,17 +1,15 @@
 
 
 import { colors as COLORS } from './color.js';
-import { Flags as CellFlags } from './cell.js';
-import { Flags as MapFlags, map as MAP } from './map.js';
+import * as Flags from './flags.js';
+import { map as MAP } from './map.js';
 import { io as IO } from './io.js';
 import { actor as ACTOR } from './actor.js';
 import { player as PLAYER } from './player.js';
 import { scheduler } from './scheduler.js';
 import { text as TEXT } from './text.js';
 import { sprite as SPRITE } from './sprite.js';
-import { Flags as TileFlags } from './tile.js';
 import { visibility as VISIBILITY } from './visibility.js';
-import { MechFlags as CellMechFlags } from './cell.js';
 
 import { viewport as VIEWPORT, data as DATA, maps as MAPS, types, fx as FX, ui as UI, message as MSG, utils as UTILS, make, config as CONFIG, flavor as FLAVOR } from './gw.js';
 
@@ -135,6 +133,10 @@ export function startMap(map, loc='start') {
     VISIBILITY.update(map, DATA.player.x, DATA.player.y);
   }
 
+  UTILS.eachChain(map.actors, (actor) => {
+    game.queueActor(actor);
+  });
+
   UI.blackOutDisplay();
   map.redrawAll();
   UI.draw();
@@ -162,6 +164,7 @@ async function gameLoop() {
     else {
       if (scheduler.time > DATA.time) {
         DATA.time = scheduler.time;
+        game.debug('- update now: %d', scheduler.time);
         await UI.updateIfRequested();
       }
       const turnTime = await fn();
@@ -251,17 +254,17 @@ async function useStairs(x, y) {
   const cell = map.cell(x, y);
   let start = [player.x, player.y];
   let mapId = -1;
-  if (cell.hasTileFlag(TileFlags.T_UP_STAIRS)) {
+  if (cell.hasTileFlag(Flags.Tile.T_UP_STAIRS)) {
     start = 'down';
     mapId = map.id + 1;
     MSG.add('you ascend.');
   }
-  else if (cell.hasTileFlag(TileFlags.T_DOWN_STAIRS)) {
+  else if (cell.hasTileFlag(Flags.Tile.T_DOWN_STAIRS)) {
     start = 'up';
     mapId = map.id - 1;
     MSG.add('you descend.');
   }
-  else if (cell.hasTileFlag(TileFlags.T_PORTAL)) {
+  else if (cell.hasTileFlag(Flags.Tile.T_PORTAL)) {
     start = cell.data.portalLocation;
     mapId = cell.data.portalMap;
   }

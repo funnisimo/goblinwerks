@@ -102,10 +102,10 @@ describe('RL.Tile', () => {
     expect(tile).toBeDefined();
     expect(GW.tiles.WALL).toBe(tile);
 
-    expect(tile.flags).toEqual(GW.tile.flags.T_OBSTRUCTS_EVERYTHING);
+    expect(tile.flags).toEqual(GW.flags.tile.T_OBSTRUCTS_EVERYTHING);
     expect(tile.mechFlags).toEqual(0);
     expect(tile.sprite).toMatchObject({ ch: '#', fg: GW.colors.light_gray, bg: GW.colors.dark_gray });
-    expect(tile.layer).toEqual(GW.tile.Layer.GROUND);
+    expect(tile.layer).toEqual(GW.def.GROUND);
     expect(tile.events).toEqual({});
     expect(tile.priority).toEqual(90);
     expect(tile.name).toEqual('Stone Wall');
@@ -155,8 +155,8 @@ describe('RL.Tile', () => {
     expect(GW.tiles.GLASS_WALL).toBe(glassWall);
 
     expect(glassWall.flags).not.toEqual(wall.flags);
-    expect(glassWall.flags & GW.tile.flags.T_OBSTRUCTS_VISION).toBeFalsy();
-    expect(glassWall.flags & GW.tile.flags.T_OBSTRUCTS_PASSABILITY).toBeTruthy();
+    expect(glassWall.flags & GW.flags.tile.T_OBSTRUCTS_VISION).toBeFalsy();
+    expect(glassWall.flags & GW.flags.tile.T_OBSTRUCTS_PASSABILITY).toBeTruthy();
     expect(glassWall.getName()).toEqual('Glass Wall');
     expect(glassWall.sprite).not.toBe(wall.sprite);
     expect(glassWall.sprite).toMatchObject({ ch: '+', fg: GW.colors.teal, bg: null });
@@ -179,10 +179,10 @@ describe('RL.Tile', () => {
     });
 
     expect(GW.tiles.WALL.getName()).toEqual('Stone Wall');
-    expect(GW.tiles.WALL.flags).toEqual(GW.tile.flags.T_OBSTRUCTS_EVERYTHING);
+    expect(GW.tiles.WALL.flags).toEqual(GW.flags.tile.T_OBSTRUCTS_EVERYTHING);
     expect(GW.tiles.GLASS_WALL.getName()).toEqual('Glass Wall');
-    expect(GW.tiles.GLASS_WALL.flags & GW.tile.flags.T_OBSTRUCTS_VISION).toBeFalsy();
-    expect(GW.tiles.GLASS_WALL.flags & GW.tile.flags.T_OBSTRUCTS_PASSABILITY).toBeTruthy();
+    expect(GW.tiles.GLASS_WALL.flags & GW.flags.tile.T_OBSTRUCTS_VISION).toBeFalsy();
+    expect(GW.tiles.GLASS_WALL.flags & GW.flags.tile.T_OBSTRUCTS_PASSABILITY).toBeTruthy();
   });
 
   test('can set the layer', () => {
@@ -195,7 +195,7 @@ describe('RL.Tile', () => {
     });
 
     expect(GW.tiles.CARPET).toBe(carpet);
-    expect(carpet.layer).toEqual(GW.tile.Layer.SURFACE);
+    expect(carpet.layer).toEqual(GW.def.SURFACE);
   });
 
   test('can use objects for activations', async () => {

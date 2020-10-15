@@ -1,10 +1,8 @@
 
 
-import { Flags as TileFlags, tile as TILE } from '../tile.js';
-import { KindFlags as ItemKindFlags, ActionFlags as ItemActionFlags } from '../item.js';
-import { game as GAME } from '../game.js';
-import { itemActions as ITEM_ACTIONS } from '../itemActions.js';
-import { data as DATA, def, commands, ui as UI, message as MSG, utils as UTILS, fx as FX } from '../gw.js';
+import * as Flags from '../flags.js';
+import { closeItem } from '../actions/index.js';
+import { data as DATA, def, commands, ui as UI, message as MSG } from '../gw.js';
 
 
 async function close(e) {
@@ -16,7 +14,7 @@ async function close(e) {
   const candidates = [];
   let choice;
   map.eachNeighbor(actor.x, actor.y, (c, i, j) => {
-    if (c.item && c.item.hasActionFlag(ItemActionFlags.A_CLOSE)) {
+    if (c.item && c.item.hasActionFlag(Flags.Action.A_CLOSE)) {
       candidates.push({ item: c.item, cell: c, x: i, y: j, map, actor });
     }
     else {
@@ -40,7 +38,7 @@ async function close(e) {
   }
 
   if (choice.item) {
-    if (!await ITEM_ACTIONS.close(choice, actor, choice)) {
+    if (!await closeItem(actor, choice, choice)) {
       return false;
     }
   }

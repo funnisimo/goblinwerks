@@ -24,6 +24,7 @@ async function crossedFinish() {
 
 let ERUPT_CHANCE = 300 * 10 * 10;
 let CRUST_CHANCE = 5;
+let LAVA_START_BREAK = 50;
 
 async function lavaTick(x, y, ctx) {
 	const ctx2 = Object.assign({}, ctx, { x, y });
@@ -35,7 +36,14 @@ async function lavaTick(x, y, ctx) {
 	}
 }
 
-async function lavaBreak(x, y, ctx) {
+async function lavaCrustTick(x, y, ctx) {
+  if (GW.random.chance(LAVA_START_BREAK)) {
+    const ctx2 = Object.assign({}, ctx, { x, y });
+    return await GW.tileEvent.spawn({ tile: 'LAVA_CRUST_BREAKING' }, ctx2);
+  }
+}
+
+async function lavaBreakingTick(x, y, ctx) {
 	const ctx2 = Object.assign({}, ctx, { x, y });
 	if (GW.random.chance(BREAK_CHANCE)) {
 		return await GW.tileEvent.spawn({ flags: GW.flags.tileEvent.DFF_NULLIFY_CELL }, ctx2);
@@ -130,14 +138,14 @@ GW.tile.addKind('LAVA_CRUST', {
 	sprite: { ch: '~', fg: 'lavaForeColor', bg: 'dark_gray' }, priority: 91, layer: 'LIQUID',
 	flags: 'T_BRIDGE',
 	name: 'crusted lava', article: 'some',
-	events: { tick: { chance: 10, tile: 'LAVA_CRUST_BREAKING' } }
+	events: { tick: lavaCrustTick }
 });
 
 GW.tile.addKind('LAVA_CRUST_BREAKING', {
 	sprite: { ch: '~', fg: 'lavaForeColor', bg: 'darkest_red' }, priority: 92,	layer: 'LIQUID',
 	flags: 'T_BRIDGE',
 	name: 'lava with a cracking crust', article: 'some',
-	events: { tick: lavaBreak }
+	events: { tick: lavaBreakingTick }
 });
 
 GW.tile.addKind('LAVA_ERUPTING', {
@@ -173,8 +181,9 @@ function makeMap(id=1) {
 	ERUPT_CHANCE = Math.max(5000, 30000 - (1000 * id));
 	CRUST_CHANCE = Math.max(2, Math.floor(10 - id/2));
 	BREAK_CHANCE = Math.min(90, Math.floor(60 + id));
+  LAVA_START_BREAK = Math.min(90, Math.floor(50 + id));
 
-	GW.message.add(GW.colors.blue, 'Erupt: %d, Crust: %d, Break: %d', ERUPT_CHANCE, CRUST_CHANCE, BREAK_CHANCE);
+	GW.message.add(GW.colors.blue, 'Erupt: %d, Crust: %d, StartBreak: %d, Break: %d', ERUPT_CHANCE, CRUST_CHANCE, LAVA_START_BREAK, BREAK_CHANCE);
 
 	let height = 3 + Math.floor(id / 2);
 	let top = Math.floor( (30 - height) / 2 ) + 1;
@@ -221,7 +230,7 @@ async function start() {
 
 	const canvas = GW.ui.start({ width: 50, height: 36, div: 'game', messages: -5, cursor: true, flavor: true });
 	GW.io.setKeymap({
-		dir: 'moveDir', space: 'rest', 'j': jump,
+		dir: 'movePlayer', space: 'rest', 'j': jump,
 		'x': startExplosion,
 		'?': 'showHelp'
 	});

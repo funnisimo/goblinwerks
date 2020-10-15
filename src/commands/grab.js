@@ -1,8 +1,5 @@
 
-
-import { Flags as TileFlags, tile as TILE } from '../tile.js';
-import { KindFlags as ItemKindFlags, ActionFlags as ItemActionFlags } from '../item.js';
-import { game as GAME } from '../game.js';
+import * as Flags from '../flags.js';
 import { data as DATA, def, commands, ui as UI, message as MSG, utils as UTILS, fx as FX } from '../gw.js';
 
 
@@ -21,7 +18,7 @@ async function grab(e) {
   const candidates = [];
   let choice;
   map.eachNeighbor(actor.x, actor.y, (c) => {
-    if (c.item && c.item.hasActionFlag(ItemActionFlags.A_GRABBABLE)) {
+    if (c.item && c.item.hasActionFlag(Flags.Action.A_GRABBABLE)) {
       candidates.push(c.item);
     }
   }, true);

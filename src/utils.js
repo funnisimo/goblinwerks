@@ -11,6 +11,12 @@ utils.TRUE = TRUE;
 export function FALSE() { return false; }
 utils.FALSE = FALSE;
 
+export function ONE() { return 1; }
+utils.ONE = ONE;
+
+export function ZERO() { return 0; }
+utils.ZERO = ZERO;
+
 export function IDENTITY(x) { return x; }
 utils.IDENTITY = IDENTITY;
 
@@ -282,3 +288,32 @@ export function sequence(listLength) {
 }
 
 utils.sequence = sequence;
+
+export function eachChain(item, fn) {
+  while(item) {
+    fn(item);
+    item = item.next;
+  }
+}
+
+utils.eachChain = eachChain;
+
+export function removeFromChain(obj, name, entry) {
+  const root = obj[name];
+  if (root === entry) {
+    obj[name] = entry.next;
+  }
+  else {
+    let prev = root;
+    let current = prev.next;
+    while(current && current !== entry) {
+      prev = current;
+      current = prev.next;
+    }
+    if (current === entry) {
+      prev.next = current.next;
+    }
+  }
+}
+
+utils.removeFromChain = removeFromChain;

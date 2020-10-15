@@ -1,9 +1,6 @@
 
 import { color as COLOR, colors as COLORS } from './color.js';
-import { Flags as ActorFlags, KindFlags as ActorKindFlags } from './actor.js';
-import { KindFlags as ItemKindFlags } from './item.js';
-import { Flags as CellFlags } from './cell.js';
-import { Flags as MapFlags } from './map.js';
+import * as Flags from './flags.js';
 import { grid as GRID } from './grid.js';
 import { text as TEXT } from './text.js';
 import { cell as CELL } from './cell.js';
@@ -102,7 +99,7 @@ function refreshSidebar(map) {
       continue;
     }
 
-    if (item.hasKindFlag(ItemKindFlags.IK_NO_SIDEBAR)) {
+    if (item.hasKindFlag(Flags.ItemKind.IK_NO_SIDEBAR)) {
       item = item.next;
       continue;
     }
@@ -128,7 +125,7 @@ function refreshSidebar(map) {
 	// Get tiles
 	map.forEach( (cell, i, j) => {
 		if (!(cell.isRevealed(true) || cell.isAnyKindOfVisible())) return;
-		// if (cell.flags & (CellFlags.HAS_PLAYER | CellFlags.HAS_MONSTER | CellFlags.HAS_ITEM)) return;
+		// if (cell.flags & (Flags.Cell.HAS_PLAYER | Flags.Cell.HAS_MONSTER | Flags.Cell.HAS_ITEM)) return;
 		if (doneCells[i][j]) return;
 		doneCells[i][j] = 1;
 
@@ -439,7 +436,7 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
   }
 
   const x = SIDE_BOUNDS.x;
-  const monstForeColor = monst.kind.sprite.fg;
+  const monstForeColor = dim ? fg : monst.kind.sprite.fg;
 
 	// buf.plotText(0, y, "                    ", fg, bg); // Start with a blank line
 
@@ -471,7 +468,7 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
 				monstName += ' (invisible)';
       } else if (cell.isDark()) {
 				monstName += ' (dark)';
-      } else if (!cell.flags & CellFlags.IS_IN_SHADOW) {
+      } else if (!cell.flags & Flags.Cell.IS_IN_SHADOW) {
 				monstName += ' (lit)';
       }
   }
@@ -555,7 +552,7 @@ function addHealthBar(entry, y, dim, highlight, buf) {
   const map = entry.map;
   const actor = entry.entity;
 
-  if (actor.max.health > 1 && !(actor.kind.flags & ActorKindFlags.AK_INVULNERABLE))
+  if (actor.max.health > 1 && !(actor.kind.flags & Flags.ActorKind.AK_INVULNERABLE))
   {
     let healthBarColor = COLORS.blueBar;
 		if (actor === DATA.player) {
@@ -564,11 +561,11 @@ function addHealthBar(entry, y, dim, highlight, buf) {
 		}
 
     let text = 'Health';
-		const percent = actor.statChangePercent('health');
+		// const percent = actor.statChangePercent('health');
 		if (actor.current.health <= 0) {
 				text = "Dead";
-		} else if (percent != 0) {
-				text = TEXT.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
+		// } else if (percent != 0) {
+		// 		text = TEXT.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
 		}
 		y = sidebar.addProgressBar(y, buf, text, actor.current.health, actor.max.health, healthBarColor, dim);
 	}

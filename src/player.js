@@ -1,6 +1,6 @@
 
 
-import { Flags as TileFlags } from './tile.js';
+import * as Flags from './flags.js';
 import { io as IO } from './io.js';
 import { visibility as VISIBILITY } from './visibility.js';
 import { make, data as DATA, types, ui as UI, utils as UTILS } from './gw.js';
@@ -9,14 +9,23 @@ export var player = {};
 
 player.debug = UTILS.NOOP;
 
+//
+// class PlayerKind extends types.ActorKind {
+//   constructor(opts={}) {
+//     super(opts);
+//   }
+// }
+//
+// types.PlayerKind = PlayerKind;
+
 
 export class Player extends types.Actor {
   constructor(kind) {
     super(kind);
   }
 
-  startTurn() {
-    player.startTurn(this);
+  async startTurn() {
+    await player.startTurn(this);
   }
 
   visionRadius() {
@@ -27,12 +36,20 @@ export class Player extends types.Actor {
     player.endTurn(this, turnTime);
   }
 
+  hasActionFlag(flag) {
+    if (flag & Flags.Action.A_PICKUP) return true;
+    return false;
+  }
+
 }
 
 types.Player = Player;
 
 
 export function makePlayer(kind) {
+  if (!(kind instanceof types.ActorKind)) {
+    kind = new types.ActorKind(kind);
+  }
   return new types.Player(kind);
 }
 
@@ -61,7 +78,8 @@ export async function takeTurn() {
 player.takeTurn = takeTurn;
 
 
-function startTurn(PLAYER) {
+async function startTurn(PLAYER) {
+  await UI.updateIfRequested();
 	PLAYER.turnTime = 0;
   Object.assign(PLAYER.prior, PLAYER.current);
 }
@@ -75,17 +93,17 @@ function act() {
 
 player.act = act;
 
-function endTurn(PLAYER, turnTime) {
-  PLAYER.turnTime = turnTime || Math.floor(PLAYER.kind.speed/2);  // doing nothing takes time
+function endTurn(PLAYER, turnTime=1) {
+  PLAYER.turnTime = Math.floor(PLAYER.kind.speed * turnTime);
   VISIBILITY.update(DATA.map, PLAYER.x, PLAYER.y);
-  UI.requestUpdate();
+  UI.requestUpdate(48);
 }
 
 player.endTurn = endTurn;
 
 
 function isValidStartLoc(cell, x, y) {
-  if (cell.hasTileFlag(TileFlags.T_PATHING_BLOCKER | TileFlags.T_HAS_STAIRS)) {
+  if (cell.hasTileFlag(Flags.Tile.T_PATHING_BLOCKER | Flags.Tile.T_HAS_STAIRS)) {
     return false;
   }
   return true;

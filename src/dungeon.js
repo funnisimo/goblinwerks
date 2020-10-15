@@ -3,12 +3,11 @@ import { grid as GRID } from './grid.js';
 import { random } from './random.js';
 import { path as PATH } from './path.js';
 import { map as MAP } from './map.js';
-import { tile as TILE, Flags as TileFlags } from './tile.js';
+import { tile as TILE } from './tile.js';
 import { diggers as DIGGERS, digger as DIGGER } from './digger.js';
 import { def, make, utils as UTILS } from './gw.js';
 
 const DIRS = def.dirs;
-const OPP_DIRS = [def.DOWN, def.UP, def.RIGHT, def.LEFT];
 
 export var dungeon = {};
 
@@ -154,7 +153,7 @@ function attachRoomToDungeon(roomGrid, doorSites, opts={}) {
       if (!SITE.cell(x, y).isNull()) continue;
       const dir = GRID.directionOfDoorSite(SITE.cells, x, y, (c) => (c.hasTile(FLOOR) && !c.isLiquid()) );
       if (dir != def.NO_DIRECTION) {
-        const oppDir = OPP_DIRS[dir];
+        const oppDir = (dir + 2) % 4;
 
         const offsetX = x - doorSites[oppDir][0];
         const offsetY = y - doorSites[oppDir][1];
@@ -227,7 +226,7 @@ function insertRoomAtXY(x, y, roomGrid, doorSites, opts={}) {
   random.shuffle(dirs);
 
   for(let dir of dirs) {
-    const oppDir = OPP_DIRS[dir];
+    const oppDir = (dir + 2) % 4;
 
     if (doorSites[oppDir][0] != -1
         && roomAttachesAt(roomGrid, x - doorSites[oppDir][0], y - doorSites[oppDir][1]))
@@ -325,7 +324,7 @@ dungeon.digLake = digLake;
 
 
 function lakeDisruptsPassability(lakeGrid, dungeonToGridX, dungeonToGridY) {
-  return MAP.gridDisruptsPassability(SITE, lakeGrid, { gridOffsetX: dungeonToGridX, gridOffsetY: dungeonToGridY });
+  return SITE.gridDisruptsPassability(lakeGrid, { gridOffsetX: dungeonToGridX, gridOffsetY: dungeonToGridY });
 }
 
 
@@ -344,7 +343,7 @@ export function addLoops(minimumPathingDistance, maxConnectionLength) {
 
     const dirCoords = [[1, 0], [0, 1]];
 
-    SITE.fillBasicCostGrid(costGrid);
+    SITE.fillCostGrid(costGrid);
 
     function isValidTunnelStart(x, y, dir) {
       if (!SITE.hasXY(x, y)) return false;
@@ -461,7 +460,7 @@ export function addBridges(minimumPathingDistance, maxConnectionLength) {
 
     const dirCoords = [[1, 0], [0, 1]];
 
-    SITE.fillBasicCostGrid(costGrid);
+    SITE.fillCostGrid(costGrid);
 
     for (i = 0; i < LOCS.length; i++) {
         x = Math.floor(LOCS[i] / siteGrid.height);

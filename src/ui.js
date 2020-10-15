@@ -1,6 +1,6 @@
 
 import { io as IO } from './io.js';
-import { Flags as CellFlags } from './cell.js';
+import * as Flags from './flags.js';
 import { sprite as SPRITE } from './sprite.js';
 import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, utils as UTILS, make, sidebar as SIDEBAR, config as CONFIG } from './gw.js';
 
@@ -239,6 +239,7 @@ ui.dispatchEvent = dispatchEvent;
 let UPDATE_REQUESTED = 0;
 export function requestUpdate(t=1) {
 	UPDATE_REQUESTED = Math.max(UPDATE_REQUESTED, t, 1);
+  ui.debug('update requested - %d', UPDATE_REQUESTED);
 }
 
 ui.requestUpdate = requestUpdate;
@@ -246,6 +247,7 @@ ui.requestUpdate = requestUpdate;
 export async function updateNow(t=1) {
 	t = Math.max(t, UPDATE_REQUESTED, 0);
 	UPDATE_REQUESTED = 0;
+  ui.debug('update now - %d', t);
 
 	ui.draw();
 	ui.canvas.draw();
@@ -325,15 +327,15 @@ function setCursor(x, y) {
   // ui.debug('set cursor', x, y);
 
   if (map.hasXY(CURSOR.x, CURSOR.y)) {
-    map.clearCellFlags(CURSOR.x, CURSOR.y, CellFlags.IS_CURSOR);
-    map.setCellFlags(CURSOR.x, CURSOR.y, CellFlags.NEEDS_REDRAW);
+    map.clearCellFlags(CURSOR.x, CURSOR.y, Flags.Cell.IS_CURSOR);
+    map.setCellFlags(CURSOR.x, CURSOR.y, Flags.Cell.NEEDS_REDRAW);
   }
   CURSOR.x = x;
   CURSOR.y = y;
 
   if (map.hasXY(x, y)) {
     // if (!DATA.player || DATA.player.x !== x || DATA.player.y !== y ) {
-      map.setCellFlags(CURSOR.x, CURSOR.y, CellFlags.IS_CURSOR | CellFlags.NEEDS_REDRAW);
+      map.setCellFlags(CURSOR.x, CURSOR.y, Flags.Cell.IS_CURSOR | Flags.Cell.NEEDS_REDRAW);
     // }
 
     // if (!GW.player.isMoving()) {

@@ -1,9 +1,9 @@
 
-import * as GW from './index.js';
+import * as GW from '../index.js';
 
 describe('itemActions', () => {
 
-  describe('bash', () => {
+  describe('bashItem', () => {
 
     let flashSprite;
 
@@ -38,7 +38,7 @@ describe('itemActions', () => {
 
       map.addItem(10, 10, item);
 
-      await GW.itemActions.bash(item, null, { map, x: 10, y: 10 });
+      await GW.actions.bashItem(null, item, { map, x: 10, y: 10 });
 
       expect(item.isDestroyed()).toBeTruthy();
       expect(map.itemAt(10,10)).toBeNull();

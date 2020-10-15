@@ -1,10 +1,8 @@
 
 import { colors as COLORS, color as COLOR } from './color.js';
 import { text as TEXT } from './text.js';
-import { Flags as TileFlags, MechFlags as TileMechFlags } from './tile.js';
-import { Flags as CellFlags, MechFlags as CellMechFlags } from './cell.js';
-import { tiles as TILES } from './tile.js';
-import { types, flavor, data as DATA, def, ui as UI } from './gw.js';
+import * as Flags from './flags.js';
+import { types, flavor, data as DATA, def, ui as UI, tiles as TILES, itemKinds as ITEM_KINDS } from './gw.js';
 
 
 const flavorTextColor = COLOR.install('flavorText', 50, 40, 90);
@@ -78,12 +76,12 @@ function showFlavorFor(x, y) {
   const player = DATA.player || null;
 
 	monst = null;
-	standsInTerrain = ((cell.highestPriorityTile().mechFlags & TileMechFlags.TM_STAND_IN_TILE) ? true : false);
+	standsInTerrain = ((cell.highestPriorityTile().mechFlags & Flags.TileMech.TM_STAND_IN_TILE) ? true : false);
 	theItem = map.itemAt(x, y);
 	monsterDormant = false;
-	if (cell.flags & CellFlags.HAS_MONSTER) {
+	if (cell.flags & Flags.Cell.HAS_MONSTER) {
 		monst = map.actorAt(x, y);
-	} else if (cell.flags & CellFlags.HAS_DORMANT_MONSTER) {
+	} else if (cell.flags & Flags.Cell.HAS_DORMANT_MONSTER) {
 		monst = map.dormantAt(x, y);
 		monsterDormant = true;
 	}
@@ -135,18 +133,23 @@ function showFlavorFor(x, y) {
 
 	if (!map.isAnyKindOfVisible(x, y)) {
     buf = '';
-		if (cell.flags & CellFlags.REVEALED) { // memory
-			// if (cell.rememberedItemCategory) {
-      //   if (player.status.hallucinating && !GW.GAME.playbackOmniscience) {
-      //       object = GW.item.describeHallucinatedItem();
-      //   } else {
-      //       object = GW.item.describeItemBasedOnParameters(cell.rememberedItemCategory, cell.rememberedItemKind, cell.rememberedItemQuantity);
-      //   }
-			// } else {
+		if (cell.flags & Flags.Cell.REVEALED) { // memory
+			if (cell.memory.itemKind) {
+        // if (player.status.hallucinating && !GW.GAME.playbackOmniscience) {
+        //     object = GW.item.describeHallucinatedItem();
+        // } else {
+            const kind = cell.memory.itemKind;
+            object = kind.getName({ quantity: cell.memory.itemQuantity }, { color: false, article: true });
+            // object = GW.item.describeItemBasedOnParameters(cell.rememberedItemCategory, cell.rememberedItemKind, cell.rememberedItemQuantity);
+        // }
+      } else if (cell.memory.actorKind) {
+        const kind = cell.memory.actorKind;
+        object = kind.getName({ color: false, article: true });
+			} else {
 				object = TILES[cell.memory.tile].flavorText();
-			// }
+			}
 			buf = TEXT.format("you remember seeing %s here.", object);
-		} else if (cell.flags & CellFlags.MAGIC_MAPPED) { // magic mapped
+		} else if (cell.flags & Flags.Cell.MAGIC_MAPPED) { // magic mapped
 			buf = TEXT.format("you expect %s to be here.", TILES[cell.memory.tile].flavorText());
 		}
 		flavor.setText(buf);
@@ -157,7 +160,7 @@ function showFlavorFor(x, y) {
 	// 	return GW.actor.flavorText(monst);
 	// } else
   if (theItem) {
-    buf = TEXT.format("you %s %s.", (map.isVisible(x, y) ? "see" : "sense"), theItem.flavorText());
+    buf = TEXT.format("you %s %s.", (map.isVisible(x, y) ? "see" : "sense"), theItem.getName({ color: false, article: true }));
 	}
   else {
     buf = TEXT.format("you %s %s.", (map.isVisible(x, y) ? "see" : "sense"), cell.tileFlavor());

@@ -14,6 +14,22 @@ const COLOR_VALUE_INTERCEPT =	0; // 25;
 const TEMP_COLOR = make.color();
 
 
+text.playerPronoun = {
+  it: 'you',
+  its: 'your',
+};
+
+text.singularPronoun = {
+  it: 'it',
+  its: 'its',
+};
+
+text.pluralPronoun = {
+  it: 'them',
+  its: 'their',
+};
+
+
 function firstChar(text) {
   let i = 0;
   while( i < text.length ) {
@@ -38,6 +54,19 @@ function isVowel(ch) {
 }
 
 text.isVowel = isVowel;
+
+
+function toSingular(verb) {
+  if (verb.endsWith('y')) {
+    return verb.substring(0, verb.length - 1) + 'ies';
+  }
+  if (verb.endsWith('sh') || verb.endsWith('ch')) {
+    return verb + 'es';
+  }
+  return verb + 's';
+}
+
+text.toSingular = toSingular;
 
 
 function eachChar(msg, fn) {

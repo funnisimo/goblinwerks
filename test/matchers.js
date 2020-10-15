@@ -28,8 +28,11 @@ expect.extend({
     if (typeof y !== 'number') {
       throw new Error('expected y to be a number');
     }
-    if (!received || typeof received.x !== 'number' || typeof received.y !== 'number') {
-      throw new Error('expected value to be object with xLoc and yLoc members');
+    if (!received) {
+      throw new Error('expected object to be at XY, but received none.');
+    }
+    if (typeof received.x !== 'number' || typeof received.y !== 'number') {
+      throw new Error('expected value to be object with x and y members');
     }
 
     let success = (received && received.x == x && received.y == y);

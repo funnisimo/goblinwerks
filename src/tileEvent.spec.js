@@ -89,8 +89,8 @@ describe('tileEvent', () => {
     // grid.dump();
     expect(grid.count( (v) => !!v )).toEqual(12);
     expect(grid[10][10]).toEqual(1);
-    expect(grid[9][5]).toEqual(9);
-    expect(grid[8][11]).toEqual(0);
+    expect(grid[10][15]).toEqual(8);
+    expect(grid[10][14]).toEqual(0);
   });
 
   // { spread: 75, matchTile: "DOOR" }
@@ -121,10 +121,10 @@ describe('tileEvent', () => {
     feat = GW.make.tileEvent({ tile: "WALL", spread: 50, decrement: 10 });
     GW.tileEvent.computeSpawnMap(feat, grid, ctx);
     // grid.dump();
-    expect(grid.count( (v) => !!v )).toEqual(7);
+    expect(grid.count( (v) => !!v )).toEqual(8);
     expect(grid[10][10]).toEqual(1);
-    expect(grid[9][5]).toEqual(0);
-    expect(grid[8][11]).toEqual(6);
+    expect(grid[9][10]).toEqual(0);
+    expect(grid[11][12]).toEqual(6);
   });
 
 
@@ -459,9 +459,9 @@ describe('tileEvent', () => {
     // map.dump();
 
     expect(map.hasTile(10, 10, 'DOOR')).toBeTruthy();
-    expect(map.hasTile(9, 10, 'DOOR')).toBeTruthy();
-    expect(map.hasTile(8, 10, 'DOOR')).toBeTruthy();
-    expect(map.hasTile(7, 10, 'DOOR')).toBeTruthy();
+    expect(map.hasTile(10, 9,  'DOOR')).toBeTruthy();
+    expect(map.hasTile(10, 8,  'DOOR')).toBeTruthy();
+    expect(map.hasTile(10, 7,  'DOOR')).toBeTruthy();
 
     expect(map.cells.count( (c) => c.hasTile('DOOR') )).toEqual(4);
   });

@@ -1,9 +1,7 @@
 
 
-import { Flags as TileFlags, tile as TILE } from '../tile.js';
-import { KindFlags as ItemKindFlags, ActionFlags as ItemActionFlags } from '../item.js';
-import { game as GAME } from '../game.js';
-import { itemActions as ITEM_ACTIONS } from '../itemActions.js';
+import * as Flags from '../flags.js';
+import { openItem } from '../actions/index.js';
 import { data as DATA, def, commands, ui as UI, message as MSG, utils as UTILS, fx as FX } from '../gw.js';
 
 
@@ -16,7 +14,7 @@ async function open(e) {
   const candidates = [];
   let choice;
   map.eachNeighbor(actor.x, actor.y, (c, i, j) => {
-    if (c.item && c.item.hasActionFlag(ItemActionFlags.A_OPEN)) {
+    if (c.item && c.item.hasActionFlag(Flags.Action.A_OPEN)) {
       candidates.push({ item: c.item, cell: c, x: i, y: j, map, actor });
     }
     else if (c.hasTileWithEvent('open')) {
@@ -39,7 +37,7 @@ async function open(e) {
   }
 
   if (choice.item) {
-    if (!await ITEM_ACTIONS.open(choice, actor, choice)) {
+    if (!await openItem(actor, choice, choice)) {
       return false;
     }
   }
