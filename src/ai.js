@@ -1,10 +1,9 @@
 
 import * as Flags from './flags.js';
 import { random } from './random.js';
-import { def, data as DATA, utils as UTILS } from './gw.js';
+import { def, data as DATA, utils as UTILS, ai } from './gw.js';
 import { moveDir, attack, moveToward } from './actions/index.js';
 
-export var ai = {};
 
 
 async function idle(actor, ctx) {
@@ -57,7 +56,7 @@ async function moveTowardPlayer(actor, ctx={}) {
 
   if (cell.flags & Flags.Cell.IN_FOV) {
     // actor in player FOV so actor can see player (if in range, light, etc...)
-    if (dist < actor.getAwarenessDistance(player)) {
+    if (dist < actor.kind.getAwarenessDistance(actor, player)) {
       actor.lastSeenPlayerAt = [player.x, player.y];
     }
   }

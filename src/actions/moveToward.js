@@ -71,7 +71,7 @@ function nextStep( map, distanceMap, x, y, traveler, useDiagonals) {
 				{
             blocked = true;
         } else if (traveler && blocker
-                   && !traveler.canPass(blocker))
+                   && !traveler.kind.canPass(traveler, blocker))
 				{
             blocked = true;
         }

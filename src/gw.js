@@ -16,6 +16,7 @@ export var sidebar = {};
 
 export var fx = {};
 export var commands = {};
+export var ai = {};
 
 export var itemKinds = {};
 export var item = {};

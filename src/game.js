@@ -154,7 +154,7 @@ async function gameLoop() {
 
   UI.draw();
 
-  while (DATA.running) {
+  while (DATA.running && !DATA.gameHasEnded) {
 
     const fn = scheduler.pop();
     if (!fn) {
@@ -228,7 +228,7 @@ game.updateEnvironment = updateEnvironment;
 
 SPRITE.install('hilite', COLORS.white);
 
-async function gameOver(isWin, ...args) {
+export async function gameOver(isWin, ...args) {
   const msg = TEXT.format(...args);
 
   FLAVOR.clear();

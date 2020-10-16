@@ -16,6 +16,7 @@ var sidebar = {};
 
 var fx = {};
 var commands = {};
+var ai = {};
 
 var itemKinds = {};
 var item = {};
@@ -5297,7 +5298,7 @@ function evacuateItems(map, blockingMap) {
 		const cell = map.cell(i, j);
 		if (!cell.item) return;
 
-		const forbidFlags = cell.item.forbiddenTileFlags();
+		const forbidFlags = cell.item.kind.forbiddenTileFlags();
 		const loc = map.matchingXYNear(
 							 i, j, (cell) => {
 								 if (cell.hasFlags(Cell.HAS_ITEM)) return false;
@@ -5416,6 +5417,7 @@ class Cell$1 {
   changed() { return this.flags & Cell.CELL_CHANGED; }
   isVisible() { return this.flags & Cell.VISIBLE; }
   isAnyKindOfVisible() { return (this.flags & Cell.ANY_KIND_OF_VISIBLE) || config.playbackOmniscience; }
+  isOrWasAnyKindOfVisible() { return (this.flags & Cell.IS_WAS_ANY_KIND_OF_VISIBLE) || config.playbackOmniscience; }
   isRevealed(orMapped) {
     const flag = Cell.REVEALED | (orMapped ? Cell.MAGIC_MAPPED : 0);
     return this.flags & flag;
@@ -5924,6 +5926,7 @@ class Map$1 {
 	markRevealed(x, y) { return this.cell(x, y).markRevealed(); }
 	isVisible(x, y)    { return this.cell(x, y).isVisible(); }
 	isAnyKindOfVisible(x, y) { return this.cell(x, y).isAnyKindOfVisible(); }
+  isOrWasAnyKindOfVisible(x, y) { return this.cell(x, y).isOrWasAnyKindOfVisible(); }
 	hasVisibleLight(x, y) { return (this.flags & Map.MAP_ALWAYS_LIT) || this.cell(x, y).hasVisibleLight(); }
 
 	setFlags(mapFlag, cellFlag, cellMechFlag) {
@@ -6325,7 +6328,7 @@ class Map$1 {
 	addItemNear(x, y, theItem) {
 		const loc = this.matchingXYNear(x, y, (cell, i, j) => {
 			if (cell.flags & Cell.HAS_ITEM) return false;
-			return !cell.hasTileFlag(theItem.forbiddenTileFlags());
+			return !cell.hasTileFlag(theItem.kind.forbiddenTileFlags());
 		});
 		if (!loc || loc[0] < 0) {
 			// GW.ui.message(colors.badMessageColor, 'There is no place to put the item.');
@@ -6634,755 +6637,6 @@ function getLine(map, fromX, fromY, toX, toY) {
 
 map.getLine = getLine;
 
-async function pickupItem(actor, item, ctx) {
-
-  if (!actor.hasActionFlag(Action.A_PICKUP)) return false;
-  if (item.hasActionFlag(Action.A_NO_PICKUP)) {
-    // TODO - GW.message.add('...');
-    return false;
-  }
-
-  let success;
-  if (item.kind.pickup) {
-    success = await item.kind.pickup(item, actor, ctx);
-    if (!success) return false;
-  }
-  else {
-    // if no room in inventory - return false
-    // add to inventory
-    success = true;
-  }
-
-  const map = ctx.map;
-  map.removeItem(item);
-
-  if (success instanceof types.Item) {
-    map.addItem(item.x, item.y, success);
-  }
-  return true;
-}
-
-async function attack(actor, target, ctx={}) {
-
-  if (actor.isPlayer() == target.isPlayer()) return false;
-
-  const kind = actor.kind;
-  const attacks = kind.attacks;
-  if (!attacks) return false;
-
-  const melee = attacks.melee;
-  if (!melee) return false;
-
-  const dist = Math.floor(utils$1.distanceFromTo(actor, target));
-  if (dist > (melee.range || 1)) {
-    return false;
-  }
-
-  let damage = melee.damage;
-  if (typeof damage === 'function') {
-    damage = damage(actor, target, ctx) || 1;
-  }
-  const verb = melee.verb || 'hit';
-
-  damage = target.applyDamage(damage, actor, ctx);
-  message.addCombat('%s %s %s for %R%d%R damage', actor.getName(), actor.getVerb(verb), target.getName('the'), 'red', damage, null);
-
-  if (target.isDead()) {
-    message.addCombat('%s %s', target.isInanimate() ? 'destroying' : 'killing', target.getPronoun('it'));
-  }
-
-  await fx.hit(data.map, target);
-  if (target.isDead()) {
-    await target.kill();
-    if (target.kind.corpse) {
-      const ctx2 = { map: ctx.map, x: target.x, y: target.y };
-      await spawnTileEvent(target.kind.corpse, ctx2);
-    }
-  }
-
-  actor.endTurn();
-  return true;
-}
-
-async function moveDir(actor, dir, opts={}) {
-
-  const newX = dir[0] + actor.x;
-  const newY = dir[1] + actor.y;
-  const map = opts.map || data.map;
-  const cell = map.cell(newX, newY);
-
-  const ctx = { actor, map, x: newX, y: newY, cell };
-
-  actor.debug('moveDir', dir);
-
-  if (!map.hasXY(newX, newY)) {
-    actor.debug('move blocked - invalid xy: %d,%d', newX, newY);
-    // TURN ENDED (1/2 turn)?
-    return false;
-  }
-
-  // TODO - Can we leave old cell?
-  // PROMOTES ON EXIT, NO KEY(?), PLAYER EXIT
-
-  if (cell.actor) {
-    // TODO - BUMP LOGIC
-    if (await attack(actor, cell.actor, ctx)) {
-      return true;
-    }
-    return false;  // cannot move here and did not attack
-  }
-
-  // Can we enter new cell?
-  if (cell.hasTileFlag(Tile.T_OBSTRUCTS_PASSABILITY)) {
-    return false;
-  }
-  if (map.diagonalBlocked(actor.x, actor.y, newX, newY)) {
-    return false;
-  }
-
-  let isPush = false;
-  if (cell.item && cell.item.hasKindFlag(ItemKind.IK_BLOCKS_MOVE)) {
-    // ACTOR.hasActionFlag(A_PUSH);
-    if (!cell.item.hasActionFlag(Action.A_PUSH)) {
-      ctx.item = cell.item;
-      return false;
-    }
-    const pushX = newX + dir[0];
-    const pushY = newY + dir[1];
-    const pushCell = map.cell(pushX, pushY);
-    if (!pushCell.isEmpty() || pushCell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS | Tile.T_OBSTRUCTS_PASSABILITY)) {
-      return false;
-    }
-
-    ctx.item = cell.item;
-    map.removeItem(cell.item);
-    map.addItem(pushX, pushY, ctx.item);
-    isPush = true;
-    // Do we need to activate stuff - key enter, key leave?
-  }
-
-  // CHECK SOME SANITY MOVES
-  if (cell.hasTileFlag(Tile.T_LAVA) && !cell.hasTileFlag(Tile.T_BRIDGE)) {
-    return false;
-  }
-  else if (cell.hasTileFlag(Tile.T_HAS_STAIRS)) {
-    if (actor.grabbed) {
-      return false;
-    }
-  }
-
-  if (actor.grabbed && !isPush) {
-    const dirToItem = UTILS.dirFromTo(actor, actor.grabbed);
-    let destXY = [actor.grabbed.x + dir[0], actor.grabbed.y + dir[1]];
-    if (UTILS.isOppositeDir(dirToItem, dir)) {  // pull
-      if (!actor.grabbed.hasActionFlag(Action.A_PULL)) {
-        return false;
-      }
-    }
-    else {  // slide
-      if (!actor.grabbed.hasActionFlag(Action.A_SLIDE)) {
-        return false;
-      }
-    }
-    const destCell = map.cell(destXY[0], destXY[1]);
-    if (destCell.item || destCell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS | Tile.T_OBSTRUCTS_PASSABILITY)) {
-      actor.debug('move blocked - item obstructed: %d,%d', destXY[0], destXY[1]);
-      return false;
-    }
-  }
-
-  if (!map.moveActor(newX, newY, actor)) {
-    UTILS.ERROR('Move failed! ' + newX + ',' + newY);
-    // TURN ENDED (1/2 turn)?
-    return false;
-  }
-
-  if (actor.grabbed && !isPush) {
-    map.removeItem(actor.grabbed);
-    map.addItem(actor.grabbed.x + dir[0], actor.grabbed.y + dir[1], actor.grabbed);
-  }
-
-  // APPLY EFFECTS
-  for(let tile of cell.tiles()) {
-    await tile.applyInstantEffects(map, newX, newY, cell);
-    if (data.gameHasEnded) {
-      return true;
-    }
-  }
-
-  // PROMOTES ON ENTER, PLAYER ENTER, KEY(?)
-  await cell.fireEvent('enter', ctx);
-
-  // pickup any items
-  if (cell.item && actor.hasActionFlag(Action.A_PICKUP)) {
-    await pickupItem(actor, cell.item, ctx);
-  }
-
-  actor.debug('moveComplete');
-
-  ui.requestUpdate();
-  actor.endTurn();
-  return true;
-}
-
-async function bashItem(actor, item, ctx) {
-
-  const map = ctx.map || data.map;
-
-  if (!item.hasActionFlag(Action.A_BASH)) {
-    message.add('%s cannot bash %s.', actor.getName(), item.getName());
-    return false;
-  }
-
-  let success = false;
-  if (item.kind.bash) {
-    success = await item.kind.bash(item, actor, ctx);
-    if (!success) return false;
-  }
-  else if (actor) {
-    const damage = actor.calcBashDamage(item, ctx);
-    if (item.applyDamage(damage, actor, ctx)) {
-      message.add('%s bash %s [-%d].', actor.getName(), item.getName('the'), damage);
-      await fx.flashSprite(map, item.x, item.y, 'hit', 100, 1);
-    }
-  }
-  else {
-    item.applyDamage(ctx.damage || 1, null, ctx);
-  }
-
-  if (item.isDestroyed()) {
-    map.removeItem(item);
-    message.add('%s is destroyed.', item.getName('the'));
-    if (item.kind.corpse) {
-      await spawnTileEvent(item.kind.corpse, { map, x: item.x, y: item.y });
-    }
-  }
-  return true;
-}
-
-async function openItem(actor, item, ctx={}) {
-  return false;
-}
-
-async function closeItem(actor, item, ctx={}) {
-  return false;
-}
-
-async function moveToward(actor, x, y, ctx) {
-
-  const map = ctx.map || data.map;
-  const destCell = map.cell(x, y);
-  const fromCell = map.cell(actor.x, actor.y);
-
-  if (actor.x == x && actor.y == y) {
-    return false; // Hmmm...  Not sure on this one
-  }
-
-  if (destCell.isVisible() && fromCell.isVisible()) {
-    const dir = utils$1.dirBetween(actor.x, actor.y, x, y);
-    if (await moveDir(actor, dir, ctx)) {
-      return true;
-    }
-  }
-
-  let travelGrid = actor.travelGrid;
-  if (!travelGrid) {
-    travelGrid = actor.travelGrid = GRID.alloc(map.width, map.height);
-    travelGrid.x = travelGrid.y = -1;
-  }
-  if (travelGrid.x != x || travelGrid.y != y) {
-    const costGrid = GRID.alloc(map.width, map.height);
-    actor.fillCostGrid(map, costGrid);
-    PATH.calculateDistances(travelGrid, x, y, costGrid, true);
-    GRID.free(costGrid);
-  }
-
-  const dir = nextStep(map, travelGrid, actor.x, actor.y, actor, true);
-  if (!dir) return false;
-
-  return await moveDir(actor, dir, ctx);
-}
-
-
-
-// Returns null if there are no beneficial moves.
-// If preferDiagonals is true, we will prefer diagonal moves.
-// Always rolls downhill on the distance map.
-// If monst is provided, do not return a direction pointing to
-// a cell that the monster avoids.
-function nextStep( map, distanceMap, x, y, traveler, useDiagonals) {
-	let newX, newY, bestScore;
-  let dir, bestDir;
-  let blocker;	// creature *
-  let blocked;
-
-  // brogueAssert(coordinatesAreInMap(x, y));
-
-	bestScore = 0;
-	bestDir = def.NO_DIRECTION;
-
-	for (dir = 0; dir < (useDiagonals ? 8 : 4); ++dir)
-  {
-		newX = x + def.dirs[dir][0];
-		newY = y + def.dirs[dir][1];
-
-    if (map.hasXY(newX, newY)) {
-        blocked = false;
-        const cell = map.cell(newX, newY);
-        blocker = cell.actor;
-        if (traveler
-            && traveler.avoidsCell(cell, newX, newY))
-				{
-            blocked = true;
-        } else if (traveler && blocker
-                   && !traveler.canPass(blocker))
-				{
-            blocked = true;
-        }
-        if (!blocked
-						&& (distanceMap[x][y] - distanceMap[newX][newY]) > bestScore
-            && !map.diagonalBlocked(x, y, newX, newY, traveler.isPlayer())
-            && map.isPassableNow(newX, newY, traveler.isPlayer()))
-				{
-            bestDir = dir;
-            bestScore = distanceMap[x][y] - distanceMap[newX][newY];
-        }
-    }
-	}
-	return def.dirs[bestDir] || null;
-}
-
-var index = /*#__PURE__*/Object.freeze({
-  __proto__: null,
-  moveDir: moveDir,
-  bashItem: bashItem,
-  pickupItem: pickupItem,
-  openItem: openItem,
-  closeItem: closeItem,
-  attack: attack,
-  moveToward: moveToward
-});
-
-var ai = {};
-
-
-async function idle(actor, ctx) {
-  actor.debug('idle');
-  actor.endTurn();
-  return true;
-}
-
-ai.idle = { act: idle };
-
-
-async function moveRandomly(actor, ctx) {
-  const dirIndex = random.number(4);
-  const dir = def.dirs[dirIndex];
-
-  if (!await moveDir(actor, dir, ctx)) {
-    return false;
-  }
-  // actor.endTurn();
-  return true;
-}
-
-ai.moveRandomly = { act: moveRandomly };
-
-
-async function attackPlayer(actor, ctx) {
-  const player = data.player;
-
-  const dist = utils$1.distanceFromTo(actor, player);
-  if (dist >= 2) return false;
-
-  if (!await attack(actor, player, ctx)) {
-    return false;
-  }
-  // actor.endTurn();
-  return true;
-}
-
-ai.attackPlayer = { act: attackPlayer };
-
-
-async function moveTowardPlayer(actor, ctx={}) {
-
-  const player = data.player;
-  const map = ctx.map || data.map;
-  const cell = map.cell(actor.x, actor.y);
-
-  const dist = utils$1.distanceFromTo(actor, player);
-  if (dist < 2) return false; // Already next to player
-
-  if (cell.flags & Cell.IN_FOV) {
-    // actor in player FOV so actor can see player (if in range, light, etc...)
-    if (dist < actor.getAwarenessDistance(player)) {
-      actor.lastSeenPlayerAt = [player.x, player.y];
-    }
-  }
-
-  if (actor.lastSeenPlayerAt) {
-    if (!await moveToward(actor, actor.lastSeenPlayerAt[0], actor.lastSeenPlayerAt[1], ctx)) {
-      actor.lastSeenPlayerAt = null;  // cannot move toward this location, so stop trying
-      return false;
-    }
-    if (actor.lastSeenPlayerAt[0] == actor.x && actor.lastSeenPlayerAt[1] == actor.y) {
-      // at goal
-      actor.lastSeenPlayerAt = null;
-    }
-    return true;
-  }
-
-  return false;
-}
-
-ai.moveTowardPlayer = { act: moveTowardPlayer };
-
-var actor = {};
-var actorKinds = {};
-
-actor.debug = utils$1.NOOP;
-
-
-
-
-class ActorKind$1 {
-  constructor(opts={}) {
-		this.name = opts.name || 'item';
-		this.description = opts.description || opts.desc || '';
-    this.article = (opts.article === undefined) ? 'a' : opts.article;
-		this.sprite = make.sprite(opts.sprite);
-    this.flags = ActorKind.toFlag(opts.flags);
-		this.actionFlags = Action.toFlag(opts.flags);
-		// this.attackFlags = Flags.Attack.toFlag(opts.flags);
-		this.stats = Object.assign({}, opts.stats || {});
-		this.id = opts.id || null;
-    this.corpse = make.tileEvent(opts.corpse);
-
-    this.speed = opts.speed || config.defaultSpeed || 120;
-
-    if (opts.consoleColor === false) {
-      this.consoleColor = false;
-    }
-    else {
-      this.consoleColor = opts.consoleColor || true;
-      if (typeof this.consoleColor === 'string') {
-        this.consoleColor = color.from(this.consoleColor);
-      }
-    }
-
-    this.attacks = opts.attacks || null;
-
-    this.ai = null;
-    if (opts.ai) {
-      if (typeof opts.ai === 'function') {
-        opts.ai = [opts.ai];
-      }
-      else if (typeof opts.ai === 'string') {
-        opts.ai = opts.ai.split(/[,|]/).map( (t) => t.trim() );
-      }
-
-      this.ai = opts.ai.map( (v) => {
-        if (typeof v === 'string') return ai[v];
-        if (typeof v === 'function') return { act: v };
-        return v;
-      });
-    }
-    if (opts.sidebar) {
-      this.sidebar = opts.sidebar.bind(this);
-    }
-
-  }
-
-  getName(opts={}) {
-    if (opts === true) { opts = { article: true }; }
-    if (opts === false) { opts = {}; }
-    if (typeof opts === 'string') { opts = { article: opts }; }
-
-    let result = this.name;
-    if (opts.color || (this.consoleColor && (opts.color !== false))) {
-      let color = this.sprite.fg;
-      if (this.consoleColor instanceof types.Color) {
-        color = this.consoleColor;
-      }
-      if (opts.color instanceof types.Color) {
-        color = opts.color;
-      }
-      result = text.format('%R%s%R', color, this.name, null);
-    }
-
-    if (opts.article && (this.article !== false)) {
-      let article = (opts.article === true) ? this.article : opts.article;
-      if (article == 'a' && text.isVowel(text.firstChar(result))) {
-        article = 'an';
-      }
-      result = article + ' ' + result;
-    }
-    return result;
-  }
-}
-
-types.ActorKind = ActorKind$1;
-
-function addActorKind(id, opts={}) {
-	opts.id = id;
-  let kind;
-  if (opts instanceof types.ActorKind) {
-    kind = opts;
-  }
-  else {
-    kind = new types.ActorKind(opts);
-  }
-	actorKinds[id] = kind;
-	return kind;
-}
-
-actor.addKind = addActorKind;
-
-function addActorKinds(opts={}) {
-  Object.entries(opts).forEach( ([key, config]) => {
-    actor.addKind(key, config);
-  });
-}
-
-actor.addKinds = addActorKinds;
-
-let ACTOR_COUNT = 0;
-
-class Actor$1 {
-	constructor(kind) {
-		this.x = -1;
-    this.y = -1;
-    this.flags = 0;
-    this.kind = kind || {};
-    this.turnTime = 0;
-		this.status = {};
-
-    // stats
-    this.current = { health: 1 };
-    this.max = { health: 1 };
-    this.prior = { health: 1 };
-
-    if (this.kind.stats) {
-      Object.assign(this.current, this.kind.stats);
-      Object.assign(this.max, this.kind.stats);
-      Object.assign(this.prior, this.kind.stats);
-    }
-
-    if (this.kind.ai) {
-      this.kind.ai.forEach( (ai) => {
-        if (ai.init) {
-          ai.init(this);
-        }
-      });
-    }
-
-    this.id = ++ACTOR_COUNT;
-  }
-
-  isPlayer() { return this === data.player; }
-  isDead() { return this.current.health <= 0; }
-  isInanimate() { return this.kind.flags & ActorKind.AK_INANIMATE; }
-
-	async startTurn() {
-		await actor.startTurn(this);
-	}
-
-	async act() {
-		await actor.act(this);
-	}
-
-	endTurn(turnTime) {
-		actor.endTurn(this, turnTime);
-	}
-
-	isOrWasVisible() {
-		return true;
-	}
-
-  canPass(other) {
-    return false;
-  }
-
-  avoidsCell(cell, x, y) {
-    const avoidedCellFlags = this.avoidedCellFlags();
-    const forbiddenTileFlags = this.forbiddenTileFlags();
-    const avoidedTileFlags = this.avoidedTileFlags();
-
-    if (cell.flags & avoidedCellFlags) return true;
-    if (cell.hasTileFlag(forbiddenTileFlags | avoidedTileFlags)) return true;
-    return false;
-  }
-
-  avoidedCellFlags() {
-    return Cell.HAS_MONSTER | Cell.HAS_ITEM;
-  }
-
-  avoidedTileFlags() {
-    return 0; // ???
-  }
-
-	forbiddenTileFlags() {
-		return Tile.T_PATHING_BLOCKER;
-	}
-
-  fillCostGrid(map, grid) {
-    const avoidedCellFlags = this.avoidedCellFlags();
-    const forbiddenTileFlags = this.forbiddenTileFlags();
-    const avoidedTileFlags = this.avoidedTileFlags();
-    map.fillCostGrid(grid, (cell, x, y) => {
-      if (cell.hasTileFlag(forbiddenTileFlags)) return def.PDS_FORBIDDEN;
-      if (cell.hasTileFlag(avoidedTileFlags)) return def.PDS_AVOIDED;
-      if (cell.flags & avoidedCellFlags) return def.PDS_AVOIDED;
-      return 1;
-    });
-  }
-
-  hasActionFlag(flag) {
-    return this.kind.actionFlags & flag;
-  }
-
-  heal(amount=0) {
-    this.current.health = Math.min(this.current.health + amount, this.max.health);
-    this.changed(true);
-  }
-
-  applyDamage(amount, actor, ctx) {
-    amount = Math.min(this.current.health, amount);
-    this.prior.health = this.current.health;
-    this.current.health -= amount;
-    this.changed(true);
-    return amount;
-  }
-
-	kill() {
-		const map = data.map;
-    this.current.health = 0;
-		map.removeActor(this);
-		// in the future do something here (HP = 0?  Flag?)
-	}
-
-  alwaysVisible() {
-    return this.kind.flags & (ActorKind.AF_IMMOBILE | ActorKind.AF_INANIMATE);
-  }
-
-  changed(v) {
-    if (v) {
-      this.flags |= Actor.AF_CHANGED;
-    }
-    else if (v !== undefined) {
-      this.flags &= ~Actor.AF_CHANGED;
-    }
-    return (this.flags & Actor.AF_CHANGED);
-  }
-
-  statChangePercent(name) {
-    const current = this.current[name] || 0;
-    const prior = this.prior[name] || 0;
-    const max = Math.max(this.max[name] || 0, current, prior);
-
-    return Math.floor(100 * (current - prior)/max);
-  }
-
-  getAwarenessDistance(other) {
-    return 20;  // ???
-  }
-
-  getName(opts={}) {
-    if (typeof opts === 'string') { opts = { article: opts }; }
-    let base = this.kind.getName(opts);
-    return base;
-  }
-
-  getVerb(verb) {
-    if (this.isPlayer()) return verb;
-    return text.toSingular(verb);
-  }
-
-  getPronoun(pn) {
-    if (this.isPlayer()) {
-      return text.playerPronoun[pn];
-    }
-
-    return text.singularPronoun[pn];
-  }
-
-  calcBashDamage(item, ctx) {
-    if (this.kind.calcBashDamage) return this.kind.calcBashDamage(this, item, ctx);
-    return 1;
-  }
-
-  debug(...args) {
-  	// if (this.flags & Flags.Actor.AF_DEBUG)
-  	actor.debug(...args);
-  }
-
-}
-
-types.Actor = Actor$1;
-
-
-function makeActor(kind) {
-  if (typeof kind === 'string') {
-    kind = actorKinds[kind];
-  }
-  else if (!(kind instanceof types.ActorKind)) {
-    kind = new types.ActorKind(kind);
-  }
-  return new types.Actor(kind);
-}
-
-make.actor = makeActor;
-
-
-// TODO - move back to game??
-async function takeTurn(theActor) {
-  theActor.debug('actor turn...', data.time, theActor.id);
-  if (theActor.isDead()) return 0;
-
-	await theActor.startTurn();
-	await theActor.act();
-  return theActor.turnTime;	// actual or idle time
-}
-
-actor.takeTurn = takeTurn;
-
-
-function startTurn(theActor) {
-  // console.log('actor start turn - ', theActor.id);
-}
-
-actor.startTurn = startTurn;
-
-
-async function act(theActor) {
-  if (theActor.kind.ai) {
-    for(let i = 0; i < theActor.kind.ai.length; ++i) {
-      const ai = theActor.kind.ai[i];
-      const fn = ai.act ? ai.act : ai;
-      const success = await fn.call(ai, theActor);
-      if (success) {
-        // console.log(' - ai acted', theActor.id);
-        return true;
-      }
-    }
-  }
-	theActor.endTurn();
-	return true;
-}
-
-actor.act = act;
-
-function endTurn(theActor, turnTime=1) {
-	theActor.turnTime = Math.floor(theActor.kind.speed * turnTime);
-	if (theActor.isOrWasVisible() && theActor.turnTime) {
-		ui.requestUpdate();
-	}
-  // console.log(' - end turn - ', theActor.id);
-}
-
-actor.endTurn = endTurn;
-
 var visibility = {};
 
 
@@ -7518,52 +6772,355 @@ function updateVisibility(map, x, y) {
 
 visibility.update = updateVisibility;
 
-var player = {};
+var actor = {};
+var actorKinds = {};
 
-player.debug = utils$1.NOOP;
-
-//
-// class PlayerKind extends types.ActorKind {
-//   constructor(opts={}) {
-//     super(opts);
-//   }
-// }
-//
-// types.PlayerKind = PlayerKind;
+actor.debug = utils$1.NOOP;
 
 
-class Player extends types.Actor {
-  constructor(kind) {
-    super(kind);
+
+
+class ActorKind$1 {
+  constructor(opts={}) {
+		this.name = opts.name || 'item';
+		this.description = opts.description || opts.desc || '';
+    this.article = (opts.article === undefined) ? 'a' : opts.article;
+		this.sprite = make.sprite(opts.sprite);
+    this.flags = ActorKind.toFlag(opts.flags);
+		this.actionFlags = Action.toFlag(opts.flags);
+		// this.attackFlags = Flags.Attack.toFlag(opts.flags);
+		this.stats = Object.assign({}, opts.stats || {});
+		this.id = opts.id || null;
+    this.corpse = make.tileEvent(opts.corpse);
+
+    this.speed = opts.speed || config.defaultSpeed || 120;
+
+    if (opts.consoleColor === false) {
+      this.consoleColor = false;
+    }
+    else {
+      this.consoleColor = opts.consoleColor || true;
+      if (typeof this.consoleColor === 'string') {
+        this.consoleColor = color.from(this.consoleColor);
+      }
+    }
+
+    this.attacks = opts.attacks || null;
+
+    this.ai = null;
+    if (opts.ai) {
+      if (typeof opts.ai === 'function') {
+        opts.ai = [opts.ai];
+      }
+      else if (typeof opts.ai === 'string') {
+        opts.ai = opts.ai.split(/[,|]/).map( (t) => t.trim() );
+      }
+
+      this.ai = opts.ai.map( (v) => {
+        if (typeof v === 'string') return ai[v];
+        if (typeof v === 'function') return { act: v };
+        return v;
+      });
+    }
+    if (opts.sidebar) {
+      this.sidebar = opts.sidebar.bind(this);
+    }
+
   }
 
-  async startTurn() {
-    await player.startTurn(this);
+  isOrWasVisibleToPlayer(actor, map) {
+    map = map || data.map;
+		return map.isOrWasAnyKindOfVisible(actor.x, actor.y);
+	}
+
+  alwaysVisible(actor) {
+    return this.flags & (ActorKind.AF_IMMOBILE | ActorKind.AF_INANIMATE);
   }
 
-  visionRadius() {
-  	return CONFIG.MAX_FOV_RADIUS || (data.map.width + data.map.height);
+  avoidedCellFlags(actor) {
+    return Cell.HAS_MONSTER | Cell.HAS_ITEM;
   }
 
-  endTurn(turnTime) {
-    player.endTurn(this, turnTime);
+  avoidedTileFlags(actor) {
+    return 0; // ???
+  }
+
+	forbiddenTileFlags(actor) {
+		return Tile.T_PATHING_BLOCKER;
+	}
+
+  canPass(actor, other) {
+    return actor.isPlayer() == other.isPlayer();
+  }
+
+  calcBashDamage(actor, item, ctx) {
+    return 1;
+  }
+
+  applyDamage(actor, amount, source, ctx) {
+    amount = Math.min(actor.current.health, amount);
+    actor.prior.health = actor.current.health;
+    actor.current.health -= amount;
+    actor.changed(true);
+    return amount;
+  }
+
+  heal(actor, amount=0) {
+    const delta = Math.min(amount, actor.max.health - actor.current.health);
+    actor.current.health += delta;
+    actor.changed(true);
+    return delta;
+  }
+
+  kill(actor) {
+    actor.current.health = 0;
+    if (actor.isPlayer()) {
+      data.gameHasEnded = true;
+    }
+    // const map = DATA.map;
+		// map.removeActor(this);
+		// in the future do something here (HP = 0?  Flag?)
+	}
+
+  getAwarenessDistance(actor, other) {
+    return 20;  // ???
+  }
+
+  getName(opts={}) {
+    if (opts === true) { opts = { article: true }; }
+    if (opts === false) { opts = {}; }
+    if (typeof opts === 'string') { opts = { article: opts }; }
+
+    let result = this.name;
+    if (opts.color || (this.consoleColor && (opts.color !== false))) {
+      let color = this.sprite.fg;
+      if (this.consoleColor instanceof types.Color) {
+        color = this.consoleColor;
+      }
+      if (opts.color instanceof types.Color) {
+        color = opts.color;
+      }
+      result = text.format('%R%s%R', color, this.name, null);
+    }
+
+    if (opts.article && (this.article !== false)) {
+      let article = (opts.article === true) ? this.article : opts.article;
+      if (article == 'a' && text.isVowel(text.firstChar(result))) {
+        article = 'an';
+      }
+      result = article + ' ' + result;
+    }
+    return result;
+  }
+}
+
+types.ActorKind = ActorKind$1;
+
+function addActorKind(id, opts={}) {
+	opts.id = id;
+  let kind;
+  if (opts instanceof types.ActorKind) {
+    kind = opts;
+  }
+  else {
+    kind = new types.ActorKind(opts);
+  }
+	actorKinds[id] = kind;
+	return kind;
+}
+
+actor.addKind = addActorKind;
+
+function addActorKinds(opts={}) {
+  Object.entries(opts).forEach( ([key, config]) => {
+    actor.addKind(key, config);
+  });
+}
+
+actor.addKinds = addActorKinds;
+
+let ACTOR_COUNT = 0;
+
+class Actor$1 {
+	constructor(kind) {
+		this.x = -1;
+    this.y = -1;
+    this.flags = 0;
+    this.kind = kind || {};
+    this.turnTime = 0;
+		this.status = {};
+
+    // stats
+    this.current = { health: 1 };
+    this.max = { health: 1 };
+    this.prior = { health: 1 };
+
+    if (this.kind.stats) {
+      Object.assign(this.current, this.kind.stats);
+      Object.assign(this.max, this.kind.stats);
+      Object.assign(this.prior, this.kind.stats);
+    }
+
+    if (this.kind.ai) {
+      this.kind.ai.forEach( (ai) => {
+        if (ai.init) {
+          ai.init(this);
+        }
+      });
+    }
+
+    this.id = ++ACTOR_COUNT;
+  }
+
+  isPlayer() { return this === data.player; }
+  isDead() { return this.current.health <= 0; }
+  isInanimate() { return this.kind.flags & ActorKind.AK_INANIMATE; }
+
+	endTurn(turnTime) {
+    actor.endTurn(this, turnTime);
+	}
+
+  avoidsCell(cell, x, y) {
+    const avoidedCellFlags = this.kind.avoidedCellFlags(this);
+    const forbiddenTileFlags = this.kind.forbiddenTileFlags(this);
+    const avoidedTileFlags = this.kind.avoidedTileFlags(this);
+
+    if (cell.flags & avoidedCellFlags) return true;
+    if (cell.hasTileFlag(forbiddenTileFlags | avoidedTileFlags)) return true;
+    return false;
+  }
+
+  fillCostGrid(map, grid) {
+    const avoidedCellFlags = this.kind.avoidedCellFlags(this);
+    const forbiddenTileFlags = this.kind.forbiddenTileFlags(this);
+    const avoidedTileFlags = this.kind.avoidedTileFlags(this);
+
+    map.fillCostGrid(grid, (cell, x, y) => {
+      if (cell.hasTileFlag(forbiddenTileFlags)) return def.PDS_FORBIDDEN;
+      if (cell.hasTileFlag(avoidedTileFlags)) return def.PDS_AVOIDED;
+      if (cell.flags & avoidedCellFlags) return def.PDS_AVOIDED;
+      return 1;
+    });
   }
 
   hasActionFlag(flag) {
-    if (flag & Action.A_PICKUP) return true;
-    return false;
+    if (this.isPlayer()) return true; // Players can do everything
+    return this.kind.actionFlags & flag;
+  }
+
+  changed(v) {
+    if (v) {
+      this.flags |= Actor.AF_CHANGED;
+    }
+    else if (v !== undefined) {
+      this.flags &= ~Actor.AF_CHANGED;
+    }
+    return (this.flags & Actor.AF_CHANGED);
+  }
+
+  statChangePercent(name) {
+    const current = this.current[name] || 0;
+    const prior = this.prior[name] || 0;
+    const max = Math.max(this.max[name] || 0, current, prior);
+
+    return Math.floor(100 * (current - prior)/max);
+  }
+
+  getName(opts={}) {
+    if (typeof opts === 'string') { opts = { article: opts }; }
+    let base = this.kind.getName(opts);
+    return base;
+  }
+
+  getVerb(verb) {
+    if (this.isPlayer()) return verb;
+    return text.toSingular(verb);
+  }
+
+  getPronoun(pn) {
+    if (this.isPlayer()) {
+      return text.playerPronoun[pn];
+    }
+
+    return text.singularPronoun[pn];
+  }
+
+  debug(...args) {
+  	// if (this.flags & Flags.Actor.AF_DEBUG)
+  	actor.debug(...args);
   }
 
 }
 
-types.Player = Player;
+types.Actor = Actor$1;
+
+
+function makeActor(kind) {
+  if (typeof kind === 'string') {
+    kind = actorKinds[kind];
+  }
+  else if (!(kind instanceof types.ActorKind)) {
+    kind = new types.ActorKind(kind);
+  }
+  return new types.Actor(kind);
+}
+
+make.actor = makeActor;
+
+function startActorTurn(theActor) {
+  theActor.turnTime = 0;
+  Object.assign(theActor.prior, theActor.current);
+}
+
+actor.startTurn = startActorTurn;
+
+function endActorTurn(theActor, turnTime=1) {
+  theActor.turnTime = Math.floor(theActor.kind.speed * turnTime);
+  if (theActor.isPlayer()) {
+    visibility.update(data.map, theActor.x, theActor.y);
+    ui.requestUpdate(48);
+  }
+  else if (theActor.kind.isOrWasVisibleToPlayer(theActor, data.map) && theActor.turnTime) {
+    ui.requestUpdate();
+  }
+}
+
+actor.endTurn = endActorTurn;
+
+// TODO - move back to game??
+async function takeTurn(theActor) {
+  theActor.debug('actor turn...', data.time, theActor.id);
+  if (theActor.isDead() || data.gameHasEnded) return 0;
+
+	await actor.startTurn(theActor);
+  if (theActor.kind.ai) {
+    for(let i = 0; i < theActor.kind.ai.length; ++i) {
+      const ai = theActor.kind.ai[i];
+      const fn = ai.act || ai.fn || ai;
+      const success = await fn.call(ai, theActor);
+      if (success) {
+        // console.log(' - ai acted', theActor.id);
+        break;
+      }
+    }
+  }
+	// theActor.endTurn();
+  return theActor.turnTime;	// actual or idle time
+}
+
+actor.takeTurn = takeTurn;
+
+var player = {};
+
+player.debug = utils$1.NOOP;
+
 
 
 function makePlayer(kind) {
   if (!(kind instanceof types.ActorKind)) {
     kind = new types.ActorKind(kind);
   }
-  return new types.Player(kind);
+  return new types.Actor(kind);
 }
 
 make.player = makePlayer;
@@ -7573,7 +7130,11 @@ make.player = makePlayer;
 async function takeTurn$1() {
   const PLAYER = data.player;
   player.debug('player turn...', data.time);
-  await PLAYER.startTurn();
+  if (PLAYER.isDead() || data.gameHasEnded) {
+    return 0;
+  }
+  await ui.updateIfRequested();
+  await startActorTurn(PLAYER);
 
   while(!PLAYER.turnTime) {
     const ev = await io.nextEvent(1000);
@@ -7590,29 +7151,6 @@ async function takeTurn$1() {
 
 player.takeTurn = takeTurn$1;
 
-
-async function startTurn$1(PLAYER) {
-  await ui.updateIfRequested();
-	PLAYER.turnTime = 0;
-  Object.assign(PLAYER.prior, PLAYER.current);
-}
-
-player.startTurn = startTurn$1;
-
-
-function act$1() {
-	return true;
-}
-
-player.act = act$1;
-
-function endTurn$1(PLAYER, turnTime=1) {
-  PLAYER.turnTime = Math.floor(PLAYER.kind.speed * turnTime);
-  visibility.update(data.map, PLAYER.x, PLAYER.y);
-  ui.requestUpdate(48);
-}
-
-player.endTurn = endTurn$1;
 
 
 function isValidStartLoc(cell, x, y) {
@@ -7841,7 +7379,7 @@ async function gameLoop() {
 
   ui.draw();
 
-  while (data.running) {
+  while (data.running && !data.gameHasEnded) {
 
     const fn = scheduler.pop();
     if (!fn) {
@@ -9516,6 +9054,340 @@ async function grab(e) {
 
 commands.grab = grab;
 
+async function pickupItem(actor, item, ctx) {
+
+  if (!actor.hasActionFlag(Action.A_PICKUP)) return false;
+  if (item.hasActionFlag(Action.A_NO_PICKUP)) {
+    // TODO - GW.message.add('...');
+    return false;
+  }
+
+  let success;
+  if (item.kind.pickup) {
+    success = await item.kind.pickup(item, actor, ctx);
+    if (!success) return false;
+  }
+  else {
+    // if no room in inventory - return false
+    // add to inventory
+    success = true;
+  }
+
+  const map = ctx.map;
+  map.removeItem(item);
+
+  if (success instanceof types.Item) {
+    map.addItem(item.x, item.y, success);
+  }
+  return true;
+}
+
+async function attack(actor, target, ctx={}) {
+
+  if (actor.isPlayer() == target.isPlayer()) return false;
+
+  const map = ctx.map || data.map;
+  const kind = actor.kind;
+  const attacks = kind.attacks;
+  if (!attacks) return false;
+
+  const melee = attacks.melee;
+  if (!melee) return false;
+
+  const dist = Math.floor(utils$1.distanceFromTo(actor, target));
+  if (dist > (melee.range || 1)) {
+    return false;
+  }
+
+  let damage = melee.damage;
+  if (typeof damage === 'function') {
+    damage = damage(actor, target, ctx) || 1;
+  }
+  const verb = melee.verb || 'hit';
+
+  damage = target.kind.applyDamage(target, damage, actor, ctx);
+  message.addCombat('%s %s %s for %R%d%R damage', actor.getName(), actor.getVerb(verb), target.getName('the'), 'red', damage, null);
+
+  if (target.isDead()) {
+    message.addCombat('%s %s', target.isInanimate() ? 'destroying' : 'killing', target.getPronoun('it'));
+  }
+
+  await fx.hit(data.map, target);
+  if (target.isDead()) {
+    target.kind.kill(target);
+    map.removeActor(target);
+    if (target.kind.corpse) {
+      const ctx2 = { map: map, x: target.x, y: target.y };
+      await spawnTileEvent(target.kind.corpse, ctx2);
+    }
+    if (target.isPlayer()) {
+      await gameOver(false, 'Killed by %s.', actor.getName(true));
+    }
+  }
+
+  actor.endTurn();
+  return true;
+}
+
+async function moveDir(actor, dir, opts={}) {
+
+  const newX = dir[0] + actor.x;
+  const newY = dir[1] + actor.y;
+  const map = opts.map || data.map;
+  const cell = map.cell(newX, newY);
+
+  const ctx = { actor, map, x: newX, y: newY, cell };
+
+  actor.debug('moveDir', dir);
+
+  if (!map.hasXY(newX, newY)) {
+    actor.debug('move blocked - invalid xy: %d,%d', newX, newY);
+    // TURN ENDED (1/2 turn)?
+    return false;
+  }
+
+  // TODO - Can we leave old cell?
+  // PROMOTES ON EXIT, NO KEY(?), PLAYER EXIT
+
+  if (cell.actor) {
+    // TODO - BUMP LOGIC
+    if (await attack(actor, cell.actor, ctx)) {
+      return true;
+    }
+    return false;  // cannot move here and did not attack
+  }
+
+  // Can we enter new cell?
+  if (cell.hasTileFlag(Tile.T_OBSTRUCTS_PASSABILITY)) {
+    return false;
+  }
+  if (map.diagonalBlocked(actor.x, actor.y, newX, newY)) {
+    return false;
+  }
+
+  let isPush = false;
+  if (cell.item && cell.item.hasKindFlag(ItemKind.IK_BLOCKS_MOVE)) {
+    // ACTOR.hasActionFlag(A_PUSH);
+    if (!cell.item.hasActionFlag(Action.A_PUSH)) {
+      ctx.item = cell.item;
+      return false;
+    }
+    const pushX = newX + dir[0];
+    const pushY = newY + dir[1];
+    const pushCell = map.cell(pushX, pushY);
+    if (!pushCell.isEmpty() || pushCell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS | Tile.T_OBSTRUCTS_PASSABILITY)) {
+      return false;
+    }
+
+    ctx.item = cell.item;
+    map.removeItem(cell.item);
+    map.addItem(pushX, pushY, ctx.item);
+    isPush = true;
+    // Do we need to activate stuff - key enter, key leave?
+  }
+
+  // CHECK SOME SANITY MOVES
+  if (cell.hasTileFlag(Tile.T_LAVA) && !cell.hasTileFlag(Tile.T_BRIDGE)) {
+    return false;
+  }
+  else if (cell.hasTileFlag(Tile.T_HAS_STAIRS)) {
+    if (actor.grabbed) {
+      return false;
+    }
+  }
+
+  if (actor.grabbed && !isPush) {
+    const dirToItem = UTILS.dirFromTo(actor, actor.grabbed);
+    let destXY = [actor.grabbed.x + dir[0], actor.grabbed.y + dir[1]];
+    if (UTILS.isOppositeDir(dirToItem, dir)) {  // pull
+      if (!actor.grabbed.hasActionFlag(Action.A_PULL)) {
+        return false;
+      }
+    }
+    else {  // slide
+      if (!actor.grabbed.hasActionFlag(Action.A_SLIDE)) {
+        return false;
+      }
+    }
+    const destCell = map.cell(destXY[0], destXY[1]);
+    if (destCell.item || destCell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS | Tile.T_OBSTRUCTS_PASSABILITY)) {
+      actor.debug('move blocked - item obstructed: %d,%d', destXY[0], destXY[1]);
+      return false;
+    }
+  }
+
+  if (!map.moveActor(newX, newY, actor)) {
+    UTILS.ERROR('Move failed! ' + newX + ',' + newY);
+    // TURN ENDED (1/2 turn)?
+    return false;
+  }
+
+  if (actor.grabbed && !isPush) {
+    map.removeItem(actor.grabbed);
+    map.addItem(actor.grabbed.x + dir[0], actor.grabbed.y + dir[1], actor.grabbed);
+  }
+
+  // APPLY EFFECTS
+  for(let tile of cell.tiles()) {
+    await tile.applyInstantEffects(map, newX, newY, cell);
+    if (data.gameHasEnded) {
+      return true;
+    }
+  }
+
+  // PROMOTES ON ENTER, PLAYER ENTER, KEY(?)
+  await cell.fireEvent('enter', ctx);
+
+  // pickup any items
+  if (cell.item && actor.hasActionFlag(Action.A_PICKUP)) {
+    await pickupItem(actor, cell.item, ctx);
+  }
+
+  actor.debug('moveComplete');
+
+  ui.requestUpdate();
+  actor.endTurn();
+  return true;
+}
+
+async function bashItem(actor, item, ctx) {
+
+  const map = ctx.map || data.map;
+
+  if (!item.hasActionFlag(Action.A_BASH)) {
+    message.add('%s cannot bash %s.', actor.getName(), item.getName());
+    return false;
+  }
+
+  let success = false;
+  if (item.kind.bash) {
+    success = await item.kind.bash(item, actor, ctx);
+    if (!success) return false;
+  }
+  else if (actor) {
+    const damage = actor.kind.calcBashDamage(actor, item, ctx);
+    if (item.kind.applyDamage(item, damage, actor, ctx)) {
+      message.add('%s bash %s [-%d].', actor.getName(), item.getName('the'), damage);
+      await fx.flashSprite(map, item.x, item.y, 'hit', 100, 1);
+    }
+  }
+  else {
+    item.kind.applyDamage(item, ctx.damage || 1, null, ctx);
+  }
+
+  if (item.isDestroyed()) {
+    map.removeItem(item);
+    message.add('%s is destroyed.', item.getName('the'));
+    if (item.kind.corpse) {
+      await spawnTileEvent(item.kind.corpse, { map, x: item.x, y: item.y });
+    }
+  }
+  return true;
+}
+
+async function openItem(actor, item, ctx={}) {
+  return false;
+}
+
+async function closeItem(actor, item, ctx={}) {
+  return false;
+}
+
+async function moveToward(actor, x, y, ctx) {
+
+  const map = ctx.map || data.map;
+  const destCell = map.cell(x, y);
+  const fromCell = map.cell(actor.x, actor.y);
+
+  if (actor.x == x && actor.y == y) {
+    return false; // Hmmm...  Not sure on this one
+  }
+
+  if (destCell.isVisible() && fromCell.isVisible()) {
+    const dir = utils$1.dirBetween(actor.x, actor.y, x, y);
+    if (await moveDir(actor, dir, ctx)) {
+      return true;
+    }
+  }
+
+  let travelGrid = actor.travelGrid;
+  if (!travelGrid) {
+    travelGrid = actor.travelGrid = GRID.alloc(map.width, map.height);
+    travelGrid.x = travelGrid.y = -1;
+  }
+  if (travelGrid.x != x || travelGrid.y != y) {
+    const costGrid = GRID.alloc(map.width, map.height);
+    actor.fillCostGrid(map, costGrid);
+    PATH.calculateDistances(travelGrid, x, y, costGrid, true);
+    GRID.free(costGrid);
+  }
+
+  const dir = nextStep(map, travelGrid, actor.x, actor.y, actor, true);
+  if (!dir) return false;
+
+  return await moveDir(actor, dir, ctx);
+}
+
+
+
+// Returns null if there are no beneficial moves.
+// If preferDiagonals is true, we will prefer diagonal moves.
+// Always rolls downhill on the distance map.
+// If monst is provided, do not return a direction pointing to
+// a cell that the monster avoids.
+function nextStep( map, distanceMap, x, y, traveler, useDiagonals) {
+	let newX, newY, bestScore;
+  let dir, bestDir;
+  let blocker;	// creature *
+  let blocked;
+
+  // brogueAssert(coordinatesAreInMap(x, y));
+
+	bestScore = 0;
+	bestDir = def.NO_DIRECTION;
+
+	for (dir = 0; dir < (useDiagonals ? 8 : 4); ++dir)
+  {
+		newX = x + def.dirs[dir][0];
+		newY = y + def.dirs[dir][1];
+
+    if (map.hasXY(newX, newY)) {
+        blocked = false;
+        const cell = map.cell(newX, newY);
+        blocker = cell.actor;
+        if (traveler
+            && traveler.avoidsCell(cell, newX, newY))
+				{
+            blocked = true;
+        } else if (traveler && blocker
+                   && !traveler.kind.canPass(traveler, blocker))
+				{
+            blocked = true;
+        }
+        if (!blocked
+						&& (distanceMap[x][y] - distanceMap[newX][newY]) > bestScore
+            && !map.diagonalBlocked(x, y, newX, newY, traveler.isPlayer())
+            && map.isPassableNow(newX, newY, traveler.isPlayer()))
+				{
+            bestDir = dir;
+            bestScore = distanceMap[x][y] - distanceMap[newX][newY];
+        }
+    }
+	}
+	return def.dirs[bestDir] || null;
+}
+
+var index = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  moveDir: moveDir,
+  bashItem: bashItem,
+  pickupItem: pickupItem,
+  openItem: openItem,
+  closeItem: closeItem,
+  attack: attack,
+  moveToward: moveToward
+});
+
 config.autoPickup = true;
 
 
@@ -9528,12 +9400,13 @@ async function movePlayer(e) {
   const cell = map.cell(newX, newY);
 
   const ctx = { actor, map, x: newX, y: newY, cell };
+  const isPlayer = actor.isPlayer();
 
   commands.debug('movePlayer');
 
   if (!map.hasXY(newX, newY)) {
     commands.debug('move blocked - invalid xy: %d,%d', newX, newY);
-    if (actor.isPlayer()) message.moveBlocked(ctx);
+    if (isPlayer) message.moveBlocked(ctx);
     // TURN ENDED (1/2 turn)?
     return false;
   }
@@ -9553,7 +9426,7 @@ async function movePlayer(e) {
 
   // Can we enter new cell?
   if (cell.hasTileFlag(Tile.T_OBSTRUCTS_PASSABILITY)) {
-    if (actor.isPlayer()) {
+    if (isPlayer) {
       message.moveBlocked(ctx);
       // TURN ENDED (1/2 turn)?
       await fx.flashSprite(map, newX, newY, 'hit', 50, 1);
@@ -9561,7 +9434,7 @@ async function movePlayer(e) {
     return false;
   }
   if (map.diagonalBlocked(actor.x, actor.y, newX, newY)) {
-    if (actor.isPlayer())  {
+    if (isPlayer)  {
       message.moveBlocked(ctx);
       // TURN ENDED (1/2 turn)?
       await fx.flashSprite(map, newX, newY, 'hit', 50, 1);
@@ -9573,14 +9446,14 @@ async function movePlayer(e) {
   if (cell.item && cell.item.hasKindFlag(ItemKind.IK_BLOCKS_MOVE)) {
     if (!cell.item.hasActionFlag(Action.A_PUSH)) {
       ctx.item = cell.item;
-      if (actor.isPlayer()) message.moveBlocked(ctx);
+      if (isPlayer) message.moveBlocked(ctx);
       return false;
     }
     const pushX = newX + dir[0];
     const pushY = newY + dir[1];
     const pushCell = map.cell(pushX, pushY);
     if (!pushCell.isEmpty() || pushCell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS | Tile.T_OBSTRUCTS_PASSABILITY)) {
-      if (actor.isPlayer()) message.moveBlocked(ctx);
+      if (isPlayer) message.moveBlocked(ctx);
       return false;
     }
 
@@ -9593,14 +9466,14 @@ async function movePlayer(e) {
 
   // CHECK SOME SANITY MOVES
   if (cell.hasTileFlag(Tile.T_LAVA) && !cell.hasTileFlag(Tile.T_BRIDGE)) {
-    if (!actor.isPlayer()) return false;
+    if (!isPlayer) return false;
     if (!await ui.confirm('That is certain death!  Proceed anyway?')) {
       return false;
     }
   }
   else if (cell.hasTileFlag(Tile.T_HAS_STAIRS)) {
     if (actor.grabbed) {
-      if (actor.isPlayer()) {
+      if (isPlayer) {
         message.add('You cannot use stairs while holding %s.', actor.grabbed.flavorText());
       }
       return false;
@@ -9612,20 +9485,20 @@ async function movePlayer(e) {
     let destXY = [actor.grabbed.x + dir[0], actor.grabbed.y + dir[1]];
     if (utils$1.isOppositeDir(dirToItem, dir)) {  // pull
       if (!actor.grabbed.hasActionFlag(Action.A_PULL)) {
-        if (actor.isPlayer()) message.add('you cannot pull %s.', actor.grabbed.flavorText());
+        if (isPlayer) message.add('you cannot pull %s.', actor.grabbed.flavorText());
         return false;
       }
     }
     else {  // slide
       if (!actor.grabbed.hasActionFlag(Action.A_SLIDE)) {
-        if (actor.isPlayer()) message.add('you cannot slide %s.', actor.grabbed.flavorText());
+        if (isPlayer) message.add('you cannot slide %s.', actor.grabbed.flavorText());
         return false;
       }
     }
     const destCell = map.cell(destXY[0], destXY[1]);
     if (destCell.item || destCell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS | Tile.T_OBSTRUCTS_PASSABILITY)) {
       commands.debug('move blocked - item obstructed: %d,%d', destXY[0], destXY[1]);
-      if (actor.isPlayer()) message.moveBlocked(ctx);
+      if (isPlayer) message.moveBlocked(ctx);
       return false;
     }
   }
@@ -9658,13 +9531,13 @@ async function movePlayer(e) {
     await cell.fireEvent('enter', ctx);
   }
 
-  if (cell.hasTileFlag(Tile.T_HAS_STAIRS) && actor.isPlayer()) {
+  if (cell.hasTileFlag(Tile.T_HAS_STAIRS) && isPlayer) {
     console.log('Use stairs!');
     await game.useStairs(newX, newY);
   }
 
   // auto pickup any items
-  if (config.autoPickup && cell.item && actor.isPlayer()) {
+  if (config.autoPickup && cell.item && isPlayer) {
     await pickupItem(actor, cell.item, ctx);
   }
 
@@ -9815,8 +9688,8 @@ commands.rest = rest;
 class ItemKind$1 {
   constructor(opts={}) {
 		this.name = opts.name || 'item';
-		this.description = opts.description || opts.desc || '';
-    this.article = opts.article || 'a';
+		this.flavor = opts.flavor || null;
+    this.article = (opts.article === undefined) ? 'a' : opts.article;
 		this.sprite = make.sprite(opts.sprite);
     this.flags = ItemKind.toFlag(opts.flags);
 		this.actionFlags = Action.toFlag(opts.flags);
@@ -9835,6 +9708,20 @@ class ItemKind$1 {
       }
     }
   }
+
+  forbiddenTileFlags(item) { return Tile.T_OBSTRUCTS_ITEMS; }
+
+  async applyDamage(item, damage, actor, ctx) {
+		if (item.stats.health > 0) {
+			const damageDone = Math.min(item.stats.health, damage);
+			item.stats.health -= damageDone;
+			if (item.stats.health <= 0) {
+				item.flags |= Item.ITEM_DESTROYED;
+			}
+			return damageDone;
+		}
+		return 0;
+	}
 
   getName(item, opts={}) {
     if (opts === true) { opts = { article: true }; }
@@ -9907,24 +9794,10 @@ class Item$1 {
 		return (this.kind.actionFlags & flag) > 0;
 	}
 
-	async applyDamage(damage, actor, ctx) {
-		if (this.stats.health > 0) {
-			const damageDone = Math.min(this.stats.health, damage);
-			this.stats.health -= damageDone;
-			if (this.stats.health <= 0) {
-				this.flags |= Item.ITEM_DESTROYED;
-			}
-			return damageDone;
-		}
-		return 0;
-	}
-
 	isDestroyed() { return this.flags & Item.ITEM_DESTROYED; }
   changed() { return false; } // ITEM_CHANGED
 
-	forbiddenTileFlags() { return Tile.T_OBSTRUCTS_ITEMS; }
-
-	flavorText() { return this.kind.description || this.kind.getName(this, true); }
+	flavorText() { return this.kind.flavor || this.kind.getName(this, true); }
   getName(opts={}) {
     return this.kind.getName(this, opts);
   }
@@ -10375,7 +10248,7 @@ function refreshSidebar(map) {
 		else if (cell.isAnyKindOfVisible()) {
 			entries.push({ map, x, y, dist: 0, priority: 2, draw: sidebar$1.addActor, entity: actor, changed });
 		}
-		else if (cell.isRevealed(true) && actor.alwaysVisible())
+		else if (cell.isRevealed(true) && actor.kind.alwaysVisible(actor))
 		{
 			entries.push({ map, x, y, dist: 0, priority: 3, draw: sidebar$1.addActor, entity: actor, changed, dim: true });
 		}
@@ -10753,7 +10626,7 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
 	const name = monst.getName({ color: monstForeColor });
 	let monstName = text.capitalize(name);
 
-  if (monst === DATA.player) {
+  if (monst.isPlayer()) {
       if (monst.status.invisible) {
 				monstName += ' (invisible)';
       } else if (cell$1.isDark()) {
@@ -11702,6 +11575,78 @@ function draw() {
 }
 
 ui.draw = draw;
+
+async function idle(actor, ctx) {
+  actor.debug('idle');
+  actor.endTurn();
+  return true;
+}
+
+ai.idle = { act: idle };
+
+
+async function moveRandomly(actor, ctx) {
+  const dirIndex = random.number(4);
+  const dir = def.dirs[dirIndex];
+
+  if (!await moveDir(actor, dir, ctx)) {
+    return false;
+  }
+  // actor.endTurn();
+  return true;
+}
+
+ai.moveRandomly = { act: moveRandomly };
+
+
+async function attackPlayer(actor, ctx) {
+  const player = data.player;
+
+  const dist = utils$1.distanceFromTo(actor, player);
+  if (dist >= 2) return false;
+
+  if (!await attack(actor, player, ctx)) {
+    return false;
+  }
+  // actor.endTurn();
+  return true;
+}
+
+ai.attackPlayer = { act: attackPlayer };
+
+
+async function moveTowardPlayer(actor, ctx={}) {
+
+  const player = data.player;
+  const map = ctx.map || data.map;
+  const cell = map.cell(actor.x, actor.y);
+
+  const dist = utils$1.distanceFromTo(actor, player);
+  if (dist < 2) return false; // Already next to player
+
+  if (cell.flags & Cell.IN_FOV) {
+    // actor in player FOV so actor can see player (if in range, light, etc...)
+    if (dist < actor.kind.getAwarenessDistance(actor, player)) {
+      actor.lastSeenPlayerAt = [player.x, player.y];
+    }
+  }
+
+  if (actor.lastSeenPlayerAt) {
+    if (!await moveToward(actor, actor.lastSeenPlayerAt[0], actor.lastSeenPlayerAt[1], ctx)) {
+      actor.lastSeenPlayerAt = null;  // cannot move toward this location, so stop trying
+      return false;
+    }
+    if (actor.lastSeenPlayerAt[0] == actor.x && actor.lastSeenPlayerAt[1] == actor.y) {
+      // at goal
+      actor.lastSeenPlayerAt = null;
+    }
+    return true;
+  }
+
+  return false;
+}
+
+ai.moveTowardPlayer = { act: moveTowardPlayer };
 
 // These are the minimal set of tiles to make the diggers work
 const NOTHING$1 = def.NOTHING = 0;

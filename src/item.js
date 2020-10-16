@@ -9,8 +9,8 @@ import * as GW from './gw.js';
 class ItemKind {
   constructor(opts={}) {
 		this.name = opts.name || 'item';
-		this.description = opts.description || opts.desc || '';
-    this.article = opts.article || 'a';
+		this.flavor = opts.flavor || null;
+    this.article = (opts.article === undefined) ? 'a' : opts.article;
 		this.sprite = GW.make.sprite(opts.sprite);
     this.flags = Flags.ItemKind.toFlag(opts.flags);
 		this.actionFlags = Flags.Action.toFlag(opts.flags);
@@ -29,6 +29,20 @@ class ItemKind {
       }
     }
   }
+
+  forbiddenTileFlags(item) { return Flags.Tile.T_OBSTRUCTS_ITEMS; }
+
+  async applyDamage(item, damage, actor, ctx) {
+		if (item.stats.health > 0) {
+			const damageDone = Math.min(item.stats.health, damage);
+			item.stats.health -= damageDone;
+			if (item.stats.health <= 0) {
+				item.flags |= Flags.Item.ITEM_DESTROYED;
+			}
+			return damageDone;
+		}
+		return 0;
+	}
 
   getName(item, opts={}) {
     if (opts === true) { opts = { article: true }; }
@@ -101,24 +115,10 @@ class Item {
 		return (this.kind.actionFlags & flag) > 0;
 	}
 
-	async applyDamage(damage, actor, ctx) {
-		if (this.stats.health > 0) {
-			const damageDone = Math.min(this.stats.health, damage);
-			this.stats.health -= damageDone;
-			if (this.stats.health <= 0) {
-				this.flags |= Flags.Item.ITEM_DESTROYED;
-			}
-			return damageDone;
-		}
-		return 0;
-	}
-
 	isDestroyed() { return this.flags & Flags.Item.ITEM_DESTROYED; }
   changed() { return false; } // ITEM_CHANGED
 
-	forbiddenTileFlags() { return Flags.Tile.T_OBSTRUCTS_ITEMS; }
-
-	flavorText() { return this.kind.description || this.kind.getName(this, true); }
+	flavorText() { return this.kind.flavor || this.kind.getName(this, true); }
   getName(opts={}) {
     return this.kind.getName(this, opts);
   }

@@ -4,6 +4,29 @@ const LAST_LEVEL = 1;
 
 GW.random.seed(12345);
 
+
+const stumbles = {
+  init: function(actor) {
+    actor.turnsSinceStumble = 0;
+    actor.maxTurnsWithoutStumble = actor.maxTurnsWithoutStumble || 10;
+  },
+  act: function(actor) {
+    const stumbleChance = 100 * actor.turnsSinceStumble / actor.maxTurnsWithoutStumble;
+    if(actor.turnsSinceStumble && GW.random.chance(stumbleChance)) {
+        actor.turnsSinceStumble = 0;
+        console.log('Stumble: %d @ %d,%d', actor.id, actor.x, actor.y);
+        actor.status = 'Stumbling';
+        // TODO - Update status (on sidebar) to show '(Stumbling)'
+        actor.endTurn();
+        return true;
+    }
+    actor.turnsSinceStumble++;
+    actor.status = null;
+    return false;
+  }
+}
+
+
 const PLAYER = GW.make.player({
 		sprite: GW.make.sprite('@', 'white'),
 		name: 'you', article: false,
@@ -86,7 +109,7 @@ class EscapeItem extends GW.types.ItemKind {
         GW.message.add('%s find %s, but you do not need it.', actor.getName(), item.getName({ article: 'a', details: true }));
         return false;
       }
-      actor.heal(item.stats.heal);
+      actor.kind.heal(actor, item.stats.heal);
       current = true;
     }
     GW.message.add('%s pickup %s.', actor.getName(), item.getName({ article: 'a', details: true }));
@@ -130,8 +153,17 @@ GW.actor.addKind('ZOMBIE', {
   //
   // ai: ['Stumbles', 'AttackPlayer', 'MoveTowardPlayer', 'MoveRandomly', 'Idle'],
 
-  ai: 'attackPlayer, moveTowardPlayer, moveRandomly, idle',
+  ai: [stumbles, 'attackPlayer', 'moveTowardPlayer', 'moveRandomly', 'idle'],
 
+  sidebar(entry, y, dim, highlight, buf) {
+    const actor = entry.entity;
+    y = GW.sidebar.addName(entry, y, dim, highlight, buf);
+    y = GW.sidebar.addHealthBar(entry, y, dim, highlight, buf);
+    if (actor.status) {
+      y = GW.sidebar.addText(buf, y, actor.status, null, null, dim, highlight);
+    }
+    return y;
+  },
   attacks: {
     melee: { damage: 1, verb: 'scratch' }
   },

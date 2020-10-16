@@ -2,8 +2,8 @@
 import { color as COLOR, colors as COLORS } from './color.js';
 import * as Flags from './flags.js';
 import { text as TEXT } from './text.js';
-import { ai as AI } from './ai.js';
-import { types, make, data as DATA, config as CONFIG, ui as UI, utils as UTILS, def } from './gw.js';
+import { visibility as VISIBILITY } from './visibility.js';
+import { types, make, data as DATA, config as CONFIG, ui as UI, utils as UTILS, def, ai as AI } from './gw.js';
 
 export var actor = {};
 export var actorKinds = {};
@@ -59,6 +59,64 @@ class ActorKind {
       this.sidebar = opts.sidebar.bind(this);
     }
 
+  }
+
+  isOrWasVisibleToPlayer(actor, map) {
+    map = map || DATA.map;
+		return map.isOrWasAnyKindOfVisible(actor.x, actor.y);
+	}
+
+  alwaysVisible(actor) {
+    return this.flags & (Flags.ActorKind.AF_IMMOBILE | Flags.ActorKind.AF_INANIMATE);
+  }
+
+  avoidedCellFlags(actor) {
+    return Flags.Cell.HAS_MONSTER | Flags.Cell.HAS_ITEM;
+  }
+
+  avoidedTileFlags(actor) {
+    return 0; // ???
+  }
+
+	forbiddenTileFlags(actor) {
+		return Flags.Tile.T_PATHING_BLOCKER;
+	}
+
+  canPass(actor, other) {
+    return actor.isPlayer() == other.isPlayer();
+  }
+
+  calcBashDamage(actor, item, ctx) {
+    return 1;
+  }
+
+  applyDamage(actor, amount, source, ctx) {
+    amount = Math.min(actor.current.health, amount);
+    actor.prior.health = actor.current.health;
+    actor.current.health -= amount;
+    actor.changed(true);
+    return amount;
+  }
+
+  heal(actor, amount=0) {
+    const delta = Math.min(amount, actor.max.health - actor.current.health);
+    actor.current.health += delta;
+    actor.changed(true);
+    return delta;
+  }
+
+  kill(actor) {
+    actor.current.health = 0;
+    if (actor.isPlayer()) {
+      DATA.gameHasEnded = true;
+    }
+    // const map = DATA.map;
+		// map.removeActor(this);
+		// in the future do something here (HP = 0?  Flag?)
+	}
+
+  getAwarenessDistance(actor, other) {
+    return 20;  // ???
   }
 
   getName(opts={}) {
@@ -151,52 +209,25 @@ export class Actor {
   isDead() { return this.current.health <= 0; }
   isInanimate() { return this.kind.flags & Flags.ActorKind.AK_INANIMATE; }
 
-	async startTurn() {
-		await actor.startTurn(this);
-	}
-
-	async act() {
-		await actor.act(this);
-	}
-
 	endTurn(turnTime) {
-		actor.endTurn(this, turnTime);
+    actor.endTurn(this, turnTime);
 	}
-
-	isOrWasVisible() {
-		return true;
-	}
-
-  canPass(other) {
-    return false;
-  }
 
   avoidsCell(cell, x, y) {
-    const avoidedCellFlags = this.avoidedCellFlags();
-    const forbiddenTileFlags = this.forbiddenTileFlags();
-    const avoidedTileFlags = this.avoidedTileFlags();
+    const avoidedCellFlags = this.kind.avoidedCellFlags(this);
+    const forbiddenTileFlags = this.kind.forbiddenTileFlags(this);
+    const avoidedTileFlags = this.kind.avoidedTileFlags(this);
 
     if (cell.flags & avoidedCellFlags) return true;
     if (cell.hasTileFlag(forbiddenTileFlags | avoidedTileFlags)) return true;
     return false;
   }
 
-  avoidedCellFlags() {
-    return Flags.Cell.HAS_MONSTER | Flags.Cell.HAS_ITEM;
-  }
-
-  avoidedTileFlags() {
-    return 0; // ???
-  }
-
-	forbiddenTileFlags() {
-		return Flags.Tile.T_PATHING_BLOCKER;
-	}
-
   fillCostGrid(map, grid) {
-    const avoidedCellFlags = this.avoidedCellFlags();
-    const forbiddenTileFlags = this.forbiddenTileFlags();
-    const avoidedTileFlags = this.avoidedTileFlags();
+    const avoidedCellFlags = this.kind.avoidedCellFlags(this);
+    const forbiddenTileFlags = this.kind.forbiddenTileFlags(this);
+    const avoidedTileFlags = this.kind.avoidedTileFlags(this);
+
     map.fillCostGrid(grid, (cell, x, y) => {
       if (cell.hasTileFlag(forbiddenTileFlags)) return def.PDS_FORBIDDEN;
       if (cell.hasTileFlag(avoidedTileFlags)) return def.PDS_AVOIDED;
@@ -206,31 +237,8 @@ export class Actor {
   }
 
   hasActionFlag(flag) {
+    if (this.isPlayer()) return true; // Players can do everything
     return this.kind.actionFlags & flag;
-  }
-
-  heal(amount=0) {
-    this.current.health = Math.min(this.current.health + amount, this.max.health);
-    this.changed(true);
-  }
-
-  applyDamage(amount, actor, ctx) {
-    amount = Math.min(this.current.health, amount);
-    this.prior.health = this.current.health;
-    this.current.health -= amount;
-    this.changed(true);
-    return amount;
-  }
-
-	kill() {
-		const map = DATA.map;
-    this.current.health = 0;
-		map.removeActor(this);
-		// in the future do something here (HP = 0?  Flag?)
-	}
-
-  alwaysVisible() {
-    return this.kind.flags & (Flags.ActorKind.AF_IMMOBILE | Flags.ActorKind.AF_INANIMATE);
   }
 
   changed(v) {
@@ -251,10 +259,6 @@ export class Actor {
     return Math.floor(100 * (current - prior)/max);
   }
 
-  getAwarenessDistance(other) {
-    return 20;  // ???
-  }
-
   getName(opts={}) {
     if (typeof opts === 'string') { opts = { article: opts }; }
     let base = this.kind.getName(opts);
@@ -272,11 +276,6 @@ export class Actor {
     }
 
     return TEXT.singularPronoun[pn];
-  }
-
-  calcBashDamage(item, ctx) {
-    if (this.kind.calcBashDamage) return this.kind.calcBashDamage(this, item, ctx);
-    return 1;
   }
 
   debug(...args) {
@@ -301,51 +300,45 @@ export function makeActor(kind) {
 
 make.actor = makeActor;
 
+export function startActorTurn(theActor) {
+  theActor.turnTime = 0;
+  Object.assign(theActor.prior, theActor.current);
+}
+
+actor.startTurn = startActorTurn;
+
+function endActorTurn(theActor, turnTime=1) {
+  theActor.turnTime = Math.floor(theActor.kind.speed * turnTime);
+  if (theActor.isPlayer()) {
+    VISIBILITY.update(DATA.map, theActor.x, theActor.y);
+    UI.requestUpdate(48);
+  }
+  else if (theActor.kind.isOrWasVisibleToPlayer(theActor, DATA.map) && theActor.turnTime) {
+    UI.requestUpdate();
+  }
+}
+
+actor.endTurn = endActorTurn;
 
 // TODO - move back to game??
 export async function takeTurn(theActor) {
   theActor.debug('actor turn...', DATA.time, theActor.id);
-  if (theActor.isDead()) return 0;
+  if (theActor.isDead() || DATA.gameHasEnded) return 0;
 
-	await theActor.startTurn();
-	await theActor.act();
+	await actor.startTurn(theActor);
+  if (theActor.kind.ai) {
+    for(let i = 0; i < theActor.kind.ai.length; ++i) {
+      const ai = theActor.kind.ai[i];
+      const fn = ai.act || ai.fn || ai;
+      const success = await fn.call(ai, theActor);
+      if (success) {
+        // console.log(' - ai acted', theActor.id);
+        break;
+      }
+    }
+  }
+	// theActor.endTurn();
   return theActor.turnTime;	// actual or idle time
 }
 
 actor.takeTurn = takeTurn;
-
-
-function startTurn(theActor) {
-  // console.log('actor start turn - ', theActor.id);
-}
-
-actor.startTurn = startTurn;
-
-
-async function act(theActor) {
-  if (theActor.kind.ai) {
-    for(let i = 0; i < theActor.kind.ai.length; ++i) {
-      const ai = theActor.kind.ai[i];
-      const fn = ai.act ? ai.act : ai;
-      const success = await fn.call(ai, theActor);
-      if (success) {
-        // console.log(' - ai acted', theActor.id);
-        return true;
-      }
-    }
-  }
-	theActor.endTurn();
-	return true;
-}
-
-actor.act = act;
-
-function endTurn(theActor, turnTime=1) {
-	theActor.turnTime = Math.floor(theActor.kind.speed * turnTime);
-	if (theActor.isOrWasVisible() && theActor.turnTime) {
-		UI.requestUpdate();
-	}
-  // console.log(' - end turn - ', theActor.id);
-}
-
-actor.endTurn = endTurn;

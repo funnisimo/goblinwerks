@@ -82,7 +82,7 @@ function refreshSidebar(map) {
 		else if (cell.isAnyKindOfVisible()) {
 			entries.push({ map, x, y, dist: 0, priority: 2, draw: sidebar.addActor, entity: actor, changed });
 		}
-		else if (cell.isRevealed(true) && actor.alwaysVisible())
+		else if (cell.isRevealed(true) && actor.kind.alwaysVisible(actor))
 		{
 			entries.push({ map, x, y, dist: 0, priority: 3, draw: sidebar.addActor, entity: actor, changed, dim: true });
 		}
@@ -463,7 +463,7 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
 	const name = monst.getName({ color: monstForeColor });
 	let monstName = TEXT.capitalize(name);
 
-  if (monst === DATA.player) {
+  if (monst.isPlayer()) {
       if (monst.status.invisible) {
 				monstName += ' (invisible)';
       } else if (cell.isDark()) {

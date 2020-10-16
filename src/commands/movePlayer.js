@@ -17,12 +17,13 @@ async function movePlayer(e) {
   const cell = map.cell(newX, newY);
 
   const ctx = { actor, map, x: newX, y: newY, cell };
+  const isPlayer = actor.isPlayer();
 
   commands.debug('movePlayer');
 
   if (!map.hasXY(newX, newY)) {
     commands.debug('move blocked - invalid xy: %d,%d', newX, newY);
-    if (actor.isPlayer()) MSG.moveBlocked(ctx);
+    if (isPlayer) MSG.moveBlocked(ctx);
     // TURN ENDED (1/2 turn)?
     return false;
   }
@@ -42,7 +43,7 @@ async function movePlayer(e) {
 
   // Can we enter new cell?
   if (cell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_PASSABILITY)) {
-    if (actor.isPlayer()) {
+    if (isPlayer) {
       MSG.moveBlocked(ctx);
       // TURN ENDED (1/2 turn)?
       await FX.flashSprite(map, newX, newY, 'hit', 50, 1);
@@ -50,7 +51,7 @@ async function movePlayer(e) {
     return false;
   }
   if (map.diagonalBlocked(actor.x, actor.y, newX, newY)) {
-    if (actor.isPlayer())  {
+    if (isPlayer)  {
       MSG.moveBlocked(ctx);
       // TURN ENDED (1/2 turn)?
       await FX.flashSprite(map, newX, newY, 'hit', 50, 1);
@@ -62,14 +63,14 @@ async function movePlayer(e) {
   if (cell.item && cell.item.hasKindFlag(Flags.ItemKind.IK_BLOCKS_MOVE)) {
     if (!cell.item.hasActionFlag(Flags.Action.A_PUSH)) {
       ctx.item = cell.item;
-      if (actor.isPlayer()) MSG.moveBlocked(ctx);
+      if (isPlayer) MSG.moveBlocked(ctx);
       return false;
     }
     const pushX = newX + dir[0];
     const pushY = newY + dir[1];
     const pushCell = map.cell(pushX, pushY);
     if (!pushCell.isEmpty() || pushCell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_ITEMS | Flags.Tile.T_OBSTRUCTS_PASSABILITY)) {
-      if (actor.isPlayer()) MSG.moveBlocked(ctx);
+      if (isPlayer) MSG.moveBlocked(ctx);
       return false;
     }
 
@@ -82,14 +83,14 @@ async function movePlayer(e) {
 
   // CHECK SOME SANITY MOVES
   if (cell.hasTileFlag(Flags.Tile.T_LAVA) && !cell.hasTileFlag(Flags.Tile.T_BRIDGE)) {
-    if (!actor.isPlayer()) return false;
+    if (!isPlayer) return false;
     if (!await UI.confirm('That is certain death!  Proceed anyway?')) {
       return false;
     }
   }
   else if (cell.hasTileFlag(Flags.Tile.T_HAS_STAIRS)) {
     if (actor.grabbed) {
-      if (actor.isPlayer()) {
+      if (isPlayer) {
         MSG.add('You cannot use stairs while holding %s.', actor.grabbed.flavorText());
       }
       return false;
@@ -101,20 +102,20 @@ async function movePlayer(e) {
     let destXY = [actor.grabbed.x + dir[0], actor.grabbed.y + dir[1]];
     if (UTILS.isOppositeDir(dirToItem, dir)) {  // pull
       if (!actor.grabbed.hasActionFlag(Flags.Action.A_PULL)) {
-        if (actor.isPlayer()) MSG.add('you cannot pull %s.', actor.grabbed.flavorText());
+        if (isPlayer) MSG.add('you cannot pull %s.', actor.grabbed.flavorText());
         return false;
       }
     }
     else {  // slide
       if (!actor.grabbed.hasActionFlag(Flags.Action.A_SLIDE)) {
-        if (actor.isPlayer()) MSG.add('you cannot slide %s.', actor.grabbed.flavorText());
+        if (isPlayer) MSG.add('you cannot slide %s.', actor.grabbed.flavorText());
         return false;
       }
     }
     const destCell = map.cell(destXY[0], destXY[1]);
     if (destCell.item || destCell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_ITEMS | Flags.Tile.T_OBSTRUCTS_PASSABILITY)) {
       commands.debug('move blocked - item obstructed: %d,%d', destXY[0], destXY[1]);
-      if (actor.isPlayer()) MSG.moveBlocked(ctx);
+      if (isPlayer) MSG.moveBlocked(ctx);
       return false;
     }
   }
@@ -147,13 +148,13 @@ async function movePlayer(e) {
     await cell.fireEvent('enter', ctx);
   }
 
-  if (cell.hasTileFlag(Flags.Tile.T_HAS_STAIRS) && actor.isPlayer()) {
+  if (cell.hasTileFlag(Flags.Tile.T_HAS_STAIRS) && isPlayer) {
     console.log('Use stairs!');
     await GAME.useStairs(newX, newY);
   }
 
   // auto pickup any items
-  if (CONFIG.autoPickup && cell.item && actor.isPlayer()) {
+  if (CONFIG.autoPickup && cell.item && isPlayer) {
     await pickupItem(actor, cell.item, ctx);
   }
 

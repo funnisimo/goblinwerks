@@ -9,7 +9,7 @@ describe('moveDir', () => {
     const actor = GW.make.actor({ name: 'TEST' });
     expect(actor.getName({ color: false })).toEqual('TEST');
 
-    const map = GW.make.map(20, 20, 'FLOOR');
+    const map = GW.data.map = GW.make.map(20, 20, 'FLOOR');
     expect(map.isPassableNow(10, 10)).toBeTruthy();
     expect(map.isPassableNow(11, 10)).toBeTruthy();
 

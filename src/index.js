@@ -34,7 +34,7 @@ import './flavor.js';
 import './ui.js';
 export { visibility } from './visibility.js';
 export * as actions from './actions/index.js';
-export { ai } from './ai.js';
+import './ai.js';
 import './tiles.js';
 
 export * from './gw.js';

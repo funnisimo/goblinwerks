@@ -619,7 +619,7 @@ function evacuateItems(map, blockingMap) {
 		const cell = map.cell(i, j);
 		if (!cell.item) return;
 
-		const forbidFlags = cell.item.forbiddenTileFlags();
+		const forbidFlags = cell.item.kind.forbiddenTileFlags();
 		const loc = map.matchingXYNear(
 							 i, j, (cell) => {
 								 if (cell.hasFlags(Flags.Cell.HAS_ITEM)) return false;

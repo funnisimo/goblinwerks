@@ -75,6 +75,7 @@ export class Map {
 	markRevealed(x, y) { return this.cell(x, y).markRevealed(); }
 	isVisible(x, y)    { return this.cell(x, y).isVisible(); }
 	isAnyKindOfVisible(x, y) { return this.cell(x, y).isAnyKindOfVisible(); }
+  isOrWasAnyKindOfVisible(x, y) { return this.cell(x, y).isOrWasAnyKindOfVisible(); }
 	hasVisibleLight(x, y) { return (this.flags & Flags.Map.MAP_ALWAYS_LIT) || this.cell(x, y).hasVisibleLight(); }
 
 	setFlags(mapFlag, cellFlag, cellMechFlag) {
@@ -479,7 +480,7 @@ export class Map {
 	addItemNear(x, y, theItem) {
 		const loc = this.matchingXYNear(x, y, (cell, i, j) => {
 			if (cell.flags & Flags.Cell.HAS_ITEM) return false;
-			return !cell.hasTileFlag(theItem.forbiddenTileFlags());
+			return !cell.hasTileFlag(theItem.kind.forbiddenTileFlags());
 		});
 		if (!loc || loc[0] < 0) {
 			// GW.ui.message(colors.badMessageColor, 'There is no place to put the item.');

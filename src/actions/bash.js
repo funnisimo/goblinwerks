@@ -19,14 +19,14 @@ export async function bashItem(actor, item, ctx) {
     if (!success) return false;
   }
   else if (actor) {
-    const damage = actor.calcBashDamage(item, ctx);
-    if (item.applyDamage(damage, actor, ctx)) {
+    const damage = actor.kind.calcBashDamage(actor, item, ctx);
+    if (item.kind.applyDamage(item, damage, actor, ctx)) {
       GW.message.add('%s bash %s [-%d].', actor.getName(), item.getName('the'), damage);
       await GW.fx.flashSprite(map, item.x, item.y, 'hit', 100, 1);
     }
   }
   else {
-    item.applyDamage(ctx.damage || 1, null, ctx);
+    item.kind.applyDamage(item, ctx.damage || 1, null, ctx);
   }
 
   if (item.isDestroyed()) {

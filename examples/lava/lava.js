@@ -24,7 +24,7 @@ async function crossedFinish() {
 
 let ERUPT_CHANCE = 300 * 10 * 10;
 let CRUST_CHANCE = 5;
-let LAVA_START_BREAK = 50;
+let LAVA_START_BREAK = 20;
 
 async function lavaTick(x, y, ctx) {
 	const ctx2 = Object.assign({}, ctx, { x, y });
@@ -181,7 +181,7 @@ function makeMap(id=1) {
 	ERUPT_CHANCE = Math.max(5000, 30000 - (1000 * id));
 	CRUST_CHANCE = Math.max(2, Math.floor(10 - id/2));
 	BREAK_CHANCE = Math.min(90, Math.floor(60 + id));
-  LAVA_START_BREAK = Math.min(90, Math.floor(50 + id));
+  LAVA_START_BREAK = Math.min(90, Math.floor(20 + id*2));
 
 	GW.message.add(GW.colors.blue, 'Erupt: %d, Crust: %d, StartBreak: %d, Break: %d', ERUPT_CHANCE, CRUST_CHANCE, LAVA_START_BREAK, BREAK_CHANCE);
 

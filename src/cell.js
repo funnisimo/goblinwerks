@@ -105,6 +105,7 @@ class Cell {
   changed() { return this.flags & Flags.Cell.CELL_CHANGED; }
   isVisible() { return this.flags & Flags.Cell.VISIBLE; }
   isAnyKindOfVisible() { return (this.flags & Flags.Cell.ANY_KIND_OF_VISIBLE) || CONFIG.playbackOmniscience; }
+  isOrWasAnyKindOfVisible() { return (this.flags & Flags.Cell.IS_WAS_ANY_KIND_OF_VISIBLE) || CONFIG.playbackOmniscience; }
   isRevealed(orMapped) {
     const flag = Flags.Cell.REVEALED | (orMapped ? Flags.Cell.MAGIC_MAPPED : 0);
     return this.flags & flag;
