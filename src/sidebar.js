@@ -323,7 +323,7 @@ function drawSidebar(buf, forceFocused) {
 		drawSidebar(buf, true);
 	}
 
-	buf.blackOutRect(SIDE_BOUNDS.toOuterX(0), y, SIDE_BOUNDS.toOuterX(SIDE_BOUNDS.width - 1), SIDE_BOUNDS.height - y);
+	// buf.blackOutRect(SIDE_BOUNDS.x, SIDE_BOUNDS.toOuterY(y), SIDE_BOUNDS.width, SIDE_BOUNDS.height - y);
 
 	SIDEBAR_CHANGED = false;
 	return true;
@@ -348,6 +348,11 @@ sidebar.draw = UiDrawSidebar;
 
 
 function sidebarAddText(buf, y, text, fg, bg, dim, highlight) {
+
+  if (y >= SIDE_BOUNDS.height - 1) {
+		return SIDE_BOUNDS.height - 1;
+	}
+
   fg = fg || COLORS.white;
   bg = bg || COLORS.black;
 

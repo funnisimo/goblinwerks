@@ -86,8 +86,13 @@ export function start(opts={}) {
 
 	let flavorLine = -1;
 
-  if (opts.wideMessages && opts.messages) {
-    viewH -= Math.abs(opts.messages);
+  if (opts.wideMessages) {
+    if (opts.messages) {
+      viewH -= Math.abs(opts.messages);
+    }
+    if (opts.flavor) {
+      viewH -= 1;
+    }
   }
 
   if (opts.sidebar) {
@@ -230,7 +235,7 @@ export async function dispatchEvent(ev) {
     }
   }
 
-	await IO.dispatchEvent(ev);
+	return false;
 }
 
 ui.dispatchEvent = dispatchEvent;
@@ -498,7 +503,7 @@ async function chooseTarget(choices, prompt, opts={}) {
 
 	while(waiting) {
 		const ev = await GW.io.nextEvent(100);
-		await GW.io.dispatchEvent(ev, {
+		await IO.dispatchEvent(ev, {
 			escape() { waiting = false; selected = -1; },
 			enter() { waiting = false; },
 			tab() {

@@ -10,11 +10,11 @@ const flavorPromptColor = COLOR.install('flavorPrompt', 100, 90, 20);
 
 let FLAVOR_TEXT = '';
 let NEED_FLAVOR_UPDATE = false;
-let SETUP = null;
+let FLAVOR_BOUNDS = null;
 let IS_PROMPT = false;
 
 function setupFlavor(opts={}) {
-  SETUP = flavor.bounds = new types.Bounds(opts.x, opts.y, opts.w, 1);
+  FLAVOR_BOUNDS = flavor.bounds = new types.Bounds(opts.x, opts.y, opts.w, 1);
 }
 
 flavor.setup = setupFlavor;
@@ -40,9 +40,9 @@ flavor.showPrompt = showPrompt;
 
 
 function drawFlavor(buffer) {
-  if (!NEED_FLAVOR_UPDATE || !SETUP) return;
+  if (!NEED_FLAVOR_UPDATE || !FLAVOR_BOUNDS) return;
   const color = IS_PROMPT ? flavorPromptColor : flavorTextColor;
-  buffer.plotLine(SETUP.x, SETUP.y, SETUP.width, FLAVOR_TEXT, color, COLORS.black);
+  buffer.plotLine(FLAVOR_BOUNDS.x, FLAVOR_BOUNDS.y, FLAVOR_BOUNDS.width, FLAVOR_TEXT, color, COLORS.black);
 }
 
 flavor.draw = drawFlavor;
