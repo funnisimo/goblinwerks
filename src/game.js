@@ -159,7 +159,13 @@ async function gameLoop() {
     if (DATA.gameHasEnded) {
       const ev = await IO.nextEvent(1000);
       if (ev) {
-        await UI.dispatchEvent(ev);
+        if (!await UI.dispatchEvent(ev)) {
+          await IO.dispatchEvent(ev, {
+            Enter() {
+              DATA.running = false;
+            }
+          });
+        }
         await UI.updateIfRequested();
       }
     }
@@ -186,6 +192,7 @@ async function gameLoop() {
 
   }
 
+  return DATA.isWin;
 }
 
 game.loop = gameLoop;
@@ -243,11 +250,14 @@ export async function gameOver(isWin, ...args) {
   FLAVOR.clear();
   MSG.add(msg);
   if (isWin) {
+    DATA.isWin = true;
     MSG.add(COLORS.yellow, 'WINNER!');
   }
   else {
+    DATA.isWin = false;
     MSG.add(COLORS.red, 'GAME OVER');
   }
+  MSG.add(COLORS.white, 'Press <Enter> to continue.');
   UI.updateNow();
   await FX.flashSprite(DATA.map, DATA.player.x, DATA.player.y, 'hilite', 500, 3);
   DATA.gameHasEnded = true;

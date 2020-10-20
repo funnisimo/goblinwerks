@@ -7631,7 +7631,13 @@ async function gameLoop() {
     if (data.gameHasEnded) {
       const ev = await io.nextEvent(1000);
       if (ev) {
-        await ui.dispatchEvent(ev);
+        if (!await ui.dispatchEvent(ev)) {
+          await io.dispatchEvent(ev, {
+            Enter() {
+              data.running = false;
+            }
+          });
+        }
         await ui.updateIfRequested();
       }
     }
@@ -7658,6 +7664,7 @@ async function gameLoop() {
 
   }
 
+  return data.isWin;
 }
 
 game.loop = gameLoop;
@@ -7711,11 +7718,14 @@ async function gameOver(isWin, ...args) {
   flavor.clear();
   message.add(msg);
   if (isWin) {
+    data.isWin = true;
     message.add(colors.yellow, 'WINNER!');
   }
   else {
+    data.isWin = false;
     message.add(colors.red, 'GAME OVER');
   }
+  message.add(colors.white, 'Press <Enter> to continue.');
   ui.updateNow();
   await fx.flashSprite(data.map, data.player.x, data.player.y, 'hilite', 500, 3);
   data.gameHasEnded = true;
@@ -11803,6 +11813,36 @@ function clearCursor() {
 }
 
 ui.clearCursor = clearCursor;
+
+
+async function fadeTo(color$1, duration) {
+
+  const buffer = ui.startDialog();
+
+  let pct = 0;
+  let elapsed = 0;
+
+  while(elapsed < duration) {
+    elapsed += 32;
+    if (await io.pause(32)) {
+      elapsed = duration;
+    }
+
+    pct = Math.floor(100*elapsed/duration);
+
+    ui.clearDialog();
+    buffer.forEach( (c, x, y) => {
+      color.applyMix(c.fg, color$1, pct);
+      color.applyMix(c.bg, color$1, pct);
+    });
+    ui.draw();
+  }
+
+  ui.finishDialog();
+
+}
+
+ui.fadeTo = fadeTo;
 
 
 async function messageBox(text, fg, duration) {
