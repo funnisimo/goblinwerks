@@ -18,6 +18,10 @@ class ItemKind {
 		this.stats = Object.assign({}, opts.stats || {});
 		this.id = opts.id || null;
     this.slot = opts.slot || null;
+    this.projectile = null;
+    if (opts.projectile) {
+      this.projectile = GW.make.sprite(opts.projectile);
+    }
     this.corpse = GW.make.tileEvent(opts.corpse);
     if (opts.consoleColor === false) {
       this.consoleColor = false;

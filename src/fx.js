@@ -241,14 +241,25 @@ export async function bolt(map, source, target, sprite, opts={}) {
 
 fx.bolt = bolt;
 
-export async function projectile(map, source, target, chs, fg, opts) {
-  if (chs.length != 4) UTILS.ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
-
-  const dir = UTILS.dirFromTo(source, target);
-  const dIndex = UTILS.dirIndex(dir);
-  const index = Math.floor(dIndex / 2);
-  const ch = chs[index];
-  const sprite = GW.make.sprite(ch, fg);
+export async function projectile(map, source, target, sprite, opts) {
+  if (sprite.ch.length == 4) {
+    const dir = UTILS.dirFromTo(source, target);
+    let index = 0;
+    if (dir[0] && dir[1]) {
+      index = 2;
+      if (dir[0] != dir[1]) { // remember up is -y
+        index = 3;
+      }
+    }
+    else if (dir[0]) {
+      index = 1;
+    }
+    const ch = sprite.ch[index];
+    sprite = GW.make.sprite(ch, sprite.fg, sprite.bg);
+  }
+  else if (sprite.ch.length !== 1) {
+    UTILS.ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
+  }
 
   return fx.bolt(map, source, target, sprite, opts);
 }

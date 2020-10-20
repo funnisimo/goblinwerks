@@ -27,7 +27,7 @@ export async function moveDir(actor, dir, opts={}) {
 
   if (cell.actor) {
     // TODO - BUMP LOGIC
-    if (await attack(actor, cell.actor, ctx)) {
+    if (await attack(actor, cell.actor, 'melee', ctx)) {
       return true;
     }
     return false;  // cannot move here and did not attack

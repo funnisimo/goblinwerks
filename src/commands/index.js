@@ -6,6 +6,7 @@ import './movePlayer.js';
 import './bash.js';
 import './open.js';
 import './close.js';
+import './fire.js';
 
 commands.debug = UTILS.NOOP;
 

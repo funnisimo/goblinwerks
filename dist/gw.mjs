@@ -2311,7 +2311,7 @@ const GRID_CACHE = [];
 const DIRS = def.dirs;
 const CDIRS = def.clockDirs;
 
-var GRID = {};
+var GRID$1 = {};
 
 
 function makeArray(l, fn) {
@@ -2658,7 +2658,7 @@ function allocGrid(w, h, v) {
   return resizeAndClearGrid(grid, w, h, v);
 }
 
-GRID.alloc = allocGrid;
+GRID$1.alloc = allocGrid;
 
 
 function freeGrid(grid) {
@@ -2667,7 +2667,7 @@ function freeGrid(grid) {
 	}
 }
 
-GRID.free = freeGrid;
+GRID$1.free = freeGrid;
 
 
 function resizeAndClearGrid(grid, width, height, value=0) {
@@ -2727,7 +2727,7 @@ function dumpGrid(grid, fmtFn) {
 	gridDumpRect(grid, 0, 0, grid.width, grid.height, fmtFn);
 }
 
-GRID.dump = dumpGrid;
+GRID$1.dump = dumpGrid;
 
 
 function _formatGridValue(v) {
@@ -2781,14 +2781,14 @@ function gridDumpRect(grid, left, top, width, height, fmtFn) {
 	console.log(output.join('\n'));
 }
 
-GRID.dumpRect = gridDumpRect;
+GRID$1.dumpRect = gridDumpRect;
 
 
 function dumpGridAround(grid, x, y, radius) {
 	gridDumpRect(grid, x - radius, y - radius, 2 * radius, 2 * radius);
 }
 
-GRID.dumpAround = dumpGridAround;
+GRID$1.dumpAround = dumpGridAround;
 
 
 
@@ -2804,7 +2804,7 @@ function findAndReplace(grid, findValueMin, findValueMax, fillValue)
 	});
 }
 
-GRID.findAndReplace = findAndReplace;
+GRID$1.findAndReplace = findAndReplace;
 
 
 // Flood-fills the grid from (x, y) along cells that are within the eligible range.
@@ -2831,14 +2831,14 @@ function floodFillRange(grid, x, y, eligibleValueMin, eligibleValueMax, fillValu
   return fillCount;
 }
 
-GRID.floodFillRange = floodFillRange;
+GRID$1.floodFillRange = floodFillRange;
 
 
 function invert(grid) {
 	grid.update((v, i, j) => !v );
 }
 
-GRID.invert = invert;
+GRID$1.invert = invert;
 
 
 function intersection(onto, a, b) {
@@ -2846,7 +2846,7 @@ function intersection(onto, a, b) {
 	onto.update((v, i, j) => a[i][j] && b[i][j] );
 }
 
-GRID.intersection = intersection;
+GRID$1.intersection = intersection;
 
 
 function unite(onto, a, b) {
@@ -2854,7 +2854,7 @@ function unite(onto, a, b) {
 	onto.update((v, i, j) => b[i][j] || a[i][j] );
 }
 
-GRID.unite = unite;
+GRID$1.unite = unite;
 
 
 
@@ -2864,7 +2864,7 @@ function closestLocationWithValue(grid, x, y, value)
 	return grid.closestMatchingXY(x, y, (v) => v == value);
 }
 
-GRID.closestLocationWithValue = closestLocationWithValue;
+GRID$1.closestLocationWithValue = closestLocationWithValue;
 
 
 // Takes a grid as a mask of valid locations, chooses one randomly and returns it as (x, y).
@@ -2873,7 +2873,7 @@ function randomLocationWithValue(grid, validValue) {
 	return grid.randomMatchingXY( (v, i, j) => v == validValue );
 }
 
-GRID.randomLocationWithValue = randomLocationWithValue;
+GRID$1.randomLocationWithValue = randomLocationWithValue;
 
 
 function getQualifyingLocNear(grid, x, y, deterministic)
@@ -2881,7 +2881,7 @@ function getQualifyingLocNear(grid, x, y, deterministic)
 	return grid.matchingXYNear(x, y, (v, i, j) => !!v);
 }
 
-GRID.getQualifyingLocNear = getQualifyingLocNear;
+GRID$1.getQualifyingLocNear = getQualifyingLocNear;
 
 function leastPositiveValue(grid) {
 	let least = Number.MAX_SAFE_INTEGER;
@@ -2893,16 +2893,16 @@ function leastPositiveValue(grid) {
 	return least;
 }
 
-GRID.leastPositiveValue = leastPositiveValue;
+GRID$1.leastPositiveValue = leastPositiveValue;
 
 // Finds the lowest positive number in a grid, chooses one location with that number randomly and returns it as (x, y).
 // If there are no valid locations, returns (-1, -1).
 function randomLeastPositiveLocation(grid, deterministic) {
-  const targetValue = GRID.leastPositiveValue(grid);
+  const targetValue = GRID$1.leastPositiveValue(grid);
 	return grid.randomMatchingXY( (v) => v == targetValue );
 }
 
-GRID.randomLeastPositiveLocation = randomLeastPositiveLocation;
+GRID$1.randomLeastPositiveLocation = randomLeastPositiveLocation;
 
 // Marks a cell as being a member of blobNumber, then recursively iterates through the rest of the blob
 function floodFill(grid, x, y, matchValue, fillValue) {
@@ -2928,7 +2928,7 @@ function floodFill(grid, x, y, matchValue, fillValue) {
 	return numberOfCells;
 }
 
-GRID.floodFill = floodFill;
+GRID$1.floodFill = floodFill;
 
 
 
@@ -2943,7 +2943,7 @@ function offsetZip(destGrid, srcGrid, srcToDestX, srcToDestY, value) {
 	});
 }
 
-GRID.offsetZip = offsetZip;
+GRID$1.offsetZip = offsetZip;
 
 
 
@@ -2977,7 +2977,7 @@ function directionOfDoorSite(grid, x, y, isOpen=1) {
     return solutionDir;
 }
 
-GRID.directionOfDoorSite = directionOfDoorSite;
+GRID$1.directionOfDoorSite = directionOfDoorSite;
 
 
 function cellularAutomataRound(grid, birthParameters /* char[9] */, survivalParameters /* char[9] */) {
@@ -3147,7 +3147,7 @@ function fillBlob(grid,
 	return { x: topBlobMinX, y: topBlobMinY, width: blobWidth, height: blobHeight };
 }
 
-GRID.fillBlob = fillBlob;
+GRID$1.fillBlob = fillBlob;
 
 class Buffer extends types.Grid {
   constructor(w, h) {
@@ -4402,7 +4402,7 @@ function digCavern(config, grid) {
   let destX, destY;
   let blobGrid;
 
-  blobGrid = GRID.alloc(grid.width, grid.height, 0);
+  blobGrid = GRID$1.alloc(grid.width, grid.height, 0);
 
   const minWidth  = Math.floor(0.5 * config.width); // 6
   const maxWidth  = config.width;
@@ -4410,15 +4410,15 @@ function digCavern(config, grid) {
   const maxHeight = config.height;
 
   grid.fill(0);
-  const bounds = GRID.fillBlob(blobGrid, 5, minWidth, minHeight, maxWidth, maxHeight, 55, "ffffffttt", "ffffttttt");
+  const bounds = GRID$1.fillBlob(blobGrid, 5, minWidth, minHeight, maxWidth, maxHeight, 55, "ffffffttt", "ffffttttt");
 
   // Position the new cave in the middle of the grid...
   destX = Math.floor((grid.width - bounds.width) / 2);
   destY = Math.floor((grid.height - bounds.height) / 2);
 
   // ...and copy it to the master grid.
-  GRID.offsetZip(grid, blobGrid, destX - bounds.x, destY - bounds.y, TILE);
-  GRID.free(blobGrid);
+  GRID$1.offsetZip(grid, blobGrid, destX - bounds.x, destY - bounds.y, TILE);
+  GRID$1.free(blobGrid);
   return config.id;
 }
 
@@ -4639,13 +4639,13 @@ function chooseRandomDoorSites(sourceGrid) {
   let dir;
   let doorSiteFailed;
 
-  const grid = GRID.alloc(sourceGrid.width, sourceGrid.height);
+  const grid = GRID$1.alloc(sourceGrid.width, sourceGrid.height);
   grid.copy(sourceGrid);
 
   for (i=0; i<grid.width; i++) {
       for (j=0; j<grid.height; j++) {
           if (!grid[i][j]) {
-              dir = GRID.directionOfDoorSite(grid, i, j);
+              dir = GRID$1.directionOfDoorSite(grid, i, j);
               if (dir != def.NO_DIRECTION) {
                   // Trace a ray 10 spaces outward from the door site to make sure it doesn't intersect the room.
                   // If it does, it's not a valid door site.
@@ -4674,7 +4674,7 @@ function chooseRandomDoorSites(sourceGrid) {
       doorSites[dir] = loc.slice();
   }
 
-  GRID.free(grid);
+  GRID$1.free(grid);
   return doorSites;
 }
 
@@ -4910,7 +4910,7 @@ async function spawnTileEvent(feat, ctx) {
 
 	tileEvent.debug('- blocking', blocking);
 
-	const spawnMap = GRID.alloc(map.width, map.height);
+	const spawnMap = GRID$1.alloc(map.width, map.height);
 
 	let didSomething = false;
 	tileEvent.computeSpawnMap(feat, spawnMap, ctx);
@@ -4975,7 +4975,7 @@ async function spawnTileEvent(feat, ctx) {
 	}
 
 	if (data.gameHasEnded) {
-		GRID.free(spawnMap);
+		GRID$1.free(spawnMap);
 		return didSomething;
 	}
 
@@ -5042,7 +5042,7 @@ async function spawnTileEvent(feat, ctx) {
 
   tileEvent.debug('- spawn complete : @%d,%d, ok=%s, feat=%s', ctx.x, ctx.y, didSomething, feat.id);
 
-	GRID.free(spawnMap);
+	GRID$1.free(spawnMap);
 	return didSomething;
 }
 
@@ -6448,7 +6448,7 @@ class Map$1 {
   gridDisruptsPassability(blockingGrid, opts={})
   {
 
-  	const walkableGrid = GRID.alloc(this.width, this.height);
+  	const walkableGrid = GRID$1.alloc(this.width, this.height);
   	let disrupts = false;
 
   	const gridOffsetX = opts.gridOffsetX || 0;
@@ -6481,7 +6481,7 @@ class Map$1 {
   		for(let j = 0; j < walkableGrid.height && !disrupts; ++j) {
   			if (walkableGrid[i][j] == 1) {
   				if (first) {
-  					GRID.floodFill(walkableGrid, i, j, 1, 2);
+  					GRID$1.floodFill(walkableGrid, i, j, 1, 2);
   					first = false;
   				}
   				else {
@@ -6491,7 +6491,7 @@ class Map$1 {
   		}
   	}
 
-  	GRID.free(walkableGrid);
+  	GRID$1.free(walkableGrid);
   	return disrupts;
   }
 
@@ -6628,11 +6628,11 @@ map.getCellAppearance = getCellAppearance;
 
 
 
-function addText(map, x, y, text, fg, bg) {
+function addText(map, x, y, text, fg, bg, layer) {
 	for(let ch of text) {
 		const sprite = make.sprite(ch, fg, bg);
     const cell = map.cell(x++, y);
-    cell.addSprite(TileLayer$2.GROUND, sprite);
+    cell.addSprite(layer || TileLayer$2.GROUND, sprite);
 	}
 }
 
@@ -6641,7 +6641,7 @@ map.addText = addText;
 
 function updateGas(map) {
 
-  const newVolume = GRID.alloc(map.width, map.height);
+  const newVolume = GRID$1.alloc(map.width, map.height);
 
 	map.forEach( (c, x, y) => {
 		if (c.hasTileFlag(Tile.T_OBSTRUCTS_GAS)) return;
@@ -6694,7 +6694,7 @@ function updateGas(map) {
 
   map.changed(true);
 
-  GRID.free(newVolume);
+  GRID$1.free(newVolume);
 }
 
 map.updateGas = updateGas;
@@ -6703,7 +6703,7 @@ map.updateGas = updateGas;
 
 function updateLiquid(map) {
 
-  const newVolume = GRID.alloc(map.width, map.height);
+  const newVolume = GRID$1.alloc(map.width, map.height);
 
 	map.forEach( (c, x, y) => {
 		if (c.hasTileFlag(Tile.T_OBSTRUCTS_LIQUID)) return;
@@ -6765,7 +6765,7 @@ function updateLiquid(map) {
 
   map.changed(true);
 
-  GRID.free(newVolume);
+  GRID$1.free(newVolume);
 }
 
 map.updateLiquid = updateLiquid;
@@ -6938,14 +6938,14 @@ function updateVisibility(map, x, y) {
   map.clearFlags(0, Cell.IN_FOV);
 
   // Calculate player's field of view (distinct from what is visible, as lighting hasn't been done yet).
-  const grid = GRID.alloc(map.width, map.height, 0);
+  const grid = GRID$1.alloc(map.width, map.height, 0);
   map.calcFov(grid, x, y);
   grid.forEach( (v, i, j) => {
     if (v) {
       map.setCellFlags(i, j, Cell.IN_FOV);
     }
   });
-  GRID.free(grid);
+  GRID$1.free(grid);
 
 	map.setCellFlags(x, y, Cell.IN_FOV | Cell.VISIBLE);
 
@@ -7038,6 +7038,11 @@ class ActorKind$1 {
 
   }
 
+  // other is visible to player (invisible, in darkness, etc...) -- NOT LOS/FOV check
+  canVisualize(actor, other, map) {
+    return true;
+  }
+
   isOrWasVisibleToPlayer(actor, map) {
     map = map || data.map;
 		return map.isOrWasAnyKindOfVisible(actor.x, actor.y);
@@ -7065,6 +7070,10 @@ class ActorKind$1 {
 
   calcBashDamage(actor, item, ctx) {
     return 1;
+  }
+
+  willAttack(actor, other, ctx) {
+    return (actor.isPlayer() !== other.isPlayer());
   }
 
   applyDamage(actor, amount, source, ctx) {
@@ -7189,6 +7198,30 @@ class Actor$1 {
 	endTurn(turnTime) {
     actor.endTurn(this, turnTime);
 	}
+
+  canDirectlySee(other, map) {
+    map = map || data.map;
+
+    //
+    if (!this.kind.canVisualize(this, other, map)) {
+      return false;
+    }
+
+    if (this.isPlayer() || other.isPlayer()) {
+      other = (this.isPlayer()) ? other : this;
+      return map.isVisible(other.x, other.y);
+    }
+    else {
+      let dist = utils$1.distanceFromTo(this, other);
+      if (dist < 2) return true;  // next to each other
+
+      const grid = GRID.alloc(map.width, map.height);
+      map.calcFov(grid, this.x, this.y, dist + 1);
+      const result = grid[other.x][other.y];
+      GRID.free(grid);
+      return result;
+    }
+  }
 
   avoidsCell(cell, x, y) {
     const avoidedCellFlags = this.kind.avoidedCellFlags(this);
@@ -7936,7 +7969,7 @@ function digRoom(opts={}) {
     locs = null;
   }
 
-  const grid = GRID.alloc(SITE.width, SITE.height);
+  const grid = GRID$1.alloc(SITE.width, SITE.height);
 
   let result = false;
   let tries = opts.tries || 10;
@@ -7968,7 +8001,7 @@ function digRoom(opts={}) {
 
   }
 
-  GRID.free(grid);
+  GRID$1.free(grid);
   return result;
 }
 
@@ -8012,7 +8045,7 @@ function attachRoomToDungeon(roomGrid, doorSites, opts={}) {
       const y = LOCS[i] % SITE.height;
 
       if (!SITE.cell(x, y).isNull()) continue;
-      const dir = GRID.directionOfDoorSite(SITE.cells, x, y, (c) => (c.hasTile(FLOOR) && !c.isLiquid()) );
+      const dir = GRID$1.directionOfDoorSite(SITE.cells, x, y, (c) => (c.hasTile(FLOOR) && !c.isLiquid()) );
       if (dir != def.NO_DIRECTION) {
         const oppDir = (dir + 2) % 4;
 
@@ -8025,7 +8058,7 @@ function attachRoomToDungeon(roomGrid, doorSites, opts={}) {
           dungeon.debug("- attachRoom: ", x, y, oppDir);
 
           // Room fits here.
-          GRID.offsetZip(SITE.cells, roomGrid, offsetX, offsetY, (d, s, i, j) => d.setTile(opts.tile || FLOOR) );
+          GRID$1.offsetZip(SITE.cells, roomGrid, offsetX, offsetY, (d, s, i, j) => d.setTile(opts.tile || FLOOR) );
           if (opts.door || (opts.placeDoor !== false)) {
             SITE.setTile(x, y, opts.door || DOOR); // Door site.
           }
@@ -8055,11 +8088,11 @@ function attachRoomAtXY(roomGrid, xy, doors, opts={}) {
 
       if (roomGrid[x][y]) continue;
 
-      const dir = GRID.directionOfDoorSite(roomGrid, x, y);
+      const dir = GRID$1.directionOfDoorSite(roomGrid, x, y);
       if (dir != def.NO_DIRECTION) {
         const d = DIRS$3[dir];
         if (roomAttachesAt(roomGrid, xy[0] - x, xy[1] - y)) {
-          GRID.offsetZip(SITE.cells, roomGrid, xy[0] - x, xy[1] - y, (d, s, i, j) => d.setTile(opts.tile || FLOOR) );
+          GRID$1.offsetZip(SITE.cells, roomGrid, xy[0] - x, xy[1] - y, (d, s, i, j) => d.setTile(opts.tile || FLOOR) );
           if (opts.door || (opts.placeDoor !== false)) {
             SITE.setTile(xy[0], xy[1], opts.door || DOOR); // Door site.
           }
@@ -8097,7 +8130,7 @@ function insertRoomAtXY(x, y, roomGrid, doorSites, opts={}) {
       // Room fits here.
       const offX = x - doorSites[oppDir][0];
       const offY = y - doorSites[oppDir][1];
-      GRID.offsetZip(SITE.cells, roomGrid, offX, offY, (d, s, i, j) => d.setTile(opts.tile || FLOOR) );
+      GRID$1.offsetZip(SITE.cells, roomGrid, offX, offY, (d, s, i, j) => d.setTile(opts.tile || FLOOR) );
       if (opts.door || (opts.placeDoor !== false)) {
         SITE.setTile(x, y, opts.door || DOOR); // Door site.
       }
@@ -8146,12 +8179,12 @@ function digLake(opts={}) {
   maxCount = 1; // opts.count || tries;
   canDisrupt = opts.canDisrupt || false;
 
-  const lakeGrid = GRID.alloc(SITE.width, SITE.height, 0);
+  const lakeGrid = GRID$1.alloc(SITE.width, SITE.height, 0);
 
   for (; lakeMaxHeight >= lakeMinSize && lakeMaxWidth >= lakeMinSize && count < maxCount; lakeMaxHeight--, lakeMaxWidth -= 2) { // lake generations
 
     lakeGrid.fill(NOTHING);
-    const bounds = GRID.fillBlob(lakeGrid, 5, 4, 4, lakeMaxWidth, lakeMaxHeight, 55, "ffffftttt", "ffffttttt");
+    const bounds = GRID$1.fillBlob(lakeGrid, 5, 4, 4, lakeMaxWidth, lakeMaxHeight, 55, "ffffftttt", "ffffttttt");
 
     for (k=0; k < tries && count < maxCount; k++) { // placement attempts
         // propose a position for the top-left of the lakeGrid in the dungeon
@@ -8176,7 +8209,7 @@ function digLake(opts={}) {
       }
     }
   }
-  GRID.free(lakeGrid);
+  GRID$1.free(lakeGrid);
   return count;
 
 }
@@ -8199,8 +8232,8 @@ function addLoops(minimumPathingDistance, maxConnectionLength) {
     maxConnectionLength = maxConnectionLength || 1; // by default only break walls down
 
     const siteGrid = SITE.cells;
-    const pathGrid = GRID.alloc(SITE.width, SITE.height);
-    const costGrid = GRID.alloc(SITE.width, SITE.height);
+    const pathGrid = GRID$1.alloc(SITE.width, SITE.height);
+    const costGrid = GRID$1.alloc(SITE.width, SITE.height);
 
     const dirCoords = [[1, 0], [0, 1]];
 
@@ -8293,8 +8326,8 @@ function addLoops(minimumPathingDistance, maxConnectionLength) {
             }
         }
     }
-    GRID.free(pathGrid);
-    GRID.free(costGrid);
+    GRID$1.free(pathGrid);
+    GRID$1.free(costGrid);
 }
 
 dungeon.addLoops = addLoops;
@@ -8316,8 +8349,8 @@ function addBridges(minimumPathingDistance, maxConnectionLength) {
     maxConnectionLength = maxConnectionLength || 1; // by default only break walls down
 
     const siteGrid = SITE.cells;
-    const pathGrid = GRID.alloc(SITE.width, SITE.height);
-    const costGrid = GRID.alloc(SITE.width, SITE.height);
+    const pathGrid = GRID$1.alloc(SITE.width, SITE.height);
+    const costGrid = GRID$1.alloc(SITE.width, SITE.height);
 
     const dirCoords = [[1, 0], [0, 1]];
 
@@ -8377,8 +8410,8 @@ function addBridges(minimumPathingDistance, maxConnectionLength) {
             }
         }
     }
-    GRID.free(pathGrid);
-    GRID.free(costGrid);
+    GRID$1.free(pathGrid);
+    GRID$1.free(costGrid);
 }
 
 dungeon.addBridges = addBridges;
@@ -8826,14 +8859,25 @@ async function bolt(map, source, target, sprite, opts={}) {
 
 fx.bolt = bolt;
 
-async function projectile(map, source, target, chs, fg, opts) {
-  if (chs.length != 4) utils$1.ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
-
-  const dir = utils$1.dirFromTo(source, target);
-  const dIndex = utils$1.dirIndex(dir);
-  const index = Math.floor(dIndex / 2);
-  const ch = chs[index];
-  const sprite = GW.make.sprite(ch, fg);
+async function projectile(map, source, target, sprite, opts) {
+  if (sprite.ch.length == 4) {
+    const dir = utils$1.dirFromTo(source, target);
+    let index = 0;
+    if (dir[0] && dir[1]) {
+      index = 2;
+      if (dir[0] != dir[1]) { // remember up is -y
+        index = 3;
+      }
+    }
+    else if (dir[0]) {
+      index = 1;
+    }
+    const ch = sprite.ch[index];
+    sprite = GW.make.sprite(ch, sprite.fg, sprite.bg);
+  }
+  else if (sprite.ch.length !== 1) {
+    utils$1.ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
+  }
 
   return fx.bolt(map, source, target, sprite, opts);
 }
@@ -8999,7 +9043,7 @@ class ExplosionFX extends FX {
     speed = speed || 20;
     super({ speed });
     this.map = map;
-    this.grid = GRID.alloc(map.width, map.height);
+    this.grid = GRID$1.alloc(map.width, map.height);
     if (fovGrid) {
       this.grid.copy(fovGrid);
     }
@@ -9090,7 +9134,7 @@ class ExplosionFX extends FX {
   }
 
   stop(result) {
-    this.grid = GRID.free(this.grid);
+    this.grid = GRID$1.free(this.grid);
     return super.stop(result);
   }
 }
@@ -9293,7 +9337,7 @@ async function pickupItem(actor, item, ctx) {
   return true;
 }
 
-async function attack(actor, target, ctx={}) {
+async function attack(actor, target, type, ctx={}) {
 
   if (actor.isPlayer() == target.isPlayer()) return false;
 
@@ -9302,19 +9346,19 @@ async function attack(actor, target, ctx={}) {
   const attacks = kind.attacks;
   if (!attacks) return false;
 
-  const melee = attacks.melee;
-  if (!melee) return false;
+  const info = attacks[type];
+  if (!info) return false;
 
   const dist = Math.floor(utils$1.distanceFromTo(actor, target));
-  if (dist > (melee.range || 1)) {
+  if (dist > (info.range || 1)) {
     return false;
   }
 
-  let damage = melee.damage;
+  let damage = info.damage;
   if (typeof damage === 'function') {
     damage = damage(actor, target, ctx) || 1;
   }
-  const verb = melee.verb || 'hit';
+  const verb = info.verb || 'hit';
 
   damage = target.kind.applyDamage(target, damage, actor, ctx);
   message.addCombat('%s %s %s for %R%d%R damage', actor.getName(), actor.getVerb(verb), target.getName('the'), 'red', damage, null);
@@ -9366,7 +9410,7 @@ async function moveDir(actor, dir, opts={}) {
 
   if (cell.actor) {
     // TODO - BUMP LOGIC
-    if (await attack(actor, cell.actor, ctx)) {
+    if (await attack(actor, cell.actor, 'melee', ctx)) {
       return true;
     }
     return false;  // cannot move here and did not attack
@@ -9508,6 +9552,62 @@ async function closeItem(actor, item, ctx={}) {
   return false;
 }
 
+async function itemAttack(actor, target, item, ctx={}) {
+
+  if (actor.isPlayer() == target.isPlayer()) return false;
+
+  const map = ctx.map || data.map;
+  const kind = actor.kind;
+
+  if (!item) {
+    utils$1.ERROR('Item required.  Check before call.');
+  }
+
+  const range = item.stats.range || 1;
+  let damage  = item.stats.damage || 1;
+  const verb  = item.kind.verb || 'hit';
+
+  const dist = Math.floor(utils$1.distanceFromTo(actor, target));
+  if (dist > (range)) {
+    return false;
+  }
+
+  if (item.kind.projectile) {
+    await fx.projectile(map, actor, target, item.kind.projectile);
+  }
+
+  if (typeof damage === 'function') {
+    damage = damage(actor, target, ctx) || 1;
+  }
+
+  damage = target.kind.applyDamage(target, damage, actor, ctx);
+  message.addCombat('%s %s %s for %R%d%R damage', actor.getName(), actor.getVerb(verb), target.getName('the'), 'red', damage, null);
+
+  if (target.isDead()) {
+    message.addCombat('%s %s', target.isInanimate() ? 'destroying' : 'killing', target.getPronoun('it'));
+  }
+
+  const ctx2 = { map: map, x: target.x, y: target.y, volume: damage };
+
+  await fx.hit(data.map, target);
+  if (target.kind.blood) {
+    await spawnTileEvent(target.kind.blood, ctx2);
+  }
+  if (target.isDead()) {
+    target.kind.kill(target);
+    map.removeActor(target);
+    if (target.kind.corpse) {
+      await spawnTileEvent(target.kind.corpse, ctx2);
+    }
+    if (target.isPlayer()) {
+      await gameOver(false, 'Killed by %s.', actor.getName(true));
+    }
+  }
+
+  actor.endTurn();
+  return true;
+}
+
 async function moveToward(actor, x, y, ctx) {
 
   const map = ctx.map || data.map;
@@ -9527,14 +9627,14 @@ async function moveToward(actor, x, y, ctx) {
 
   let travelGrid = actor.travelGrid;
   if (!travelGrid) {
-    travelGrid = actor.travelGrid = GRID.alloc(map.width, map.height);
+    travelGrid = actor.travelGrid = GRID$1.alloc(map.width, map.height);
     travelGrid.x = travelGrid.y = -1;
   }
   if (travelGrid.x != x || travelGrid.y != y) {
-    const costGrid = GRID.alloc(map.width, map.height);
+    const costGrid = GRID$1.alloc(map.width, map.height);
     actor.fillCostGrid(map, costGrid);
     PATH.calculateDistances(travelGrid, x, y, costGrid, true);
-    GRID.free(costGrid);
+    GRID$1.free(costGrid);
   }
 
   const dir = nextStep(map, travelGrid, actor.x, actor.y, actor, true);
@@ -9600,6 +9700,7 @@ var index = /*#__PURE__*/Object.freeze({
   openItem: openItem,
   closeItem: closeItem,
   attack: attack,
+  itemAttack: itemAttack,
   moveToward: moveToward
 });
 
@@ -9630,9 +9731,15 @@ async function movePlayer(e) {
   // PROMOTES ON EXIT, NO KEY(?), PLAYER EXIT, ENTANGLED
 
   if (cell.actor) {
-    if (attack(actor, cell.actor, ctx)) {
+    if (actor.melee) {
+      if (await itemAttack(actor, cell.actor, actor.melee, ctx)) {
+        return true;
+      }
+    }
+    else if (await attack(actor, cell.actor, 'melee', ctx)) {
       return true;
     }
+
 
     message.add('%s bump into %s.', actor.getName(), cell.actor.getName());
     actor.endTurn(0.5);
@@ -9891,6 +9998,53 @@ async function close(e) {
 
 commands.close = close;
 
+async function fire(e) {
+  const actor = e.actor || data.player;
+  const map = data.map;
+
+  if (!actor.ranged) {
+    message.add('%s have nothing to %Rfire%R.', actor.getName(), 'orange', null);
+    return false;
+  }
+
+  const range = actor.ranged.stats.range || 0;
+
+  const candidates = [];
+  let choice;
+  utils$1.eachChain(map.actors, (target) => {
+    if (actor === target) return;
+    if (utils$1.distanceFromTo(actor, target) <= range) {
+      if (!actor.kind.willAttack(actor, target)) return;
+      if (!actor.canDirectlySee(target, map)) return;
+      candidates.push(target);
+    }
+  });
+  if (!candidates.length) {
+    message.add('No targets.');
+    return false;
+  }
+  else if (candidates.length == 1) {
+    choice = candidates[0];
+  }
+  else {
+    candidates.sort( (a, b) => {
+      return utils$1.distanceFromTo(actor, a) - utils$1.distanceFromTo(actor, b);
+    });
+    choice = await ui.chooseTarget(candidates, 'Fire at which target?');
+  }
+  if (!choice) {
+    return false; // cancelled
+  }
+
+  if (!await itemAttack(actor, choice, actor.ranged, { map, actor, x: choice.x, y: choice.y, item: actor.ranged })) {
+    return false;
+  }
+  actor.endTurn();
+  return true;
+}
+
+commands.fire = fire;
+
 commands.debug = utils$1.NOOP;
 
 async function rest(e) {
@@ -9912,6 +10066,10 @@ class ItemKind$1 {
 		this.stats = Object.assign({}, opts.stats || {});
 		this.id = opts.id || null;
     this.slot = opts.slot || null;
+    this.projectile = null;
+    if (opts.projectile) {
+      this.projectile = make.sprite(opts.projectile);
+    }
     this.corpse = make.tileEvent(opts.corpse);
     if (opts.consoleColor === false) {
       this.consoleColor = false;
@@ -10437,7 +10595,7 @@ function refreshSidebar(map) {
 
 	// Gather sidebar entries
 	const entries = [];
-	const doneCells = GRID.alloc();
+	const doneCells = GRID$1.alloc();
 
 	if (DATA.player) {
 		doneCells[DATA.player.x][DATA.player.y] = 1;
@@ -10518,7 +10676,7 @@ function refreshSidebar(map) {
 		}
 	});
 
-	GRID.free(doneCells);
+	GRID$1.free(doneCells);
 
 	// sort entries
 	sortSidebarItems(entries);
@@ -11843,7 +12001,7 @@ async function attackPlayer(actor, ctx) {
   const dist = utils$1.distanceFromTo(actor, player);
   if (dist >= 2) return false;
 
-  if (!await attack(actor, player, ctx)) {
+  if (!await attack(actor, player, 'melee', ctx)) {
     return false;
   }
   // actor.endTurn();
@@ -11964,4 +12122,4 @@ addTileKind('LAKE', {
   name: 'deep water', article: 'the'
 });
 
-export { index as actions, actor, ai, canvas, cell, color, colors, commands, config, cosmetic, data, def, digger, diggers, dungeon, flag, flags, flavor, fov, fx, game, GRID as grid, install, io, item, itemKinds, make, map, maps, message, PATH as path, player, random, scheduler, sidebar, sprite, sprites, text, tile, tileEvent, tileEvents, tiles, types, ui, utils$1 as utils, viewport, visibility };
+export { index as actions, actor, ai, canvas, cell, color, colors, commands, config, cosmetic, data, def, digger, diggers, dungeon, flag, flags, flavor, fov, fx, game, GRID$1 as grid, install, io, item, itemKinds, make, map, maps, message, PATH as path, player, random, scheduler, sidebar, sprite, sprites, text, tile, tileEvent, tileEvents, tiles, types, ui, utils$1 as utils, viewport, visibility };
