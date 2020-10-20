@@ -1,7 +1,7 @@
 
 
 import * as Flags from '../flags.js';
-import { pickupItem, attack } from '../actions/index.js';
+import { pickupItem, itemAttack, attack } from '../actions/index.js';
 import { game as GAME } from '../game.js';
 import { data as DATA, def, commands, ui as UI, message as MSG, utils as UTILS, fx as FX, config as CONFIG } from '../gw.js';
 
@@ -32,9 +32,15 @@ async function movePlayer(e) {
   // PROMOTES ON EXIT, NO KEY(?), PLAYER EXIT, ENTANGLED
 
   if (cell.actor) {
-    if (attack(actor, cell.actor, ctx)) {
+    if (actor.melee) {
+      if (await itemAttack(actor, cell.actor, actor.melee, ctx)) {
+        return true;
+      }
+    }
+    else if (await attack(actor, cell.actor, 'melee', ctx)) {
       return true;
     }
+
 
     MSG.add('%s bump into %s.', actor.getName(), cell.actor.getName());
     actor.endTurn(0.5);

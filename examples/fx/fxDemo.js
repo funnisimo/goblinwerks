@@ -153,8 +153,11 @@ GW.sprite.install('magic', '*', 'purple');
 
 GW.commands.showBolt = showBolt;
 
+const PROJECTILE = GW.make.sprite('|-\\/', 'orange');
+
 async function showProjectile(e) {
-	GW.fx.projectile(MAP, PLAYER, { x: e.x, y: e.y }, '|-\\/', 'orange', { gameTime: isGameTime }).then( (anim) => {
+
+	GW.fx.projectile(MAP, PLAYER, { x: e.x, y: e.y }, PROJECTILE, { gameTime: isGameTime }).then( (anim) => {
 		console.log('projectile hit:', anim.x, anim.y);
 		GW.fx.flashSprite(MAP, anim.x, anim.y, 'hit', 500, 1);
 	});

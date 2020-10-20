@@ -63,6 +63,11 @@ class ActorKind {
 
   }
 
+  // other is visible to player (invisible, in darkness, etc...) -- NOT LOS/FOV check
+  canVisualize(actor, other, map) {
+    return true;
+  }
+
   isOrWasVisibleToPlayer(actor, map) {
     map = map || DATA.map;
 		return map.isOrWasAnyKindOfVisible(actor.x, actor.y);
@@ -90,6 +95,10 @@ class ActorKind {
 
   calcBashDamage(actor, item, ctx) {
     return 1;
+  }
+
+  willAttack(actor, other, ctx) {
+    return (actor.isPlayer() !== other.isPlayer());
   }
 
   applyDamage(actor, amount, source, ctx) {
@@ -214,6 +223,30 @@ export class Actor {
 	endTurn(turnTime) {
     actor.endTurn(this, turnTime);
 	}
+
+  canDirectlySee(other, map) {
+    map = map || DATA.map;
+
+    //
+    if (!this.kind.canVisualize(this, other, map)) {
+      return false;
+    }
+
+    if (this.isPlayer() || other.isPlayer()) {
+      other = (this.isPlayer()) ? other : this;
+      return map.isVisible(other.x, other.y);
+    }
+    else {
+      let dist = UTILS.distanceFromTo(this, other);
+      if (dist < 2) return true;  // next to each other
+
+      const grid = GRID.alloc(map.width, map.height);
+      map.calcFov(grid, this.x, this.y, dist + 1);
+      const result = grid[other.x][other.y];
+      GRID.free(grid);
+      return result;
+    }
+  }
 
   avoidsCell(cell, x, y) {
     const avoidedCellFlags = this.kind.avoidedCellFlags(this);

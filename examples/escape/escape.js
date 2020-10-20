@@ -35,13 +35,8 @@ const PLAYER = GW.make.player({
     stats: { health: 20 },
     attacks: {
       melee: {
-        damage: (a,t,ctx) => {
-          return (a.melee) ? a.melee.stats.damage : 1;
-        }, verb: 'hit',
+        damage: 1, verb: 'punch',
       },
-      ranged: {
-        range: 5, damage: 1, verb: 'shoot',
-      }
     },
     calcBashDamage(actor, item, ctx) {
       if (actor.melee) return actor.melee.stats.damage;
@@ -286,6 +281,7 @@ GW.item.addKind('PISTOL', new EscapeItem({
 	sprite: { ch: 'r', fg: 'gray' },
 	flags: 'A_WIELD',
 	stats: { damage: 2, range: 5 },
+  projectile: { ch: '\u00b7', fg: 'white' },
   verb: 'shoot',
   slot: 'ranged',
   consoleColor: 'white',
@@ -344,7 +340,7 @@ const mapPrefab = {
     '#.......2.........+......#5#',
     '#.................#+########',
     '#.................+....SSSU#',
-    '#.................#....!...#',
+    '#.................#.6..!...#',
     '#...hh............+..TTTT..#',
     '#..hTTh...........#..Tha@..#',
     '#...hh......h.....##########',
@@ -365,7 +361,7 @@ const mapPrefab = {
     '#...zzz.zzz......3#........#',
     '#..z..............#...z....#',
     '#...z......zzz.zz.+...zz...#',
-    '#.......6.........#...z....#',
+    '#.................#...z....#',
     '#...z.zz.zz.......#...z....#',
     '##############+#######+#####',
     '#...........#...#.+........#',
@@ -504,6 +500,7 @@ async function start() {
 	GW.io.setKeymap({
 		dir: 'movePlayer', space: 'rest',
     g: 'grab', b: 'bash', o: 'open', c: 'close',
+    f: 'fire',
 		'?': showHelp
 	});
 

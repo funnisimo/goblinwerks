@@ -5,28 +5,33 @@ import { gameOver } from '../game.js';
 import * as GW from '../gw.js';
 
 
-export async function attack(actor, target, type, ctx={}) {
+export async function itemAttack(actor, target, item, ctx={}) {
 
   if (actor.isPlayer() == target.isPlayer()) return false;
 
   const map = ctx.map || GW.data.map;
   const kind = actor.kind;
-  const attacks = kind.attacks;
-  if (!attacks) return false;
 
-  const info = attacks[type];
-  if (!info) return false;
+  if (!item) {
+    GW.utils.ERROR('Item required.  Check before call.');
+  }
+
+  const range = item.stats.range || 1;
+  let damage  = item.stats.damage || 1;
+  const verb  = item.kind.verb || 'hit';
 
   const dist = Math.floor(GW.utils.distanceFromTo(actor, target));
-  if (dist > (info.range || 1)) {
+  if (dist > (range)) {
     return false;
   }
 
-  let damage = info.damage;
+  if (item.kind.projectile) {
+    await GW.fx.projectile(map, actor, target, item.kind.projectile);
+  }
+
   if (typeof damage === 'function') {
     damage = damage(actor, target, ctx) || 1;
   }
-  const verb = info.verb || 'hit';
 
   damage = target.kind.applyDamage(target, damage, actor, ctx);
   GW.message.addCombat('%s %s %s for %R%d%R damage', actor.getName(), actor.getVerb(verb), target.getName('the'), 'red', damage, null);

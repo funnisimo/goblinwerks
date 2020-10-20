@@ -711,11 +711,11 @@ map.getCellAppearance = getCellAppearance;
 
 
 
-export function addText(map, x, y, text, fg, bg) {
+export function addText(map, x, y, text, fg, bg, layer) {
 	for(let ch of text) {
 		const sprite = make.sprite(ch, fg, bg);
     const cell = map.cell(x++, y);
-    cell.addSprite(TileLayer.GROUND, sprite);
+    cell.addSprite(layer || TileLayer.GROUND, sprite);
 	}
 }
 
