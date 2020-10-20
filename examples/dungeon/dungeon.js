@@ -171,7 +171,7 @@ async function forceStairs(ev) {
 function start() {
 	const canvas = GW.ui.start({ width: 80, height: 36, div: 'game', messages: -5, cursor: true, flavor: true });
 	GW.io.setKeymap({
-		dir: 'moveDir', space: 'rest',
+		dir: 'movePlayer', space: 'rest',
 		'>': forceStairs, '<': forceStairs,
 		'?': showHelp
 	});

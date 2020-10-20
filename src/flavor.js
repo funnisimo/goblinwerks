@@ -1,10 +1,8 @@
 
 import { colors as COLORS, color as COLOR } from './color.js';
 import { text as TEXT } from './text.js';
-import { Flags as TileFlags, MechFlags as TileMechFlags } from './tile.js';
-import { Flags as CellFlags, MechFlags as CellMechFlags } from './cell.js';
-import { tiles as TILES } from './tile.js';
-import { types, flavor, data as DATA, def, ui as UI } from './gw.js';
+import * as Flags from './flags.js';
+import { types, flavor, data as DATA, def, ui as UI, tiles as TILES, itemKinds as ITEM_KINDS } from './gw.js';
 
 
 const flavorTextColor = COLOR.install('flavorText', 50, 40, 90);
@@ -58,7 +56,15 @@ flavor.clear = clearFlavor;
 
 function showFlavorFor(x, y) {
   if (!DATA.map) return;
-  const map = DATA.map;
+  const buf = flavor.getFlavorText(DATA.map, x, y);
+  flavor.setText(buf);
+	return true;
+}
+
+flavor.showFor = showFlavorFor;
+
+function getFlavorText(map, x, y) {
+
 	const cell = map.cell(x, y);
 	let buf;
 
@@ -78,12 +84,12 @@ function showFlavorFor(x, y) {
   const player = DATA.player || null;
 
 	monst = null;
-	standsInTerrain = ((cell.highestPriorityTile().mechFlags & TileMechFlags.TM_STAND_IN_TILE) ? true : false);
+	standsInTerrain = ((cell.highestPriorityTile().mechFlags & Flags.TileMech.TM_STAND_IN_TILE) ? true : false);
 	theItem = map.itemAt(x, y);
 	monsterDormant = false;
-	if (cell.flags & CellFlags.HAS_MONSTER) {
+	if (cell.flags & Flags.Cell.HAS_MONSTER) {
 		monst = map.actorAt(x, y);
-	} else if (cell.flags & CellFlags.HAS_DORMANT_MONSTER) {
+	} else if (cell.flags & Flags.Cell.HAS_DORMANT_MONSTER) {
 		monst = map.dormantAt(x, y);
 		monsterDormant = true;
 	}
@@ -94,14 +100,13 @@ function showFlavorFor(x, y) {
 		}
     else {
 			// if (theItem) {
-			// 	buf = ITEM.flavorText(theItem);
+			// 	buf = ITEM.getFlavor(theItem);
 			// }
       // else {
         buf = 'you see yourself.';
       // }
 		}
-    flavor.setText(buf);
-		return true;
+    return buf;
 	}
   //
 	// // detecting magical items
@@ -135,35 +140,56 @@ function showFlavorFor(x, y) {
 
 	if (!map.isAnyKindOfVisible(x, y)) {
     buf = '';
-		if (cell.flags & CellFlags.REVEALED) { // memory
-			// if (cell.rememberedItemCategory) {
-      //   if (player.status.hallucinating && !GW.GAME.playbackOmniscience) {
-      //       object = GW.item.describeHallucinatedItem();
-      //   } else {
-      //       object = GW.item.describeItemBasedOnParameters(cell.rememberedItemCategory, cell.rememberedItemKind, cell.rememberedItemQuantity);
-      //   }
-			// } else {
-				object = TILES[cell.memory.tile].flavorText();
-			// }
+		if (cell.flags & Flags.Cell.REVEALED) { // memory
+			if (cell.memory.itemKind) {
+        // if (player.status.hallucinating && !GW.GAME.playbackOmniscience) {
+        //     object = GW.item.describeHallucinatedItem();
+        // } else {
+            const kind = cell.memory.itemKind;
+            object = kind.getName({ quantity: cell.memory.itemQuantity }, { color: false, article: true });
+            // object = GW.item.describeItemBasedOnParameters(cell.rememberedItemCategory, cell.rememberedItemKind, cell.rememberedItemQuantity);
+        // }
+      } else if (cell.memory.actorKind) {
+        const kind = cell.memory.actorKind;
+        object = kind.getName({ color: false, article: true });
+			} else {
+				object = TILES[cell.memory.tile].getFlavor();
+			}
 			buf = TEXT.format("you remember seeing %s here.", object);
-		} else if (cell.flags & CellFlags.MAGIC_MAPPED) { // magic mapped
-			buf = TEXT.format("you expect %s to be here.", TILES[cell.memory.tile].flavorText());
+		} else if (cell.flags & Flags.Cell.MAGIC_MAPPED) { // magic mapped
+			buf = TEXT.format("you expect %s to be here.", TILES[cell.memory.tile].getFlavor());
 		}
-		flavor.setText(buf);
-    return true;
+		return buf;
 	}
 
 	// if (monst) {
-	// 	return GW.actor.flavorText(monst);
+	// 	object = GW.actor.getFlavor(monst);
 	// } else
   if (theItem) {
-    buf = TEXT.format("you %s %s.", (map.isVisible(x, y) ? "see" : "sense"), theItem.flavorText());
+    object = theItem.getName({ color: false, article: true }) + ' on ';
 	}
-  else {
-    buf = TEXT.format("you %s %s.", (map.isVisible(x, y) ? "see" : "sense"), cell.tileFlavor());
+
+  let article = cell.liquid ? ' in ' : ' on ';
+
+  let surface = '';
+  if (cell.surface) {
+    const tile = cell.surfaceTile;
+    if (tile.flags & Flags.Tile.T_BRIDGE) {
+      article = ' over ';
+    }
+    surface = cell.surfaceTile.getFlavor() + article;
   }
-  flavor.setText(buf);
-	return true;
+
+  let liquid = '';
+  if (cell.liquid) {
+    liquid = cell.liquidTile.getFlavor() + ' on ';
+  }
+
+  let ground = cell.groundTile.getFlavor();
+
+  buf = TEXT.format("you %s %s%s%s%s.", (map.isVisible(x, y) ? "see" : "sense"), object, surface, liquid, ground);
+
+  return buf;
 }
 
-flavor.showFor = showFlavorFor;
+flavor.getFlavorText = getFlavorText;

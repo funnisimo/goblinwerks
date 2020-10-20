@@ -2,11 +2,8 @@
 import { color as COLOR } from './color.js';
 import { random } from './random.js';
 import { grid as GRID } from './grid.js';
-import { tiles as TILES, Flags as TileFlags, tile as TILE, Layer as TileLayer } from './tile.js';
-import { Flags as CellFlags, MechFlags as CellMechFlags } from './cell.js';
-import { KindFlags as ItemKindFlags } from './item.js';
-import { map as MAP } from './map.js';
-import { types, make, def, data as DATA, ui as UI, message as MSG, flag as FLAG, utils as UTILS, itemKinds as ITEMKINDS } from './gw.js';
+import * as Flags from './flags.js';
+import { types, make, def, data as DATA, ui as UI, message as MSG, flag as FLAG, utils as UTILS, itemKinds as ITEMKINDS, tiles as TILES } from './gw.js';
 
 
 export var tileEvent = {};
@@ -14,46 +11,7 @@ export var tileEvents = {};
 
 tileEvent.debug = UTILS.NOOP;
 
-const Fl = FLAG.fl;
-
-export const Flags = FLAG.install('tileEvent', {
-	DFF_SUBSEQ_ALWAYS							: Fl(0),	// Always fire the subsequent event, even if no tiles changed.
-	DFF_SUBSEQ_EVERYWHERE			    : Fl(1),	// Subsequent DF spawns in every cell that this DF spawns in, instead of only the origin
-	DFF_TREAT_AS_BLOCKING			    : Fl(2),	// If filling the footprint of this DF with walls would disrupt level connectivity, then abort.
-	DFF_PERMIT_BLOCKING				    : Fl(3),	// Generate this DF without regard to level connectivity.
-	DFF_ACTIVATE_DORMANT_MONSTER	: Fl(4),	// Dormant monsters on this tile will appear -- e.g. when a statue bursts to reveal a monster.
-	DFF_BLOCKED_BY_OTHER_LAYERS		: Fl(6),	// Will not propagate into a cell if any layer in that cell has a superior priority.
-	DFF_SUPERPRIORITY				      : Fl(7),	// Will overwrite terrain of a superior priority.
-  DFF_AGGRAVATES_MONSTERS       : Fl(8),  // Will act as though an aggravate monster scroll of effectRadius radius had been read at that point.
-  DFF_RESURRECT_ALLY            : Fl(9),  // Will bring back to life your most recently deceased ally.
-	DFF_EMIT_EVENT								: Fl(10), // Will emit the event when activated
-	DFF_NO_REDRAW_CELL						: Fl(11),
-	DFF_ABORT_IF_BLOCKS_MAP				: Fl(12),
-  DFF_BLOCKED_BY_ITEMS          : Fl(13), // Do not fire this event in a cell that has an item.
-  DFF_BLOCKED_BY_ACTORS         : Fl(13), // Do not fire this event in a cell that has an item.
-
-	DFF_ALWAYS_FIRE								: Fl(15),	// Fire even if the cell is marked as having fired this turn
-	DFF_NO_MARK_FIRED							: Fl(16),	// Do not mark this cell as having fired an event
-	// MUST_REPLACE_LAYER
-	// NEEDS_EMPTY_LAYER
-	DFF_PROTECTED									: Fl(19),
-
-	DFF_SPREAD_CIRCLE							: Fl(20),	// Spread in a circle around the spot (using FOV), radius calculated using spread+decrement
-	DFF_SPREAD_LINE								: Fl(21),	// Spread in a line in one random direction
-
-	DFF_NULLIFY_CELL			  	: Fl(22),	// Erase other terrain in the footprint of this DF.
-	DFF_EVACUATE_CREATURES	: Fl(23),	// Creatures in the DF area get moved outside of it
-	DFF_EVACUATE_ITEMS			: Fl(24),	// Creatures in the DF area get moved outside of it
-
-	DFF_BUILD_IN_WALLS			: Fl(25),
-	DFF_MUST_TOUCH_WALLS		: Fl(26),
-	DFF_NO_TOUCH_WALLS			: Fl(27),
-
-  DFF_ONLY_IF_EMPTY       : 'DFF_BLOCKED_BY_ITEMS, DFF_BLOCKED_BY_ACTORS',
-
-});
-
-tileEvent.Flags = Flags;
+const TileLayer = def.layer;
 
 
 class TileEvent {
@@ -75,7 +33,7 @@ class TileEvent {
 		this.spread = opts.spread || 0;
 		this.radius = opts.radius || 0;
 		this.decrement = opts.decrement || 0;
-		this.flags = Flags.toFlag(opts.flags);
+		this.flags = Flags.TileEvent.toFlag(opts.flags);
 		this.matchTile = opts.matchTile || opts.needs || 0;	/* ENUM tileType */
 		this.next = opts.next || null;	/* ENUM makeEventTypes */
 
@@ -134,7 +92,7 @@ tileEvent.resetAllMessages = resetAllMessages;
 
 
 // returns whether the feature was successfully generated (false if we aborted because of blocking)
-async function spawn(feat, ctx) {
+export async function spawnTileEvent(feat, ctx) {
 	let i, j, layer;
 	let monst;
 	let tile, itemKind;
@@ -160,8 +118,8 @@ async function spawn(feat, ctx) {
 		UTILS.ERROR('MAP, x, y are required in context.');
 	}
 
-	if (map.hasCellMechFlag(x, y, CellMechFlags.EVENT_FIRED_THIS_TURN)) {
-		if (!(feat.flags & Flags.DFF_ALWAYS_FIRE)) {
+	if (ctx.safe && map.hasCellMechFlag(x, y, Flags.CellMech.EVENT_FIRED_THIS_TURN)) {
+		if (!(feat.flags & Flags.TileEvent.DFF_ALWAYS_FIRE)) {
       tileEvent.debug('spawn - already fired.');
 			return false;
 		}
@@ -169,8 +127,8 @@ async function spawn(feat, ctx) {
 
 	tileEvent.debug('spawn', x, y, 'id=', feat.id, 'tile=', feat.tile, 'item=', feat.item);
 
-	const refreshCell = ctx.refreshCell = ctx.refreshCell || !(feat.flags & Flags.DFF_NO_REDRAW_CELL);
-	const abortIfBlocking = ctx.abortIfBlocking = ctx.abortIfBlocking || (feat.flags & Flags.DFF_ABORT_IF_BLOCKS_MAP);
+	const refreshCell = ctx.refreshCell = ctx.refreshCell || !(feat.flags & Flags.TileEvent.DFF_NO_REDRAW_CELL);
+	const abortIfBlocking = ctx.abortIfBlocking = ctx.abortIfBlocking || (feat.flags & Flags.TileEvent.DFF_ABORT_IF_BLOCKS_MAP);
 
   // if ((feat.flags & DFF_RESURRECT_ALLY) && !resurrectAlly(x, y))
 	// {
@@ -198,10 +156,10 @@ async function spawn(feat, ctx) {
 
 	// Blocking keeps track of whether to abort if it turns out that the DF would obstruct the level.
 	const blocking = ctx.blocking = ((abortIfBlocking
-							 && !(feat.flags & Flags.DFF_PERMIT_BLOCKING)
-							 && ((tile && (tile.flags & (TileFlags.T_PATHING_BLOCKER)))
-										|| (itemKind && (itemKind.flags & ItemKindFlags.IK_BLOCKS_MOVE))
-										|| (feat.flags & Flags.DFF_TREAT_AS_BLOCKING))) ? true : false);
+							 && !(feat.flags & Flags.TileEvent.DFF_PERMIT_BLOCKING)
+							 && ((tile && (tile.flags & (Flags.Tile.T_PATHING_BLOCKER)))
+										|| (itemKind && (itemKind.flags & Flags.ItemKind.IK_BLOCKS_MOVE))
+										|| (feat.flags & Flags.TileEvent.DFF_TREAT_AS_BLOCKING))) ? true : false);
 
 	tileEvent.debug('- blocking', blocking);
 
@@ -209,21 +167,21 @@ async function spawn(feat, ctx) {
 
 	let didSomething = false;
 	tileEvent.computeSpawnMap(feat, spawnMap, ctx);
-  if (!blocking || !MAP.gridDisruptsPassability(map, spawnMap, { bounds: ctx.bounds })) {
-		if (feat.flags & Flags.DFF_EVACUATE_CREATURES) { // first, evacuate creatures, so that they do not re-trigger the tile.
+  if (!blocking || !map.gridDisruptsPassability(spawnMap, { bounds: ctx.bounds })) {
+		if (feat.flags & Flags.TileEvent.DFF_EVACUATE_CREATURES) { // first, evacuate creatures, so that they do not re-trigger the tile.
 				if (tileEvent.evacuateCreatures(map, spawnMap)) {
           didSomething = true;
         }
 		}
 
-		if (feat.flags & Flags.DFF_EVACUATE_ITEMS) { // first, evacuate items, so that they do not re-trigger the tile.
+		if (feat.flags & Flags.TileEvent.DFF_EVACUATE_ITEMS) { // first, evacuate items, so that they do not re-trigger the tile.
 				if (tileEvent.evacuateItems(map, spawnMap)) {
           didSomething = true;
         }
 		}
 
-		if (feat.flags & Flags.DFF_NULLIFY_CELL) { // first, clear other tiles (not base/ground)
-				if (tileEvent.nullifyCells(map, spawnMap)) {
+		if (feat.flags & Flags.TileEvent.DFF_NULLIFY_CELL) { // first, clear other tiles (not base/ground)
+				if (tileEvent.nullifyCells(map, spawnMap, feat.flags)) {
           didSomething = true;
         }
 		}
@@ -235,16 +193,16 @@ async function spawn(feat, ctx) {
 		}
 	}
 
-	if (didSomething && (feat.flags & Flags.DFF_PROTECTED)) {
+	if (didSomething && (feat.flags & Flags.TileEvent.DFF_PROTECTED)) {
 		spawnMap.forEach( (v, i, j) => {
 			if (!v) return;
 			const cell = map.cell(i, j);
-			cell.mechFlags |= CellMechFlags.EVENT_PROTECTED;
+			cell.mechFlags |= Flags.CellMech.EVENT_PROTECTED;
 		});
 	}
 
   if (didSomething) {
-      // if ((feat.flags & Flags.DFF_AGGRAVATES_MONSTERS) && feat.effectRadius) {
+      // if ((feat.flags & Flags.TileEvent.DFF_AGGRAVATES_MONSTERS) && feat.effectRadius) {
       //     await aggravateMonsters(feat.effectRadius, x, y, /* Color. */gray);
       // }
       // if (refreshCell && feat.flashColor && feat.effectRadius) {
@@ -256,8 +214,8 @@ async function spawn(feat, ctx) {
   }
 
 	// if (refreshCell && feat.tile
-	// 	&& (tile.flags & (TileFlags.T_IS_FIRE | TileFlags.T_AUTO_DESCENT))
-	// 	&& map.hasTileFlag(PLAYER.xLoc, PLAYER.yLoc, (TileFlags.T_IS_FIRE | TileFlags.T_AUTO_DESCENT)))
+	// 	&& (tile.flags & (Flags.Tile.T_IS_FIRE | Flags.Tile.T_AUTO_DESCENT))
+	// 	&& map.hasTileFlag(PLAYER.xLoc, PLAYER.yLoc, (Flags.Tile.T_IS_FIRE | Flags.Tile.T_AUTO_DESCENT)))
 	// {
 	// 	await applyInstantTileEffectsToCreature(PLAYER);
 	// }
@@ -271,7 +229,7 @@ async function spawn(feat, ctx) {
 				const cell = map.cell(i, j);
 				if (cell.actor || cell.item) {
 					for(let t of cell.tiles()) {
-						await TILE.applyInstantEffects(t, cell);
+						await t.applyInstantEffects(map, i, j, cell);
 						if (DATA.gameHasEnded) {
 							return true;
 						}
@@ -290,9 +248,9 @@ async function spawn(feat, ctx) {
   //		feat.messageDisplayed = true;
   //		message(feat.message, false);
   //	}
-  if (feat.next && (didSomething || feat.flags & Flags.DFF_SUBSEQ_ALWAYS)) {
-    tileEvent.debug('- subsequent: %s, everywhere=%s', feat.next, feat.flags & Flags.DFF_SUBSEQ_EVERYWHERE);
-    if (feat.flags & Flags.DFF_SUBSEQ_EVERYWHERE) {
+  if (feat.next && (didSomething || feat.flags & Flags.TileEvent.DFF_SUBSEQ_ALWAYS)) {
+    tileEvent.debug('- subsequent: %s, everywhere=%s', feat.next, feat.flags & Flags.TileEvent.DFF_SUBSEQ_EVERYWHERE);
+    if (feat.flags & Flags.TileEvent.DFF_SUBSEQ_EVERYWHERE) {
         for (i=0; i<map.width; i++) {
             for (j=0; j<map.height; j++) {
                 if (spawnMap[i][j]) {
@@ -311,13 +269,13 @@ async function spawn(feat, ctx) {
 	}
 	if (didSomething) {
     if (feat.tile
-        && (tile.flags & (TileFlags.T_IS_DEEP_WATER | TileFlags.T_LAVA | TileFlags.T_AUTO_DESCENT)))
+        && (tile.flags & (Flags.Tile.T_IS_DEEP_WATER | Flags.Tile.T_LAVA | Flags.Tile.T_AUTO_DESCENT)))
 		{
         DATA.updatedMapToShoreThisTurn = false;
     }
 
     // awaken dormant creatures?
-    // if (feat.flags & Flags.DFF_ACTIVATE_DORMANT_MONSTER) {
+    // if (feat.flags & Flags.TileEvent.DFF_ACTIVATE_DORMANT_MONSTER) {
     //     for (monst of map.dormant) {
     //         if (monst.x == x && monst.y == y || spawnMap[monst.x][monst.y]) {
     //             // found it!
@@ -327,7 +285,7 @@ async function spawn(feat, ctx) {
     // }
   }
 
-	// if (didSomething && feat.flags & Flags.DFF_EMIT_EVENT && feat.eventName) {
+	// if (didSomething && feat.flags & Flags.TileEvent.DFF_EMIT_EVENT && feat.eventName) {
 	// 	await GAME.emit(feat.eventName, x, y);
 	// }
 
@@ -338,10 +296,10 @@ async function spawn(feat, ctx) {
 
 		UI.requestUpdate();
 
-		if (!(feat.flags & Flags.DFF_NO_MARK_FIRED)) {
+		if (!(feat.flags & Flags.TileEvent.DFF_NO_MARK_FIRED)) {
 			spawnMap.forEach( (v, i, j) => {
 				if (v) {
-					map.setCellFlags(i, j, 0, CellMechFlags.EVENT_FIRED_THIS_TURN);
+					map.setCellFlags(i, j, 0, Flags.CellMech.EVENT_FIRED_THIS_TURN);
 				}
 			});
 		}
@@ -353,7 +311,7 @@ async function spawn(feat, ctx) {
 	return didSomething;
 }
 
-tileEvent.spawn = spawn;
+tileEvent.spawn = spawnTileEvent;
 
 
 function cellIsOk(feat, x, y, ctx) {
@@ -361,10 +319,10 @@ function cellIsOk(feat, x, y, ctx) {
 	if (!map.hasXY(x, y)) return false;
 	const cell = map.cell(x, y);
 
-	if (feat.flags & Flags.DFF_BUILD_IN_WALLS) {
+	if (feat.flags & Flags.TileEvent.DFF_BUILD_IN_WALLS) {
 		if (!cell.isWall()) return false;
 	}
-	else if (feat.flags & Flags.DFF_MUST_TOUCH_WALLS) {
+	else if (feat.flags & Flags.TileEvent.DFF_MUST_TOUCH_WALLS) {
 		let ok = false;
 		map.eachNeighbor(x, y, (c) => {
 			if (c.isWall()) {
@@ -373,7 +331,7 @@ function cellIsOk(feat, x, y, ctx) {
 		});
 		if (!ok) return false;
 	}
-	else if (feat.flags & Flags.DFF_NO_TOUCH_WALLS) {
+	else if (feat.flags & Flags.TileEvent.DFF_NO_TOUCH_WALLS) {
 		let ok = true;
 		map.eachNeighbor(x, y, (c) => {
 			if (c.isWall()) {
@@ -385,7 +343,7 @@ function cellIsOk(feat, x, y, ctx) {
 
 	if (ctx.bounds && !ctx.bounds.containsXY(x, y)) return false;
 	if (feat.matchTile && !cell.hasTile(feat.matchTile)) return false;
-	if (cell.hasTileFlag(TileFlags.T_OBSTRUCTS_TILE_EFFECTS) && !feat.matchTile && (ctx.x != x || ctx.y != y)) return false;
+	if (cell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_TILE_EFFECTS) && !feat.matchTile && (ctx.x != x || ctx.y != y)) return false;
 
 	return true;
 }
@@ -420,7 +378,7 @@ function computeSpawnMap(feat, spawnMap, ctx)
 	spawnMap[x][y] = t = 1; // incremented before anything else happens
 
 	let radius = feat.radius || 0;
-	if (feat.flags & Flags.DFF_SPREAD_CIRCLE) {
+	if (feat.flags & Flags.TileEvent.DFF_SPREAD_CIRCLE) {
 		radius = 0;
 		startProb = startProb || 100;
 		if (startProb >= 100) {
@@ -452,7 +410,7 @@ function computeSpawnMap(feat, spawnMap, ctx)
 			probDec = probDec || 100;
 		}
 
-		if (feat.flags & Flags.DFF_SPREAD_LINE) {
+		if (feat.flags & Flags.TileEvent.DFF_SPREAD_LINE) {
 			x2 = x;
 			y2 = y;
 			const dir = def.dirs[random.number(4)];
@@ -510,10 +468,11 @@ async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
 
 	accomplishedSomething = false;
 
-	const blockedByOtherLayers = (feat.flags & Flags.DFF_BLOCKED_BY_OTHER_LAYERS);
-	const superpriority = (feat.flags & Flags.DFF_SUPERPRIORITY);
+	const blockedByOtherLayers = (feat.flags & Flags.TileEvent.DFF_BLOCKED_BY_OTHER_LAYERS);
+	const superpriority = (feat.flags & Flags.TileEvent.DFF_SUPERPRIORITY);
 	const applyEffects = ctx.refreshCell;
 	const map = ctx.map;
+  const volume = ctx.volume || feat.volume || (tile ? tile.volume : 0);
 
 	for (i=0; i<spawnMap.width; i++) {
 		for (j=0; j<spawnMap.height; j++) {
@@ -522,34 +481,43 @@ async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
 			spawnMap[i][j] = 0; // so that the spawnmap reflects what actually got built
 
 			const cell = map.cell(i, j);
-			if (cell.mechFlags & CellMechFlags.EVENT_PROTECTED) continue;
+			if (cell.mechFlags & Flags.CellMech.EVENT_PROTECTED) continue;
 
 			if (tile) {
-				if ( (cell.layers[tile.layer] !== tile.id)  														// If the new cell does not already contains the fill terrain,
-					&& (superpriority || cell.tile(tile.layer).priority < tile.priority)  // If the terrain in the layer to be overwritten has a higher priority number (unless superpriority),
+				if (cell.layers[tile.layer] === tile.id) { 														// If the new cell does not already contains the fill terrain,
+          if (tile.layer == TileLayer.GAS) {
+            spawnMap[i][j] = 1;
+            cell.gasVolume += volume;
+          }
+          else if (tile.layer == TileLayer.LIQUID) {
+            spawnMap[i][j] = 1;
+            cell.liquidVolume += volume;
+          }
+        }
+        else if ((superpriority || cell.tile(tile.layer).priority < tile.priority)  // If the terrain in the layer to be overwritten has a higher priority number (unless superpriority),
 					&& (!cell.obstructsLayer(tile.layer))															    // If we will be painting into the surface layer when that cell forbids it,
-          && ((!cell.item) || !(feat.flags & Flags.DFF_BLOCKED_BY_ITEMS))
-          && ((!cell.actor) || !(feat.flags & Flags.DFF_BLOCKED_BY_ACTORS))
+          && ((!cell.item) || !(feat.flags & Flags.TileEvent.DFF_BLOCKED_BY_ITEMS))
+          && ((!cell.actor) || !(feat.flags & Flags.TileEvent.DFF_BLOCKED_BY_ACTORS))
 					&& (!blockedByOtherLayers || cell.highestPriorityTile().priority < tile.priority))  // if the fill won't violate the priority of the most important terrain in this cell:
 				{
 					spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
 
-					cell.setTile(tile);
+					cell.setTile(tile, volume);
           // map.redrawCell(cell);
-					if (feat.volume && cell.gas) {
-					    cell.volume += (feat.volume || 0);
-					}
+					// if (volume && cell.gas) {
+					//     cell.volume += (feat.volume || 0);
+					// }
 
 					tileEvent.debug('- tile', i, j, 'tile=', tile.id);
 
-					// cell.mechFlags |= CellMechFlags.EVENT_FIRED_THIS_TURN;
+					// cell.mechFlags |= Flags.CellMech.EVENT_FIRED_THIS_TURN;
 					accomplishedSomething = true;
 				}
 			}
 
 			if (itemKind) {
 				if (superpriority || !cell.item) {
-					if (!cell.hasTileFlag(TileFlags.T_OBSTRUCTS_ITEMS)) {
+					if (!cell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_ITEMS)) {
 						spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
 						if (cell.item) {
 							map.removeItem(cell.item);
@@ -557,7 +525,7 @@ async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
 						const item = make.item(itemKind);
 						map.addItem(i, j, item);
             // map.redrawCell(cell);
-						// cell.mechFlags |= CellMechFlags.EVENT_FIRED_THIS_TURN;
+						// cell.mechFlags |= Flags.CellMech.EVENT_FIRED_THIS_TURN;
 						accomplishedSomething = true;
 						tileEvent.debug('- item', i, j, 'item=', itemKind.id);
 					}
@@ -568,7 +536,7 @@ async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
 				if (await feat.fn(i, j, ctx)) {
 					spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
           // map.redrawCell(cell);
-					// cell.mechFlags |= CellMechFlags.EVENT_FIRED_THIS_TURN;
+					// cell.mechFlags |= Flags.CellMech.EVENT_FIRED_THIS_TURN;
 					accomplishedSomething = true;
 				}
 			}
@@ -579,16 +547,16 @@ async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
 				// }
 				// if (cell.actor || cell.item) {
 				// 	for(let t of cell.tiles()) {
-				// 		await TILE.applyInstantEffects(t, cell);
+				// 		await t.applyInstantEffects(map, i, j, cell);
 				// 		if (DATA.gameHasEnded) {
 				// 			return true;
 				// 		}
 				// 	}
 				// }
-				// if (tile.flags & TileFlags.T_IS_FIRE) {
-				// 	if (cell.flags & CellFlags.HAS_ITEM) {
+				// if (tile.flags & Flags.Tile.T_IS_FIRE) {
+				// 	if (cell.flags & Flags.Cell.HAS_ITEM) {
 				// 		theItem = map.itemAt(i, j);
-				// 		if (theItem.flags & ItemFlags.ITEM_FLAMMABLE) {
+				// 		if (theItem.flags & Flags.Item.ITEM_FLAMMABLE) {
 				// 			await burnItem(theItem);
 				// 		}
 				// 	}
@@ -606,11 +574,14 @@ tileEvent.spawnTiles = spawnTiles;
 
 
 
-function nullifyCells(map, spawnMap) {
+function nullifyCells(map, spawnMap, flags) {
   let didSomething = false;
+  const nullSurface = flags & Flags.TileEvent.DFF_NULL_SURFACE;
+  const nullLiquid = flags & Flags.TileEvent.DFF_NULL_LIQUID;
+  const nullGas = flags & Flags.TileEvent.DFF_NULL_GAS;
 	spawnMap.forEach( (v, i, j) => {
 		if (!v) return;
-		map.nullifyCellTiles(i, j, false);	// skip gas
+		map.nullifyCellLayers(i, j, nullLiquid, nullSurface, nullGas);
     didSomething = true;
 	});
   return didSomething;
@@ -627,13 +598,13 @@ function evacuateCreatures(map, blockingMap) {
 	for (i=0; i<map.width; i++) {
 		for (j=0; j<map.height; j++) {
 			if (blockingMap[i][j]
-				&& (map.hasCellFlag(i, j, CellFlags.HAS_ACTOR)))
+				&& (map.hasCellFlag(i, j, Flags.Cell.HAS_ACTOR)))
 			{
 				monst = map.actorAt(i, j);
 				const forbidFlags = monst.forbiddenTileFlags();
 				const loc = map.matchingXYNear(
 									 i, j, (cell) => {
-										 if (cell.hasFlags(CellFlags.HAS_ACTOR)) return false;
+										 if (cell.hasFlags(Flags.Cell.HAS_ACTOR)) return false;
 										 if (cell.hasTileFlags(forbidFlags)) return false;
 										 return true;
 									 },
@@ -661,10 +632,10 @@ function evacuateItems(map, blockingMap) {
 		const cell = map.cell(i, j);
 		if (!cell.item) return;
 
-		const forbidFlags = cell.item.forbiddenTileFlags();
+		const forbidFlags = cell.item.kind.forbiddenTileFlags();
 		const loc = map.matchingXYNear(
 							 i, j, (cell) => {
-								 if (cell.hasFlags(CellFlags.HAS_ITEM)) return false;
+								 if (cell.hasFlags(Flags.Cell.HAS_ITEM)) return false;
 								 if (cell.hasTileFlags(forbidFlags)) return false;
 								 return true;
 							 },

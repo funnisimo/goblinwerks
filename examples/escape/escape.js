@@ -4,12 +4,45 @@ const LAST_LEVEL = 1;
 
 GW.random.seed(12345);
 
+
+const stumbles = {
+  init: function(actor) {
+    actor.turnsSinceStumble = 0;
+    actor.maxTurnsWithoutStumble = actor.maxTurnsWithoutStumble || 10;
+  },
+  act: function(actor) {
+    const stumbleChance = 100 * actor.turnsSinceStumble / actor.maxTurnsWithoutStumble;
+    if(actor.turnsSinceStumble && GW.random.chance(stumbleChance)) {
+        actor.turnsSinceStumble = 0;
+        // console.log('Stumble: %d @ %d,%d', actor.id, actor.x, actor.y);
+        actor.status = 'Stumbling';
+        // TODO - Update status (on sidebar) to show '(Stumbling)'
+        actor.endTurn();
+        return true;
+    }
+    actor.turnsSinceStumble++;
+    actor.status = null;
+    return false;
+  }
+}
+
+
 const PLAYER = GW.make.player({
 		sprite: GW.make.sprite('@', 'white'),
-		name: 'you',
+		name: 'you', article: false,
 		speed: 120,
     consoleColor: 'green',
     stats: { health: 20 },
+    attacks: {
+      melee: {
+        damage: (a,t,ctx) => {
+          return (a.melee) ? a.melee.stats.damage : 1;
+        }, verb: 'hit',
+      },
+      ranged: {
+        range: 5, damage: 1, verb: 'shoot',
+      }
+    },
     calcBashDamage(actor, item, ctx) {
       if (actor.melee) return actor.melee.stats.damage;
       return 1;
@@ -39,8 +72,8 @@ class EscapeItem extends GW.types.ItemKind {
     super(opts);
   }
 
-  getName(opts={}) {
-    let base = super.getName(opts);
+  getName(item, opts={}) {
+    let base = super.getName(item, opts);
     if (opts.details) {
       if (this.stats.damage) {
         base += GW.text.format(' [%d]', this.stats.damage);
@@ -76,7 +109,7 @@ class EscapeItem extends GW.types.ItemKind {
         GW.message.add('%s find %s, but you do not need it.', actor.getName(), item.getName({ article: 'a', details: true }));
         return false;
       }
-      actor.heal(item.stats.heal);
+      actor.kind.heal(actor, item.stats.heal);
       current = true;
     }
     GW.message.add('%s pickup %s.', actor.getName(), item.getName({ article: 'a', details: true }));
@@ -86,6 +119,56 @@ class EscapeItem extends GW.types.ItemKind {
 }
 
 
+
+GW.tile.addKind('ZOMBIE_CORPSE', {
+  sprite: { ch: '%', fg: 'gray' },
+  name: 'zombie corpse', article: 'a',
+  events: {
+    tick: { chance: 100, flags: 'DFF_NULL_SURFACE' }
+  },
+  layer: 'SURFACE'
+});
+
+GW.tile.addKind('BLOOD_GREEN', {
+  sprite: { bg: [0,100,0] },
+  name: 'green blood', article: 'some',
+  flags: 'TM_DISSIPATES_SLOWLY',
+  layer: 'LIQUID', dissipate: 1,  // dissipate very slowly
+});
+
+GW.actor.addKind('ZOMBIE', {
+  name: 'Zombie',
+  sprite: { ch: 'z', fg: 'red' },
+
+  consoleColor: 'dark_red',
+  corpse: 'ZOMBIE_CORPSE',
+
+  stats: { health: 3 },
+  blood: 'BLOOD_GREEN',
+  speed: 180,  // 120 is default, 180 is 50% slower
+
+  // performs: ['horde_push'],
+  // resolves: ['horde_push'],
+  // bump: ['horde_push', 'attack'],
+  //
+  // ai: ['Stumbles', 'AttackPlayer', 'MoveTowardPlayer', 'MoveRandomly', 'Idle'],
+
+  ai: [stumbles, 'attackPlayer', 'moveTowardPlayer', 'moveRandomly', 'idle'],
+
+  sidebar(entry, y, dim, highlight, buf) {
+    const actor = entry.entity;
+    y = GW.sidebar.addName(entry, y, dim, highlight, buf);
+    y = GW.sidebar.addHealthBar(entry, y, dim, highlight, buf);
+    if (actor.status) {
+      y = GW.sidebar.addText(buf, y, actor.status, null, null, dim, highlight);
+    }
+    return y;
+  },
+  attacks: {
+    melee: { damage: 1, verb: 'scratch' }
+  },
+
+});
 
 
 GW.tile.addKind('BROKEN_FURNITURE', {
@@ -131,7 +214,7 @@ GW.item.addKind('TRASHCAN', {
 });
 
 GW.item.addKind('SHELVES', {
-	name: 'shelves',
+	name: 'shelves', article: 'some',
 	description: 'shelves',
 	sprite: { ch: '\u25a4', fg: 'tan' },
 	flags: 'A_PUSH, A_PULL, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE, IK_NO_SIDEBAR',
@@ -218,7 +301,7 @@ GW.item.addKind('MEDKIT', new EscapeItem({
 }));
 
 GW.item.addKind('ASPIRIN', new EscapeItem({
-    name: 'Aspirin',
+    name: 'Aspirin', article: 'some',
     description: 'an aspirin',
     sprite: { ch: ':', fg: 'white' },
     flags: 'A_USE',
@@ -227,8 +310,8 @@ GW.item.addKind('ASPIRIN', new EscapeItem({
 }));
 
 GW.item.addKind('BANDAGE', new EscapeItem({
-    name: 'Bandage',
-    description: 'a bandage',
+    name: 'Bandages', article: 'some',
+    description: 'some bandages',
     sprite: { ch: 'o', fg: 'white' },
     flags: 'A_USE',
     stats: { heal: 1 },
@@ -346,11 +429,10 @@ function mapFromPrefab(prefab) {
         continue;
       }
 
+      map.setTile(x, y, info.tile || cells.default);
+
       if (info.location) {
         map.locations[info.location] = [x, y];
-      }
-      if (info.tile) {
-        map.setTile(x, y, info.tile);
       }
       if (info.item) {
         const item = GW.make.item(info.item);
@@ -359,7 +441,10 @@ function mapFromPrefab(prefab) {
         }
       }
       if (info.actor) {
-        console.log('Not creating actors yet!', info.actor, x, y);
+        const actor = GW.make.actor(info.actor);
+        if (actor) {
+          map.addActor(x, y, actor);
+        }
       }
     }
   }
@@ -417,7 +502,7 @@ async function start() {
       followPlayer: true, // The player stays at the center of the map
   });
 	GW.io.setKeymap({
-		dir: 'moveDir', space: 'rest',
+		dir: 'movePlayer', space: 'rest',
     g: 'grab', b: 'bash', o: 'open', c: 'close',
 		'?': showHelp
 	});

@@ -2,24 +2,15 @@
 import { random } from './random.js';
 import { grid as GRID } from './grid.js';
 import { color as COLOR, colors as COLORS } from './color.js';
-import { Flags as ItemFlags } from './item.js';
-import { Flags as TileFlags, MechFlags as TileMechFlags, Layer as TileLayer } from './tile.js';
-import { Flags as CellFlags, MechFlags as CellMechFlags, cell as CELL } from './cell.js';
+import { cell as CELL } from './cell.js';
+import * as Flags from './flags.js';
 import { types, def, make, data as DATA, config as CONFIG, flag as FLAG, utils as UTILS } from './gw.js';
 
 
 export var map = {};
 map.debug = UTILS.NOOP;
 
-const Fl = FLAG.fl;
-
-export const Flags = FLAG.install('map', {
-	MAP_CHANGED: Fl(0),
-	MAP_STABLE_GLOW_LIGHTS:  Fl(1),
-	MAP_STABLE_LIGHTS: Fl(2),
-	MAP_ALWAYS_LIT:	Fl(3),
-});
-
+const TileLayer = def.layer;
 
 
 export class Map {
@@ -47,12 +38,12 @@ export class Map {
 
 	changed(v) {
 		if (v === true) {
-			this.flags |= Flags.MAP_CHANGED;
+			this.flags |= Flags.Map.MAP_CHANGED;
 		}
 		else if (v === false) {
-			this.flags &= ~Flags.MAP_CHANGED;
+			this.flags &= ~Flags.Map.MAP_CHANGED;
 		}
-		return (this.flags & Flags.MAP_CHANGED);
+		return (this.flags & Flags.Map.MAP_CHANGED);
 	}
 
 	hasCellFlag(x, y, flag) 		{ return this.cell(x, y).flags & flag; }
@@ -62,8 +53,8 @@ export class Map {
 
 	redrawCell(cell) {
     // if (cell.isAnyKindOfVisible()) {
-      cell.flags |= CellFlags.NEEDS_REDRAW;
-  		this.flags |= Flags.MAP_CHANGED;
+      cell.flags |= Flags.Cell.NEEDS_REDRAW;
+  		this.flags |= Flags.Map.MAP_CHANGED;
     // }
 	}
 
@@ -75,16 +66,17 @@ export class Map {
   redrawAll() {
     this.forEach( (c) => {
       // if (c.isAnyKindOfVisible()) {
-        c.flags |= CellFlags.NEEDS_REDRAW;
+        c.flags |= Flags.Cell.NEEDS_REDRAW;
       // }
     });
-		this.flags |= Flags.MAP_CHANGED;
+		this.flags |= Flags.Map.MAP_CHANGED;
   }
 
 	markRevealed(x, y) { return this.cell(x, y).markRevealed(); }
 	isVisible(x, y)    { return this.cell(x, y).isVisible(); }
 	isAnyKindOfVisible(x, y) { return this.cell(x, y).isAnyKindOfVisible(); }
-	hasVisibleLight(x, y) { return (this.flags & Flags.MAP_ALWAYS_LIT) || this.cell(x, y).hasVisibleLight(); }
+  isOrWasAnyKindOfVisible(x, y) { return this.cell(x, y).isOrWasAnyKindOfVisible(); }
+	hasVisibleLight(x, y) { return (this.flags & Flags.Map.MAP_ALWAYS_LIT) || this.cell(x, y).hasVisibleLight(); }
 
 	setFlags(mapFlag, cellFlag, cellMechFlag) {
 		if (mapFlag) {
@@ -108,7 +100,7 @@ export class Map {
 
 	setCellFlags(x, y, cellFlag, cellMechFlag) {
 		this.cell(x, y).setFlags(cellFlag, cellMechFlag);
-		this.flags |= Flags.MAP_CHANGED;
+		this.flags |= Flags.Map.MAP_CHANGED;
 	}
 
 	clearCellFlags(x, y, cellFlags, cellMechFlags) {
@@ -148,10 +140,10 @@ export class Map {
 	tileFlavor(x, y) { return this.cells[x][y].tileFlavor(); }
 	tileFlavor(x, y)   { return this.cells[x][y].tileFlavor(); }
 
-	setTile(x, y, tileId, checkPriority) {
+	setTile(x, y, tileId, volume=0) {
 		const cell = this.cell(x, y);
-		if (cell.setTile(tileId, checkPriority)) {
-			this.flags &= ~(Flags.MAP_STABLE_GLOW_LIGHTS);
+		if (cell.setTile(tileId, volume)) {
+			this.flags &= ~(Flags.Map.MAP_STABLE_GLOW_LIGHTS);
 		}
 	  return true;
 	}
@@ -161,9 +153,9 @@ export class Map {
 		cell.nullifyTileWithFlags(tileFlags, tileMechFlags);
 	}
 
-	nullifyCellTiles(x, y, includeGas) {
+	nullifyCellLayers(x, y, nullLiquid, nullSurface, nullGas) {
 		this.changed(true);
-		return this.cell(x, y).nullifyTiles(includeGas);
+		return this.cell(x, y).nullifyLayers(nullLiquid, nullSurface, nullGas);
 	}
 
 	fill(tileId, boundaryTile) {
@@ -202,23 +194,24 @@ export class Map {
 	      return false; // If it's not a diagonal, it's not diagonally blocked.
 	    }
 	    const locFlags1 = this.tileFlags(x1, y2, limitToPlayerKnowledge);
-	    if (locFlags1 & TileFlags.T_OBSTRUCTS_DIAGONAL_MOVEMENT) {
+	    if (locFlags1 & Flags.Tile.T_OBSTRUCTS_DIAGONAL_MOVEMENT) {
 	        return true;
 	    }
 	    const locFlags2 = this.tileFlags(x2, y1, limitToPlayerKnowledge);
-	    if (locFlags2 & TileFlags.T_OBSTRUCTS_DIAGONAL_MOVEMENT) {
+	    if (locFlags2 & Flags.Tile.T_OBSTRUCTS_DIAGONAL_MOVEMENT) {
 	        return true;
 	    }
 	    return false;
 	}
 
-	fillBasicCostGrid(costGrid) {
+	fillCostGrid(costGrid, costFn) {
+		costFn = costFn || UTILS.ONE;
 		this.cells.forEach( (cell, i, j) => {
       if (cell.isNull()) {
         costGrid[i][j] = def.PDS_OBSTRUCTION;
       }
       else {
-        costGrid[i][j] = cell.canBePassed() ? 1 : def.PDS_OBSTRUCTION;
+        costGrid[i][j] = cell.canBePassed() ? costFn(cell, i, j) : def.PDS_OBSTRUCTION;
       }
     });
 	}
@@ -349,7 +342,7 @@ export class Map {
 		const oldCell = this.cell(anim.x, anim.y);
 		oldCell.removeSprite(anim.sprite);
     this.redrawCell(oldCell);
-		this.flags |= Flags.MAP_CHANGED;
+		this.flags |= Flags.Map.MAP_CHANGED;
 		return true;
 	}
 
@@ -370,15 +363,17 @@ export class Map {
 		}
 
 		cell.actor = theActor;
+    theActor.next = this.actors;
+		this.actors = theActor;
 
 		const layer = (theActor === DATA.player) ? TileLayer.PLAYER : TileLayer.ACTOR;
 		cell.addSprite(layer, theActor.kind.sprite);
 
-		const flag = (theActor === DATA.player) ? CellFlags.HAS_PLAYER : CellFlags.HAS_MONSTER;
+		const flag = (theActor === DATA.player) ? Flags.Cell.HAS_PLAYER : Flags.Cell.HAS_MONSTER;
 		cell.flags |= flag;
-		// if (theActor.flags & ActorFlags.MK_DETECTED)
+		// if (theActor.flags & Flags.Actor.MK_DETECTED)
 		// {
-		// 	cell.flags |= CellFlags.MONSTER_DETECTED;
+		// 	cell.flags |= Flags.Cell.MONSTER_DETECTED;
 		// }
 
 		theActor.x = x;
@@ -391,7 +386,7 @@ export class Map {
 	addActorNear(x, y, theActor) {
 		const forbidTileFlags = GW.actor.avoidedFlags(theActor);
 		const loc = this.matchingXYNear(x, y, (cell, i, j) => {
-			if (cell.flags & (CellFlags.HAS_ACTOR)) return false;
+			if (cell.flags & (Flags.Cell.HAS_ACTOR)) return false;
 			return !cell.hasTileFlag(forbidTileFlags);
 		});
 		if (!loc || loc[0] < 0) {
@@ -417,14 +412,15 @@ export class Map {
 		const cell = this.cell(actor.x, actor.y);
 		if (cell.actor === actor) {
 			cell.actor = null;
-			cell.flags &= ~CellFlags.HAS_ACTOR;
+      UTILS.removeFromChain(this, 'actors', actor);
+			cell.flags &= ~Flags.Cell.HAS_ACTOR;
 			cell.removeSprite(actor.kind.sprite);
       this.redrawCell(cell);
 		}
 	}
 
 	// dormantAt(x, y) {  // creature *
-	// 	if (!(this.cell(x, y).flags & CellFlags.HAS_DORMANT_MONSTER)) {
+	// 	if (!(this.cell(x, y).flags & Flags.Cell.HAS_DORMANT_MONSTER)) {
 	// 		return null;
 	// 	}
 	// 	return this.dormantActors.find( (m) => m.x == x && m.y == y );
@@ -434,16 +430,16 @@ export class Map {
 	// 	theActor.x = x;
 	// 	theActor.y = y;
 	// 	this.dormant.add(theActor);
-	// 	cell.flags |= (CellFlags.HAS_DORMANT_MONSTER);
-	// 	this.flags |= Flags.MAP_CHANGED;
+	// 	cell.flags |= (Flags.Cell.HAS_DORMANT_MONSTER);
+	// 	this.flags |= Flags.Map.MAP_CHANGED;
 	// 	return true;
 	// }
 	//
 	// removeDormant(actor) {
 	// 	const cell = this.cell(actor.x, actor.y);
-	// 	cell.flags &= ~(CellFlags.HAS_DORMANT_MONSTER);
-	// 	cell.flags |= CellFlags.NEEDS_REDRAW;
-	// 	this.flags |= Flags.MAP_CHANGED;
+	// 	cell.flags &= ~(Flags.Cell.HAS_DORMANT_MONSTER);
+	// 	cell.flags |= Flags.Cell.NEEDS_REDRAW;
+	// 	this.flags |= Flags.Map.MAP_CHANGED;
 	// 	this.dormant.remove(actor);
 	// }
 
@@ -457,7 +453,7 @@ export class Map {
 	addItem(x, y, theItem) {
 		if (!this.hasXY(x, y)) return false;
 		const cell = this.cell(x, y);
-		if (cell.flags & CellFlags.HAS_ITEM) {
+		if (cell.flags & Flags.Cell.HAS_ITEM) {
 			// GW.ui.message(colors.badMessageColor, 'There is already an item there.');
 			return false;
 		}
@@ -469,13 +465,13 @@ export class Map {
 		this.items = theItem;
 
 		cell.addSprite(TileLayer.ITEM, theItem.kind.sprite);
-		cell.flags |= (CellFlags.HAS_ITEM);
+		cell.flags |= (Flags.Cell.HAS_ITEM);
     this.redrawCell(cell);
 
-		if ( ((theItem.flags & ItemFlags.ITEM_MAGIC_DETECTED) && GW.item.magicChar(theItem)) ||
+		if ( ((theItem.flags & Flags.Item.ITEM_MAGIC_DETECTED) && GW.item.magicChar(theItem)) ||
 					CONFIG.D_ITEM_OMNISCIENCE)
 		{
-			cell.flags |= CellFlags.ITEM_DETECTED;
+			cell.flags |= Flags.Cell.ITEM_DETECTED;
 		}
 
 		return true;
@@ -483,8 +479,8 @@ export class Map {
 
 	addItemNear(x, y, theItem) {
 		const loc = this.matchingXYNear(x, y, (cell, i, j) => {
-			if (cell.flags & CellFlags.HAS_ITEM) return false;
-			return !cell.hasTileFlag(theItem.forbiddenTileFlags());
+			if (cell.flags & Flags.Cell.HAS_ITEM) return false;
+			return !cell.hasTileFlag(theItem.kind.forbiddenTileFlags());
 		});
 		if (!loc || loc[0] < 0) {
 			// GW.ui.message(colors.badMessageColor, 'There is no place to put the item.');
@@ -504,22 +500,9 @@ export class Map {
 		cell.removeSprite(theItem.kind.sprite);
 
 		cell.item = null;
-		if (this.items === theItem) {
-			this.items = theItem.next;
-		}
-		else {
-			let prev = this.items;
-			let current = prev.next;
-			while(current && current !== theItem) {
-				prev = current;
-				current = prev.next;
-			}
-			if (current === theItem) {
-				prev.next = current.next;
-			}
-		}
+    UTILS.removeFromChain(this, 'items', theItem);
 
-		cell.flags &= ~(CellFlags.HAS_ITEM | CellFlags.ITEM_DETECTED);
+		cell.flags &= ~(Flags.Cell.HAS_ITEM | Flags.Cell.ITEM_DETECTED);
     this.redrawCell(cell);
 		return true;
 	}
@@ -538,6 +521,61 @@ export class Map {
 	// }
 
 
+
+  gridDisruptsPassability(blockingGrid, opts={})
+  {
+  	let result;
+  	let i, j, x, y;
+
+  	const walkableGrid = GRID.alloc(this.width, this.height);
+  	let disrupts = false;
+
+  	const gridOffsetX = opts.gridOffsetX || 0;
+  	const gridOffsetY = opts.gridOffsetY || 0;
+  	const bounds = opts.bounds || null;
+
+  	x = y = -1;
+  	// Get all walkable locations after lake added
+  	this.cells.forEach( (cell, i, j) => {
+  		if (bounds && !bounds.containsXY(i, j)) return;	// outside bounds
+  		const blockingX = i + gridOffsetX;
+  		const blockingY = j + gridOffsetY;
+  		if (cell.isNull()) {
+  			return; // do nothing
+  		}
+  		else if (cell.canBePassed()) {
+  			if (blockingGrid.hasXY(blockingX, blockingY) && blockingGrid[blockingX][blockingY]) return;
+  			walkableGrid[i][j] = 1;
+  		}
+  		else if (cell.hasTileFlag(Flags.Tile.T_HAS_STAIRS)) {
+  			if (blockingGrid.hasXY(blockingX, blockingY) && blockingGrid[blockingX][blockingY]) {
+  				disrupts = true;
+  			}
+  			else {
+  				walkableGrid[i][j] = 1;
+  			}
+  		}
+  	});
+
+  	let first = true;
+  	for(let i = 0; i < walkableGrid.width && !disrupts; ++i) {
+  		for(let j = 0; j < walkableGrid.height && !disrupts; ++j) {
+  			if (walkableGrid[i][j] == 1) {
+  				if (first) {
+  					GRID.floodFill(walkableGrid, i, j, 1, 2);
+  					first = false;
+  				}
+  				else {
+  					disrupts = true;
+  				}
+  			}
+  		}
+  	}
+
+  	GRID.free(walkableGrid);
+  	return disrupts;
+  }
+
 	// FOV
 
 	// Returns a boolean grid indicating whether each square is in the field of view of (xLoc, yLoc).
@@ -546,7 +584,7 @@ export class Map {
 	// If cautiousOnWalls is set, we will not illuminate blocking tiles unless the tile one space closer to the origin
 	// is visible to the player; this is to prevent lights from illuminating a wall when the player is on the other
 	// side of the wall.
-	calcFov(grid, x, y, maxRadius, forbiddenFlags=0, forbiddenTerrain=TileFlags.T_OBSTRUCTS_VISION, cautiousOnWalls=false) {
+	calcFov(grid, x, y, maxRadius, forbiddenFlags=0, forbiddenTerrain=Flags.Tile.T_OBSTRUCTS_VISION, cautiousOnWalls=false) {
     maxRadius = maxRadius || (this.width + this.height);
     grid.fill(0);
     const map = this;
@@ -577,11 +615,11 @@ export class Map {
 		for(x = 0; x < this.width; ++x) {
 			for(y = 0; y < this.height; ++y) {
 				const cell = this.cell(x, y);
-				if (cell.flags & CellFlags.ANY_KIND_OF_VISIBLE) {
+				if (cell.flags & Flags.Cell.ANY_KIND_OF_VISIBLE) {
 					this.storeMemory(x, y);
 				}
-				cell.flags &= CellFlags.PERMANENT_CELL_FLAGS | CONFIG.PERMANENT_CELL_FLAGS;
-				cell.mechFlags &= CellFlags.PERMANENT_MECH_FLAGS | CONFIG.PERMANENT_MECH_FLAGS;
+				cell.flags &= Flags.Cell.PERMANENT_CELL_FLAGS | CONFIG.PERMANENT_CELL_FLAGS;
+				cell.mechFlags &= Flags.Cell.PERMANENT_MECH_FLAGS | CONFIG.PERMANENT_MECH_FLAGS;
 			}
 		}
 	}
@@ -590,17 +628,18 @@ export class Map {
 
 	async tick() {
     map.debug('tick');
-		this.forEach( (c) => c.mechFlags &= ~(CellMechFlags.EVENT_FIRED_THIS_TURN | CellMechFlags.EVENT_PROTECTED));
+		this.forEach( (c) => c.mechFlags &= ~(Flags.CellMech.EVENT_FIRED_THIS_TURN | Flags.CellMech.EVENT_PROTECTED));
 		for(let x = 0; x < this.width; ++x) {
 			for(let y = 0; y < this.height; ++y) {
 				const cell = this.cells[x][y];
-				await cell.fireEvent('tick', { map: this, x, y, cell });
+				await cell.fireEvent('tick', { map: this, x, y, cell, safe: true });
 			}
 		}
+    map.updateLiquid(this);
 	}
 
   resetEvents() {
-    this.forEach( (c) => c.mechFlags &= ~(CellMechFlags.EVENT_FIRED_THIS_TURN | CellMechFlags.EVENT_PROTECTED));
+    this.forEach( (c) => c.mechFlags &= ~(Flags.CellMech.EVENT_FIRED_THIS_TURN | Flags.CellMech.EVENT_PROTECTED));
   }
 
 }
@@ -627,7 +666,7 @@ export function getCellAppearance(map, x, y, dest) {
 	if (!map.hasXY(x, y)) return;
 	const cell = map.cell(x, y);
 
-  if (cell.isAnyKindOfVisible() && (cell.flags & (CellFlags.CELL_CHANGED | CellFlags.NEEDS_REDRAW))) {
+  if (cell.isAnyKindOfVisible() && (cell.flags & (Flags.Cell.CELL_CHANGED | Flags.Cell.NEEDS_REDRAW))) {
     CELL.getAppearance(cell, dest);
   }
   else if (cell.isRevealed()) {
@@ -648,9 +687,9 @@ export function getCellAppearance(map, x, y, dest) {
   }
 
   let needDistinctness = false;
-  if (cell.flags & (CellFlags.IS_CURSOR | CellFlags.IS_IN_PATH)) {
-    const highlight = (cell.flags & CellFlags.IS_CURSOR) ? COLORS.cursorColor : COLORS.yellow;
-    if (cell.hasTileMechFlag(TileMechFlags.TM_INVERT_WHEN_HIGHLIGHTED)) {
+  if (cell.flags & (Flags.Cell.IS_CURSOR | Flags.Cell.IS_IN_PATH)) {
+    const highlight = (cell.flags & Flags.Cell.IS_CURSOR) ? COLORS.cursorColor : COLORS.yellow;
+    if (cell.hasTileMechFlag(Flags.TileMech.TM_INVERT_WHEN_HIGHLIGHTED)) {
       COLOR.swap(dest.fg, dest.bg);
     } else {
       // if (!GAME.trueColorMode || !dest.needDistinctness) {
@@ -671,72 +710,148 @@ export function getCellAppearance(map, x, y, dest) {
 map.getCellAppearance = getCellAppearance;
 
 
-export function gridDisruptsPassability(theMap, blockingGrid, opts={})
-{
-	let result;
-	let i, j, x, y;
-
-	const walkableGrid = GRID.alloc(theMap.width, theMap.height);
-	let disrupts = false;
-
-	const gridOffsetX = opts.gridOffsetX || 0;
-	const gridOffsetY = opts.gridOffsetY || 0;
-	const bounds = opts.bounds || null;
-
-	x = y = -1;
-	// Get all walkable locations after lake added
-	theMap.cells.forEach( (cell, i, j) => {
-		if (bounds && !bounds.containsXY(i, j)) return;	// outside bounds
-		const blockingX = i + gridOffsetX;
-		const blockingY = j + gridOffsetY;
-		if (cell.isNull()) {
-			return; // do nothing
-		}
-		else if (cell.canBePassed()) {
-			if (blockingGrid.hasXY(blockingX, blockingY) && blockingGrid[blockingX][blockingY]) return;
-			walkableGrid[i][j] = 1;
-		}
-		else if (cell.hasTileFlag(TileFlags.T_HAS_STAIRS)) {
-			if (blockingGrid.hasXY(blockingX, blockingY) && blockingGrid[blockingX][blockingY]) {
-				disrupts = true;
-			}
-			else {
-				walkableGrid[i][j] = 1;
-			}
-		}
-	});
-
-	let first = true;
-	for(let i = 0; i < walkableGrid.width && !disrupts; ++i) {
-		for(let j = 0; j < walkableGrid.height && !disrupts; ++j) {
-			if (walkableGrid[i][j] == 1) {
-				if (first) {
-					GRID.floodFill(walkableGrid, i, j, 1, 2);
-					first = false;
-				}
-				else {
-					disrupts = true;
-				}
-			}
-		}
-	}
-
-	GRID.free(walkableGrid);
-	return disrupts;
-}
-
-map.gridDisruptsPassability = gridDisruptsPassability;
-
 
 export function addText(map, x, y, text, fg, bg) {
 	for(let ch of text) {
 		const sprite = make.sprite(ch, fg, bg);
-		const fx = { sprite, x, y };
-		map.addFx(x++, y, fx);
+    const cell = map.cell(x++, y);
+    cell.addSprite(TileLayer.GROUND, sprite);
 	}
 }
 
 map.addText = addText;
+
+
+export function updateGas(map) {
+
+  const newVolume = GRID.alloc(map.width, map.height);
+
+	map.forEach( (c, x, y) => {
+		if (c.hasTileFlag(Flags.Tile.T_OBSTRUCTS_GAS)) return;
+
+    let liquid = c.gas;
+    let highest = c.gasVolume;
+  	let sum = c.gasVolume;
+    let count = 1;
+    map.eachNeighbor(x, y, (n) => {
+			if (n.hasTileFlag(Flags.Tile.T_OBSTRUCTS_GAS)) return;
+    	++count;
+      sum += n.gasVolume;
+      if (n.gasVolume > highest) {
+        gas = n.gas;
+        highest = n.gasVolume;
+      }
+    });
+
+    if (!sum) return;
+    const newVol = Math.floor(sum / count);
+    if (c.gas != gas) {
+      c.setTile(gas, newVol); // volume = 1 to start, will change later
+    }
+    newVolume[x][y] += newVol;
+
+    const rem = sum - (count * Math.floor(sum/count));
+    if (rem && (random.number(count) < rem)) {
+    	newVolume[x][y] += 1;
+    }
+    // disperses
+    // if (newVolume[x][y] && random.chance(20)) {
+    // 	newVolume[x][y] -= 1;
+    // }
+	});
+
+
+  newVolume.forEach( (v, i, j) => {
+    const cell =  map.cell(i, j);
+    if (v) {
+      if (cell.gas && cell.gasVolume !== v) {
+        cell.gasVolume = v;
+        map.redrawCell(cell);
+      }
+    }
+    else if (cell.gas) {
+      cell.clearLayer('GAS');
+      map.redrawCell(cell);
+    }
+  });
+
+  map.changed(true);
+
+  GRID.free(newVolume);
+}
+
+map.updateGas = updateGas;
+
+
+
+export function updateLiquid(map) {
+
+  const newVolume = GRID.alloc(map.width, map.height);
+
+	map.forEach( (c, x, y) => {
+		if (c.hasTileFlag(Flags.Tile.T_OBSTRUCTS_LIQUID)) return;
+
+    let liquid = c.liquid;
+    let highest = c.liquidVolume;
+    let count = 1;
+
+    map.eachNeighbor(x, y, (n) => {
+			if (n.hasTileFlag(Flags.Tile.T_OBSTRUCTS_LIQUID)) return;
+    	++count;
+      if (n.liquidVolume > highest) {
+        liquid = n.liquid;
+        highest = n.liquidVolume;
+      }
+    });
+
+    let newVol = c.liquidVolume;
+    if ((newVol > 10) && (count > 1)) {
+      let spread = Math.round(0.2 * c.liquidVolume);
+      if (spread > 5) {
+        newVol -= spread;
+        if (c.liquid != liquid) {
+          c.setTile(liquid, newVol); // volume = 1 to start, will change later
+        }
+
+        // spread = Math.floor(spread / count);
+        if (spread) {
+          newVolume.eachNeighbor(x, y, (v, i, j) => {
+            newVolume[i][j] = v + spread;
+          });
+        }
+      }
+    }
+
+    newVolume[x][y] += newVol;
+
+    // disperses
+    const tile = c.liquidTile;
+    if (newVolume[x][y] && random.chance(tile.dissipate, 10000)) {
+    	newVolume[x][y] -= 1;
+    }
+	});
+
+
+  newVolume.forEach( (v, i, j) => {
+    const cell =  map.cell(i, j);
+    if (v) {
+      if (cell.liquid && cell.liquidVolume !== v) {
+        cell.liquidVolume = v;
+        map.redrawCell(cell);
+      }
+    }
+    else if (cell.liquid) {
+      cell.clearLayer('LIQUID');
+      map.redrawCell(cell);
+    }
+  });
+
+  map.changed(true);
+
+  GRID.free(newVolume);
+}
+
+map.updateLiquid = updateLiquid;
 
 
 const FP_BASE = 16;

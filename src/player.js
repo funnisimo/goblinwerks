@@ -1,8 +1,8 @@
 
 
-import { Flags as TileFlags } from './tile.js';
+import * as Flags from './flags.js';
 import { io as IO } from './io.js';
-import { visibility as VISIBILITY } from './visibility.js';
+import { startActorTurn } from './actor.js';
 import { make, data as DATA, types, ui as UI, utils as UTILS } from './gw.js';
 
 export var player = {};
@@ -10,30 +10,12 @@ export var player = {};
 player.debug = UTILS.NOOP;
 
 
-export class Player extends types.Actor {
-  constructor(kind) {
-    super(kind);
-  }
-
-  startTurn() {
-    player.startTurn(this);
-  }
-
-  visionRadius() {
-  	return CONFIG.MAX_FOV_RADIUS || (DATA.map.width + DATA.map.height);
-  }
-
-  endTurn(turnTime) {
-    player.endTurn(this, turnTime);
-  }
-
-}
-
-types.Player = Player;
-
 
 export function makePlayer(kind) {
-  return new types.Player(kind);
+  if (!(kind instanceof types.ActorKind)) {
+    kind = new types.ActorKind(kind);
+  }
+  return new types.Actor(kind);
 }
 
 make.player = makePlayer;
@@ -43,7 +25,11 @@ make.player = makePlayer;
 export async function takeTurn() {
   const PLAYER = DATA.player;
   player.debug('player turn...', DATA.time);
-  await PLAYER.startTurn();
+  if (PLAYER.isDead() || DATA.gameHasEnded) {
+    return 0;
+  }
+  await UI.updateIfRequested();
+  await startActorTurn(PLAYER);
 
   while(!PLAYER.turnTime) {
     const ev = await IO.nextEvent(1000);
@@ -61,31 +47,9 @@ export async function takeTurn() {
 player.takeTurn = takeTurn;
 
 
-function startTurn(PLAYER) {
-	PLAYER.turnTime = 0;
-  Object.assign(PLAYER.prior, PLAYER.current);
-}
-
-player.startTurn = startTurn;
-
-
-function act() {
-	return true;
-}
-
-player.act = act;
-
-function endTurn(PLAYER, turnTime) {
-  PLAYER.turnTime = turnTime || Math.floor(PLAYER.kind.speed/2);  // doing nothing takes time
-  VISIBILITY.update(DATA.map, PLAYER.x, PLAYER.y);
-  UI.requestUpdate();
-}
-
-player.endTurn = endTurn;
-
 
 function isValidStartLoc(cell, x, y) {
-  if (cell.hasTileFlag(TileFlags.T_PATHING_BLOCKER | TileFlags.T_HAS_STAIRS)) {
+  if (cell.hasTileFlag(Flags.Tile.T_PATHING_BLOCKER | Flags.Tile.T_HAS_STAIRS)) {
     return false;
   }
   return true;

@@ -24,21 +24,34 @@ async function crossedFinish() {
 
 let ERUPT_CHANCE = 300 * 10 * 10;
 let CRUST_CHANCE = 5;
+let LAVA_START_BREAK = 20;
 
 async function lavaTick(x, y, ctx) {
 	const ctx2 = Object.assign({}, ctx, { x, y });
 	if (GW.random.number(ERUPT_CHANCE) <= 1) {
+    console.log('erupt', x, y);
 		return await GW.tileEvent.spawn({ tile: 'LAVA_ERUPTING' }, ctx2);
 	}
 	else if (GW.random.chance(CRUST_CHANCE)) {
-		return await GW.tileEvent.spawn({ tile: 'LAVA_CRUST' }, ctx2);
+		const r = await GW.tileEvent.spawn({ tile: 'LAVA_CRUST' }, ctx2);
+    console.log('crust', x, y, r, ctx.map.cell(x, y).layers);
+    return r;
 	}
 }
 
-async function lavaBreak(x, y, ctx) {
+async function lavaCrustTick(x, y, ctx) {
+  if (GW.random.chance(LAVA_START_BREAK)) {
+    console.log('breaking', x, y);
+    const ctx2 = Object.assign({}, ctx, { x, y });
+    return await GW.tileEvent.spawn({ tile: 'LAVA_CRUST_BREAKING' }, ctx2);
+  }
+}
+
+async function lavaBreakingTick(x, y, ctx) {
 	const ctx2 = Object.assign({}, ctx, { x, y });
 	if (GW.random.chance(BREAK_CHANCE)) {
-		return await GW.tileEvent.spawn({ flags: GW.flags.tileEvent.DFF_NULLIFY_CELL }, ctx2);
+    console.log('reset', x, y);
+		return await GW.tileEvent.spawn({ flags: GW.flags.tileEvent.DFF_NULL_SURFACE }, ctx2);
 	}
 }
 
@@ -127,23 +140,23 @@ GW.tile.addKind('LAVA_TILE', {
 });
 
 GW.tile.addKind('LAVA_CRUST', {
-	sprite: { ch: '~', fg: 'lavaForeColor', bg: 'dark_gray' }, priority: 91, layer: 'LIQUID',
+	sprite: { ch: '~', fg: 'lavaForeColor', bg: 'dark_gray' }, priority: 91, layer: 'SURFACE',
 	flags: 'T_BRIDGE',
 	name: 'crusted lava', article: 'some',
-	events: { tick: { chance: 10, tile: 'LAVA_CRUST_BREAKING' } }
+	events: { tick: lavaCrustTick }
 });
 
 GW.tile.addKind('LAVA_CRUST_BREAKING', {
-	sprite: { ch: '~', fg: 'lavaForeColor', bg: 'darkest_red' }, priority: 92,	layer: 'LIQUID',
+	sprite: { ch: '~', fg: 'lavaForeColor', bg: 'darkest_red' }, priority: 92,	layer: 'SURFACE',
 	flags: 'T_BRIDGE',
 	name: 'lava with a cracking crust', article: 'some',
-	events: { tick: lavaBreak }
+	events: { tick: lavaBreakingTick }
 });
 
 GW.tile.addKind('LAVA_ERUPTING', {
 	sprite: { ch: '!', fg: 'yellow', bg: 'red' }, priority: 91,
 	name: 'wave of erupting lava', article: 'a',
-	events: { tick: { radius: 1, tile: 'LAVA_ERUPTING', flags: 'DFF_NULLIFY_CELL | DFF_SUBSEQ_ALWAYS', needs: 'LAVA_TILE', next: { tile: 'LAVA_ERUPTED' } }}
+	events: { tick: { radius: 1, tile: 'LAVA_ERUPTING', flags: 'DFF_NULL_SURFACE | DFF_SUBSEQ_ALWAYS', needs: 'LAVA_TILE', next: { tile: 'LAVA_ERUPTED' } }}
 });
 
 GW.tile.addKind('LAVA_ERUPTED', {
@@ -173,8 +186,9 @@ function makeMap(id=1) {
 	ERUPT_CHANCE = Math.max(5000, 30000 - (1000 * id));
 	CRUST_CHANCE = Math.max(2, Math.floor(10 - id/2));
 	BREAK_CHANCE = Math.min(90, Math.floor(60 + id));
+  LAVA_START_BREAK = Math.min(90, Math.floor(20 + id*2));
 
-	GW.message.add(GW.colors.blue, 'Erupt: %d, Crust: %d, Break: %d', ERUPT_CHANCE, CRUST_CHANCE, BREAK_CHANCE);
+	GW.message.add(GW.colors.blue, 'Erupt: %d, Crust: %d, StartBreak: %d, Break: %d', ERUPT_CHANCE, CRUST_CHANCE, LAVA_START_BREAK, BREAK_CHANCE);
 
 	let height = 3 + Math.floor(id / 2);
 	let top = Math.floor( (30 - height) / 2 ) + 1;
@@ -221,7 +235,7 @@ async function start() {
 
 	const canvas = GW.ui.start({ width: 50, height: 36, div: 'game', messages: -5, cursor: true, flavor: true });
 	GW.io.setKeymap({
-		dir: 'moveDir', space: 'rest', 'j': jump,
+		dir: 'movePlayer', space: 'rest', 'j': jump,
 		'x': startExplosion,
 		'?': 'showHelp'
 	});

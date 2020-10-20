@@ -1,5 +1,6 @@
 
-import { make, types, utils } from './gw.js';
+import { ERROR, WARN, NOOP } from './utils.js';
+import { make, types } from './gw.js';
 
 
 // Based on random numbers in umoria
@@ -17,7 +18,7 @@ function lotteryDrawArray(rand, frequencies) {
         maxFreq += frequencies[i];
     }
 		if (maxFreq <= 0) {
-			utils.WARN('Lottery Draw - no frequencies', frequencies, frequencies.length);
+			WARN('Lottery Draw - no frequencies', frequencies, frequencies.length);
 			return 0;
 		}
 
@@ -29,7 +30,7 @@ function lotteryDrawArray(rand, frequencies) {
           randIndex -= frequencies[i];
       }
     }
-    utils.WARN('Lottery Draw failed.', frequencies, frequencies.length);
+    WARN('Lottery Draw failed.', frequencies, frequencies.length);
     return 0;
 }
 
@@ -45,7 +46,7 @@ function lotteryDrawObject(rand, weights) {
 
 export class Random {
   constructor(seed) {
-    this.debug = utils.NOOP;
+    this.debug = NOOP;
     this.seed(seed);
   }
 
@@ -138,10 +139,10 @@ export class Random {
   	return (total + lo);
   }
 
-  chance(percent) {
+  chance(percent, outOf=100) {
     if (percent <= 0) return false;
-    if (percent >= 100) return true;
-  	return (this.range(0, 99) < percent);
+    if (percent >= outOf) return true;
+  	return (this.range(0, outOf-1) < percent);
   }
 
   item(list) {
@@ -232,12 +233,12 @@ export function makeRange(config, rng) {
   if (config instanceof Range) return config; // you can supply a custom range object
   if (config.value) return config;  // calc or damage
 
-  if (typeof config == 'function') utils.ERROR('Custom range functions not supported - extend Range');
+  if (typeof config == 'function') ERROR('Custom range functions not supported - extend Range');
 
   if (config === undefined || config === null) return new Range(0, 0, 0, rng);
   if (typeof config == 'number') return new Range(config, config, 1, rng);
 
-  if (config === true || config === false) utils.ERROR('Invalid random config: ' + config);
+  if (config === true || config === false) ERROR('Invalid random config: ' + config);
 
   if (Array.isArray(config)) {
 		return new Range(config[0], config[1], config[2], rng);
@@ -246,7 +247,7 @@ export function makeRange(config, rng) {
     return new Range(config.lo, config.hi, config.clumps, rng);
   }
   if (typeof config !== 'string') {
-    utils.ERROR('Calculations must be strings.  Received: ' + JSON.stringify(config));
+    ERROR('Calculations must be strings.  Received: ' + JSON.stringify(config));
   }
   if (config.length == 0) return new Range(0);
 

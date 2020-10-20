@@ -1,15 +1,14 @@
 
 
-import { Flags as TileFlags, tile as TILE } from '../tile.js';
-import { KindFlags as ItemKindFlags, ActionFlags as ItemActionFlags } from '../item.js';
-import { itemActions as ITEM_ACTIONS } from '../itemActions.js';
+import * as Flags from '../flags.js';
+import { pickupItem, attack } from '../actions/index.js';
 import { game as GAME } from '../game.js';
 import { data as DATA, def, commands, ui as UI, message as MSG, utils as UTILS, fx as FX, config as CONFIG } from '../gw.js';
 
 CONFIG.autoPickup = true;
 
 
-async function moveDir(e) {
+async function movePlayer(e) {
   const actor = e.actor || DATA.player;
   const dir = e.dir;
   const newX = dir[0] + actor.x;
@@ -18,45 +17,60 @@ async function moveDir(e) {
   const cell = map.cell(newX, newY);
 
   const ctx = { actor, map, x: newX, y: newY, cell };
+  const isPlayer = actor.isPlayer();
 
-  commands.debug('moveDir');
+  commands.debug('movePlayer');
 
   if (!map.hasXY(newX, newY)) {
     commands.debug('move blocked - invalid xy: %d,%d', newX, newY);
-    MSG.moveBlocked(ctx);
+    if (isPlayer) MSG.moveBlocked(ctx);
     // TURN ENDED (1/2 turn)?
     return false;
   }
 
   // TODO - Can we leave old cell?
-  // PROMOTES ON EXIT, NO KEY(?), PLAYER EXIT
+  // PROMOTES ON EXIT, NO KEY(?), PLAYER EXIT, ENTANGLED
+
+  if (cell.actor) {
+    if (attack(actor, cell.actor, ctx)) {
+      return true;
+    }
+
+    MSG.add('%s bump into %s.', actor.getName(), cell.actor.getName());
+    actor.endTurn(0.5);
+    return true;
+  }
 
   // Can we enter new cell?
-  if (cell.hasTileFlag(TileFlags.T_OBSTRUCTS_PASSABILITY)) {
-    MSG.moveBlocked(ctx);
-    // TURN ENDED (1/2 turn)?
-    await FX.flashSprite(map, newX, newY, 'hit', 50, 1);
+  if (cell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_PASSABILITY)) {
+    if (isPlayer) {
+      MSG.moveBlocked(ctx);
+      // TURN ENDED (1/2 turn)?
+      await FX.flashSprite(map, newX, newY, 'hit', 50, 1);
+    }
     return false;
   }
   if (map.diagonalBlocked(actor.x, actor.y, newX, newY)) {
-    MSG.moveBlocked(ctx);
-    // TURN ENDED (1/2 turn)?
-    await FX.flashSprite(map, newX, newY, 'hit', 50, 1);
+    if (isPlayer)  {
+      MSG.moveBlocked(ctx);
+      // TURN ENDED (1/2 turn)?
+      await FX.flashSprite(map, newX, newY, 'hit', 50, 1);
+    }
     return false;
   }
 
   let isPush = false;
-  if (cell.item && cell.item.hasKindFlag(ItemKindFlags.IK_BLOCKS_MOVE)) {
-    if (!cell.item.hasActionFlag(ItemActionFlags.A_PUSH)) {
+  if (cell.item && cell.item.hasKindFlag(Flags.ItemKind.IK_BLOCKS_MOVE)) {
+    if (!cell.item.hasActionFlag(Flags.Action.A_PUSH)) {
       ctx.item = cell.item;
-      MSG.moveBlocked(ctx);
+      if (isPlayer) MSG.moveBlocked(ctx);
       return false;
     }
     const pushX = newX + dir[0];
     const pushY = newY + dir[1];
     const pushCell = map.cell(pushX, pushY);
-    if (!pushCell.isEmpty() || pushCell.hasTileFlag(TileFlags.T_OBSTRUCTS_ITEMS | TileFlags.T_OBSTRUCTS_PASSABILITY)) {
-      MSG.moveBlocked(ctx);
+    if (!pushCell.isEmpty() || pushCell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_ITEMS | Flags.Tile.T_OBSTRUCTS_PASSABILITY)) {
+      if (isPlayer) MSG.moveBlocked(ctx);
       return false;
     }
 
@@ -68,14 +82,17 @@ async function moveDir(e) {
   }
 
   // CHECK SOME SANITY MOVES
-  if (cell.hasTileFlag(TileFlags.T_LAVA) && !cell.hasTileFlag(TileFlags.T_BRIDGE)) {
+  if (cell.hasTileFlag(Flags.Tile.T_LAVA) && !cell.hasTileFlag(Flags.Tile.T_BRIDGE)) {
+    if (!isPlayer) return false;
     if (!await UI.confirm('That is certain death!  Proceed anyway?')) {
       return false;
     }
   }
-  else if (cell.hasTileFlag(TileFlags.T_HAS_STAIRS)) {
+  else if (cell.hasTileFlag(Flags.Tile.T_HAS_STAIRS)) {
     if (actor.grabbed) {
-      MSG.add('You cannot use stairs while holding %s.', actor.grabbed.flavorText());
+      if (isPlayer) {
+        MSG.add('You cannot use stairs while holding %s.', actor.grabbed.getFlavor());
+      }
       return false;
     }
   }
@@ -84,27 +101,27 @@ async function moveDir(e) {
     const dirToItem = UTILS.dirFromTo(actor, actor.grabbed);
     let destXY = [actor.grabbed.x + dir[0], actor.grabbed.y + dir[1]];
     if (UTILS.isOppositeDir(dirToItem, dir)) {  // pull
-      if (!actor.grabbed.hasActionFlag(ItemActionFlags.A_PULL)) {
-        MSG.add('you cannot pull %s.', actor.grabbed.flavorText());
+      if (!actor.grabbed.hasActionFlag(Flags.Action.A_PULL)) {
+        if (isPlayer) MSG.add('you cannot pull %s.', actor.grabbed.getFlavor());
         return false;
       }
     }
     else {  // slide
-      if (!actor.grabbed.hasActionFlag(ItemActionFlags.A_SLIDE)) {
-        MSG.add('you cannot slide %s.', actor.grabbed.flavorText());
+      if (!actor.grabbed.hasActionFlag(Flags.Action.A_SLIDE)) {
+        if (isPlayer) MSG.add('you cannot slide %s.', actor.grabbed.getFlavor());
         return false;
       }
     }
     const destCell = map.cell(destXY[0], destXY[1]);
-    if (destCell.item || destCell.hasTileFlag(TileFlags.T_OBSTRUCTS_ITEMS | TileFlags.T_OBSTRUCTS_PASSABILITY)) {
+    if (destCell.item || destCell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_ITEMS | Flags.Tile.T_OBSTRUCTS_PASSABILITY)) {
       commands.debug('move blocked - item obstructed: %d,%d', destXY[0], destXY[1]);
-      MSG.moveBlocked(ctx);
+      if (isPlayer) MSG.moveBlocked(ctx);
       return false;
     }
   }
 
   if (!map.moveActor(newX, newY, actor)) {
-    MSG.moveFailed(ctx);
+    UTILS.ERROR('Move failed! ' + newX + ',' + newY);
     // TURN ENDED (1/2 turn)?
     return false;
   }
@@ -116,7 +133,7 @@ async function moveDir(e) {
 
   // APPLY EFFECTS
   for(let tile of cell.tiles()) {
-    await TILE.applyInstantEffects(tile, cell);
+    await tile.applyInstantEffects(map, newX, newY, cell);
     if (DATA.gameHasEnded) {
       return true;
     }
@@ -131,14 +148,14 @@ async function moveDir(e) {
     await cell.fireEvent('enter', ctx);
   }
 
-  if (cell.hasTileFlag(TileFlags.T_HAS_STAIRS)) {
+  if (cell.hasTileFlag(Flags.Tile.T_HAS_STAIRS) && isPlayer) {
     console.log('Use stairs!');
     await GAME.useStairs(newX, newY);
   }
 
   // auto pickup any items
-  if (CONFIG.autoPickup && cell.item) {
-    await ITEM_ACTIONS.pickup(cell.item, actor, ctx);
+  if (CONFIG.autoPickup && cell.item && isPlayer) {
+    await pickupItem(actor, cell.item, ctx);
   }
 
   commands.debug('moveComplete');
@@ -148,4 +165,4 @@ async function moveDir(e) {
   return true;
 }
 
-commands.moveDir = moveDir;
+commands.movePlayer = movePlayer;

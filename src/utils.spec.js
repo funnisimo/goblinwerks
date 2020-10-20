@@ -80,8 +80,8 @@ describe('GW.utils', () => {
   test('dirIndex', () => {
     expect(UTILS.dirIndex([0,0])).toEqual(-1);
     expect(UTILS.dirIndex([2,0])).toEqual(-1);
-    expect(UTILS.dirIndex([1,0])).toEqual(3);
-    expect(UTILS.dirIndex([-1,1])).toEqual(6);
+    expect(UTILS.dirIndex([1,0])).toEqual(1);
+    expect(UTILS.dirIndex([-1,1])).toEqual(7);
   });
 
   test('assignOmitting', () => {

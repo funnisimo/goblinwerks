@@ -14,6 +14,22 @@ const COLOR_VALUE_INTERCEPT =	0; // 25;
 const TEMP_COLOR = make.color();
 
 
+text.playerPronoun = {
+  it: 'you',
+  its: 'your',
+};
+
+text.singularPronoun = {
+  it: 'it',
+  its: 'its',
+};
+
+text.pluralPronoun = {
+  it: 'them',
+  its: 'their',
+};
+
+
 function firstChar(text) {
   let i = 0;
   while( i < text.length ) {
@@ -38,6 +54,19 @@ function isVowel(ch) {
 }
 
 text.isVowel = isVowel;
+
+
+function toSingular(verb) {
+  if (verb.endsWith('y')) {
+    return verb.substring(0, verb.length - 1) + 'ies';
+  }
+  if (verb.endsWith('sh') || verb.endsWith('ch')) {
+    return verb + 'es';
+  }
+  return verb + 's';
+}
+
+text.toSingular = toSingular;
 
 
 function eachChar(msg, fn) {
@@ -223,6 +252,28 @@ function encodeColor(theColor) {
   COLOR.clamp(copy);
   return String.fromCharCode(COLOR_ESCAPE, copy.red + COLOR_VALUE_INTERCEPT, copy.green + COLOR_VALUE_INTERCEPT, copy.blue + COLOR_VALUE_INTERCEPT);
 }
+
+function removeColors(text) {
+  let out = '';
+  let start = 0;
+  for(let i = 0; i < text.length; ++i) {
+    const k = text.charCodeAt(i);
+    if (k === COLOR_ESCAPE) {
+      out += text.substring(start, i);
+      start = i + 4;
+    }
+    else if (k === COLOR_END) {
+      out += text.substring(start, i);
+      start = i + 1;
+    }
+  }
+  if (start == 0) return text;
+  out += text.substring(start);
+  return out;
+}
+
+text.removeColors = removeColors;
+
 //
 //
 // // Call this when the i'th character of msg is COLOR_ESCAPE.
