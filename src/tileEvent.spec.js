@@ -430,7 +430,7 @@ describe('tileEvent', () => {
 		for(let x = 0; x < map.width; ++x) {
 			for(let y = 0; y < map.height; ++y) {
 				const cell = map.cells[x][y];
-				await cell.fireEvent('tick', { map, x, y, cell });
+				await cell.fireEvent('tick', { map, x, y, cell, safe: true });
 			}
 		}
     // end map.tick
@@ -464,6 +464,21 @@ describe('tileEvent', () => {
     expect(map.hasTile(10, 7,  'DOOR')).toBeTruthy();
 
     expect(map.cells.count( (c) => c.hasTile('DOOR') )).toEqual(4);
+  });
+
+  test('Will add liquids with volume', async () => {
+    GW.tile.addKind('RED_LIQUID', {
+      name: 'red liquid', article: 'some',
+      bg: 'red',
+      layer: 'LIQUID'
+    });
+
+    const feat = GW.make.tileEvent({ tile: 'RED_LIQUID', volume: 50 });
+    await GW.tileEvent.spawn(feat, ctx);
+
+    const cell = map.cell(ctx.x, ctx.y);
+    expect(cell.liquid).toEqual('RED_LIQUID');
+    expect(cell.liquidVolume).toEqual(50);
   });
 
 });

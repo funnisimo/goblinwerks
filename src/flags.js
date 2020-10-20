@@ -93,7 +93,7 @@ export const Tile = installFlag('tile', {
   T_WAYPOINT_BLOCKER			: ['T_OBSTRUCTS_PASSABILITY', 'T_AUTO_DESCENT', 'T_IS_TRAP', 'T_LAVA', 'T_DEEP_WATER', 'T_SPONTANEOUSLY_IGNITES'],
   T_MOVES_ITEMS						: ['T_DEEP_WATER', 'T_LAVA'],
   T_CAN_BE_BRIDGED				: ['T_AUTO_DESCENT', 'T_LAVA', 'T_DEEP_WATER'],
-  T_OBSTRUCTS_EVERYTHING	: ['T_OBSTRUCTS_PASSABILITY', 'T_OBSTRUCTS_VISION', 'T_OBSTRUCTS_ITEMS', 'T_OBSTRUCTS_GAS', 'T_OBSTRUCTS_SURFACE',   'T_OBSTRUCTS_DIAGONAL_MOVEMENT'],
+  T_OBSTRUCTS_EVERYTHING	: ['T_OBSTRUCTS_PASSABILITY', 'T_OBSTRUCTS_VISION', 'T_OBSTRUCTS_ITEMS', 'T_OBSTRUCTS_GAS', 'T_OBSTRUCTS_SURFACE',   'T_OBSTRUCTS_LIQUID', 'T_OBSTRUCTS_DIAGONAL_MOVEMENT'],
   T_HARMFUL_TERRAIN				: ['T_CAUSES_POISON', 'T_IS_FIRE', 'T_CAUSES_DAMAGE', 'T_CAUSES_PARALYSIS', 'T_CAUSES_CONFUSION', 'T_CAUSES_EXPLOSIVE_DAMAGE'],
   T_RESPIRATION_IMMUNITIES  : ['T_CAUSES_DAMAGE', 'T_CAUSES_CONFUSION', 'T_CAUSES_PARALYSIS', 'T_CAUSES_NAUSEA'],
   T_IS_LIQUID               : ['T_LAVA', 'T_AUTO_DESCENT', 'T_DEEP_WATER'],
@@ -137,6 +137,9 @@ export const TileMech = installFlag('tileMech', {
 });
 
 
+///////////////////////////////////////////////////////
+// TILE EVENT
+
 export const TileEvent = installFlag('tileEvent', {
 	DFF_SUBSEQ_ALWAYS							: Fl(0),	// Always fire the subsequent event, even if no tiles changed.
 	DFF_SUBSEQ_EVERYWHERE			    : Fl(1),	// Subsequent DF spawns in every cell that this DF spawns in, instead of only the origin
@@ -162,15 +165,19 @@ export const TileEvent = installFlag('tileEvent', {
 	DFF_SPREAD_CIRCLE							: Fl(20),	// Spread in a circle around the spot (using FOV), radius calculated using spread+decrement
 	DFF_SPREAD_LINE								: Fl(21),	// Spread in a line in one random direction
 
-	DFF_NULLIFY_CELL			  	: Fl(22),	// Erase other terrain in the footprint of this DF.
-	DFF_EVACUATE_CREATURES	: Fl(23),	// Creatures in the DF area get moved outside of it
-	DFF_EVACUATE_ITEMS			: Fl(24),	// Creatures in the DF area get moved outside of it
+	DFF_NULL_SURFACE			  : Fl(22),	// Clear the surface layer
+  DFF_NULL_LIQUID         : Fl(23), // Clear liquid layer
+  DFF_NULL_GAS            : Fl(24), // Clear gas layer
 
-	DFF_BUILD_IN_WALLS			: Fl(25),
-	DFF_MUST_TOUCH_WALLS		: Fl(26),
-	DFF_NO_TOUCH_WALLS			: Fl(27),
+  DFF_EVACUATE_CREATURES	: Fl(25),	// Creatures in the DF area get moved outside of it
+	DFF_EVACUATE_ITEMS			: Fl(26),	// Creatures in the DF area get moved outside of it
+
+	DFF_BUILD_IN_WALLS			: Fl(27),
+	DFF_MUST_TOUCH_WALLS		: Fl(28),
+	DFF_NO_TOUCH_WALLS			: Fl(29),
 
   DFF_ONLY_IF_EMPTY       : 'DFF_BLOCKED_BY_ITEMS, DFF_BLOCKED_BY_ACTORS',
+  DFF_NULLIFY_CELL        : 'DFF_NULL_SURFACE, DFF_NULL_LIQUID, DFF_NULL_GAS',
 
 });
 

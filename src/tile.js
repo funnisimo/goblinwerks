@@ -24,6 +24,7 @@ export class Tile {
       name: '',
       article: 'a',
       id: null,
+      dissipate: 2000, // 20% of 10000
     });
     UTILS.assignOmitting(['events'], this, base);
     UTILS.assignOmitting(['Extends', 'flags', 'mechFlags', 'sprite', 'events'], this, config);
@@ -34,8 +35,8 @@ export class Tile {
     this.flags = Flags.Tile.toFlag(this.flags, config.flags);
     this.mechFlags = Flags.TileMech.toFlag(this.mechFlags, config.mechFlags || config.flags);
 
-    if (config.sprite) {
-      this.sprite = make.sprite(config.sprite);
+    if (config.sprite || (config.ch || config.fg || config.bg)) {
+      this.sprite = make.sprite(config.sprite || config);
     }
     if (base.events) {
       Object.assign(this.events, base.events);
@@ -102,7 +103,7 @@ export class Tile {
   }
   getDescription(opts={}) { return this.getName(opts); }
 
-  flavorText() { return this.flavor || this.getName(true); }
+  getFlavor() { return this.flavor || this.getName(true); }
 
 
   async applyInstantEffects(map, x, y, cell) {

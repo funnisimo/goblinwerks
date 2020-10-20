@@ -50,7 +50,7 @@ message.setup = setup;
 
 function moveBlocked(ctx) {
   if (ctx.item) {
-    message.add('Blocked by %s!', ctx.item.flavorText());
+    message.add('Blocked by %s!', ctx.item.getFlavor());
   }
   else {
     message.add('Blocked!');

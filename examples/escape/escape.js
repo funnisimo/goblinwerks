@@ -14,7 +14,7 @@ const stumbles = {
     const stumbleChance = 100 * actor.turnsSinceStumble / actor.maxTurnsWithoutStumble;
     if(actor.turnsSinceStumble && GW.random.chance(stumbleChance)) {
         actor.turnsSinceStumble = 0;
-        console.log('Stumble: %d @ %d,%d', actor.id, actor.x, actor.y);
+        // console.log('Stumble: %d @ %d,%d', actor.id, actor.x, actor.y);
         actor.status = 'Stumbling';
         // TODO - Update status (on sidebar) to show '(Stumbling)'
         actor.endTurn();
@@ -124,16 +124,16 @@ GW.tile.addKind('ZOMBIE_CORPSE', {
   sprite: { ch: '%', fg: 'gray' },
   name: 'zombie corpse', article: 'a',
   events: {
-    tick: { chance: 100, flags: 'DFF_NULLIFY_CELL' }
+    tick: { chance: 100, flags: 'DFF_NULL_SURFACE' }
   },
   layer: 'SURFACE'
 });
 
 GW.tile.addKind('BLOOD_GREEN', {
-  sprite: { bg: 'green' },
+  sprite: { bg: [0,100,0] },
   name: 'green blood', article: 'some',
   flags: 'TM_DISSIPATES_SLOWLY',
-  layer: 'LIQUID'
+  layer: 'LIQUID', dissipate: 1,  // dissipate very slowly
 });
 
 GW.actor.addKind('ZOMBIE', {
@@ -144,7 +144,7 @@ GW.actor.addKind('ZOMBIE', {
   corpse: 'ZOMBIE_CORPSE',
 
   stats: { health: 3 },
-  blood: 'GREEN_BLOOD',
+  blood: 'BLOOD_GREEN',
   speed: 180,  // 120 is default, 180 is 50% slower
 
   // performs: ['horde_push'],

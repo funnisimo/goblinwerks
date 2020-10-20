@@ -140,9 +140,9 @@ export class Map {
 	tileFlavor(x, y) { return this.cells[x][y].tileFlavor(); }
 	tileFlavor(x, y)   { return this.cells[x][y].tileFlavor(); }
 
-	setTile(x, y, tileId, checkPriority) {
+	setTile(x, y, tileId, volume=0) {
 		const cell = this.cell(x, y);
-		if (cell.setTile(tileId, checkPriority)) {
+		if (cell.setTile(tileId, volume)) {
 			this.flags &= ~(Flags.Map.MAP_STABLE_GLOW_LIGHTS);
 		}
 	  return true;
@@ -153,9 +153,9 @@ export class Map {
 		cell.nullifyTileWithFlags(tileFlags, tileMechFlags);
 	}
 
-	nullifyCellTiles(x, y, includeGas) {
+	nullifyCellLayers(x, y, nullLiquid, nullSurface, nullGas) {
 		this.changed(true);
-		return this.cell(x, y).nullifyTiles(includeGas);
+		return this.cell(x, y).nullifyLayers(nullLiquid, nullSurface, nullGas);
 	}
 
 	fill(tileId, boundaryTile) {
@@ -632,9 +632,10 @@ export class Map {
 		for(let x = 0; x < this.width; ++x) {
 			for(let y = 0; y < this.height; ++y) {
 				const cell = this.cells[x][y];
-				await cell.fireEvent('tick', { map: this, x, y, cell });
+				await cell.fireEvent('tick', { map: this, x, y, cell, safe: true });
 			}
 		}
+    map.updateLiquid(this);
 	}
 
   resetEvents() {
@@ -713,12 +714,144 @@ map.getCellAppearance = getCellAppearance;
 export function addText(map, x, y, text, fg, bg) {
 	for(let ch of text) {
 		const sprite = make.sprite(ch, fg, bg);
-		const fx = { sprite, x, y };
-		map.addFx(x++, y, fx);
+    const cell = map.cell(x++, y);
+    cell.addSprite(TileLayer.GROUND, sprite);
 	}
 }
 
 map.addText = addText;
+
+
+export function updateGas(map) {
+
+  const newVolume = GRID.alloc(map.width, map.height);
+
+	map.forEach( (c, x, y) => {
+		if (c.hasTileFlag(Flags.Tile.T_OBSTRUCTS_GAS)) return;
+
+    let liquid = c.gas;
+    let highest = c.gasVolume;
+  	let sum = c.gasVolume;
+    let count = 1;
+    map.eachNeighbor(x, y, (n) => {
+			if (n.hasTileFlag(Flags.Tile.T_OBSTRUCTS_GAS)) return;
+    	++count;
+      sum += n.gasVolume;
+      if (n.gasVolume > highest) {
+        gas = n.gas;
+        highest = n.gasVolume;
+      }
+    });
+
+    if (!sum) return;
+    const newVol = Math.floor(sum / count);
+    if (c.gas != gas) {
+      c.setTile(gas, newVol); // volume = 1 to start, will change later
+    }
+    newVolume[x][y] += newVol;
+
+    const rem = sum - (count * Math.floor(sum/count));
+    if (rem && (random.number(count) < rem)) {
+    	newVolume[x][y] += 1;
+    }
+    // disperses
+    // if (newVolume[x][y] && random.chance(20)) {
+    // 	newVolume[x][y] -= 1;
+    // }
+	});
+
+
+  newVolume.forEach( (v, i, j) => {
+    const cell =  map.cell(i, j);
+    if (v) {
+      if (cell.gas && cell.gasVolume !== v) {
+        cell.gasVolume = v;
+        map.redrawCell(cell);
+      }
+    }
+    else if (cell.gas) {
+      cell.clearLayer('GAS');
+      map.redrawCell(cell);
+    }
+  });
+
+  map.changed(true);
+
+  GRID.free(newVolume);
+}
+
+map.updateGas = updateGas;
+
+
+
+export function updateLiquid(map) {
+
+  const newVolume = GRID.alloc(map.width, map.height);
+
+	map.forEach( (c, x, y) => {
+		if (c.hasTileFlag(Flags.Tile.T_OBSTRUCTS_LIQUID)) return;
+
+    let liquid = c.liquid;
+    let highest = c.liquidVolume;
+    let count = 1;
+
+    map.eachNeighbor(x, y, (n) => {
+			if (n.hasTileFlag(Flags.Tile.T_OBSTRUCTS_LIQUID)) return;
+    	++count;
+      if (n.liquidVolume > highest) {
+        liquid = n.liquid;
+        highest = n.liquidVolume;
+      }
+    });
+
+    let newVol = c.liquidVolume;
+    if ((newVol > 10) && (count > 1)) {
+      let spread = Math.round(0.2 * c.liquidVolume);
+      if (spread > 5) {
+        newVol -= spread;
+        if (c.liquid != liquid) {
+          c.setTile(liquid, newVol); // volume = 1 to start, will change later
+        }
+
+        // spread = Math.floor(spread / count);
+        if (spread) {
+          newVolume.eachNeighbor(x, y, (v, i, j) => {
+            newVolume[i][j] = v + spread;
+          });
+        }
+      }
+    }
+
+    newVolume[x][y] += newVol;
+
+    // disperses
+    const tile = c.liquidTile;
+    if (newVolume[x][y] && random.chance(tile.dissipate, 10000)) {
+    	newVolume[x][y] -= 1;
+    }
+	});
+
+
+  newVolume.forEach( (v, i, j) => {
+    const cell =  map.cell(i, j);
+    if (v) {
+      if (cell.liquid && cell.liquidVolume !== v) {
+        cell.liquidVolume = v;
+        map.redrawCell(cell);
+      }
+    }
+    else if (cell.liquid) {
+      cell.clearLayer('LIQUID');
+      map.redrawCell(cell);
+    }
+  });
+
+  map.changed(true);
+
+  GRID.free(newVolume);
+}
+
+map.updateLiquid = updateLiquid;
 
 
 const FP_BASE = 16;

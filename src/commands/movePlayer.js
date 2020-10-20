@@ -91,7 +91,7 @@ async function movePlayer(e) {
   else if (cell.hasTileFlag(Flags.Tile.T_HAS_STAIRS)) {
     if (actor.grabbed) {
       if (isPlayer) {
-        MSG.add('You cannot use stairs while holding %s.', actor.grabbed.flavorText());
+        MSG.add('You cannot use stairs while holding %s.', actor.grabbed.getFlavor());
       }
       return false;
     }
@@ -102,13 +102,13 @@ async function movePlayer(e) {
     let destXY = [actor.grabbed.x + dir[0], actor.grabbed.y + dir[1]];
     if (UTILS.isOppositeDir(dirToItem, dir)) {  // pull
       if (!actor.grabbed.hasActionFlag(Flags.Action.A_PULL)) {
-        if (isPlayer) MSG.add('you cannot pull %s.', actor.grabbed.flavorText());
+        if (isPlayer) MSG.add('you cannot pull %s.', actor.grabbed.getFlavor());
         return false;
       }
     }
     else {  // slide
       if (!actor.grabbed.hasActionFlag(Flags.Action.A_SLIDE)) {
-        if (isPlayer) MSG.add('you cannot slide %s.', actor.grabbed.flavorText());
+        if (isPlayer) MSG.add('you cannot slide %s.', actor.grabbed.getFlavor());
         return false;
       }
     }

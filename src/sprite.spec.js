@@ -117,7 +117,20 @@ describe('Sprite', () => {
     expect(s.ch).toEqual('$');
     expect(CSS(s.fg)).toEqual('#808000');  // mixes fgs
     expect(CSS(s.bg)).toEqual('#40bf80');  // mixes bgs
+  });
 
+  test('plot with alpha', () => {
+    const s = GW.make.sprite('@', [100,0,0], [50,50,50]);
+    const t = GW.make.sprite('$', [0, 100, 0], [0, 100, 50], 50);
+    expect(t.opacity).toEqual(50);
+    s.needsUpdate = false;
+
+    s.plot(t, 50);
+    expect(s.needsUpdate).toBeTruthy();
+
+    expect(s.ch).toEqual('$');
+    expect(CSS(s.fg)).toEqual('#bf4000');  // mixes 50% of t fg
+    expect(CSS(s.bg)).toEqual('#5e9e80');  // mixes 50% of t bg
   });
 
   test('plotting w/o fg/bg', () => {

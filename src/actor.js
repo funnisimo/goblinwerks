@@ -24,7 +24,9 @@ class ActorKind {
 		// this.attackFlags = Flags.Attack.toFlag(opts.flags);
 		this.stats = Object.assign({}, opts.stats || {});
 		this.id = opts.id || null;
-    this.corpse = make.tileEvent(opts.corpse);
+
+    this.corpse = opts.corpse ? make.tileEvent(opts.corpse) : null;
+    this.blood = opts.blood ? make.tileEvent(opts.blood) : null;
 
     this.speed = opts.speed || CONFIG.defaultSpeed || 120;
 

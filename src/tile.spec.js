@@ -123,6 +123,18 @@ describe('RL.Tile', () => {
     expect(tile.getDescription()).toEqual(tile.getName());
   });
 
+  test('can create without sprite field', () => {
+    const tile = GW.tile.addKind('TEST', {
+      name: 'TEST',
+      ch: '#', fg: 'light_gray', bg: 'dark_gray',
+      priority: 90
+    });
+
+    expect(tile.sprite.ch).toEqual('#');
+    expect(tile.sprite.fg).toEqual(GW.colors.light_gray);
+    expect(tile.sprite.bg).toEqual(GW.colors.dark_gray);
+  });
+
   test('can create tiles with see through bg', () => {
     const tile = GW.tile.addKind('TEST', {
       name: 'Test',

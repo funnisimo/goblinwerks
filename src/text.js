@@ -252,6 +252,28 @@ function encodeColor(theColor) {
   COLOR.clamp(copy);
   return String.fromCharCode(COLOR_ESCAPE, copy.red + COLOR_VALUE_INTERCEPT, copy.green + COLOR_VALUE_INTERCEPT, copy.blue + COLOR_VALUE_INTERCEPT);
 }
+
+function removeColors(text) {
+  let out = '';
+  let start = 0;
+  for(let i = 0; i < text.length; ++i) {
+    const k = text.charCodeAt(i);
+    if (k === COLOR_ESCAPE) {
+      out += text.substring(start, i);
+      start = i + 4;
+    }
+    else if (k === COLOR_END) {
+      out += text.substring(start, i);
+      start = i + 1;
+    }
+  }
+  if (start == 0) return text;
+  out += text.substring(start);
+  return out;
+}
+
+text.removeColors = removeColors;
+
 //
 //
 // // Call this when the i'th character of msg is COLOR_ESCAPE.

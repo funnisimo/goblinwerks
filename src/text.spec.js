@@ -116,4 +116,30 @@ describe('Message', () => {
     });
 
   });
+
+  describe('removeColor', () => {
+    test('Does nothing to simple text', () => {
+      const a = 'tacos';
+      expect(GW.text.removeColors(a)).toBe(a);
+    });
+
+    test('removes colors at beginning', () => {
+      const a = GW.text.format(GW.colors.red, 'tacos');
+      expect(a).not.toEqual('tacos');
+      expect(GW.text.removeColors(a)).toEqual('tacos');
+    });
+
+    test('removes colors in the middle', () => {
+      const a = GW.text.format('eat %Rtacos%R today!', 'red', null);
+      expect(a).not.toEqual('eat tacos today!');
+      expect(GW.text.removeColors(a)).toEqual('eat tacos today!');
+    });
+
+    test('removes colors at the end', () => {
+      const a = GW.text.format('eat tacos %Rtoday!', 'red');
+      expect(a).not.toEqual('eat tacos today!');
+      expect(GW.text.removeColors(a)).toEqual('eat tacos today!');
+    });
+  });
+
 });

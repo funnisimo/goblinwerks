@@ -5,6 +5,31 @@ import * as GW from './index.js';
 
 describe('CellMemory', () => {
 
+  beforeAll(() => {
+    GW.tile.addKind('TEST_FLOOR', {
+      name: 'floor',
+      ch: '.',
+      fg: [80,80,80],
+      bg: [20,20,20],
+    });
+    GW.tile.addKind('RED_LIQUID', {
+      name: 'red liquid', article: 'some',
+      bg: 'red',
+      layer: 'LIQUID'
+    });
+    GW.tile.addKind('BLUE_LIQUID', {
+      name: 'blue liquid', article: 'some',
+      bg: 'blue',
+      layer: 'LIQUID'
+    });
+  });
+
+  afterAll(() => {
+    delete GW.tiles.TEST_FLOOR;
+    delete GW.tiles.RED_LIQUID;
+    delete GW.tiles.BLUE_LIQUID;
+  });
+
   test('will copy another memory object', () => {
     const a = new GW.types.CellMemory();
     const b = new GW.types.CellMemory();
@@ -38,13 +63,13 @@ describe('CellMemory', () => {
     expect(c.ground).toEqual(floor);
     c.setTile(wall);
     expect(c.ground).toEqual(wall);
-    c.setTile(floor, true); // checks priority
-    expect(c.ground).toEqual(wall);  // 2 has better priority
+    // c.setTile(floor, true); // checks priority
+    // expect(c.ground).toEqual(wall);  // 2 has better priority
     c.setTile(floor);
     expect(c.ground).toEqual(floor);  // ignored priority
   });
 
-  test.only('will keep sprites in sorted order by layer, priority increasing', () => {
+  test('will keep sprites in sorted order by layer, priority increasing', () => {
     const c = GW.make.cell();
 
     c.addSprite(6, '@');
@@ -78,6 +103,7 @@ describe('CellMemory', () => {
   });
 
   test('layers will blend opacities', () => {
+    GW.cosmetic.seed(12345);
     const c = GW.make.cell();
     c.setTile('FLOOR');
 
@@ -105,7 +131,89 @@ describe('CellMemory', () => {
     c.removeSprite(b);
 
     GW.cell.getAppearance(c, app);
-    expect(app).toEqual(GW.tiles.FLOOR.sprite);
+    const FLOOR = GW.tiles.FLOOR.sprite;
+    expect(app.ch).toEqual(FLOOR.ch);
+    expect(app.bg).toEqualColor([2,2,10,0,0,0,0]);
+    expect(app.fg).toEqualColor([36,36,36,0,0,0,0]);
   });
 
+  test('will set liquid with volume', () => {
+    GW.cosmetic.seed(12345);
+    const FLOOR = GW.tiles.TEST_FLOOR.sprite;
+    const c = GW.make.cell();
+    c.setTile('TEST_FLOOR');
+
+    const app = GW.make.sprite();
+    GW.cell.getAppearance(c, app);
+    expect(app.ch).toEqual(FLOOR.ch);
+    expect(app.bg).toEqualColor([20,20,20,0,0,0,0]);
+    expect(app.fg).toEqualColor([80,80,80,0,0,0,0]);
+
+    c.setTile('RED_LIQUID', 100);
+    expect(c.liquid).toEqual('RED_LIQUID');
+    expect(c.liquidVolume).toEqual(100);
+    GW.cell.getAppearance(c, app);
+    expect(app.ch).toEqual(FLOOR.ch);
+    expect(app.bg).toEqualColor([100,0,0,0,0,0,0]);
+    expect(app.fg).toEqualColor([80,80,80,0,0,0,0]);
+
+    c.clearLayer('LIQUID');
+    expect(c.liquid).toEqual(0);
+    expect(c.liquidVolume).toEqual(0);
+    GW.cell.getAppearance(c, app);
+    expect(app.ch).toEqual(FLOOR.ch);
+    expect(app.bg).toEqualColor([20,20,20,0,0,0,0]);
+    expect(app.fg).toEqualColor([80,80,80,0,0,0,0]);
+
+    c.setTile('RED_LIQUID', 50);
+    expect(c.liquid).toEqual('RED_LIQUID');
+    expect(c.liquidVolume).toEqual(50);
+    GW.cell.getAppearance(c, app);
+    expect(app.ch).toEqual(FLOOR.ch);
+    expect(app.bg).toEqualColor([60,10,10,0,0,0,0]);
+    expect(app.fg).toEqualColor([80,80,80,0,0,0,0]);
+
+    c.setTile('BLUE_LIQUID', 10);
+    expect(c.liquid).toEqual('BLUE_LIQUID');
+    expect(c.liquidVolume).toEqual(10);
+    GW.cell.getAppearance(c, app);
+    expect(app.ch).toEqual(FLOOR.ch);
+    expect(app.bg).toEqualColor([16,16,36,0,0,0,0]);
+    expect(app.fg).toEqualColor([80,80,80,0,0,0,0]);
+
+  });
+
+  test('will add liquid volumes', () => {
+    GW.cosmetic.seed(12345);
+    const FLOOR = GW.tiles.TEST_FLOOR.sprite;
+    const c = GW.make.cell();
+    c.setTile('TEST_FLOOR');
+
+    const app = GW.make.sprite();
+    GW.cell.getAppearance(c, app);
+    expect(app.ch).toEqual(FLOOR.ch);
+    expect(app.bg).toEqualColor([20,20,20,0,0,0,0]);
+    expect(app.fg).toEqualColor([80,80,80,0,0,0,0]);
+
+    c.setTile('RED_LIQUID', 10);
+    expect(c.liquid).toEqual('RED_LIQUID');
+    expect(c.liquidVolume).toEqual(10);
+
+    c.setTile('RED_LIQUID', 10);
+    expect(c.liquid).toEqual('RED_LIQUID');
+    expect(c.liquidVolume).toEqual(20);
+
+    c.setTile('RED_LIQUID', 10);
+    expect(c.liquid).toEqual('RED_LIQUID');
+    expect(c.liquidVolume).toEqual(30);
+
+    c.setTile('BLUE_LIQUID', 10);
+    expect(c.liquid).toEqual('BLUE_LIQUID');
+    expect(c.liquidVolume).toEqual(10);
+
+    c.clearLayer('LIQUID');
+    expect(c.liquid).toEqual(0);
+    expect(c.liquidVolume).toEqual(0);
+
+  });
 });

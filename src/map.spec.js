@@ -51,4 +51,44 @@ describe('Map', () => {
       [ 2, 2 ],  [ 3, 3 ], [ 4, 4 ],  [ 4, 5 ], [ 5, 6 ],  [ 6, 7 ], [ 7, 8 ],  [ 8, 9 ]
     ]);
   });
+
+
+  describe('liquids', () => {
+
+    beforeAll( () => {
+      GW.tile.addKind('RED_LIQUID', {
+        name: 'red liquid',
+        layer: 'LIQUID',
+      });
+    });
+
+    afterAll( () => {
+      delete GW.tiles.RED_LIQUID;
+    });
+
+    test('liquids dissipate', async () => {
+      GW.random.seed(12345);
+      const map = GW.make.map(10, 10);
+      map.setTile(5, 5, 'RED_LIQUID', 50);
+      const cell = map.cell(5, 5);
+      expect(cell.liquidVolume).toEqual(50);
+      expect(map.cell(4, 5).liquidVolume).toEqual(0);
+
+      await map.tick();
+      expect(cell.liquidVolume).toEqual(40);
+      expect(map.cell(4, 5).liquidVolume).toEqual(0);
+
+      await map.tick();
+      expect(cell.liquidVolume).toEqual(32);
+      expect(map.cell(4, 5).liquidVolume).toEqual(0);
+
+      expect(cell.liquidTile.dissipate).toBeGreaterThan(0);
+      while( cell.liquidVolume > 0) {
+        await map.tick();
+      }
+
+      expect(cell.liquid).toEqual(0);
+
+    });
+  });
 });

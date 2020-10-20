@@ -121,10 +121,11 @@ export class Sprite {
     this.needsUpdate = true;
 	}
 
-	plot(sprite) {
-		if (sprite.opacity == 0) return false;
+	plot(sprite, alpha=100) {
+    const opacity = Math.floor(sprite.opacity * alpha / 100);
+		if (opacity == 0) return false;
 
-    if (sprite.opacity == 100) {
+    if (opacity >= 100) {
       this.plotChar(sprite.ch, sprite.fg, sprite.bg);
       return true;
     }
@@ -137,18 +138,18 @@ export class Sprite {
     }
 
 		if (sprite.fg && sprite.ch != ' ') {
-			COLOR.applyMix(this.fg, sprite.fg, sprite.opacity);
+			COLOR.applyMix(this.fg, sprite.fg, opacity);
 		}
 
 		if (sprite.bg) {
-			COLOR.applyMix(this.bg, sprite.bg, sprite.opacity);
+			COLOR.applyMix(this.bg, sprite.bg, opacity);
 		}
 
     if (this.ch != ' ' && COLOR.equals(this.fg, this.bg))
     {
       this.ch = ' ';
     }
-		this.opacity = Math.max(this.opacity, sprite.opacity);
+		this.opacity = Math.max(this.opacity, opacity);
 		this.needsUpdate = true;
 		return true;
 	}

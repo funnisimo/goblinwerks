@@ -73,11 +73,15 @@ class Cell {
     this.memory.nullify();
   }
 
-  nullifyTiles(includeGas=true) {
-    this.layers[1] = 0;
-    this.layers[2] = 0;
-    this.liquidVolume = 0;
-    if (includeGas) {
+  nullifyLayers(nullLiquid, nullSurface, nullGas) {
+    if (nullLiquid) {
+      this.layers[1] = 0;
+      this.liquidVolume = 0;
+    }
+    if (nullSurface) {
+      this.layers[2] = 0;
+    }
+    if (nullGas) {
       this.layers[3] = 0;
       this.gasVolume = 0;
     }
@@ -249,7 +253,7 @@ class Cell {
   }
 
   tileFlavor() {
-    return this.highestPriorityTile().flavorText();
+    return this.highestPriorityTile().getFlavor();
   }
 
   getName(opts={}) {
@@ -332,13 +336,14 @@ class Cell {
     return layer == TileLayer.SURFACE && this.hasTileFlag(Flags.Tile.T_OBSTRUCTS_SURFACE_EFFECTS);
   }
 
-  setTile(tileId=0, checkPriority=false) {
+  setTile(tileId=0, volume=0) {
     let tile;
     if (typeof tileId === 'string') {
       tile = TILES[tileId];
     }
     else if (tileId instanceof types.Tile) {
       tile = tileId;
+      tileId = tile.id;
     }
     else if (tileId !== 0){
       UTILS.ERROR('Unknown tile: ' + tileId);
@@ -347,12 +352,11 @@ class Cell {
     if (!tile) {
       UTILS.WARN('Unknown tile - ' + tileId);
       tile = TILES[0];
+      tileId = 0;
     }
 
     const oldTileId = this.layers[tile.layer] || 0;
     const oldTile = TILES[oldTileId] || TILES[0];
-
-    if (checkPriority && oldTile.priority > tile.priority) return false;
 
     if ((oldTile.flags & Flags.Tile.T_PATHING_BLOCKER)
       != (tile.flags & Flags.Tile.T_PATHING_BLOCKER))
@@ -367,6 +371,12 @@ class Cell {
     }
 
     this.layers[tile.layer] = tile.id;
+    if (tile.layer == TileLayer.LIQUID) {
+      this.liquidVolume = volume + (tileId == oldTileId ? this.liquidVolume : 0);
+    }
+    else if (tile.layer == TileLayer.GAS) {
+      this.gasVolume = volume + (tileId == oldTileId ? this.vasVolume : 0);
+    }
 
     if (tile.layer > 0 && this.layers[0] == 0) {
       this.layers[0] = 'FLOOR'; // TODO - Not good
@@ -375,6 +385,21 @@ class Cell {
     // this.flags |= (Flags.NEEDS_REDRAW | Flags.CELL_CHANGED);
     this.flags |= (Flags.Cell.CELL_CHANGED);
     return (oldTile.glowLight !== tile.glowLight);
+  }
+
+  clearLayer(layer) {
+    if (typeof layer === 'string') layer = TileLayer[layer];
+    if (this.layers[layer]) {
+      // this.flags |= (Flags.NEEDS_REDRAW | Flags.CELL_CHANGED);
+      this.flags |= (Flags.Cell.CELL_CHANGED);
+    }
+    this.layers[layer] = 0;
+    if (layer == TileLayer.LIQUID) {
+      this.liquidVolume = 0;
+    }
+    else if (layer == TileLayer.GAS) {
+      this.gasVolume = 0;
+    }
   }
 
   clearLayers(except, floorTile) {
@@ -432,10 +457,13 @@ class Cell {
         cell.debug(' - spawn event @%d,%d - %s', ctx.x, ctx.y, name);
         fired = await TILE_EVENT.spawn(ev, ctx) || fired;
         cell.debug(' - spawned');
+        if (fired) {
+          break;
+        }
       }
     }
     if (fired) {
-      this.mechFlags |= Flags.CellMech.EVENT_FIRED_THIS_TURN;
+      // this.mechFlags |= Flags.CellMech.EVENT_FIRED_THIS_TURN;
     }
     return fired;
   }
@@ -530,7 +558,14 @@ export function getAppearance(cell, dest) {
   memory.blackOut();
 
   for( let tile of cell.tiles() ) {
-    memory.plot(tile.sprite);
+    let alpha = 100;
+    if (tile.layer == TileLayer.LIQUID) {
+      alpha = UTILS.clamp(cell.liquidVolume || 0, 20, 100);
+    }
+    else if (tile.layer == TileLayer.GAS) {
+      alpha = UTILS.clamp(cell.gasVolume || 0, 20, 100);
+    }
+    memory.plot(tile.sprite, alpha);
   }
 
   let current = cell.sprites;

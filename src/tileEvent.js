@@ -118,7 +118,7 @@ export async function spawnTileEvent(feat, ctx) {
 		UTILS.ERROR('MAP, x, y are required in context.');
 	}
 
-	if (map.hasCellMechFlag(x, y, Flags.CellMech.EVENT_FIRED_THIS_TURN)) {
+	if (ctx.safe && map.hasCellMechFlag(x, y, Flags.CellMech.EVENT_FIRED_THIS_TURN)) {
 		if (!(feat.flags & Flags.TileEvent.DFF_ALWAYS_FIRE)) {
       tileEvent.debug('spawn - already fired.');
 			return false;
@@ -181,7 +181,7 @@ export async function spawnTileEvent(feat, ctx) {
 		}
 
 		if (feat.flags & Flags.TileEvent.DFF_NULLIFY_CELL) { // first, clear other tiles (not base/ground)
-				if (tileEvent.nullifyCells(map, spawnMap)) {
+				if (tileEvent.nullifyCells(map, spawnMap, feat.flags)) {
           didSomething = true;
         }
 		}
@@ -472,6 +472,7 @@ async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
 	const superpriority = (feat.flags & Flags.TileEvent.DFF_SUPERPRIORITY);
 	const applyEffects = ctx.refreshCell;
 	const map = ctx.map;
+  const volume = ctx.volume || feat.volume || (tile ? tile.volume : 0);
 
 	for (i=0; i<spawnMap.width; i++) {
 		for (j=0; j<spawnMap.height; j++) {
@@ -483,8 +484,17 @@ async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
 			if (cell.mechFlags & Flags.CellMech.EVENT_PROTECTED) continue;
 
 			if (tile) {
-				if ( (cell.layers[tile.layer] !== tile.id)  														// If the new cell does not already contains the fill terrain,
-					&& (superpriority || cell.tile(tile.layer).priority < tile.priority)  // If the terrain in the layer to be overwritten has a higher priority number (unless superpriority),
+				if (cell.layers[tile.layer] === tile.id) { 														// If the new cell does not already contains the fill terrain,
+          if (tile.layer == TileLayer.GAS) {
+            spawnMap[i][j] = 1;
+            cell.gasVolume += volume;
+          }
+          else if (tile.layer == TileLayer.LIQUID) {
+            spawnMap[i][j] = 1;
+            cell.liquidVolume += volume;
+          }
+        }
+        else if ((superpriority || cell.tile(tile.layer).priority < tile.priority)  // If the terrain in the layer to be overwritten has a higher priority number (unless superpriority),
 					&& (!cell.obstructsLayer(tile.layer))															    // If we will be painting into the surface layer when that cell forbids it,
           && ((!cell.item) || !(feat.flags & Flags.TileEvent.DFF_BLOCKED_BY_ITEMS))
           && ((!cell.actor) || !(feat.flags & Flags.TileEvent.DFF_BLOCKED_BY_ACTORS))
@@ -492,11 +502,11 @@ async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
 				{
 					spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
 
-					cell.setTile(tile);
+					cell.setTile(tile, volume);
           // map.redrawCell(cell);
-					if (feat.volume && cell.gas) {
-					    cell.volume += (feat.volume || 0);
-					}
+					// if (volume && cell.gas) {
+					//     cell.volume += (feat.volume || 0);
+					// }
 
 					tileEvent.debug('- tile', i, j, 'tile=', tile.id);
 
@@ -564,11 +574,14 @@ tileEvent.spawnTiles = spawnTiles;
 
 
 
-function nullifyCells(map, spawnMap) {
+function nullifyCells(map, spawnMap, flags) {
   let didSomething = false;
+  const nullSurface = flags & Flags.TileEvent.DFF_NULL_SURFACE;
+  const nullLiquid = flags & Flags.TileEvent.DFF_NULL_LIQUID;
+  const nullGas = flags & Flags.TileEvent.DFF_NULL_GAS;
 	spawnMap.forEach( (v, i, j) => {
 		if (!v) return;
-		map.nullifyCellTiles(i, j, false);	// skip gas
+		map.nullifyCellLayers(i, j, nullLiquid, nullSurface, nullGas);
     didSomething = true;
 	});
   return didSomething;

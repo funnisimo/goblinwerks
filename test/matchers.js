@@ -67,4 +67,35 @@ expect.extend({
       message: () => `Expected ${received} to equal ${expected}`,
     });
   },
+  toEqualColor(received, ...expected) {
+    if (expected.length == 1 && Array.isArray(expected[0])) {
+      expected = expected[0];
+    }
+    if (!Array.isArray(expected)) {
+      throw new Error('expected must be an array.');
+    }
+    if (!Array.isArray(received)) {
+      throw new Error('value must be a color object.');
+    }
+
+    while( expected.length < received.length ) {
+      expected.push(0);
+    }
+
+    let success = (expected.length == received.length);
+    for( let i = 0; i < expected.length && success; ++i) {
+      if (expected[i] != received[i]) {
+        success = false;
+      }
+    }
+
+    return success ? ({
+      pass: true,
+      message: () => `Expected ${received} not to equal ${expected}`,
+    }) : ({
+      pass: false,
+      message: () => `Expected ${received} to equal ${expected}`,
+    });
+  },
+
 });

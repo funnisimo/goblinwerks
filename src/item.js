@@ -118,7 +118,7 @@ class Item {
 	isDestroyed() { return this.flags & Flags.Item.ITEM_DESTROYED; }
   changed() { return false; } // ITEM_CHANGED
 
-	flavorText() { return this.kind.flavor || this.kind.getName(this, true); }
+	getFlavor() { return this.kind.flavor || this.kind.getName(this, true); }
   getName(opts={}) {
     return this.kind.getName(this, opts);
   }

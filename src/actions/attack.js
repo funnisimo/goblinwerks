@@ -35,12 +35,16 @@ export async function attack(actor, target, ctx={}) {
     GW.message.addCombat('%s %s', target.isInanimate() ? 'destroying' : 'killing', target.getPronoun('it'));
   }
 
+  const ctx2 = { map: map, x: target.x, y: target.y, volume: damage };
+
   await GW.fx.hit(GW.data.map, target);
+  if (target.kind.blood) {
+    await spawnTileEvent(target.kind.blood, ctx2);
+  }
   if (target.isDead()) {
     target.kind.kill(target);
     map.removeActor(target);
     if (target.kind.corpse) {
-      const ctx2 = { map: map, x: target.x, y: target.y };
       await spawnTileEvent(target.kind.corpse, ctx2);
     }
     if (target.isPlayer()) {
