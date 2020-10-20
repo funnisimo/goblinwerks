@@ -2,6 +2,7 @@
 import { io as IO } from './io.js';
 import * as Flags from './flags.js';
 import { sprite as SPRITE } from './sprite.js';
+import { color as COLOR } from './color.js';
 import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, utils as UTILS, make, sidebar as SIDEBAR, config as CONFIG } from './gw.js';
 
 ui.debug = UTILS.NOOP;
@@ -86,8 +87,13 @@ export function start(opts={}) {
 
 	let flavorLine = -1;
 
-  if (opts.wideMessages && opts.messages) {
-    viewH -= Math.abs(opts.messages);
+  if (opts.wideMessages) {
+    if (opts.messages) {
+      viewH -= Math.abs(opts.messages);
+    }
+    if (opts.flavor) {
+      viewH -= 1;
+    }
   }
 
   if (opts.sidebar) {
@@ -230,7 +236,7 @@ export async function dispatchEvent(ev) {
     }
   }
 
-	await IO.dispatchEvent(ev);
+	return false;
 }
 
 ui.dispatchEvent = dispatchEvent;
@@ -385,6 +391,36 @@ export async function prompt(...args) {
 }
 
 
+export async function fadeTo(color, duration) {
+
+  const buffer = ui.startDialog();
+
+  let pct = 0;
+  let elapsed = 0;
+
+  while(elapsed < duration) {
+    elapsed += 32;
+    if (await IO.pause(32)) {
+      elapsed = duration;
+    }
+
+    pct = Math.floor(100*elapsed/duration);
+
+    ui.clearDialog();
+    buffer.forEach( (c, x, y) => {
+      COLOR.applyMix(c.fg, color, pct);
+      COLOR.applyMix(c.bg, color, pct);
+    });
+    ui.draw();
+  }
+
+  ui.finishDialog();
+
+}
+
+ui.fadeTo = fadeTo;
+
+
 export async function messageBox(text, fg, duration) {
 
   const buffer = ui.startDialog();
@@ -498,7 +534,7 @@ async function chooseTarget(choices, prompt, opts={}) {
 
 	while(waiting) {
 		const ev = await GW.io.nextEvent(100);
-		await GW.io.dispatchEvent(ev, {
+		await IO.dispatchEvent(ev, {
 			escape() { waiting = false; selected = -1; },
 			enter() { waiting = false; },
 			tab() {

@@ -7381,7 +7381,9 @@ async function takeTurn$1() {
 
   while(!PLAYER.turnTime) {
     const ev = await io.nextEvent(1000);
-    await ui.dispatchEvent(ev);
+    if (!await ui.dispatchEvent(ev)) {
+      await io.dispatchEvent(ev);
+    }
     await ui.updateIfRequested();
     if (data.gameHasEnded) {
       return 0;
@@ -7622,29 +7624,45 @@ async function gameLoop() {
 
   ui.draw();
 
-  while (data.running && !data.gameHasEnded) {
+  while (data.running) {
 
-    const fn = scheduler.pop();
-    if (!fn) {
-      utils.WARN('NO ACTORS! STOPPING GAME!');
-      data.running = false;
-    }
-    else {
-      if (scheduler.time > data.time) {
-        data.time = scheduler.time;
-        game.debug('- update now: %d', scheduler.time);
+    if (data.gameHasEnded) {
+      const ev = await io.nextEvent(1000);
+      if (ev) {
+        if (!await ui.dispatchEvent(ev)) {
+          await io.dispatchEvent(ev, {
+            Enter() {
+              data.running = false;
+            }
+          });
+        }
         await ui.updateIfRequested();
       }
-      const turnTime = await fn();
-      if (turnTime) {
-        game.debug('- push actor: %d + %d = %d', scheduler.time, turnTime, scheduler.time + turnTime);
-        scheduler.push(fn, turnTime);
+    }
+    else {
+      const fn = scheduler.pop();
+      if (!fn) {
+        utils.WARN('NO ACTORS! STOPPING GAME!');
+        data.running = false;
       }
-      data.map.resetEvents();
+      else {
+        if (scheduler.time > data.time) {
+          data.time = scheduler.time;
+          game.debug('- update now: %d', scheduler.time);
+          await ui.updateIfRequested();
+        }
+        const turnTime = await fn();
+        if (turnTime) {
+          game.debug('- push actor: %d + %d = %d', scheduler.time, turnTime, scheduler.time + turnTime);
+          scheduler.push(fn, turnTime);
+        }
+        data.map.resetEvents();
+      }
     }
 
   }
 
+  return data.isWin;
 }
 
 game.loop = gameLoop;
@@ -7698,16 +7716,18 @@ async function gameOver(isWin, ...args) {
   flavor.clear();
   message.add(msg);
   if (isWin) {
+    data.isWin = true;
     message.add(colors.yellow, 'WINNER!');
   }
   else {
+    data.isWin = false;
     message.add(colors.red, 'GAME OVER');
   }
+  message.add(colors.white, 'Press <Enter> to continue.');
   ui.updateNow();
   await fx.flashSprite(data.map, data.player.x, data.player.y, 'hilite', 500, 3);
   data.gameHasEnded = true;
 
-  data.running = false; // ???
 }
 
 game.gameOver = gameOver;
@@ -10862,7 +10882,7 @@ function drawSidebar(buf, forceFocused) {
 		drawSidebar(buf, true);
 	}
 
-	buf.blackOutRect(SIDE_BOUNDS.toOuterX(0), y, SIDE_BOUNDS.toOuterX(SIDE_BOUNDS.width - 1), SIDE_BOUNDS.height - y);
+	// buf.blackOutRect(SIDE_BOUNDS.x, SIDE_BOUNDS.toOuterY(y), SIDE_BOUNDS.width, SIDE_BOUNDS.height - y);
 
 	SIDEBAR_CHANGED = false;
 	return true;
@@ -10887,6 +10907,11 @@ sidebar$1.draw = UiDrawSidebar;
 
 
 function sidebarAddText(buf, y, text, fg, bg, dim, highlight) {
+
+  if (y >= SIDE_BOUNDS.height - 1) {
+		return SIDE_BOUNDS.height - 1;
+	}
+
   fg = fg || colors.white;
   bg = bg || colors.black;
 
@@ -11248,11 +11273,11 @@ const flavorPromptColor = color.install('flavorPrompt', 100, 90, 20);
 
 let FLAVOR_TEXT = '';
 let NEED_FLAVOR_UPDATE = false;
-let SETUP$1 = null;
+let FLAVOR_BOUNDS = null;
 let IS_PROMPT = false;
 
 function setupFlavor(opts={}) {
-  SETUP$1 = flavor.bounds = new types.Bounds(opts.x, opts.y, opts.w, 1);
+  FLAVOR_BOUNDS = flavor.bounds = new types.Bounds(opts.x, opts.y, opts.w, 1);
 }
 
 flavor.setup = setupFlavor;
@@ -11278,9 +11303,9 @@ flavor.showPrompt = showPrompt;
 
 
 function drawFlavor(buffer) {
-  if (!NEED_FLAVOR_UPDATE || !SETUP$1) return;
+  if (!NEED_FLAVOR_UPDATE || !FLAVOR_BOUNDS) return;
   const color = IS_PROMPT ? flavorPromptColor : flavorTextColor;
-  buffer.plotLine(SETUP$1.x, SETUP$1.y, SETUP$1.width, FLAVOR_TEXT, color, colors.black);
+  buffer.plotLine(FLAVOR_BOUNDS.x, FLAVOR_BOUNDS.y, FLAVOR_BOUNDS.width, FLAVOR_TEXT, color, colors.black);
 }
 
 flavor.draw = drawFlavor;
@@ -11499,8 +11524,13 @@ function start$1(opts={}) {
 
 	let flavorLine = -1;
 
-  if (opts.wideMessages && opts.messages) {
-    viewH -= Math.abs(opts.messages);
+  if (opts.wideMessages) {
+    if (opts.messages) {
+      viewH -= Math.abs(opts.messages);
+    }
+    if (opts.flavor) {
+      viewH -= 1;
+    }
   }
 
   if (opts.sidebar) {
@@ -11643,7 +11673,7 @@ async function dispatchEvent$1(ev) {
     }
   }
 
-	await io.dispatchEvent(ev);
+	return false;
 }
 
 ui.dispatchEvent = dispatchEvent$1;
@@ -11783,6 +11813,36 @@ function clearCursor() {
 ui.clearCursor = clearCursor;
 
 
+async function fadeTo(color$1, duration) {
+
+  const buffer = ui.startDialog();
+
+  let pct = 0;
+  let elapsed = 0;
+
+  while(elapsed < duration) {
+    elapsed += 32;
+    if (await io.pause(32)) {
+      elapsed = duration;
+    }
+
+    pct = Math.floor(100*elapsed/duration);
+
+    ui.clearDialog();
+    buffer.forEach( (c, x, y) => {
+      color.applyMix(c.fg, color$1, pct);
+      color.applyMix(c.bg, color$1, pct);
+    });
+    ui.draw();
+  }
+
+  ui.finishDialog();
+
+}
+
+ui.fadeTo = fadeTo;
+
+
 async function messageBox(text, fg, duration) {
 
   const buffer = ui.startDialog();
@@ -11895,7 +11955,7 @@ async function chooseTarget(choices, prompt, opts={}) {
 
 	while(waiting) {
 		const ev = await GW.io.nextEvent(100);
-		await GW.io.dispatchEvent(ev, {
+		await io.dispatchEvent(ev, {
 			escape() { waiting = false; selected = -1; },
 			enter() { waiting = false; },
 			tab() {

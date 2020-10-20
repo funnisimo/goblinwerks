@@ -154,29 +154,45 @@ async function gameLoop() {
 
   UI.draw();
 
-  while (DATA.running && !DATA.gameHasEnded) {
+  while (DATA.running) {
 
-    const fn = scheduler.pop();
-    if (!fn) {
-      utils.WARN('NO ACTORS! STOPPING GAME!');
-      DATA.running = false;
-    }
-    else {
-      if (scheduler.time > DATA.time) {
-        DATA.time = scheduler.time;
-        game.debug('- update now: %d', scheduler.time);
+    if (DATA.gameHasEnded) {
+      const ev = await IO.nextEvent(1000);
+      if (ev) {
+        if (!await UI.dispatchEvent(ev)) {
+          await IO.dispatchEvent(ev, {
+            Enter() {
+              DATA.running = false;
+            }
+          });
+        }
         await UI.updateIfRequested();
       }
-      const turnTime = await fn();
-      if (turnTime) {
-        game.debug('- push actor: %d + %d = %d', scheduler.time, turnTime, scheduler.time + turnTime);
-        scheduler.push(fn, turnTime);
+    }
+    else {
+      const fn = scheduler.pop();
+      if (!fn) {
+        utils.WARN('NO ACTORS! STOPPING GAME!');
+        DATA.running = false;
       }
-      DATA.map.resetEvents();
+      else {
+        if (scheduler.time > DATA.time) {
+          DATA.time = scheduler.time;
+          game.debug('- update now: %d', scheduler.time);
+          await UI.updateIfRequested();
+        }
+        const turnTime = await fn();
+        if (turnTime) {
+          game.debug('- push actor: %d + %d = %d', scheduler.time, turnTime, scheduler.time + turnTime);
+          scheduler.push(fn, turnTime);
+        }
+        DATA.map.resetEvents();
+      }
     }
 
   }
 
+  return DATA.isWin;
 }
 
 game.loop = gameLoop;
@@ -234,16 +250,18 @@ export async function gameOver(isWin, ...args) {
   FLAVOR.clear();
   MSG.add(msg);
   if (isWin) {
+    DATA.isWin = true;
     MSG.add(COLORS.yellow, 'WINNER!');
   }
   else {
+    DATA.isWin = false;
     MSG.add(COLORS.red, 'GAME OVER');
   }
+  MSG.add(COLORS.white, 'Press <Enter> to continue.');
   UI.updateNow();
   await FX.flashSprite(DATA.map, DATA.player.x, DATA.player.y, 'hilite', 500, 3);
   DATA.gameHasEnded = true;
 
-  DATA.running = false; // ???
 }
 
 game.gameOver = gameOver;

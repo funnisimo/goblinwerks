@@ -505,8 +505,20 @@ async function start() {
 	});
 
 	GW.message.add('%REscape from ECMA Labs!\n%RYou are in the basement of a lab where something has gone horribly wrong.\nFind your way to the surface.\n%RPress <?> for help.', 'yellow', 'purple', null);
-	GW.game.start({ player: PLAYER, map, fov: true });
 
+	const success = await GW.game.start({ player: PLAYER, map, fov: true });
+  await GW.ui.fadeTo(GW.colors.black, 1000);
+  canvas.buffer.blackOut();
+  if (!success) {
+    canvas.buffer.wrapText(10, 20, 40, 'Thank you for playing.  Please try again soon!', 'white', null);
+  }
+  else {
+    canvas.buffer.wrapText(10, 20, 40, 'What a great performance.  Please play again soon!', 'white', null);
+  }
+  canvas.draw();
+
+  GW.ui.stop();
+  console.log('DONE');
 }
 
 window.onload = start;

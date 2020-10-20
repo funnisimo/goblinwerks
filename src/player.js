@@ -33,7 +33,9 @@ export async function takeTurn() {
 
   while(!PLAYER.turnTime) {
     const ev = await IO.nextEvent(1000);
-    await UI.dispatchEvent(ev);
+    if (!await UI.dispatchEvent(ev)) {
+      await IO.dispatchEvent(ev);
+    }
     await UI.updateIfRequested();
     if (DATA.gameHasEnded) {
       return 0;
