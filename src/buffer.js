@@ -100,10 +100,11 @@ class Buffer extends types.Grid {
     if (typeof bg === 'string') { bg = COLORS[bg]; }
     width = Math.min(width, this.width - x);
     if (TEXT.length(text) <= width) {
-      this.plotText(x, y, text, fg, bg);
+      this.plotLine(x, y, width, text, fg, bg);
       return y + 1;
     }
     let first = true;
+    let indent = opts.indent || 0;
     let start = 0;
     let last = 0;
     for(let index = 0; index < text.length; ++index) {
@@ -113,9 +114,9 @@ class Buffer extends types.Grid {
       }
       if ((index - start >= width) || (ch === '\n')) {
         const sub = text.substring(start, last);
-        this.plotText(x, y++, sub, fg, bg);
+        this.plotLine(x, y++, width, sub, fg, bg);
         if (first) {
-          x += (opts.indent || 0);
+          x += indent;
           first = false;
         }
         start = last;
@@ -127,7 +128,7 @@ class Buffer extends types.Grid {
 
     if (start < text.length - 1) {
       const sub = text.substring(start);
-      this.plotText(x, y++, sub, fg, bg);
+      this.plotLine(x, y++, width, sub, fg, bg);
     }
     return y;
   }
@@ -149,8 +150,8 @@ class Buffer extends types.Grid {
 	highlight(x, y, highlightColor, strength)
 	{
 		const cell = this[x][y];
-		COLOR.applyAugment(cell.fg, highlightColor, strength);
-		COLOR.applyAugment(cell.bg, highlightColor, strength);
+		cell.fg.add(highlightColor, strength);
+		cell.bg.add(highlightColor, strength);
 		cell.needsUpdate = true;
     this.needsUpdate = true;
 	}

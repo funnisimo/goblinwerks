@@ -1,5 +1,5 @@
 
-import { color as COLOR, colors as COLORS } from './color.js';
+import { colors as COLORS } from './color.js';
 import { cosmetic } from './random.js';
 
 import { types, make, ui as UI } from './gw.js';
@@ -140,7 +140,7 @@ class Canvas {
     const ctx = this.ctx;
     const tileSize = this.tileSize;// * this.displayRatio;
 
-    const backCss = COLOR.css(cell.bg);
+    const backCss = cell.bg.css();
     ctx.fillStyle = backCss;
 
     ctx.fillRect(
@@ -151,7 +151,7 @@ class Canvas {
     );
 
     if (cell.ch && cell.ch !== ' ') {
-      const foreCss = COLOR.css(cell.fg);
+      const foreCss = cell.fg.css();
       ctx.fillStyle = foreCss;
 
       const textX = x * tileSize + Math.floor(tileSize * 0.5);

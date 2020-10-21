@@ -65,12 +65,16 @@ class Cell {
     this.item = null;
     this.data = {};
 
-    this.flags = Flags.Cell.VISIBLE | Flags.Cell.IN_FOV | Flags.Cell.NEEDS_REDRAW | Flags.Cell.CELL_CHANGED;	// non-terrain cell flags
+    this.flags = Flags.Cell.CELL_DEFAULT;	// non-terrain cell flags
     this.mechFlags = 0;
     this.gasVolume = 0;						// quantity of gas in cell
     this.liquidVolume = 0;
     this.machineNumber = 0;
     this.memory.nullify();
+
+    this.light = [100,100,100];
+    this.oldLight = [100,100,100];
+    this.glowLight = [100,100,100];
   }
 
   nullifyLayers(nullLiquid, nullSurface, nullGas) {
@@ -118,9 +122,10 @@ class Cell {
     return this.hasTileMechFlag(Flags.TileMech.TM_LIST_IN_SIDEBAR);
   }
 
-  hasVisibleLight() { return true; }  // TODO
-  isDark() { return false; }  // TODO
-  lightChanged() { return this.flags & Flags.Cell.LIGHT_CHANGED; }
+  // TODO - Use functions in LIGHT to check these on cell.light directly???
+  hasVisibleLight() { return COLOR.intensity(this.light) > def.INTENSITY_DARK; }  // TODO
+  isDark() { return COLOR.intensity(this.light) <= def.INTENSITY_DARK; }  // TODO
+  lightChanged() { return this.flags & Flags.Cell.LIGHT_CHANGED; }  // TODO
 
   tile(layer=0) {
     const id = this.layers[layer] || 0;
@@ -384,7 +389,7 @@ class Cell {
 
     // this.flags |= (Flags.NEEDS_REDRAW | Flags.CELL_CHANGED);
     this.flags |= (Flags.Cell.CELL_CHANGED);
-    return (oldTile.glowLight !== tile.glowLight);
+    return (oldTile.light !== tile.light);
   }
 
   clearLayer(layer) {
@@ -518,6 +523,7 @@ class Cell {
     return false;
   }
 
+
   // MEMORY
 
   storeMemory() {
@@ -557,6 +563,7 @@ export function getAppearance(cell, dest) {
   const memory = cell.memory.sprite;
   memory.blackOut();
 
+  let needDistinctness = false;
   for( let tile of cell.tiles() ) {
     let alpha = 100;
     if (tile.layer == TileLayer.LIQUID) {
@@ -566,6 +573,9 @@ export function getAppearance(cell, dest) {
       alpha = UTILS.clamp(cell.gasVolume || 0, 20, 100);
     }
     memory.plot(tile.sprite, alpha);
+    if (tile.mechFlags & Flags.TileMech.TM_VISUALLY_DISTINCT) {
+      needDistinctness = true;
+    }
   }
 
   let current = cell.sprites;
@@ -574,7 +584,12 @@ export function getAppearance(cell, dest) {
     current = current.next;
   }
 
+  memory.fg.applyMultiplier(cell.light);
+  memory.bg.applyMultiplier(cell.light);
   memory.bake();
+  if (needDistinctness) {
+    COLOR.separate(memory.fg, memory.bg);
+  }
   dest.plot(memory);
   return true;
 }

@@ -23,11 +23,17 @@ const blueBar = COLOR.install('blueBar', 	15,		10,		50);
 const redBar = 	COLOR.install('redBar', 	45,		10,		15);
 
 
-function setup(opts={}) {
+export function setup(opts={}) {
   SIDE_BOUNDS = sidebar.bounds = new GW.types.Bounds(opts.x, opts.y, opts.width, opts.height);
 }
 
 sidebar.setup = setup;
+
+export function needsRedraw() {
+  SIDEBAR_CHANGED = true;
+}
+
+sidebar.needsRedraw = needsRedraw;
 
 
 function sortSidebarItems(items) {
@@ -455,8 +461,8 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
 		COLOR.applyMix(monstApp.bg, bg, 50);
 	} else if (highlight) {
 		// Does this do anything?
-		COLOR.applyAugment(monstApp.fg, bg, 100);
-		COLOR.applyAugment(monstApp.bg, bg, 100);
+		monstApp.fg.add(bg, 100);
+		monstApp.bg.add(bg, 100);
 	}
 
 	//patch to indicate monster is carrying item
@@ -627,7 +633,7 @@ function sidebarAddMapCell(entry, y, dim, highlight, buf) {
   const cell = entry.entity;
   const textColor = COLORS.flavorText.clone();
   if (dim) {
-      COLOR.applyScalar(textColor, 50);
+      textColor.applyScalar(50);
   }
 
 	if (y >= SIDE_BOUNDS.height - 1) {

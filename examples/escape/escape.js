@@ -332,6 +332,10 @@ GW.tile.addKind('EXIT', {
 	events: { playerEnter: crossedFinish }
 });
 
+GW.light.addKind('OVERHEAD', {
+  color: 'white', radius: 5, fadeTo: 50, passThroughActors: true
+});
+
 
 const mapPrefab = {
   data: [
@@ -371,6 +375,7 @@ const mapPrefab = {
     '#.................#..#x#...#',
     '############################',
   ],
+  ambientLight: [50,50,50],
   cells: {
     '#': 'WALL',
     '.': 'FLOOR',
@@ -411,7 +416,7 @@ function mapFromPrefab(prefab) {
   const width = data[0].length;
   const baseTile = prefab.cells.default || 'FLOOR';
 
-	const map = GW.make.map(width, height, baseTile);
+	const map = GW.make.map(width, height, { tile: baseTile, ambientLight: prefab.ambientLight });
 
   for(let y = 0; y < height; ++y) {
     const line = data[y];
@@ -442,8 +447,19 @@ function mapFromPrefab(prefab) {
           map.addActor(x, y, actor);
         }
       }
+      if (info.light) {
+        map.addLight(x, y, info.light);
+      }
     }
   }
+
+  map.eachCell((cell, x, y) => {
+    if((x+1) % 5 === 0 && (y+1) % 5 === 0){
+      if(cell.hasTile('FLOOR')) {
+        map.addLight(x, y, 'OVERHEAD');
+      }
+    }
+  });
 
 	return map;
 }

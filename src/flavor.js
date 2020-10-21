@@ -2,7 +2,7 @@
 import { colors as COLORS, color as COLOR } from './color.js';
 import { text as TEXT } from './text.js';
 import * as Flags from './flags.js';
-import { types, flavor, data as DATA, def, ui as UI, tiles as TILES, itemKinds as ITEM_KINDS } from './gw.js';
+import { types, flavor, data as DATA, def, ui as UI, tiles as TILES, itemKinds as ITEM_KINDS, message as MSG } from './gw.js';
 
 
 const flavorTextColor = COLOR.install('flavorText', 50, 40, 90);
@@ -42,7 +42,13 @@ flavor.showPrompt = showPrompt;
 function drawFlavor(buffer) {
   if (!NEED_FLAVOR_UPDATE || !FLAVOR_BOUNDS) return;
   const color = IS_PROMPT ? flavorPromptColor : flavorTextColor;
-  buffer.plotLine(FLAVOR_BOUNDS.x, FLAVOR_BOUNDS.y, FLAVOR_BOUNDS.width, FLAVOR_TEXT, color, COLORS.black);
+  if (TEXT.length(FLAVOR_TEXT) > FLAVOR_BOUNDS.width) {
+    buffer.wrapText(FLAVOR_BOUNDS.x, FLAVOR_BOUNDS.y, FLAVOR_BOUNDS.width, FLAVOR_TEXT, color, COLORS.black);
+    MSG.needsRedraw();
+  }
+  else {
+    buffer.plotLine(FLAVOR_BOUNDS.x, FLAVOR_BOUNDS.y, FLAVOR_BOUNDS.width, FLAVOR_TEXT, color, COLORS.black);
+  }
 }
 
 flavor.draw = drawFlavor;

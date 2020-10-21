@@ -36,5 +36,6 @@ export { visibility } from './visibility.js';
 export * as actions from './actions/index.js';
 import './ai.js';
 import './tiles.js';
+export * as light from './light.js';
 
 export * from './gw.js';

@@ -17,6 +17,12 @@ var NEEDS_UPDATE = false;
 var INTERFACE_OPACITY = 90;
 let COMBAT_MESSAGE = null;
 
+export function needsRedraw() {
+  NEEDS_UPDATE = true;
+}
+
+message.needsRedraw = needsRedraw;
+
 
 function setup(opts) {
   opts.height = opts.height || 1;

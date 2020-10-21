@@ -2,6 +2,7 @@
 
 import { colors as COLORS } from './color.js';
 import * as Flags from './flags.js';
+import * as Light from './light.js';
 import { map as MAP } from './map.js';
 import { io as IO } from './io.js';
 import { actor as ACTOR } from './actor.js';
@@ -132,6 +133,8 @@ export function startMap(map, loc='start') {
 
     VISIBILITY.update(map, DATA.player.x, DATA.player.y);
   }
+
+  Light.updateLighting(map);
 
   UTILS.eachChain(map.actors, (actor) => {
     game.queueActor(actor);

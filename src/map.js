@@ -23,13 +23,21 @@ export class Map {
 		this.config.tick = this.config.tick || 100;
 		this.actors = null;
 		this.items = null;
+    this.flags = Flags.Map.toFlag(Flags.Map.MAP_DEFAULT, opts.flag);
+		this.ambientLight = null;
+		const ambient = (opts.ambient || opts.ambientLight || opts.light);
+		if (ambient) {
+			this.ambientLight = make.color(ambient);
+		}
+    this.lights = null;
 	}
 
 	nullify() { this.cells.forEach( (c) => c.nullify() ); }
 	dump(fmt) { this.cells.dump(fmt || ((c) => c.dump()) ); }
 	cell(x, y)   { return this.cells[x][y]; }
 
-	forEach(fn) { this.cells.forEach( (c, i, j) => fn(c, i, j, this) ); }
+  eachCell(fn) { this.cells.forEach( (c, i, j) => fn(c, i, j, this) ); }
+	forEach(fn)  { this.cells.forEach( (c, i, j) => fn(c, i, j, this) ); }
 	forRect(x, y, w, h, fn) { this.cells.forRect(x, y, w, h, (c, i, j) => fn(c, i, j, this) ); }
 	eachNeighbor(x, y, fn, only4dirs) { this.cells.eachNeighbor(x, y, (c, i, j) => fn(c, i, j, this), only4dirs); }
 
@@ -76,7 +84,7 @@ export class Map {
 	isVisible(x, y)    { return this.cell(x, y).isVisible(); }
 	isAnyKindOfVisible(x, y) { return this.cell(x, y).isAnyKindOfVisible(); }
   isOrWasAnyKindOfVisible(x, y) { return this.cell(x, y).isOrWasAnyKindOfVisible(); }
-	hasVisibleLight(x, y) { return (this.flags & Flags.Map.MAP_ALWAYS_LIT) || this.cell(x, y).hasVisibleLight(); }
+	hasVisibleLight(x, y) { return this.cell(x, y).hasVisibleLight(); }
 
 	setFlags(mapFlag, cellFlag, cellMechFlag) {
 		if (mapFlag) {
@@ -143,7 +151,7 @@ export class Map {
 	setTile(x, y, tileId, volume=0) {
 		const cell = this.cell(x, y);
 		if (cell.setTile(tileId, volume)) {
-			this.flags &= ~(Flags.Map.MAP_STABLE_GLOW_LIGHTS);
+			this.flags &= ~(Flags.Map.MAP_STABLE_GLOW_LIGHTS | Flags.Map.MAP_STABLE_LIGHTS);
 		}
 	  return true;
 	}
@@ -313,6 +321,32 @@ export class Map {
 		return [ x, y ];
 	}
 
+  // LIGHT
+
+  addLight(x, y, light) {
+    const info = { x, y, light, next: this.lights };
+    this.lights = info;
+    this.flags &= ~(Flags.Map.MAP_STABLE_LIGHTS | Flags.Map.MAP_STABLE_GLOW_LIGHTS);
+    return info;
+  }
+
+  removeLight(info) {
+    UTILS.removeFromChain(this, 'lights', info);
+    this.flags &= ~(Flags.Map.MAP_STABLE_LIGHTS | Flags.Map.MAP_STABLE_GLOW_LIGHTS);
+  }
+
+  eachLight( fn ) {
+    UTILS.eachChain(this.lights, (info) => fn(info.light, info.x, info.y));
+    this.eachCell( (cell, x, y) => {
+      for(let tile of cell.tiles() ) {
+        if (tile.light) {
+          fn(tile.light, x, y);
+        }
+      }
+    });
+  }
+
+
 	// FX
 
 	addFx(x, y, anim) {
@@ -376,6 +410,10 @@ export class Map {
 		// 	cell.flags |= Flags.Cell.MONSTER_DETECTED;
 		// }
 
+    if (theActor.light || theActor.kind.light) {
+      this.flags &= ~(Flags.Map.MAP_STABLE_LIGHTS);
+    }
+
 		theActor.x = x;
 		theActor.y = y;
     this.redrawCell(cell);
@@ -405,6 +443,10 @@ export class Map {
 			this.addActor(actor.x, actor.y, actor);
 			return false;
 		}
+    if (actor.light || actor.kind.light) {
+      this.flags &= ~(Flags.Map.MAP_STABLE_LIGHTS);
+    }
+
 		return true;
 	}
 
@@ -415,6 +457,11 @@ export class Map {
       UTILS.removeFromChain(this, 'actors', actor);
 			cell.flags &= ~Flags.Cell.HAS_ACTOR;
 			cell.removeSprite(actor.kind.sprite);
+
+      if (actor.light || actor.kind.light) {
+        this.flags &= ~(Flags.Map.MAP_STABLE_LIGHTS);
+      }
+
       this.redrawCell(cell);
 		}
 	}
@@ -466,6 +513,11 @@ export class Map {
 
 		cell.addSprite(TileLayer.ITEM, theItem.kind.sprite);
 		cell.flags |= (Flags.Cell.HAS_ITEM);
+
+    if (theItem.light || theItem.kind.light) {
+      this.flags &= ~(Flags.Map.MAP_STABLE_LIGHTS);
+    }
+
     this.redrawCell(cell);
 
 		if ( ((theItem.flags & Flags.Item.ITEM_MAGIC_DETECTED) && GW.item.magicChar(theItem)) ||
@@ -501,6 +553,10 @@ export class Map {
 
 		cell.item = null;
     UTILS.removeFromChain(this, 'items', theItem);
+
+    if (theItem.light || theItem.kind.light) {
+      this.flags &= ~(Flags.Map.MAP_STABLE_LIGHTS);
+    }
 
 		cell.flags &= ~(Flags.Cell.HAS_ITEM | Flags.Cell.ITEM_DETECTED);
     this.redrawCell(cell);

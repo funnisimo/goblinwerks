@@ -35,6 +35,7 @@
   };
   var data = {};
   var maps = {};
+  var lights = {};
 
   // DIRS are organized clockwise
   // - first 4 are arrow directions
@@ -766,6 +767,8 @@
     ANY_KIND_OF_VISIBLE			: ['VISIBLE', 'CLAIRVOYANT_VISIBLE', 'TELEPATHIC_VISIBLE'],
     HAS_ACTOR               : ['HAS_PLAYER', 'HAS_MONSTER'],
     IS_WAS_ANY_KIND_OF_VISIBLE : ['VISIBLE', 'WAS_VISIBLE', 'CLAIRVOYANT_VISIBLE', 'WAS_CLAIRVOYANT_VISIBLE', 'TELEPATHIC_VISIBLE', 'WAS_TELEPATHIC_VISIBLE'],
+
+    CELL_DEFAULT            : 'VISIBLE | IN_FOV | NEEDS_REDRAW | CELL_CHANGED | IS_IN_SHADOW',  // !CELL_LIT until lights remove the shadow
   });
 
 
@@ -904,6 +907,8 @@
   	MAP_STABLE_GLOW_LIGHTS:  Fl(1),
   	MAP_STABLE_LIGHTS: Fl(2),
   	MAP_ALWAYS_LIT:	Fl(3),
+
+    MAP_DEFAULT: 'MAP_STABLE_LIGHTS, MAP_STABLE_GLOW_LIGHTS',
   });
 
   // Based on random numbers in umoria
@@ -1175,7 +1180,7 @@
       }
   		else if (results[7]) {
         const v = Number.parseFloat(results[7]);
-        return new Range(1, v, 1, rng);
+        return new Range(v, v, 1, rng);
       }
     }
 
@@ -1242,11 +1247,69 @@
       return `#${toCSS(red)}${toCSS(green)}${toCSS(blue)}`;
     }
 
+    equals(other) {
+      if (!other) return false;
+      return this.every( (v, i) => v === other[i] ) && this.dances === other.dances;
+    }
+
+    clamp() {
+      this.red		= utils$1.clamp(this.red, 0, 100);
+      this.green	= utils$1.clamp(this.green, 0, 100);
+      this.blue		= utils$1.clamp(this.blue, 0, 100);
+    }
+
+    add(augmentColor, pct=100) {
+      this.red += Math.floor((augmentColor.red * pct) / 100);
+      this.redRand += Math.floor((augmentColor.redRand * pct) / 100);
+      this.green += Math.floor((augmentColor.green * pct) / 100);
+      this.greenRand += Math.floor((augmentColor.greenRand * pct) / 100);
+      this.blue += Math.floor((augmentColor.blue * pct) / 100);
+      this.blueRand += Math.floor((augmentColor.blueRand * pct) / 100);
+      this.rand += Math.floor((augmentColor.rand * pct) / 100);
+      return this;
+    }
+
+    applyMultiplier(multiplierColor) {
+      this.red = Math.round(this.red * multiplierColor[0] / 100);
+      this.green = Math.round(this.green * multiplierColor[1] / 100);
+      this.blue = Math.round(this.blue * multiplierColor[2] / 100);
+
+      if (multiplierColor.length > 3) {
+        this.rand = Math.round(this.rand * multiplierColor[3] / 100);
+        this.redRand = Math.round(this.redRand * multiplierColor[4] / 100);
+        this.greenRand = Math.round(this.greenRand * multiplierColor[5] / 100);
+        this.blueRand = Math.round(this.blueRand * multiplierColor[6] / 100);
+        this.dances = this.dances || multiplierColor.dances;
+      }
+      return this;
+    }
+
+    applyScalar(scalar) {
+      this.red          = Math.round(this.red        * scalar / 100);
+      this.redRand      = Math.round(this.redRand    * scalar / 100);
+      this.green        = Math.round(this.green      * scalar / 100);
+      this.greenRand    = Math.round(this.greenRand  * scalar / 100);
+      this.blue         = Math.round(this.blue       * scalar / 100);
+      this.blueRand     = Math.round(this.blueRand   * scalar / 100);
+      this.rand         = Math.round(this.rand       * scalar / 100);
+      return this;
+    }
+
+    bake() {
+      let rand;
+      rand = cosmetic.range(0, this.rand);
+      this.red   += Math.round(cosmetic.range(0, this.redRand) + rand);
+      this.green += Math.round(cosmetic.range(0, this.greenRand) + rand);
+      this.blue  += Math.round(cosmetic.range(0, this.blueRand) + rand);
+      this.redRand = this.greenRand = this.blueRand = this.rand = 0;
+      return this;
+    }
+
   }
 
   types.Color = Color;
 
-  function makeColor(...args) {
+  function make$1(...args) {
     let hex = args[0];
     if (args.length == 0) { return new types.Color(0,0,0); }
     if (args.length == 1 && hex instanceof types.Color) {
@@ -1282,25 +1345,31 @@
     return null;
   }
 
-  make.color = makeColor;
+  make.color = make$1;
 
 
-  function installColor(name, ...args) {
-  	const color = make.color(...args);
+  function addKind(name, ...args) {
+    let color;
+    if (args.length == 1 && args[0] instanceof types.Color) {
+      color = args[0];
+    }
+    else {
+      color = make.color(...args);
+    }
   	colors[name] = color;
   	return color;
   }
 
-  color.install = installColor;
+  color.install = addKind;
 
-  function colorFrom(arg) {
+  function from(arg) {
     if (typeof arg === 'string') {
       return colors[arg] || make.color(arg);
     }
     return make.color(arg);
   }
 
-  color.from = colorFrom;
+  color.from = from;
 
 
   function applyMix(baseColor, newColor, opacity) {
@@ -1330,42 +1399,21 @@
     return V_TO_CSS[Math.floor(v)];
   }
 
-  function css(color) {
-      return color.css();
+  // export function css(color) {
+  //     return color.css();
+  // }
+  //
+  // color.css = css;
+
+
+  function intensity(color) {
+    return Math.max(color[0], color[1], color[2]);
   }
 
-  color.css = css;
-
-  function equals(a, b) {
-    if (!a && !b) return true;
-    if (!a || !b) return false;
-    return a.every( (v, i) => v === b[i] ) && a.dances === b.dances;
-  }
-
-  color.equals = equals;
-
-  function clampColor(theColor) {
-    theColor.red		= utils$1.clamp(theColor.red, 0, 100);
-    theColor.green	= utils$1.clamp(theColor.green, 0, 100);
-    theColor.blue		= utils$1.clamp(theColor.blue, 0, 100);
-  }
-
-  color.clamp = clampColor;
+  color.intensity = intensity;
 
 
-  function bakeColor(/* color */theColor) {
-    let rand;
-    rand = cosmetic.range(0, theColor.rand);
-    theColor.red   += Math.round(cosmetic.range(0, theColor.redRand) + rand);
-    theColor.green += Math.round(cosmetic.range(0, theColor.greenRand) + rand);
-    theColor.blue  += Math.round(cosmetic.range(0, theColor.blueRand) + rand);
-    theColor.redRand = theColor.greenRand = theColor.blueRand = theColor.rand = 0;
-  }
-
-  color.bake = bakeColor;
-
-
-  function lightenColor(destColor, percent) {
+  function lighten(destColor, percent) {
     utils$1.clamp(percent, 0, 100);
     destColor.red =    Math.round(destColor.red + (100 - destColor.red) * percent / 100);
     destColor.green =  Math.round(destColor.green + (100 - destColor.green) * percent / 100);
@@ -1375,9 +1423,9 @@
     return destColor;
   }
 
-  color.lighten = lightenColor;
+  color.lighten = lighten;
 
-  function darkenColor(destColor, percent) {
+  function darken(destColor, percent) {
     utils$1.clamp(percent, 0, 100);
     destColor.red =    Math.round(destColor.red * (100 - percent) / 100);
     destColor.green =  Math.round(destColor.green * (100 - percent) / 100);
@@ -1387,81 +1435,43 @@
     return destColor;
   }
 
-  color.darken = darkenColor;
+  color.darken = darken;
 
 
-  function applyColorAugment(baseColor, augmentColor, weight) {
-    baseColor.red += Math.floor((augmentColor.red * weight) / 100);
-    baseColor.redRand += Math.floor((augmentColor.redRand * weight) / 100);
-    baseColor.green += Math.floor((augmentColor.green * weight) / 100);
-    baseColor.greenRand += Math.floor((augmentColor.greenRand * weight) / 100);
-    baseColor.blue += Math.floor((augmentColor.blue * weight) / 100);
-    baseColor.blueRand += Math.floor((augmentColor.blueRand * weight) / 100);
-    baseColor.rand += Math.floor((augmentColor.rand * weight) / 100);
-    return baseColor;
-  }
 
-  color.applyAugment = applyColorAugment;
-
-
-  function applyColorMultiplier(baseColor, multiplierColor) {
-    baseColor.red = Math.round(baseColor.red * multiplierColor.red / 100);
-    baseColor.redRand = Math.round(baseColor.redRand * multiplierColor.redRand / 100);
-    baseColor.green = Math.round(baseColor.green * multiplierColor.green / 100);
-    baseColor.greenRand = Math.round(baseColor.greenRand * multiplierColor.greenRand / 100);
-    baseColor.blue = Math.round(baseColor.blue * multiplierColor.blue / 100);
-    baseColor.blueRand = Math.round(baseColor.blueRand * multiplierColor.blueRand / 100);
-    baseColor.rand = Math.round(baseColor.rand * multiplierColor.rand / 100);
-    baseColor.dances = baseColor.dances || multiplierColor.dances;
-    return baseColor;
-  }
-
-  color.applyMultiplier = applyColorMultiplier;
-
-  function applyColorScalar(baseColor, scalar) {
-    baseColor.red          = Math.round(baseColor.red        * scalar / 100);
-    baseColor.redRand      = Math.round(baseColor.redRand    * scalar / 100);
-    baseColor.green        = Math.round(baseColor.green      * scalar / 100);
-    baseColor.greenRand    = Math.round(baseColor.greenRand  * scalar / 100);
-    baseColor.blue         = Math.round(baseColor.blue       * scalar / 100);
-    baseColor.blueRand     = Math.round(baseColor.blueRand   * scalar / 100);
-    baseColor.rand         = Math.round(baseColor.rand       * scalar / 100);
-  }
-
-  color.applyScalar = applyColorScalar;
 
   function _randomizeColorByPercent(input, percent) {
     return (cosmetic.range( Math.floor(input * (100 - percent) / 100), Math.floor(input * (100 + percent) / 100)));
   }
 
-  function randomizeColor(baseColor, randomizePercent) {
+  function randomize(baseColor, randomizePercent) {
     baseColor.red = _randomizeColorByPercent(baseColor.red, randomizePercent);
     baseColor.green = _randomizeColorByPercent(baseColor.green, randomizePercent);
     baseColor.blue = _randomizeColorByPercent(baseColor.blue, randomizePercent);
   }
 
-  color.randomize = randomizeColor;
+  color.randomize = randomize;
 
-  function swapColors(color1, color2) {
+  function swap(color1, color2) {
       const tempColor = color1.clone();
       color1.copy(color2);
       color2.copy(tempColor);
   }
 
-  color.swap = swapColors;
+  color.swap = swap;
 
   const MIN_COLOR_DIFF =			600;
 
   // weighted sum of the squares of the component differences. Weights are according to color perception.
-  function colorDiff(f, b)		 {
+  function diff(f, b)		 {
     return ((f.red - b.red) * (f.red - b.red) * 0.2126
       + (f.green - b.green) * (f.green - b.green) * 0.7152
       + (f.blue - b.blue) * (f.blue - b.blue) * 0.0722);
   }
 
-  color.diff = colorDiff;
+  color.diff = diff;
 
-  function normColor(baseColor, aggregateMultiplier, colorTranslation) {
+  function normalize(baseColor, aggregateMultiplier, colorTranslation) {
 
       baseColor.red += colorTranslation;
       baseColor.green += colorTranslation;
@@ -1479,12 +1489,12 @@
       baseColor.rand = 0;
   }
 
-  color.normalize = normColor;
+  color.normalize = normalize;
 
 
   // if forecolor is too similar to back, darken or lighten it and return true.
   // Assumes colors have already been baked (no random components).
-  function separateColors(/* color */ fore, /* color */ back) {
+  function separate(/* color */ fore, /* color */ back) {
     let f, b, modifier = null;
     let failsafe;
     let madeChange;
@@ -1521,55 +1531,55 @@
     }
   }
 
-  color.separate = separateColors;
+  color.separate = separate;
 
 
-  function installColorSpread(name, r, g, b) {
+  function addSpread(name, r, g, b) {
   	let baseColor;
-  	baseColor = installColor(name, r, g, b);
-  	installColor('light_' + name, color.lighten(baseColor.clone(), 25));
-  	installColor('lighter_' + name, color.lighten(baseColor.clone(), 50));
-  	installColor('lightest_' + name, color.lighten(baseColor.clone(), 75));
-  	installColor('dark_' + name, color.darken(baseColor.clone(), 25));
-  	installColor('darker_' + name, color.darken(baseColor.clone(), 50));
-  	installColor('darkest_' + name, color.darken(baseColor.clone(), 75));
+  	baseColor = addKind(name, r, g, b);
+  	addKind('light_' + name, color.lighten(baseColor.clone(), 25));
+  	addKind('lighter_' + name, color.lighten(baseColor.clone(), 50));
+  	addKind('lightest_' + name, color.lighten(baseColor.clone(), 75));
+  	addKind('dark_' + name, color.darken(baseColor.clone(), 25));
+  	addKind('darker_' + name, color.darken(baseColor.clone(), 50));
+  	addKind('darkest_' + name, color.darken(baseColor.clone(), 75));
   	return baseColor;
   }
 
-  color.installSpread = installColorSpread;
+  color.addSpread = addSpread;
 
-  installColor('white', 				100,	100,	100);
-  installColor('black', 				0,		0,		0);
+  addKind('white', 				100,	100,	100);
+  addKind('black', 				0,		0,		0);
 
-  installColorSpread('teal', 				30,		100,	100);
-  installColorSpread('brown', 			60,		40,		0);
-  installColorSpread('tan', 		    80,		70,   55); // 80, 67,		15);
-  installColorSpread('pink', 				100,	60,		66);
-  installColorSpread('gray', 				50,		50,		50);
-  installColorSpread('yellow', 			100,	100,	0);
-  installColorSpread('purple', 			100,	0,		100);
-  installColorSpread('green', 			0,		100,	0);
-  installColorSpread('orange', 			100,	50,		0);
-  installColorSpread('blue', 				0,		0,		100);
-  installColorSpread('red', 				100,	0,		0);
+  addSpread('teal', 				30,		100,	100);
+  addSpread('brown', 			60,		40,		0);
+  addSpread('tan', 		    80,		70,   55); // 80, 67,		15);
+  addSpread('pink', 				100,	60,		66);
+  addSpread('gray', 				50,		50,		50);
+  addSpread('yellow', 			100,	100,	0);
+  addSpread('purple', 			100,	0,		100);
+  addSpread('green', 			0,		100,	0);
+  addSpread('orange', 			100,	50,		0);
+  addSpread('blue', 				0,		0,		100);
+  addSpread('red', 				100,	0,		0);
 
-  installColorSpread('amber', 			100,  75,   0);
-  installColorSpread('flame', 			100,  25,   0);
-  installColorSpread('fuchsia', 		100,  0,    100);
-  installColorSpread('magenta', 		100,  0,    75);
-  installColorSpread('crimson', 		100,  0,    25);
-  installColorSpread('lime', 			  75,   100,  0);
-  installColorSpread('chartreuse',  50,   100,  0);
-  installColorSpread('sepia', 			50,   40,   25);
-  installColorSpread('violet', 		  50,   0,    100);
-  installColorSpread('han', 				25,   0,    100);
-  installColorSpread('cyan', 			  0,    100,  100);
-  installColorSpread('turquoise', 	0,    100,  75);
-  installColorSpread('sea', 				0,    100,  50);
-  installColorSpread('sky', 				0,    75,   100);
-  installColorSpread('azure', 			0,    50,   100);
-  installColorSpread('silver',      75,   75,   75);
-  installColorSpread('gold',        100,  85,   0);
+  addSpread('amber', 			100,  75,   0);
+  addSpread('flame', 			100,  25,   0);
+  addSpread('fuchsia', 		100,  0,    100);
+  addSpread('magenta', 		100,  0,    75);
+  addSpread('crimson', 		100,  0,    25);
+  addSpread('lime', 			  75,   100,  0);
+  addSpread('chartreuse',  50,   100,  0);
+  addSpread('sepia', 			50,   40,   25);
+  addSpread('violet', 		  50,   0,    100);
+  addSpread('han', 				25,   0,    100);
+  addSpread('cyan', 			  0,    100,  100);
+  addSpread('turquoise', 	0,    100,  75);
+  addSpread('sea', 				0,    100,  50);
+  addSpread('sky', 				0,    75,   100);
+  addSpread('azure', 			0,    50,   100);
+  addSpread('silver',      75,   75,   75);
+  addSpread('gold',        100,  85,   0);
 
   var text = {};
 
@@ -1815,8 +1825,8 @@
     }
 
     const copy = color.from(theColor);
-    color.bake(copy);
-    color.clamp(copy);
+    copy.bake();
+    copy.clamp();
     return String.fromCharCode(COLOR_ESCAPE, copy.red + COLOR_VALUE_INTERCEPT, copy.green + COLOR_VALUE_INTERCEPT, copy.blue + COLOR_VALUE_INTERCEPT);
   }
 
@@ -2264,7 +2274,7 @@
   			color.applyMix(this.bg, sprite.bg, opacity);
   		}
 
-      if (this.ch != ' ' && color.equals(this.fg, this.bg))
+      if (this.ch != ' ' && this.fg.equals(this.bg))
       {
         this.ch = ' ';
       }
@@ -2274,15 +2284,15 @@
   	}
 
   	equals(other) {
-  		return this.ch == other.ch && color.equals(this.fg, other.fg) && color.equals(this.bg, other.bg);
+  		return this.ch == other.ch && this.fg.equals(other.fg) && this.bg.equals(other.bg);
   	}
 
   	bake() {
   		if (this.fg && !this.fg.dances) {
-  			color.bake(this.fg);
+  			this.fg.bake();
   		}
   		if (this.bg && !this.bg.dances) {
-  			color.bake(this.bg);
+  			this.bg.bake();
   		}
   	}
   }
@@ -2643,15 +2653,15 @@
   types.Grid = Grid;
 
 
-  function makeGrid(w, h, v) {
+  function make$2(w, h, v) {
   	return new types.Grid(w, h, v);
   }
 
-  make.grid = makeGrid;
+  make.grid = make$2;
 
 
   // mallocing two-dimensional arrays! dun dun DUN!
-  function allocGrid(w, h, v) {
+  function alloc(w, h, v) {
 
   	w = w || (data.map ? data.map.width : 100);
   	h = h || (data.map ? data.map.height : 34);
@@ -2659,25 +2669,25 @@
 
   	let grid = GRID_CACHE.pop();
     if (!grid) {
-      return makeGrid(w, h, v);
+      return make$2(w, h, v);
     }
     return resizeAndClearGrid(grid, w, h, v);
   }
 
-  GRID$1.alloc = allocGrid;
+  GRID$1.alloc = alloc;
 
 
-  function freeGrid(grid) {
+  function free(grid) {
   	if (grid) {
   		GRID_CACHE.push(grid);
   	}
   }
 
-  GRID$1.free = freeGrid;
+  GRID$1.free = free;
 
 
   function resizeAndClearGrid(grid, width, height, value=0) {
-  	if (!grid) return allocGrid(width, height, () => value());
+  	if (!grid) return alloc(width, height, () => value());
 
   	const fn = (typeof value === 'function') ? value : (() => value);
 
@@ -2991,7 +3001,7 @@
       let dir;
       let buffer2;
 
-      buffer2 = allocGrid(grid.width, grid.height, 0);
+      buffer2 = alloc(grid.width, grid.height, 0);
       buffer2.copy(grid); // Make a backup of grid in buffer2, so that each generation is isolated.
 
   		let didSomething = false;
@@ -3017,7 +3027,7 @@
           }
       }
 
-      freeGrid(buffer2);
+      free(buffer2);
   		return didSomething;
   }
 
@@ -3252,10 +3262,11 @@
       if (typeof bg === 'string') { bg = colors[bg]; }
       width = Math.min(width, this.width - x);
       if (text.length(text$1) <= width) {
-        this.plotText(x, y, text$1, fg, bg);
+        this.plotLine(x, y, width, text$1, fg, bg);
         return y + 1;
       }
       let first = true;
+      let indent = opts.indent || 0;
       let start = 0;
       let last = 0;
       for(let index = 0; index < text$1.length; ++index) {
@@ -3265,9 +3276,9 @@
         }
         if ((index - start >= width) || (ch === '\n')) {
           const sub = text$1.substring(start, last);
-          this.plotText(x, y++, sub, fg, bg);
+          this.plotLine(x, y++, width, sub, fg, bg);
           if (first) {
-            x += (opts.indent || 0);
+            x += indent;
             first = false;
           }
           start = last;
@@ -3279,7 +3290,7 @@
 
       if (start < text$1.length - 1) {
         const sub = text$1.substring(start);
-        this.plotText(x, y++, sub, fg, bg);
+        this.plotLine(x, y++, width, sub, fg, bg);
       }
       return y;
     }
@@ -3301,8 +3312,8 @@
   	highlight(x, y, highlightColor, strength)
   	{
   		const cell = this[x][y];
-  		color.applyAugment(cell.fg, highlightColor, strength);
-  		color.applyAugment(cell.bg, highlightColor, strength);
+  		cell.fg.add(highlightColor, strength);
+  		cell.bg.add(highlightColor, strength);
   		cell.needsUpdate = true;
       this.needsUpdate = true;
   	}
@@ -3439,7 +3450,7 @@
       const ctx = this.ctx;
       const tileSize = this.tileSize;// * this.displayRatio;
 
-      const backCss = color.css(cell.bg);
+      const backCss = cell.bg.css();
       ctx.fillStyle = backCss;
 
       ctx.fillRect(
@@ -3450,7 +3461,7 @@
       );
 
       if (cell.ch && cell.ch !== ' ') {
-        const foreCss = color.css(cell.fg);
+        const foreCss = cell.fg.css();
         ctx.fillStyle = foreCss;
 
         const textX = x * tileSize + Math.floor(tileSize * 0.5);
@@ -5012,7 +5023,7 @@
       if (feat.tile
           && (tile.flags & (Tile.T_IS_DEEP_WATER | Tile.T_LAVA | Tile.T_AUTO_DESCENT)))
   		{
-          data.updatedMapToShoreThisTurn = false;
+          data.updateMapToShoreThisTurn = false;
       }
 
       // awaken dormant creatures?
@@ -5426,12 +5437,16 @@
       this.item = null;
       this.data = {};
 
-      this.flags = Cell.VISIBLE | Cell.IN_FOV | Cell.NEEDS_REDRAW | Cell.CELL_CHANGED;	// non-terrain cell flags
+      this.flags = Cell.CELL_DEFAULT;	// non-terrain cell flags
       this.mechFlags = 0;
       this.gasVolume = 0;						// quantity of gas in cell
       this.liquidVolume = 0;
       this.machineNumber = 0;
       this.memory.nullify();
+
+      this.light = [100,100,100];
+      this.oldLight = [100,100,100];
+      this.glowLight = [100,100,100];
     }
 
     nullifyLayers(nullLiquid, nullSurface, nullGas) {
@@ -5479,9 +5494,10 @@
       return this.hasTileMechFlag(TileMech.TM_LIST_IN_SIDEBAR);
     }
 
-    hasVisibleLight() { return true; }  // TODO
-    isDark() { return false; }  // TODO
-    lightChanged() { return this.flags & Cell.LIGHT_CHANGED; }
+    // TODO - Use functions in LIGHT to check these on cell.light directly???
+    hasVisibleLight() { return color.intensity(this.light) > def.INTENSITY_DARK; }  // TODO
+    isDark() { return color.intensity(this.light) <= def.INTENSITY_DARK; }  // TODO
+    lightChanged() { return this.flags & Cell.LIGHT_CHANGED; }  // TODO
 
     tile(layer=0) {
       const id = this.layers[layer] || 0;
@@ -5745,7 +5761,7 @@
 
       // this.flags |= (Flags.NEEDS_REDRAW | Flags.CELL_CHANGED);
       this.flags |= (Cell.CELL_CHANGED);
-      return (oldTile.glowLight !== tile.glowLight);
+      return (oldTile.light !== tile.light);
     }
 
     clearLayer(layer) {
@@ -5876,6 +5892,7 @@
       return false;
     }
 
+
     // MEMORY
 
     storeMemory() {
@@ -5915,6 +5932,7 @@
     const memory = cell.memory.sprite;
     memory.blackOut();
 
+    let needDistinctness = false;
     for( let tile of cell.tiles() ) {
       let alpha = 100;
       if (tile.layer == TileLayer$1.LIQUID) {
@@ -5924,6 +5942,9 @@
         alpha = utils$1.clamp(cell.gasVolume || 0, 20, 100);
       }
       memory.plot(tile.sprite, alpha);
+      if (tile.mechFlags & TileMech.TM_VISUALLY_DISTINCT) {
+        needDistinctness = true;
+      }
     }
 
     let current = cell.sprites;
@@ -5932,7 +5953,12 @@
       current = current.next;
     }
 
+    memory.fg.applyMultiplier(cell.light);
+    memory.bg.applyMultiplier(cell.light);
     memory.bake();
+    if (needDistinctness) {
+      color.separate(memory.fg, memory.bg);
+    }
     dest.plot(memory);
     return true;
   }
@@ -5955,13 +5981,21 @@
   		this.config.tick = this.config.tick || 100;
   		this.actors = null;
   		this.items = null;
+      this.flags = Map.toFlag(Map.MAP_DEFAULT, opts.flag);
+  		this.ambientLight = null;
+  		const ambient = (opts.ambient || opts.ambientLight || opts.light);
+  		if (ambient) {
+  			this.ambientLight = make.color(ambient);
+  		}
+      this.lights = null;
   	}
 
   	nullify() { this.cells.forEach( (c) => c.nullify() ); }
   	dump(fmt) { this.cells.dump(fmt || ((c) => c.dump()) ); }
   	cell(x, y)   { return this.cells[x][y]; }
 
-  	forEach(fn) { this.cells.forEach( (c, i, j) => fn(c, i, j, this) ); }
+    eachCell(fn) { this.cells.forEach( (c, i, j) => fn(c, i, j, this) ); }
+  	forEach(fn)  { this.cells.forEach( (c, i, j) => fn(c, i, j, this) ); }
   	forRect(x, y, w, h, fn) { this.cells.forRect(x, y, w, h, (c, i, j) => fn(c, i, j, this) ); }
   	eachNeighbor(x, y, fn, only4dirs) { this.cells.eachNeighbor(x, y, (c, i, j) => fn(c, i, j, this), only4dirs); }
 
@@ -6008,7 +6042,7 @@
   	isVisible(x, y)    { return this.cell(x, y).isVisible(); }
   	isAnyKindOfVisible(x, y) { return this.cell(x, y).isAnyKindOfVisible(); }
     isOrWasAnyKindOfVisible(x, y) { return this.cell(x, y).isOrWasAnyKindOfVisible(); }
-  	hasVisibleLight(x, y) { return (this.flags & Map.MAP_ALWAYS_LIT) || this.cell(x, y).hasVisibleLight(); }
+  	hasVisibleLight(x, y) { return this.cell(x, y).hasVisibleLight(); }
 
   	setFlags(mapFlag, cellFlag, cellMechFlag) {
   		if (mapFlag) {
@@ -6075,7 +6109,7 @@
   	setTile(x, y, tileId, volume=0) {
   		const cell = this.cell(x, y);
   		if (cell.setTile(tileId, volume)) {
-  			this.flags &= ~(Map.MAP_STABLE_GLOW_LIGHTS);
+  			this.flags &= ~(Map.MAP_STABLE_GLOW_LIGHTS | Map.MAP_STABLE_LIGHTS);
   		}
   	  return true;
   	}
@@ -6242,6 +6276,32 @@
   		return [ x, y ];
   	}
 
+    // LIGHT
+
+    addLight(x, y, light) {
+      const info = { x, y, light, next: this.lights };
+      this.lights = info;
+      this.flags &= ~(Map.MAP_STABLE_LIGHTS | Map.MAP_STABLE_GLOW_LIGHTS);
+      return info;
+    }
+
+    removeLight(info) {
+      utils$1.removeFromChain(this, 'lights', info);
+      this.flags &= ~(Map.MAP_STABLE_LIGHTS | Map.MAP_STABLE_GLOW_LIGHTS);
+    }
+
+    eachLight( fn ) {
+      utils$1.eachChain(this.lights, (info) => fn(info.light, info.x, info.y));
+      this.eachCell( (cell, x, y) => {
+        for(let tile of cell.tiles() ) {
+          if (tile.light) {
+            fn(tile.light, x, y);
+          }
+        }
+      });
+    }
+
+
   	// FX
 
   	addFx(x, y, anim) {
@@ -6305,6 +6365,10 @@
   		// 	cell.flags |= Flags.Cell.MONSTER_DETECTED;
   		// }
 
+      if (theActor.light || theActor.kind.light) {
+        this.flags &= ~(Map.MAP_STABLE_LIGHTS);
+      }
+
   		theActor.x = x;
   		theActor.y = y;
       this.redrawCell(cell);
@@ -6334,6 +6398,10 @@
   			this.addActor(actor.x, actor.y, actor);
   			return false;
   		}
+      if (actor.light || actor.kind.light) {
+        this.flags &= ~(Map.MAP_STABLE_LIGHTS);
+      }
+
   		return true;
   	}
 
@@ -6344,6 +6412,11 @@
         utils$1.removeFromChain(this, 'actors', actor);
   			cell.flags &= ~Cell.HAS_ACTOR;
   			cell.removeSprite(actor.kind.sprite);
+
+        if (actor.light || actor.kind.light) {
+          this.flags &= ~(Map.MAP_STABLE_LIGHTS);
+        }
+
         this.redrawCell(cell);
   		}
   	}
@@ -6395,6 +6468,11 @@
 
   		cell.addSprite(TileLayer$2.ITEM, theItem.kind.sprite);
   		cell.flags |= (Cell.HAS_ITEM);
+
+      if (theItem.light || theItem.kind.light) {
+        this.flags &= ~(Map.MAP_STABLE_LIGHTS);
+      }
+
       this.redrawCell(cell);
 
   		if ( ((theItem.flags & Item.ITEM_MAGIC_DETECTED) && GW.item.magicChar(theItem)) ||
@@ -6430,6 +6508,10 @@
 
   		cell.item = null;
       utils$1.removeFromChain(this, 'items', theItem);
+
+      if (theItem.light || theItem.kind.light) {
+        this.flags &= ~(Map.MAP_STABLE_LIGHTS);
+      }
 
   		cell.flags &= ~(Cell.HAS_ITEM | Cell.ITEM_DETECTED);
       this.redrawCell(cell);
@@ -6850,6 +6932,336 @@
   }
 
   map.getLine = getLine;
+
+  def.INTENSITY_DARK = 20; // less than 20% for highest color in rgb
+
+  const LIGHT_COMPONENTS = make$1();
+
+  class Light {
+  	constructor(color, range, fadeTo, pass) {
+  		this.color = from(color) || null;	/* color */
+  		this.radius = make.range(range || 1);
+  		this.fadeTo = Number.parseInt(fadeTo) || 0;
+  		this.passThroughActors = (pass && (pass !== 'false')) ? true : false; // generally no, but miner light does
+  	}
+
+  	copy(other) {
+  		this.color = other.color;
+  		this.radius.copy(other.radius);
+  		this.fadeTo = other.fadeTo;
+  		this.passThroughActors = other.passThroughActors;
+  	}
+
+
+    // Returns true if any part of the light hit cells that are in the player's field of view.
+    paint( map, x, y, maintainShadows=false, isMinersLight=false) {
+
+    	if (!map) return;
+
+    	let k;
+    	// let colorComponents = [0,0,0];
+      let lightMultiplier;
+
+    	let radius = this.radius.value();
+    	let outerRadius = Math.ceil(radius);
+
+    	// calcLightComponents(colorComponents, this);
+      LIGHT_COMPONENTS.copy(this.color).bake();
+
+      // console.log('paint', LIGHT_COMPONENTS.css(), x, y, outerRadius);
+
+    	// the miner's light does not dispel IS_IN_SHADOW,
+    	// so the player can be in shadow despite casting his own light.
+    	const dispelShadows = !maintainShadows && (intensity(LIGHT_COMPONENTS) > def.INTENSITY_DARK);
+    	const fadeToPercent = this.fadeTo;
+
+      const grid = alloc(map.width, map.height, 0);
+    	map.calcFov(grid, x, y, outerRadius, (this.passThroughActors ? 0 : Cell.HAS_ACTOR), Tile.T_OBSTRUCTS_VISION, !isMinersLight);
+
+      let overlappedFieldOfView = false;
+
+      grid.forCircle(x, y, outerRadius, (v, i, j) => {
+        if (!v) return;
+        const cell = map.cell(i, j);
+
+        lightMultiplier = Math.floor(100 - (100 - fadeToPercent) * (distanceBetween(x, y, i, j) / radius));
+        for (k=0; k<3; k++) {
+          cell.light[k] += Math.floor(LIGHT_COMPONENTS[k] * lightMultiplier / 100);
+        }
+        if (dispelShadows) {
+          cell.flags &= ~Cell.IS_IN_SHADOW;
+        }
+        if (cell.flags & (Cell.IN_FOV | Cell.ANY_KIND_OF_VISIBLE)) {
+            overlappedFieldOfView = true;
+        }
+
+        // console.log(i, j, lightMultiplier, cell.light);
+      });
+
+    	if (dispelShadows) {
+        const cell = map.cell(x, y);
+    		cell.flags &= ~Cell.IS_IN_SHADOW;
+    	}
+
+    	free(grid);
+      return overlappedFieldOfView;
+    }
+
+  }
+
+  types.Light = Light;
+
+
+  function make$3(color, radius, fadeTo, pass) {
+
+  	if (arguments.length == 1) {
+  		if (color && color.color) {
+  			pass = color.passThroughActors;
+  			fadeTo = color.fadeTo;
+  			radius = color.radius;
+  			color = color.color;
+  		}
+  		else if (typeof color === 'string') {
+  			([color, radius, fadeTo, pass] = color.split(/[,|]/).map( (t) => t.trim() ));
+  		}
+  		else if (Array.isArray(color)) {
+  			([color, radius, fadeTo, pass] = color);
+  		}
+  	}
+  	else {
+  		([color, radius, fadeTo, pass] = arguments);
+  	}
+
+  	radius = radius || 0;
+  	return new types.Light(color, radius, fadeTo, pass);
+  }
+
+  make.light = make$3;
+
+  const LIGHT_SOURCES = lights;
+
+
+  // TODO - USE STRINGS FOR LIGHT SOURCE IDS???
+  //      - addLightKind(id, source) { LIIGHT_SOURCES[id] = source; }
+  //      - LIGHT_SOURCES = {};
+  function addKind$1(id, ...args) {
+  	let source = args[0];
+  	if (source && !(source instanceof types.Light)) {
+  		source = make.light(...args);
+  	}
+  	LIGHT_SOURCES[id] = source;
+  	if (source) source.id = id;
+  	return source;
+  }
+
+
+
+  function addKinds(config) {
+  	const entries = Object.entries(config);
+  	entries.forEach( ([name,info]) => {
+  		addKind$1(name, info);
+  	});
+  }
+
+
+
+
+  function from$1(...args) {
+  	if (args.length == 1 && typeof args[0] === 'string' ) {
+  		const cached = LIGHT_SOURCES[args[0]];
+  		if (cached) return cached;
+  	}
+  	return make$3(...args);
+  }
+
+
+
+  // export function calcLightComponents(colorComponents, theLight) {
+  // 	const randComponent = cosmetic.range(0, theLight.color.rand);
+  // 	colorComponents[0] = randComponent + theLight.color.red + cosmetic.range(0, theLight.color.redRand);
+  // 	colorComponents[1] = randComponent + theLight.color.green + cosmetic.range(0, theLight.color.greenRand);
+  // 	colorComponents[2] = randComponent + theLight.color.blue + cosmetic.range(0, theLight.color.blueRand);
+  // }
+
+
+
+
+  function updateDisplayDetail(map) {
+
+    map.eachCell( (cell, i, j) => {
+      // clear light flags
+      cell.flags &= ~(Cell.CELL_LIT | Cell.CELL_DARK | Cell.LIGHT_CHANGED);
+
+      if (cell.light.some( (v, i) => v !== cell.oldLight[i])) {
+        cell.flags |= Cell.LIGHT_CHANGED;
+      }
+
+      if (cell.isDark())
+      {
+        cell.flags |= Cell.CELL_DARK;
+      } else if (!(cell.flags & Cell.IS_IN_SHADOW)) {
+        cell.flags |= Cell.CELL_LIT;
+      }
+    });
+  }
+
+  function backUpLighting(map, lights) {
+  	let k;
+    map.eachCell( (cell, i, j) => {
+      for (k=0; k<3; k++) {
+        lights[i][j][k] = cell.light[k];
+      }
+    });
+  }
+
+  function restoreLighting(map, lights) {
+  	let k;
+    map.eachCell( (cell, i, j) => {
+      for (k=0; k<3; k++) {
+        cell.light[k] = lights[i][j][k];
+      }
+    });
+  }
+
+  function recordOldLights(map) {
+    let k;
+    map.eachCell( (cell) => {
+      for (k=0; k<3; k++) {
+  			cell.oldLight[k] = cell.light[k];
+  		}
+    });
+  }
+
+  function zeroOutLights(map) {
+  	let k;
+    const light = map.ambientLight || [0,0,0];
+    map.eachCell( (cell, i, j) => {
+      for (k=0; k<3; k++) {
+        cell.light[k] = light[k];
+      }
+      cell.flags |= Cell.IS_IN_SHADOW;
+    });
+  }
+
+  function recordGlowLights(map) {
+    let k;
+    map.eachCell( (cell) => {
+      for (k=0; k<3; k++) {
+  			cell.glowLight[k] = cell.light[k];
+  		}
+    });
+  }
+
+  function restoreGlowLights(map) {
+  	let k;
+    map.eachCell( (cell) => {
+      for (k=0; k<3; k++) {
+        cell.light[k] = cell.glowLight[k];
+      }
+    });
+  }
+
+
+  function updateLighting(map) {
+
+    if (map.flags & Map.MAP_STABLE_LIGHTS) return false;
+
+  	// Copy Light over oldLight
+    recordOldLights(map);
+
+    // and then zero out Light.
+  	zeroOutLights(map);
+
+  	if (map.flags & Map.MAP_STABLE_GLOW_LIGHTS) {
+  		restoreGlowLights(map);
+  	}
+  	else {
+  		// GW.debug.log('painting glow lights.');
+  		// Paint all glowing tiles.
+      map.eachLight( (id, x, y) => {
+        const light = LIGHT_SOURCES[id];
+        if (light) {
+          light.paint(map, x, y);
+        }
+      });
+
+  		recordGlowLights(map);
+  		map.flags |= Map.MAP_STABLE_GLOW_LIGHTS;
+  	}
+
+  	// Cycle through monsters and paint their lights:
+    utils$1.eachChain(map.actors, (actor) => {
+      if (actor.kind.light) {
+  			actor.kind.light.paint(map, actor.x, actor.y);
+  		}
+      // if (monst.mutationIndex >= 0 && mutationCatalog[monst.mutationIndex].light != LIGHT_SOURCES['NO_LIGHT']) {
+      //     paint(map, mutationCatalog[monst.mutationIndex].light, actor.x, actor.y, false, false);
+      // }
+  		// if (actor.isBurning()) { // monst.status.burning && !(actor.kind.flags & Flags.Actor.AF_FIERY)) {
+  		// 	paint(map, LIGHT_SOURCES.BURNING_CREATURE, actor.x, actor.y, false, false);
+  		// }
+  		// if (actor.isTelepathicallyRevealed()) {
+  		// 	paint(map, LIGHT_SOURCES['TELEPATHY_LIGHT'], actor.x, actor.y, false, true);
+  		// }
+    });
+
+  	// Also paint telepathy lights for dormant monsters.
+    // for (monst of map.dormantMonsters) {
+    //     if (monsterTelepathicallyRevealed(monst)) {
+    //         paint(map, LIGHT_SOURCES['TELEPATHY_LIGHT'], monst.xLoc, monst.yLoc, false, true);
+    //     }
+    // }
+
+  	updateDisplayDetail(map);
+
+  	// Miner's light:
+    const PLAYER = data.player;
+    if (PLAYER) {
+      const MINERS_LIGHT = LIGHT_SOURCES.MINERS_LIGHT;
+      if (MINERS_LIGHT && MINERS_LIGHT.radius) {
+        MINERS_LIGHT.paint(map, PLAYER.x, PLAYER.y, true, true);
+      }
+    }
+
+    map.flags |= Map.MAP_STABLE_LIGHTS;
+
+    // if (PLAYER.status.invisible) {
+    //     PLAYER.info.foreColor = playerInvisibleColor;
+  	// } else if (playerInDarkness()) {
+  	// 	PLAYER.info.foreColor = playerInDarknessColor;
+  	// } else if (pmap[PLAYER.xLoc][PLAYER.yLoc].flags & IS_IN_SHADOW) {
+  	// 	PLAYER.info.foreColor = playerInShadowColor;
+  	// } else {
+  	// 	PLAYER.info.foreColor = playerInLightColor;
+  	// }
+
+    return true;
+  }
+
+
+  // TODO - Move and make more generic
+  function playerInDarkness(map, PLAYER, darkColor) {
+    const cell = map.cell(PLAYER.x, PLAYER.y);
+  	return (cell.light[0] + 10 < darkColor.red
+  			&& cell.light[1] + 10 < darkColor.green
+  			&& cell.light[2] + 10 < darkColor.blue);
+  }
+
+  var light = /*#__PURE__*/Object.freeze({
+    __proto__: null,
+    make: make$3,
+    addKind: addKind$1,
+    addKinds: addKinds,
+    from: from$1,
+    backUpLighting: backUpLighting,
+    restoreLighting: restoreLighting,
+    recordOldLights: recordOldLights,
+    zeroOutLights: zeroOutLights,
+    recordGlowLights: recordGlowLights,
+    restoreGlowLights: restoreGlowLights,
+    updateLighting: updateLighting,
+    playerInDarkness: playerInDarkness
+  });
 
   var visibility = {};
 
@@ -7382,6 +7794,7 @@
     if (PLAYER.isDead() || data.gameHasEnded) {
       return 0;
     }
+    updateLighting(data.map);
     await ui.updateIfRequested();
     await startActorTurn(PLAYER);
 
@@ -7609,6 +8022,8 @@
       visibility.update(map, data.player.x, data.player.y);
     }
 
+    updateLighting(map);
+
     utils$1.eachChain(map.actors, (actor) => {
       game.queueActor(actor);
     });
@@ -7787,7 +8202,7 @@
         priority: -1,
         sprite: make.sprite(),
         events: {},
-        light: null,
+        light: null,  // id of light for this tile
         flavor: null,
         name: '',
         article: 'a',
@@ -7879,9 +8294,9 @@
       const actor = cell.actor;
       const isPlayer = actor ? actor.isPlayer() : false;
 
-      if (tile.flags & Tile.T_LAVA && actor) {
+      if (this.flags & Tile.T_LAVA && actor) {
         if (!cell.hasTileFlag(Tile.T_BRIDGE) && !actor.status.levitating) {
-          actor.kill();
+          actor.kind.kill(actor);
           await game.gameOver(false, colors.red, 'you fall into lava and perish.');
           return true;
         }
@@ -10230,6 +10645,12 @@
   var INTERFACE_OPACITY = 90;
   let COMBAT_MESSAGE = null;
 
+  function needsRedraw() {
+    NEEDS_UPDATE = true;
+  }
+
+  message.needsRedraw = needsRedraw;
+
 
   function setup(opts) {
     opts.height = opts.height || 1;
@@ -10593,6 +11014,12 @@
   }
 
   sidebar$1.setup = setup$2;
+
+  function needsRedraw$1() {
+    SIDEBAR_CHANGED = true;
+  }
+
+  sidebar$1.needsRedraw = needsRedraw$1;
 
 
   function sortSidebarItems(items) {
@@ -11017,8 +11444,8 @@
   		color.applyMix(monstApp.bg, bg, 50);
   	} else if (highlight) {
   		// Does this do anything?
-  		color.applyAugment(monstApp.fg, bg, 100);
-  		color.applyAugment(monstApp.bg, bg, 100);
+  		monstApp.fg.add(bg, 100);
+  		monstApp.bg.add(bg, 100);
   	}
 
   	//patch to indicate monster is carrying item
@@ -11187,7 +11614,7 @@
     const cell$1 = entry.entity;
     const textColor = colors.flavorText.clone();
     if (dim) {
-        color.applyScalar(textColor, 50);
+        textColor.applyScalar(50);
     }
 
   	if (y >= SIDE_BOUNDS.height - 1) {
@@ -11311,7 +11738,13 @@
   function drawFlavor(buffer) {
     if (!NEED_FLAVOR_UPDATE || !FLAVOR_BOUNDS) return;
     const color = IS_PROMPT ? flavorPromptColor : flavorTextColor;
-    buffer.plotLine(FLAVOR_BOUNDS.x, FLAVOR_BOUNDS.y, FLAVOR_BOUNDS.width, FLAVOR_TEXT, color, colors.black);
+    if (text.length(FLAVOR_TEXT) > FLAVOR_BOUNDS.width) {
+      buffer.wrapText(FLAVOR_BOUNDS.x, FLAVOR_BOUNDS.y, FLAVOR_BOUNDS.width, FLAVOR_TEXT, color, colors.black);
+      message.needsRedraw();
+    }
+    else {
+      buffer.plotLine(FLAVOR_BOUNDS.x, FLAVOR_BOUNDS.y, FLAVOR_BOUNDS.width, FLAVOR_TEXT, color, colors.black);
+    }
   }
 
   flavor.draw = drawFlavor;
@@ -12128,7 +12561,7 @@
   addTileKind('DOOR', {
     sprite: { ch: '+', fg: [100,40,40], bg: [30,60,60] },
     priority: 30,
-    flags: 'T_IS_DOOR, T_OBSTRUCTS_TILE_EFFECTS, T_OBSTRUCTS_ITEMS, T_OBSTRUCTS_VISION',
+    flags: 'T_IS_DOOR, T_OBSTRUCTS_TILE_EFFECTS, T_OBSTRUCTS_ITEMS, T_OBSTRUCTS_VISION, TM_VISUALLY_DISTINCT',
     article: 'a',
     events: {
       enter: { tile: 'DOOR_OPEN' },
@@ -12157,20 +12590,20 @@
   addTileKind('BRIDGE', {
     sprite: { ch: '=', fg: [100,40,40] },
     priority: 40, layer: 'SURFACE',
-    flags: 'T_BRIDGE',
+    flags: 'T_BRIDGE, TM_VISUALLY_DISTINCT',
     article: 'a'
   });
 
   addTileKind('UP_STAIRS',   {
     sprite: { ch: '<', fg: [100,40,40], bg: [100,60,20] },
     priority: 200,
-    flags: 'T_UP_STAIRS, T_STAIR_BLOCKERS',
+    flags: 'T_UP_STAIRS, T_STAIR_BLOCKERS, TM_VISUALLY_DISTINCT',
     name: 'upward staircase', article: 'an'
   });
   addTileKind('DOWN_STAIRS', {
     sprite: { ch: '>', fg: [100,40,40], bg: [100,60,20] },
     priority: 200,
-    flags: 'T_DOWN_STAIRS, T_STAIR_BLOCKERS',
+    flags: 'T_DOWN_STAIRS, T_STAIR_BLOCKERS, TM_VISUALLY_DISTINCT',
     name: 'downward staircase', article: 'a'
   });
 
@@ -12214,6 +12647,8 @@
   exports.io = io;
   exports.item = item;
   exports.itemKinds = itemKinds;
+  exports.light = light;
+  exports.lights = lights;
   exports.make = make;
   exports.map = map;
   exports.maps = maps;

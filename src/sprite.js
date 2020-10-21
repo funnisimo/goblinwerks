@@ -145,7 +145,7 @@ export class Sprite {
 			COLOR.applyMix(this.bg, sprite.bg, opacity);
 		}
 
-    if (this.ch != ' ' && COLOR.equals(this.fg, this.bg))
+    if (this.ch != ' ' && this.fg.equals(this.bg))
     {
       this.ch = ' ';
     }
@@ -155,15 +155,15 @@ export class Sprite {
 	}
 
 	equals(other) {
-		return this.ch == other.ch && COLOR.equals(this.fg, other.fg) && COLOR.equals(this.bg, other.bg);
+		return this.ch == other.ch && this.fg.equals(other.fg) && this.bg.equals(other.bg);
 	}
 
 	bake() {
 		if (this.fg && !this.fg.dances) {
-			COLOR.bake(this.fg);
+			this.fg.bake();
 		}
 		if (this.bg && !this.bg.dances) {
-			COLOR.bake(this.bg);
+			this.bg.bake();
 		}
 	}
 }

@@ -248,8 +248,8 @@ function encodeColor(theColor) {
   }
 
   const copy = COLOR.from(theColor);
-  COLOR.bake(copy);
-  COLOR.clamp(copy);
+  copy.bake();
+  copy.clamp();
   return String.fromCharCode(COLOR_ESCAPE, copy.red + COLOR_VALUE_INTERCEPT, copy.green + COLOR_VALUE_INTERCEPT, copy.blue + COLOR_VALUE_INTERCEPT);
 }
 

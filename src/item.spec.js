@@ -37,7 +37,7 @@ describe('GW.item', () => {
       expect(BOX.sprite.fg).toEqual(GW.colors.brown);
       expect(BOX.sprite.bg).toBeNull();
       expect(BOX.sprite.opacity).toEqual(100);
-      expect(GW.color.css(BOX.sprite.fg)).toEqual(GW.color.css(GW.colors.brown));
+      expect(BOX.sprite.fg.css()).toEqual(GW.colors.brown.css());
 
       expect(BOX.actionFlags & GW.flags.action.A_PUSH).toBeTruthy();
       expect(BOX.actionFlags & GW.flags.action.A_PULL).toBeTruthy();

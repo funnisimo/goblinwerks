@@ -272,7 +272,7 @@ export function makeRange(config, rng) {
     }
 		else if (results[7]) {
       const v = Number.parseFloat(results[7]);
-      return new Range(1, v, 1, rng);
+      return new Range(v, v, 1, rng);
     }
   }
 

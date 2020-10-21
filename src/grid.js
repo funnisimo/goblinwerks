@@ -1,6 +1,6 @@
 
 import { random } from './random.js';
-import { def, data as DATA, types, make, utils as UTILS } from './gw.js';
+import { def, data as DATA, types, make as MAKE, utils as UTILS } from './gw.js';
 
 
 const GRID_CACHE = [];
@@ -25,7 +25,7 @@ export function makeArray(l, fn) {
 	return arr;
 }
 
-make.array = makeArray;
+MAKE.array = makeArray;
 
 
 export class Grid extends Array {
@@ -344,15 +344,15 @@ export class Grid extends Array {
 types.Grid = Grid;
 
 
-export function makeGrid(w, h, v) {
+export function make(w, h, v) {
 	return new types.Grid(w, h, v);
 }
 
-make.grid = makeGrid;
+MAKE.grid = make;
 
 
 // mallocing two-dimensional arrays! dun dun DUN!
-export function allocGrid(w, h, v) {
+export function alloc(w, h, v) {
 
 	w = w || (DATA.map ? DATA.map.width : 100);
 	h = h || (DATA.map ? DATA.map.height : 34);
@@ -364,15 +364,15 @@ export function allocGrid(w, h, v) {
 	let grid = GRID_CACHE.pop();
   if (!grid) {
 		++GRID_CREATE_COUNT;
-    return makeGrid(w, h, v);
+    return make(w, h, v);
   }
   return resizeAndClearGrid(grid, w, h, v);
 }
 
-GRID.alloc = allocGrid;
+GRID.alloc = alloc;
 
 
-export function freeGrid(grid) {
+export function free(grid) {
 	if (grid) {
 		GRID_CACHE.push(grid);
 		++GRID_FREE_COUNT;
@@ -380,12 +380,12 @@ export function freeGrid(grid) {
 	}
 }
 
-GRID.free = freeGrid;
+GRID.free = free;
 
 
 function resizeAndClearGrid(grid, width, height, value=0) {
   let i;
-	if (!grid) return allocGrid(width, height, () => value());
+	if (!grid) return alloc(width, height, () => value());
 
 	const fn = (typeof value === 'function') ? value : (() => value);
 
@@ -699,7 +699,7 @@ function cellularAutomataRound(grid, birthParameters /* char[9] */, survivalPara
     let dir;
     let buffer2;
 
-    buffer2 = allocGrid(grid.width, grid.height, 0);
+    buffer2 = alloc(grid.width, grid.height, 0);
     buffer2.copy(grid); // Make a backup of grid in buffer2, so that each generation is isolated.
 
 		let didSomething = false;
@@ -727,7 +727,7 @@ function cellularAutomataRound(grid, birthParameters /* char[9] */, survivalPara
         }
     }
 
-    freeGrid(buffer2);
+    free(buffer2);
 		return didSomething;
 }
 

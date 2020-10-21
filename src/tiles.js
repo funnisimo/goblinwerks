@@ -22,7 +22,7 @@ addTileKind('FLOOR', {
 addTileKind('DOOR', {
   sprite: { ch: '+', fg: [100,40,40], bg: [30,60,60] },
   priority: 30,
-  flags: 'T_IS_DOOR, T_OBSTRUCTS_TILE_EFFECTS, T_OBSTRUCTS_ITEMS, T_OBSTRUCTS_VISION',
+  flags: 'T_IS_DOOR, T_OBSTRUCTS_TILE_EFFECTS, T_OBSTRUCTS_ITEMS, T_OBSTRUCTS_VISION, TM_VISUALLY_DISTINCT',
   article: 'a',
   events: {
     enter: { tile: 'DOOR_OPEN' },
@@ -51,20 +51,20 @@ addTileKind('DOOR_OPEN_ALWAYS',  "DOOR_OPEN", {
 addTileKind('BRIDGE', {
   sprite: { ch: '=', fg: [100,40,40] },
   priority: 40, layer: 'SURFACE',
-  flags: 'T_BRIDGE',
+  flags: 'T_BRIDGE, TM_VISUALLY_DISTINCT',
   article: 'a'
 });
 
 addTileKind('UP_STAIRS',   {
   sprite: { ch: '<', fg: [100,40,40], bg: [100,60,20] },
   priority: 200,
-  flags: 'T_UP_STAIRS, T_STAIR_BLOCKERS',
+  flags: 'T_UP_STAIRS, T_STAIR_BLOCKERS, TM_VISUALLY_DISTINCT',
   name: 'upward staircase', article: 'an'
 });
 addTileKind('DOWN_STAIRS', {
   sprite: { ch: '>', fg: [100,40,40], bg: [100,60,20] },
   priority: 200,
-  flags: 'T_DOWN_STAIRS, T_STAIR_BLOCKERS',
+  flags: 'T_DOWN_STAIRS, T_STAIR_BLOCKERS, TM_VISUALLY_DISTINCT',
   name: 'downward staircase', article: 'a'
 });
 

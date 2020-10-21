@@ -271,7 +271,7 @@ export async function spawnTileEvent(feat, ctx) {
     if (feat.tile
         && (tile.flags & (Flags.Tile.T_IS_DEEP_WATER | Flags.Tile.T_LAVA | Flags.Tile.T_AUTO_DESCENT)))
 		{
-        DATA.updatedMapToShoreThisTurn = false;
+        DATA.updateMapToShoreThisTurn = false;
     }
 
     // awaken dormant creatures?

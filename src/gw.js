@@ -31,6 +31,7 @@ export var config = {
 };
 export var data = {};
 export var maps = {};
+export var lights = {};
 
 // DIRS are organized clockwise
 // - first 4 are arrow directions

@@ -19,7 +19,7 @@ export class Tile {
       priority: -1,
       sprite: make.sprite(),
       events: {},
-      light: null,
+      light: null,  // id of light for this tile
       flavor: null,
       name: '',
       article: 'a',
@@ -111,9 +111,9 @@ export class Tile {
     const actor = cell.actor;
     const isPlayer = actor ? actor.isPlayer() : false;
 
-    if (tile.flags & Flags.Tile.T_LAVA && actor) {
+    if (this.flags & Flags.Tile.T_LAVA && actor) {
       if (!cell.hasTileFlag(Flags.Tile.T_BRIDGE) && !actor.status.levitating) {
-        actor.kill();
+        actor.kind.kill(actor);
         await GAME.gameOver(false, COLORS.red, 'you fall into lava and perish.');
         return true;
       }
