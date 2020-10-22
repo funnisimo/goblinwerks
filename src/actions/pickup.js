@@ -28,5 +28,7 @@ export async function pickupItem(actor, item, ctx) {
   if (success instanceof types.Item) {
     map.addItem(item.x, item.y, success);
   }
+
+  actor.endTurn();
   return true;
 }

@@ -32,7 +32,6 @@ async function bash(e) {
   if (!await bashItem(actor, choice, { map, actor, x: choice.x, y: choice.y, item: choice })) {
     return false;
   }
-  actor.endTurn();
   return true;
 }
 

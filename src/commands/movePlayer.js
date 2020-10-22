@@ -32,15 +32,9 @@ async function movePlayer(e) {
   // PROMOTES ON EXIT, NO KEY(?), PLAYER EXIT, ENTANGLED
 
   if (cell.actor) {
-    if (actor.melee) {
-      if (await itemAttack(actor, cell.actor, actor.melee, ctx)) {
-        return true;
-      }
-    }
-    else if (await attack(actor, cell.actor, 'melee', ctx)) {
+    if (await itemAttack(actor, cell.actor, 'melee', ctx)) {
       return true;
     }
-
 
     MSG.add('%s bump into %s.', actor.getName(), cell.actor.getName());
     actor.endTurn(0.5);

@@ -1,19 +1,21 @@
 
 import * as Flags from '../flags.js';
+import { attack } from './attack.js';
 import { spawnTileEvent } from '../tileEvent.js';
 import { gameOver } from '../game.js';
 import * as GW from '../gw.js';
 
 
-export async function itemAttack(actor, target, item, ctx={}) {
+export async function itemAttack(actor, target, slot, ctx={}) {
 
   if (actor.isPlayer() == target.isPlayer()) return false;
 
   const map = ctx.map || GW.data.map;
   const kind = actor.kind;
 
+  const item = actor[slot];
   if (!item) {
-    GW.utils.ERROR('Item required.  Check before call.');
+    return attack(actor, target, 'melee', ctx);
   }
 
   const range = item.stats.range || 1;

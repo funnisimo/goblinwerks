@@ -650,9 +650,7 @@ const TileMech = installFlag('tileMech', {
   TM_ALLOWS_SUBMERGING					: Fl(8),		// allows submersible monsters to submerge in this terrain
   TM_IS_WIRED										: Fl(9),		// if wired, promotes when powered, and sends power when promoting
   TM_IS_CIRCUIT_BREAKER 				: Fl(10),   // prevents power from circulating in its machine
-  TM_DISSIPATES							    : Fl(11),		// is not there forever
-  TM_DISSIPATES_QUICKLY			    : Fl(12),		// dissipates quickly
-  TM_DISSIPATES_SLOWLY			    : Fl(13),		// dissipates slowly
+
   TM_EXTINGUISHES_FIRE					: Fl(14),		// extinguishes burning terrain or creatures
   TM_VANISHES_UPON_PROMOTION		: Fl(15),		// vanishes when creating promotion dungeon feature, even if the replacement terrain priority doesn't require it
   TM_REFLECTS_BOLTS           	: Fl(16),       // magic bolts reflect off of its surface randomly (similar to ACTIVE_CELLS flag IMPREGNABLE)
@@ -665,6 +663,7 @@ const TileMech = installFlag('tileMech', {
   TM_INTERRUPT_EXPLORATION_WHEN_SEEN : Fl(23),    // will generate a message when discovered during exploration to interrupt exploration
   TM_INVERT_WHEN_HIGHLIGHTED  	: Fl(24),       // will flip fore and back colors when highlighted with pathing
   TM_SWAP_ENCHANTS_ACTIVATION 	: Fl(25),       // in machine, swap item enchantments when two suitable items are on this terrain, and activate the machine when that happens
+
   TM_PROMOTES										: 'TM_PROMOTES_WITH_KEY | TM_PROMOTES_WITHOUT_KEY | TM_PROMOTES_ON_STEP | TM_PROMOTES_ON_ITEM_REMOVE | TM_PROMOTES_ON_SACRIFICE_ENTRY | TM_PROMOTES_ON_ELECTRICITY | TM_PROMOTES_ON_PLAYER_ENTRY',
 });
 
@@ -7775,6 +7774,10 @@ player.debug = utils$1.NOOP;
 
 function makePlayer(kind) {
   if (!(kind instanceof types.ActorKind)) {
+    utils$1.setDefaults(kind, {
+      sprite: { ch:'@', fg: 'white' },
+      name: 'you', article: false,
+    });
     kind = new types.ActorKind(kind);
   }
   return new types.Actor(kind);
@@ -9704,48 +9707,6 @@ class FOV {
 
 types.FOV = FOV;
 
-async function grab(e) {
-  const actor = e.actor || data.player;
-  const map = data.map;
-
-  if (actor.grabbed) {
-    message.add('%s let go of %s.', actor.getName(), actor.grabbed.getName('a'));
-    await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
-    actor.grabbed = null;
-    actor.endTurn();
-    return true;
-  }
-
-  const candidates = [];
-  let choice;
-  map.eachNeighbor(actor.x, actor.y, (c) => {
-    if (c.item && c.item.hasActionFlag(Action.A_GRABBABLE)) {
-      candidates.push(c.item);
-    }
-  }, true);
-  if (!candidates.length) {
-    message.add('Nothing to grab.');
-    return false;
-  }
-  else if (candidates.length == 1) {
-    choice = candidates[0];
-  }
-  else {
-    choice = await ui.chooseTarget(candidates, 'Grab what?');
-  }
-  if (!choice) {
-    return false; // cancelled
-  }
-
-  actor.grabbed = choice;
-  message.add('%s grab %s.', actor.getName(), actor.grabbed.getName('a'));
-  await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
-  actor.endTurn();
-  return true;
-}
-
-commands.grab = grab;
-
 async function pickupItem(actor, item, ctx) {
 
   if (!actor.hasActionFlag(Action.A_PICKUP)) return false;
@@ -9771,6 +9732,8 @@ async function pickupItem(actor, item, ctx) {
   if (success instanceof types.Item) {
     map.addItem(item.x, item.y, success);
   }
+
+  actor.endTurn();
   return true;
 }
 
@@ -9978,6 +9941,7 @@ async function bashItem(actor, item, ctx) {
       await spawnTileEvent(item.kind.corpse, { map, x: item.x, y: item.y });
     }
   }
+  actor.endTurn();
   return true;
 }
 
@@ -9989,15 +9953,16 @@ async function closeItem(actor, item, ctx={}) {
   return false;
 }
 
-async function itemAttack(actor, target, item, ctx={}) {
+async function itemAttack(actor, target, slot, ctx={}) {
 
   if (actor.isPlayer() == target.isPlayer()) return false;
 
   const map = ctx.map || data.map;
   const kind = actor.kind;
 
+  const item = actor[slot];
   if (!item) {
-    utils$1.ERROR('Item required.  Check before call.');
+    return attack(actor, target, 'melee', ctx);
   }
 
   const range = item.stats.range || 1;
@@ -10129,6 +10094,18 @@ function nextStep( map, distanceMap, x, y, traveler, useDiagonals) {
 	return def.dirs[bestDir] || null;
 }
 
+async function grab(actor, item, ctx={}) {
+  if (!item) return false;
+
+  const map = ctx.map || data.map;
+
+  actor.grabbed = item;
+  message.add('%s grab %s.', actor.getName(), actor.grabbed.getName('a'));
+  await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+  actor.endTurn();
+  return true;
+}
+
 var index = /*#__PURE__*/Object.freeze({
   __proto__: null,
   moveDir: moveDir,
@@ -10138,8 +10115,50 @@ var index = /*#__PURE__*/Object.freeze({
   closeItem: closeItem,
   attack: attack,
   itemAttack: itemAttack,
-  moveToward: moveToward
+  moveToward: moveToward,
+  grab: grab
 });
+
+async function grab$1(e) {
+  const actor = e.actor || data.player;
+  const map = data.map;
+
+  if (actor.grabbed) {
+    message.add('%s let go of %s.', actor.getName(), actor.grabbed.getName('a'));
+    await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+    actor.grabbed = null;
+    actor.endTurn();
+    return true;
+  }
+
+  const candidates = [];
+  let choice;
+  map.eachNeighbor(actor.x, actor.y, (c) => {
+    if (c.item && c.item.hasActionFlag(Action.A_GRABBABLE)) {
+      candidates.push(c.item);
+    }
+  }, true);
+  if (!candidates.length) {
+    message.add('Nothing to grab.');
+    return false;
+  }
+  else if (candidates.length == 1) {
+    choice = candidates[0];
+  }
+  else {
+    choice = await ui.chooseTarget(candidates, 'Grab what?');
+  }
+  if (!choice) {
+    return false; // cancelled
+  }
+
+  if (!await grab(actor, choice, { map, x: choice.x, y: choice.y })) {
+    return false;
+  }
+  return true;
+}
+
+commands.grab = grab$1;
 
 config.autoPickup = true;
 
@@ -10168,15 +10187,9 @@ async function movePlayer(e) {
   // PROMOTES ON EXIT, NO KEY(?), PLAYER EXIT, ENTANGLED
 
   if (cell.actor) {
-    if (actor.melee) {
-      if (await itemAttack(actor, cell.actor, actor.melee, ctx)) {
-        return true;
-      }
-    }
-    else if (await attack(actor, cell.actor, 'melee', ctx)) {
+    if (await itemAttack(actor, cell.actor, 'melee', ctx)) {
       return true;
     }
-
 
     message.add('%s bump into %s.', actor.getName(), cell.actor.getName());
     actor.endTurn(0.5);
@@ -10337,7 +10350,6 @@ async function bash(e) {
   if (!await bashItem(actor, choice, { map, actor, x: choice.x, y: choice.y, item: choice })) {
     return false;
   }
-  actor.endTurn();
   return true;
 }
 
@@ -10382,8 +10394,8 @@ async function open(e) {
   else {
     console.log('fire event');
     await choice.cell.fireEvent('open', choice);
+    actor.endTurn();
   }
-  actor.endTurn();
   return true;
 }
 
@@ -10428,8 +10440,8 @@ async function close(e) {
   }
   else {
     await choice.cell.fireEvent('close', choice);
+    actor.endTurn();
   }
-  actor.endTurn();
   return true;
 }
 
@@ -10473,14 +10485,52 @@ async function fire(e) {
     return false; // cancelled
   }
 
-  if (!await itemAttack(actor, choice, actor.ranged, { map, actor, x: choice.x, y: choice.y, item: actor.ranged })) {
+  if (!await itemAttack(actor, choice, 'ranged', { map, actor, x: choice.x, y: choice.y, item: actor.ranged })) {
     return false;
   }
-  actor.endTurn();
   return true;
 }
 
 commands.fire = fire;
+
+async function attack$1(e) {
+  const actor = e.actor || data.player;
+  const map = data.map;
+  const ctx = { map, actor, x: -1, y: -1 };
+
+  const candidates = [];
+  let choice;
+  map.eachNeighbor(actor.x, actor.y, (c, i, j) => {
+    ctx.x = i;
+    ctx.y = j;
+    if (c.actor && actor.kind.willAttack(actor, c.actor, ctx)) {
+      candidates.push(c.actor);
+    }
+  }, true);
+
+  if (!candidates.length) {
+    message.add('Nothing to attack.');
+    return false;
+  }
+  else if (candidates.length == 1) {
+    choice = candidates[0];
+  }
+  else {
+    choice = await ui.chooseTarget(candidates, 'Attack where?');
+  }
+  if (!choice) {
+    return false; // cancelled
+  }
+
+  ctx.x = choice.x;
+  ctx.y = choice.y;
+  if (!await itemAttack(actor, choice, 'melee', ctx)) {
+    return false;
+  }
+  return true;
+}
+
+commands.attack = attack$1;
 
 commands.debug = utils$1.NOOP;
 
@@ -11850,11 +11900,13 @@ function getFlavorText(map, x, y) {
 		return buf;
 	}
 
-	// if (monst) {
-	// 	object = GW.actor.getFlavor(monst);
-	// } else
-  if (theItem) {
-    object = theItem.getName({ color: false, article: true }) + ' on ';
+  let needObjectArticle = false;
+	if (monst) {
+		object = monst.getName({ color: false, article: true }) + ' standing';
+    needObjectArticle = true;
+	} else if (theItem) {
+    object = theItem.getName({ color: false, article: true });
+    needObjectArticle = true;
 	}
 
   let article = cell.liquid ? ' in ' : ' on ';
@@ -11862,6 +11914,10 @@ function getFlavorText(map, x, y) {
   let surface = '';
   if (cell.surface) {
     const tile = cell.surfaceTile;
+    if (needObjectArticle) {
+      needObjectArticle = false;
+      object += ' on ';
+    }
     if (tile.flags & Tile.T_BRIDGE) {
       article = ' over ';
     }
@@ -11870,9 +11926,17 @@ function getFlavorText(map, x, y) {
 
   let liquid = '';
   if (cell.liquid) {
-    liquid = cell.liquidTile.getFlavor() + ' on ';
+    liquid = cell.liquidTile.getFlavor() + ' covering ';
+    if (needObjectArticle) {
+      needObjectArticle = false;
+      object += ' in ';
+    }
   }
 
+  if (needObjectArticle) {
+    needObjectArticle = false;
+    object += ' on ';
+  }
   let ground = cell.groundTile.getFlavor();
 
   buf = text.format("you %s %s%s%s%s.", (map.isVisible(x, y) ? "see" : "sense"), object, surface, liquid, ground);

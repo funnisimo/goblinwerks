@@ -14,6 +14,10 @@ player.debug = UTILS.NOOP;
 
 export function makePlayer(kind) {
   if (!(kind instanceof types.ActorKind)) {
+    UTILS.setDefaults(kind, {
+      sprite: { ch:'@', fg: 'white' },
+      name: 'you', article: false,
+    });
     kind = new types.ActorKind(kind);
   }
   return new types.Actor(kind);

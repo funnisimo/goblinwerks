@@ -44,8 +44,8 @@ async function close(e) {
   }
   else {
     await choice.cell.fireEvent('close', choice);
+    actor.endTurn();
   }
-  actor.endTurn();
   return true;
 }
 

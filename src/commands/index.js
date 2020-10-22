@@ -7,6 +7,7 @@ import './bash.js';
 import './open.js';
 import './close.js';
 import './fire.js';
+import './attack.js';
 
 commands.debug = UTILS.NOOP;
 

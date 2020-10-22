@@ -7,3 +7,4 @@ export { closeItem } from './close.js';
 export { attack } from './attack.js';
 export { itemAttack } from './itemAttack.js';
 export { moveToward } from './moveToward.js';
+export { grab } from './grab.js';
