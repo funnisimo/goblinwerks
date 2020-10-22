@@ -1,6 +1,5 @@
 
 import * as Flags from '../flags.js';
-import { attack } from './attack.js';
 import { spawnTileEvent } from '../tileEvent.js';
 import { gameOver } from '../game.js';
 import * as GW from '../gw.js';

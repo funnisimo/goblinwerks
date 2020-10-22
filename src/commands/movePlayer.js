@@ -1,8 +1,9 @@
 
 
 import * as Flags from '../flags.js';
-import { pickupItem, itemAttack, attack } from '../actions/index.js';
+import { pickupItem, attack } from '../actions/index.js';
 import { game as GAME } from '../game.js';
+import * as Actor from '../actor.js';
 import { data as DATA, def, commands, ui as UI, message as MSG, utils as UTILS, fx as FX, config as CONFIG } from '../gw.js';
 
 CONFIG.autoPickup = true;
@@ -32,31 +33,13 @@ async function movePlayer(e) {
   // PROMOTES ON EXIT, NO KEY(?), PLAYER EXIT, ENTANGLED
 
   if (cell.actor) {
-    if (await attack(actor, cell.actor, ctx)) {
+    if (await Actor.bump(actor, cell.actor, ctx)) {
       return true;
     }
 
     MSG.add('%s bump into %s.', actor.getName(), cell.actor.getName());
     actor.endTurn(0.5);
     return true;
-  }
-
-  // Can we enter new cell?
-  if (cell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_PASSABILITY)) {
-    if (isPlayer) {
-      MSG.moveBlocked(ctx);
-      // TURN ENDED (1/2 turn)?
-      await FX.flashSprite(map, newX, newY, 'hit', 50, 1);
-    }
-    return false;
-  }
-  if (map.diagonalBlocked(actor.x, actor.y, newX, newY)) {
-    if (isPlayer)  {
-      MSG.moveBlocked(ctx);
-      // TURN ENDED (1/2 turn)?
-      await FX.flashSprite(map, newX, newY, 'hit', 50, 1);
-    }
-    return false;
   }
 
   let isPush = false;
@@ -79,6 +62,24 @@ async function movePlayer(e) {
     map.addItem(pushX, pushY, ctx.item);
     isPush = true;
     // Do we need to activate stuff - key enter, key leave?
+  }
+
+  // Can we enter new cell?
+  if (cell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_PASSABILITY)) {
+    if (isPlayer) {
+      MSG.moveBlocked(ctx);
+      // TURN ENDED (1/2 turn)?
+      await FX.flashSprite(map, newX, newY, 'hit', 50, 1);
+    }
+    return false;
+  }
+  if (map.diagonalBlocked(actor.x, actor.y, newX, newY)) {
+    if (isPlayer)  {
+      MSG.moveBlocked(ctx);
+      // TURN ENDED (1/2 turn)?
+      await FX.flashSprite(map, newX, newY, 'hit', 50, 1);
+    }
+    return false;
   }
 
   // CHECK SOME SANITY MOVES
@@ -113,10 +114,10 @@ async function movePlayer(e) {
       }
     }
     const destCell = map.cell(destXY[0], destXY[1]);
-    if (destCell.item || destCell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_ITEMS | Flags.Tile.T_OBSTRUCTS_PASSABILITY)) {
-      commands.debug('move blocked - item obstructed: %d,%d', destXY[0], destXY[1]);
-      if (isPlayer) MSG.moveBlocked(ctx);
-      return false;
+    if (destCell.item || destCell.actor || destCell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_ITEMS | Flags.Tile.T_OBSTRUCTS_PASSABILITY)) {
+      MSG.add('%s let go of %s.', actor.getName(), actor.grabbed.getName('a'));
+      await FX.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+      actor.grabbed = null;
     }
   }
 

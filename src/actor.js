@@ -3,6 +3,7 @@ import { color as COLOR, colors as COLORS } from './color.js';
 import * as Flags from './flags.js';
 import { text as TEXT } from './text.js';
 import { visibility as VISIBILITY } from './visibility.js';
+import * as Actions from './actions/index.js';
 import { types, make, data as DATA, config as CONFIG, ui as UI, utils as UTILS, def, ai as AI } from './gw.js';
 
 export var actor = {};
@@ -24,6 +25,14 @@ class ActorKind {
 		// this.attackFlags = Flags.Attack.toFlag(opts.flags);
 		this.stats = Object.assign({}, opts.stats || {});
 		this.id = opts.id || null;
+    this.bump = opts.bump || ['attack'];  // attack me by default if you bump into me
+
+    if (typeof this.bump === 'string') {
+      this.bump = this.bump.split(/[,|]/).map( (t) => t.trim() );
+    }
+    if (!Array.isArray(this.bump)) {
+      this.bump = [this.bump];
+    }
 
     this.corpse = opts.corpse ? make.tileEvent(opts.corpse) : null;
     this.blood = opts.blood ? make.tileEvent(opts.blood) : null;
@@ -377,3 +386,43 @@ export async function takeTurn(theActor) {
 }
 
 actor.takeTurn = takeTurn;
+
+
+
+
+export async function bump(actor, target, ctx) {
+
+  if (!target) return false;
+
+  if (target.bump) {
+    for(let i = 0; i < target.bump.length; ++i) {
+      let bump = target.bump[i];
+      let result;
+      if (typeof bump === 'string') {
+        bump = Actions[bump] || UTILS.FALSE;
+      }
+
+      if (await bump(actor, target, ctx)) {
+        return true;
+      }
+    }
+  }
+
+  if (target.kind && target.kind.bump) {
+    for(let i = 0; i < target.kind.bump.length; ++i) {
+      let bump = target.kind.bump[i];
+      let result;
+      if (typeof bump === 'string') {
+        bump = Actions[bump] || UTILS.FALSE;
+      }
+
+      if (await bump(actor, target, ctx)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+actor.bump = bump;

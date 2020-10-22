@@ -2,6 +2,7 @@
 import * as Flags from '../flags.js';
 import { pickupItem } from './pickup.js';
 import { attack } from './attack.js';
+import * as Actor from '../actor.js';
 import * as GW from '../gw.js'
 
 
@@ -26,19 +27,10 @@ export async function moveDir(actor, dir, opts={}) {
   // PROMOTES ON EXIT, NO KEY(?), PLAYER EXIT
 
   if (cell.actor) {
-    // TODO - BUMP LOGIC
-    if (await attack(actor, cell.actor, ctx)) {
+    if (await Actor.bump(actor, cell.actor, ctx)) {
       return true;
     }
     return false;  // cannot move here and did not attack
-  }
-
-  // Can we enter new cell?
-  if (cell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_PASSABILITY)) {
-    return false;
-  }
-  if (map.diagonalBlocked(actor.x, actor.y, newX, newY)) {
-    return false;
   }
 
   let isPush = false;
@@ -60,6 +52,14 @@ export async function moveDir(actor, dir, opts={}) {
     map.addItem(pushX, pushY, ctx.item);
     isPush = true;
     // Do we need to activate stuff - key enter, key leave?
+  }
+
+  // Can we enter new cell?
+  if (cell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_PASSABILITY)) {
+    return false;
+  }
+  if (map.diagonalBlocked(actor.x, actor.y, newX, newY)) {
+    return false;
   }
 
   // CHECK SOME SANITY MOVES
@@ -86,9 +86,8 @@ export async function moveDir(actor, dir, opts={}) {
       }
     }
     const destCell = map.cell(destXY[0], destXY[1]);
-    if (destCell.item || destCell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_ITEMS | Flags.Tile.T_OBSTRUCTS_PASSABILITY)) {
-      actor.debug('move blocked - item obstructed: %d,%d', destXY[0], destXY[1]);
-      return false;
+    if (destCell.item || destCell.actor || destCell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_ITEMS | Flags.Tile.T_OBSTRUCTS_PASSABILITY)) {
+      actor.grabbed = null;
     }
   }
 

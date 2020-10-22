@@ -235,6 +235,7 @@ GW.item.addKind('CHAIR', {
 	name: 'chair',
 	description: 'a wooden chair',
 	sprite: { ch: '\u2441', fg: 'orange' },
+  bump: 'grab, push, bash',
 	flags: 'A_PUSH, A_PULL, A_SLIDE, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE, IK_NO_SIDEBAR',
   corpse: 'BROKEN_FURNITURE',
 	stats: { health: 4 }
@@ -617,10 +618,10 @@ async function start() {
 
   // did you win?
   if (!success) {
-    canvas.buffer.wrapText(10, 20, 40, 'Thank you for playing.  Please try again soon!', 'white', null);
+    canvas.buffer.wrapText(10, 10, 40, 'Thank you for playing.  Please try again soon!', 'white', null);
   }
   else {
-    canvas.buffer.wrapText(10, 20, 40, 'What a great performance.  Please play again soon!', 'white', null);
+    canvas.buffer.wrapText(10, 10, 40, 'What a great performance.  Please play again soon!', 'white', null);
   }
   canvas.draw();
 
