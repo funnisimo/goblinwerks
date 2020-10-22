@@ -9741,12 +9741,80 @@
     return true;
   }
 
-  async function attack(actor, target, type, ctx={}) {
+  async function itemAttack(actor, target, ctx={}) {
 
     if (actor.isPlayer() == target.isPlayer()) return false;
 
+    const slot = ctx.slot || ctx.type || 'ranged';
     const map = ctx.map || data.map;
     const kind = actor.kind;
+
+    const item = actor[slot];
+    if (!item) {
+      return false;
+    }
+
+    const range = item.stats.range || 1;
+    let damage  = item.stats.damage || 1;
+    const verb  = item.kind.verb || 'hit';
+
+    const dist = Math.floor(utils$1.distanceFromTo(actor, target));
+    if (dist > (range)) {
+      return false;
+    }
+
+    if (item.kind.projectile) {
+      await fx.projectile(map, actor, target, item.kind.projectile);
+    }
+
+    if (typeof damage === 'function') {
+      damage = damage(actor, target, ctx) || 1;
+    }
+
+    damage = target.kind.applyDamage(target, damage, actor, ctx);
+    message.addCombat('%s %s %s for %R%d%R damage', actor.getName(), actor.getVerb(verb), target.getName('the'), 'red', damage, null);
+
+    if (target.isDead()) {
+      message.addCombat('%s %s', target.isInanimate() ? 'destroying' : 'killing', target.getPronoun('it'));
+    }
+
+    const ctx2 = { map: map, x: target.x, y: target.y, volume: damage };
+
+    await fx.hit(data.map, target);
+    if (target.kind.blood) {
+      await spawnTileEvent(target.kind.blood, ctx2);
+    }
+    if (target.isDead()) {
+      target.kind.kill(target);
+      map.removeActor(target);
+      if (target.kind.corpse) {
+        await spawnTileEvent(target.kind.corpse, ctx2);
+      }
+      if (target.isPlayer()) {
+        await gameOver(false, 'Killed by %s.', actor.getName(true));
+      }
+    }
+
+    actor.endTurn();
+    return true;
+  }
+
+  async function attack(actor, target, ctx={}) {
+
+    if (actor.isPlayer() == target.isPlayer()) return false;
+
+    const type = ctx.type = ctx.type || 'melee';
+    const map = ctx.map || data.map;
+    const kind = actor.kind;
+
+    // is this an attack by the player with an equipped item?
+    const item = actor[type];
+    if (item) {
+      if (await itemAttack(actor, target, ctx)) {
+        return true;
+      }
+    }
+
     const attacks = kind.attacks;
     if (!attacks) return false;
 
@@ -9814,7 +9882,7 @@
 
     if (cell.actor) {
       // TODO - BUMP LOGIC
-      if (await attack(actor, cell.actor, 'melee', ctx)) {
+      if (await attack(actor, cell.actor, ctx)) {
         return true;
       }
       return false;  // cannot move here and did not attack
@@ -9957,63 +10025,6 @@
 
   async function closeItem(actor, item, ctx={}) {
     return false;
-  }
-
-  async function itemAttack(actor, target, slot, ctx={}) {
-
-    if (actor.isPlayer() == target.isPlayer()) return false;
-
-    const map = ctx.map || data.map;
-    const kind = actor.kind;
-
-    const item = actor[slot];
-    if (!item) {
-      return attack(actor, target, 'melee', ctx);
-    }
-
-    const range = item.stats.range || 1;
-    let damage  = item.stats.damage || 1;
-    const verb  = item.kind.verb || 'hit';
-
-    const dist = Math.floor(utils$1.distanceFromTo(actor, target));
-    if (dist > (range)) {
-      return false;
-    }
-
-    if (item.kind.projectile) {
-      await fx.projectile(map, actor, target, item.kind.projectile);
-    }
-
-    if (typeof damage === 'function') {
-      damage = damage(actor, target, ctx) || 1;
-    }
-
-    damage = target.kind.applyDamage(target, damage, actor, ctx);
-    message.addCombat('%s %s %s for %R%d%R damage', actor.getName(), actor.getVerb(verb), target.getName('the'), 'red', damage, null);
-
-    if (target.isDead()) {
-      message.addCombat('%s %s', target.isInanimate() ? 'destroying' : 'killing', target.getPronoun('it'));
-    }
-
-    const ctx2 = { map: map, x: target.x, y: target.y, volume: damage };
-
-    await fx.hit(data.map, target);
-    if (target.kind.blood) {
-      await spawnTileEvent(target.kind.blood, ctx2);
-    }
-    if (target.isDead()) {
-      target.kind.kill(target);
-      map.removeActor(target);
-      if (target.kind.corpse) {
-        await spawnTileEvent(target.kind.corpse, ctx2);
-      }
-      if (target.isPlayer()) {
-        await gameOver(false, 'Killed by %s.', actor.getName(true));
-      }
-    }
-
-    actor.endTurn();
-    return true;
   }
 
   async function moveToward(actor, x, y, ctx) {
@@ -10193,7 +10204,7 @@
     // PROMOTES ON EXIT, NO KEY(?), PLAYER EXIT, ENTANGLED
 
     if (cell.actor) {
-      if (await itemAttack(actor, cell.actor, 'melee', ctx)) {
+      if (await attack(actor, cell.actor, ctx)) {
         return true;
       }
 
@@ -10491,7 +10502,7 @@
       return false; // cancelled
     }
 
-    if (!await itemAttack(actor, choice, 'ranged', { map, actor, x: choice.x, y: choice.y, item: actor.ranged })) {
+    if (!await itemAttack(actor, choice, { map, actor, x: choice.x, y: choice.y, item: actor.ranged, type: 'ranged' })) {
       return false;
     }
     return true;
@@ -10530,7 +10541,7 @@
 
     ctx.x = choice.x;
     ctx.y = choice.y;
-    if (!await itemAttack(actor, choice, 'melee', ctx)) {
+    if (!await attack(actor, choice, ctx)) {
       return false;
     }
     return true;
@@ -12566,7 +12577,7 @@
     const dist = utils$1.distanceFromTo(actor, player);
     if (dist >= 2) return false;
 
-    if (!await attack(actor, player, 'melee', ctx)) {
+    if (!await attack(actor, player, ctx)) {
       return false;
     }
     // actor.endTurn();

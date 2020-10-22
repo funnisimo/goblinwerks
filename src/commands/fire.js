@@ -42,7 +42,7 @@ async function fire(e) {
     return false; // cancelled
   }
 
-  if (!await itemAttack(actor, choice, 'ranged', { map, actor, x: choice.x, y: choice.y, item: actor.ranged })) {
+  if (!await itemAttack(actor, choice, { map, actor, x: choice.x, y: choice.y, item: actor.ranged, type: 'ranged' })) {
     return false;
   }
   return true;

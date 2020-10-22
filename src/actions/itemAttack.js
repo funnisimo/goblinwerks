@@ -6,16 +6,17 @@ import { gameOver } from '../game.js';
 import * as GW from '../gw.js';
 
 
-export async function itemAttack(actor, target, slot, ctx={}) {
+export async function itemAttack(actor, target, ctx={}) {
 
   if (actor.isPlayer() == target.isPlayer()) return false;
 
+  const slot = ctx.slot || ctx.type || 'ranged';
   const map = ctx.map || GW.data.map;
   const kind = actor.kind;
 
   const item = actor[slot];
   if (!item) {
-    return attack(actor, target, 'melee', ctx);
+    return false;
   }
 
   const range = item.stats.range || 1;

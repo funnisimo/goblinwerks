@@ -35,7 +35,7 @@ async function attackPlayer(actor, ctx) {
   const dist = UTILS.distanceFromTo(actor, player);
   if (dist >= 2) return false;
 
-  if (!await attack(actor, player, 'melee', ctx)) {
+  if (!await attack(actor, player, ctx)) {
     return false;
   }
   // actor.endTurn();

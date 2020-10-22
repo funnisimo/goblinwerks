@@ -32,7 +32,7 @@ async function movePlayer(e) {
   // PROMOTES ON EXIT, NO KEY(?), PLAYER EXIT, ENTANGLED
 
   if (cell.actor) {
-    if (await itemAttack(actor, cell.actor, 'melee', ctx)) {
+    if (await attack(actor, cell.actor, ctx)) {
       return true;
     }
 

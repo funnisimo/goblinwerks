@@ -1,16 +1,27 @@
 
 import * as Flags from '../flags.js';
+import { itemAttack } from './itemAttack.js';
 import { spawnTileEvent } from '../tileEvent.js';
 import { gameOver } from '../game.js';
 import * as GW from '../gw.js';
 
 
-export async function attack(actor, target, type, ctx={}) {
+export async function attack(actor, target, ctx={}) {
 
   if (actor.isPlayer() == target.isPlayer()) return false;
 
+  const type = ctx.type = ctx.type || 'melee';
   const map = ctx.map || GW.data.map;
   const kind = actor.kind;
+
+  // is this an attack by the player with an equipped item?
+  const item = actor[type];
+  if (item) {
+    if (await itemAttack(actor, target, ctx)) {
+      return true;
+    }
+  }
+
   const attacks = kind.attacks;
   if (!attacks) return false;
 
