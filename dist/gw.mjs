@@ -9939,7 +9939,9 @@ async function bashItem(actor, item, ctx) {
       await spawnTileEvent(item.kind.corpse, { map, x: item.x, y: item.y });
     }
   }
-  actor.endTurn();
+  if (actor) {
+    actor.endTurn();
+  }
   return true;
 }
 
