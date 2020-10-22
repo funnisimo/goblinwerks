@@ -380,6 +380,20 @@ GW.tile.addKind('EXIT', {
 	events: { playerEnter: exitLevel }
 });
 
+GW.tile.addKind('HELLO_SIGN', {
+  name: 'sign',
+  layer: 'SURFACE',
+  sprite: { ch: '\u2690', fg: '#0ff' },
+  flags: ['TM_LIST_IN_SIDEBAR'],
+  events: {
+    playerEnter(x, y, ctx) {
+      GW.message.add('%RBeware!', 'dark_red');
+      return true;
+    }
+  }
+});
+
+
 // Our lights for the level
 GW.light.addKind('OVERHEAD', {
   color: 'white', radius: 5, fadeTo: 50, passThroughActors: true
