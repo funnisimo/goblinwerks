@@ -1,7 +1,7 @@
 
 
 import * as Flags from '../flags.js';
-import { closeItem } from '../actions/index.js';
+import { actions as Actions } from '../actions/index.js';
 import { data as DATA, def, commands, ui as UI, message as MSG } from '../gw.js';
 
 
@@ -38,7 +38,7 @@ async function close(e) {
   }
 
   if (choice.item) {
-    if (!await closeItem(actor, choice, choice)) {
+    if (!await Actions.closeItem(actor, choice, choice)) {
       return false;
     }
   }

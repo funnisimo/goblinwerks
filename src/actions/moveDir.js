@@ -1,9 +1,8 @@
 
 import * as Flags from '../flags.js';
-import { pickupItem } from './pickup.js';
-import { attack } from './attack.js';
 import * as Actor from '../actor.js';
 import * as GW from '../gw.js'
+import { actions as Actions } from './index.js';
 
 
 export async function moveDir(actor, dir, opts={}) {
@@ -115,7 +114,7 @@ export async function moveDir(actor, dir, opts={}) {
 
   // pickup any items
   if (cell.item && actor.hasActionFlag(Flags.Action.A_PICKUP)) {
-    await pickupItem(actor, cell.item, ctx);
+    await Actions.pickupItem(actor, cell.item, ctx);
   }
 
   actor.debug('moveComplete');
@@ -124,3 +123,5 @@ export async function moveDir(actor, dir, opts={}) {
   actor.endTurn();
   return true;
 }
+
+Actions.moveDir = moveDir;

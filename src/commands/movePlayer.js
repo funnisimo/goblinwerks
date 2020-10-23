@@ -1,7 +1,7 @@
 
 
 import * as Flags from '../flags.js';
-import { pickupItem, attack } from '../actions/index.js';
+import { actions as Actions } from '../actions/index.js';
 import { game as GAME } from '../game.js';
 import * as Actor from '../actor.js';
 import { data as DATA, def, commands, ui as UI, message as MSG, utils as UTILS, fx as FX, config as CONFIG } from '../gw.js';
@@ -101,6 +101,9 @@ async function movePlayer(e) {
   if (actor.grabbed && !isPush) {
     const dirToItem = UTILS.dirFromTo(actor, actor.grabbed);
     let destXY = [actor.grabbed.x + dir[0], actor.grabbed.y + dir[1]];
+    const destCell = map.cell(destXY[0], destXY[1]);
+
+    let blocked = (destCell.item || destCell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_ITEMS | Flags.Tile.T_OBSTRUCTS_PASSABILITY));
     if (UTILS.isOppositeDir(dirToItem, dir)) {  // pull
       if (!actor.grabbed.hasActionFlag(Flags.Action.A_PULL)) {
         if (isPlayer) MSG.add('you cannot pull %s.', actor.grabbed.getFlavor());
@@ -112,9 +115,12 @@ async function movePlayer(e) {
         if (isPlayer) MSG.add('you cannot slide %s.', actor.grabbed.getFlavor());
         return false;
       }
+      if (destCell.actor) {
+        blocked = true;
+      }
     }
-    const destCell = map.cell(destXY[0], destXY[1]);
-    if (destCell.item || destCell.actor || destCell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_ITEMS | Flags.Tile.T_OBSTRUCTS_PASSABILITY)) {
+
+    if (blocked) {
       MSG.add('%s let go of %s.', actor.getName(), actor.grabbed.getName('a'));
       await FX.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
       actor.grabbed = null;
@@ -156,7 +162,7 @@ async function movePlayer(e) {
 
   // auto pickup any items
   if (CONFIG.autoPickup && cell.item && isPlayer) {
-    await pickupItem(actor, cell.item, ctx);
+    await Actions.pickupItem(actor, cell.item, ctx);
   }
 
   commands.debug('moveComplete');

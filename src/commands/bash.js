@@ -1,6 +1,6 @@
 
 import * as Flags from '../flags.js';
-import { bashItem } from '../actions/index.js';
+import { actions as Actions } from '../actions/index.js';
 import { data as DATA, def, commands, ui as UI, message as MSG, utils as UTILS, fx as FX } from '../gw.js';
 
 
@@ -29,7 +29,7 @@ async function bash(e) {
     return false; // cancelled
   }
 
-  if (!await bashItem(actor, choice, { map, actor, x: choice.x, y: choice.y, item: choice })) {
+  if (!await Actions.bashItem(actor, choice, { map, actor, x: choice.x, y: choice.y, item: choice })) {
     return false;
   }
   return true;

@@ -1,6 +1,6 @@
 
 import * as Flags from '../flags.js';
-import { grab as grabAction } from '../actions/index.js';
+import { actions as Actions } from '../actions/index.js';
 import { data as DATA, def, commands, ui as UI, message as MSG, utils as UTILS, fx as FX } from '../gw.js';
 
 
@@ -37,7 +37,7 @@ async function grab(e) {
     return false; // cancelled
   }
 
-  if (!await grabAction(actor, choice, { map, x: choice.x, y: choice.y })) {
+  if (!await Actions.grab(actor, choice, { map, x: choice.x, y: choice.y })) {
     return false;
   }
   return true;

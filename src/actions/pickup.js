@@ -1,6 +1,7 @@
 
 import * as Flags from '../flags.js';
 import { types } from '../gw.js';
+import { actions as Actions } from './index.js';
 
 
 export async function pickupItem(actor, item, ctx) {
@@ -32,3 +33,5 @@ export async function pickupItem(actor, item, ctx) {
   actor.endTurn();
   return true;
 }
+
+Actions.pickupItem = pickupItem;

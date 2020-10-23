@@ -2,6 +2,7 @@
 import * as Flags from '../flags.js';
 import { spawnTileEvent } from '../tileEvent.js';
 import * as GW from '../gw.js';
+import { actions as Actions } from './index.js';
 
 
 export async function bashItem(actor, item, ctx) {
@@ -41,3 +42,5 @@ export async function bashItem(actor, item, ctx) {
   }
   return true;
 }
+
+Actions.bashItem = bashItem;

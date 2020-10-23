@@ -3,7 +3,6 @@ import './bounds.js';
 import './utils.js';
 import './flag.js';
 import './flags.js';
-// import './enum.js';
 export { random, cosmetic } from './random.js';
 export { color, colors } from './color.js';
 export { text } from './text.js';
@@ -33,7 +32,18 @@ import './sidebar.js';
 import './flavor.js';
 import './ui.js';
 export { visibility } from './visibility.js';
-export * as actions from './actions/index.js';
+
+import './actions/moveDir.js';
+import './actions/bash.js';
+import './actions/pickup.js';
+import './actions/open.js';
+import './actions/close.js';
+import './actions/attack.js';
+import './actions/itemAttack.js';
+import './actions/moveToward.js';
+import './actions/grab.js';
+export { actions } from './actions/index.js';
+
 import './ai.js';
 import './tiles.js';
 export * as light from './light.js';

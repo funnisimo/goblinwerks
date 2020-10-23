@@ -3,6 +3,7 @@ import * as Flags from '../flags.js';
 import { spawnTileEvent } from '../tileEvent.js';
 import { gameOver } from '../game.js';
 import * as GW from '../gw.js';
+import { actions as Actions } from './index.js';
 
 
 export async function itemAttack(actor, target, ctx={}) {
@@ -62,3 +63,5 @@ export async function itemAttack(actor, target, ctx={}) {
   actor.endTurn();
   return true;
 }
+
+Actions.itemAttack = itemAttack;

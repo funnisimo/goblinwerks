@@ -3,7 +3,7 @@ import { color as COLOR, colors as COLORS } from './color.js';
 import * as Flags from './flags.js';
 import { text as TEXT } from './text.js';
 import { visibility as VISIBILITY } from './visibility.js';
-import * as Actions from './actions/index.js';
+import { actions as Actions } from './actions/index.js';
 import { types, make, data as DATA, config as CONFIG, ui as UI, utils as UTILS, def, ai as AI } from './gw.js';
 
 export var actor = {};

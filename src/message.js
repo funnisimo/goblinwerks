@@ -78,6 +78,14 @@ function add(...args) {
 
 message.add = add;
 
+
+function forPlayer(actor, ...args) {
+  if (!actor.isPlayer()) return;
+  add(...args);
+}
+
+message.forPlayer = forPlayer;
+
 function addCombat(...args) {
   if (args.length == 0) return;
   let msg = args[0];

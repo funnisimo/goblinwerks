@@ -1,6 +1,6 @@
 
 import * as Flags from '../flags.js';
-import { attack as attackAction } from '../actions/index.js';
+import { actions as Actions } from '../actions/index.js';
 import { data as DATA, def, commands, ui as UI, message as MSG, utils as UTILS, fx as FX } from '../gw.js';
 
 
@@ -35,7 +35,7 @@ async function attack(e) {
 
   ctx.x = choice.x;
   ctx.y = choice.y;
-  if (!await attackAction(actor, choice, ctx)) {
+  if (!await Actions.attack(actor, choice, ctx)) {
     return false;
   }
   return true;

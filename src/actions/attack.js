@@ -1,10 +1,9 @@
 
 import * as Flags from '../flags.js';
-import { itemAttack } from './itemAttack.js';
 import { spawnTileEvent } from '../tileEvent.js';
 import { gameOver } from '../game.js';
 import * as GW from '../gw.js';
-
+import { actions as Actions } from './index.js';
 
 export async function attack(actor, target, ctx={}) {
 
@@ -17,7 +16,7 @@ export async function attack(actor, target, ctx={}) {
   // is this an attack by the player with an equipped item?
   const item = actor[type];
   if (item) {
-    if (await itemAttack(actor, target, ctx)) {
+    if (await Actions.itemAttack(actor, target, ctx)) {
       return true;
     }
   }
@@ -66,3 +65,5 @@ export async function attack(actor, target, ctx={}) {
   actor.endTurn();
   return true;
 }
+
+Actions.attack = attack;

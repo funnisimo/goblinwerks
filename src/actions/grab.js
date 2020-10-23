@@ -1,5 +1,6 @@
 
 import { message as MSG, fx as FX, data as DATA } from '../gw.js';
+import { actions as Actions } from './index.js';
 
 
 export async function grab(actor, item, ctx={}) {
@@ -25,3 +26,5 @@ export async function grab(actor, item, ctx={}) {
   actor.endTurn();
   return true;
 }
+
+Actions.grab = grab;
