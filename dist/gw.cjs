@@ -15,7 +15,7 @@ var flavor = {};
 var sidebar = {};
 
 var fx = {};
-var commands = {};
+var commands$1 = {};
 var ai = {};
 
 var itemKinds = {};
@@ -3635,8 +3635,8 @@ async function dispatchEvent(ev, km) {
 		if (typeof command === 'function') {
 			result = await command.call(km, ev);
 		}
-		else if (commands[command]) {
-			result = await commands[command](ev);
+		else if (commands$1[command]) {
+			result = await commands$1[command](ev);
 		}
 		else {
 			utils$1.WARN('No command found: ' + command);
@@ -5960,8 +5960,8 @@ function getAppearance(cell, dest) {
 
 cell.getAppearance = getAppearance;
 
-var map = {};
-map.debug = utils$1.NOOP;
+var map$1 = {};
+map$1.debug = utils$1.NOOP;
 
 const TileLayer$2 = def.layer;
 
@@ -6629,7 +6629,7 @@ class Map$1 {
 	// TICK
 
 	async tick() {
-    map.debug('tick');
+    map$1.debug('tick');
 		this.forEach( (c) => c.mechFlags &= ~(CellMech.EVENT_FIRED_THIS_TURN | CellMech.EVENT_PROTECTED));
 		for(let x = 0; x < this.width; ++x) {
 			for(let y = 0; y < this.height; ++y) {
@@ -6637,7 +6637,7 @@ class Map$1 {
 				await cell.fireEvent('tick', { map: this, x, y, cell, safe: true });
 			}
 		}
-    map.updateLiquid(this);
+    map$1.updateLiquid(this);
 	}
 
   resetEvents() {
@@ -6707,7 +6707,7 @@ function getCellAppearance(map, x, y, dest) {
 	// dest.bake();
 }
 
-map.getCellAppearance = getCellAppearance;
+map$1.getCellAppearance = getCellAppearance;
 
 
 
@@ -6719,7 +6719,7 @@ function addText(map, x, y, text, fg, bg, layer) {
 	}
 }
 
-map.addText = addText;
+map$1.addText = addText;
 
 
 function updateGas(map) {
@@ -6780,7 +6780,7 @@ function updateGas(map) {
   GRID$1.free(newVolume);
 }
 
-map.updateGas = updateGas;
+map$1.updateGas = updateGas;
 
 
 
@@ -6851,7 +6851,7 @@ function updateLiquid(map) {
   GRID$1.free(newVolume);
 }
 
-map.updateLiquid = updateLiquid;
+map$1.updateLiquid = updateLiquid;
 
 
 const FP_BASE = 16;
@@ -6926,7 +6926,7 @@ function getLine(map, fromX, fromY, toX, toY) {
 	return line;
 }
 
-map.getLine = getLine;
+map$1.getLine = getLine;
 
 def.INTENSITY_DARK = 20; // less than 20% for highest color in rgb
 
@@ -7394,6 +7394,8 @@ function updateVisibility(map, x, y) {
 visibility.update = updateVisibility;
 
 var actions = {};
+
+actions.debug = NOOP;
 
 var actor = {};
 var actorKinds = {};
@@ -9182,7 +9184,7 @@ async function playGameTime(anim) {
 fx.playGameTime = playGameTime;
 
 
-class FX {
+class FX$1 {
   constructor(opts={}) {
     this.tilNextTurn = opts.speed || opts.duration || 1000;
     this.speed = opts.speed || opts.duration || 1000;
@@ -9213,10 +9215,10 @@ class FX {
 
 }
 
-types.FX = FX;
+types.FX = FX$1;
 
 
-class SpriteFX extends FX {
+class SpriteFX extends FX$1 {
   constructor(map, sprite, x, y, opts={}) {
     const count = opts.blink || 1;
     const duration = opts.duration || 1000;
@@ -9298,17 +9300,17 @@ installSprite('miss', 'green', 50);
 
 
 class MovingSpriteFX extends SpriteFX {
-  constructor(map$1, source, target, sprite, speed, stepFn) {
-    super(map$1, sprite, source.x, source.y, { speed });
+  constructor(map, source, target, sprite, speed, stepFn) {
+    super(map, sprite, source.x, source.y, { speed });
     this.target = target;
-    this.path = map.getLine(this.map, source.x, source.y, this.target.x, this.target.y);
+    this.path = map$1.getLine(this.map, source.x, source.y, this.target.x, this.target.y);
     this.stepFn = stepFn || utils$1.TRUE;
   }
 
   step() {
     if (this.x == this.target.x && this.y == this.target.y) return this.stop(this);
     if (!this.path.find( (loc) => loc[0] == this.target.x && loc[1] == this.target.y)) {
-      this.path = map.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
+      this.path = map$1.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
     }
     const next = this.path.shift();
     const r = this.stepFn(next[0], next[1]);
@@ -9454,17 +9456,17 @@ fx.projectile = projectile;
 // }
 //
 
-class BeamFX extends FX {
-  constructor(map$1, from, target, sprite, speed, fade, stepFn) {
+class BeamFX extends FX$1 {
+  constructor(map, from, target, sprite, speed, fade, stepFn) {
     speed = speed || 20;
     super({ speed });
-    this.map = map$1;
+    this.map = map;
     this.x = from.x;
     this.y = from.y;
     this.target = target;
     this.sprite = sprite;
     this.fade = fade || speed;
-    this.path = map.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
+    this.path = map$1.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
     this.stepFn = stepFn || utils$1.TRUE;
   }
 
@@ -9525,7 +9527,7 @@ fx.beam = beam;
 
 
 
-class ExplosionFX extends FX {
+class ExplosionFX extends FX$1 {
   // TODO - take opts instead of individual params (do opts setup here)
   constructor(map, fovGrid, x, y, radius, sprite, speed, fade, shape, center, stepFn) {
     speed = speed || 20;
@@ -9794,7 +9796,7 @@ async function grab(e) {
   return true;
 }
 
-commands.grab = grab;
+commands$1.grab = grab;
 
 config.autoPickup = true;
 
@@ -9810,11 +9812,11 @@ async function movePlayer(e) {
   const ctx = { actor, map, x: newX, y: newY, cell };
   const isPlayer = actor.isPlayer();
 
-  commands.debug('movePlayer');
+  commands$1.debug('movePlayer');
 
   if (!map.hasXY(newX, newY)) {
-    commands.debug('move blocked - invalid xy: %d,%d', newX, newY);
-    if (isPlayer) message.moveBlocked(ctx);
+    commands$1.debug('move blocked - invalid xy: %d,%d', newX, newY);
+    message.forPlayer(actor, 'Blocked!');
     // TURN ENDED (1/2 turn)?
     return false;
   }
@@ -9827,7 +9829,7 @@ async function movePlayer(e) {
       return true;
     }
 
-    message.add('%s bump into %s.', actor.getName(), cell.actor.getName());
+    message.forPlayer(actor, '%s bump into %s.', actor.getName(), cell.actor.getName());
     actor.endTurn(0.5);
     return true;
   }
@@ -9836,14 +9838,14 @@ async function movePlayer(e) {
   if (cell.item && cell.item.hasKindFlag(ItemKind.IK_BLOCKS_MOVE)) {
     if (!cell.item.hasActionFlag(Action.A_PUSH)) {
       ctx.item = cell.item;
-      if (isPlayer) message.moveBlocked(ctx);
+      message.forPlayer(actor, 'Blocked!');
       return false;
     }
     const pushX = newX + dir[0];
     const pushY = newY + dir[1];
     const pushCell = map.cell(pushX, pushY);
     if (!pushCell.isEmpty() || pushCell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS | Tile.T_OBSTRUCTS_PASSABILITY)) {
-      if (isPlayer) message.moveBlocked(ctx);
+      message.forPlayer(actor, 'Blocked!');
       return false;
     }
 
@@ -9857,7 +9859,7 @@ async function movePlayer(e) {
   // Can we enter new cell?
   if (cell.hasTileFlag(Tile.T_OBSTRUCTS_PASSABILITY)) {
     if (isPlayer) {
-      message.moveBlocked(ctx);
+      message.forPlayer(actor, 'Blocked!');
       // TURN ENDED (1/2 turn)?
       await fx.flashSprite(map, newX, newY, 'hit', 50, 1);
     }
@@ -9865,7 +9867,7 @@ async function movePlayer(e) {
   }
   if (map.diagonalBlocked(actor.x, actor.y, newX, newY)) {
     if (isPlayer)  {
-      message.moveBlocked(ctx);
+      message.forPlayer(actor, 'Blocked!');
       // TURN ENDED (1/2 turn)?
       await fx.flashSprite(map, newX, newY, 'hit', 50, 1);
     }
@@ -9881,9 +9883,7 @@ async function movePlayer(e) {
   }
   else if (cell.hasTileFlag(Tile.T_HAS_STAIRS)) {
     if (actor.grabbed) {
-      if (isPlayer) {
-        message.add('You cannot use stairs while holding %s.', actor.grabbed.getFlavor());
-      }
+      message.forPlayer(actor, 'You cannot use stairs while holding %s.', actor.grabbed.getFlavor());
       return false;
     }
   }
@@ -9896,13 +9896,13 @@ async function movePlayer(e) {
     let blocked = (destCell.item || destCell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS | Tile.T_OBSTRUCTS_PASSABILITY));
     if (utils$1.isOppositeDir(dirToItem, dir)) {  // pull
       if (!actor.grabbed.hasActionFlag(Action.A_PULL)) {
-        if (isPlayer) message.add('you cannot pull %s.', actor.grabbed.getFlavor());
+        message.forPlayer(actor, 'you cannot pull %s.', actor.grabbed.getFlavor());
         return false;
       }
     }
     else {  // slide
       if (!actor.grabbed.hasActionFlag(Action.A_SLIDE)) {
-        if (isPlayer) message.add('you cannot slide %s.', actor.grabbed.getFlavor());
+        message.forPlayer(actor, 'you cannot slide %s.', actor.grabbed.getFlavor());
         return false;
       }
       if (destCell.actor) {
@@ -9911,7 +9911,7 @@ async function movePlayer(e) {
     }
 
     if (blocked) {
-      message.add('%s let go of %s.', actor.getName(), actor.grabbed.getName('a'));
+      message.forPlayer(actor, '%s let go of %s.', actor.getName(), actor.grabbed.getName('a'));
       await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
       actor.grabbed = null;
     }
@@ -9955,14 +9955,14 @@ async function movePlayer(e) {
     await actions.pickupItem(actor, cell.item, ctx);
   }
 
-  commands.debug('moveComplete');
+  commands$1.debug('moveComplete');
 
   ui.requestUpdate();
   actor.endTurn();
   return true;
 }
 
-commands.movePlayer = movePlayer;
+commands$1.movePlayer = movePlayer;
 
 async function bash(e) {
   const actor = e.actor || data.player;
@@ -9995,7 +9995,7 @@ async function bash(e) {
   return true;
 }
 
-commands.bash = bash;
+commands$1.bash = bash;
 
 async function open(e) {
   const actor = e.actor || data.player;
@@ -10041,7 +10041,7 @@ async function open(e) {
   return true;
 }
 
-commands.open = open;
+commands$1.open = open;
 
 async function close(e) {
   const actor = e.actor || data.player;
@@ -10087,7 +10087,7 @@ async function close(e) {
   return true;
 }
 
-commands.close = close;
+commands$1.close = close;
 
 async function fire(e) {
   const actor = e.actor || data.player;
@@ -10133,7 +10133,7 @@ async function fire(e) {
   return true;
 }
 
-commands.fire = fire;
+commands$1.fire = fire;
 
 async function attack(e) {
   const actor = e.actor || data.player;
@@ -10172,16 +10172,16 @@ async function attack(e) {
   return true;
 }
 
-commands.attack = attack;
+commands$1.attack = attack;
 
-commands.debug = utils$1.NOOP;
+commands$1.debug = utils$1.NOOP;
 
 async function rest(e) {
 	data.player.endTurn();
 	return true;
 }
 
-commands.rest = rest;
+commands$1.rest = rest;
 
 class ItemKind$1 {
   constructor(opts={}) {
@@ -10196,6 +10196,8 @@ class ItemKind$1 {
 		this.id = opts.id || null;
     this.slot = opts.slot || null;
     this.projectile = null;
+    this.verb = opts.verb || null;
+
     if (opts.projectile) {
       this.projectile = make.sprite(opts.projectile);
     }
@@ -10644,10 +10646,10 @@ viewport.setup = setup$1;
 
 // DRAW
 
-function drawViewport(buffer, map$1) {
-  map$1 = map$1 || data.map;
-  if (!map$1) return;
-  if (!map$1.flags & Map.MAP_CHANGED) return;
+function drawViewport(buffer, map) {
+  map = map || data.map;
+  if (!map) return;
+  if (!map.flags & Map.MAP_CHANGED) return;
 
   if (config.followPlayer && data.player && data.player.x >= 0) {
     const offsetX = data.player.x - VIEWPORT.centerX();
@@ -10659,9 +10661,9 @@ function drawViewport(buffer, map$1) {
         const buf = buffer[x + VIEWPORT.x][y + VIEWPORT.y];
         const mapX= x + offsetX;
         const mapY = y + offsetY;
-        if (map$1.hasXY(mapX, mapY)) {
-          map.getCellAppearance(map$1, mapX, mapY, buf);
-          map$1.clearCellFlags(mapX, mapY, Cell.NEEDS_REDRAW | Cell.CELL_CHANGED);
+        if (map.hasXY(mapX, mapY)) {
+          map$1.getCellAppearance(map, mapX, mapY, buf);
+          map.clearCellFlags(mapX, mapY, Cell.NEEDS_REDRAW | Cell.CELL_CHANGED);
         }
         else {
           buf.blackOut();
@@ -10671,18 +10673,18 @@ function drawViewport(buffer, map$1) {
     buffer.needsUpdate = true;
   }
   else {
-    map$1.cells.forEach( (c, i, j) => {
+    map.cells.forEach( (c, i, j) => {
       if (!VIEWPORT.containsXY(i + VIEWPORT.x, j + VIEWPORT.y)) return;
 
       if (c.flags & Cell.NEEDS_REDRAW) {
         const buf = buffer[i + VIEWPORT.x][j + VIEWPORT.y];
-        map.getCellAppearance(map$1, i, j, buf);
+        map$1.getCellAppearance(map, i, j, buf);
         c.clearFlags(Cell.NEEDS_REDRAW);
         buffer.needsUpdate = true;
       }
     });
   }
-  map$1.flags &= ~Map.MAP_CHANGED;
+  map.flags &= ~Map.MAP_CHANGED;
 
 }
 
@@ -12187,38 +12189,44 @@ async function moveDir(actor, dir, opts={}) {
   const newY = dir[1] + actor.y;
   const map = opts.map || data.map;
   const cell = map.cell(newX, newY);
+  const isPlayer = actor.isPlayer();
 
   const ctx = { actor, map, x: newX, y: newY, cell };
 
   actor.debug('moveDir', dir);
 
   if (!map.hasXY(newX, newY)) {
-    actor.debug('move blocked - invalid xy: %d,%d', newX, newY);
+    commands.debug('move blocked - invalid xy: %d,%d', newX, newY);
+    message.forPlayer(actor, 'Blocked!');
     // TURN ENDED (1/2 turn)?
     return false;
   }
 
   // TODO - Can we leave old cell?
-  // PROMOTES ON EXIT, NO KEY(?), PLAYER EXIT
+  // PROMOTES ON EXIT, NO KEY(?), PLAYER EXIT, ENTANGLED
 
   if (cell.actor) {
     if (await bump(actor, cell.actor, ctx)) {
       return true;
     }
-    return false;  // cannot move here and did not attack
+
+    message.forPlayer(actor, '%s bump into %s.', actor.getName(), cell.actor.getName());
+    actor.endTurn(0.5);
+    return true;
   }
 
   let isPush = false;
   if (cell.item && cell.item.hasKindFlag(ItemKind.IK_BLOCKS_MOVE)) {
-    // ACTOR.hasActionFlag(A_PUSH);
     if (!cell.item.hasActionFlag(Action.A_PUSH)) {
       ctx.item = cell.item;
+      message.forPlayer(actor, 'Blocked!');
       return false;
     }
     const pushX = newX + dir[0];
     const pushY = newY + dir[1];
     const pushCell = map.cell(pushX, pushY);
     if (!pushCell.isEmpty() || pushCell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS | Tile.T_OBSTRUCTS_PASSABILITY)) {
+      message.forPlayer(actor, 'Blocked!');
       return false;
     }
 
@@ -12231,18 +12239,32 @@ async function moveDir(actor, dir, opts={}) {
 
   // Can we enter new cell?
   if (cell.hasTileFlag(Tile.T_OBSTRUCTS_PASSABILITY)) {
+    if (isPlayer) {
+      message.forPlayer(actor, 'Blocked!');
+      // TURN ENDED (1/2 turn)?
+      await FX.flashSprite(map, newX, newY, 'hit', 50, 1);
+    }
     return false;
   }
   if (map.diagonalBlocked(actor.x, actor.y, newX, newY)) {
+    if (isPlayer)  {
+      message.forPlayer(actor, 'Blocked!');
+      // TURN ENDED (1/2 turn)?
+      await FX.flashSprite(map, newX, newY, 'hit', 50, 1);
+    }
     return false;
   }
 
   // CHECK SOME SANITY MOVES
   if (cell.hasTileFlag(Tile.T_LAVA) && !cell.hasTileFlag(Tile.T_BRIDGE)) {
-    return false;
+    if (!isPlayer) return false;
+    if (!await UI.confirm('That is certain death!  Proceed anyway?')) {
+      return false;
+    }
   }
   else if (cell.hasTileFlag(Tile.T_HAS_STAIRS)) {
     if (actor.grabbed) {
+      message.forPlayer(actor, 'You cannot use stairs while holding %s.', actor.grabbed.getFlavor());
       return false;
     }
   }
@@ -12250,18 +12272,28 @@ async function moveDir(actor, dir, opts={}) {
   if (actor.grabbed && !isPush) {
     const dirToItem = UTILS.dirFromTo(actor, actor.grabbed);
     let destXY = [actor.grabbed.x + dir[0], actor.grabbed.y + dir[1]];
+    const destCell = map.cell(destXY[0], destXY[1]);
+
+    let blocked = (destCell.item || destCell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS | Tile.T_OBSTRUCTS_PASSABILITY));
     if (UTILS.isOppositeDir(dirToItem, dir)) {  // pull
       if (!actor.grabbed.hasActionFlag(Action.A_PULL)) {
+        message.forPlayer(actor, 'you cannot pull %s.', actor.grabbed.getFlavor());
         return false;
       }
     }
     else {  // slide
       if (!actor.grabbed.hasActionFlag(Action.A_SLIDE)) {
+        message.forPlayer(actor, 'you cannot slide %s.', actor.grabbed.getFlavor());
         return false;
       }
+      if (destCell.actor) {
+        blocked = true;
+      }
     }
-    const destCell = map.cell(destXY[0], destXY[1]);
-    if (destCell.item || destCell.actor || destCell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS | Tile.T_OBSTRUCTS_PASSABILITY)) {
+
+    if (blocked) {
+      message.forPlayer(actor, '%s let go of %s.', actor.getName(), actor.grabbed.getName('a'));
+      await FX.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
       actor.grabbed = null;
     }
   }
@@ -12286,14 +12318,25 @@ async function moveDir(actor, dir, opts={}) {
   }
 
   // PROMOTES ON ENTER, PLAYER ENTER, KEY(?)
-  await cell.fireEvent('enter', ctx);
+  let fired = false;
+  if (isPlayer) {
+    fired = await cell.fireEvent('playerEnter', ctx);
+  }
+  if (!fired) {
+    await cell.fireEvent('enter', ctx);
+  }
 
-  // pickup any items
-  if (cell.item && actor.hasActionFlag(Action.A_PICKUP)) {
+  if (cell.hasTileFlag(Tile.T_HAS_STAIRS) && isPlayer) {
+    console.log('Use stairs!');
+    await GAME.useStairs(newX, newY);
+  }
+
+  // auto pickup any items
+  if (config.autoPickup && cell.item && isPlayer) {
     await actions.pickupItem(actor, cell.item, ctx);
   }
 
-  actor.debug('moveComplete');
+  actions.debug('moveComplete');
 
   ui.requestUpdate();
   actor.endTurn();
@@ -12394,6 +12437,11 @@ async function attack$1(actor, target, ctx={}) {
   const map = ctx.map || data.map;
   const kind = actor.kind;
 
+  if (actor.grabbed) {
+    message.forPlayer(actor, 'you cannot attack while holding %s.', actor.grabbed.getName('the'));
+    return false;
+  }
+
   // is this an attack by the player with an equipped item?
   const item = actor[type];
   if (item) {
@@ -12456,6 +12504,11 @@ async function itemAttack(actor, target, ctx={}) {
   const slot = ctx.slot || ctx.type || 'ranged';
   const map = ctx.map || data.map;
   const kind = actor.kind;
+
+  if (actor.grabbed) {
+    message.forPlayer(actor, 'you cannot attack while holding %s.', actor.grabbed.getName('the'));
+    return false;
+  }
 
   const item = actor[slot];
   if (!item) {
@@ -12604,12 +12657,7 @@ async function grab$1(actor, item, ctx={}) {
     if (actor.grabbed === item) {
       return false; // already grabbed
     }
-
-    message.add('%s let go of %s.', actor.getName(), actor.grabbed.getName('a'));
-    await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
-    actor.grabbed = null;
-    actor.endTurn();
-    return true;
+    return await actions.release(actor, actor.grabbed, ctx);
   }
 
   actor.grabbed = item;
@@ -12620,6 +12668,19 @@ async function grab$1(actor, item, ctx={}) {
 }
 
 actions.grab = grab$1;
+
+
+async function release(actor, item, ctx={}) {
+  if (!actor.grabbed) return false;
+
+  message.add('%s let go of %s.', actor.getName(), actor.grabbed.getName('a'));
+  await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+  actor.grabbed = null;
+  actor.endTurn();
+  return true;
+}
+
+actions.release = release;
 
 async function idle(actor, ctx) {
   actor.debug('idle');
@@ -12778,7 +12839,7 @@ exports.canvas = canvas;
 exports.cell = cell;
 exports.color = color;
 exports.colors = colors;
-exports.commands = commands;
+exports.commands = commands$1;
 exports.config = config;
 exports.cosmetic = cosmetic;
 exports.data = data;
@@ -12800,7 +12861,7 @@ exports.itemKinds = itemKinds;
 exports.light = light;
 exports.lights = lights;
 exports.make = make;
-exports.map = map;
+exports.map = map$1;
 exports.maps = maps;
 exports.message = message;
 exports.path = PATH;

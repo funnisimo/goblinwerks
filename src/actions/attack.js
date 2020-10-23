@@ -13,6 +13,11 @@ export async function attack(actor, target, ctx={}) {
   const map = ctx.map || GW.data.map;
   const kind = actor.kind;
 
+  if (actor.grabbed) {
+    GW.message.forPlayer(actor, 'you cannot attack while holding %s.', actor.grabbed.getName('the'));
+    return false;
+  }
+
   // is this an attack by the player with an equipped item?
   const item = actor[type];
   if (item) {

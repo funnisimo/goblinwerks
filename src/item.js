@@ -19,6 +19,8 @@ class ItemKind {
 		this.id = opts.id || null;
     this.slot = opts.slot || null;
     this.projectile = null;
+    this.verb = opts.verb || null;
+
     if (opts.projectile) {
       this.projectile = GW.make.sprite(opts.projectile);
     }

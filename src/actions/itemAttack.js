@@ -14,6 +14,11 @@ export async function itemAttack(actor, target, ctx={}) {
   const map = ctx.map || GW.data.map;
   const kind = actor.kind;
 
+  if (actor.grabbed) {
+    GW.message.forPlayer(actor, 'you cannot attack while holding %s.', actor.grabbed.getName('the'));
+    return false;
+  }
+
   const item = actor[slot];
   if (!item) {
     return false;
