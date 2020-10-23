@@ -711,6 +711,9 @@ export function makeMap(w, h, opts={}) {
 	if (opts.tile) {
 		map.fill(opts.tile, opts.boundary);
 	}
+  if (!DATA.map) {
+    DATA.map = map;
+  }
 	return map;
 }
 

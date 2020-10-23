@@ -22,6 +22,15 @@ class ItemKind {
     this.projectile = null;
     this.verb = opts.verb || null;
 
+    this.bump = opts.bump || ['pickup'];  // pick me up by default if you bump into me
+
+    if (typeof this.bump === 'string') {
+      this.bump = this.bump.split(/[,|]/).map( (t) => t.trim() );
+    }
+    if (!Array.isArray(this.bump)) {
+      this.bump = [this.bump];
+    }
+
     if (opts.projectile) {
       this.projectile = GW.make.sprite(opts.projectile);
     }
@@ -151,6 +160,8 @@ export async function bump(actor, item, ctx={}) {
 
   if (!item) return false;
 
+  ctx.quiet = true;
+
   if (item.bump) {
     for(let i = 0; i < item.bump.length; ++i) {
       let fn = item.bump[i];
@@ -160,6 +171,7 @@ export async function bump(actor, item, ctx={}) {
       }
 
       if (await fn(actor, item, ctx)) {
+        ctx.quiet = false;
         return true;
       }
     }
@@ -174,6 +186,7 @@ export async function bump(actor, item, ctx={}) {
       }
 
       if (await fn(actor, item, ctx)) {
+        ctx.quiet = false;
         return true;
       }
     }

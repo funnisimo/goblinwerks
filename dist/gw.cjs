@@ -567,6 +567,7 @@ const Action = installFlag('action', {
 const Actor = installFlag('actor', {
   AF_CHANGED      : Fl(0),
   AF_DYING        : Fl(1),
+  AF_TURN_ENDED   : Fl(2),
 
   AF_DEBUG        : Fl(30),
 });
@@ -6657,6 +6658,9 @@ function makeMap(w, h, opts={}) {
 	if (opts.tile) {
 		map.fill(opts.tile, opts.boundary);
 	}
+  if (!data.map) {
+    data.map = map;
+  }
 	return map;
 }
 
@@ -7616,6 +7620,8 @@ class Actor$1 {
     this.id = ++ACTOR_COUNT;
   }
 
+  turnEnded() { return this.flags & Actor.AF_TURN_ENDED; }
+
   isPlayer() { return this === data.player; }
   isDead() { return this.current.health <= 0; }
   isInanimate() { return this.kind.flags & ActorKind.AK_INANIMATE; }
@@ -7736,6 +7742,7 @@ function makeActor(kind) {
 make.actor = makeActor;
 
 function startActorTurn(theActor) {
+  theActor.flags &= ~Actor.AF_TURN_ENDED;
   theActor.turnTime = 0;
   Object.assign(theActor.prior, theActor.current);
 }
@@ -7743,6 +7750,7 @@ function startActorTurn(theActor) {
 actor.startTurn = startActorTurn;
 
 function endActorTurn(theActor, turnTime=1) {
+  theActor.flags |= Actor.AF_TURN_ENDED;
   theActor.turnTime = Math.floor(theActor.kind.speed * turnTime);
   if (theActor.isPlayer()) {
     visibility.update(data.map, theActor.x, theActor.y);
@@ -9814,8 +9822,8 @@ async function movePlayer(e) {
 
   commands$1.debug('movePlayer');
 
-  return await actions.moveDir(actor, dir, ctx);
-
+  const r = await actions.moveDir(actor, dir, ctx);
+  return r;
 }
 
 commands$1.movePlayer = movePlayer;
@@ -9847,6 +9855,9 @@ async function bash(e) {
 
   if (!await actions.bashItem(actor, choice, { map, actor, x: choice.x, y: choice.y, item: choice })) {
     return false;
+  }
+  if (!actor.turnEnded()) {
+    actor.endTurn();
   }
   return true;
 }
@@ -10030,6 +10041,42 @@ async function attack(e) {
 
 commands$1.attack = attack;
 
+async function push(e) {
+  const actor = e.actor || data.player;
+  const map = data.map;
+
+  const candidates = [];
+  let choice;
+  map.eachNeighbor(actor.x, actor.y, (c) => {
+    if (c.item && c.item.hasActionFlag(Action.A_PUSH)) {
+      candidates.push(c.item);
+    }
+  }, true);
+  if (!candidates.length) {
+    message.add('Nothing to push.');
+    return false;
+  }
+  else if (candidates.length == 1) {
+    choice = candidates[0];
+  }
+  else {
+    choice = await ui.chooseTarget(candidates, 'Push what?');
+  }
+  if (!choice) {
+    return false; // cancelled
+  }
+
+  if (!await actions.push(actor, choice, { map, x: choice.x, y: choice.y })) {
+    return false;
+  }
+  if (!actor.turnEnded()) {
+    actor.endTurn();
+  }
+  return true;
+}
+
+commands$1.push = push;
+
 commands$1.debug = utils$1.NOOP;
 
 async function rest(e) {
@@ -10053,6 +10100,15 @@ class ItemKind$1 {
     this.slot = opts.slot || null;
     this.projectile = null;
     this.verb = opts.verb || null;
+
+    this.bump = opts.bump || ['pickup'];  // pick me up by default if you bump into me
+
+    if (typeof this.bump === 'string') {
+      this.bump = this.bump.split(/[,|]/).map( (t) => t.trim() );
+    }
+    if (!Array.isArray(this.bump)) {
+      this.bump = [this.bump];
+    }
 
     if (opts.projectile) {
       this.projectile = make.sprite(opts.projectile);
@@ -10183,6 +10239,8 @@ async function bump$1(actor, item, ctx={}) {
 
   if (!item) return false;
 
+  ctx.quiet = true;
+
   if (item.bump) {
     for(let i = 0; i < item.bump.length; ++i) {
       let fn = item.bump[i];
@@ -10191,6 +10249,7 @@ async function bump$1(actor, item, ctx={}) {
       }
 
       if (await fn(actor, item, ctx)) {
+        ctx.quiet = false;
         return true;
       }
     }
@@ -10204,6 +10263,7 @@ async function bump$1(actor, item, ctx={}) {
       }
 
       if (await fn(actor, item, ctx)) {
+        ctx.quiet = false;
         return true;
       }
     }
@@ -12108,26 +12168,32 @@ async function moveDir(actor, dir, opts={}) {
 
   let isPush = false;
   if (cell.item && cell.item.hasKindFlag(ItemKind.IK_BLOCKS_MOVE)) {
-    if (await bump$1(actor, cell.item, ctx)) {
+    console.log('bump into item');
+    if (!(await bump$1(actor, cell.item, ctx))) {
+      console.log('bump - no action');
+      message.forPlayer(actor, 'Blocked!');
+      return false;
+    }
+
+    console.log('bump done', actor.turnEnded());
+    if (actor.turnEnded()) {
       return true;
     }
 
-    if (!cell.item.hasActionFlag(Action.A_PUSH)) {
-      ctx.item = cell.item;
-      message.forPlayer(actor, 'Blocked!');
-      return false;
-    }
-    const pushX = newX + dir[0];
-    const pushY = newY + dir[1];
-    const pushCell = map.cell(pushX, pushY);
-    if (!pushCell.isEmpty() || pushCell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS | Tile.T_OBSTRUCTS_PASSABILITY)) {
-      message.forPlayer(actor, 'Blocked!');
-      return false;
-    }
-
-    ctx.item = cell.item;
-    map.removeItem(cell.item);
-    map.addItem(pushX, pushY, ctx.item);
+    // if (!cell.item.hasActionFlag(Flags.Action.A_PUSH)) {
+    //   ctx.item = cell.item;
+    // }
+    // const pushX = newX + dir[0];
+    // const pushY = newY + dir[1];
+    // const pushCell = map.cell(pushX, pushY);
+    // if (!pushCell.isEmpty() || pushCell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_ITEMS | Flags.Tile.T_OBSTRUCTS_PASSABILITY)) {
+    //   GW.message.forPlayer(actor, 'Blocked!');
+    //   return false;
+    // }
+    //
+    // ctx.item = cell.item;
+    // map.removeItem(cell.item);
+    // map.addItem(pushX, pushY, ctx.item);
     isPush = true;
     // Do we need to activate stuff - key enter, key leave?
   }
@@ -12228,7 +12294,7 @@ async function moveDir(actor, dir, opts={}) {
 
   // auto pickup any items
   if (config.autoPickup && cell.item && isPlayer) {
-    await actions.pickupItem(actor, cell.item, ctx);
+    await actions.pickup(actor, cell.item, ctx);
   }
 
   actions.debug('moveComplete');
@@ -12245,7 +12311,7 @@ async function bashItem(actor, item, ctx) {
   const map = ctx.map || data.map;
 
   if (!item.hasActionFlag(Action.A_BASH)) {
-    message.add('%s cannot bash %s.', actor.getName(), item.getName());
+    if (!ctx.quiet) message.add('%s cannot bash %s.', actor.getName(), item.getName());
     return false;
   }
 
@@ -12257,7 +12323,7 @@ async function bashItem(actor, item, ctx) {
   else if (actor) {
     const damage = actor.kind.calcBashDamage(actor, item, ctx);
     if (item.kind.applyDamage(item, damage, actor, ctx)) {
-      message.add('%s bash %s [-%d].', actor.getName(), item.getName('the'), damage);
+      message.forPlayer(actor, '%s %s %s [-%d].', actor.getName(), actor.getVerb('bash'), item.getName('the'), damage);
       await fx.flashSprite(map, item.x, item.y, 'hit', 100, 1);
     }
   }
@@ -12267,7 +12333,7 @@ async function bashItem(actor, item, ctx) {
 
   if (item.isDestroyed()) {
     map.removeItem(item);
-    message.add('%s is destroyed.', item.getName('the'));
+    if (actor.isPlayer()) message.add('%s is destroyed.', item.getName('the'));
     if (item.kind.corpse) {
       await spawnTileEvent(item.kind.corpse, { map, x: item.x, y: item.y });
     }
@@ -12275,12 +12341,13 @@ async function bashItem(actor, item, ctx) {
   if (actor) {
     actor.endTurn();
   }
+  console.log('bash done', actor.turnEnded());
   return true;
 }
 
 actions.bashItem = bashItem;
 
-async function pickupItem(actor, item, ctx) {
+async function pickup(actor, item, ctx) {
 
   if (!actor.hasActionFlag(Action.A_PICKUP)) return false;
   if (item.hasActionFlag(Action.A_NO_PICKUP)) {
@@ -12310,7 +12377,7 @@ async function pickupItem(actor, item, ctx) {
   return true;
 }
 
-actions.pickupItem = pickupItem;
+actions.pickup = pickup;
 
 async function openItem(actor, item, ctx={}) {
   return false;
@@ -12548,6 +12615,8 @@ async function grab$1(actor, item, ctx={}) {
 
   const map = ctx.map || data.map;
 
+  if (!actor.isPlayer()) return false;
+
   if (actor.grabbed) {
     if (actor.grabbed === item) {
       return false; // already grabbed
@@ -12576,6 +12645,37 @@ async function release(actor, item, ctx={}) {
 }
 
 actions.release = release;
+
+async function push$1(actor, item, ctx={}) {
+  if (!item) return false;
+
+  const map = ctx.map || data.map;
+  const cell = ctx.cell || map.cell(ctx.x, ctx.y);
+  const dir = ctx.dir || utils$1.dirFromTo(actor, item);
+
+  if (!item.hasActionFlag(Action.A_PUSH)) {
+    ctx.item = item;
+    if (!ctx.quiet) {
+      message.forPlayer(actor, 'Blocked!');
+    }
+    return false;
+  }
+  const pushX = item.x + dir[0];
+  const pushY = item.y + dir[1];
+  const pushCell = map.cell(pushX, pushY);
+  if (!pushCell.isEmpty() || pushCell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS | Tile.T_OBSTRUCTS_PASSABILITY)) {
+    if (!ctx.quiet) message.forPlayer(actor, 'Blocked!');
+    return false;
+  }
+
+  ctx.item = item;
+  map.removeItem(item);
+  map.addItem(pushX, pushY, item);
+  // Do we need to activate stuff - key enter, key leave?
+  return true;
+}
+
+actions.push = push$1;
 
 async function idle(actor, ctx) {
   actor.debug('idle');

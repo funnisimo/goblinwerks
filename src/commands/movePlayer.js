@@ -22,8 +22,8 @@ async function movePlayer(e) {
 
   commands.debug('movePlayer');
 
-  return await Actions.moveDir(actor, dir, ctx);
-
+  const r = await Actions.moveDir(actor, dir, ctx);
+  return r;
 }
 
 commands.movePlayer = movePlayer;

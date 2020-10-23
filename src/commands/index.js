@@ -8,6 +8,7 @@ import './open.js';
 import './close.js';
 import './fire.js';
 import './attack.js';
+import './push.js';
 
 commands.debug = UTILS.NOOP;
 

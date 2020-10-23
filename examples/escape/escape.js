@@ -225,6 +225,7 @@ GW.item.addKind('TABLE', {
 	name: 'table',
 	description: 'a wooden table',
 	sprite: { ch: 'T', fg: 'purple' }, // ch: '\u2610'
+  bump: 'push, bashItem',
 	flags: 'A_PUSH, A_PULL, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE, IK_NO_SIDEBAR',
   corpse: 'BROKEN_FURNITURE',
 	stats: { health: 10 }
@@ -235,7 +236,7 @@ GW.item.addKind('CHAIR', {
 	name: 'chair',
 	description: 'a wooden chair',
 	sprite: { ch: '\u2441', fg: 'orange' },
-  bump: 'grab, push, bash',
+  bump: 'push, bashItem',
 	flags: 'A_PUSH, A_PULL, A_SLIDE, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE, IK_NO_SIDEBAR',
   corpse: 'BROKEN_FURNITURE',
 	stats: { health: 4 }
@@ -255,6 +256,7 @@ GW.item.addKind('SHELVES', {
 	name: 'shelves', article: 'some',
 	description: 'shelves',
 	sprite: { ch: '\u25a4', fg: 'tan' },
+  bump: 'push, bashItem',
 	flags: 'A_PUSH, A_PULL, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE, IK_NO_SIDEBAR',
   corpse: 'BROKEN_FURNITURE',
 	stats: { health: 6 }
@@ -265,6 +267,7 @@ GW.item.addKind('CRATE', {
 	name: 'crate',
 	description: 'a crate',
 	sprite: { ch: '\u25a7', fg: 'yellow' },
+  bump: 'openItem, push, bashItem',
 	flags: 'A_PUSH, A_PULL, A_OPEN, A_CLOSE, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE',
   corpse: 'BROKEN_FURNITURE',
 	stats: { health: 8 }
@@ -275,6 +278,7 @@ GW.item.addKind('CHEST', {
 	name: 'chest',
 	description: 'a chest',
 	sprite: { ch: '\u234c', fg: 'yellow' },
+  bump: 'openItem, push, bashItem',
 	flags: 'A_PUSH, A_PULL, A_OPEN, A_CLOSE, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE',
   corpse: 'BROKEN_FURNITURE',
 	stats: { health: 8 }
@@ -604,7 +608,7 @@ async function start() {
 	GW.io.setKeymap({
 		dir: 'movePlayer', space: 'rest',
     g: 'grab', b: 'bash', o: 'open', c: 'close',
-    f: 'fire', a: 'attack',
+    f: 'fire', a: 'attack', p: 'push',
 		'?': showHelp
 	});
 

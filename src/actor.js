@@ -225,6 +225,8 @@ export class Actor {
     this.id = ++ACTOR_COUNT;
   }
 
+  turnEnded() { return this.flags & Flags.Actor.AF_TURN_ENDED; }
+
   isPlayer() { return this === DATA.player; }
   isDead() { return this.current.health <= 0; }
   isInanimate() { return this.kind.flags & Flags.ActorKind.AK_INANIMATE; }
@@ -345,6 +347,7 @@ export function makeActor(kind) {
 make.actor = makeActor;
 
 export function startActorTurn(theActor) {
+  theActor.flags &= ~Flags.Actor.AF_TURN_ENDED;
   theActor.turnTime = 0;
   Object.assign(theActor.prior, theActor.current);
 }
@@ -352,6 +355,7 @@ export function startActorTurn(theActor) {
 actor.startTurn = startActorTurn;
 
 function endActorTurn(theActor, turnTime=1) {
+  theActor.flags |= Flags.Actor.AF_TURN_ENDED;
   theActor.turnTime = Math.floor(theActor.kind.speed * turnTime);
   if (theActor.isPlayer()) {
     VISIBILITY.update(DATA.map, theActor.x, theActor.y);

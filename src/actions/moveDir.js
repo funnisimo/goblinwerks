@@ -40,26 +40,32 @@ export async function moveDir(actor, dir, opts={}) {
 
   let isPush = false;
   if (cell.item && cell.item.hasKindFlag(Flags.ItemKind.IK_BLOCKS_MOVE)) {
-    if (await Item.bump(actor, cell.item, ctx)) {
+    console.log('bump into item');
+    if (!(await Item.bump(actor, cell.item, ctx))) {
+      console.log('bump - no action');
+      GW.message.forPlayer(actor, 'Blocked!');
+      return false;
+    }
+
+    console.log('bump done', actor.turnEnded());
+    if (actor.turnEnded()) {
       return true;
     }
 
-    if (!cell.item.hasActionFlag(Flags.Action.A_PUSH)) {
-      ctx.item = cell.item;
-      GW.message.forPlayer(actor, 'Blocked!');
-      return false;
-    }
-    const pushX = newX + dir[0];
-    const pushY = newY + dir[1];
-    const pushCell = map.cell(pushX, pushY);
-    if (!pushCell.isEmpty() || pushCell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_ITEMS | Flags.Tile.T_OBSTRUCTS_PASSABILITY)) {
-      GW.message.forPlayer(actor, 'Blocked!');
-      return false;
-    }
-
-    ctx.item = cell.item;
-    map.removeItem(cell.item);
-    map.addItem(pushX, pushY, ctx.item);
+    // if (!cell.item.hasActionFlag(Flags.Action.A_PUSH)) {
+    //   ctx.item = cell.item;
+    // }
+    // const pushX = newX + dir[0];
+    // const pushY = newY + dir[1];
+    // const pushCell = map.cell(pushX, pushY);
+    // if (!pushCell.isEmpty() || pushCell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_ITEMS | Flags.Tile.T_OBSTRUCTS_PASSABILITY)) {
+    //   GW.message.forPlayer(actor, 'Blocked!');
+    //   return false;
+    // }
+    //
+    // ctx.item = cell.item;
+    // map.removeItem(cell.item);
+    // map.addItem(pushX, pushY, ctx.item);
     isPush = true;
     // Do we need to activate stuff - key enter, key leave?
   }
@@ -160,7 +166,7 @@ export async function moveDir(actor, dir, opts={}) {
 
   // auto pickup any items
   if (GW.config.autoPickup && cell.item && isPlayer) {
-    await Actions.pickupItem(actor, cell.item, ctx);
+    await Actions.pickup(actor, cell.item, ctx);
   }
 
   Actions.debug('moveComplete');

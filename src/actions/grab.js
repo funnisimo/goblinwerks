@@ -8,6 +8,8 @@ export async function grab(actor, item, ctx={}) {
 
   const map = ctx.map || DATA.map;
 
+  if (!actor.isPlayer()) return false;
+
   if (actor.grabbed) {
     if (actor.grabbed === item) {
       return false; // already grabbed
