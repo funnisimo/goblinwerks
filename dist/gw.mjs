@@ -9182,7 +9182,7 @@ async function playGameTime(anim) {
 fx.playGameTime = playGameTime;
 
 
-class FX$1 {
+class FX {
   constructor(opts={}) {
     this.tilNextTurn = opts.speed || opts.duration || 1000;
     this.speed = opts.speed || opts.duration || 1000;
@@ -9213,10 +9213,10 @@ class FX$1 {
 
 }
 
-types.FX = FX$1;
+types.FX = FX;
 
 
-class SpriteFX extends FX$1 {
+class SpriteFX extends FX {
   constructor(map, sprite, x, y, opts={}) {
     const count = opts.blink || 1;
     const duration = opts.duration || 1000;
@@ -9454,7 +9454,7 @@ fx.projectile = projectile;
 // }
 //
 
-class BeamFX extends FX$1 {
+class BeamFX extends FX {
   constructor(map, from, target, sprite, speed, fade, stepFn) {
     speed = speed || 20;
     super({ speed });
@@ -9525,7 +9525,7 @@ fx.beam = beam;
 
 
 
-class ExplosionFX extends FX$1 {
+class ExplosionFX extends FX {
   // TODO - take opts instead of individual params (do opts setup here)
   constructor(map, fovGrid, x, y, radius, sprite, speed, fade, shape, center, stepFn) {
     speed = speed || 20;
@@ -9812,152 +9812,8 @@ async function movePlayer(e) {
 
   commands$1.debug('movePlayer');
 
-  if (!map.hasXY(newX, newY)) {
-    commands$1.debug('move blocked - invalid xy: %d,%d', newX, newY);
-    message.forPlayer(actor, 'Blocked!');
-    // TURN ENDED (1/2 turn)?
-    return false;
-  }
+  return await actions.moveDir(actor, dir, ctx);
 
-  // TODO - Can we leave old cell?
-  // PROMOTES ON EXIT, NO KEY(?), PLAYER EXIT, ENTANGLED
-
-  if (cell.actor) {
-    if (await bump(actor, cell.actor, ctx)) {
-      return true;
-    }
-
-    message.forPlayer(actor, '%s bump into %s.', actor.getName(), cell.actor.getName());
-    actor.endTurn(0.5);
-    return true;
-  }
-
-  let isPush = false;
-  if (cell.item && cell.item.hasKindFlag(ItemKind.IK_BLOCKS_MOVE)) {
-    if (!cell.item.hasActionFlag(Action.A_PUSH)) {
-      ctx.item = cell.item;
-      message.forPlayer(actor, 'Blocked!');
-      return false;
-    }
-    const pushX = newX + dir[0];
-    const pushY = newY + dir[1];
-    const pushCell = map.cell(pushX, pushY);
-    if (!pushCell.isEmpty() || pushCell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS | Tile.T_OBSTRUCTS_PASSABILITY)) {
-      message.forPlayer(actor, 'Blocked!');
-      return false;
-    }
-
-    ctx.item = cell.item;
-    map.removeItem(cell.item);
-    map.addItem(pushX, pushY, ctx.item);
-    isPush = true;
-    // Do we need to activate stuff - key enter, key leave?
-  }
-
-  // Can we enter new cell?
-  if (cell.hasTileFlag(Tile.T_OBSTRUCTS_PASSABILITY)) {
-    if (isPlayer) {
-      message.forPlayer(actor, 'Blocked!');
-      // TURN ENDED (1/2 turn)?
-      await fx.flashSprite(map, newX, newY, 'hit', 50, 1);
-    }
-    return false;
-  }
-  if (map.diagonalBlocked(actor.x, actor.y, newX, newY)) {
-    if (isPlayer)  {
-      message.forPlayer(actor, 'Blocked!');
-      // TURN ENDED (1/2 turn)?
-      await fx.flashSprite(map, newX, newY, 'hit', 50, 1);
-    }
-    return false;
-  }
-
-  // CHECK SOME SANITY MOVES
-  if (cell.hasTileFlag(Tile.T_LAVA) && !cell.hasTileFlag(Tile.T_BRIDGE)) {
-    if (!isPlayer) return false;
-    if (!await ui.confirm('That is certain death!  Proceed anyway?')) {
-      return false;
-    }
-  }
-  else if (cell.hasTileFlag(Tile.T_HAS_STAIRS)) {
-    if (actor.grabbed) {
-      message.forPlayer(actor, 'You cannot use stairs while holding %s.', actor.grabbed.getFlavor());
-      return false;
-    }
-  }
-
-  if (actor.grabbed && !isPush) {
-    const dirToItem = utils$1.dirFromTo(actor, actor.grabbed);
-    let destXY = [actor.grabbed.x + dir[0], actor.grabbed.y + dir[1]];
-    const destCell = map.cell(destXY[0], destXY[1]);
-
-    let blocked = (destCell.item || destCell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS | Tile.T_OBSTRUCTS_PASSABILITY));
-    if (utils$1.isOppositeDir(dirToItem, dir)) {  // pull
-      if (!actor.grabbed.hasActionFlag(Action.A_PULL)) {
-        message.forPlayer(actor, 'you cannot pull %s.', actor.grabbed.getFlavor());
-        return false;
-      }
-    }
-    else {  // slide
-      if (!actor.grabbed.hasActionFlag(Action.A_SLIDE)) {
-        message.forPlayer(actor, 'you cannot slide %s.', actor.grabbed.getFlavor());
-        return false;
-      }
-      if (destCell.actor) {
-        blocked = true;
-      }
-    }
-
-    if (blocked) {
-      message.forPlayer(actor, '%s let go of %s.', actor.getName(), actor.grabbed.getName('a'));
-      await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
-      actor.grabbed = null;
-    }
-  }
-
-  if (!map.moveActor(newX, newY, actor)) {
-    utils$1.ERROR('Move failed! ' + newX + ',' + newY);
-    // TURN ENDED (1/2 turn)?
-    return false;
-  }
-
-  if (actor.grabbed && !isPush) {
-    map.removeItem(actor.grabbed);
-    map.addItem(actor.grabbed.x + dir[0], actor.grabbed.y + dir[1], actor.grabbed);
-  }
-
-  // APPLY EFFECTS
-  for(let tile of cell.tiles()) {
-    await tile.applyInstantEffects(map, newX, newY, cell);
-    if (data.gameHasEnded) {
-      return true;
-    }
-  }
-
-  // PROMOTES ON ENTER, PLAYER ENTER, KEY(?)
-  let fired = false;
-  if (data.player === actor) {
-    fired = await cell.fireEvent('playerEnter', ctx);
-  }
-  if (!fired) {
-    await cell.fireEvent('enter', ctx);
-  }
-
-  if (cell.hasTileFlag(Tile.T_HAS_STAIRS) && isPlayer) {
-    console.log('Use stairs!');
-    await game.useStairs(newX, newY);
-  }
-
-  // auto pickup any items
-  if (config.autoPickup && cell.item && isPlayer) {
-    await actions.pickupItem(actor, cell.item, ctx);
-  }
-
-  commands$1.debug('moveComplete');
-
-  ui.requestUpdate();
-  actor.endTurn();
-  return true;
 }
 
 commands$1.movePlayer = movePlayer;
@@ -10320,6 +10176,41 @@ function makeItem(kind) {
 }
 
 make.item = makeItem;
+
+async function bump$1(actor, item, ctx={}) {
+
+  if (!item) return false;
+
+  if (item.bump) {
+    for(let i = 0; i < item.bump.length; ++i) {
+      let fn = item.bump[i];
+      if (typeof fn === 'string') {
+        fn = actions[fn] || utils$1.FALSE;
+      }
+
+      if (await fn(actor, item, ctx)) {
+        return true;
+      }
+    }
+  }
+
+  if (item.kind && item.kind.bump) {
+    for(let i = 0; i < item.kind.bump.length; ++i) {
+      let fn = item.kind.bump[i];
+      if (typeof fn === 'string') {
+        fn = actions[fn] || utils$1.FALSE;
+      }
+
+      if (await fn(actor, item, ctx)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+item.bump = bump$1;
 
 var SETUP = null;
 
@@ -12215,6 +12106,10 @@ async function moveDir(actor, dir, opts={}) {
 
   let isPush = false;
   if (cell.item && cell.item.hasKindFlag(ItemKind.IK_BLOCKS_MOVE)) {
+    if (await bump$1(actor, cell.item, ctx)) {
+      return true;
+    }
+
     if (!cell.item.hasActionFlag(Action.A_PUSH)) {
       ctx.item = cell.item;
       message.forPlayer(actor, 'Blocked!');
@@ -12240,7 +12135,7 @@ async function moveDir(actor, dir, opts={}) {
     if (isPlayer) {
       message.forPlayer(actor, 'Blocked!');
       // TURN ENDED (1/2 turn)?
-      await FX.flashSprite(map, newX, newY, 'hit', 50, 1);
+      await fx.flashSprite(map, newX, newY, 'hit', 50, 1);
     }
     return false;
   }
@@ -12248,7 +12143,7 @@ async function moveDir(actor, dir, opts={}) {
     if (isPlayer)  {
       message.forPlayer(actor, 'Blocked!');
       // TURN ENDED (1/2 turn)?
-      await FX.flashSprite(map, newX, newY, 'hit', 50, 1);
+      await fx.flashSprite(map, newX, newY, 'hit', 50, 1);
     }
     return false;
   }
@@ -12268,12 +12163,12 @@ async function moveDir(actor, dir, opts={}) {
   }
 
   if (actor.grabbed && !isPush) {
-    const dirToItem = UTILS.dirFromTo(actor, actor.grabbed);
+    const dirToItem = utils$1.dirFromTo(actor, actor.grabbed);
     let destXY = [actor.grabbed.x + dir[0], actor.grabbed.y + dir[1]];
     const destCell = map.cell(destXY[0], destXY[1]);
 
     let blocked = (destCell.item || destCell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS | Tile.T_OBSTRUCTS_PASSABILITY));
-    if (UTILS.isOppositeDir(dirToItem, dir)) {  // pull
+    if (utils$1.isOppositeDir(dirToItem, dir)) {  // pull
       if (!actor.grabbed.hasActionFlag(Action.A_PULL)) {
         message.forPlayer(actor, 'you cannot pull %s.', actor.grabbed.getFlavor());
         return false;
@@ -12291,13 +12186,13 @@ async function moveDir(actor, dir, opts={}) {
 
     if (blocked) {
       message.forPlayer(actor, '%s let go of %s.', actor.getName(), actor.grabbed.getName('a'));
-      await FX.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+      await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
       actor.grabbed = null;
     }
   }
 
   if (!map.moveActor(newX, newY, actor)) {
-    UTILS.ERROR('Move failed! ' + newX + ',' + newY);
+    utils$1.ERROR('Move failed! ' + newX + ',' + newY);
     // TURN ENDED (1/2 turn)?
     return false;
   }

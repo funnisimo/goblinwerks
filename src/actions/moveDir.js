@@ -1,6 +1,7 @@
 
 import * as Flags from '../flags.js';
 import * as Actor from '../actor.js';
+import * as Item from '../item.js';
 import * as GW from '../gw.js'
 import { actions as Actions } from './index.js';
 
@@ -39,6 +40,10 @@ export async function moveDir(actor, dir, opts={}) {
 
   let isPush = false;
   if (cell.item && cell.item.hasKindFlag(Flags.ItemKind.IK_BLOCKS_MOVE)) {
+    if (await Item.bump(actor, cell.item, ctx)) {
+      return true;
+    }
+
     if (!cell.item.hasActionFlag(Flags.Action.A_PUSH)) {
       ctx.item = cell.item;
       GW.message.forPlayer(actor, 'Blocked!');
@@ -64,7 +69,7 @@ export async function moveDir(actor, dir, opts={}) {
     if (isPlayer) {
       GW.message.forPlayer(actor, 'Blocked!');
       // TURN ENDED (1/2 turn)?
-      await FX.flashSprite(map, newX, newY, 'hit', 50, 1);
+      await GW.fx.flashSprite(map, newX, newY, 'hit', 50, 1);
     }
     return false;
   }
@@ -72,7 +77,7 @@ export async function moveDir(actor, dir, opts={}) {
     if (isPlayer)  {
       GW.message.forPlayer(actor, 'Blocked!');
       // TURN ENDED (1/2 turn)?
-      await FX.flashSprite(map, newX, newY, 'hit', 50, 1);
+      await GW.fx.flashSprite(map, newX, newY, 'hit', 50, 1);
     }
     return false;
   }
@@ -92,12 +97,12 @@ export async function moveDir(actor, dir, opts={}) {
   }
 
   if (actor.grabbed && !isPush) {
-    const dirToItem = UTILS.dirFromTo(actor, actor.grabbed);
+    const dirToItem = GW.utils.dirFromTo(actor, actor.grabbed);
     let destXY = [actor.grabbed.x + dir[0], actor.grabbed.y + dir[1]];
     const destCell = map.cell(destXY[0], destXY[1]);
 
     let blocked = (destCell.item || destCell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_ITEMS | Flags.Tile.T_OBSTRUCTS_PASSABILITY));
-    if (UTILS.isOppositeDir(dirToItem, dir)) {  // pull
+    if (GW.utils.isOppositeDir(dirToItem, dir)) {  // pull
       if (!actor.grabbed.hasActionFlag(Flags.Action.A_PULL)) {
         GW.message.forPlayer(actor, 'you cannot pull %s.', actor.grabbed.getFlavor());
         return false;
@@ -115,13 +120,13 @@ export async function moveDir(actor, dir, opts={}) {
 
     if (blocked) {
       GW.message.forPlayer(actor, '%s let go of %s.', actor.getName(), actor.grabbed.getName('a'));
-      await FX.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+      await GW.fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
       actor.grabbed = null;
     }
   }
 
   if (!map.moveActor(newX, newY, actor)) {
-    UTILS.ERROR('Move failed! ' + newX + ',' + newY);
+    GW.utils.ERROR('Move failed! ' + newX + ',' + newY);
     // TURN ENDED (1/2 turn)?
     return false;
   }

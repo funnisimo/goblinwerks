@@ -2,6 +2,7 @@
 import { color as COLOR } from './color.js';
 import { text as TEXT } from './text.js';
 import * as Flags from './flags.js';
+import { actions as Actions } from './actions/index.js';
 import * as GW from './gw.js';
 
 
@@ -145,3 +146,40 @@ function makeItem(kind) {
 }
 
 GW.make.item = makeItem;
+
+export async function bump(actor, item, ctx={}) {
+
+  if (!item) return false;
+
+  if (item.bump) {
+    for(let i = 0; i < item.bump.length; ++i) {
+      let fn = item.bump[i];
+      let result;
+      if (typeof fn === 'string') {
+        fn = Actions[fn] || GW.utils.FALSE;
+      }
+
+      if (await fn(actor, item, ctx)) {
+        return true;
+      }
+    }
+  }
+
+  if (item.kind && item.kind.bump) {
+    for(let i = 0; i < item.kind.bump.length; ++i) {
+      let fn = item.kind.bump[i];
+      let result;
+      if (typeof fn === 'string') {
+        fn = Actions[fn] || GW.utils.FALSE;
+      }
+
+      if (await fn(actor, item, ctx)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+GW.item.bump = bump;
