@@ -4,38 +4,41 @@ import { actions as Actions } from '../actions/index.js';
 import { data as DATA, def, commands, ui as UI, message as MSG, utils as UTILS, fx as FX } from '../gw.js';
 
 
-async function bash(e) {
+async function attack(e) {
   const actor = e.actor || DATA.player;
   const map = DATA.map;
+  const ctx = { map, actor, x: -1, y: -1 };
 
   const candidates = [];
   let choice;
-  map.eachNeighbor(actor.x, actor.y, (c) => {
-    if (c.item && c.item.hasActionFlag(Flags.Action.A_BASH)) {
-      candidates.push(c.item);
+  map.eachNeighbor(actor.x, actor.y, (c, i, j) => {
+    ctx.x = i;
+    ctx.y = j;
+    if (c.actor && actor.kind.willAttack(actor, c.actor, ctx)) {
+      candidates.push(c.actor);
     }
   }, true);
+
   if (!candidates.length) {
-    MSG.add('Nothing to bash.');
+    MSG.add('Nothing to attack.');
     return false;
   }
   else if (candidates.length == 1) {
     choice = candidates[0];
   }
   else {
-    choice = await UI.chooseTarget(candidates, 'Bash what?');
+    choice = await UI.chooseTarget(candidates, 'Attack where?');
   }
   if (!choice) {
     return false; // cancelled
   }
 
-  if (!await Actions.bashItem(actor, choice, { map, actor, x: choice.x, y: choice.y, item: choice })) {
+  ctx.x = choice.x;
+  ctx.y = choice.y;
+  if (!await Actions.attack(actor, choice, ctx)) {
     return false;
-  }
-  if (!actor.turnEnded()) {
-    actor.endTurn();
   }
   return true;
 }
 
-commands.bash = bash;
+commands.attack = attack;

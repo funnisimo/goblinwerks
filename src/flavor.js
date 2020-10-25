@@ -168,11 +168,13 @@ function getFlavorText(map, x, y) {
 		return buf;
 	}
 
-	// if (monst) {
-	// 	object = GW.actor.getFlavor(monst);
-	// } else
-  if (theItem) {
-    object = theItem.getName({ color: false, article: true }) + ' on ';
+  let needObjectArticle = false;
+	if (monst) {
+		object = monst.getName({ color: false, article: true }) + ' standing';
+    needObjectArticle = true;
+	} else if (theItem) {
+    object = theItem.getName({ color: false, article: true });
+    needObjectArticle = true;
 	}
 
   let article = cell.liquid ? ' in ' : ' on ';
@@ -180,6 +182,10 @@ function getFlavorText(map, x, y) {
   let surface = '';
   if (cell.surface) {
     const tile = cell.surfaceTile;
+    if (needObjectArticle) {
+      needObjectArticle = false;
+      object += ' on ';
+    }
     if (tile.flags & Flags.Tile.T_BRIDGE) {
       article = ' over ';
     }
@@ -188,9 +194,17 @@ function getFlavorText(map, x, y) {
 
   let liquid = '';
   if (cell.liquid) {
-    liquid = cell.liquidTile.getFlavor() + ' on ';
+    liquid = cell.liquidTile.getFlavor() + ' covering ';
+    if (needObjectArticle) {
+      needObjectArticle = false;
+      object += ' in ';
+    }
   }
 
+  if (needObjectArticle) {
+    needObjectArticle = false;
+    object += ' on ';
+  }
   let ground = cell.groundTile.getFlavor();
 
   buf = TEXT.format("you %s %s%s%s%s.", (map.isVisible(x, y) ? "see" : "sense"), object, surface, liquid, ground);

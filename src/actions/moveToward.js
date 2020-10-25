@@ -1,8 +1,9 @@
 
-import { moveDir } from './moveDir.js';
 import { grid as GRID } from '../grid.js';
 import { path as PATH } from '../path.js';
 import { data as DATA, utils as UTILS, def } from '../gw.js';
+import { actions as Actions } from './index.js';
+
 
 export async function moveToward(actor, x, y, ctx) {
 
@@ -16,7 +17,7 @@ export async function moveToward(actor, x, y, ctx) {
 
   if (destCell.isVisible() && fromCell.isVisible()) {
     const dir = UTILS.dirBetween(actor.x, actor.y, x, y);
-    if (await moveDir(actor, dir, ctx)) {
+    if (await Actions.moveDir(actor, dir, ctx)) {
       return true;
     }
   }
@@ -36,7 +37,7 @@ export async function moveToward(actor, x, y, ctx) {
   const dir = nextStep(map, travelGrid, actor.x, actor.y, actor, true);
   if (!dir) return false;
 
-  return await moveDir(actor, dir, ctx);
+  return await Actions.moveDir(actor, dir, ctx);
 }
 
 
@@ -87,3 +88,5 @@ function nextStep( map, distanceMap, x, y, traveler, useDiagonals) {
 	}
 	return def.dirs[bestDir] || null;
 }
+
+Actions.moveToward = moveToward;

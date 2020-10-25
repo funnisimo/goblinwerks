@@ -1,6 +1,6 @@
 
 import * as Flags from '../flags.js';
-import { itemAttack } from '../actions/index.js';
+import { actions as Actions } from '../actions/index.js';
 import { data as DATA, def, commands, ui as UI, message as MSG, utils as UTILS, fx as FX } from '../gw.js';
 
 
@@ -42,10 +42,9 @@ async function fire(e) {
     return false; // cancelled
   }
 
-  if (!await itemAttack(actor, choice, actor.ranged, { map, actor, x: choice.x, y: choice.y, item: actor.ranged })) {
+  if (!await Actions.itemAttack(actor, choice, { map, actor, x: choice.x, y: choice.y, item: actor.ranged, type: 'ranged' })) {
     return false;
   }
-  actor.endTurn();
   return true;
 }
 

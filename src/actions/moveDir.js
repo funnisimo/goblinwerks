@@ -1,8 +1,9 @@
 
 import * as Flags from '../flags.js';
-import { pickupItem } from './pickup.js';
-import { attack } from './attack.js';
+import * as Actor from '../actor.js';
+import * as Item from '../item.js';
 import * as GW from '../gw.js'
+import { actions as Actions } from './index.js';
 
 
 export async function moveDir(actor, dir, opts={}) {
@@ -11,89 +12,127 @@ export async function moveDir(actor, dir, opts={}) {
   const newY = dir[1] + actor.y;
   const map = opts.map || GW.data.map;
   const cell = map.cell(newX, newY);
+  const isPlayer = actor.isPlayer();
 
   const ctx = { actor, map, x: newX, y: newY, cell };
 
   actor.debug('moveDir', dir);
 
   if (!map.hasXY(newX, newY)) {
-    actor.debug('move blocked - invalid xy: %d,%d', newX, newY);
+    commands.debug('move blocked - invalid xy: %d,%d', newX, newY);
+    GW.message.forPlayer(actor, 'Blocked!');
     // TURN ENDED (1/2 turn)?
     return false;
   }
 
   // TODO - Can we leave old cell?
-  // PROMOTES ON EXIT, NO KEY(?), PLAYER EXIT
+  // PROMOTES ON EXIT, NO KEY(?), PLAYER EXIT, ENTANGLED
 
   if (cell.actor) {
-    // TODO - BUMP LOGIC
-    if (await attack(actor, cell.actor, 'melee', ctx)) {
+    if (await Actor.bump(actor, cell.actor, ctx)) {
       return true;
     }
-    return false;  // cannot move here and did not attack
-  }
 
-  // Can we enter new cell?
-  if (cell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_PASSABILITY)) {
-    return false;
-  }
-  if (map.diagonalBlocked(actor.x, actor.y, newX, newY)) {
-    return false;
+    GW.message.forPlayer(actor, '%s bump into %s.', actor.getName(), cell.actor.getName());
+    actor.endTurn(0.5);
+    return true;
   }
 
   let isPush = false;
   if (cell.item && cell.item.hasKindFlag(Flags.ItemKind.IK_BLOCKS_MOVE)) {
-    // ACTOR.hasActionFlag(A_PUSH);
-    if (!cell.item.hasActionFlag(Flags.Action.A_PUSH)) {
-      ctx.item = cell.item;
-      return false;
-    }
-    const pushX = newX + dir[0];
-    const pushY = newY + dir[1];
-    const pushCell = map.cell(pushX, pushY);
-    if (!pushCell.isEmpty() || pushCell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_ITEMS | Flags.Tile.T_OBSTRUCTS_PASSABILITY)) {
+    console.log('bump into item');
+    if (!(await Item.bump(actor, cell.item, ctx))) {
+      console.log('bump - no action');
+      GW.message.forPlayer(actor, 'Blocked!');
       return false;
     }
 
-    ctx.item = cell.item;
-    map.removeItem(cell.item);
-    map.addItem(pushX, pushY, ctx.item);
+    console.log('bump done', actor.turnEnded());
+    if (actor.turnEnded()) {
+      return true;
+    }
+
+    // if (!cell.item.hasActionFlag(Flags.Action.A_PUSH)) {
+    //   ctx.item = cell.item;
+    // }
+    // const pushX = newX + dir[0];
+    // const pushY = newY + dir[1];
+    // const pushCell = map.cell(pushX, pushY);
+    // if (!pushCell.isEmpty() || pushCell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_ITEMS | Flags.Tile.T_OBSTRUCTS_PASSABILITY)) {
+    //   GW.message.forPlayer(actor, 'Blocked!');
+    //   return false;
+    // }
+    //
+    // ctx.item = cell.item;
+    // map.removeItem(cell.item);
+    // map.addItem(pushX, pushY, ctx.item);
     isPush = true;
     // Do we need to activate stuff - key enter, key leave?
   }
 
+  // Can we enter new cell?
+  if (cell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_PASSABILITY)) {
+    if (isPlayer) {
+      GW.message.forPlayer(actor, 'Blocked!');
+      // TURN ENDED (1/2 turn)?
+      await GW.fx.flashSprite(map, newX, newY, 'hit', 50, 1);
+    }
+    return false;
+  }
+  if (map.diagonalBlocked(actor.x, actor.y, newX, newY)) {
+    if (isPlayer)  {
+      GW.message.forPlayer(actor, 'Blocked!');
+      // TURN ENDED (1/2 turn)?
+      await GW.fx.flashSprite(map, newX, newY, 'hit', 50, 1);
+    }
+    return false;
+  }
+
   // CHECK SOME SANITY MOVES
   if (cell.hasTileFlag(Flags.Tile.T_LAVA) && !cell.hasTileFlag(Flags.Tile.T_BRIDGE)) {
-    return false;
+    if (!isPlayer) return false;
+    if (!await UI.confirm('That is certain death!  Proceed anyway?')) {
+      return false;
+    }
   }
   else if (cell.hasTileFlag(Flags.Tile.T_HAS_STAIRS)) {
     if (actor.grabbed) {
+      GW.message.forPlayer(actor, 'You cannot use stairs while holding %s.', actor.grabbed.getFlavor());
       return false;
     }
   }
 
   if (actor.grabbed && !isPush) {
-    const dirToItem = UTILS.dirFromTo(actor, actor.grabbed);
+    const dirToItem = GW.utils.dirFromTo(actor, actor.grabbed);
     let destXY = [actor.grabbed.x + dir[0], actor.grabbed.y + dir[1]];
-    if (UTILS.isOppositeDir(dirToItem, dir)) {  // pull
+    const destCell = map.cell(destXY[0], destXY[1]);
+
+    let blocked = (destCell.item || destCell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_ITEMS | Flags.Tile.T_OBSTRUCTS_PASSABILITY));
+    if (GW.utils.isOppositeDir(dirToItem, dir)) {  // pull
       if (!actor.grabbed.hasActionFlag(Flags.Action.A_PULL)) {
+        GW.message.forPlayer(actor, 'you cannot pull %s.', actor.grabbed.getFlavor());
         return false;
       }
     }
     else {  // slide
       if (!actor.grabbed.hasActionFlag(Flags.Action.A_SLIDE)) {
+        GW.message.forPlayer(actor, 'you cannot slide %s.', actor.grabbed.getFlavor());
         return false;
       }
+      if (destCell.actor) {
+        blocked = true;
+      }
     }
-    const destCell = map.cell(destXY[0], destXY[1]);
-    if (destCell.item || destCell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_ITEMS | Flags.Tile.T_OBSTRUCTS_PASSABILITY)) {
-      actor.debug('move blocked - item obstructed: %d,%d', destXY[0], destXY[1]);
-      return false;
+
+    if (blocked) {
+      GW.message.forPlayer(actor, '%s let go of %s.', actor.getName(), actor.grabbed.getName('a'));
+      await GW.fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+      actor.grabbed = null;
     }
   }
 
   if (!map.moveActor(newX, newY, actor)) {
-    UTILS.ERROR('Move failed! ' + newX + ',' + newY);
+    GW.utils.ERROR('Move failed! ' + newX + ',' + newY);
     // TURN ENDED (1/2 turn)?
     return false;
   }
@@ -112,16 +151,29 @@ export async function moveDir(actor, dir, opts={}) {
   }
 
   // PROMOTES ON ENTER, PLAYER ENTER, KEY(?)
-  await cell.fireEvent('enter', ctx);
-
-  // pickup any items
-  if (cell.item && actor.hasActionFlag(Flags.Action.A_PICKUP)) {
-    await pickupItem(actor, cell.item, ctx);
+  let fired = false;
+  if (isPlayer) {
+    fired = await cell.fireEvent('playerEnter', ctx);
+  }
+  if (!fired) {
+    await cell.fireEvent('enter', ctx);
   }
 
-  actor.debug('moveComplete');
+  if (cell.hasTileFlag(Flags.Tile.T_HAS_STAIRS) && isPlayer) {
+    console.log('Use stairs!');
+    await GAME.useStairs(newX, newY);
+  }
+
+  // auto pickup any items
+  if (GW.config.autoPickup && cell.item && isPlayer) {
+    await Actions.pickup(actor, cell.item, ctx);
+  }
+
+  Actions.debug('moveComplete');
 
   GW.ui.requestUpdate();
   actor.endTurn();
   return true;
 }
+
+Actions.moveDir = moveDir;

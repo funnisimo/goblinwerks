@@ -1,7 +1,7 @@
 
 
 import * as Flags from '../flags.js';
-import { openItem } from '../actions/index.js';
+import { actions as Actions } from '../actions/index.js';
 import { data as DATA, def, commands, ui as UI, message as MSG, utils as UTILS, fx as FX } from '../gw.js';
 
 
@@ -37,15 +37,15 @@ async function open(e) {
   }
 
   if (choice.item) {
-    if (!await openItem(actor, choice, choice)) {
+    if (!await Actions.openItem(actor, choice, choice)) {
       return false;
     }
   }
   else {
     console.log('fire event');
     await choice.cell.fireEvent('open', choice);
+    actor.endTurn();
   }
-  actor.endTurn();
   return true;
 }
 

@@ -3,17 +3,25 @@ import * as Flags from '../flags.js';
 import { spawnTileEvent } from '../tileEvent.js';
 import { gameOver } from '../game.js';
 import * as GW from '../gw.js';
+import { actions as Actions } from './index.js';
 
 
-export async function itemAttack(actor, target, item, ctx={}) {
+export async function itemAttack(actor, target, ctx={}) {
 
   if (actor.isPlayer() == target.isPlayer()) return false;
 
+  const slot = ctx.slot || ctx.type || 'ranged';
   const map = ctx.map || GW.data.map;
   const kind = actor.kind;
 
+  if (actor.grabbed) {
+    GW.message.forPlayer(actor, 'you cannot attack while holding %s.', actor.grabbed.getName('the'));
+    return false;
+  }
+
+  const item = actor[slot];
   if (!item) {
-    GW.utils.ERROR('Item required.  Check before call.');
+    return false;
   }
 
   const range = item.stats.range || 1;
@@ -60,3 +68,5 @@ export async function itemAttack(actor, target, item, ctx={}) {
   actor.endTurn();
   return true;
 }
+
+Actions.itemAttack = itemAttack;

@@ -15,7 +15,7 @@ var flavor = {};
 var sidebar = {};
 
 var fx = {};
-var commands = {};
+var commands$1 = {};
 var ai = {};
 
 var itemKinds = {};
@@ -567,6 +567,7 @@ const Action = installFlag('action', {
 const Actor = installFlag('actor', {
   AF_CHANGED      : Fl(0),
   AF_DYING        : Fl(1),
+  AF_TURN_ENDED   : Fl(2),
 
   AF_DEBUG        : Fl(30),
 });
@@ -650,9 +651,7 @@ const TileMech = installFlag('tileMech', {
   TM_ALLOWS_SUBMERGING					: Fl(8),		// allows submersible monsters to submerge in this terrain
   TM_IS_WIRED										: Fl(9),		// if wired, promotes when powered, and sends power when promoting
   TM_IS_CIRCUIT_BREAKER 				: Fl(10),   // prevents power from circulating in its machine
-  TM_DISSIPATES							    : Fl(11),		// is not there forever
-  TM_DISSIPATES_QUICKLY			    : Fl(12),		// dissipates quickly
-  TM_DISSIPATES_SLOWLY			    : Fl(13),		// dissipates slowly
+
   TM_EXTINGUISHES_FIRE					: Fl(14),		// extinguishes burning terrain or creatures
   TM_VANISHES_UPON_PROMOTION		: Fl(15),		// vanishes when creating promotion dungeon feature, even if the replacement terrain priority doesn't require it
   TM_REFLECTS_BOLTS           	: Fl(16),       // magic bolts reflect off of its surface randomly (similar to ACTIVE_CELLS flag IMPREGNABLE)
@@ -665,6 +664,7 @@ const TileMech = installFlag('tileMech', {
   TM_INTERRUPT_EXPLORATION_WHEN_SEEN : Fl(23),    // will generate a message when discovered during exploration to interrupt exploration
   TM_INVERT_WHEN_HIGHLIGHTED  	: Fl(24),       // will flip fore and back colors when highlighted with pathing
   TM_SWAP_ENCHANTS_ACTIVATION 	: Fl(25),       // in machine, swap item enchantments when two suitable items are on this terrain, and activate the machine when that happens
+
   TM_PROMOTES										: 'TM_PROMOTES_WITH_KEY | TM_PROMOTES_WITHOUT_KEY | TM_PROMOTES_ON_STEP | TM_PROMOTES_ON_ITEM_REMOVE | TM_PROMOTES_ON_SACRIFICE_ENTRY | TM_PROMOTES_ON_ELECTRICITY | TM_PROMOTES_ON_PLAYER_ENTRY',
 });
 
@@ -3636,8 +3636,8 @@ async function dispatchEvent(ev, km) {
 		if (typeof command === 'function') {
 			result = await command.call(km, ev);
 		}
-		else if (commands[command]) {
-			result = await commands[command](ev);
+		else if (commands$1[command]) {
+			result = await commands$1[command](ev);
 		}
 		else {
 			utils$1.WARN('No command found: ' + command);
@@ -5961,8 +5961,8 @@ function getAppearance(cell, dest) {
 
 cell.getAppearance = getAppearance;
 
-var map = {};
-map.debug = utils$1.NOOP;
+var map$1 = {};
+map$1.debug = utils$1.NOOP;
 
 const TileLayer$2 = def.layer;
 
@@ -6630,7 +6630,7 @@ class Map$1 {
 	// TICK
 
 	async tick() {
-    map.debug('tick');
+    map$1.debug('tick');
 		this.forEach( (c) => c.mechFlags &= ~(CellMech.EVENT_FIRED_THIS_TURN | CellMech.EVENT_PROTECTED));
 		for(let x = 0; x < this.width; ++x) {
 			for(let y = 0; y < this.height; ++y) {
@@ -6638,7 +6638,7 @@ class Map$1 {
 				await cell.fireEvent('tick', { map: this, x, y, cell, safe: true });
 			}
 		}
-    map.updateLiquid(this);
+    map$1.updateLiquid(this);
 	}
 
   resetEvents() {
@@ -6658,6 +6658,9 @@ function makeMap(w, h, opts={}) {
 	if (opts.tile) {
 		map.fill(opts.tile, opts.boundary);
 	}
+  if (!data.map) {
+    data.map = map;
+  }
 	return map;
 }
 
@@ -6708,7 +6711,7 @@ function getCellAppearance(map, x, y, dest) {
 	// dest.bake();
 }
 
-map.getCellAppearance = getCellAppearance;
+map$1.getCellAppearance = getCellAppearance;
 
 
 
@@ -6720,7 +6723,7 @@ function addText(map, x, y, text, fg, bg, layer) {
 	}
 }
 
-map.addText = addText;
+map$1.addText = addText;
 
 
 function updateGas(map) {
@@ -6781,7 +6784,7 @@ function updateGas(map) {
   GRID$1.free(newVolume);
 }
 
-map.updateGas = updateGas;
+map$1.updateGas = updateGas;
 
 
 
@@ -6852,7 +6855,7 @@ function updateLiquid(map) {
   GRID$1.free(newVolume);
 }
 
-map.updateLiquid = updateLiquid;
+map$1.updateLiquid = updateLiquid;
 
 
 const FP_BASE = 16;
@@ -6927,7 +6930,7 @@ function getLine(map, fromX, fromY, toX, toY) {
 	return line;
 }
 
-map.getLine = getLine;
+map$1.getLine = getLine;
 
 def.INTENSITY_DARK = 20; // less than 20% for highest color in rgb
 
@@ -7394,6 +7397,10 @@ function updateVisibility(map, x, y) {
 
 visibility.update = updateVisibility;
 
+var actions = {};
+
+actions.debug = NOOP;
+
 var actor = {};
 var actorKinds = {};
 
@@ -7413,6 +7420,14 @@ class ActorKind$1 {
 		// this.attackFlags = Flags.Attack.toFlag(opts.flags);
 		this.stats = Object.assign({}, opts.stats || {});
 		this.id = opts.id || null;
+    this.bump = opts.bump || ['attack'];  // attack me by default if you bump into me
+
+    if (typeof this.bump === 'string') {
+      this.bump = this.bump.split(/[,|]/).map( (t) => t.trim() );
+    }
+    if (!Array.isArray(this.bump)) {
+      this.bump = [this.bump];
+    }
 
     this.corpse = opts.corpse ? make.tileEvent(opts.corpse) : null;
     this.blood = opts.blood ? make.tileEvent(opts.blood) : null;
@@ -7605,6 +7620,8 @@ class Actor$1 {
     this.id = ++ACTOR_COUNT;
   }
 
+  turnEnded() { return this.flags & Actor.AF_TURN_ENDED; }
+
   isPlayer() { return this === data.player; }
   isDead() { return this.current.health <= 0; }
   isInanimate() { return this.kind.flags & ActorKind.AK_INANIMATE; }
@@ -7725,6 +7742,7 @@ function makeActor(kind) {
 make.actor = makeActor;
 
 function startActorTurn(theActor) {
+  theActor.flags &= ~Actor.AF_TURN_ENDED;
   theActor.turnTime = 0;
   Object.assign(theActor.prior, theActor.current);
 }
@@ -7732,6 +7750,7 @@ function startActorTurn(theActor) {
 actor.startTurn = startActorTurn;
 
 function endActorTurn(theActor, turnTime=1) {
+  theActor.flags |= Actor.AF_TURN_ENDED;
   theActor.turnTime = Math.floor(theActor.kind.speed * turnTime);
   if (theActor.isPlayer()) {
     visibility.update(data.map, theActor.x, theActor.y);
@@ -7767,6 +7786,44 @@ async function takeTurn(theActor) {
 
 actor.takeTurn = takeTurn;
 
+
+
+
+async function bump(actor, target, ctx) {
+
+  if (!target) return false;
+
+  if (target.bump) {
+    for(let i = 0; i < target.bump.length; ++i) {
+      let bump = target.bump[i];
+      if (typeof bump === 'string') {
+        bump = actions[bump] || utils$1.FALSE;
+      }
+
+      if (await bump(actor, target, ctx)) {
+        return true;
+      }
+    }
+  }
+
+  if (target.kind && target.kind.bump) {
+    for(let i = 0; i < target.kind.bump.length; ++i) {
+      let bump = target.kind.bump[i];
+      if (typeof bump === 'string') {
+        bump = actions[bump] || utils$1.FALSE;
+      }
+
+      if (await bump(actor, target, ctx)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+actor.bump = bump;
+
 var player = {};
 
 player.debug = utils$1.NOOP;
@@ -7775,6 +7832,10 @@ player.debug = utils$1.NOOP;
 
 function makePlayer(kind) {
   if (!(kind instanceof types.ActorKind)) {
+    utils$1.setDefaults(kind, {
+      sprite: { ch:'@', fg: 'white' },
+      name: 'you', article: false,
+    });
     kind = new types.ActorKind(kind);
   }
   return new types.Actor(kind);
@@ -9247,17 +9308,17 @@ installSprite('miss', 'green', 50);
 
 
 class MovingSpriteFX extends SpriteFX {
-  constructor(map$1, source, target, sprite, speed, stepFn) {
-    super(map$1, sprite, source.x, source.y, { speed });
+  constructor(map, source, target, sprite, speed, stepFn) {
+    super(map, sprite, source.x, source.y, { speed });
     this.target = target;
-    this.path = map.getLine(this.map, source.x, source.y, this.target.x, this.target.y);
+    this.path = map$1.getLine(this.map, source.x, source.y, this.target.x, this.target.y);
     this.stepFn = stepFn || utils$1.TRUE;
   }
 
   step() {
     if (this.x == this.target.x && this.y == this.target.y) return this.stop(this);
     if (!this.path.find( (loc) => loc[0] == this.target.x && loc[1] == this.target.y)) {
-      this.path = map.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
+      this.path = map$1.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
     }
     const next = this.path.shift();
     const r = this.stepFn(next[0], next[1]);
@@ -9404,16 +9465,16 @@ fx.projectile = projectile;
 //
 
 class BeamFX extends FX {
-  constructor(map$1, from, target, sprite, speed, fade, stepFn) {
+  constructor(map, from, target, sprite, speed, fade, stepFn) {
     speed = speed || 20;
     super({ speed });
-    this.map = map$1;
+    this.map = map;
     this.x = from.x;
     this.y = from.y;
     this.target = target;
     this.sprite = sprite;
     this.fade = fade || speed;
-    this.path = map.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
+    this.path = map$1.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
     this.stepFn = stepFn || utils$1.TRUE;
   }
 
@@ -9737,409 +9798,13 @@ async function grab(e) {
     return false; // cancelled
   }
 
-  actor.grabbed = choice;
-  message.add('%s grab %s.', actor.getName(), actor.grabbed.getName('a'));
-  await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
-  actor.endTurn();
-  return true;
-}
-
-commands.grab = grab;
-
-async function pickupItem(actor, item, ctx) {
-
-  if (!actor.hasActionFlag(Action.A_PICKUP)) return false;
-  if (item.hasActionFlag(Action.A_NO_PICKUP)) {
-    // TODO - GW.message.add('...');
+  if (!await actions.grab(actor, choice, { map, x: choice.x, y: choice.y })) {
     return false;
-  }
-
-  let success;
-  if (item.kind.pickup) {
-    success = await item.kind.pickup(item, actor, ctx);
-    if (!success) return false;
-  }
-  else {
-    // if no room in inventory - return false
-    // add to inventory
-    success = true;
-  }
-
-  const map = ctx.map;
-  map.removeItem(item);
-
-  if (success instanceof types.Item) {
-    map.addItem(item.x, item.y, success);
   }
   return true;
 }
 
-async function attack(actor, target, type, ctx={}) {
-
-  if (actor.isPlayer() == target.isPlayer()) return false;
-
-  const map = ctx.map || data.map;
-  const kind = actor.kind;
-  const attacks = kind.attacks;
-  if (!attacks) return false;
-
-  const info = attacks[type];
-  if (!info) return false;
-
-  const dist = Math.floor(utils$1.distanceFromTo(actor, target));
-  if (dist > (info.range || 1)) {
-    return false;
-  }
-
-  let damage = info.damage;
-  if (typeof damage === 'function') {
-    damage = damage(actor, target, ctx) || 1;
-  }
-  const verb = info.verb || 'hit';
-
-  damage = target.kind.applyDamage(target, damage, actor, ctx);
-  message.addCombat('%s %s %s for %R%d%R damage', actor.getName(), actor.getVerb(verb), target.getName('the'), 'red', damage, null);
-
-  if (target.isDead()) {
-    message.addCombat('%s %s', target.isInanimate() ? 'destroying' : 'killing', target.getPronoun('it'));
-  }
-
-  const ctx2 = { map: map, x: target.x, y: target.y, volume: damage };
-
-  await fx.hit(data.map, target);
-  if (target.kind.blood) {
-    await spawnTileEvent(target.kind.blood, ctx2);
-  }
-  if (target.isDead()) {
-    target.kind.kill(target);
-    map.removeActor(target);
-    if (target.kind.corpse) {
-      await spawnTileEvent(target.kind.corpse, ctx2);
-    }
-    if (target.isPlayer()) {
-      await gameOver(false, 'Killed by %s.', actor.getName(true));
-    }
-  }
-
-  actor.endTurn();
-  return true;
-}
-
-async function moveDir(actor, dir, opts={}) {
-
-  const newX = dir[0] + actor.x;
-  const newY = dir[1] + actor.y;
-  const map = opts.map || data.map;
-  const cell = map.cell(newX, newY);
-
-  const ctx = { actor, map, x: newX, y: newY, cell };
-
-  actor.debug('moveDir', dir);
-
-  if (!map.hasXY(newX, newY)) {
-    actor.debug('move blocked - invalid xy: %d,%d', newX, newY);
-    // TURN ENDED (1/2 turn)?
-    return false;
-  }
-
-  // TODO - Can we leave old cell?
-  // PROMOTES ON EXIT, NO KEY(?), PLAYER EXIT
-
-  if (cell.actor) {
-    // TODO - BUMP LOGIC
-    if (await attack(actor, cell.actor, 'melee', ctx)) {
-      return true;
-    }
-    return false;  // cannot move here and did not attack
-  }
-
-  // Can we enter new cell?
-  if (cell.hasTileFlag(Tile.T_OBSTRUCTS_PASSABILITY)) {
-    return false;
-  }
-  if (map.diagonalBlocked(actor.x, actor.y, newX, newY)) {
-    return false;
-  }
-
-  let isPush = false;
-  if (cell.item && cell.item.hasKindFlag(ItemKind.IK_BLOCKS_MOVE)) {
-    // ACTOR.hasActionFlag(A_PUSH);
-    if (!cell.item.hasActionFlag(Action.A_PUSH)) {
-      ctx.item = cell.item;
-      return false;
-    }
-    const pushX = newX + dir[0];
-    const pushY = newY + dir[1];
-    const pushCell = map.cell(pushX, pushY);
-    if (!pushCell.isEmpty() || pushCell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS | Tile.T_OBSTRUCTS_PASSABILITY)) {
-      return false;
-    }
-
-    ctx.item = cell.item;
-    map.removeItem(cell.item);
-    map.addItem(pushX, pushY, ctx.item);
-    isPush = true;
-    // Do we need to activate stuff - key enter, key leave?
-  }
-
-  // CHECK SOME SANITY MOVES
-  if (cell.hasTileFlag(Tile.T_LAVA) && !cell.hasTileFlag(Tile.T_BRIDGE)) {
-    return false;
-  }
-  else if (cell.hasTileFlag(Tile.T_HAS_STAIRS)) {
-    if (actor.grabbed) {
-      return false;
-    }
-  }
-
-  if (actor.grabbed && !isPush) {
-    const dirToItem = UTILS.dirFromTo(actor, actor.grabbed);
-    let destXY = [actor.grabbed.x + dir[0], actor.grabbed.y + dir[1]];
-    if (UTILS.isOppositeDir(dirToItem, dir)) {  // pull
-      if (!actor.grabbed.hasActionFlag(Action.A_PULL)) {
-        return false;
-      }
-    }
-    else {  // slide
-      if (!actor.grabbed.hasActionFlag(Action.A_SLIDE)) {
-        return false;
-      }
-    }
-    const destCell = map.cell(destXY[0], destXY[1]);
-    if (destCell.item || destCell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS | Tile.T_OBSTRUCTS_PASSABILITY)) {
-      actor.debug('move blocked - item obstructed: %d,%d', destXY[0], destXY[1]);
-      return false;
-    }
-  }
-
-  if (!map.moveActor(newX, newY, actor)) {
-    UTILS.ERROR('Move failed! ' + newX + ',' + newY);
-    // TURN ENDED (1/2 turn)?
-    return false;
-  }
-
-  if (actor.grabbed && !isPush) {
-    map.removeItem(actor.grabbed);
-    map.addItem(actor.grabbed.x + dir[0], actor.grabbed.y + dir[1], actor.grabbed);
-  }
-
-  // APPLY EFFECTS
-  for(let tile of cell.tiles()) {
-    await tile.applyInstantEffects(map, newX, newY, cell);
-    if (data.gameHasEnded) {
-      return true;
-    }
-  }
-
-  // PROMOTES ON ENTER, PLAYER ENTER, KEY(?)
-  await cell.fireEvent('enter', ctx);
-
-  // pickup any items
-  if (cell.item && actor.hasActionFlag(Action.A_PICKUP)) {
-    await pickupItem(actor, cell.item, ctx);
-  }
-
-  actor.debug('moveComplete');
-
-  ui.requestUpdate();
-  actor.endTurn();
-  return true;
-}
-
-async function bashItem(actor, item, ctx) {
-
-  const map = ctx.map || data.map;
-
-  if (!item.hasActionFlag(Action.A_BASH)) {
-    message.add('%s cannot bash %s.', actor.getName(), item.getName());
-    return false;
-  }
-
-  let success = false;
-  if (item.kind.bash) {
-    success = await item.kind.bash(item, actor, ctx);
-    if (!success) return false;
-  }
-  else if (actor) {
-    const damage = actor.kind.calcBashDamage(actor, item, ctx);
-    if (item.kind.applyDamage(item, damage, actor, ctx)) {
-      message.add('%s bash %s [-%d].', actor.getName(), item.getName('the'), damage);
-      await fx.flashSprite(map, item.x, item.y, 'hit', 100, 1);
-    }
-  }
-  else {
-    item.kind.applyDamage(item, ctx.damage || 1, null, ctx);
-  }
-
-  if (item.isDestroyed()) {
-    map.removeItem(item);
-    message.add('%s is destroyed.', item.getName('the'));
-    if (item.kind.corpse) {
-      await spawnTileEvent(item.kind.corpse, { map, x: item.x, y: item.y });
-    }
-  }
-  return true;
-}
-
-async function openItem(actor, item, ctx={}) {
-  return false;
-}
-
-async function closeItem(actor, item, ctx={}) {
-  return false;
-}
-
-async function itemAttack(actor, target, item, ctx={}) {
-
-  if (actor.isPlayer() == target.isPlayer()) return false;
-
-  const map = ctx.map || data.map;
-  const kind = actor.kind;
-
-  if (!item) {
-    utils$1.ERROR('Item required.  Check before call.');
-  }
-
-  const range = item.stats.range || 1;
-  let damage  = item.stats.damage || 1;
-  const verb  = item.kind.verb || 'hit';
-
-  const dist = Math.floor(utils$1.distanceFromTo(actor, target));
-  if (dist > (range)) {
-    return false;
-  }
-
-  if (item.kind.projectile) {
-    await fx.projectile(map, actor, target, item.kind.projectile);
-  }
-
-  if (typeof damage === 'function') {
-    damage = damage(actor, target, ctx) || 1;
-  }
-
-  damage = target.kind.applyDamage(target, damage, actor, ctx);
-  message.addCombat('%s %s %s for %R%d%R damage', actor.getName(), actor.getVerb(verb), target.getName('the'), 'red', damage, null);
-
-  if (target.isDead()) {
-    message.addCombat('%s %s', target.isInanimate() ? 'destroying' : 'killing', target.getPronoun('it'));
-  }
-
-  const ctx2 = { map: map, x: target.x, y: target.y, volume: damage };
-
-  await fx.hit(data.map, target);
-  if (target.kind.blood) {
-    await spawnTileEvent(target.kind.blood, ctx2);
-  }
-  if (target.isDead()) {
-    target.kind.kill(target);
-    map.removeActor(target);
-    if (target.kind.corpse) {
-      await spawnTileEvent(target.kind.corpse, ctx2);
-    }
-    if (target.isPlayer()) {
-      await gameOver(false, 'Killed by %s.', actor.getName(true));
-    }
-  }
-
-  actor.endTurn();
-  return true;
-}
-
-async function moveToward(actor, x, y, ctx) {
-
-  const map = ctx.map || data.map;
-  const destCell = map.cell(x, y);
-  const fromCell = map.cell(actor.x, actor.y);
-
-  if (actor.x == x && actor.y == y) {
-    return false; // Hmmm...  Not sure on this one
-  }
-
-  if (destCell.isVisible() && fromCell.isVisible()) {
-    const dir = utils$1.dirBetween(actor.x, actor.y, x, y);
-    if (await moveDir(actor, dir, ctx)) {
-      return true;
-    }
-  }
-
-  let travelGrid = actor.travelGrid;
-  if (!travelGrid) {
-    travelGrid = actor.travelGrid = GRID$1.alloc(map.width, map.height);
-    travelGrid.x = travelGrid.y = -1;
-  }
-  if (travelGrid.x != x || travelGrid.y != y) {
-    const costGrid = GRID$1.alloc(map.width, map.height);
-    actor.fillCostGrid(map, costGrid);
-    PATH.calculateDistances(travelGrid, x, y, costGrid, true);
-    GRID$1.free(costGrid);
-  }
-
-  const dir = nextStep(map, travelGrid, actor.x, actor.y, actor, true);
-  if (!dir) return false;
-
-  return await moveDir(actor, dir, ctx);
-}
-
-
-
-// Returns null if there are no beneficial moves.
-// If preferDiagonals is true, we will prefer diagonal moves.
-// Always rolls downhill on the distance map.
-// If monst is provided, do not return a direction pointing to
-// a cell that the monster avoids.
-function nextStep( map, distanceMap, x, y, traveler, useDiagonals) {
-	let newX, newY, bestScore;
-  let dir, bestDir;
-  let blocker;	// creature *
-  let blocked;
-
-  // brogueAssert(coordinatesAreInMap(x, y));
-
-	bestScore = 0;
-	bestDir = def.NO_DIRECTION;
-
-	for (dir = 0; dir < (useDiagonals ? 8 : 4); ++dir)
-  {
-		newX = x + def.dirs[dir][0];
-		newY = y + def.dirs[dir][1];
-
-    if (map.hasXY(newX, newY)) {
-        blocked = false;
-        const cell = map.cell(newX, newY);
-        blocker = cell.actor;
-        if (traveler
-            && traveler.avoidsCell(cell, newX, newY))
-				{
-            blocked = true;
-        } else if (traveler && blocker
-                   && !traveler.kind.canPass(traveler, blocker))
-				{
-            blocked = true;
-        }
-        if (!blocked
-						&& (distanceMap[x][y] - distanceMap[newX][newY]) > bestScore
-            && !map.diagonalBlocked(x, y, newX, newY, traveler.isPlayer())
-            && map.isPassableNow(newX, newY, traveler.isPlayer()))
-				{
-            bestDir = dir;
-            bestScore = distanceMap[x][y] - distanceMap[newX][newY];
-        }
-    }
-	}
-	return def.dirs[bestDir] || null;
-}
-
-var index = /*#__PURE__*/Object.freeze({
-  __proto__: null,
-  moveDir: moveDir,
-  bashItem: bashItem,
-  pickupItem: pickupItem,
-  openItem: openItem,
-  closeItem: closeItem,
-  attack: attack,
-  itemAttack: itemAttack,
-  moveToward: moveToward
-});
+commands$1.grab = grab;
 
 config.autoPickup = true;
 
@@ -10155,159 +9820,13 @@ async function movePlayer(e) {
   const ctx = { actor, map, x: newX, y: newY, cell };
   const isPlayer = actor.isPlayer();
 
-  commands.debug('movePlayer');
+  commands$1.debug('movePlayer');
 
-  if (!map.hasXY(newX, newY)) {
-    commands.debug('move blocked - invalid xy: %d,%d', newX, newY);
-    if (isPlayer) message.moveBlocked(ctx);
-    // TURN ENDED (1/2 turn)?
-    return false;
-  }
-
-  // TODO - Can we leave old cell?
-  // PROMOTES ON EXIT, NO KEY(?), PLAYER EXIT, ENTANGLED
-
-  if (cell.actor) {
-    if (actor.melee) {
-      if (await itemAttack(actor, cell.actor, actor.melee, ctx)) {
-        return true;
-      }
-    }
-    else if (await attack(actor, cell.actor, 'melee', ctx)) {
-      return true;
-    }
-
-
-    message.add('%s bump into %s.', actor.getName(), cell.actor.getName());
-    actor.endTurn(0.5);
-    return true;
-  }
-
-  // Can we enter new cell?
-  if (cell.hasTileFlag(Tile.T_OBSTRUCTS_PASSABILITY)) {
-    if (isPlayer) {
-      message.moveBlocked(ctx);
-      // TURN ENDED (1/2 turn)?
-      await fx.flashSprite(map, newX, newY, 'hit', 50, 1);
-    }
-    return false;
-  }
-  if (map.diagonalBlocked(actor.x, actor.y, newX, newY)) {
-    if (isPlayer)  {
-      message.moveBlocked(ctx);
-      // TURN ENDED (1/2 turn)?
-      await fx.flashSprite(map, newX, newY, 'hit', 50, 1);
-    }
-    return false;
-  }
-
-  let isPush = false;
-  if (cell.item && cell.item.hasKindFlag(ItemKind.IK_BLOCKS_MOVE)) {
-    if (!cell.item.hasActionFlag(Action.A_PUSH)) {
-      ctx.item = cell.item;
-      if (isPlayer) message.moveBlocked(ctx);
-      return false;
-    }
-    const pushX = newX + dir[0];
-    const pushY = newY + dir[1];
-    const pushCell = map.cell(pushX, pushY);
-    if (!pushCell.isEmpty() || pushCell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS | Tile.T_OBSTRUCTS_PASSABILITY)) {
-      if (isPlayer) message.moveBlocked(ctx);
-      return false;
-    }
-
-    ctx.item = cell.item;
-    map.removeItem(cell.item);
-    map.addItem(pushX, pushY, ctx.item);
-    isPush = true;
-    // Do we need to activate stuff - key enter, key leave?
-  }
-
-  // CHECK SOME SANITY MOVES
-  if (cell.hasTileFlag(Tile.T_LAVA) && !cell.hasTileFlag(Tile.T_BRIDGE)) {
-    if (!isPlayer) return false;
-    if (!await ui.confirm('That is certain death!  Proceed anyway?')) {
-      return false;
-    }
-  }
-  else if (cell.hasTileFlag(Tile.T_HAS_STAIRS)) {
-    if (actor.grabbed) {
-      if (isPlayer) {
-        message.add('You cannot use stairs while holding %s.', actor.grabbed.getFlavor());
-      }
-      return false;
-    }
-  }
-
-  if (actor.grabbed && !isPush) {
-    const dirToItem = utils$1.dirFromTo(actor, actor.grabbed);
-    let destXY = [actor.grabbed.x + dir[0], actor.grabbed.y + dir[1]];
-    if (utils$1.isOppositeDir(dirToItem, dir)) {  // pull
-      if (!actor.grabbed.hasActionFlag(Action.A_PULL)) {
-        if (isPlayer) message.add('you cannot pull %s.', actor.grabbed.getFlavor());
-        return false;
-      }
-    }
-    else {  // slide
-      if (!actor.grabbed.hasActionFlag(Action.A_SLIDE)) {
-        if (isPlayer) message.add('you cannot slide %s.', actor.grabbed.getFlavor());
-        return false;
-      }
-    }
-    const destCell = map.cell(destXY[0], destXY[1]);
-    if (destCell.item || destCell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS | Tile.T_OBSTRUCTS_PASSABILITY)) {
-      commands.debug('move blocked - item obstructed: %d,%d', destXY[0], destXY[1]);
-      if (isPlayer) message.moveBlocked(ctx);
-      return false;
-    }
-  }
-
-  if (!map.moveActor(newX, newY, actor)) {
-    utils$1.ERROR('Move failed! ' + newX + ',' + newY);
-    // TURN ENDED (1/2 turn)?
-    return false;
-  }
-
-  if (actor.grabbed && !isPush) {
-    map.removeItem(actor.grabbed);
-    map.addItem(actor.grabbed.x + dir[0], actor.grabbed.y + dir[1], actor.grabbed);
-  }
-
-  // APPLY EFFECTS
-  for(let tile of cell.tiles()) {
-    await tile.applyInstantEffects(map, newX, newY, cell);
-    if (data.gameHasEnded) {
-      return true;
-    }
-  }
-
-  // PROMOTES ON ENTER, PLAYER ENTER, KEY(?)
-  let fired = false;
-  if (data.player === actor) {
-    fired = await cell.fireEvent('playerEnter', ctx);
-  }
-  if (!fired) {
-    await cell.fireEvent('enter', ctx);
-  }
-
-  if (cell.hasTileFlag(Tile.T_HAS_STAIRS) && isPlayer) {
-    console.log('Use stairs!');
-    await game.useStairs(newX, newY);
-  }
-
-  // auto pickup any items
-  if (config.autoPickup && cell.item && isPlayer) {
-    await pickupItem(actor, cell.item, ctx);
-  }
-
-  commands.debug('moveComplete');
-
-  ui.requestUpdate();
-  actor.endTurn();
-  return true;
+  const r = await actions.moveDir(actor, dir, ctx);
+  return r;
 }
 
-commands.movePlayer = movePlayer;
+commands$1.movePlayer = movePlayer;
 
 async function bash(e) {
   const actor = e.actor || data.player;
@@ -10334,14 +9853,16 @@ async function bash(e) {
     return false; // cancelled
   }
 
-  if (!await bashItem(actor, choice, { map, actor, x: choice.x, y: choice.y, item: choice })) {
+  if (!await actions.bashItem(actor, choice, { map, actor, x: choice.x, y: choice.y, item: choice })) {
     return false;
   }
-  actor.endTurn();
+  if (!actor.turnEnded()) {
+    actor.endTurn();
+  }
   return true;
 }
 
-commands.bash = bash;
+commands$1.bash = bash;
 
 async function open(e) {
   const actor = e.actor || data.player;
@@ -10375,19 +9896,19 @@ async function open(e) {
   }
 
   if (choice.item) {
-    if (!await openItem(actor, choice, choice)) {
+    if (!await actions.openItem(actor, choice, choice)) {
       return false;
     }
   }
   else {
     console.log('fire event');
     await choice.cell.fireEvent('open', choice);
+    actor.endTurn();
   }
-  actor.endTurn();
   return true;
 }
 
-commands.open = open;
+commands$1.open = open;
 
 async function close(e) {
   const actor = e.actor || data.player;
@@ -10422,18 +9943,18 @@ async function close(e) {
   }
 
   if (choice.item) {
-    if (!await closeItem(actor, choice, choice)) {
+    if (!await actions.closeItem(actor, choice, choice)) {
       return false;
     }
   }
   else {
     await choice.cell.fireEvent('close', choice);
+    actor.endTurn();
   }
-  actor.endTurn();
   return true;
 }
 
-commands.close = close;
+commands$1.close = close;
 
 async function fire(e) {
   const actor = e.actor || data.player;
@@ -10473,23 +9994,97 @@ async function fire(e) {
     return false; // cancelled
   }
 
-  if (!await itemAttack(actor, choice, actor.ranged, { map, actor, x: choice.x, y: choice.y, item: actor.ranged })) {
+  if (!await actions.itemAttack(actor, choice, { map, actor, x: choice.x, y: choice.y, item: actor.ranged, type: 'ranged' })) {
     return false;
   }
-  actor.endTurn();
   return true;
 }
 
-commands.fire = fire;
+commands$1.fire = fire;
 
-commands.debug = utils$1.NOOP;
+async function attack(e) {
+  const actor = e.actor || data.player;
+  const map = data.map;
+  const ctx = { map, actor, x: -1, y: -1 };
+
+  const candidates = [];
+  let choice;
+  map.eachNeighbor(actor.x, actor.y, (c, i, j) => {
+    ctx.x = i;
+    ctx.y = j;
+    if (c.actor && actor.kind.willAttack(actor, c.actor, ctx)) {
+      candidates.push(c.actor);
+    }
+  }, true);
+
+  if (!candidates.length) {
+    message.add('Nothing to attack.');
+    return false;
+  }
+  else if (candidates.length == 1) {
+    choice = candidates[0];
+  }
+  else {
+    choice = await ui.chooseTarget(candidates, 'Attack where?');
+  }
+  if (!choice) {
+    return false; // cancelled
+  }
+
+  ctx.x = choice.x;
+  ctx.y = choice.y;
+  if (!await actions.attack(actor, choice, ctx)) {
+    return false;
+  }
+  return true;
+}
+
+commands$1.attack = attack;
+
+async function push(e) {
+  const actor = e.actor || data.player;
+  const map = data.map;
+
+  const candidates = [];
+  let choice;
+  map.eachNeighbor(actor.x, actor.y, (c) => {
+    if (c.item && c.item.hasActionFlag(Action.A_PUSH)) {
+      candidates.push(c.item);
+    }
+  }, true);
+  if (!candidates.length) {
+    message.add('Nothing to push.');
+    return false;
+  }
+  else if (candidates.length == 1) {
+    choice = candidates[0];
+  }
+  else {
+    choice = await ui.chooseTarget(candidates, 'Push what?');
+  }
+  if (!choice) {
+    return false; // cancelled
+  }
+
+  if (!await actions.push(actor, choice, { map, x: choice.x, y: choice.y })) {
+    return false;
+  }
+  if (!actor.turnEnded()) {
+    actor.endTurn();
+  }
+  return true;
+}
+
+commands$1.push = push;
+
+commands$1.debug = utils$1.NOOP;
 
 async function rest(e) {
 	data.player.endTurn();
 	return true;
 }
 
-commands.rest = rest;
+commands$1.rest = rest;
 
 class ItemKind$1 {
   constructor(opts={}) {
@@ -10504,6 +10099,17 @@ class ItemKind$1 {
 		this.id = opts.id || null;
     this.slot = opts.slot || null;
     this.projectile = null;
+    this.verb = opts.verb || null;
+
+    this.bump = opts.bump || ['pickup'];  // pick me up by default if you bump into me
+
+    if (typeof this.bump === 'string') {
+      this.bump = this.bump.split(/[,|]/).map( (t) => t.trim() );
+    }
+    if (!Array.isArray(this.bump)) {
+      this.bump = [this.bump];
+    }
+
     if (opts.projectile) {
       this.projectile = make.sprite(opts.projectile);
     }
@@ -10629,6 +10235,45 @@ function makeItem(kind) {
 
 make.item = makeItem;
 
+async function bump$1(actor, item, ctx={}) {
+
+  if (!item) return false;
+
+  ctx.quiet = true;
+
+  if (item.bump) {
+    for(let i = 0; i < item.bump.length; ++i) {
+      let fn = item.bump[i];
+      if (typeof fn === 'string') {
+        fn = actions[fn] || utils$1.FALSE;
+      }
+
+      if (await fn(actor, item, ctx)) {
+        ctx.quiet = false;
+        return true;
+      }
+    }
+  }
+
+  if (item.kind && item.kind.bump) {
+    for(let i = 0; i < item.kind.bump.length; ++i) {
+      let fn = item.kind.bump[i];
+      if (typeof fn === 'string') {
+        fn = actions[fn] || utils$1.FALSE;
+      }
+
+      if (await fn(actor, item, ctx)) {
+        ctx.quiet = false;
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+item.bump = bump$1;
+
 var SETUP = null;
 
 // messages
@@ -10701,6 +10346,14 @@ function add(...args) {
 }
 
 message.add = add;
+
+
+function forPlayer(actor, ...args) {
+  if (!actor.isPlayer()) return;
+  add(...args);
+}
+
+message.forPlayer = forPlayer;
 
 function addCombat(...args) {
   if (args.length == 0) return;
@@ -10944,10 +10597,10 @@ viewport.setup = setup$1;
 
 // DRAW
 
-function drawViewport(buffer, map$1) {
-  map$1 = map$1 || data.map;
-  if (!map$1) return;
-  if (!map$1.flags & Map.MAP_CHANGED) return;
+function drawViewport(buffer, map) {
+  map = map || data.map;
+  if (!map) return;
+  if (!map.flags & Map.MAP_CHANGED) return;
 
   if (config.followPlayer && data.player && data.player.x >= 0) {
     const offsetX = data.player.x - VIEWPORT.centerX();
@@ -10959,9 +10612,9 @@ function drawViewport(buffer, map$1) {
         const buf = buffer[x + VIEWPORT.x][y + VIEWPORT.y];
         const mapX= x + offsetX;
         const mapY = y + offsetY;
-        if (map$1.hasXY(mapX, mapY)) {
-          map.getCellAppearance(map$1, mapX, mapY, buf);
-          map$1.clearCellFlags(mapX, mapY, Cell.NEEDS_REDRAW | Cell.CELL_CHANGED);
+        if (map.hasXY(mapX, mapY)) {
+          map$1.getCellAppearance(map, mapX, mapY, buf);
+          map.clearCellFlags(mapX, mapY, Cell.NEEDS_REDRAW | Cell.CELL_CHANGED);
         }
         else {
           buf.blackOut();
@@ -10971,18 +10624,18 @@ function drawViewport(buffer, map$1) {
     buffer.needsUpdate = true;
   }
   else {
-    map$1.cells.forEach( (c, i, j) => {
+    map.cells.forEach( (c, i, j) => {
       if (!VIEWPORT.containsXY(i + VIEWPORT.x, j + VIEWPORT.y)) return;
 
       if (c.flags & Cell.NEEDS_REDRAW) {
         const buf = buffer[i + VIEWPORT.x][j + VIEWPORT.y];
-        map.getCellAppearance(map$1, i, j, buf);
+        map$1.getCellAppearance(map, i, j, buf);
         c.clearFlags(Cell.NEEDS_REDRAW);
         buffer.needsUpdate = true;
       }
     });
   }
-  map$1.flags &= ~Map.MAP_CHANGED;
+  map.flags &= ~Map.MAP_CHANGED;
 
 }
 
@@ -11850,11 +11503,13 @@ function getFlavorText(map, x, y) {
 		return buf;
 	}
 
-	// if (monst) {
-	// 	object = GW.actor.getFlavor(monst);
-	// } else
-  if (theItem) {
-    object = theItem.getName({ color: false, article: true }) + ' on ';
+  let needObjectArticle = false;
+	if (monst) {
+		object = monst.getName({ color: false, article: true }) + ' standing';
+    needObjectArticle = true;
+	} else if (theItem) {
+    object = theItem.getName({ color: false, article: true });
+    needObjectArticle = true;
 	}
 
   let article = cell.liquid ? ' in ' : ' on ';
@@ -11862,6 +11517,10 @@ function getFlavorText(map, x, y) {
   let surface = '';
   if (cell.surface) {
     const tile = cell.surfaceTile;
+    if (needObjectArticle) {
+      needObjectArticle = false;
+      object += ' on ';
+    }
     if (tile.flags & Tile.T_BRIDGE) {
       article = ' over ';
     }
@@ -11870,9 +11529,17 @@ function getFlavorText(map, x, y) {
 
   let liquid = '';
   if (cell.liquid) {
-    liquid = cell.liquidTile.getFlavor() + ' on ';
+    liquid = cell.liquidTile.getFlavor() + ' covering ';
+    if (needObjectArticle) {
+      needObjectArticle = false;
+      object += ' in ';
+    }
   }
 
+  if (needObjectArticle) {
+    needObjectArticle = false;
+    object += ' on ';
+  }
   let ground = cell.groundTile.getFlavor();
 
   buf = text.format("you %s %s%s%s%s.", (map.isVisible(x, y) ? "see" : "sense"), object, surface, liquid, ground);
@@ -12467,6 +12134,549 @@ function draw() {
 
 ui.draw = draw;
 
+async function moveDir(actor, dir, opts={}) {
+
+  const newX = dir[0] + actor.x;
+  const newY = dir[1] + actor.y;
+  const map = opts.map || data.map;
+  const cell = map.cell(newX, newY);
+  const isPlayer = actor.isPlayer();
+
+  const ctx = { actor, map, x: newX, y: newY, cell };
+
+  actor.debug('moveDir', dir);
+
+  if (!map.hasXY(newX, newY)) {
+    commands.debug('move blocked - invalid xy: %d,%d', newX, newY);
+    message.forPlayer(actor, 'Blocked!');
+    // TURN ENDED (1/2 turn)?
+    return false;
+  }
+
+  // TODO - Can we leave old cell?
+  // PROMOTES ON EXIT, NO KEY(?), PLAYER EXIT, ENTANGLED
+
+  if (cell.actor) {
+    if (await bump(actor, cell.actor, ctx)) {
+      return true;
+    }
+
+    message.forPlayer(actor, '%s bump into %s.', actor.getName(), cell.actor.getName());
+    actor.endTurn(0.5);
+    return true;
+  }
+
+  let isPush = false;
+  if (cell.item && cell.item.hasKindFlag(ItemKind.IK_BLOCKS_MOVE)) {
+    console.log('bump into item');
+    if (!(await bump$1(actor, cell.item, ctx))) {
+      console.log('bump - no action');
+      message.forPlayer(actor, 'Blocked!');
+      return false;
+    }
+
+    console.log('bump done', actor.turnEnded());
+    if (actor.turnEnded()) {
+      return true;
+    }
+
+    // if (!cell.item.hasActionFlag(Flags.Action.A_PUSH)) {
+    //   ctx.item = cell.item;
+    // }
+    // const pushX = newX + dir[0];
+    // const pushY = newY + dir[1];
+    // const pushCell = map.cell(pushX, pushY);
+    // if (!pushCell.isEmpty() || pushCell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_ITEMS | Flags.Tile.T_OBSTRUCTS_PASSABILITY)) {
+    //   GW.message.forPlayer(actor, 'Blocked!');
+    //   return false;
+    // }
+    //
+    // ctx.item = cell.item;
+    // map.removeItem(cell.item);
+    // map.addItem(pushX, pushY, ctx.item);
+    isPush = true;
+    // Do we need to activate stuff - key enter, key leave?
+  }
+
+  // Can we enter new cell?
+  if (cell.hasTileFlag(Tile.T_OBSTRUCTS_PASSABILITY)) {
+    if (isPlayer) {
+      message.forPlayer(actor, 'Blocked!');
+      // TURN ENDED (1/2 turn)?
+      await fx.flashSprite(map, newX, newY, 'hit', 50, 1);
+    }
+    return false;
+  }
+  if (map.diagonalBlocked(actor.x, actor.y, newX, newY)) {
+    if (isPlayer)  {
+      message.forPlayer(actor, 'Blocked!');
+      // TURN ENDED (1/2 turn)?
+      await fx.flashSprite(map, newX, newY, 'hit', 50, 1);
+    }
+    return false;
+  }
+
+  // CHECK SOME SANITY MOVES
+  if (cell.hasTileFlag(Tile.T_LAVA) && !cell.hasTileFlag(Tile.T_BRIDGE)) {
+    if (!isPlayer) return false;
+    if (!await UI.confirm('That is certain death!  Proceed anyway?')) {
+      return false;
+    }
+  }
+  else if (cell.hasTileFlag(Tile.T_HAS_STAIRS)) {
+    if (actor.grabbed) {
+      message.forPlayer(actor, 'You cannot use stairs while holding %s.', actor.grabbed.getFlavor());
+      return false;
+    }
+  }
+
+  if (actor.grabbed && !isPush) {
+    const dirToItem = utils$1.dirFromTo(actor, actor.grabbed);
+    let destXY = [actor.grabbed.x + dir[0], actor.grabbed.y + dir[1]];
+    const destCell = map.cell(destXY[0], destXY[1]);
+
+    let blocked = (destCell.item || destCell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS | Tile.T_OBSTRUCTS_PASSABILITY));
+    if (utils$1.isOppositeDir(dirToItem, dir)) {  // pull
+      if (!actor.grabbed.hasActionFlag(Action.A_PULL)) {
+        message.forPlayer(actor, 'you cannot pull %s.', actor.grabbed.getFlavor());
+        return false;
+      }
+    }
+    else {  // slide
+      if (!actor.grabbed.hasActionFlag(Action.A_SLIDE)) {
+        message.forPlayer(actor, 'you cannot slide %s.', actor.grabbed.getFlavor());
+        return false;
+      }
+      if (destCell.actor) {
+        blocked = true;
+      }
+    }
+
+    if (blocked) {
+      message.forPlayer(actor, '%s let go of %s.', actor.getName(), actor.grabbed.getName('a'));
+      await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+      actor.grabbed = null;
+    }
+  }
+
+  if (!map.moveActor(newX, newY, actor)) {
+    utils$1.ERROR('Move failed! ' + newX + ',' + newY);
+    // TURN ENDED (1/2 turn)?
+    return false;
+  }
+
+  if (actor.grabbed && !isPush) {
+    map.removeItem(actor.grabbed);
+    map.addItem(actor.grabbed.x + dir[0], actor.grabbed.y + dir[1], actor.grabbed);
+  }
+
+  // APPLY EFFECTS
+  for(let tile of cell.tiles()) {
+    await tile.applyInstantEffects(map, newX, newY, cell);
+    if (data.gameHasEnded) {
+      return true;
+    }
+  }
+
+  // PROMOTES ON ENTER, PLAYER ENTER, KEY(?)
+  let fired = false;
+  if (isPlayer) {
+    fired = await cell.fireEvent('playerEnter', ctx);
+  }
+  if (!fired) {
+    await cell.fireEvent('enter', ctx);
+  }
+
+  if (cell.hasTileFlag(Tile.T_HAS_STAIRS) && isPlayer) {
+    console.log('Use stairs!');
+    await GAME.useStairs(newX, newY);
+  }
+
+  // auto pickup any items
+  if (config.autoPickup && cell.item && isPlayer) {
+    await actions.pickup(actor, cell.item, ctx);
+  }
+
+  actions.debug('moveComplete');
+
+  ui.requestUpdate();
+  actor.endTurn();
+  return true;
+}
+
+actions.moveDir = moveDir;
+
+async function bashItem(actor, item, ctx) {
+
+  const map = ctx.map || data.map;
+
+  if (!item.hasActionFlag(Action.A_BASH)) {
+    if (!ctx.quiet) message.add('%s cannot bash %s.', actor.getName(), item.getName());
+    return false;
+  }
+
+  let success = false;
+  if (item.kind.bash) {
+    success = await item.kind.bash(item, actor, ctx);
+    if (!success) return false;
+  }
+  else if (actor) {
+    const damage = actor.kind.calcBashDamage(actor, item, ctx);
+    if (item.kind.applyDamage(item, damage, actor, ctx)) {
+      message.forPlayer(actor, '%s %s %s [-%d].', actor.getName(), actor.getVerb('bash'), item.getName('the'), damage);
+      await fx.flashSprite(map, item.x, item.y, 'hit', 100, 1);
+    }
+  }
+  else {
+    item.kind.applyDamage(item, ctx.damage || 1, null, ctx);
+  }
+
+  if (item.isDestroyed()) {
+    map.removeItem(item);
+    if (actor.isPlayer()) message.add('%s is destroyed.', item.getName('the'));
+    if (item.kind.corpse) {
+      await spawnTileEvent(item.kind.corpse, { map, x: item.x, y: item.y });
+    }
+  }
+  if (actor) {
+    actor.endTurn();
+  }
+  console.log('bash done', actor.turnEnded());
+  return true;
+}
+
+actions.bashItem = bashItem;
+
+async function pickup(actor, item, ctx) {
+
+  if (!actor.hasActionFlag(Action.A_PICKUP)) return false;
+  if (item.hasActionFlag(Action.A_NO_PICKUP)) {
+    // TODO - GW.message.add('...');
+    return false;
+  }
+
+  let success;
+  if (item.kind.pickup) {
+    success = await item.kind.pickup(item, actor, ctx);
+    if (!success) return false;
+  }
+  else {
+    // if no room in inventory - return false
+    // add to inventory
+    success = true;
+  }
+
+  const map = ctx.map;
+  map.removeItem(item);
+
+  if (success instanceof types.Item) {
+    map.addItem(item.x, item.y, success);
+  }
+
+  actor.endTurn();
+  return true;
+}
+
+actions.pickup = pickup;
+
+async function openItem(actor, item, ctx={}) {
+  return false;
+}
+
+actions.openItem = openItem;
+
+async function closeItem(actor, item, ctx={}) {
+  return false;
+}
+
+actions.closeItem = closeItem;
+
+async function attack$1(actor, target, ctx={}) {
+
+  if (actor.isPlayer() == target.isPlayer()) return false;
+
+  const type = ctx.type = ctx.type || 'melee';
+  const map = ctx.map || data.map;
+  const kind = actor.kind;
+
+  if (actor.grabbed) {
+    message.forPlayer(actor, 'you cannot attack while holding %s.', actor.grabbed.getName('the'));
+    return false;
+  }
+
+  // is this an attack by the player with an equipped item?
+  const item = actor[type];
+  if (item) {
+    if (await actions.itemAttack(actor, target, ctx)) {
+      return true;
+    }
+  }
+
+  const attacks = kind.attacks;
+  if (!attacks) return false;
+
+  const info = attacks[type];
+  if (!info) return false;
+
+  const dist = Math.floor(utils$1.distanceFromTo(actor, target));
+  if (dist > (info.range || 1)) {
+    return false;
+  }
+
+  let damage = info.damage;
+  if (typeof damage === 'function') {
+    damage = damage(actor, target, ctx) || 1;
+  }
+  const verb = info.verb || 'hit';
+
+  damage = target.kind.applyDamage(target, damage, actor, ctx);
+  message.addCombat('%s %s %s for %R%d%R damage', actor.getName(), actor.getVerb(verb), target.getName('the'), 'red', damage, null);
+
+  if (target.isDead()) {
+    message.addCombat('%s %s', target.isInanimate() ? 'destroying' : 'killing', target.getPronoun('it'));
+  }
+
+  const ctx2 = { map: map, x: target.x, y: target.y, volume: damage };
+
+  await fx.hit(data.map, target);
+  if (target.kind.blood) {
+    await spawnTileEvent(target.kind.blood, ctx2);
+  }
+  if (target.isDead()) {
+    target.kind.kill(target);
+    map.removeActor(target);
+    if (target.kind.corpse) {
+      await spawnTileEvent(target.kind.corpse, ctx2);
+    }
+    if (target.isPlayer()) {
+      await gameOver(false, 'Killed by %s.', actor.getName(true));
+    }
+  }
+
+  actor.endTurn();
+  return true;
+}
+
+actions.attack = attack$1;
+
+async function itemAttack(actor, target, ctx={}) {
+
+  if (actor.isPlayer() == target.isPlayer()) return false;
+
+  const slot = ctx.slot || ctx.type || 'ranged';
+  const map = ctx.map || data.map;
+  const kind = actor.kind;
+
+  if (actor.grabbed) {
+    message.forPlayer(actor, 'you cannot attack while holding %s.', actor.grabbed.getName('the'));
+    return false;
+  }
+
+  const item = actor[slot];
+  if (!item) {
+    return false;
+  }
+
+  const range = item.stats.range || 1;
+  let damage  = item.stats.damage || 1;
+  const verb  = item.kind.verb || 'hit';
+
+  const dist = Math.floor(utils$1.distanceFromTo(actor, target));
+  if (dist > (range)) {
+    return false;
+  }
+
+  if (item.kind.projectile) {
+    await fx.projectile(map, actor, target, item.kind.projectile);
+  }
+
+  if (typeof damage === 'function') {
+    damage = damage(actor, target, ctx) || 1;
+  }
+
+  damage = target.kind.applyDamage(target, damage, actor, ctx);
+  message.addCombat('%s %s %s for %R%d%R damage', actor.getName(), actor.getVerb(verb), target.getName('the'), 'red', damage, null);
+
+  if (target.isDead()) {
+    message.addCombat('%s %s', target.isInanimate() ? 'destroying' : 'killing', target.getPronoun('it'));
+  }
+
+  const ctx2 = { map: map, x: target.x, y: target.y, volume: damage };
+
+  await fx.hit(data.map, target);
+  if (target.kind.blood) {
+    await spawnTileEvent(target.kind.blood, ctx2);
+  }
+  if (target.isDead()) {
+    target.kind.kill(target);
+    map.removeActor(target);
+    if (target.kind.corpse) {
+      await spawnTileEvent(target.kind.corpse, ctx2);
+    }
+    if (target.isPlayer()) {
+      await gameOver(false, 'Killed by %s.', actor.getName(true));
+    }
+  }
+
+  actor.endTurn();
+  return true;
+}
+
+actions.itemAttack = itemAttack;
+
+async function moveToward(actor, x, y, ctx) {
+
+  const map = ctx.map || data.map;
+  const destCell = map.cell(x, y);
+  const fromCell = map.cell(actor.x, actor.y);
+
+  if (actor.x == x && actor.y == y) {
+    return false; // Hmmm...  Not sure on this one
+  }
+
+  if (destCell.isVisible() && fromCell.isVisible()) {
+    const dir = utils$1.dirBetween(actor.x, actor.y, x, y);
+    if (await actions.moveDir(actor, dir, ctx)) {
+      return true;
+    }
+  }
+
+  let travelGrid = actor.travelGrid;
+  if (!travelGrid) {
+    travelGrid = actor.travelGrid = GRID$1.alloc(map.width, map.height);
+    travelGrid.x = travelGrid.y = -1;
+  }
+  if (travelGrid.x != x || travelGrid.y != y) {
+    const costGrid = GRID$1.alloc(map.width, map.height);
+    actor.fillCostGrid(map, costGrid);
+    PATH.calculateDistances(travelGrid, x, y, costGrid, true);
+    GRID$1.free(costGrid);
+  }
+
+  const dir = nextStep(map, travelGrid, actor.x, actor.y, actor, true);
+  if (!dir) return false;
+
+  return await actions.moveDir(actor, dir, ctx);
+}
+
+
+
+// Returns null if there are no beneficial moves.
+// If preferDiagonals is true, we will prefer diagonal moves.
+// Always rolls downhill on the distance map.
+// If monst is provided, do not return a direction pointing to
+// a cell that the monster avoids.
+function nextStep( map, distanceMap, x, y, traveler, useDiagonals) {
+	let newX, newY, bestScore;
+  let dir, bestDir;
+  let blocker;	// creature *
+  let blocked;
+
+  // brogueAssert(coordinatesAreInMap(x, y));
+
+	bestScore = 0;
+	bestDir = def.NO_DIRECTION;
+
+	for (dir = 0; dir < (useDiagonals ? 8 : 4); ++dir)
+  {
+		newX = x + def.dirs[dir][0];
+		newY = y + def.dirs[dir][1];
+
+    if (map.hasXY(newX, newY)) {
+        blocked = false;
+        const cell = map.cell(newX, newY);
+        blocker = cell.actor;
+        if (traveler
+            && traveler.avoidsCell(cell, newX, newY))
+				{
+            blocked = true;
+        } else if (traveler && blocker
+                   && !traveler.kind.canPass(traveler, blocker))
+				{
+            blocked = true;
+        }
+        if (!blocked
+						&& (distanceMap[x][y] - distanceMap[newX][newY]) > bestScore
+            && !map.diagonalBlocked(x, y, newX, newY, traveler.isPlayer())
+            && map.isPassableNow(newX, newY, traveler.isPlayer()))
+				{
+            bestDir = dir;
+            bestScore = distanceMap[x][y] - distanceMap[newX][newY];
+        }
+    }
+	}
+	return def.dirs[bestDir] || null;
+}
+
+actions.moveToward = moveToward;
+
+async function grab$1(actor, item, ctx={}) {
+  if (!item) return false;
+
+  const map = ctx.map || data.map;
+
+  if (!actor.isPlayer()) return false;
+
+  if (actor.grabbed) {
+    if (actor.grabbed === item) {
+      return false; // already grabbed
+    }
+    return await actions.release(actor, actor.grabbed, ctx);
+  }
+
+  actor.grabbed = item;
+  message.add('%s grab %s.', actor.getName(), actor.grabbed.getName('a'));
+  await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+  actor.endTurn();
+  return true;
+}
+
+actions.grab = grab$1;
+
+
+async function release(actor, item, ctx={}) {
+  if (!actor.grabbed) return false;
+
+  message.add('%s let go of %s.', actor.getName(), actor.grabbed.getName('a'));
+  await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+  actor.grabbed = null;
+  actor.endTurn();
+  return true;
+}
+
+actions.release = release;
+
+async function push$1(actor, item, ctx={}) {
+  if (!item) return false;
+
+  const map = ctx.map || data.map;
+  const cell = ctx.cell || map.cell(ctx.x, ctx.y);
+  const dir = ctx.dir || utils$1.dirFromTo(actor, item);
+
+  if (!item.hasActionFlag(Action.A_PUSH)) {
+    ctx.item = item;
+    if (!ctx.quiet) {
+      message.forPlayer(actor, 'Blocked!');
+    }
+    return false;
+  }
+  const pushX = item.x + dir[0];
+  const pushY = item.y + dir[1];
+  const pushCell = map.cell(pushX, pushY);
+  if (!pushCell.isEmpty() || pushCell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS | Tile.T_OBSTRUCTS_PASSABILITY)) {
+    if (!ctx.quiet) message.forPlayer(actor, 'Blocked!');
+    return false;
+  }
+
+  ctx.item = item;
+  map.removeItem(item);
+  map.addItem(pushX, pushY, item);
+  // Do we need to activate stuff - key enter, key leave?
+  return true;
+}
+
+actions.push = push$1;
+
 async function idle(actor, ctx) {
   actor.debug('idle');
   actor.endTurn();
@@ -12480,7 +12690,7 @@ async function moveRandomly(actor, ctx) {
   const dirIndex = random.number(4);
   const dir = def.dirs[dirIndex];
 
-  if (!await moveDir(actor, dir, ctx)) {
+  if (!await actions.moveDir(actor, dir, ctx)) {
     return false;
   }
   // actor.endTurn();
@@ -12496,7 +12706,7 @@ async function attackPlayer(actor, ctx) {
   const dist = utils$1.distanceFromTo(actor, player);
   if (dist >= 2) return false;
 
-  if (!await attack(actor, player, 'melee', ctx)) {
+  if (!await actions.attack(actor, player, ctx)) {
     return false;
   }
   // actor.endTurn();
@@ -12523,7 +12733,7 @@ async function moveTowardPlayer(actor, ctx={}) {
   }
 
   if (actor.lastSeenPlayerAt) {
-    if (!await moveToward(actor, actor.lastSeenPlayerAt[0], actor.lastSeenPlayerAt[1], ctx)) {
+    if (!await actions.moveToward(actor, actor.lastSeenPlayerAt[0], actor.lastSeenPlayerAt[1], ctx)) {
       actor.lastSeenPlayerAt = null;  // cannot move toward this location, so stop trying
       return false;
     }
@@ -12617,14 +12827,14 @@ addTileKind('LAKE', {
   name: 'deep water', article: 'the'
 });
 
-exports.actions = index;
+exports.actions = actions;
 exports.actor = actor;
 exports.ai = ai;
 exports.canvas = canvas;
 exports.cell = cell;
 exports.color = color;
 exports.colors = colors;
-exports.commands = commands;
+exports.commands = commands$1;
 exports.config = config;
 exports.cosmetic = cosmetic;
 exports.data = data;
@@ -12646,7 +12856,7 @@ exports.itemKinds = itemKinds;
 exports.light = light;
 exports.lights = lights;
 exports.make = make;
-exports.map = map;
+exports.map = map$1;
 exports.maps = maps;
 exports.message = message;
 exports.path = PATH;

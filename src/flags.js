@@ -35,6 +35,7 @@ export const Action = installFlag('action', {
 export const Actor = installFlag('actor', {
   AF_CHANGED      : Fl(0),
   AF_DYING        : Fl(1),
+  AF_TURN_ENDED   : Fl(2),
 
   AF_DEBUG        : Fl(30),
 });
@@ -118,9 +119,7 @@ export const TileMech = installFlag('tileMech', {
   TM_ALLOWS_SUBMERGING					: Fl(8),		// allows submersible monsters to submerge in this terrain
   TM_IS_WIRED										: Fl(9),		// if wired, promotes when powered, and sends power when promoting
   TM_IS_CIRCUIT_BREAKER 				: Fl(10),   // prevents power from circulating in its machine
-  TM_DISSIPATES							    : Fl(11),		// is not there forever
-  TM_DISSIPATES_QUICKLY			    : Fl(12),		// dissipates quickly
-  TM_DISSIPATES_SLOWLY			    : Fl(13),		// dissipates slowly
+
   TM_EXTINGUISHES_FIRE					: Fl(14),		// extinguishes burning terrain or creatures
   TM_VANISHES_UPON_PROMOTION		: Fl(15),		// vanishes when creating promotion dungeon feature, even if the replacement terrain priority doesn't require it
   TM_REFLECTS_BOLTS           	: Fl(16),       // magic bolts reflect off of its surface randomly (similar to ACTIVE_CELLS flag IMPREGNABLE)
@@ -133,6 +132,7 @@ export const TileMech = installFlag('tileMech', {
   TM_INTERRUPT_EXPLORATION_WHEN_SEEN : Fl(23),    // will generate a message when discovered during exploration to interrupt exploration
   TM_INVERT_WHEN_HIGHLIGHTED  	: Fl(24),       // will flip fore and back colors when highlighted with pathing
   TM_SWAP_ENCHANTS_ACTIVATION 	: Fl(25),       // in machine, swap item enchantments when two suitable items are on this terrain, and activate the machine when that happens
+
   TM_PROMOTES										: 'TM_PROMOTES_WITH_KEY | TM_PROMOTES_WITHOUT_KEY | TM_PROMOTES_ON_STEP | TM_PROMOTES_ON_ITEM_REMOVE | TM_PROMOTES_ON_SACRIFICE_ENTRY | TM_PROMOTES_ON_ELECTRICITY | TM_PROMOTES_ON_PLAYER_ENTRY',
 });
 

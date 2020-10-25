@@ -1,47 +1,73 @@
 
-const FIRST_LEVEL = 0;
-const LAST_LEVEL = 1;
-
-GW.random.seed(12345);
 
 
+// To make the game play the same way every time, set a seed
+// GW.random.seed(12345);
+
+
+// This is the AI for the zombies that makes them stumble every now and then.
 const stumbles = {
-  init: function(actor) {
-    actor.turnsSinceStumble = 0;
-    actor.maxTurnsWithoutStumble = actor.maxTurnsWithoutStumble || 10;
+  // init(actor) - called when an Actor with this AI is created
+  init(actor) {
+    actor.current.turnsSinceStumble = 0;
+    actor.max.turnsSinceStumble = actor.max.turnsSinceStumble || 10;
   },
-  act: function(actor) {
-    const stumbleChance = 100 * actor.turnsSinceStumble / actor.maxTurnsWithoutStumble;
-    if(actor.turnsSinceStumble && GW.random.chance(stumbleChance)) {
-        actor.turnsSinceStumble = 0;
-        // console.log('Stumble: %d @ %d,%d', actor.id, actor.x, actor.y);
+  // act(actor) - called each time the actor tries to do this AI
+  //            - this can be an async function
+  act(actor) {
+    const stumbleChance = Math.floor(100 * actor.current.turnsSinceStumble / actor.max.turnsSinceStumble);
+    if(actor.current.turnsSinceStumble && GW.random.chance(stumbleChance)) {
+        actor.current.turnsSinceStumble = 0;
         actor.status = 'Stumbling';
-        // TODO - Update status (on sidebar) to show '(Stumbling)'
         actor.endTurn();
-        return true;
+        return true;  // means this AI did something
     }
-    actor.turnsSinceStumble++;
+    actor.current.turnsSinceStumble++;
     actor.status = null;
     return false;
   }
 }
 
+// Player corpse
+GW.tile.addKind('PLAYER_CORPSE', {
+  sprite: { ch: '%', fg: 'gray' },
+  name: 'your corpse', article: false,
+  layer: 'SURFACE'
+});
 
+// Player blood - dissipates 1 per 5000 turns
+GW.tile.addKind('BLOOD_RED', {
+  sprite: { bg: [50,0,0] },
+  name: 'red blood', article: 'some',
+  layer: 'LIQUID', dissipate: 2,
+});
+
+
+// Our Hero!
 const PLAYER = GW.make.player({
-		sprite: GW.make.sprite('@', 'white'),
-		name: 'you', article: false,
-		speed: 120,
     consoleColor: 'green',
     stats: { health: 20 },
+
+    corpse: 'PLAYER_CORPSE',
+    blood: 'BLOOD_RED',
+
     attacks: {
       melee: {
         damage: 1, verb: 'punch',
       },
     },
-    calcBashDamage(actor, item, ctx) {
+
+    // calcBashDamage(actor, itemToBash, ctx)
+    // - Called when we want to bash an Item, return the amount of damage done.
+    // - If not provided, will use the default
+    calcBashDamage(actor, itemToBash, ctx) {
       if (actor.melee) return actor.melee.stats.damage;
       return 1;
     },
+
+    // sidebar(entry, y, dim, highlight, buf)
+    // - Called to add this actor to the sidebar (if not provided, it will use the default)
+    // - Return the new y (after adding any rows)
     sidebar(entry, y, dim, highlight, buf) {
       const player = entry.entity;
     	y = GW.sidebar.addName(entry, y, dim, highlight, buf);
@@ -62,11 +88,13 @@ const PLAYER = GW.make.player({
     },
 });
 
+// Our item base class
 class EscapeItem extends GW.types.ItemKind {
   constructor(opts={}) {
     super(opts);
   }
 
+  // We customize the name function so that the details are shown the way we want.
   getName(item, opts={}) {
     let base = super.getName(item, opts);
     if (opts.details) {
@@ -83,6 +111,9 @@ class EscapeItem extends GW.types.ItemKind {
     return base;
   }
 
+  // handles item pickup
+  // - must go in slot or be immediately used
+  // - only pickup better/useful items
   pickup(item, actor, ctx) {
     if (!actor.isPlayer()) return false;
 
@@ -114,7 +145,7 @@ class EscapeItem extends GW.types.ItemKind {
 }
 
 
-
+// Zombie corpse - 1% chance to be removed
 GW.tile.addKind('ZOMBIE_CORPSE', {
   sprite: { ch: '%', fg: 'gray' },
   name: 'zombie corpse', article: 'a',
@@ -124,19 +155,20 @@ GW.tile.addKind('ZOMBIE_CORPSE', {
   layer: 'SURFACE'
 });
 
+// Zombie blood - dissipates 1 per 10000 turns
 GW.tile.addKind('BLOOD_GREEN', {
-  sprite: { bg: [0,100,0] },
+  sprite: { bg: [0,50,0] },
   name: 'green blood', article: 'some',
-  flags: 'TM_DISSIPATES_SLOWLY',
-  layer: 'LIQUID', dissipate: 1,  // dissipate very slowly
+  layer: 'LIQUID', dissipate: 1,
 });
 
+// Bad guys!
 GW.actor.addKind('ZOMBIE', {
   name: 'Zombie',
   sprite: { ch: 'z', fg: 'red' },
 
   consoleColor: 'dark_red',
-  corpse: 'ZOMBIE_CORPSE',
+  corpse: 'ZOMBIE_CORPSE',  // Leave this corpse when you are killed
 
   stats: { health: 3 },
   blood: 'BLOOD_GREEN',
@@ -150,22 +182,27 @@ GW.actor.addKind('ZOMBIE', {
 
   ai: [stumbles, 'attackPlayer', 'moveTowardPlayer', 'moveRandomly', 'idle'],
 
+  // sidebar
+  // - Show the name and health of our zombie
   sidebar(entry, y, dim, highlight, buf) {
     const actor = entry.entity;
     y = GW.sidebar.addName(entry, y, dim, highlight, buf);
-    y = GW.sidebar.addHealthBar(entry, y, dim, highlight, buf);
+    if (actor.current.health != actor.max.health) {
+      y = GW.sidebar.addHealthBar(entry, y, dim, highlight, buf);
+    }
     if (actor.status) {
       y = GW.sidebar.addText(buf, y, actor.status, null, null, dim, highlight);
     }
     return y;
   },
+
   attacks: {
     melee: { damage: 1, verb: 'scratch' }
   },
 
 });
 
-
+// Some broken furniture - gets in the way, cannot be moved
 GW.tile.addKind('BROKEN_FURNITURE', {
   layer: 'SURFACE', priority: 20,
   name: 'broken furniture', article: 'some',
@@ -173,6 +210,7 @@ GW.tile.addKind('BROKEN_FURNITURE', {
   sprite: { ch: ';', fg: 'light_brown' }
 });
 
+// A box that you can push, pull and slide around.  Bash it into broken furniture if you want.
 GW.item.addKind('BOX', {
 	name: 'box',
 	description: 'a large wooden box',
@@ -182,24 +220,29 @@ GW.item.addKind('BOX', {
 	stats: { health: 8 }
 });
 
+// Table to push and pull around - no sliding though.  Bash away!
 GW.item.addKind('TABLE', {
 	name: 'table',
 	description: 'a wooden table',
 	sprite: { ch: 'T', fg: 'purple' }, // ch: '\u2610'
+  bump: 'push, bashItem',
 	flags: 'A_PUSH, A_PULL, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE, IK_NO_SIDEBAR',
   corpse: 'BROKEN_FURNITURE',
 	stats: { health: 10 }
 });
 
+// Chair
 GW.item.addKind('CHAIR', {
 	name: 'chair',
 	description: 'a wooden chair',
 	sprite: { ch: '\u2441', fg: 'orange' },
+  bump: 'push, bashItem',
 	flags: 'A_PUSH, A_PULL, A_SLIDE, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE, IK_NO_SIDEBAR',
   corpse: 'BROKEN_FURNITURE',
 	stats: { health: 4 }
 });
 
+// Trashcan - shows up in sidebar (just for fun)
 GW.item.addKind('TRASHCAN', {
 	name: 'trashcan',
 	description: 'a trashcan',
@@ -208,36 +251,42 @@ GW.item.addKind('TRASHCAN', {
 	stats: { health: 2 }
 });
 
+// Shelves
 GW.item.addKind('SHELVES', {
 	name: 'shelves', article: 'some',
 	description: 'shelves',
 	sprite: { ch: '\u25a4', fg: 'tan' },
+  bump: 'push, bashItem',
 	flags: 'A_PUSH, A_PULL, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE, IK_NO_SIDEBAR',
   corpse: 'BROKEN_FURNITURE',
 	stats: { health: 6 }
 });
 
+// A Crate - you can open it, but it has nothing inside
 GW.item.addKind('CRATE', {
 	name: 'crate',
 	description: 'a crate',
 	sprite: { ch: '\u25a7', fg: 'yellow' },
+  bump: 'openItem, push, bashItem',
 	flags: 'A_PUSH, A_PULL, A_OPEN, A_CLOSE, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE',
   corpse: 'BROKEN_FURNITURE',
 	stats: { health: 8 }
 });
 
+// A Chest - Nothing inside this either
 GW.item.addKind('CHEST', {
 	name: 'chest',
 	description: 'a chest',
 	sprite: { ch: '\u234c', fg: 'yellow' },
+  bump: 'openItem, push, bashItem',
 	flags: 'A_PUSH, A_PULL, A_OPEN, A_CLOSE, A_NO_PICKUP, A_BASH, IK_BLOCKS_MOVE',
   corpse: 'BROKEN_FURNITURE',
 	stats: { health: 8 }
 });
 
+// Umbrella - defend yourself like a civilized person
 GW.item.addKind('UMBRELLA', new EscapeItem({
 	name: 'umbrella',
-	description: 'an umbrella',
 	sprite: { ch: '\u2602', fg: 'teal' },
 	flags: 'A_WIELD',
 	stats: { damage: 2 },
@@ -245,9 +294,9 @@ GW.item.addKind('UMBRELLA', new EscapeItem({
   slot: 'melee',
 }));
 
+// Folding chair - Best used when victim is not looking
 GW.item.addKind('FOLDING_CHAIR', new EscapeItem({
 	name: 'folding chair',
-	description: 'a folding chair',
 	sprite: { ch: '}', fg: 'orange' },
 	flags: 'A_WIELD',
 	stats: { damage: 3 },
@@ -255,9 +304,9 @@ GW.item.addKind('FOLDING_CHAIR', new EscapeItem({
   slot: 'melee',
 }));
 
+// Meat tenderizer - Just seems extreme
 GW.item.addKind('MEAT_TENDERIZER', new EscapeItem({
 	name: 'meat tenderizer',
-	description: 'a meat tenderizer',
 	sprite: { ch: '}', fg: 'red' },
 	flags: 'A_WIELD',
 	stats: { damage: 4 },
@@ -265,9 +314,9 @@ GW.item.addKind('MEAT_TENDERIZER', new EscapeItem({
   slot: 'melee',
 }));
 
+// Pointy stick - Very dangerous!
 GW.item.addKind('POINTY_STICK', new EscapeItem({
 	name: 'pointy stick',
-	description: 'a pointy stick',
 	sprite: { ch: '/', fg: 'brown' },
 	flags: 'A_WIELD',
 	stats: { damage: 5 },
@@ -275,9 +324,9 @@ GW.item.addKind('POINTY_STICK', new EscapeItem({
   slot: 'melee',
 }));
 
+// Pistol - ranged damage
 GW.item.addKind('PISTOL', new EscapeItem({
 	name: 'pistol',
-	description: 'a pistol',
 	sprite: { ch: 'r', fg: 'gray' },
 	flags: 'A_WIELD',
 	stats: { damage: 2, range: 5 },
@@ -287,6 +336,7 @@ GW.item.addKind('PISTOL', new EscapeItem({
   consoleColor: 'white',
 }));
 
+// MedKit - big healing
 GW.item.addKind('MEDKIT', new EscapeItem({
     name: 'Medkit',
     description: 'a Medkit',
@@ -296,6 +346,7 @@ GW.item.addKind('MEDKIT', new EscapeItem({
     consoleColor: 'pink',
 }));
 
+// Aspirin - medium heal
 GW.item.addKind('ASPIRIN', new EscapeItem({
     name: 'Aspirin', article: 'some',
     description: 'an aspirin',
@@ -305,6 +356,7 @@ GW.item.addKind('ASPIRIN', new EscapeItem({
     consoleColor: 'pink',
 }));
 
+// Bandage - for boo boos.
 GW.item.addKind('BANDAGE', new EscapeItem({
     name: 'Bandages', article: 'some',
     description: 'some bandages',
@@ -314,29 +366,46 @@ GW.item.addKind('BANDAGE', new EscapeItem({
     consoleColor: 'pink',
 }));
 
+// // Places boxes in a bunch in a room
+// const BOXES = GW.make.tileEvent({ item: 'BOX', spread: 75, decrement: 10, flags: 'DFF_ABORT_IF_BLOCKS_MAP | DFF_MUST_TOUCH_WALLS' });
+// // Add chairs
+// const CHAIRS = GW.make.tileEvent({ item: 'CHAIR', spread: 90, decrement: 100, flags: 'DFF_ABORT_IF_BLOCKS_MAP, DFF_TREAT_AS_BLOCKING' });
+// // Put a line of tables and then put chairs around them
+// const TABLES = GW.make.tileEvent({ item: 'TABLE', spread: 75, decrement: 30, flags: 'DFF_ABORT_IF_BLOCKS_MAP, DFF_NO_TOUCH_WALLS, DFF_SPREAD_LINE, DFF_SUBSEQ_EVERYWHERE, DFF_TREAT_AS_BLOCKING', next: CHAIRS });
 
-// DESTROYABLE DOORS??
 
-const BOXES = GW.make.tileEvent({ item: 'BOX', spread: 75, decrement: 10, flags: 'DFF_ABORT_IF_BLOCKS_MAP | DFF_MUST_TOUCH_WALLS' });
-const CHAIRS = GW.make.tileEvent({ item: 'CHAIR', spread: 90, decrement: 100, flags: 'DFF_ABORT_IF_BLOCKS_MAP, DFF_TREAT_AS_BLOCKING' });
-const TABLES = GW.make.tileEvent({ item: 'TABLE', spread: 75, decrement: 30, flags: 'DFF_ABORT_IF_BLOCKS_MAP, DFF_NO_TOUCH_WALLS, DFF_SPREAD_LINE, DFF_SUBSEQ_EVERYWHERE, DFF_TREAT_AS_BLOCKING', next: CHAIRS });
-
-
-async function crossedFinish() {
+async function exitLevel() {
 	await GW.game.gameOver(true, GW.colors.teal, 'You push open the doors and feel the fresh air hit your face.  The relief is palpable, but in the back of your mind you morn for your colleagues who remain inside.');
 }
 
+// Here is your goal, when the player enters call the exitLevel function
 GW.tile.addKind('EXIT', {
 	sprite: { ch: 'X', fg: 'green', bg: 'light_blue' }, priority: 50,
 	name: 'building exit', article: 'the',
-	events: { playerEnter: crossedFinish }
+	events: { playerEnter: exitLevel }
 });
 
+GW.tile.addKind('HELLO_SIGN', {
+  name: 'sign',
+  layer: 'SURFACE',
+  sprite: { ch: '\u2690', fg: '#0ff' },
+  flags: ['TM_LIST_IN_SIDEBAR'],
+  events: {
+    playerEnter(x, y, ctx) {
+      GW.message.add('%RBeware!', 'dark_red');
+      return true;
+    }
+  }
+});
+
+
+// Our lights for the level
 GW.light.addKind('OVERHEAD', {
   color: 'white', radius: 5, fadeTo: 50, passThroughActors: true
 });
 
 
+// Here is the map for the level
 const mapPrefab = {
   data: [
     '############################',
@@ -375,7 +444,9 @@ const mapPrefab = {
     '#.................#..#x#...#',
     '############################',
   ],
+  // The default level of light in every square (additional lights add on top of this)
   ambientLight: [50,50,50],
+  // How to translate the data to tiles, actors, items, lights
   cells: {
     '#': 'WALL',
     '.': 'FLOOR',
@@ -383,7 +454,7 @@ const mapPrefab = {
     'x': 'EXIT',
     '!': 'HELLO_SIGN',
     default: 'FLOOR',
-    '@': { location: 'start' },
+    '@': { location: 'start' }, // This is where our hero starts
 
     z: { actor: 'ZOMBIE' },
 
@@ -407,7 +478,7 @@ const mapPrefab = {
 
 
 
-
+// Convert our prefab into a map
 function mapFromPrefab(prefab) {
 
   const data = prefab.data;
@@ -416,6 +487,7 @@ function mapFromPrefab(prefab) {
   const width = data[0].length;
   const baseTile = prefab.cells.default || 'FLOOR';
 
+  // make the initial map - covered with baseTile (FLOOR)
 	const map = GW.make.map(width, height, { tile: baseTile, ambientLight: prefab.ambientLight });
 
   for(let y = 0; y < height; ++y) {
@@ -425,34 +497,39 @@ function mapFromPrefab(prefab) {
       const info = cells[ch] || null;
       if (!info) continue;
 
+      // set the tile first
       if (typeof info === 'string') {
         map.setTile(x, y, info);
         continue;
       }
-
       map.setTile(x, y, info.tile || cells.default);
 
+      // add any location names
       if (info.location) {
         map.locations[info.location] = [x, y];
       }
+      // add any items
       if (info.item) {
         const item = GW.make.item(info.item);
         if (item) {
           map.addItem(x, y, item);
         }
       }
+      // add any actors
       if (info.actor) {
         const actor = GW.make.actor(info.actor);
         if (actor) {
           map.addActor(x, y, actor);
         }
       }
+      // add any lights
       if (info.light) {
         map.addLight(x, y, info.light);
       }
     }
   }
 
+  // Not place some overhead lighting
   map.eachCell((cell, x, y) => {
     if((x+1) % 5 === 0 && (y+1) % 5 === 0){
       if(cell.hasTile('FLOOR')) {
@@ -465,7 +542,10 @@ function mapFromPrefab(prefab) {
 }
 
 
+// show the help screen
 async function showHelp() {
+
+  // start a dialog - returns the buffer to draw into
 	const buf = GW.ui.startDialog();
 
 	let y = 2;
@@ -477,6 +557,8 @@ async function showHelp() {
 	y = buf.wrapText(21, y, 42, ': Pressing an arrow key moves the player in that direction.', 'white', null, 2);
   buf.plotText(15, y, 'b', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Bash something.', 'lighter_gray');
+  buf.plotText(15, y, 'f', 'yellow');
+	y = buf.wrapText(21, y, 42, ': Fire your ranged weapon at a target.', 'lighter_gray');
   buf.plotText(15, y, 'g', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Grab something.', 'white', null, 2);
   buf.plotText(15, y, 'o', 'yellow');
@@ -488,48 +570,62 @@ async function showHelp() {
 	buf.plotText(15, y, '?', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Show this screen.', 'lighter_gray');
 
+  // this just overwrites the background color on the range
 	buf.fillRect(12, 0, 54, y + 2, null, null, 'darkest_gray' );
 
+  // draw the dialog to the screen
 	GW.ui.draw();
+
+  // wait for a keypress
 	await GW.io.nextKeyPress(-1);
+
+  // clear the dialog and return to the game
 	GW.ui.finishDialog();
 }
 
 
 
-// start the environment
+// start the game
 async function start() {
 
+  // make our map
   const map = mapFromPrefab(mapPrefab);
 
+  // setup the UI
 	const canvas = GW.ui.start({
       div: 'game',  // use this canvas element ID
       width: 80,    // total width of canvas in cells
       height: 36,   // total height of canvas in cells
-      messages: -5, // show 5 recent message lines
+      messages: -5, // show 5 recent message lines (at the bottom)
       cursor: true, // highlight cursor in map view
       flavor: true, // show flavor for cells under cursor
-      sidebar: -40, // right side, 30 wide
+      sidebar: -40, // right side, 40 wide
       wideMessages: true, // messages go full width of canvas, not just width of map
       followPlayer: true, // The player stays at the center of the map
   });
+
+  // here are our commands that we can do
 	GW.io.setKeymap({
 		dir: 'movePlayer', space: 'rest',
     g: 'grab', b: 'bash', o: 'open', c: 'close',
-    f: 'fire',
+    f: 'fire', a: 'attack', p: 'push',
 		'?': showHelp
 	});
 
+  // welcome message
 	GW.message.add('%REscape from ECMA Labs!\n%RYou are in the basement of a lab where something has gone horribly wrong.\nFind your way to the surface.\n%RPress <?> for help.', 'yellow', 'purple', null);
 
+  // start the game
 	const success = await GW.game.start({ player: PLAYER, map, fov: true });
   await GW.ui.fadeTo(GW.colors.black, 1000);
   canvas.buffer.blackOut();
+
+  // did you win?
   if (!success) {
-    canvas.buffer.wrapText(10, 20, 40, 'Thank you for playing.  Please try again soon!', 'white', null);
+    canvas.buffer.wrapText(10, 10, 40, 'Thank you for playing.  Please try again soon!', 'white', null);
   }
   else {
-    canvas.buffer.wrapText(10, 20, 40, 'What a great performance.  Please play again soon!', 'white', null);
+    canvas.buffer.wrapText(10, 10, 40, 'What a great performance.  Please play again soon!', 'white', null);
   }
   canvas.draw();
 

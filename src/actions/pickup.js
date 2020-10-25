@@ -1,9 +1,10 @@
 
 import * as Flags from '../flags.js';
 import { types } from '../gw.js';
+import { actions as Actions } from './index.js';
 
 
-export async function pickupItem(actor, item, ctx) {
+export async function pickup(actor, item, ctx) {
 
   if (!actor.hasActionFlag(Flags.Action.A_PICKUP)) return false;
   if (item.hasActionFlag(Flags.Action.A_NO_PICKUP)) {
@@ -28,5 +29,9 @@ export async function pickupItem(actor, item, ctx) {
   if (success instanceof types.Item) {
     map.addItem(item.x, item.y, success);
   }
+
+  actor.endTurn();
   return true;
 }
+
+Actions.pickup = pickup;

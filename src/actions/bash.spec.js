@@ -6,8 +6,11 @@ describe('itemActions', () => {
   describe('bashItem', () => {
 
     let flashSprite;
+    let actor;
+    let map;
 
     beforeEach( () => {
+      actor = GW.make.actor({ name: 'actor' });
       flashSprite = jest.spyOn(GW.fx, 'flashSprite').mockReturnValue(true);
     });
 
@@ -37,8 +40,9 @@ describe('itemActions', () => {
       item.stats.health = 1;
 
       map.addItem(10, 10, item);
+      map.addActor(11,10, actor);
 
-      await GW.actions.bashItem(null, item, { map, x: 10, y: 10 });
+      await GW.actions.bashItem(actor, item, { map, x: 10, y: 10 });
 
       expect(item.isDestroyed()).toBeTruthy();
       expect(map.itemAt(10,10)).toBeNull();

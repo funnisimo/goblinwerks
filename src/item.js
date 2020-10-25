@@ -2,6 +2,7 @@
 import { color as COLOR } from './color.js';
 import { text as TEXT } from './text.js';
 import * as Flags from './flags.js';
+import { actions as Actions } from './actions/index.js';
 import * as GW from './gw.js';
 
 
@@ -19,6 +20,17 @@ class ItemKind {
 		this.id = opts.id || null;
     this.slot = opts.slot || null;
     this.projectile = null;
+    this.verb = opts.verb || null;
+
+    this.bump = opts.bump || ['pickup'];  // pick me up by default if you bump into me
+
+    if (typeof this.bump === 'string') {
+      this.bump = this.bump.split(/[,|]/).map( (t) => t.trim() );
+    }
+    if (!Array.isArray(this.bump)) {
+      this.bump = [this.bump];
+    }
+
     if (opts.projectile) {
       this.projectile = GW.make.sprite(opts.projectile);
     }
@@ -143,3 +155,44 @@ function makeItem(kind) {
 }
 
 GW.make.item = makeItem;
+
+export async function bump(actor, item, ctx={}) {
+
+  if (!item) return false;
+
+  ctx.quiet = true;
+
+  if (item.bump) {
+    for(let i = 0; i < item.bump.length; ++i) {
+      let fn = item.bump[i];
+      let result;
+      if (typeof fn === 'string') {
+        fn = Actions[fn] || GW.utils.FALSE;
+      }
+
+      if (await fn(actor, item, ctx)) {
+        ctx.quiet = false;
+        return true;
+      }
+    }
+  }
+
+  if (item.kind && item.kind.bump) {
+    for(let i = 0; i < item.kind.bump.length; ++i) {
+      let fn = item.kind.bump[i];
+      let result;
+      if (typeof fn === 'string') {
+        fn = Actions[fn] || GW.utils.FALSE;
+      }
+
+      if (await fn(actor, item, ctx)) {
+        ctx.quiet = false;
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+GW.item.bump = bump;
