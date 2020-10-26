@@ -1,13 +1,14 @@
 
 import { grid as GRID } from './grid.js';
+import * as Utils from './utils.js';
 import { sprites as SPRITES, installSprite } from './sprite.js';
 import { map as MAP } from './map.js';
 import { io as IO } from './io.js';
 import { scheduler } from './scheduler.js';
 
-import { data as DATA, types, make, config as CONFIG, fx, ui as UI, utils as UTILS } from './gw.js';
+import { data as DATA, types, make, config as CONFIG, fx, ui as UI } from './gw.js';
 
-fx.debug = UTILS.NOOP;
+fx.debug = Utils.NOOP;
 
 let ANIMATIONS = [];
 
@@ -80,7 +81,7 @@ export class FX {
   constructor(opts={}) {
     this.tilNextTurn = opts.speed || opts.duration || 1000;
     this.speed = opts.speed || opts.duration || 1000;
-    this.callback = UTILS.NOOP;
+    this.callback = Utils.NOOP;
     this.done = false;
   }
 
@@ -196,7 +197,7 @@ export class MovingSpriteFX extends SpriteFX {
     super(map, sprite, source.x, source.y, { speed });
     this.target = target;
     this.path = MAP.getLine(this.map, source.x, source.y, this.target.x, this.target.y);
-    this.stepFn = stepFn || UTILS.TRUE;
+    this.stepFn = stepFn || Utils.TRUE;
   }
 
   step() {
@@ -241,14 +242,25 @@ export async function bolt(map, source, target, sprite, opts={}) {
 
 fx.bolt = bolt;
 
-export async function projectile(map, source, target, chs, fg, opts) {
-  if (chs.length != 4) UTILS.ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
-
-  const dir = UTILS.dirFromTo(source, target);
-  const dIndex = UTILS.dirIndex(dir);
-  const index = Math.floor(dIndex / 2);
-  const ch = chs[index];
-  const sprite = GW.make.sprite(ch, fg);
+export async function projectile(map, source, target, sprite, opts) {
+  if (sprite.ch.length == 4) {
+    const dir = Utils.dirFromTo(source, target);
+    let index = 0;
+    if (dir[0] && dir[1]) {
+      index = 2;
+      if (dir[0] != dir[1]) { // remember up is -y
+        index = 3;
+      }
+    }
+    else if (dir[0]) {
+      index = 1;
+    }
+    const ch = sprite.ch[index];
+    sprite = GW.make.sprite(ch, sprite.fg, sprite.bg);
+  }
+  else if (sprite.ch.length !== 1) {
+    Utils.ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
+  }
 
   return fx.bolt(map, source, target, sprite, opts);
 }
@@ -348,7 +360,7 @@ export class BeamFX extends FX {
     this.sprite = sprite;
     this.fade = fade || speed;
     this.path = MAP.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
-    this.stepFn = stepFn || UTILS.TRUE;
+    this.stepFn = stepFn || Utils.TRUE;
   }
 
   step() {
@@ -429,7 +441,7 @@ class ExplosionFX extends FX {
     this.fade = fade || 100;
     this.shape = shape || 'o';
     this.center = (center === undefined) ? true : center;
-    this.stepFn = stepFn || UTILS.TRUE;
+    this.stepFn = stepFn || Utils.TRUE;
     this.count = 0;
   }
 
@@ -459,7 +471,7 @@ class ExplosionFX extends FX {
       col = this.grid[x];
       for(let y = minY; y <= maxY; ++y) {
         if (col[y] != 1) continue;  // not in FOV
-        dist = UTILS.distanceBetween(this.x, this.y, x, y);
+        dist = Utils.distanceBetween(this.x, this.y, x, y);
         if (dist <= this.radius) {
           this.visit(x, y);
         }

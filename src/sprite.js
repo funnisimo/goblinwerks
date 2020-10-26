@@ -51,19 +51,37 @@ export class Sprite {
 	}
 
 	copy(other) {
-		this.ch = other.ch;
+    if (other.ch !== undefined) {
+      this.ch = other.ch;
+    }
 
-		if (this.fg && this.bg) { this.fg.copy(other.fg); }
-		else if (this.fg) { this.fg.clear(); }
-		else { this.fg = other.fg.clone(); }
+    if (other.fg !== undefined) {
+      if (typeof other.fg === 'string') {
+        this.fg = make.color(other.fg);
+      }
+      else if (other.fg === null) {
+        this.fg = null;
+      }
+      else if (this.fg && this.bg) { this.fg.copy(other.fg); }
+  		else if (this.fg) { this.fg.clear(); }
+  		else { this.fg = other.fg.clone(); }
+    }
 
-		if (this.bg && other.bg) { this.bg.copy(other.bg); }
-		else if (this.bg) { this.bg.clear(); }
-		else { this.bg = other.bg.clone(); }
+    if (other.bg !== undefined) {
+      if (typeof other.bg === 'string') {
+        this.bg = make.color(other.bg);
+      }
+      else if (other.bg === null) {
+        this.bg = null;
+      }
+      else if (this.bg && other.bg) { this.bg.copy(other.bg); }
+  		else if (this.bg) { this.bg.clear(); }
+  		else { this.bg = other.bg.clone(); }
+    }
 
-		this.opacity = other.opacity || 0;
-		this.needsUpdate = other.needsUpdate || false;
-		this.wasHanging = other.wasHanging || false;
+		this.opacity = other.opacity || this.opacity;
+		this.needsUpdate = other.needsUpdate || this.needsUpdate;
+		this.wasHanging = other.wasHanging || this.wasHanging;
 	}
 
 	clone() {
@@ -103,10 +121,11 @@ export class Sprite {
     this.needsUpdate = true;
 	}
 
-	plot(sprite) {
-		if (sprite.opacity == 0) return false;
+	plot(sprite, alpha=100) {
+    const opacity = Math.floor(sprite.opacity * alpha / 100);
+		if (opacity == 0) return false;
 
-    if (sprite.opacity == 100) {
+    if (opacity >= 100) {
       this.plotChar(sprite.ch, sprite.fg, sprite.bg);
       return true;
     }
@@ -119,32 +138,32 @@ export class Sprite {
     }
 
 		if (sprite.fg && sprite.ch != ' ') {
-			COLOR.applyMix(this.fg, sprite.fg, sprite.opacity);
+			COLOR.applyMix(this.fg, sprite.fg, opacity);
 		}
 
 		if (sprite.bg) {
-			COLOR.applyMix(this.bg, sprite.bg, sprite.opacity);
+			COLOR.applyMix(this.bg, sprite.bg, opacity);
 		}
 
-    if (this.ch != ' ' && COLOR.equals(this.fg, this.bg))
+    if (this.ch != ' ' && this.fg.equals(this.bg))
     {
       this.ch = ' ';
     }
-		this.opacity = Math.max(this.opacity, sprite.opacity);
+		this.opacity = Math.max(this.opacity, opacity);
 		this.needsUpdate = true;
 		return true;
 	}
 
 	equals(other) {
-		return this.ch == other.ch && COLOR.equals(this.fg, other.fg) && COLOR.equals(this.bg, other.bg);
+		return this.ch == other.ch && this.fg.equals(other.fg) && this.bg.equals(other.bg);
 	}
 
 	bake() {
 		if (this.fg && !this.fg.dances) {
-			COLOR.bake(this.fg);
+			this.fg.bake();
 		}
 		if (this.bg && !this.bg.dances) {
-			COLOR.bake(this.bg);
+			this.bg.bake();
 		}
 	}
 }
@@ -152,7 +171,10 @@ export class Sprite {
 types.Sprite = Sprite;
 
 export function makeSprite(ch, fg, bg, opacity) {
-	if (arguments.length == 1 && typeof arguments[0] === 'object' && ch !== null) {
+  if (arguments.length == 1 && Array.isArray(arguments[0]) && arguments[0].length) {
+    [ch, fg, bg, opacity] = arguments[0];
+  }
+	else if (arguments.length == 1 && typeof arguments[0] === 'object' && ch) {
 		opacity = ch.opacity || null;
 		bg = ch.bg || null;
 		fg = ch.fg || null;

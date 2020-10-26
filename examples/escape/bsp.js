@@ -2,59 +2,6 @@
 const FIRST_LEVEL = 0;
 const LAST_LEVEL = 1;
 
-let canvas = null;
-let MAP = null;
-const startingXY = [40, 28];
-
-GW.random.seed(12345);
-
-const TILES = GW.tiles;
-
-const PLAYER = GW.make.player({
-		sprite: GW.make.sprite('@', 'white'),
-		name: 'you',
-		speed: 120
-});
-
-
-GW.item.installKind('BOX', {
-	name: 'box',
-	description: 'a large wooden box',
-	sprite: { ch: '\u2612', fg: 'light_brown' },
-	flags: 'A_PUSH, A_PULL, A_SLIDE, A_NO_PICKUP, IK_BLOCKS_MOVE',
-	stats: { health: 10 }
-});
-
-GW.item.installKind('TABLE', {
-	name: 'table',
-	description: 'a wooden table',
-	sprite: { ch: '\u2610', fg: 'orange' },
-	flags: 'A_PUSH, A_PULL, A_NO_PICKUP, IK_BLOCKS_MOVE',
-	stats: { health: 10 }
-});
-
-GW.item.installKind('CHAIR', {
-	name: 'chair',
-	description: 'a wooden chair',
-	sprite: { ch: '\u2441', fg: 'orange' },
-	flags: 'A_PUSH, A_PULL, A_SLIDE, A_NO_PICKUP, IK_BLOCKS_MOVE',
-	stats: { health: 10 }
-});
-
-const BOXES = GW.make.tileEvent({ item: 'BOX', spread: 75, decrement: 10, flags: 'DFF_ABORT_IF_BLOCKS_MAP | DFF_MUST_TOUCH_WALLS' });
-const CHAIRS = GW.make.tileEvent({ item: 'CHAIR', spread: 90, decrement: 100, flags: 'DFF_ABORT_IF_BLOCKS_MAP, DFF_TREAT_AS_BLOCKING' });
-const TABLES = GW.make.tileEvent({ item: 'TABLE', spread: 75, decrement: 30, flags: 'DFF_ABORT_IF_BLOCKS_MAP, DFF_NO_TOUCH_WALLS, DFF_SPREAD_LINE, DFF_SUBSEQ_EVERYWHERE, DFF_TREAT_AS_BLOCKING', next: CHAIRS });
-
-
-async function crossedFinish() {
-	await GW.game.gameOver(true, GW.colors.teal, 'You push open the doors and feel the fresh air hit your face.  The relief is palpable, but in the back of your mind you morn for your colleagues who remain inside.');
-}
-
-const GOAL_TILE = GW.tile.install('GOAL', 'X', 'green', 'light_blue', 50, 0, 0,
-	'the building exit', 'you see the building exit.',
-	{ playerEnter: crossedFinish }
-);
-
 
 
 class Node extends GW.types.Bounds {
@@ -438,76 +385,35 @@ async function designNewLevel(id=0, attempt=0) {
 
 	// GW.tileEvent.debug = console.log;
 
-	for(let node of tree) {
-		const sequence = GW.utils.sequence(node.width * node.height);
-		GW.random.shuffle(sequence);
-
-		node.x -= 1;
-		node.y -= 1;
-		node.width += 2;
-		node.height += 2;
-
-		const tries = Math.max(5, GW.random.number(sequence.length));
-		const event = GW.random.chance(50) ? BOXES : TABLES;
-
-		let success = false;
-		for(let i = 0; i < tries && !success; ++i) {
-			const x = node.x + Math.floor(sequence[i] / node.height);
-			const y = node.y + (sequence[i] % node.height);
-
-			// Not on room boundary
-			if (x == node.x || y == node.y) continue;
-			if (x == node.x + node.width - 1 || y == node.y + node.height - 1) continue;
-
-			const cell = map.cell(x, y);
-			if (!cell.isPassableNow()) continue;
-			success = await GW.tileEvent.spawn(event, { map: map, x, y, bounds: node });
-		}
-	}
+	// for(let node of tree) {
+	// 	const sequence = GW.utils.sequence(node.width * node.height);
+	// 	GW.random.shuffle(sequence);
+  //
+	// 	node.x -= 1;
+	// 	node.y -= 1;
+	// 	node.width += 2;
+	// 	node.height += 2;
+  //
+	// 	const tries = Math.max(5, GW.random.number(sequence.length));
+	// 	const event = GW.random.chance(50) ? BOXES : TABLES;
+  //
+	// 	let success = false;
+	// 	for(let i = 0; i < tries && !success; ++i) {
+	// 		const x = node.x + Math.floor(sequence[i] / node.height);
+	// 		const y = node.y + (sequence[i] % node.height);
+  //
+	// 		// Not on room boundary
+	// 		if (x == node.x || y == node.y) continue;
+	// 		if (x == node.x + node.width - 1 || y == node.y + node.height - 1) continue;
+  //
+	// 		const cell = map.cell(x, y);
+	// 		if (!cell.isPassableNow()) continue;
+	// 		success = await GW.tileEvent.spawn(event, { map: map, x, y, bounds: node });
+	// 	}
+	// }
 
 	// GW.tileEvent.debug = GW.utils.NOOP;
 
 	console.log('MAP SEED = ', seed);
-	MAP = map;
 	return map;
 }
-
-
-async function showHelp() {
-	const buf = GW.ui.startDialog();
-
-	let y = 2;
-	buf.plotText(20, y++, 'GoblinWerks Escape from ECMA Labs', 'green');
-	y++;
-	y = buf.wrapText(15, y, 50, 'You are in the basement of a secret laboratory that does experiments with toxic chemicals.  There was an accident and a toxic gas was released that will kill you.  It has already affected most of your colleagues.  You must get out quickly!', 'white');
-	y++;
-	buf.plotText(15, y, 'dir   ', 'yellow');
-	y = buf.wrapText(21, y, 42, ': Pressing an arrow key moves the player in that direction.', 'white', null, 2);
-	buf.plotText(15, y, 'space ', 'yellow');
-	y = buf.wrapText(21, y, 42, ': Wait a short time.', 'white', null, 2);
-	buf.plotText(15, y, '?', 'yellow');
-	y = buf.wrapText(21, y, 42, ': Show this screen.', 'lighter_gray');
-
-	buf.fillRect(14, 1, 52, y, null, null, 'black' );
-
-	GW.ui.draw();
-	await GW.io.nextKeyPress(-1);
-	GW.ui.finishDialog();
-}
-
-
-
-// start the environment
-async function start() {
-	const canvas = GW.ui.start({ width: 80, height: 36, div: 'game', messages: -5, cursor: true, flavor: true });
-	GW.io.setKeymap({
-		dir: 'moveDir', space: 'rest', g: 'grab',
-		'?': showHelp
-	});
-
-	GW.message.add('%REscape from ECMA Labs!\n%RYou are in the basement of a lab where something has gone horribly wrong.\nFind your way to the surface.\n%RPress <?> for help.', 'yellow', 'purple', null);
-	GW.game.start({ player: PLAYER, buildMap: designNewLevel, fov: true });
-
-}
-
-window.onload = start;

@@ -1,4 +1,5 @@
 
+import * as Utils from './utils.js';
 import { color as COLOR } from './color.js';
 import { make, types, def } from './gw.js';
 
@@ -14,194 +15,60 @@ const COLOR_VALUE_INTERCEPT =	0; // 25;
 const TEMP_COLOR = make.color();
 
 
+text.playerPronoun = {
+  it: 'you',
+  its: 'your',
+};
 
-// class Message {
-//   constructor(value) {
-//     this.text = value || '';
-//     this._textLength = -1;
-//   }
-//
-//   get fullLength() { return this.text.length; }
-//
-//   get length() {
-//     throw new Error('Convert to fullLength or textLength');
-//   }
-//
-//   get textLength() {
-//     if (this._textLength > -1) return this._textLength;
-//
-//     let length = 0;
-//
-//     for(let i = 0; i < this.text.length; ++i) {
-//       const ch = this.text.charCodeAt(i);
-//       if (ch === COLOR_ESCAPE) {
-//           i += 3;	// skip color parts
-//       }
-//       else if (ch === COLOR_END) {
-//           // skip
-//       }
-//       else {
-//         ++length;
-//       }
-//     }
-//
-//     this._textLength = length;
-//     return this._textLength;
-//   }
-//
-//   eachChar(callback) {
-//     let color = null;
-//     const components = [100, 100, 100];
-//     let index = 0;
-//
-//     for(let i = 0; i < this.text.length; ++i) {
-//       const ch = this.text.charCodeAt(i);
-//       if (ch === COLOR_ESCAPE) {
-//           components[0] = this.text.charCodeAt(i + 1) - COLOR_VALUE_INTERCEPT;
-//           components[1] = this.text.charCodeAt(i + 2) - COLOR_VALUE_INTERCEPT;
-//           components[2] = this.text.charCodeAt(i + 3) - COLOR_VALUE_INTERCEPT;
-//           color = TEMP_COLOR.copy(components);
-//           i += 3;
-//       }
-//       else if (ch === COLOR_END) {
-//         color = null;
-//       }
-//       else {
-//         callback(this.text[i], color, index);
-//         ++index;
-//       }
-//     }
-//
-//   }
-//
-//   encodeColor(color, i) {
-//     let colorText;
-//     if (!color) {
-//       colorText = String.fromCharCode(COLOR_END);
-//     }
-//     else {
-//       const copy = color.clone();
-//       bakeColor(copy);
-//       clampColor(copy);
-//       colorText = String.fromCharCode(COLOR_ESCAPE, copy.red + COLOR_VALUE_INTERCEPT, copy.green + COLOR_VALUE_INTERCEPT, copy.blue + COLOR_VALUE_INTERCEPT);
-//     }
-//     if (i == 0) {
-//       this.text = colorText;
-//     }
-//     else if (i < this.text.length) {
-//       this.splice(i, 4, colorText);
-//     }
-//     else {
-//       this.text += colorText;
-//     }
-//     return this;
-//   }
-//
-//   setText(value) {
-//     if (value instanceof BrogueString) {
-//       this.text = value.text;
-//       this._textLength = value._textLength;
-//       return this;
-//     }
-//
-//     this.text = value || '';
-//     this._textLength = -1;
-//     return this;
-//   }
-//
-//   append(value) {
-//     if (value instanceof BrogueString) {
-//       this.text += value.text;
-//       this._textLength = -1;
-//       return this;
-//     }
-//
-//     this.text += value;
-//     this._textLength = -1;
-//     return this;
-//   }
-//
-//   clear() {
-//     this.text = '';
-//     this._textLength = 0;
-//     return this;
-//   }
-//
-//   capitalize() {
-//     if (!this.text.length) return;
-//
-//     let index = 0;
-//     let ch = this.text.charCodeAt(index);
-//     while (ch === COLOR_ESCAPE) {
-//       index += 4;
-//       ch = this.text.charCodeAt(index);
-//     }
-//
-//     const preText = index ? this.text.substring(0, index) : '';
-//     this.text = preText + this.text[index].toUpperCase() + this.text.substring(index + 1);
-//     return this;
-//   }
-//
-//   padStart(finalLength) {
-//     const diff = (finalLength - this.textLength);
-//     if (diff <= 0) return this;
-//     this.text = this.text.padStart(diff + this.text.length, ' ');
-//     this._textLength += diff;
-//     return this;
-//   }
-//
-//   padEnd(finalLength) {
-//     const diff = (finalLength - this.textLength);
-//     if (diff <= 0) return this;
-//     this.text = this.text.padEnd(diff + this.text.length, ' ');
-//     this._textLength += diff;
-//     return this;
-//   }
-//
-//   toString() {
-//     return this.text;
-//   }
-//
-//   charAt(index) {
-//     return this.text.charAt(index);
-//   }
-//
-//   charCodeAt(index) {
-//     return this.text.charCodeAt(index);
-//   }
-//
-//   copy(other) {
-//     this.text = other.text;
-//     this._textLength = other._textLength;
-//     return this;
-//   }
-//
-//   splice(begin, length, add) {
-//     const preText = this.text.substring(0, begin);
-//     const postText = this.text.substring(begin + length);
-//     add = (add && add.text) ? add.text : (add || '');
-//
-//     this.text = preText + add + postText;
-//     this._textLength = -1;
-//   }
-//
-//   toString() {
-//     return this.text;
-//   }
-//
-// }
-//
-//
-// types.String = BrogueString;
-//
-//
-// // return a new string object
-// function STRING(text) {
-//   if (text instanceof BrogueString) return text;
-//   return new BrogueString(text);
-// }
-//
-// make.string = STRING;
+text.singularPronoun = {
+  it: 'it',
+  its: 'its',
+};
+
+text.pluralPronoun = {
+  it: 'them',
+  its: 'their',
+};
+
+
+function firstChar(text) {
+  let i = 0;
+  while( i < text.length ) {
+    const code = text.charCodeAt(i);
+    if (code === COLOR_ESCAPE) {
+      i += 4;
+    }
+    else if (code === COLOR_END) {
+      i += 1;
+    }
+    else {
+      return text[i];
+    }
+  }
+  return null;
+}
+
+text.firstChar = firstChar;
+
+function isVowel(ch) {
+  return 'aeiouAEIOU'.includes(ch);
+}
+
+text.isVowel = isVowel;
+
+
+function toSingular(verb) {
+  if (verb.endsWith('y')) {
+    return verb.substring(0, verb.length - 1) + 'ies';
+  }
+  if (verb.endsWith('sh') || verb.endsWith('ch')) {
+    return verb + 'es';
+  }
+  return verb + 's';
+}
+
+text.toSingular = toSingular;
+
 
 function eachChar(msg, fn) {
   let color = null;
@@ -382,10 +249,32 @@ function encodeColor(theColor) {
   }
 
   const copy = COLOR.from(theColor);
-  COLOR.bake(copy);
-  COLOR.clamp(copy);
+  copy.bake();
+  copy.clamp();
   return String.fromCharCode(COLOR_ESCAPE, copy.red + COLOR_VALUE_INTERCEPT, copy.green + COLOR_VALUE_INTERCEPT, copy.blue + COLOR_VALUE_INTERCEPT);
 }
+
+function removeColors(text) {
+  let out = '';
+  let start = 0;
+  for(let i = 0; i < text.length; ++i) {
+    const k = text.charCodeAt(i);
+    if (k === COLOR_ESCAPE) {
+      out += text.substring(start, i);
+      start = i + 4;
+    }
+    else if (k === COLOR_END) {
+      out += text.substring(start, i);
+      start = i + 1;
+    }
+  }
+  if (start == 0) return text;
+  out += text.substring(start);
+  return out;
+}
+
+text.removeColors = removeColors;
+
 //
 //
 // // Call this when the i'th character of msg is COLOR_ESCAPE.
@@ -448,7 +337,7 @@ function encodeColor(theColor) {
 //   return out;
 // }
 //
-// GW.utils.arrayToString = arrayToString;
+// Utils.arrayToString = arrayToString;
 //
 
 // Inserts line breaks into really long words. Optionally adds a hyphen, but doesn't do anything
@@ -497,13 +386,14 @@ text.hyphenate = hyphenate;
 
 // Returns the number of lines, including the newlines already in the text.
 // Puts the output in "to" only if we receive a "to" -- can make it null and just get a line count.
-function splitIntoLines(sourceText, width) {
+function splitIntoLines(sourceText, width, firstWidth) {
   let w, textLength, lineCount;
   let spaceLeftOnLine, wordWidth;
 
-  if (!width) GW.utils.ERROR('Need string and width');
+  if (!width) Utils.ERROR('Need string and width');
+  firstWidth = firstWidth || width;
 
-  let printString = text.hyphenate(sourceText, width, true); // break up any words that are wider than the width.
+  let printString = text.hyphenate(sourceText, Math.min(width, firstWidth), true); // break up any words that are wider than the width.
   textLength = text.length(printString); // do NOT discount escape sequences
   lineCount = 1;
 
@@ -511,7 +401,7 @@ function splitIntoLines(sourceText, width) {
 
   // Fast foward until i points to the first character that is not a color escape.
   // for (i=0; printString.charCodeAt(i) == COLOR_ESCAPE; i+= 4);
-  spaceLeftOnLine = width;
+  spaceLeftOnLine = firstWidth;
 
   let i = -1;
   let lastColor = '';

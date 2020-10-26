@@ -12,8 +12,8 @@ const PLAYER = GW.make.player({
 		speed: 120
 });
 
-GW.cell.debug = console.log;
-GW.tileEvent.debug = console.log;
+// GW.cell.debug = console.log;
+// GW.tileEvent.debug = console.log;
 
 
 GW.digger.install('ROOM',     			GW.digger.rectangularRoom,  { width: 20, height: 10 });
@@ -171,7 +171,7 @@ async function forceStairs(ev) {
 function start() {
 	const canvas = GW.ui.start({ width: 80, height: 36, div: 'game', messages: -5, cursor: true, flavor: true });
 	GW.io.setKeymap({
-		dir: 'moveDir', space: 'rest',
+		dir: 'movePlayer', space: 'rest',
 		'>': forceStairs, '<': forceStairs,
 		'?': showHelp
 	});

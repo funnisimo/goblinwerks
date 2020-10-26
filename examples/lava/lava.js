@@ -15,7 +15,6 @@ const PLAYER = GW.make.player({
 });
 
 async function crossedFinish() {
-
 	const map = makeMap(MAP.id + 1);
 	await GW.ui.messageBox('Level ' + map.id, 'light_blue', 1000);
 	GW.message.add('Level: %d', map.id);
@@ -25,28 +24,41 @@ async function crossedFinish() {
 
 let ERUPT_CHANCE = 300 * 10 * 10;
 let CRUST_CHANCE = 5;
+let LAVA_START_BREAK = 20;
 
 async function lavaTick(x, y, ctx) {
 	const ctx2 = Object.assign({}, ctx, { x, y });
 	if (GW.random.number(ERUPT_CHANCE) <= 1) {
+    console.log('erupt', x, y);
 		return await GW.tileEvent.spawn({ tile: 'LAVA_ERUPTING' }, ctx2);
 	}
 	else if (GW.random.chance(CRUST_CHANCE)) {
-		return await GW.tileEvent.spawn({ tile: 'LAVA_CRUST' }, ctx2);
+		const r = await GW.tileEvent.spawn({ tile: 'LAVA_CRUST' }, ctx2);
+    console.log('crust', x, y, r, ctx.map.cell(x, y).layers);
+    return r;
 	}
 }
 
-async function lavaBreak(x, y, ctx) {
+async function lavaCrustTick(x, y, ctx) {
+  if (GW.random.chance(LAVA_START_BREAK)) {
+    console.log('breaking', x, y);
+    const ctx2 = Object.assign({}, ctx, { x, y });
+    return await GW.tileEvent.spawn({ tile: 'LAVA_CRUST_BREAKING' }, ctx2);
+  }
+}
+
+async function lavaBreakingTick(x, y, ctx) {
 	const ctx2 = Object.assign({}, ctx, { x, y });
 	if (GW.random.chance(BREAK_CHANCE)) {
-		return await GW.tileEvent.spawn({ flags: GW.flags.tileEvent.DFF_NULLIFY_CELL }, ctx2);
+    console.log('reset', x, y);
+		return await GW.tileEvent.spawn({ flags: GW.flags.tileEvent.DFF_NULL_SURFACE }, ctx2);
 	}
 }
 
 async function startExplosion() {
 	console.log('set crust');
 	const cell = MAP.cell(25, 15);
-	cell.setTile(LAVA_ERUPTING);
+	cell.setTile('LAVA_ERUPTING');
 	cell.mechFlags |= GW.flags.cellMech.EVENT_FIRED_THIS_TURN;
 	MAP.changed(true);
 	GW.ui.requestUpdate();
@@ -110,43 +122,50 @@ async function jump() {
 }
 
 
-const GOAL_TILE = GW.tile.install('GOAL', '=', 'green', 'black', 50, 0, 0,
-	'the finish line', 'you see the finish line.',
-	{ playerEnter: crossedFinish }
-);
-const START_TILE = GW.tile.install('START', '=', 'blue', 'black', 50, 0, 0, 'the starting line');
+GW.tile.addKind('GOAL', {
+	sprite: { ch: '=', fg: 'green', bg: 'black' }, priority: 50,
+	name: 'finish line', article: 'the',
+	events: { playerEnter: crossedFinish }
+});
 
-const LAVA_TILE = GW.tile.install('LAVA_TILE', '~', 'lavaForeColor', 'lavaBackColor', 90,	0,
-	'T_LAVA',
-	'lava', 'you see molten lava.', { tick: lavaTick });
+GW.tile.addKind('START', {
+	sprite: { ch: '=', fg: 'blue', bg: 'black' }, priority: 50, name: 'starting line', article: 'the'
+});
 
-// LAVA_CRUST
-const LAVA_CRUST = GW.tile.install('LAVA_CRUST', '~', 'lavaForeColor', 'dark_gray', 91,	GW.def.LIQUID,
-	'T_BRIDGE',
-	'crusted lava', 'you see crusted lava.', { tick: { chance: 10, tile: 'LAVA_CRUST_BREAKING' } });
+GW.tile.addKind('LAVA_TILE', {
+	sprite: { ch: '~', fg: 'lavaForeColor', bg: 'lavaBackColor' }, priority: 90,
+	flags: 'T_LAVA',
+	name: 'molten lava', article: 'some',
+	events: { tick: lavaTick }
+});
+
+GW.tile.addKind('LAVA_CRUST', {
+	sprite: { ch: '~', fg: 'lavaForeColor', bg: 'dark_gray' }, priority: 91, layer: 'SURFACE',
+	flags: 'T_BRIDGE',
+	name: 'crusted lava', article: 'some',
+	events: { tick: lavaCrustTick }
+});
+
+GW.tile.addKind('LAVA_CRUST_BREAKING', {
+	sprite: { ch: '~', fg: 'lavaForeColor', bg: 'darkest_red' }, priority: 92,	layer: 'SURFACE',
+	flags: 'T_BRIDGE',
+	name: 'lava with a cracking crust', article: 'some',
+	events: { tick: lavaBreakingTick }
+});
+
+GW.tile.addKind('LAVA_ERUPTING', {
+	sprite: { ch: '!', fg: 'yellow', bg: 'red' }, priority: 91,
+	name: 'wave of erupting lava', article: 'a',
+	events: { tick: { radius: 1, tile: 'LAVA_ERUPTING', flags: 'DFF_NULL_SURFACE | DFF_SUBSEQ_ALWAYS', needs: 'LAVA_TILE', next: { tile: 'LAVA_ERUPTED' } }}
+});
+
+GW.tile.addKind('LAVA_ERUPTED', {
+	sprite: { ch: '~', fg: 'lavaForeColor', bg: 'lavaBackColor' }, priority: 92,
+	name: 'lava', article: 'some',
+	events: { tick: { tile: 'LAVA_TILE', flags: 'DFF_SUPERPRIORITY | DFF_PROTECTED' } }
+});
 
 
-// LAVA_CRUST_BREAKING
-const LAVA_CRUST_BREAKING = GW.tile.install('LAVA_CRUST_BREAKING', '~', 'lavaForeColor', 'darkest_red', 92,	GW.def.LIQUID,
-	'T_BRIDGE',
-	'lava with a cracking crust', 'you see crusted lava that looks like it is unstable.', { tick: lavaBreak });
-
-// LAVA_ERUPTING
-const LAVA_ERUPTING = GW.tile.install('LAVA_ERUPTING', '!', 'yellow', 'red', 91,	0,
-	0,
-	'a wave of erupting lava', 'you see a wave of hot lava.', { tick: { radius: 1, tile: 'LAVA_ERUPTING', flags: 'DFF_NULLIFY_CELL | DFF_SUBSEQ_ALWAYS', needs: 'LAVA_TILE', next: { tile: 'LAVA_ERUPTED' } }});
-
-// LAVA_ERUPTED
-const LAVA_ERUPTED = GW.tile.install('LAVA_ERUPTED', '~', 'lavaForeColor', 'lavaBackColor', 92,	0,
-	0,
-	'lava', 'you see lava.', { tick: { tile: 'LAVA_TILE', flags: 'DFF_SUPERPRIORITY | DFF_PROTECTED' } });
-
-async function rest(e) {
-	PLAYER.endTurn();
-	return true;
-}
-
-GW.commands.rest = rest;
 
 
 
@@ -158,22 +177,23 @@ function makeMap(id=1) {
 
 	MAP.fill('WALL');
 	MAP.cells.forRect(10, 0, 30, 30, (c) => c.setTile('FLOOR'));
-	MAP.cells.forRect(10, 1, 30, 1, (c) => c.setTile(GOAL_TILE) );
+	MAP.cells.forRect(10, 1, 30, 1, (c) => c.setTile('GOAL') );
 	GW.map.addText(MAP, 22, 1, 'FINISH', 'green');
-	MAP.cells.forRect(10, 28, 30, 1, (c) => c.setTile(START_TILE) );
+	MAP.cells.forRect(10, 28, 30, 1, (c) => c.setTile('START') );
 	GW.map.addText(MAP, 23, 28, 'START', 'blue');
 
 	// update the difficulty
 	ERUPT_CHANCE = Math.max(5000, 30000 - (1000 * id));
 	CRUST_CHANCE = Math.max(2, Math.floor(10 - id/2));
 	BREAK_CHANCE = Math.min(90, Math.floor(60 + id));
+  LAVA_START_BREAK = Math.min(90, Math.floor(20 + id*2));
 
-	GW.message.add(GW.colors.blue, 'Erupt: %d, Crust: %d, Break: %d', ERUPT_CHANCE, CRUST_CHANCE, BREAK_CHANCE);
+	GW.message.add(GW.colors.blue, 'Erupt: %d, Crust: %d, StartBreak: %d, Break: %d', ERUPT_CHANCE, CRUST_CHANCE, LAVA_START_BREAK, BREAK_CHANCE);
 
 	let height = 3 + Math.floor(id / 2);
 	let top = Math.floor( (30 - height) / 2 ) + 1;
 
-	MAP.cells.forRect(10, top, 30, height, (c) => c.setTile(LAVA_TILE) );
+	MAP.cells.forRect(10, top, 30, height, (c) => c.setTile('LAVA_TILE') );
 
 	MAP.setFlags(0, GW.flags.cell.VISIBLE);
 	MAP.id = id;
@@ -215,7 +235,7 @@ async function start() {
 
 	const canvas = GW.ui.start({ width: 50, height: 36, div: 'game', messages: -5, cursor: true, flavor: true });
 	GW.io.setKeymap({
-		dir: 'moveDir', space: 'rest', 'j': jump,
+		dir: 'movePlayer', space: 'rest', 'j': jump,
 		'x': startExplosion,
 		'?': 'showHelp'
 	});

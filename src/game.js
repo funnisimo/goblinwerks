@@ -1,22 +1,23 @@
 
 
 import { colors as COLORS } from './color.js';
-import { Flags as CellFlags } from './cell.js';
-import { Flags as MapFlags, map as MAP } from './map.js';
+import * as Flags from './flags.js';
+import * as Utils from './utils.js';
+import * as Light from './light.js';
+import { map as MAP } from './map.js';
 import { io as IO } from './io.js';
 import { actor as ACTOR } from './actor.js';
 import { player as PLAYER } from './player.js';
 import { scheduler } from './scheduler.js';
 import { text as TEXT } from './text.js';
 import { sprite as SPRITE } from './sprite.js';
-import { Flags as TileFlags } from './tile.js';
 import { visibility as VISIBILITY } from './visibility.js';
 
-import { viewport as VIEWPORT, data as DATA, maps as MAPS, types, fx as FX, ui as UI, message as MSG, utils as UTILS, make, config as CONFIG, flavor as FLAVOR } from './gw.js';
+import { viewport as VIEWPORT, data as DATA, maps as MAPS, types, fx as FX, ui as UI, message as MSG, make, config as CONFIG, flavor as FLAVOR } from './gw.js';
 
 export var game = {};
 
-game.debug = UTILS.NOOP;
+game.debug = Utils.NOOP;
 
 DATA.time = 0;
 DATA.running = false;
@@ -44,7 +45,7 @@ export async function startGame(opts={}) {
     map = await game.getMap(map);
   }
 
-  if (!map) UTILS.ERROR('No map!');
+  if (!map) Utils.ERROR('No map!');
 
   if (opts.fov) {
     CONFIG.fov = true;
@@ -134,6 +135,12 @@ export function startMap(map, loc='start') {
     VISIBILITY.update(map, DATA.player.x, DATA.player.y);
   }
 
+  Light.updateLighting(map);
+
+  Utils.eachChain(map.actors, (actor) => {
+    game.queueActor(actor);
+  });
+
   UI.blackOutDisplay();
   map.redrawAll();
   UI.draw();
@@ -153,25 +160,43 @@ async function gameLoop() {
 
   while (DATA.running) {
 
-    const fn = scheduler.pop();
-    if (!fn) {
-      utils.WARN('NO ACTORS! STOPPING GAME!');
-      DATA.running = false;
-    }
-    else {
-      if (scheduler.time > DATA.time) {
-        DATA.time = scheduler.time;
+    if (DATA.gameHasEnded) {
+      const ev = await IO.nextEvent(1000);
+      if (ev) {
+        if (!await UI.dispatchEvent(ev)) {
+          await IO.dispatchEvent(ev, {
+            Enter() {
+              DATA.running = false;
+            }
+          });
+        }
         await UI.updateIfRequested();
       }
-      const turnTime = await fn();
-      if (turnTime) {
-        game.debug('- push actor: %d + %d = %d', scheduler.time, turnTime, scheduler.time + turnTime);
-        scheduler.push(fn, turnTime);
+    }
+    else {
+      const fn = scheduler.pop();
+      if (!fn) {
+        utils.WARN('NO ACTORS! STOPPING GAME!');
+        DATA.running = false;
+      }
+      else {
+        if (scheduler.time > DATA.time) {
+          DATA.time = scheduler.time;
+          game.debug('- update now: %d', scheduler.time);
+          await UI.updateIfRequested();
+        }
+        const turnTime = await fn();
+        if (turnTime) {
+          game.debug('- push actor: %d + %d = %d', scheduler.time, turnTime, scheduler.time + turnTime);
+          scheduler.push(fn, turnTime);
+        }
+        DATA.map.resetEvents();
       }
     }
 
   }
 
+  return DATA.isWin;
 }
 
 game.loop = gameLoop;
@@ -223,22 +248,24 @@ game.updateEnvironment = updateEnvironment;
 
 SPRITE.install('hilite', COLORS.white);
 
-async function gameOver(isWin, ...args) {
+export async function gameOver(isWin, ...args) {
   const msg = TEXT.format(...args);
 
   FLAVOR.clear();
   MSG.add(msg);
   if (isWin) {
+    DATA.isWin = true;
     MSG.add(COLORS.yellow, 'WINNER!');
   }
   else {
+    DATA.isWin = false;
     MSG.add(COLORS.red, 'GAME OVER');
   }
+  MSG.add(COLORS.white, 'Press <Enter> to continue.');
   UI.updateNow();
   await FX.flashSprite(DATA.map, DATA.player.x, DATA.player.y, 'hilite', 500, 3);
   DATA.gameHasEnded = true;
 
-  DATA.running = false; // ???
 }
 
 game.gameOver = gameOver;
@@ -249,17 +276,17 @@ async function useStairs(x, y) {
   const cell = map.cell(x, y);
   let start = [player.x, player.y];
   let mapId = -1;
-  if (cell.hasTileFlag(TileFlags.T_UP_STAIRS)) {
+  if (cell.hasTileFlag(Flags.Tile.T_UP_STAIRS)) {
     start = 'down';
     mapId = map.id + 1;
     MSG.add('you ascend.');
   }
-  else if (cell.hasTileFlag(TileFlags.T_DOWN_STAIRS)) {
+  else if (cell.hasTileFlag(Flags.Tile.T_DOWN_STAIRS)) {
     start = 'up';
     mapId = map.id - 1;
     MSG.add('you descend.');
   }
-  else if (cell.hasTileFlag(TileFlags.T_PORTAL)) {
+  else if (cell.hasTileFlag(Flags.Tile.T_PORTAL)) {
     start = cell.data.portalLocation;
     mapId = cell.data.portalMap;
   }

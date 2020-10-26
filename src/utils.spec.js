@@ -80,7 +80,16 @@ describe('GW.utils', () => {
   test('dirIndex', () => {
     expect(UTILS.dirIndex([0,0])).toEqual(-1);
     expect(UTILS.dirIndex([2,0])).toEqual(-1);
-    expect(UTILS.dirIndex([1,0])).toEqual(3);
-    expect(UTILS.dirIndex([-1,1])).toEqual(6);
+    expect(UTILS.dirIndex([1,0])).toEqual(1);
+    expect(UTILS.dirIndex([-1,1])).toEqual(7);
+  });
+
+  test('assignOmitting', () => {
+    const dest = {};
+    UTILS.assignOmitting(['a', 'b', 'c'], dest, { a: 1, b: 2, c: 3, d: 4, e: 5 });
+    expect(dest).toEqual({ d: 4, e: 5 });
+
+    UTILS.assignOmitting('c, d, e', dest, { a: 10, b: 20, c: 30, d: 40, e: 50 });
+    expect(dest).toEqual({ a: 10, b: 20, d: 4, e: 5 });
   });
 });

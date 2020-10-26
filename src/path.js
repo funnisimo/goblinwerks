@@ -1,4 +1,5 @@
 
+import * as Utils from './utils.js';
 import { def, make } from './gw.js';
 
 
@@ -8,9 +9,10 @@ export { PATH as path };
 
 const PDS_FORBIDDEN   = def.PDS_FORBIDDEN   = -1;
 const PDS_OBSTRUCTION = def.PDS_OBSTRUCTION = -2;
+const PDS_AVOIDED     = def.PDS_AVOIDED     = 10;
 const PDS_NO_PATH     = def.PDS_NO_PATH     = 30000;
 
-// GW.actor.avoidsCell = GW.actor.avoidsCell || GW.utils.FALSE;
+// GW.actor.avoidsCell = GW.actor.avoidsCell || Utils.FALSE;
 // GW.actor.canPass = GW.actor.canPass || ((a, b) => a === b);
 
 function makeCostLink(i) {
@@ -369,55 +371,6 @@ PATH.calculateDistances = calculateDistances;
 
 
 
-//
-// // Returns -1 if there are no beneficial moves.
-// // If preferDiagonals is true, we will prefer diagonal moves.
-// // Always rolls downhill on the distance map.
-// // If monst is provided, do not return a direction pointing to
-// // a cell that the monster avoids.
-// function nextStep( /* short **/ distanceMap, x, y, /* creature */ traveler, useDiagonals) {
-// 	let newX, newY, bestScore;
-//   let dir, bestDir;
-//   let blocker;	// creature *
-//   let blocked;
-//
-//   // brogueAssert(coordinatesAreInMap(x, y));
-//
-// 	bestScore = 0;
-// 	bestDir = def.NO_DIRECTION;
-//
-// 	for (dir = 0; dir < (useDiagonals ? 8 : 4); ++dir)
-//   {
-// 		newX = x + DIRS[dir][0];
-// 		newY = y + DIRS[dir][1];
-//
-//     if (GW.MAP.hasLoc(newX, newY)) {
-//         blocked = false;
-//         blocker = GW.MAP.actorAt(newX, newY);
-//         if (traveler
-//             && GW.actor.avoidsCell(traveler, newX, newY))
-// 				{
-//             blocked = true;
-//         } else if (traveler && blocker
-//                    && !GW.actor.canPass(traveler, blocker))
-// 				{
-//             blocked = true;
-//         }
-//         if (!blocked
-// 						&& (distanceMap[x][y] - distanceMap[newX][newY]) > bestScore
-//             && !GW.MAP.diagonalBlocked(x, y, newX, newY, traveler === GW.PLAYER)
-//             && GW.MAP.isPassableNow(newX, newY, traveler === GW.PLAYER))
-// 				{
-//             bestDir = dir;
-//             bestScore = distanceMap[x][y] - distanceMap[newX][newY];
-//         }
-//     }
-// 	}
-// 	return bestDir;
-// }
-//
-// GW.path.nextStep = nextStep;
-//
 
 
 //

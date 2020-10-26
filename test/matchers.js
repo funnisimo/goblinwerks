@@ -28,8 +28,11 @@ expect.extend({
     if (typeof y !== 'number') {
       throw new Error('expected y to be a number');
     }
-    if (!received || typeof received.x !== 'number' || typeof received.y !== 'number') {
-      throw new Error('expected value to be object with xLoc and yLoc members');
+    if (!received) {
+      throw new Error('expected object to be at XY, but received none.');
+    }
+    if (typeof received.x !== 'number' || typeof received.y !== 'number') {
+      throw new Error('expected value to be object with x and y members');
     }
 
     let success = (received && received.x == x && received.y == y);
@@ -64,4 +67,35 @@ expect.extend({
       message: () => `Expected ${received} to equal ${expected}`,
     });
   },
+  toEqualColor(received, ...expected) {
+    if (expected.length == 1 && Array.isArray(expected[0])) {
+      expected = expected[0];
+    }
+    if (!Array.isArray(expected)) {
+      throw new Error('expected must be an array.');
+    }
+    if (!Array.isArray(received)) {
+      throw new Error('value must be a color object.');
+    }
+
+    while( expected.length < received.length ) {
+      expected.push(0);
+    }
+
+    let success = (expected.length == received.length);
+    for( let i = 0; i < expected.length && success; ++i) {
+      if (expected[i] != received[i]) {
+        success = false;
+      }
+    }
+
+    return success ? ({
+      pass: true,
+      message: () => `Expected ${received} not to equal ${expected}`,
+    }) : ({
+      pass: false,
+      message: () => `Expected ${received} to equal ${expected}`,
+    });
+  },
+
 });

@@ -1,12 +1,13 @@
 
 // CREDIT - This is adapted from: http://roguebasin.roguelikedevelopment.org/index.php?title=Improved_Shadowcasting_in_Java
 
-import { types, utils as UTILS, def } from './gw.js';
+import * as Utils from './utils.js';
+import { types, def } from './gw.js';
 
 
 export var fov = {};
 
-fov.debug = UTILS.NOOP;
+fov.debug = Utils.NOOP;
 
 // strategy =
 // {
@@ -18,9 +19,9 @@ fov.debug = UTILS.NOOP;
 export class FOV {
   constructor(strategy) {
     this.isBlocked = strategy.isBlocked;
-    this.calcRadius = strategy.calcRadius || UTILS.calcRadius;
+    this.calcRadius = strategy.calcRadius || Utils.calcRadius;
     this.setVisible = strategy.setVisible;
-    this.hasXY = strategy.hasXY || UTILS.TRUE;
+    this.hasXY = strategy.hasXY || Utils.TRUE;
   }
 
   calculate(x, y, maxRadius) {

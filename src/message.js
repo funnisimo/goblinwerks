@@ -15,7 +15,13 @@ var ARCHIVE_LINES = 30;
 var CURRENT_ARCHIVE_POS = 0;
 var NEEDS_UPDATE = false;
 var INTERFACE_OPACITY = 90;
+let COMBAT_MESSAGE = null;
 
+export function needsRedraw() {
+  NEEDS_UPDATE = true;
+}
+
+message.needsRedraw = needsRedraw;
 
 
 function setup(opts) {
@@ -50,7 +56,7 @@ message.setup = setup;
 
 function moveBlocked(ctx) {
   if (ctx.item) {
-    message.add('Blocked by %s!', ctx.item.flavorText());
+    message.add('Blocked by %s!', ctx.item.getFlavor());
   }
   else {
     message.add('Blocked!');
@@ -66,14 +72,30 @@ function add(...args) {
   if (args.length > 1) {
     msg = TEXT.format(...args);
   }
+  commitCombatMessage();
   addMessage(msg);
 }
 
 message.add = add;
 
 
+function forPlayer(actor, ...args) {
+  if (!actor.isPlayer()) return;
+  add(...args);
+}
 
+message.forPlayer = forPlayer;
 
+function addCombat(...args) {
+  if (args.length == 0) return;
+  let msg = args[0];
+  if (args.length > 1) {
+    msg = TEXT.format(...args);
+  }
+  addCombatMessage(msg);
+}
+
+message.addCombat = addCombat;
 
 
 function drawMessages(buffer) {
@@ -82,6 +104,8 @@ function drawMessages(buffer) {
 	let messageColor;
 
   if (!NEEDS_UPDATE || !SETUP) return false;
+
+  commitCombatMessage();
 
   const isOnTop = (SETUP.y < 10);
 
@@ -104,7 +128,7 @@ function drawMessages(buffer) {
 				COLOR.applyMix(color, COLORS.black, 50);
 				COLOR.applyMix(color, COLORS.black, 75 * i / (2*SETUP.height));
 			}
-			messageColor = color || messageColor;
+			messageColor = color || tempColor;
 			buffer.plotChar(x, y, c, messageColor, COLORS.black);
 		});
 
@@ -145,7 +169,6 @@ function addMessageLine(msg) {
 function addMessage(msg) {
 
 	DATA.disturbed = true;
-	// displayCombatText();
 
 	msg = TEXT.capitalize(msg);
 
@@ -186,32 +209,27 @@ function addMessage(msg) {
 	// }
 }
 
+function addCombatMessage(msg) {
+	if (!COMBAT_MESSAGE) {
+		COMBAT_MESSAGE = msg;
+	}
+	else {
+		COMBAT_MESSAGE += ', ' + TEXT.capitalize(msg);;
+	}
+  NEEDS_UPDATE = true;
+  UI.requestUpdate();
+}
 
-// let COMBAT_MESSAGE = null;
-//
-// function combatMessage(...args) {
-// 	const msg = message.format(...args);
-// 	if (!COMBAT_MESSAGE) {
-// 		COMBAT_MESSAGE = msg;
-// 	}
-// 	else {
-// 		COMBAT_MESSAGE += ' ' + message.capitalize(msg);;
-// 	}
-// NEEDS_UPDATE = true;
-// UI.requestUpdate();
-// }
-//
-// UI.combatMessage = combatMessage;
-//
-//
-// function commitCombatMessage() {
-// 	if (!COMBAT_MESSAGE) return false;
-// 	addMessage(COMBAT_MESSAGE);
-// 	COMBAT_MESSAGE = null;
-// 	return true;
-// }
-//
-//
+
+
+function commitCombatMessage() {
+	if (!COMBAT_MESSAGE) return false;
+	addMessage(COMBAT_MESSAGE + '.');
+	COMBAT_MESSAGE = null;
+	return true;
+}
+
+
 function confirmAll() {
 	for (let i=0; i<CONFIRMED.length; i++) {
 		CONFIRMED[i] = true;
@@ -246,7 +264,7 @@ async function showArchive() {
 			 (reverse ? currentMessageCount >= SETUP.height : currentMessageCount <= totalMessageCount);
 			 currentMessageCount += (reverse ? -1 : 1))
 	  {
-			dbuf.nullify();
+			UI.clearDialog();
 
 			// Print the message archive text to the dbuf.
 			for (j=0; j < currentMessageCount && j < dbuf.height; j++) {

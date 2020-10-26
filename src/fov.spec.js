@@ -69,7 +69,7 @@ describe('FOV', () => {
       expect(actual).toEqual(expected);
     }
 
-    function calcFov(expected, captureDebug) {
+    function calcFov(expected, opts={}) {
       let x = 0;
       let y = 0;
 
@@ -84,27 +84,28 @@ describe('FOV', () => {
       }
 
       let msgs = [];
-      if (captureDebug) {
+      if (opts.captureDebug) {
         function debug(...args) {
           msgs.push(GW.text.format(...args));
         }
         GW.fov.debug = debug;
       }
-      map.calcFov(grid, x, y);
-      if (captureDebug) {
+      map.calcFov(grid, x, y, opts.radius);
+      if (opts.captureDebug) {
         console.log(msgs.join('\n'));
         GW.fov.debug = GW.utils.NOOP;
       }
     }
 
-    function testFov(text, captureDebug) {
+    function testFov(text, opts={}) {
+      if (opts === true) { opts = { captureDebug: true }; }
       const h = text.length;
       const w = text[0].length;
       map = GW.make.map(w, h, { tile: 'FLOOR' });
       grid = GW.grid.alloc(w, h);
 
       fillMap(text);
-      calcFov(text, captureDebug);
+      calcFov(text, opts);
       const actual = toText();
       const expected = text.map( (line) => line.replace('@', '.') );
       check(expected, actual);
@@ -150,6 +151,27 @@ describe('FOV', () => {
                '.................', //
                '.................', //
                '.................']);//
+    });
+
+    test('small range', () => {
+      testFov(['sssssssssssssssss', //
+               'sssssssssssssssss', //
+               'sssssssssssssssss', //
+               'sssssssssssssssss', //
+               'sssssssssssssssss', //
+               'sssssssssssssssss', //
+               'ssssss.....ssssss', //
+               'sssss.......sssss', //
+               'sssss.......sssss', //
+               'sssss...@...sssss', //
+               'sssss.......sssss', //
+               'sssss.......sssss', //
+               'ssssss.....ssssss', //
+               'sssssssssssssssss', //
+               'sssssssssssssssss', //
+               'sssssssssssssssss', //
+               'sssssssssssssssss'],
+               {radius: 3 });//
     });
 
 

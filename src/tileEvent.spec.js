@@ -11,27 +11,29 @@ describe('tileEvent', () => {
   let ctx;
 
   const LAKE = 'LAKE';
-  let ROUGH_WATER;
-  let WAVE;
+  let ROUGH_WATER = 'ROUGH_WATER';
+  let WAVE = 'WAVE';
 
   beforeAll( () => {
-    ROUGH_WATER = GW.tile.install('ROUGH_WATER', 'R', 'blue', 'green', 70,	0,
-      'T_DEEP_WATER',
-      'water', 'you see water.', { tick: { tile: LAKE, flags: 'DFF_SUPERPRIORITY | DFF_PROTECTED' } });
-    WAVE = GW.tile.install('WAVE', 'W', 'white', 'blue', 60,	0,
-      'T_DEEP_WATER',
-      'wave crest', 'you see a wave of water.', { tick: { radius: 1, tile: 'WAVE', flags: 'DFF_NULLIFY_CELL | DFF_SUBSEQ_ALWAYS', needs: LAKE, next: { tile: ROUGH_WATER } }});
+    GW.tile.addKind(ROUGH_WATER, {
+      sprite: { ch: 'R', fg: 'blue', bg: 'green' }, priority: 70,
+      flags: 'T_DEEP_WATER',
+      name: 'water', article: 'some',
+      events: { tick: { tile: LAKE, flags: 'DFF_SUPERPRIORITY | DFF_PROTECTED' } }
+    });
+    GW.tile.addKind(WAVE, {
+      sprite: { ch: 'W', fg: 'white', bg: 'blue' }, priority: 60,
+      flags: 'T_DEEP_WATER',
+      name: 'wave crest', article: 'the',
+      events: {
+        tick: { radius: 1, tile: 'WAVE', flags: 'DFF_NULLIFY_CELL | DFF_SUBSEQ_ALWAYS', needs: LAKE, next: { tile: ROUGH_WATER } }
+      }
+    });
   });
 
   afterAll( () => {
-    if (ROUGH_WATER) {
-      delete GW.tiles[ROUGH_WATER];
-      ROUGH_WATER = 0;
-    }
-    if (WAVE) {
-      delete GW.tiles[WAVE];
-      WAVE = 0;
-    }
+    delete GW.tiles[ROUGH_WATER];
+    delete GW.tiles[WAVE];
   });
 
   beforeEach( () => {
@@ -87,8 +89,8 @@ describe('tileEvent', () => {
     // grid.dump();
     expect(grid.count( (v) => !!v )).toEqual(12);
     expect(grid[10][10]).toEqual(1);
-    expect(grid[9][5]).toEqual(9);
-    expect(grid[8][11]).toEqual(0);
+    expect(grid[10][15]).toEqual(8);
+    expect(grid[10][14]).toEqual(0);
   });
 
   // { spread: 75, matchTile: "DOOR" }
@@ -119,10 +121,10 @@ describe('tileEvent', () => {
     feat = GW.make.tileEvent({ tile: "WALL", spread: 50, decrement: 10 });
     GW.tileEvent.computeSpawnMap(feat, grid, ctx);
     // grid.dump();
-    expect(grid.count( (v) => !!v )).toEqual(7);
+    expect(grid.count( (v) => !!v )).toEqual(8);
     expect(grid[10][10]).toEqual(1);
-    expect(grid[9][5]).toEqual(0);
-    expect(grid[8][11]).toEqual(6);
+    expect(grid[9][10]).toEqual(0);
+    expect(grid[11][12]).toEqual(6);
   });
 
 
@@ -299,7 +301,7 @@ describe('tileEvent', () => {
   // { item: 'BOX' }
   test('{ item: "BOX" }', async () => {
 
-    GW.item.installKind('BOX', {
+    GW.item.addKind('BOX', {
     	name: 'box',
     	description: 'a large wooden box',
     	sprite: { ch: '\u2612', fg: 'light_brown' },
@@ -327,7 +329,7 @@ describe('tileEvent', () => {
     const feat = GW.make.tileEvent({ tile: 'WALL' });
     expect(feat.tile).toEqual('WALL');
     await GW.tileEvent.spawn(feat, ctx);
-    expect(feat.tile).toEqual(GW.tile.withName('WALL').id);
+    expect(feat.tile).toEqual('WALL');
     expect(map.hasTile(10, 10, 'WALL')).toBeTruthy();
     // expect(map.hasCellFlag(10, 10, GW.flags.cell.NEEDS_REDRAW)).toBeTruthy();
     expect(map.hasCellFlag(10, 10, GW.flags.cell.CELL_CHANGED)).toBeTruthy();
@@ -337,16 +339,16 @@ describe('tileEvent', () => {
   // { tile: 8, next: 'OTHER' }
 
 
-  test('can clear extra tiles from the cell', () => {
+  test('can clear extra tiles from the cell', async () => {
     const feat = GW.make.tileEvent({ flags: 'DFF_NULLIFY_CELL' });
 
     const cell = map.cell(5, 5);
     cell.setTile('BRIDGE');
-    expect(cell.surfaceTile.name).toEqual('BRIDGE');
-    expect(cell.groundTile.name).toEqual('FLOOR');
+    expect(cell.surface).toEqual('BRIDGE');
+    expect(cell.ground).toEqual('FLOOR');
 
-    GW.tileEvent.spawn(feat, { map, x: 5, y: 5 });
-    expect(cell.groundTile.name).toEqual('FLOOR');
+    await GW.tileEvent.spawn(feat, { map, x: 5, y: 5 });
+    expect(cell.ground).toEqual('FLOOR');
     expect(cell.surface).toEqual(0);
   });
 
@@ -428,7 +430,7 @@ describe('tileEvent', () => {
 		for(let x = 0; x < map.width; ++x) {
 			for(let y = 0; y < map.height; ++y) {
 				const cell = map.cells[x][y];
-				await cell.fireEvent('tick', { map, x, y, cell });
+				await cell.fireEvent('tick', { map, x, y, cell, safe: true });
 			}
 		}
     // end map.tick
@@ -457,11 +459,26 @@ describe('tileEvent', () => {
     // map.dump();
 
     expect(map.hasTile(10, 10, 'DOOR')).toBeTruthy();
-    expect(map.hasTile(9, 10, 'DOOR')).toBeTruthy();
-    expect(map.hasTile(8, 10, 'DOOR')).toBeTruthy();
-    expect(map.hasTile(7, 10, 'DOOR')).toBeTruthy();
+    expect(map.hasTile(10, 9,  'DOOR')).toBeTruthy();
+    expect(map.hasTile(10, 8,  'DOOR')).toBeTruthy();
+    expect(map.hasTile(10, 7,  'DOOR')).toBeTruthy();
 
     expect(map.cells.count( (c) => c.hasTile('DOOR') )).toEqual(4);
+  });
+
+  test('Will add liquids with volume', async () => {
+    GW.tile.addKind('RED_LIQUID', {
+      name: 'red liquid', article: 'some',
+      bg: 'red',
+      layer: 'LIQUID'
+    });
+
+    const feat = GW.make.tileEvent({ tile: 'RED_LIQUID', volume: 50 });
+    await GW.tileEvent.spawn(feat, ctx);
+
+    const cell = map.cell(ctx.x, ctx.y);
+    expect(cell.liquid).toEqual('RED_LIQUID');
+    expect(cell.liquidVolume).toEqual(50);
   });
 
 });

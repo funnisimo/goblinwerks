@@ -1,18 +1,13 @@
 
-import { def, utils } from './gw.js';
+import { def } from './gw.js';
 
 
 export function NOOP()  {}
-utils.NOOP = NOOP;
-
 export function TRUE()  { return true; }
-utils.TRUE = TRUE;
-
 export function FALSE() { return false; }
-utils.FALSE = FALSE;
-
+export function ONE() { return 1; }
+export function ZERO() { return 0; }
 export function IDENTITY(x) { return x; }
-utils.IDENTITY = IDENTITY;
 
 
 export function clamp(v, min, max) {
@@ -21,40 +16,28 @@ export function clamp(v, min, max) {
   return v;
 }
 
-utils.clamp = clamp;
-
 export function x(src) {
   return src.x || src[0] || 0;
 }
-
-utils.x = x;
 
 export function y(src) {
   return src.y || src[1] || 0;
 }
 
-utils.y = y;
-
 export function copyXY(dest, src) {
-  dest.x = utils.x(src);
-  dest.y = utils.y(src);
+  dest.x = x(src);
+  dest.y = y(src);
 }
-
-utils.copyXY = copyXY;
 
 export function addXY(dest, src) {
-  dest.x += utils.x(src);
-  dest.y += utils.y(src);
+  dest.x += x(src);
+  dest.y += y(src);
 }
-
-utils.addXY = addXY;
 
 export function equalsXY(dest, src) {
-  return (dest.x == utils.x(src))
-  && (dest.y == utils.y(src));
+  return (dest.x == x(src))
+  && (dest.y == y(src));
 }
-
-utils.equalsXY = equalsXY;
 
 export function distanceBetween(x1, y1, x2, y2) {
   const x = Math.abs(x1 - x2);
@@ -63,20 +46,13 @@ export function distanceBetween(x1, y1, x2, y2) {
   return x + y - (0.6 * min);
 }
 
-utils.distanceBetween = distanceBetween;
-
 export function distanceFromTo(a, b) {
-  return utils.distanceBetween(utils.x(a), utils.y(a), utils.x(b), utils.y(b));
+  return distanceBetween(x(a), y(a), x(b), y(b));
 }
-
-utils.distanceFromTo = distanceFromTo;
 
 export function calcRadius(x, y) {
-  return utils.distanceBetween(0,0, x, y);
+  return distanceBetween(0,0, x, y);
 }
-
-utils.calcRadius = calcRadius;
-
 
 export function dirBetween(x, y, toX, toY) {
 	let diffX = toX - x;
@@ -90,13 +66,9 @@ export function dirBetween(x, y, toX, toY) {
 	return [Math.sign(diffX), Math.sign(diffY)];
 }
 
-utils.dirBetween = dirBetween;
-
 export function dirFromTo(a, b) {
-  return dirBetween(utils.x(a), utils.y(a), utils.x(b), utils.y(b));
+  return dirBetween(x(a), y(a), x(b), y(b));
 }
-
-utils.dirFromTo = dirFromTo;
 
 export function dirIndex(dir) {
   const x = dir.x || dir[0] || 0;
@@ -104,21 +76,33 @@ export function dirIndex(dir) {
   return def.dirs.findIndex( (a) => a[0] == x && a[1] == y );
 }
 
-utils.dirIndex = dirIndex;
-
 export function isOppositeDir(a, b) {
   if (a[0] + b[0] != 0) return false;
   if (a[1] + b[1] != 0) return false;
   return true;
 }
 
-utils.isOppositeDir = isOppositeDir;
-
 export function isSameDir(a, b) {
   return a[0] == b[0] && a[1] == b[1];
 }
 
-utils.isSameDir = isSameDir;
+export function dirSpread(dir) {
+  const result = [dir];
+  if (dir[0] == 0) {
+    result.push( [ 1, dir[1]] );
+    result.push( [-1, dir[1]] );
+  }
+  else if (dir[1] == 0) {
+    result.push( [dir[0], 1] );
+    result.push( [dir[0],-1] );
+  }
+  else {
+    result.push( [dir[0], 0] );
+    result.push( [0, dir[1]] );
+  }
+  return result;
+}
+
 
 export function extend(obj, name, fn) {
   const base = obj[name] || NOOP;
@@ -127,8 +111,6 @@ export function extend(obj, name, fn) {
   newFn.base = base;
   obj[name] = newFn;
 }
-
-utils.extend = extend;
 
 // export function rebase(obj, name, newBase) {
 //   const fns = [];
@@ -147,15 +129,11 @@ utils.extend = extend;
 //   }
 // }
 
-// utils.rebase = rebase;
-
 export function cloneObject(obj) {
   const other = Object.create(obj.__proto__);
-  utils.assignObject(other, obj);
+  assignObject(other, obj);
   return other;
 }
-
-utils.cloneObject = cloneObject;
 
 function assignField(dest, src, key) {
   const current = dest[key];
@@ -165,6 +143,9 @@ function assignField(dest, src, key) {
   }
   else if (current && current.clear && !updated) {
     current.clear();
+  }
+  else if (current && current.nullify && !updated) {
+    current.nullify();
   }
   else if (updated && updated.clone) {
     dest[key] = updated.clone();	// just use same object (shallow copy)
@@ -186,23 +167,27 @@ export function copyObject(dest, src) {
   });
 }
 
-utils.copyObject = copyObject;
-
 export function assignObject(dest, src) {
   Object.keys(src).forEach( (key) => {
     assignField(dest, src, key);
   });
 }
 
-utils.assignObject = assignObject;
+export function assignOmitting(omit, dest, src) {
+  if (typeof omit === 'string') {
+    omit = omit.split(/[,|]/g).map( (t) => t.trim() );
+  }
+  Object.keys(src).forEach( (key) => {
+    if (omit.includes(key)) return;
+    assignField(dest, src, key);
+  });
+}
 
 export function setDefault(obj, field, val) {
   if (obj[field] === undefined) {
     obj[field] = val;
   }
 }
-
-utils.setDefault = setDefault;
 
 export function setDefaults(obj, def) {
   Object.keys(def).forEach( (key) => {
@@ -213,19 +198,13 @@ export function setDefaults(obj, def) {
   });
 }
 
-utils.setDefaults = setDefaults;
-
 export function ERROR(message) {
   throw new Error(message);
 }
 
-utils.ERROR = ERROR;
-
 export function WARN(...args) {
   console.warn(...args);
 }
-
-utils.WARN = WARN;
 
 export function getOpt(obj, member, _default) {
   const v = obj[member];
@@ -233,10 +212,7 @@ export function getOpt(obj, member, _default) {
   return v;
 }
 
-utils.getOpt = getOpt;
-
-
-export function first(field, ...args) {
+export function firstOpt(field, ...args) {
   for(let arg of args) {
     if (typeof arg !== 'object' || Array.isArray(arg)) {
       return arg;
@@ -248,13 +224,9 @@ export function first(field, ...args) {
   return undefined;
 }
 
-utils.first = first;
-
 export function arraysIntersect(a, b) {
   return a.some( (av) => b.includes(av) );
 }
-
-utils.arraysIntersect = arraysIntersect;
 
 
 export function sequence(listLength) {
@@ -266,4 +238,28 @@ export function sequence(listLength) {
   return list;
 }
 
-utils.sequence = sequence;
+
+export function eachChain(item, fn) {
+  while(item) {
+    fn(item);
+    item = item.next;
+  }
+}
+
+export function removeFromChain(obj, name, entry) {
+  const root = obj[name];
+  if (root === entry) {
+    obj[name] = entry.next;
+  }
+  else {
+    let prev = root;
+    let current = prev.next;
+    while(current && current !== entry) {
+      prev = current;
+      current = prev.next;
+    }
+    if (current === entry) {
+      prev.next = current.next;
+    }
+  }
+}

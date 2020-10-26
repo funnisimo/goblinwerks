@@ -8,9 +8,9 @@ describe('GW.item', () => {
   let MAP;
 
   beforeAll( () => {
-    BOX = GW.item.installKind('BOX', {
+    BOX = GW.item.addKind('BOX', {
       name: 'box',
-      description: 'a large wooden box',
+      flavor: 'a large wooden box',
       sprite: { ch: '#', fg: 'brown' },
       flags: 'A_PUSH, A_PULL, A_SLIDE, A_NO_PICKUP, IK_BLOCKS_MOVE',
       stats: { health: 10 }
@@ -31,13 +31,13 @@ describe('GW.item', () => {
       expect(GW.itemKinds.BOX).toBe(BOX);
       expect(BOX.flags).toBeGreaterThan(0);
       expect(BOX.stats.health).toEqual(10);
-      expect(BOX.description).toEqual('a large wooden box');
+      expect(BOX.flavor).toEqual('a large wooden box');
       expect(BOX.name).toEqual('box');
       expect(BOX.sprite.ch).toEqual('#');
       expect(BOX.sprite.fg).toEqual(GW.colors.brown);
       expect(BOX.sprite.bg).toBeNull();
       expect(BOX.sprite.opacity).toEqual(100);
-      expect(GW.color.css(BOX.sprite.fg)).toEqual(GW.color.css(GW.colors.brown));
+      expect(BOX.sprite.fg.css()).toEqual(GW.colors.brown.css());
 
       expect(BOX.actionFlags & GW.flags.action.A_PUSH).toBeTruthy();
       expect(BOX.actionFlags & GW.flags.action.A_PULL).toBeTruthy();
@@ -66,7 +66,7 @@ describe('GW.item', () => {
       expect(MAP.itemAt(3, 4)).toBe(ITEM);
       expect(MAP.items).toBe(ITEM);
 
-      expect(await ITEM.applyDamage({ damage: 20 })).toBeTruthy();
+      expect(await ITEM.kind.applyDamage(ITEM, 20)).toEqual(10);
       expect(ITEM.isDestroyed()).toBeTruthy();
       expect(MAP.itemAt(3, 4)).toBe(ITEM);  // does not remove from map
       MAP.removeItem(ITEM);

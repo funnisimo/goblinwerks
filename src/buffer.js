@@ -1,7 +1,8 @@
 
 import { colors as COLORS, color as COLOR } from './color.js';
 import { text as TEXT } from './text.js';
-import { types, make, utils as UTILS } from './gw.js';
+import * as Utils from './utils.js';
+import { types, make } from './gw.js';
 
 class Buffer extends types.Grid {
   constructor(w, h) {
@@ -50,7 +51,7 @@ class Buffer extends types.Grid {
     if (sprite.opacity <= 0) return;
 
     if (!this.hasXY(x, y)) {
-      UTILS.warn('invalid coordinates: ' + x + ', ' + y);
+      Utils.WARN('invalid coordinates: ' + x + ', ' + y);
       return false;
     }
     const destCell = this[x][y];
@@ -62,7 +63,7 @@ class Buffer extends types.Grid {
 
   plotChar(x, y, ch, fg, bg) {
     if (!this.hasXY(x, y)) {
-      UTILS.warn('invalid coordinates: ' + x + ', ' + y);
+      Utils.WARN('invalid coordinates: ' + x + ', ' + y);
       return;
     }
 
@@ -99,11 +100,12 @@ class Buffer extends types.Grid {
     if (typeof fg === 'string') { fg = COLORS[fg]; }
     if (typeof bg === 'string') { bg = COLORS[bg]; }
     width = Math.min(width, this.width - x);
-    if (text.length <= width) {
-      this.plotText(x, y, text, fg, bg);
+    if (TEXT.length(text) <= width) {
+      this.plotLine(x, y, width, text, fg, bg);
       return y + 1;
     }
     let first = true;
+    let indent = opts.indent || 0;
     let start = 0;
     let last = 0;
     for(let index = 0; index < text.length; ++index) {
@@ -113,9 +115,9 @@ class Buffer extends types.Grid {
       }
       if ((index - start >= width) || (ch === '\n')) {
         const sub = text.substring(start, last);
-        this.plotText(x, y++, sub, fg, bg);
+        this.plotLine(x, y++, width, sub, fg, bg);
         if (first) {
-          x += (opts.indent || 0);
+          x += indent;
           first = false;
         }
         start = last;
@@ -127,7 +129,7 @@ class Buffer extends types.Grid {
 
     if (start < text.length - 1) {
       const sub = text.substring(start);
-      this.plotText(x, y++, sub, fg, bg);
+      this.plotLine(x, y++, width, sub, fg, bg);
     }
     return y;
   }
@@ -144,6 +146,16 @@ class Buffer extends types.Grid {
     });
     this.needsUpdate = true;
   }
+
+  // // Very low-level. Changes displayBuffer directly.
+	highlight(x, y, highlightColor, strength)
+	{
+		const cell = this[x][y];
+		cell.fg.add(highlightColor, strength);
+		cell.bg.add(highlightColor, strength);
+		cell.needsUpdate = true;
+    this.needsUpdate = true;
+	}
 
 }
 

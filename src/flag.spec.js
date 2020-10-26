@@ -29,5 +29,10 @@ describe('flag', () => {
     expect(Flag.toFlag('A')).toEqual(Flag.A);
     expect(Flag.toFlag('UNKNOWN')).toEqual(0);
     expect(Flag.toFlag('A | B')).toEqual(Flag.AB);
+
+    expect(Flag.toFlag('2 | A')).toEqual(Flag.AB);
+    expect(Flag.toFlag(Flag.D, '2 | A')).toEqual(Flag.D | Flag.A | Flag.B);
+    expect(Flag.toFlag(Flag.AB, '!A')).toEqual(Flag.B);
+    expect(Flag.toFlag(Flag.AB, '0, D')).toEqual(Flag.D);
   });
 });

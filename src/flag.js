@@ -46,7 +46,11 @@ function toFlag(obj, ...args) {
       continue;	// next
     }
     else if (typeof value === 'string') {
-      value = value.split(/[,|]/).map( (t) => t.trim() );
+      value = value.split(/[,|]/).map( (t) => t.trim() ).map( (u) => {
+        const n = Number.parseInt(u);
+        if (n >= 0) return n;
+        return u;
+      });
     }
 
     if (Array.isArray(value)) {
@@ -61,6 +65,9 @@ function toFlag(obj, ...args) {
             const f = obj[v];
             if (f) { result |= f; }
           }
+        }
+        else if (v === 0) { // to allow clearing flags when extending objects
+          result = 0;
         }
         else {
           result |= v;

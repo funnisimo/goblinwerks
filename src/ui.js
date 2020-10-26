@@ -1,10 +1,12 @@
 
 import { io as IO } from './io.js';
-import { Flags as CellFlags } from './cell.js';
+import * as Flags from './flags.js';
+import * as Utils from './utils.js';
 import { sprite as SPRITE } from './sprite.js';
-import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, utils as UTILS, make } from './gw.js';
+import { color as COLOR } from './color.js';
+import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, make, sidebar as SIDEBAR, config as CONFIG } from './gw.js';
 
-ui.debug = UTILS.NOOP;
+ui.debug = Utils.NOOP;
 
 let SHOW_FLAVOR = false;
 let SHOW_SIDEBAR = false;
@@ -44,17 +46,19 @@ function uiLoop(t) {
 
 export function start(opts={}) {
 
-  UTILS.setDefaults(opts, {
+  Utils.setDefaults(opts, {
     width: 100,
     height: 34,
     bg: 'black',
     sidebar: false,
     messages: false,
+    wideMessages: false,
 		cursor: false,
 		flavor: false,
     menu: false,
     div: 'canvas',
     io: true,
+    followPlayer: false,
   });
 
   if (!ui.canvas) {
@@ -84,19 +88,49 @@ export function start(opts={}) {
 
 	let flavorLine = -1;
 
+  if (opts.wideMessages) {
+    if (opts.messages) {
+      viewH -= Math.abs(opts.messages);
+    }
+    if (opts.flavor) {
+      viewH -= 1;
+    }
+  }
+
+  if (opts.sidebar) {
+    if (opts.sidebar === true) {
+      opts.sidebar = 20;
+    }
+    if (opts.sidebar < 0) { // right side
+      viewW += opts.sidebar;  // subtract
+      SIDEBAR.setup({ x: viewW, y: 0, width: -opts.sidebar, height: viewH });
+    }
+    else {  // left side
+      viewW -= opts.sidebar;
+      viewX = opts.sidebar;
+      SIDEBAR.setup({ x: 0, y: 0, width: opts.sidebar, height: viewH });
+    }
+  }
+
+  const msgW = (opts.wideMessages ? opts.width : viewW);
+
 	if (opts.messages) {
 		if (opts.messages < 0) {	// on bottom of screen
-			MSG.setup({x: 0, y: ui.canvas.height + opts.messages, width: ui.canvas.width, height: -opts.messages, archive: ui.canvas.height });
-			viewH += opts.messages;	// subtract off message height
+			MSG.setup({x: 0, y: ui.canvas.height + opts.messages, width: msgW, height: -opts.messages, archive: ui.canvas.height });
+      if (!opts.wideMessages) {
+        viewH += opts.messages;	// subtract off message height
+      }
 			if (opts.flavor) {
 				viewH -= 1;
 				flavorLine = ui.canvas.height + opts.messages - 1;
 			}
 		}
 		else {	// on top of screen
-			MSG.setup({x: 0, y: 0, width: ui.canvas.width, height: opts.messages, archive: ui.canvas.height });
+			MSG.setup({x: 0, y: 0, width: msgW, height: opts.messages, archive: ui.canvas.height });
 			viewY = opts.messages;
-			viewH -= opts.messages;
+      if (! opts.wideMessages) {
+        viewH -= opts.messages;
+      }
 			if (opts.flavor) {
 				viewY += 1;
 				viewH -= 1;
@@ -106,10 +140,10 @@ export function start(opts={}) {
 	}
 
 	if (opts.flavor) {
-		FLAVOR.setup({ x: viewX, y: flavorLine, w: viewW, h: 1 });
+		FLAVOR.setup({ x: viewX, y: flavorLine, w: msgW, h: 1 });
 	}
 
-	VIEWPORT.setup({ x: viewX, y: viewY, w: viewW, h: viewH });
+	VIEWPORT.setup({ x: viewX, y: viewY, w: viewW, h: viewH, followPlayer: opts.followPlayer });
 	SHOW_CURSOR = opts.cursor;
 
   ui.blackOutDisplay();
@@ -137,26 +171,73 @@ export async function dispatchEvent(ev) {
 			await MSG.showArchive();
 			return true;
 		}
-		if (FLAVOR.bounds && FLAVOR.bounds.containsXY(ev.x, ev.y)) {
+		else if (FLAVOR.bounds && FLAVOR.bounds.containsXY(ev.x, ev.y)) {
 			return true;
 		}
+    if (VIEWPORT.bounds && VIEWPORT.bounds.containsXY(ev.x, ev.y)) {
+      let x0 = VIEWPORT.bounds.toInnerX(ev.x);
+      let y0 = VIEWPORT.bounds.toInnerY(ev.y);
+      if (CONFIG.followPlayer && DATA.player && (DATA.player.x >= 0)) {
+        const offsetX = DATA.player.x - VIEWPORT.bounds.centerX();
+        const offsetY = DATA.player.y - VIEWPORT.bounds.centerY();
+        x0 += offsetX;
+        y0 += offsetY;
+      }
+      ev.mapX = x0;
+      ev.mapY = y0;
+    }
 	}
 	else if (ev.type === def.MOUSEMOVE) {
 		if (VIEWPORT.bounds && VIEWPORT.bounds.containsXY(ev.x, ev.y)) {
+      let x0 = VIEWPORT.bounds.toInnerX(ev.x);
+      let y0 = VIEWPORT.bounds.toInnerY(ev.y);
+      if (CONFIG.followPlayer && DATA.player && (DATA.player.x >= 0)) {
+        const offsetX = DATA.player.x - VIEWPORT.bounds.centerX();
+        const offsetY = DATA.player.y - VIEWPORT.bounds.centerY();
+        x0 += offsetX;
+        y0 += offsetY;
+      }
+      ev.mapX = x0;
+      ev.mapY = y0;
 			if (SHOW_CURSOR) {
-				ui.setCursor(VIEWPORT.bounds.toInnerX(ev.x), VIEWPORT.bounds.toInnerY(ev.y));
+				ui.setCursor(x0, y0);
 			}
+      if (SIDEBAR.bounds) {
+        SIDEBAR.focus(x0, y0);
+      }
 			return true;
 		}
+    else if (SIDEBAR.bounds && SIDEBAR.bounds.containsXY(ev.x, ev.y)) {
+      SIDEBAR.highlightRow(ev.y);
+    }
 		else {
 			ui.clearCursor();
+      SIDEBAR.focus(-1, -1);
 		}
 		if (FLAVOR.bounds && FLAVOR.bounds.containsXY(ev.x, ev.y)) {
 			return true;
 		}
 	}
+  else if (ev.type === def.KEYPRESS) {
+    if (SIDEBAR.bounds) {
+      if (ev.key === 'Tab') {
+        const loc = SIDEBAR.nextTarget();
+        ui.setCursor(loc[0], loc[1]);
+        return true;
+      }
+      else if (ev.key === 'TAB') {
+        const loc = SIDEBAR.prevTarget();
+        ui.setCursor(loc[0], loc[1]);
+        return true;
+      }
+      else if (ev.key === 'Escape') {
+        SIDEBAR.focus(-1, -1);
+        ui.clearCursor();
+      }
+    }
+  }
 
-	await IO.dispatchEvent(ev);
+	return false;
 }
 
 ui.dispatchEvent = dispatchEvent;
@@ -165,6 +246,7 @@ ui.dispatchEvent = dispatchEvent;
 let UPDATE_REQUESTED = 0;
 export function requestUpdate(t=1) {
 	UPDATE_REQUESTED = Math.max(UPDATE_REQUESTED, t, 1);
+  ui.debug('update requested - %d', UPDATE_REQUESTED);
 }
 
 ui.requestUpdate = requestUpdate;
@@ -172,6 +254,7 @@ ui.requestUpdate = requestUpdate;
 export async function updateNow(t=1) {
 	t = Math.max(t, UPDATE_REQUESTED, 0);
 	UPDATE_REQUESTED = 0;
+  ui.debug('update now - %d', t);
 
 	ui.draw();
 	ui.canvas.draw();
@@ -251,15 +334,15 @@ function setCursor(x, y) {
   // ui.debug('set cursor', x, y);
 
   if (map.hasXY(CURSOR.x, CURSOR.y)) {
-    map.clearCellFlags(CURSOR.x, CURSOR.y, CellFlags.IS_CURSOR);
-    map.setCellFlags(CURSOR.x, CURSOR.y, CellFlags.NEEDS_REDRAW);
+    map.clearCellFlags(CURSOR.x, CURSOR.y, Flags.Cell.IS_CURSOR);
+    map.setCellFlags(CURSOR.x, CURSOR.y, Flags.Cell.NEEDS_REDRAW);
   }
   CURSOR.x = x;
   CURSOR.y = y;
 
   if (map.hasXY(x, y)) {
     // if (!DATA.player || DATA.player.x !== x || DATA.player.y !== y ) {
-      map.setCellFlags(CURSOR.x, CURSOR.y, CellFlags.IS_CURSOR | CellFlags.NEEDS_REDRAW);
+      map.setCellFlags(CURSOR.x, CURSOR.y, Flags.Cell.IS_CURSOR | Flags.Cell.NEEDS_REDRAW);
     // }
 
     // if (!GW.player.isMoving()) {
@@ -307,6 +390,36 @@ export async function prompt(...args) {
 		console.log(msg);
 	}
 }
+
+
+export async function fadeTo(color, duration) {
+
+  const buffer = ui.startDialog();
+
+  let pct = 0;
+  let elapsed = 0;
+
+  while(elapsed < duration) {
+    elapsed += 32;
+    if (await IO.pause(32)) {
+      elapsed = duration;
+    }
+
+    pct = Math.floor(100*elapsed/duration);
+
+    ui.clearDialog();
+    buffer.forEach( (c, x, y) => {
+      COLOR.applyMix(c.fg, color, pct);
+      COLOR.applyMix(c.bg, color, pct);
+    });
+    ui.draw();
+  }
+
+  ui.finishDialog();
+
+}
+
+ui.fadeTo = fadeTo;
 
 
 export async function messageBox(text, fg, duration) {
@@ -402,7 +515,18 @@ async function chooseTarget(choices, prompt, opts={}) {
 		buf.plotLine(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, prompt, GW.colors.orange);
 		if (selected >= 0) {
 			const choice = choices[selected];
-			buf.plot(choice.x, choice.y, TARGET_SPRITE);
+
+      let offsetX = 0;
+      let offsetY = 0;
+      if (CONFIG.followPlayer && DATA.player && DATA.player.x >= 0) {
+        offsetX = DATA.player.x - VIEWPORT.bounds.centerX();
+        offsetY = DATA.player.y - VIEWPORT.bounds.centerY();
+      }
+
+      const x = choice.x + VIEWPORT.bounds.x - offsetX;
+      const y = choice.y + VIEWPORT.bounds.y - offsetY;
+
+			buf.plot(x, y, TARGET_SPRITE);
 		}
 		ui.draw();
 	}
@@ -411,7 +535,7 @@ async function chooseTarget(choices, prompt, opts={}) {
 
 	while(waiting) {
 		const ev = await GW.io.nextEvent(100);
-		await GW.io.dispatchEvent(ev, {
+		await IO.dispatchEvent(ev, {
 			escape() { waiting = false; selected = -1; },
 			enter() { waiting = false; },
 			tab() {
@@ -477,6 +601,7 @@ function draw() {
     if (VIEWPORT.bounds) VIEWPORT.draw(UI_BUFFER);
 		if (MSG.bounds) MSG.draw(UI_BUFFER);
 		if (FLAVOR.bounds) FLAVOR.draw(UI_BUFFER);
+    if (SIDEBAR.bounds) SIDEBAR.draw(UI_BUFFER);
 
     // if (commitCombatMessage() || REDRAW_UI || side || map) {
     ui.canvas.overlay(UI_BUFFER);

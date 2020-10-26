@@ -15,8 +15,8 @@ describe('FX', () => {
     const sprite = GW.make.sprite();
     GW.map.getCellAppearance(m, 2, 2, sprite);
     expect(sprite.ch).toEqual(GW.tiles.FLOOR.sprite.ch);
-    expect(GW.color.css(sprite.fg)).toEqual('#5c5c5c');
-    expect(GW.color.css(sprite.bg)).toEqual('#05051a');
+    expect(sprite.fg.css()).toEqual('#5c5c5c');
+    expect(sprite.bg.css()).toEqual('#05051a');
 
     const hit = GW.make.sprite('!', 'red');
     let resolved = false;
@@ -30,15 +30,15 @@ describe('FX', () => {
     GW.map.getCellAppearance(m, 2, 2, sprite);
     expect(sprite.ch).toEqual(hit.ch);
     expect(sprite.fg).toEqual(hit.fg);
-    expect(GW.color.css(sprite.bg)).toEqual('#05051a');
+    expect(sprite.bg.css()).toEqual('#05051a');
 
     GW.fx.tick(101);
     expect(cell.sprites).toBeNull();
 
     GW.map.getCellAppearance(m, 2, 2, sprite);
     expect(sprite.ch).toEqual(GW.tiles.FLOOR.sprite.ch);
-    expect(GW.color.css(sprite.fg)).toEqual('#4f4f4f'); // cosmetic difference
-    expect(GW.color.css(sprite.bg)).toEqual('#08051a'); // cosmetic difference
+    expect(sprite.fg.css()).toEqual('#4f4f4f'); // cosmetic difference
+    expect(sprite.bg.css()).toEqual('#08051a'); // cosmetic difference
 
     expect(resolved).toBeFalsy();
     await p;

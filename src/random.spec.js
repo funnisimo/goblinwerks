@@ -50,8 +50,10 @@ describe('GW.cosmetic', () => {
 
 describe('GW.types.Range', () => {
 
+  let r;
+
   test('Range', () => {
-    const r = new GW.types.Range(10,20,5);
+    r = new GW.types.Range(10,20,5);
     expect(r.lo).toEqual(10);
     expect(r.hi).toEqual(20);
     expect(r.clumps).toEqual(5);
@@ -59,8 +61,20 @@ describe('GW.types.Range', () => {
   });
 
   test('can be made from strings', () => {
-    const r = GW.make.range('1-3');
+    r = GW.make.range('1-3');
     expect(r.lo).toEqual(1);
+    expect(r.hi).toEqual(3);
+    expect(r.clumps).toEqual(1);
+
+    r = GW.make.range('3');
+    expect(r.lo).toEqual(3);
+    expect(r.hi).toEqual(3);
+    expect(r.clumps).toEqual(1);
+  });
+
+  test('can be made from a number', () => {
+    r = GW.make.range(3);
+    expect(r.lo).toEqual(3);
     expect(r.hi).toEqual(3);
     expect(r.clumps).toEqual(1);
   });

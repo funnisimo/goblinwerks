@@ -1,18 +1,18 @@
 
 import { grid as GRID } from './grid.js';
 import { random } from './random.js';
+import * as Utils from './utils.js';
 import { path as PATH } from './path.js';
 import { map as MAP } from './map.js';
-import { tile as TILE, Flags as TileFlags } from './tile.js';
+import { tile as TILE } from './tile.js';
 import { diggers as DIGGERS, digger as DIGGER } from './digger.js';
-import { def, make, utils as UTILS } from './gw.js';
+import { def, make } from './gw.js';
 
 const DIRS = def.dirs;
-const OPP_DIRS = [def.DOWN, def.UP, def.RIGHT, def.LEFT];
 
 export var dungeon = {};
 
-dungeon.debug = UTILS.NOOP;
+dungeon.debug = Utils.NOOP;
 
 const NOTHING = 0;
 let FLOOR = 'FLOOR';
@@ -30,7 +30,7 @@ let LOCS;
 
 export function start(map, opts={}) {
 
-  LOCS = UTILS.sequence(map.width * map.height);
+  LOCS = Utils.sequence(map.width * map.height);
   random.shuffle(LOCS);
 
   const startX = opts.x || -1;
@@ -56,7 +56,7 @@ dungeon.finish = finish;
 
 // Returns an array of door sites if successful
 export function digRoom(opts={}) {
-  const hallChance = UTILS.first('hallChance', opts, SITE.config, 0);
+  const hallChance = Utils.firstOpt('hallChance', opts, SITE.config, 0);
   const diggerId = opts.digger || opts.id || 'SMALL'; // TODO - get random id
 
   const digger = DIGGERS[diggerId];
@@ -154,7 +154,7 @@ function attachRoomToDungeon(roomGrid, doorSites, opts={}) {
       if (!SITE.cell(x, y).isNull()) continue;
       const dir = GRID.directionOfDoorSite(SITE.cells, x, y, (c) => (c.hasTile(FLOOR) && !c.isLiquid()) );
       if (dir != def.NO_DIRECTION) {
-        const oppDir = OPP_DIRS[dir];
+        const oppDir = (dir + 2) % 4;
 
         const offsetX = x - doorSites[oppDir][0];
         const offsetY = y - doorSites[oppDir][1];
@@ -223,11 +223,11 @@ function attachRoomAtXY(roomGrid, xy, doors, opts={}) {
 
 function insertRoomAtXY(x, y, roomGrid, doorSites, opts={}) {
 
-  const dirs = UTILS.sequence(4);
+  const dirs = Utils.sequence(4);
   random.shuffle(dirs);
 
   for(let dir of dirs) {
-    const oppDir = OPP_DIRS[dir];
+    const oppDir = (dir + 2) % 4;
 
     if (doorSites[oppDir][0] != -1
         && roomAttachesAt(roomGrid, x - doorSites[oppDir][0], y - doorSites[oppDir][1]))
@@ -256,7 +256,7 @@ function insertRoomAtXY(x, y, roomGrid, doorSites, opts={}) {
 
 function attachRoomAtDoors(roomGrid, roomDoors, siteDoors, opts={}) {
 
-  const doorIndexes = UTILS.sequence(siteDoors.length);
+  const doorIndexes = Utils.sequence(siteDoors.length);
   random.shuffle(doorIndexes);
 
   // Slide hyperspace across real space, in a random but predetermined order, until the room matches up with a wall.
@@ -325,7 +325,7 @@ dungeon.digLake = digLake;
 
 
 function lakeDisruptsPassability(lakeGrid, dungeonToGridX, dungeonToGridY) {
-  return MAP.gridDisruptsPassability(SITE, lakeGrid, { gridOffsetX: dungeonToGridX, gridOffsetY: dungeonToGridY });
+  return SITE.gridDisruptsPassability(lakeGrid, { gridOffsetX: dungeonToGridX, gridOffsetY: dungeonToGridY });
 }
 
 
@@ -344,7 +344,7 @@ export function addLoops(minimumPathingDistance, maxConnectionLength) {
 
     const dirCoords = [[1, 0], [0, 1]];
 
-    SITE.fillBasicCostGrid(costGrid);
+    SITE.fillCostGrid(costGrid);
 
     function isValidTunnelStart(x, y, dir) {
       if (!SITE.hasXY(x, y)) return false;
@@ -461,7 +461,7 @@ export function addBridges(minimumPathingDistance, maxConnectionLength) {
 
     const dirCoords = [[1, 0], [0, 1]];
 
-    SITE.fillBasicCostGrid(costGrid);
+    SITE.fillCostGrid(costGrid);
 
     for (i = 0; i < LOCS.length; i++) {
         x = Math.floor(LOCS[i] / siteGrid.height);
@@ -632,7 +632,7 @@ dungeon.isValidStairLoc = isValidStairLoc;
 
 function setupStairs(map, x, y, tile) {
 
-	const indexes = random.shuffle(UTILS.sequence(4));
+	const indexes = random.shuffle(Utils.sequence(4));
 
 	let dir;
 	for(let i = 0; i < indexes.length; ++i) {
@@ -648,7 +648,7 @@ function setupStairs(map, x, y, tile) {
 		dir = null;
 	}
 
-	if (!dir) UTILS.ERROR('No stair direction found!');
+	if (!dir) Utils.ERROR('No stair direction found!');
 
 	map.setTile(x, y, tile);
 
@@ -686,29 +686,29 @@ export function addStairs(opts = {}) {
       start = SITE.randomMatchingXY( isValidStairLoc );
     }
     else {
-      start = SITE.matchingXYNear(UTILS.x(start), UTILS.y(start), isValidStairLoc);
+      start = SITE.matchingXYNear(Utils.x(start), Utils.y(start), isValidStairLoc);
     }
     SITE.locations.start = start;
   }
 
   if (upLoc && downLoc) {
-    upLoc = SITE.matchingXYNear(UTILS.x(upLoc), UTILS.y(upLoc), isValidStairLoc);
-    downLoc = SITE.matchingXYNear(UTILS.x(downLoc), UTILS.y(downLoc), isValidStairLoc);
+    upLoc = SITE.matchingXYNear(Utils.x(upLoc), Utils.y(upLoc), isValidStairLoc);
+    downLoc = SITE.matchingXYNear(Utils.x(downLoc), Utils.y(downLoc), isValidStairLoc);
   }
   else if (upLoc && !downLoc) {
-    upLoc = SITE.matchingXYNear(UTILS.x(upLoc), UTILS.y(upLoc), isValidStairLoc);
+    upLoc = SITE.matchingXYNear(Utils.x(upLoc), Utils.y(upLoc), isValidStairLoc);
     if (needDown) {
       downLoc = SITE.randomMatchingXY( (v, x, y) => {
-    		if (UTILS.distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
+    		if (Utils.distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
     		return isValidStairLoc(v, x, y, SITE);
     	});
     }
   }
   else if (downLoc && !upLoc) {
-    downLoc = SITE.matchingXYNear(UTILS.x(downLoc), UTILS.y(downLoc), isValidStairLoc);
+    downLoc = SITE.matchingXYNear(Utils.x(downLoc), Utils.y(downLoc), isValidStairLoc);
     if (needUp) {
       upLoc = SITE.randomMatchingXY( (v, x, y) => {
-    		if (UTILS.distanceBetween(x, y, downLoc[0], downLoc[1]) < minDistance) return false;
+    		if (Utils.distanceBetween(x, y, downLoc[0], downLoc[1]) < minDistance) return false;
     		return isValidStairLoc(v, x, y, SITE);
     	});
     }
@@ -717,7 +717,7 @@ export function addStairs(opts = {}) {
     upLoc = SITE.randomMatchingXY( isValidStairLoc );
     if (needDown) {
       downLoc = SITE.randomMatchingXY( (v, x, y) => {
-    		if (UTILS.distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
+    		if (Utils.distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
     		return isValidStairLoc(v, x, y, SITE);
     	});
     }
