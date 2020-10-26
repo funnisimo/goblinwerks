@@ -1,5 +1,6 @@
 
 import * as Flags from '../flags.js';
+import * as Utils from '../utils.js';
 import { actions as Actions } from './index.js';
 import * as GW from '../gw.js';
 
@@ -9,7 +10,7 @@ export async function push(actor, item, ctx={}) {
 
   const map = ctx.map || GW.data.map;
   const cell = ctx.cell || map.cell(ctx.x, ctx.y);
-  const dir = ctx.dir || GW.utils.dirFromTo(actor, item);
+  const dir = ctx.dir || Utils.dirFromTo(actor, item);
 
   if (!item.hasActionFlag(Flags.Action.A_PUSH)) {
     ctx.item = item;

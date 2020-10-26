@@ -4,8 +4,6 @@ var types = {};
 var make = {};
 var install = {};
 
-var utils$1 = {};
-
 var ui = {};
 var message = {};
 var viewport = {};
@@ -107,22 +105,11 @@ class Bounds {
 types.Bounds = Bounds;
 
 function NOOP()  {}
-utils$1.NOOP = NOOP;
-
 function TRUE()  { return true; }
-utils$1.TRUE = TRUE;
-
 function FALSE() { return false; }
-utils$1.FALSE = FALSE;
-
 function ONE() { return 1; }
-utils$1.ONE = ONE;
-
 function ZERO() { return 0; }
-utils$1.ZERO = ZERO;
-
 function IDENTITY(x) { return x; }
-utils$1.IDENTITY = IDENTITY;
 
 
 function clamp(v, min, max) {
@@ -131,40 +118,28 @@ function clamp(v, min, max) {
   return v;
 }
 
-utils$1.clamp = clamp;
-
 function x(src) {
   return src.x || src[0] || 0;
 }
-
-utils$1.x = x;
 
 function y(src) {
   return src.y || src[1] || 0;
 }
 
-utils$1.y = y;
-
 function copyXY(dest, src) {
-  dest.x = utils$1.x(src);
-  dest.y = utils$1.y(src);
+  dest.x = x(src);
+  dest.y = y(src);
 }
-
-utils$1.copyXY = copyXY;
 
 function addXY(dest, src) {
-  dest.x += utils$1.x(src);
-  dest.y += utils$1.y(src);
+  dest.x += x(src);
+  dest.y += y(src);
 }
-
-utils$1.addXY = addXY;
 
 function equalsXY(dest, src) {
-  return (dest.x == utils$1.x(src))
-  && (dest.y == utils$1.y(src));
+  return (dest.x == x(src))
+  && (dest.y == y(src));
 }
-
-utils$1.equalsXY = equalsXY;
 
 function distanceBetween(x1, y1, x2, y2) {
   const x = Math.abs(x1 - x2);
@@ -173,20 +148,13 @@ function distanceBetween(x1, y1, x2, y2) {
   return x + y - (0.6 * min);
 }
 
-utils$1.distanceBetween = distanceBetween;
-
 function distanceFromTo(a, b) {
-  return utils$1.distanceBetween(utils$1.x(a), utils$1.y(a), utils$1.x(b), utils$1.y(b));
+  return distanceBetween(x(a), y(a), x(b), y(b));
 }
-
-utils$1.distanceFromTo = distanceFromTo;
 
 function calcRadius(x, y) {
-  return utils$1.distanceBetween(0,0, x, y);
+  return distanceBetween(0,0, x, y);
 }
-
-utils$1.calcRadius = calcRadius;
-
 
 function dirBetween(x, y, toX, toY) {
 	let diffX = toX - x;
@@ -200,13 +168,9 @@ function dirBetween(x, y, toX, toY) {
 	return [Math.sign(diffX), Math.sign(diffY)];
 }
 
-utils$1.dirBetween = dirBetween;
-
 function dirFromTo(a, b) {
-  return dirBetween(utils$1.x(a), utils$1.y(a), utils$1.x(b), utils$1.y(b));
+  return dirBetween(x(a), y(a), x(b), y(b));
 }
-
-utils$1.dirFromTo = dirFromTo;
 
 function dirIndex(dir) {
   const x = dir.x || dir[0] || 0;
@@ -214,21 +178,33 @@ function dirIndex(dir) {
   return def.dirs.findIndex( (a) => a[0] == x && a[1] == y );
 }
 
-utils$1.dirIndex = dirIndex;
-
 function isOppositeDir(a, b) {
   if (a[0] + b[0] != 0) return false;
   if (a[1] + b[1] != 0) return false;
   return true;
 }
 
-utils$1.isOppositeDir = isOppositeDir;
-
 function isSameDir(a, b) {
   return a[0] == b[0] && a[1] == b[1];
 }
 
-utils$1.isSameDir = isSameDir;
+function dirSpread(dir) {
+  const result = [dir];
+  if (dir[0] == 0) {
+    result.push( [ 1, dir[1]] );
+    result.push( [-1, dir[1]] );
+  }
+  else if (dir[1] == 0) {
+    result.push( [dir[0], 1] );
+    result.push( [dir[0],-1] );
+  }
+  else {
+    result.push( [dir[0], 0] );
+    result.push( [0, dir[1]] );
+  }
+  return result;
+}
+
 
 function extend(obj, name, fn) {
   const base = obj[name] || NOOP;
@@ -237,8 +213,6 @@ function extend(obj, name, fn) {
   newFn.base = base;
   obj[name] = newFn;
 }
-
-utils$1.extend = extend;
 
 // export function rebase(obj, name, newBase) {
 //   const fns = [];
@@ -257,15 +231,11 @@ utils$1.extend = extend;
 //   }
 // }
 
-// utils.rebase = rebase;
-
 function cloneObject(obj) {
   const other = Object.create(obj.__proto__);
-  utils$1.assignObject(other, obj);
+  assignObject(other, obj);
   return other;
 }
-
-utils$1.cloneObject = cloneObject;
 
 function assignField(dest, src, key) {
   const current = dest[key];
@@ -299,15 +269,11 @@ function copyObject(dest, src) {
   });
 }
 
-utils$1.copyObject = copyObject;
-
 function assignObject(dest, src) {
   Object.keys(src).forEach( (key) => {
     assignField(dest, src, key);
   });
 }
-
-utils$1.assignObject = assignObject;
 
 function assignOmitting(omit, dest, src) {
   if (typeof omit === 'string') {
@@ -319,15 +285,11 @@ function assignOmitting(omit, dest, src) {
   });
 }
 
-utils$1.assignOmitting = assignOmitting;
-
 function setDefault(obj, field, val) {
   if (obj[field] === undefined) {
     obj[field] = val;
   }
 }
-
-utils$1.setDefault = setDefault;
 
 function setDefaults(obj, def) {
   Object.keys(def).forEach( (key) => {
@@ -338,19 +300,13 @@ function setDefaults(obj, def) {
   });
 }
 
-utils$1.setDefaults = setDefaults;
-
 function ERROR(message) {
   throw new Error(message);
 }
 
-utils$1.ERROR = ERROR;
-
 function WARN(...args) {
   console.warn(...args);
 }
-
-utils$1.WARN = WARN;
 
 function getOpt(obj, member, _default) {
   const v = obj[member];
@@ -358,10 +314,7 @@ function getOpt(obj, member, _default) {
   return v;
 }
 
-utils$1.getOpt = getOpt;
-
-
-function first(field, ...args) {
+function firstOpt(field, ...args) {
   for(let arg of args) {
     if (typeof arg !== 'object' || Array.isArray(arg)) {
       return arg;
@@ -373,13 +326,9 @@ function first(field, ...args) {
   return undefined;
 }
 
-utils$1.first = first;
-
 function arraysIntersect(a, b) {
   return a.some( (av) => b.includes(av) );
 }
-
-utils$1.arraysIntersect = arraysIntersect;
 
 
 function sequence(listLength) {
@@ -391,7 +340,6 @@ function sequence(listLength) {
   return list;
 }
 
-utils$1.sequence = sequence;
 
 function eachChain(item, fn) {
   while(item) {
@@ -399,8 +347,6 @@ function eachChain(item, fn) {
     item = item.next;
   }
 }
-
-utils$1.eachChain = eachChain;
 
 function removeFromChain(obj, name, entry) {
   const root = obj[name];
@@ -420,7 +366,45 @@ function removeFromChain(obj, name, entry) {
   }
 }
 
-utils$1.removeFromChain = removeFromChain;
+var utils$1 = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  NOOP: NOOP,
+  TRUE: TRUE,
+  FALSE: FALSE,
+  ONE: ONE,
+  ZERO: ZERO,
+  IDENTITY: IDENTITY,
+  clamp: clamp,
+  x: x,
+  y: y,
+  copyXY: copyXY,
+  addXY: addXY,
+  equalsXY: equalsXY,
+  distanceBetween: distanceBetween,
+  distanceFromTo: distanceFromTo,
+  calcRadius: calcRadius,
+  dirBetween: dirBetween,
+  dirFromTo: dirFromTo,
+  dirIndex: dirIndex,
+  isOppositeDir: isOppositeDir,
+  isSameDir: isSameDir,
+  dirSpread: dirSpread,
+  extend: extend,
+  cloneObject: cloneObject,
+  copyObject: copyObject,
+  assignObject: assignObject,
+  assignOmitting: assignOmitting,
+  setDefault: setDefault,
+  setDefaults: setDefaults,
+  ERROR: ERROR,
+  WARN: WARN,
+  getOpt: getOpt,
+  firstOpt: firstOpt,
+  arraysIntersect: arraysIntersect,
+  sequence: sequence,
+  eachChain: eachChain,
+  removeFromChain: removeFromChain
+});
 
 ///////////////////////////////////
 // FLAG
@@ -1247,9 +1231,9 @@ class Color extends Array {
   }
 
   clamp() {
-    this.red		= utils$1.clamp(this.red, 0, 100);
-    this.green	= utils$1.clamp(this.green, 0, 100);
-    this.blue		= utils$1.clamp(this.blue, 0, 100);
+    this.red		= clamp(this.red, 0, 100);
+    this.green	= clamp(this.green, 0, 100);
+    this.blue		= clamp(this.blue, 0, 100);
   }
 
   add(augmentColor, pct=100) {
@@ -1381,7 +1365,7 @@ color.applyAverage = applyMix;
 
 
 function toRGB(v, vr) {
-  return utils$1.clamp(Math.round(2.551 * (v + cosmetic.value() * vr) ), 0, 255);
+  return clamp(Math.round(2.551 * (v + cosmetic.value() * vr) ), 0, 255);
 }
 
 const V_TO_CSS = [];
@@ -1408,7 +1392,6 @@ color.intensity = intensity;
 
 
 function lighten(destColor, percent) {
-  utils$1.clamp(percent, 0, 100);
   destColor.red =    Math.round(destColor.red + (100 - destColor.red) * percent / 100);
   destColor.green =  Math.round(destColor.green + (100 - destColor.green) * percent / 100);
   destColor.blue =   Math.round(destColor.blue + (100 - destColor.blue) * percent / 100);
@@ -1420,7 +1403,6 @@ function lighten(destColor, percent) {
 color.lighten = lighten;
 
 function darken(destColor, percent) {
-  utils$1.clamp(percent, 0, 100);
   destColor.red =    Math.round(destColor.red * (100 - percent) / 100);
   destColor.green =  Math.round(destColor.green * (100 - percent) / 100);
   destColor.blue =   Math.round(destColor.blue * (100 - percent) / 100);
@@ -1496,12 +1478,12 @@ function separate(/* color */ fore, /* color */ back) {
   f = fore.clone();
   b = back.clone();
 
-  f.red			= utils$1.clamp(f.red, 0, 100);
-  f.green		= utils$1.clamp(f.green, 0, 100);
-  f.blue		= utils$1.clamp(f.blue, 0, 100);
-  b.red			= utils$1.clamp(b.red, 0, 100);
-  b.green		= utils$1.clamp(b.green, 0, 100);
-  b.blue		= utils$1.clamp(b.blue, 0, 100);
+  f.red			= clamp(f.red, 0, 100);
+  f.green		= clamp(f.green, 0, 100);
+  f.blue		= clamp(f.blue, 0, 100);
+  b.red			= clamp(b.red, 0, 100);
+  b.green		= clamp(b.green, 0, 100);
+  b.blue		= clamp(b.blue, 0, 100);
 
   if (f.red + f.blue + f.green > 50 * 3) {
     modifier = colors.black;
@@ -1907,7 +1889,7 @@ text.removeColors = removeColors;
 //   return out;
 // }
 //
-// GW.utils.arrayToString = arrayToString;
+// Utils.arrayToString = arrayToString;
 //
 
 // Inserts line breaks into really long words. Optionally adds a hyphen, but doesn't do anything
@@ -1960,7 +1942,7 @@ function splitIntoLines(sourceText, width, firstWidth) {
   let w, textLength;
   let spaceLeftOnLine, wordWidth;
 
-  if (!width) GW.utils.ERROR('Need string and width');
+  if (!width) ERROR('Need string and width');
   firstWidth = firstWidth || width;
 
   let printString = text.hyphenate(sourceText, Math.min(width, firstWidth), true); // break up any words that are wider than the width.
@@ -2492,7 +2474,7 @@ class Grid extends Array {
 
 		this.forEach( (v, i, j) => {
 			if (fn(v, i, j)) {
-				const dist = utils$1.distanceBetween(x, y, i, j);
+				const dist = distanceBetween(x, y, i, j);
 				if (dist < bestDistance) {
 					bestLoc[0] = i;
 					bestLoc[1] = j;
@@ -2624,7 +2606,7 @@ class Grid extends Array {
 
 	  // brogueAssert(grid.hasXY(x, y));
 
-		testFn = testFn || utils$1.IDENTITY;
+		testFn = testFn || IDENTITY;
 
 		arcCount = 0;
 		for (dir = 0; dir < CDIRS.length; dir++) {
@@ -2769,10 +2751,10 @@ function gridDumpRect(grid, left, top, width, height, fmtFn) {
 
 	fmtFn = fmtFn || _formatGridValue;
 
-	left = utils$1.clamp(left, 0, grid.width - 2);
-	top = utils$1.clamp(top, 0, grid.height - 2);
-	const right = utils$1.clamp(left + width, 1, grid.width - 1);
-	const bottom = utils$1.clamp(top + height, 1, grid.height - 1);
+	left = clamp(left, 0, grid.width - 2);
+	top = clamp(top, 0, grid.height - 2);
+	const right = clamp(left + width, 1, grid.width - 1);
+	const bottom = clamp(top + height, 1, grid.height - 1);
 
 	let output = [];
 
@@ -2824,7 +2806,7 @@ function floodFillRange(grid, x, y, eligibleValueMin, eligibleValueMax, fillValu
 	let newX, newY, fillCount = 1;
 
   if (fillValue >= eligibleValueMin && fillValue <= eligibleValueMax) {
-		utils$1.ERROR('Invalid grid flood fill');
+		ERROR('Invalid grid flood fill');
 	}
 
   grid[x][y] = fillValue;
@@ -3206,7 +3188,7 @@ class Buffer extends types.Grid {
     if (sprite.opacity <= 0) return;
 
     if (!this.hasXY(x, y)) {
-      utils$1.WARN('invalid coordinates: ' + x + ', ' + y);
+      WARN('invalid coordinates: ' + x + ', ' + y);
       return false;
     }
     const destCell = this[x][y];
@@ -3218,7 +3200,7 @@ class Buffer extends types.Grid {
 
   plotChar(x, y, ch, fg, bg) {
     if (!this.hasXY(x, y)) {
-      utils$1.WARN('invalid coordinates: ' + x + ', ' + y);
+      WARN('invalid coordinates: ' + x + ', ' + y);
       return;
     }
 
@@ -3526,7 +3508,7 @@ types.Canvas = Canvas;
 
 var io = {};
 
-io.debug = utils$1.NOOP;
+io.debug = NOOP;
 
 let KEYMAP = {};
 // const KEYMAPS = [];
@@ -3638,7 +3620,7 @@ async function dispatchEvent(ev, km) {
 			result = await commands$1[command](ev);
 		}
 		else {
-			utils$1.WARN('No command found: ' + command);
+			WARN('No command found: ' + command);
 		}
 	}
 
@@ -3812,7 +3794,7 @@ io.resumeEvents = resumeEvents;
 
 
 function nextEvent(ms, match) {
-	match = match || utils$1.TRUE;
+	match = match || TRUE;
 	let elapsed = 0;
 
 	while (EVENTS.length) {
@@ -3882,7 +3864,7 @@ io.tickMs = tickMs;
 
 async function nextKeyPress(ms, match) {
 	ms = ms || 0;
-	match = match || utils$1.TRUE;
+	match = match || TRUE;
 	function matchingKey(e) {
   	if (e.type !== KEYPRESS) return false;
     return match(e);
@@ -3894,7 +3876,7 @@ io.nextKeyPress = nextKeyPress;
 
 async function nextKeyOrClick(ms, matchFn) {
 	ms = ms || 0;
-	matchFn = matchFn || utils$1.TRUE;
+	matchFn = matchFn || TRUE;
 	function match(e) {
   	if (e.type !== KEYPRESS && e.type !== CLICK) return false;
     return matchFn(e);
@@ -3925,7 +3907,7 @@ const PDS_OBSTRUCTION = def.PDS_OBSTRUCTION = -2;
 const PDS_AVOIDED     = def.PDS_AVOIDED     = 10;
 const PDS_NO_PATH     = def.PDS_NO_PATH     = 30000;
 
-// GW.actor.avoidsCell = GW.actor.avoidsCell || GW.utils.FALSE;
+// GW.actor.avoidsCell = GW.actor.avoidsCell || Utils.FALSE;
 // GW.actor.canPass = GW.actor.canPass || ((a, b) => a === b);
 
 function makeCostLink(i) {
@@ -4342,7 +4324,7 @@ PATH.calculateDistances = calculateDistances;
 var digger = {};
 var diggers = {};
 
-digger.debug = utils$1.NOOP;
+digger.debug = NOOP;
 
 const DIRS$2 = def.dirs;
 
@@ -4365,14 +4347,14 @@ function checkDiggerConfig(config, opts) {
   config = config || {};
   opts = opts || {};
 
-  if (!config.width || !config.height) utils$1.ERROR('All diggers require config to include width and height.');
+  if (!config.width || !config.height) ERROR('All diggers require config to include width and height.');
 
   Object.entries(opts).forEach( ([key,expect]) => {
     const have = config[key];
 
     if (expect === true) {	// needs to be a number > 0
       if (typeof have !== 'number') {
-        utils$1.ERROR('Invalid configuration for digger: ' + key + ' expected number received ' + typeof have);
+        ERROR('Invalid configuration for digger: ' + key + ' expected number received ' + typeof have);
       }
     }
     else if (typeof expect === 'number') {	// needs to be a number, this is the default
@@ -4386,7 +4368,7 @@ function checkDiggerConfig(config, opts) {
         config[key] = new Array(expect.length).fill(have);
       }
       else if (!Array.isArray(have)) {
-        utils$1.WARN('Received unexpected config for digger : ' + key + ' expected array, received ' + typeof have + ', using defaults.');
+        WARN('Received unexpected config for digger : ' + key + ' expected array, received ' + typeof have + ', using defaults.');
         config[key] = expect.slice();
       }
       else if (expect.length > have.length) {
@@ -4396,7 +4378,7 @@ function checkDiggerConfig(config, opts) {
       }
     }
     else {
-      utils$1.WARN('Unexpected digger configuration parameter: ', key, expect);
+      WARN('Unexpected digger configuration parameter: ', key, expect);
     }
   });
 
@@ -4446,11 +4428,11 @@ function digChoiceRoom(config, grid) {
     choices = Object.keys(config.choices);
   }
   else {
-    utils$1.ERROR('Expected choices to be either array of choices or map { digger: weight }');
+    ERROR('Expected choices to be either array of choices or map { digger: weight }');
   }
   for(let choice of choices) {
     if (!diggers[choice]) {
-      utils$1.ERROR('Missing digger choice: ' + choice);
+      ERROR('Missing digger choice: ' + choice);
     }
   }
 
@@ -4702,13 +4684,13 @@ function attachHallway(grid, doorSitesArray, opts) {
     opts = opts || {};
     const tile = opts.tile || 1;
 
-    const horizontalLength = utils$1.first('horizontalHallLength', opts, [9,15]);
-    const verticalLength = utils$1.first('verticalHallLength', opts, [2,9]);
+    const horizontalLength = firstOpt('horizontalHallLength', opts, [9,15]);
+    const verticalLength = firstOpt('verticalHallLength', opts, [2,9]);
 
     // Pick a direction.
     dir = opts.dir;
     if (dir === undefined) {
-      const dirs = utils$1.sequence(4);
+      const dirs = sequence(4);
       random.shuffle(dirs);
       for (i=0; i<4; i++) {
           dir = dirs[i];
@@ -4741,8 +4723,8 @@ function attachHallway(grid, doorSitesArray, opts) {
         x += DIRS$2[dir][0];
         y += DIRS$2[dir][1];
     }
-    x = utils$1.clamp(x - DIRS$2[dir][0], 0, grid.width - 1);
-    y = utils$1.clamp(y - DIRS$2[dir][1], 0, grid.height - 1); // Now (x, y) points at the last interior cell of the hallway.
+    x = clamp(x - DIRS$2[dir][0], 0, grid.width - 1);
+    y = clamp(y - DIRS$2[dir][1], 0, grid.height - 1); // Now (x, y) points at the last interior cell of the hallway.
     allowObliqueHallwayExit = random.chance(15);
     for (dir2 = 0; dir2 < 4; dir2++) {
         newX = x + DIRS$2[dir2][0];
@@ -4768,7 +4750,7 @@ digger.attachHallway = attachHallway;
 var tileEvent = {};
 var tileEvents = {};
 
-tileEvent.debug = utils$1.NOOP;
+tileEvent.debug = NOOP;
 
 const TileLayer = def.layer;
 
@@ -4861,7 +4843,7 @@ async function spawnTileEvent(feat, ctx) {
 	if (typeof feat === 'string') {
 		const name = feat;
 		feat = tileEvents[feat];
-		if (!feat) utils$1.ERROR('Unknown tile Event: ' + name);
+		if (!feat) ERROR('Unknown tile Event: ' + name);
 	}
 
 	if (typeof feat === 'function') {
@@ -4873,7 +4855,7 @@ async function spawnTileEvent(feat, ctx) {
 	const y = ctx.y;
 
 	if (!map || x === undefined || y === undefined) {
-		utils$1.ERROR('MAP, x, y are required in context.');
+		ERROR('MAP, x, y are required in context.');
 	}
 
 	if (ctx.safe && map.hasCellMechFlag(x, y, CellMech.EVENT_FIRED_THIS_TURN)) {
@@ -4901,14 +4883,14 @@ async function spawnTileEvent(feat, ctx) {
   if (feat.tile) {
 		tile = tiles[feat.tile];
 		if (!tile) {
-			utils$1.ERROR('Unknown tile: ' + feat.tile);
+			ERROR('Unknown tile: ' + feat.tile);
 		}
 	}
 
 	if (feat.item) {
 		itemKind = itemKinds[feat.item];
 		if (!itemKind) {
-			utils$1.ERROR('Unknown item: ' + feat.item);
+			ERROR('Unknown item: ' + feat.item);
 		}
 	}
 
@@ -5116,7 +5098,7 @@ function computeSpawnMap(feat, spawnMap, ctx)
 		const name = feat.matchTile;
 		const tile = tiles[name];
 		if (!tile) {
-			utils$1.ERROR('Failed to find match tile with name:' + name);
+			ERROR('Failed to find match tile with name:' + name);
 		}
 		feat.matchTile = tile.id;
 	}
@@ -5143,7 +5125,7 @@ function computeSpawnMap(feat, spawnMap, ctx)
 		spawnMap.updateCircle(x, y, radius, (v, i, j) => {
 			if (!cellIsOk(feat, i, j, ctx)) return 0;
 
-			const dist = Math.floor(utils$1.distanceBetween(x, y, i, j));
+			const dist = Math.floor(distanceBetween(x, y, i, j));
 			const prob = startProb - (dist * probDec);
 			if (!random.chance(prob)) return 0;
 			return 1;
@@ -5376,7 +5358,7 @@ var cell = {};
 
 const TileLayer$1 = def.layer;
 
-cell.debug = utils$1.NOOP;
+cell.debug = NOOP;
 
 color.install('cursorColor', 25, 100, 150);
 config.cursorPathIntensity = 50;
@@ -5402,7 +5384,7 @@ class CellMemory {
   }
 
   copy(other) {
-    utils$1.copyObject(this, other);
+    copyObject(this, other);
   }
 }
 
@@ -5418,7 +5400,7 @@ class Cell$1 {
   }
 
   copy(other) {
-    utils$1.copyObject(this, other);
+    copyObject(this, other);
   }
 
   nullify() {
@@ -5568,7 +5550,7 @@ class Cell$1 {
   //   }
   //   return this.layers.some( (tileId) => {
   //     const tile = TILES[tileId] || TILES.NOTHING;
-  //     return GW.utils.intersect(groups, tile.groups);
+  //     return Utils.intersect(groups, tile.groups);
   //   });
   // }
 
@@ -5717,11 +5699,11 @@ class Cell$1 {
       tileId = tile.id;
     }
     else if (tileId !== 0){
-      utils$1.ERROR('Unknown tile: ' + tileId);
+      ERROR('Unknown tile: ' + tileId);
     }
 
     if (!tile) {
-      utils$1.WARN('Unknown tile - ' + tileId);
+      WARN('Unknown tile - ' + tileId);
       tile = tiles[0];
       tileId = 0;
     }
@@ -5930,10 +5912,10 @@ function getAppearance(cell, dest) {
   for( let tile of cell.tiles() ) {
     let alpha = 100;
     if (tile.layer == TileLayer$1.LIQUID) {
-      alpha = utils$1.clamp(cell.liquidVolume || 0, 20, 100);
+      alpha = clamp(cell.liquidVolume || 0, 20, 100);
     }
     else if (tile.layer == TileLayer$1.GAS) {
-      alpha = utils$1.clamp(cell.gasVolume || 0, 20, 100);
+      alpha = clamp(cell.gasVolume || 0, 20, 100);
     }
     memory.plot(tile.sprite, alpha);
     if (tile.mechFlags & TileMech.TM_VISUALLY_DISTINCT) {
@@ -5960,7 +5942,7 @@ function getAppearance(cell, dest) {
 cell.getAppearance = getAppearance;
 
 var map$1 = {};
-map$1.debug = utils$1.NOOP;
+map$1.debug = NOOP;
 
 const TileLayer$2 = def.layer;
 
@@ -6164,7 +6146,7 @@ class Map$1 {
 	}
 
 	fillCostGrid(costGrid, costFn) {
-		costFn = costFn || utils$1.ONE;
+		costFn = costFn || ONE;
 		this.cells.forEach( (cell, i, j) => {
       if (cell.isNull()) {
         costGrid[i][j] = def.PDS_OBSTRUCTION;
@@ -6207,7 +6189,7 @@ class Map$1 {
 					if (!this.hasXY(i, j)) continue;
 					const cell = this.cell(i, j);
 					// if ((i == x-k || i == x+k || j == y-k || j == y+k)
-					if ((Math.ceil(utils$1.distanceBetween(x, y, i, j)) == k)
+					if ((Math.ceil(distanceBetween(x, y, i, j)) == k)
 							&& (!blockingMap || !blockingMap[i][j])
 							&& matcher(cell, i, j, this)
 							&& (!forbidLiquid || cell.liquid == def.NOTHING)
@@ -6280,12 +6262,12 @@ class Map$1 {
   }
 
   removeLight(info) {
-    utils$1.removeFromChain(this, 'lights', info);
+    removeFromChain(this, 'lights', info);
     this.flags &= ~(Map.MAP_STABLE_LIGHTS | Map.MAP_STABLE_GLOW_LIGHTS);
   }
 
   eachLight( fn ) {
-    utils$1.eachChain(this.lights, (info) => fn(info.light, info.x, info.y));
+    eachChain(this.lights, (info) => fn(info.light, info.x, info.y));
     this.eachCell( (cell, x, y) => {
       for(let tile of cell.tiles() ) {
         if (tile.light) {
@@ -6400,10 +6382,11 @@ class Map$1 {
 	}
 
 	removeActor(actor) {
+    if (!this.hasXY(actor.x, actor.y)) return false;
 		const cell = this.cell(actor.x, actor.y);
 		if (cell.actor === actor) {
 			cell.actor = null;
-      utils$1.removeFromChain(this, 'actors', actor);
+      removeFromChain(this, 'actors', actor);
 			cell.flags &= ~Cell.HAS_ACTOR;
 			cell.removeSprite(actor.kind.sprite);
 
@@ -6412,7 +6395,9 @@ class Map$1 {
       }
 
       this.redrawCell(cell);
+      return true;
 		}
+    return false;
 	}
 
 	// dormantAt(x, y) {  // creature *
@@ -6501,7 +6486,7 @@ class Map$1 {
 		cell.removeSprite(theItem.kind.sprite);
 
 		cell.item = null;
-    utils$1.removeFromChain(this, 'items', theItem);
+    removeFromChain(this, 'items', theItem);
 
     if (theItem.light || theItem.kind.light) {
       this.flags &= ~(Map.MAP_STABLE_LIGHTS);
@@ -7187,7 +7172,7 @@ function updateLighting(map) {
 	}
 
 	// Cycle through monsters and paint their lights:
-  utils$1.eachChain(map.actors, (actor) => {
+  eachChain(map.actors, (actor) => {
     if (actor.kind.light) {
 			actor.kind.light.paint(map, actor.x, actor.y);
 		}
@@ -7402,7 +7387,7 @@ actions.debug = NOOP;
 var actor = {};
 var actorKinds = {};
 
-actor.debug = utils$1.NOOP;
+actor.debug = NOOP;
 
 
 
@@ -7625,6 +7610,9 @@ class Actor$1 {
   isInanimate() { return this.kind.flags & ActorKind.AK_INANIMATE; }
 
 	endTurn(turnTime) {
+    if (this.kind.endTurn) {
+      turnTime = this.kind.endTurn(this, turnTime) || turnTime;
+    }
     actor.endTurn(this, turnTime);
 	}
 
@@ -7641,7 +7629,7 @@ class Actor$1 {
       return map.isVisible(other.x, other.y);
     }
     else {
-      let dist = utils$1.distanceFromTo(this, other);
+      let dist = distanceFromTo(this, other);
       if (dist < 2) return true;  // next to each other
 
       const grid = GRID.alloc(map.width, map.height);
@@ -7731,8 +7719,12 @@ function makeActor(kind) {
   if (typeof kind === 'string') {
     kind = actorKinds[kind];
   }
-  else if (!(kind instanceof types.ActorKind)) {
-    kind = new types.ActorKind(kind);
+  else if (!(kind instanceof types.Actor)) {
+    let type = 'ActorKind';
+    if (kind.type) {
+      type = kind.type;
+    }
+    kind = new types[type](kind);
   }
   return new types.Actor(kind);
 }
@@ -7786,34 +7778,23 @@ actor.takeTurn = takeTurn;
 
 
 
-
 async function bump(actor, target, ctx) {
-
   if (!target) return false;
 
-  if (target.bump) {
-    for(let i = 0; i < target.bump.length; ++i) {
-      let bump = target.bump[i];
-      if (typeof bump === 'string') {
-        bump = actions[bump] || utils$1.FALSE;
-      }
+  const kind = actor.kind;
+  const actorActions = target.bump || [];
+  const kindActions  = target.kind.bump || [];
 
-      if (await bump(actor, target, ctx)) {
-        return true;
-      }
+  const allBump = actorActions.concat(kindActions);
+
+  for(let i = 0; i < allBump.length; ++i) {
+    let bump = allBump[i];
+    if (typeof bump === 'string') {
+      bump = kind[bump] || actions[bump] || FALSE;
     }
-  }
 
-  if (target.kind && target.kind.bump) {
-    for(let i = 0; i < target.kind.bump.length; ++i) {
-      let bump = target.kind.bump[i];
-      if (typeof bump === 'string') {
-        bump = actions[bump] || utils$1.FALSE;
-      }
-
-      if (await bump(actor, target, ctx)) {
-        return true;
-      }
+    if (await bump(actor, target, ctx)) {
+      return true;
     }
   }
 
@@ -7824,13 +7805,13 @@ actor.bump = bump;
 
 var player = {};
 
-player.debug = utils$1.NOOP;
+player.debug = NOOP;
 
 
 
 function makePlayer(kind) {
   if (!(kind instanceof types.ActorKind)) {
-    utils$1.setDefaults(kind, {
+    setDefaults(kind, {
       sprite: { ch:'@', fg: 'white' },
       name: 'you', article: false,
     });
@@ -7959,7 +7940,7 @@ const scheduler = new Scheduler();
 
 var game = {};
 
-game.debug = utils$1.NOOP;
+game.debug = NOOP;
 
 data.time = 0;
 data.running = false;
@@ -7987,7 +7968,7 @@ async function startGame(opts={}) {
     map = await game.getMap(map);
   }
 
-  if (!map) utils$1.ERROR('No map!');
+  if (!map) ERROR('No map!');
 
   if (opts.fov) {
     config.fov = true;
@@ -8079,7 +8060,7 @@ function startMap(map, loc='start') {
 
   updateLighting(map);
 
-  utils$1.eachChain(map.actors, (actor) => {
+  eachChain(map.actors, (actor) => {
     game.queueActor(actor);
   });
 
@@ -8264,8 +8245,8 @@ class Tile$1 {
       id: null,
       dissipate: 2000, // 20% of 10000
     });
-    utils$1.assignOmitting(['events'], this, base);
-    utils$1.assignOmitting(['Extends', 'flags', 'mechFlags', 'sprite', 'events'], this, config);
+    assignOmitting(['events'], this, base);
+    assignOmitting(['Extends', 'flags', 'mechFlags', 'sprite', 'events'], this, config);
     if (this.priority < 0) {
       this.priority = 50;
     }
@@ -8377,7 +8358,7 @@ function addTileKind(id, base, config) {
   }
 
   if (typeof base === 'string') {
-    base = tiles[base] || utils$1.ERROR('Unknown base tile: ' + base);
+    base = tiles[base] || ERROR('Unknown base tile: ' + base);
   }
 
   config.name = config.name || id.toLowerCase();
@@ -8401,7 +8382,7 @@ const DIRS$3 = def.dirs;
 
 var dungeon = {};
 
-dungeon.debug = utils$1.NOOP;
+dungeon.debug = NOOP;
 
 const NOTHING = 0;
 let FLOOR = 'FLOOR';
@@ -8419,7 +8400,7 @@ let LOCS;
 
 function start(map, opts={}) {
 
-  LOCS = utils$1.sequence(map.width * map.height);
+  LOCS = sequence(map.width * map.height);
   random.shuffle(LOCS);
 
   const startX = opts.x || -1;
@@ -8445,7 +8426,7 @@ dungeon.finish = finish;
 
 // Returns an array of door sites if successful
 function digRoom(opts={}) {
-  const hallChance = utils$1.first('hallChance', opts, SITE.config, 0);
+  const hallChance = firstOpt('hallChance', opts, SITE.config, 0);
   const diggerId = opts.digger || opts.id || 'SMALL'; // TODO - get random id
 
   const digger$1 = diggers[diggerId];
@@ -8612,7 +8593,7 @@ function attachRoomAtXY(roomGrid, xy, doors, opts={}) {
 
 function insertRoomAtXY(x, y, roomGrid, doorSites, opts={}) {
 
-  const dirs = utils$1.sequence(4);
+  const dirs = sequence(4);
   random.shuffle(dirs);
 
   for(let dir of dirs) {
@@ -8645,7 +8626,7 @@ function insertRoomAtXY(x, y, roomGrid, doorSites, opts={}) {
 
 function attachRoomAtDoors(roomGrid, roomDoors, siteDoors, opts={}) {
 
-  const doorIndexes = utils$1.sequence(siteDoors.length);
+  const doorIndexes = sequence(siteDoors.length);
   random.shuffle(doorIndexes);
 
   // Slide hyperspace across real space, in a random but predetermined order, until the room matches up with a wall.
@@ -9019,7 +9000,7 @@ dungeon.isValidStairLoc = isValidStairLoc;
 
 function setupStairs(map, x, y, tile) {
 
-	const indexes = random.shuffle(utils$1.sequence(4));
+	const indexes = random.shuffle(sequence(4));
 
 	let dir;
 	for(let i = 0; i < indexes.length; ++i) {
@@ -9035,7 +9016,7 @@ function setupStairs(map, x, y, tile) {
 		dir = null;
 	}
 
-	if (!dir) utils$1.ERROR('No stair direction found!');
+	if (!dir) ERROR('No stair direction found!');
 
 	map.setTile(x, y, tile);
 
@@ -9073,29 +9054,29 @@ function addStairs(opts = {}) {
       start = SITE.randomMatchingXY( isValidStairLoc );
     }
     else {
-      start = SITE.matchingXYNear(utils$1.x(start), utils$1.y(start), isValidStairLoc);
+      start = SITE.matchingXYNear(x(start), y(start), isValidStairLoc);
     }
     SITE.locations.start = start;
   }
 
   if (upLoc && downLoc) {
-    upLoc = SITE.matchingXYNear(utils$1.x(upLoc), utils$1.y(upLoc), isValidStairLoc);
-    downLoc = SITE.matchingXYNear(utils$1.x(downLoc), utils$1.y(downLoc), isValidStairLoc);
+    upLoc = SITE.matchingXYNear(x(upLoc), y(upLoc), isValidStairLoc);
+    downLoc = SITE.matchingXYNear(x(downLoc), y(downLoc), isValidStairLoc);
   }
   else if (upLoc && !downLoc) {
-    upLoc = SITE.matchingXYNear(utils$1.x(upLoc), utils$1.y(upLoc), isValidStairLoc);
+    upLoc = SITE.matchingXYNear(x(upLoc), y(upLoc), isValidStairLoc);
     if (needDown) {
       downLoc = SITE.randomMatchingXY( (v, x, y) => {
-    		if (utils$1.distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
+    		if (distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
     		return isValidStairLoc(v, x, y, SITE);
     	});
     }
   }
   else if (downLoc && !upLoc) {
-    downLoc = SITE.matchingXYNear(utils$1.x(downLoc), utils$1.y(downLoc), isValidStairLoc);
+    downLoc = SITE.matchingXYNear(x(downLoc), y(downLoc), isValidStairLoc);
     if (needUp) {
       upLoc = SITE.randomMatchingXY( (v, x, y) => {
-    		if (utils$1.distanceBetween(x, y, downLoc[0], downLoc[1]) < minDistance) return false;
+    		if (distanceBetween(x, y, downLoc[0], downLoc[1]) < minDistance) return false;
     		return isValidStairLoc(v, x, y, SITE);
     	});
     }
@@ -9104,7 +9085,7 @@ function addStairs(opts = {}) {
     upLoc = SITE.randomMatchingXY( isValidStairLoc );
     if (needDown) {
       downLoc = SITE.randomMatchingXY( (v, x, y) => {
-    		if (utils$1.distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
+    		if (distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
     		return isValidStairLoc(v, x, y, SITE);
     	});
     }
@@ -9129,7 +9110,7 @@ function addStairs(opts = {}) {
 
 dungeon.addStairs = addStairs;
 
-fx.debug = utils$1.NOOP;
+fx.debug = NOOP;
 
 let ANIMATIONS = [];
 
@@ -9194,7 +9175,7 @@ class FX {
   constructor(opts={}) {
     this.tilNextTurn = opts.speed || opts.duration || 1000;
     this.speed = opts.speed || opts.duration || 1000;
-    this.callback = utils$1.NOOP;
+    this.callback = NOOP;
     this.done = false;
   }
 
@@ -9310,7 +9291,7 @@ class MovingSpriteFX extends SpriteFX {
     super(map, sprite, source.x, source.y, { speed });
     this.target = target;
     this.path = map$1.getLine(this.map, source.x, source.y, this.target.x, this.target.y);
-    this.stepFn = stepFn || utils$1.TRUE;
+    this.stepFn = stepFn || TRUE;
   }
 
   step() {
@@ -9357,7 +9338,7 @@ fx.bolt = bolt;
 
 async function projectile(map, source, target, sprite, opts) {
   if (sprite.ch.length == 4) {
-    const dir = utils$1.dirFromTo(source, target);
+    const dir = dirFromTo(source, target);
     let index = 0;
     if (dir[0] && dir[1]) {
       index = 2;
@@ -9372,7 +9353,7 @@ async function projectile(map, source, target, sprite, opts) {
     sprite = GW.make.sprite(ch, sprite.fg, sprite.bg);
   }
   else if (sprite.ch.length !== 1) {
-    utils$1.ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
+    ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
   }
 
   return fx.bolt(map, source, target, sprite, opts);
@@ -9473,7 +9454,7 @@ class BeamFX extends FX {
     this.sprite = sprite;
     this.fade = fade || speed;
     this.path = map$1.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
-    this.stepFn = stepFn || utils$1.TRUE;
+    this.stepFn = stepFn || TRUE;
   }
 
   step() {
@@ -9554,7 +9535,7 @@ class ExplosionFX extends FX {
     this.fade = fade || 100;
     this.shape = shape || 'o';
     this.center = (center === undefined) ? true : center;
-    this.stepFn = stepFn || utils$1.TRUE;
+    this.stepFn = stepFn || TRUE;
     this.count = 0;
   }
 
@@ -9584,7 +9565,7 @@ class ExplosionFX extends FX {
       col = this.grid[x];
       for(let y = minY; y <= maxY; ++y) {
         if (col[y] != 1) continue;  // not in FOV
-        dist = utils$1.distanceBetween(this.x, this.y, x, y);
+        dist = distanceBetween(this.x, this.y, x, y);
         if (dist <= this.radius) {
           this.visit(x, y);
         }
@@ -9670,7 +9651,7 @@ fx.explosionFor = explosionFor;
 
 var fov = {};
 
-fov.debug = utils$1.NOOP;
+fov.debug = NOOP;
 
 // strategy =
 // {
@@ -9682,9 +9663,9 @@ fov.debug = utils$1.NOOP;
 class FOV {
   constructor(strategy) {
     this.isBlocked = strategy.isBlocked;
-    this.calcRadius = strategy.calcRadius || utils$1.calcRadius;
+    this.calcRadius = strategy.calcRadius || calcRadius;
     this.setVisible = strategy.setVisible;
-    this.hasXY = strategy.hasXY || utils$1.TRUE;
+    this.hasXY = strategy.hasXY || TRUE;
   }
 
   calculate(x, y, maxRadius) {
@@ -9967,9 +9948,9 @@ async function fire(e) {
 
   const candidates = [];
   let choice;
-  utils$1.eachChain(map.actors, (target) => {
+  eachChain(map.actors, (target) => {
     if (actor === target) return;
-    if (utils$1.distanceFromTo(actor, target) <= range) {
+    if (distanceFromTo(actor, target) <= range) {
       if (!actor.kind.willAttack(actor, target)) return;
       if (!actor.canDirectlySee(target, map)) return;
       candidates.push(target);
@@ -9984,7 +9965,7 @@ async function fire(e) {
   }
   else {
     candidates.sort( (a, b) => {
-      return utils$1.distanceFromTo(actor, a) - utils$1.distanceFromTo(actor, b);
+      return distanceFromTo(actor, a) - distanceFromTo(actor, b);
     });
     choice = await ui.chooseTarget(candidates, 'Fire at which target?');
   }
@@ -10075,7 +10056,7 @@ async function push(e) {
 
 commands$1.push = push;
 
-commands$1.debug = utils$1.NOOP;
+commands$1.debug = NOOP;
 
 async function rest(e) {
 	data.player.endTurn();
@@ -10224,7 +10205,7 @@ function makeItem(kind) {
 		const name = kind;
 		kind = itemKinds[name];
 		if (!kind) {
-      utils$1.WARN('Unknown Item Kind: ' + name);
+      WARN('Unknown Item Kind: ' + name);
       return null;
     }
 	}
@@ -10243,7 +10224,7 @@ async function bump$1(actor, item, ctx={}) {
     for(let i = 0; i < item.bump.length; ++i) {
       let fn = item.bump[i];
       if (typeof fn === 'string') {
-        fn = actions[fn] || utils$1.FALSE;
+        fn = actions[fn] || FALSE;
       }
 
       if (await fn(actor, item, ctx)) {
@@ -10257,7 +10238,7 @@ async function bump$1(actor, item, ctx={}) {
     for(let i = 0; i < item.kind.bump.length; ++i) {
       let fn = item.kind.bump[i];
       if (typeof fn === 'string') {
-        fn = actions[fn] || utils$1.FALSE;
+        fn = actions[fn] || FALSE;
       }
 
       if (await fn(actor, item, ctx)) {
@@ -10650,7 +10631,7 @@ const SIDEBAR_FOCUS = [-1,-1];
 const sidebar$1 = sidebar;
 const DATA = data;
 
-sidebar$1.debug = utils$1.NOOP;
+sidebar$1.debug = NOOP;
 
 const blueBar = color.install('blueBar', 	15,		10,		50);
 const redBar = 	color.install('redBar', 	45,		10,		15);
@@ -10677,7 +10658,7 @@ function sortSidebarItems(items) {
 	else {
 		const x = DATA.player ? DATA.player.x : 0;
 		const y = DATA.player ? DATA.player.y : 0;
-		distFn = ((item) => utils$1.distanceBetween(item.x, item.y, x, y));
+		distFn = ((item) => distanceBetween(item.x, item.y, x, y));
 	}
 	items.forEach( (item) => {
 		item.dist = distFn(item);
@@ -10891,7 +10872,7 @@ function sidebarPrevTarget() {
 		sidebar$1.focus(DATA.player.x, DATA.player.y);
     return SIDEBAR_FOCUS;
 	}
-	if (SIDEBAR_FOCUS[0] < 0 || utils$1.equalsXY(DATA.player, SIDEBAR_FOCUS)) {
+	if (SIDEBAR_FOCUS[0] < 0 || equalsXY(DATA.player, SIDEBAR_FOCUS)) {
 		sidebar$1.focus(SIDEBAR_ENTRIES[SIDEBAR_ENTRIES.length - 1].x, SIDEBAR_ENTRIES[SIDEBAR_ENTRIES.length - 1].y);
     return SIDEBAR_FOCUS;
 	}
@@ -11160,7 +11141,7 @@ function addProgressBar(y, buf, barText, current, max, color$1, dim) {
 
   barText = text.center(barText, SIDE_BOUNDS.width);
 
-	current = utils$1.clamp(current, 0, max);
+	current = clamp(current, 0, max);
 
 	if (max < 10000000) {
 		current *= 100;
@@ -11547,7 +11528,7 @@ function getFlavorText(map, x, y) {
 
 flavor.getFlavorText = getFlavorText;
 
-ui.debug = utils$1.NOOP;
+ui.debug = NOOP;
 let SHOW_CURSOR = false;
 
 let UI_BUFFER = null;
@@ -11583,7 +11564,7 @@ function uiLoop(t) {
 
 function start$1(opts={}) {
 
-  utils$1.setDefaults(opts, {
+  setDefaults(opts, {
     width: 100,
     height: 34,
     bg: 'black',
@@ -12140,6 +12121,7 @@ async function moveDir(actor, dir, opts={}) {
   const cell = map.cell(newX, newY);
   const isPlayer = actor.isPlayer();
 
+  const canBump = (opts.bump !== false);
   const ctx = { actor, map, x: newX, y: newY, cell };
 
   actor.debug('moveDir', dir);
@@ -12155,19 +12137,20 @@ async function moveDir(actor, dir, opts={}) {
   // PROMOTES ON EXIT, NO KEY(?), PLAYER EXIT, ENTANGLED
 
   if (cell.actor) {
-    if (await bump(actor, cell.actor, ctx)) {
+    if (canBump && await bump(actor, cell.actor, ctx)) {
       return true;
     }
 
-    message.forPlayer(actor, '%s bump into %s.', actor.getName(), cell.actor.getName());
-    actor.endTurn(0.5);
-    return true;
+    // GW.message.forPlayer(actor, '%s bump into %s.', actor.getName(), cell.actor.getName());
+    // actor.endTurn(0.5);
+    // return true;
+    return false;
   }
 
   let isPush = false;
   if (cell.item && cell.item.hasKindFlag(ItemKind.IK_BLOCKS_MOVE)) {
     console.log('bump into item');
-    if (!(await bump$1(actor, cell.item, ctx))) {
+    if (!canBump || !(await bump$1(actor, cell.item, ctx))) {
       console.log('bump - no action');
       message.forPlayer(actor, 'Blocked!');
       return false;
@@ -12229,12 +12212,12 @@ async function moveDir(actor, dir, opts={}) {
   }
 
   if (actor.grabbed && !isPush) {
-    const dirToItem = utils$1.dirFromTo(actor, actor.grabbed);
+    const dirToItem = dirFromTo(actor, actor.grabbed);
     let destXY = [actor.grabbed.x + dir[0], actor.grabbed.y + dir[1]];
     const destCell = map.cell(destXY[0], destXY[1]);
 
     let blocked = (destCell.item || destCell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS | Tile.T_OBSTRUCTS_PASSABILITY));
-    if (utils$1.isOppositeDir(dirToItem, dir)) {  // pull
+    if (isOppositeDir(dirToItem, dir)) {  // pull
       if (!actor.grabbed.hasActionFlag(Action.A_PULL)) {
         message.forPlayer(actor, 'you cannot pull %s.', actor.grabbed.getFlavor());
         return false;
@@ -12258,7 +12241,7 @@ async function moveDir(actor, dir, opts={}) {
   }
 
   if (!map.moveActor(newX, newY, actor)) {
-    utils$1.ERROR('Move failed! ' + newX + ',' + newY);
+    ERROR('Move failed! ' + newX + ',' + newY);
     // TURN ENDED (1/2 turn)?
     return false;
   }
@@ -12416,7 +12399,7 @@ async function attack$1(actor, target, ctx={}) {
   const info = attacks[type];
   if (!info) return false;
 
-  const dist = Math.floor(utils$1.distanceFromTo(actor, target));
+  const dist = Math.floor(distanceFromTo(actor, target));
   if (dist > (info.range || 1)) {
     return false;
   }
@@ -12479,7 +12462,7 @@ async function itemAttack(actor, target, ctx={}) {
   let damage  = item.stats.damage || 1;
   const verb  = item.kind.verb || 'hit';
 
-  const dist = Math.floor(utils$1.distanceFromTo(actor, target));
+  const dist = Math.floor(distanceFromTo(actor, target));
   if (dist > (range)) {
     return false;
   }
@@ -12533,10 +12516,16 @@ async function moveToward(actor, x, y, ctx) {
   }
 
   if (destCell.isVisible() && fromCell.isVisible()) {
-    const dir = utils$1.dirBetween(actor.x, actor.y, x, y);
-    if (await actions.moveDir(actor, dir, ctx)) {
-      return true;
+    const dir = dirBetween(actor.x, actor.y, x, y); // TODO = try 3 directions direct, -45, +45
+    const spread = dirSpread(dir);
+    ctx.bump = false;
+    for(let i = 0; i < spread.length; ++i) {
+      const d = spread[i];
+      if (await actions.moveDir(actor, d, ctx)) {
+        return true;
+      }
     }
+    ctx.bump = true;
   }
 
   let travelGrid = actor.travelGrid;
@@ -12649,7 +12638,7 @@ async function push$1(actor, item, ctx={}) {
 
   const map = ctx.map || data.map;
   const cell = ctx.cell || map.cell(ctx.x, ctx.y);
-  const dir = ctx.dir || utils$1.dirFromTo(actor, item);
+  const dir = ctx.dir || dirFromTo(actor, item);
 
   if (!item.hasActionFlag(Action.A_PUSH)) {
     ctx.item = item;
@@ -12701,7 +12690,7 @@ ai.moveRandomly = { act: moveRandomly };
 async function attackPlayer(actor, ctx) {
   const player = data.player;
 
-  const dist = utils$1.distanceFromTo(actor, player);
+  const dist = distanceFromTo(actor, player);
   if (dist >= 2) return false;
 
   if (!await actions.attack(actor, player, ctx)) {
@@ -12720,7 +12709,7 @@ async function moveTowardPlayer(actor, ctx={}) {
   const map = ctx.map || data.map;
   const cell = map.cell(actor.x, actor.y);
 
-  const dist = utils$1.distanceFromTo(actor, player);
+  const dist = distanceFromTo(actor, player);
   if (dist < 2) return false; // Already next to player
 
   if (cell.flags & Cell.IN_FOV) {
@@ -12825,4 +12814,4 @@ addTileKind('LAKE', {
   name: 'deep water', article: 'the'
 });
 
-export { actions, actor, ai, canvas, cell, color, colors, commands$1 as commands, config, cosmetic, data, def, digger, diggers, dungeon, flag, flags, flavor, fov, fx, game, GRID$1 as grid, install, io, item, itemKinds, light, lights, make, map$1 as map, maps, message, PATH as path, player, random, scheduler, sidebar, sprite, sprites, text, tile, tileEvent, tileEvents, tiles, types, ui, utils$1 as utils, viewport, visibility };
+export { actions, actor, actorKinds, ai, canvas, cell, color, colors, commands$1 as commands, config, cosmetic, data, def, digger, diggers, dungeon, flag, flags, flavor, fov, fx, game, GRID$1 as grid, install, io, item, itemKinds, light, lights, make, map$1 as map, maps, message, PATH as path, player, random, scheduler, sidebar, sprite, sprites, text, tile, tileEvent, tileEvents, tiles, types, ui, utils$1 as utils, viewport, visibility };

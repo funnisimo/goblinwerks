@@ -3,13 +3,14 @@ import { color as COLOR } from './color.js';
 import { random } from './random.js';
 import { grid as GRID } from './grid.js';
 import * as Flags from './flags.js';
-import { types, make, def, data as DATA, ui as UI, message as MSG, flag as FLAG, utils as UTILS, itemKinds as ITEMKINDS, tiles as TILES } from './gw.js';
+import * as Utils from './utils.js';
+import { types, make, def, data as DATA, ui as UI, message as MSG, flag as FLAG, itemKinds as ITEMKINDS, tiles as TILES } from './gw.js';
 
 
 export var tileEvent = {};
 export var tileEvents = {};
 
-tileEvent.debug = UTILS.NOOP;
+tileEvent.debug = Utils.NOOP;
 
 const TileLayer = def.layer;
 
@@ -103,7 +104,7 @@ export async function spawnTileEvent(feat, ctx) {
 	if (typeof feat === 'string') {
 		const name = feat;
 		feat = tileEvents[feat];
-		if (!feat) UTILS.ERROR('Unknown tile Event: ' + name);
+		if (!feat) Utils.ERROR('Unknown tile Event: ' + name);
 	}
 
 	if (typeof feat === 'function') {
@@ -115,7 +116,7 @@ export async function spawnTileEvent(feat, ctx) {
 	const y = ctx.y;
 
 	if (!map || x === undefined || y === undefined) {
-		UTILS.ERROR('MAP, x, y are required in context.');
+		Utils.ERROR('MAP, x, y are required in context.');
 	}
 
 	if (ctx.safe && map.hasCellMechFlag(x, y, Flags.CellMech.EVENT_FIRED_THIS_TURN)) {
@@ -143,14 +144,14 @@ export async function spawnTileEvent(feat, ctx) {
   if (feat.tile) {
 		tile = TILES[feat.tile];
 		if (!tile) {
-			UTILS.ERROR('Unknown tile: ' + feat.tile);
+			Utils.ERROR('Unknown tile: ' + feat.tile);
 		}
 	}
 
 	if (feat.item) {
 		itemKind = ITEMKINDS[feat.item];
 		if (!itemKind) {
-			UTILS.ERROR('Unknown item: ' + feat.item);
+			Utils.ERROR('Unknown item: ' + feat.item);
 		}
 	}
 
@@ -370,7 +371,7 @@ function computeSpawnMap(feat, spawnMap, ctx)
 		const name = feat.matchTile;
 		const tile = TILES[name];
 		if (!tile) {
-			UTILS.ERROR('Failed to find match tile with name:' + name);
+			Utils.ERROR('Failed to find match tile with name:' + name);
 		}
 		feat.matchTile = tile.id;
 	}
@@ -397,7 +398,7 @@ function computeSpawnMap(feat, spawnMap, ctx)
 		spawnMap.updateCircle(x, y, radius, (v, i, j) => {
 			if (!cellIsOk(feat, i, j, ctx)) return 0;
 
-			const dist = Math.floor(UTILS.distanceBetween(x, y, i, j));
+			const dist = Math.floor(Utils.distanceBetween(x, y, i, j));
 			const prob = startProb - (dist * probDec);
 			if (!random.chance(prob)) return 0;
 			return 1;

@@ -1,6 +1,6 @@
 
 import './bounds.js';
-import './utils.js';
+export * as utils from './utils.js';
 import './flag.js';
 import './flags.js';
 export { random, cosmetic } from './random.js';
@@ -21,7 +21,7 @@ export { map } from './map.js';
 export { scheduler } from  './scheduler.js';
 export { game } from './game.js';
 import './fx.js';
-export { actor } from './actor.js';
+export { actor, actorKinds } from './actor.js';
 export { player } from './player.js';
 export { fov } from './fov.js';
 import './commands/index.js';

@@ -1,6 +1,7 @@
 
 import { random } from './random.js';
-import { def, data as DATA, types, make as MAKE, utils as UTILS } from './gw.js';
+import * as Utils from './utils.js';
+import { def, data as DATA, types, make as MAKE } from './gw.js';
 
 
 const GRID_CACHE = [];
@@ -185,7 +186,7 @@ export class Grid extends Array {
 
 		this.forEach( (v, i, j) => {
 			if (fn(v, i, j)) {
-				const dist = UTILS.distanceBetween(x, y, i, j);
+				const dist = Utils.distanceBetween(x, y, i, j);
 				if (dist < bestDistance) {
 					bestLoc[0] = i;
 					bestLoc[1] = j;
@@ -321,7 +322,7 @@ export class Grid extends Array {
 
 	  // brogueAssert(grid.hasXY(x, y));
 
-		testFn = testFn || UTILS.IDENTITY;
+		testFn = testFn || Utils.IDENTITY;
 
 		arcCount = 0;
 		for (dir = 0; dir < CDIRS.length; dir++) {
@@ -473,10 +474,10 @@ export function gridDumpRect(grid, left, top, width, height, fmtFn) {
 
 	fmtFn = fmtFn || _formatGridValue
 
-	left = UTILS.clamp(left, 0, grid.width - 2);
-	top = UTILS.clamp(top, 0, grid.height - 2);
-	const right = UTILS.clamp(left + width, 1, grid.width - 1);
-	const bottom = UTILS.clamp(top + height, 1, grid.height - 1);
+	left = Utils.clamp(left, 0, grid.width - 2);
+	top = Utils.clamp(top, 0, grid.height - 2);
+	const right = Utils.clamp(left + width, 1, grid.width - 1);
+	const bottom = Utils.clamp(top + height, 1, grid.height - 1);
 
 	let output = [];
 
@@ -528,7 +529,7 @@ export function floodFillRange(grid, x, y, eligibleValueMin, eligibleValueMax, f
 	let newX, newY, fillCount = 1;
 
   if (fillValue >= eligibleValueMin && fillValue <= eligibleValueMax) {
-		UTILS.ERROR('Invalid grid flood fill');
+		Utils.ERROR('Invalid grid flood fill');
 	}
 
   grid[x][y] = fillValue;

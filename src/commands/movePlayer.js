@@ -1,10 +1,11 @@
 
 
 import * as Flags from '../flags.js';
+import * as Utils from '../utils.js';
 import { actions as Actions } from '../actions/index.js';
 import { game as GAME } from '../game.js';
 import * as Actor from '../actor.js';
-import { data as DATA, def, commands, ui as UI, message as MSG, utils as UTILS, fx as FX, config as CONFIG } from '../gw.js';
+import { data as DATA, def, commands, ui as UI, message as MSG, fx as FX, config as CONFIG } from '../gw.js';
 
 CONFIG.autoPickup = true;
 

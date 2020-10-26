@@ -1,11 +1,12 @@
 
 import { io as IO } from './io.js';
 import * as Flags from './flags.js';
+import * as Utils from './utils.js';
 import { sprite as SPRITE } from './sprite.js';
 import { color as COLOR } from './color.js';
-import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, utils as UTILS, make, sidebar as SIDEBAR, config as CONFIG } from './gw.js';
+import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, make, sidebar as SIDEBAR, config as CONFIG } from './gw.js';
 
-ui.debug = UTILS.NOOP;
+ui.debug = Utils.NOOP;
 
 let SHOW_FLAVOR = false;
 let SHOW_SIDEBAR = false;
@@ -45,7 +46,7 @@ function uiLoop(t) {
 
 export function start(opts={}) {
 
-  UTILS.setDefaults(opts, {
+  Utils.setDefaults(opts, {
     width: 100,
     height: 34,
     bg: 'black',

@@ -1,15 +1,16 @@
 
 import { color as COLOR, colors as COLORS } from './color.js';
 import * as Flags from './flags.js';
+import * as Utils from './utils.js';
 import { text as TEXT } from './text.js';
 import { visibility as VISIBILITY } from './visibility.js';
 import { actions as Actions } from './actions/index.js';
-import { types, make, data as DATA, config as CONFIG, ui as UI, utils as UTILS, def, ai as AI } from './gw.js';
+import { types, make, data as DATA, config as CONFIG, ui as UI, def, ai as AI } from './gw.js';
 
 export var actor = {};
 export var actorKinds = {};
 
-actor.debug = UTILS.NOOP;
+actor.debug = Utils.NOOP;
 
 
 
@@ -232,6 +233,9 @@ export class Actor {
   isInanimate() { return this.kind.flags & Flags.ActorKind.AK_INANIMATE; }
 
 	endTurn(turnTime) {
+    if (this.kind.endTurn) {
+      turnTime = this.kind.endTurn(this, turnTime) || turnTime;
+    }
     actor.endTurn(this, turnTime);
 	}
 
@@ -248,7 +252,7 @@ export class Actor {
       return map.isVisible(other.x, other.y);
     }
     else {
-      let dist = UTILS.distanceFromTo(this, other);
+      let dist = Utils.distanceFromTo(this, other);
       if (dist < 2) return true;  // next to each other
 
       const grid = GRID.alloc(map.width, map.height);
@@ -338,8 +342,12 @@ export function makeActor(kind) {
   if (typeof kind === 'string') {
     kind = actorKinds[kind];
   }
-  else if (!(kind instanceof types.ActorKind)) {
-    kind = new types.ActorKind(kind);
+  else if (!(kind instanceof types.Actor)) {
+    let type = 'ActorKind';
+    if (kind.type) {
+      type = kind.type;
+    }
+    kind = new types[type](kind);
   }
   return new types.Actor(kind);
 }
@@ -393,36 +401,24 @@ actor.takeTurn = takeTurn;
 
 
 
-
 export async function bump(actor, target, ctx) {
-
   if (!target) return false;
 
-  if (target.bump) {
-    for(let i = 0; i < target.bump.length; ++i) {
-      let bump = target.bump[i];
-      let result;
-      if (typeof bump === 'string') {
-        bump = Actions[bump] || UTILS.FALSE;
-      }
+  const kind = actor.kind;
+  const actorActions = target.bump || [];
+  const kindActions  = target.kind.bump || [];
 
-      if (await bump(actor, target, ctx)) {
-        return true;
-      }
+  const allBump = actorActions.concat(kindActions);
+
+  for(let i = 0; i < allBump.length; ++i) {
+    let bump = allBump[i];
+    let result;
+    if (typeof bump === 'string') {
+      bump = kind[bump] || Actions[bump] || Utils.FALSE;
     }
-  }
 
-  if (target.kind && target.kind.bump) {
-    for(let i = 0; i < target.kind.bump.length; ++i) {
-      let bump = target.kind.bump[i];
-      let result;
-      if (typeof bump === 'string') {
-        bump = Actions[bump] || UTILS.FALSE;
-      }
-
-      if (await bump(actor, target, ctx)) {
-        return true;
-      }
+    if (await bump(actor, target, ctx)) {
+      return true;
     }
   }
 

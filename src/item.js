@@ -2,6 +2,7 @@
 import { color as COLOR } from './color.js';
 import { text as TEXT } from './text.js';
 import * as Flags from './flags.js';
+import * as Utils from './utils.js';
 import { actions as Actions } from './actions/index.js';
 import * as GW from './gw.js';
 
@@ -147,7 +148,7 @@ function makeItem(kind) {
 		const name = kind;
 		kind = GW.itemKinds[name];
 		if (!kind) {
-      GW.utils.WARN('Unknown Item Kind: ' + name);
+      Utils.WARN('Unknown Item Kind: ' + name);
       return null;
     }
 	}
@@ -167,7 +168,7 @@ export async function bump(actor, item, ctx={}) {
       let fn = item.bump[i];
       let result;
       if (typeof fn === 'string') {
-        fn = Actions[fn] || GW.utils.FALSE;
+        fn = Actions[fn] || Utils.FALSE;
       }
 
       if (await fn(actor, item, ctx)) {
@@ -182,7 +183,7 @@ export async function bump(actor, item, ctx={}) {
       let fn = item.kind.bump[i];
       let result;
       if (typeof fn === 'string') {
-        fn = Actions[fn] || GW.utils.FALSE;
+        fn = Actions[fn] || Utils.FALSE;
       }
 
       if (await fn(actor, item, ctx)) {

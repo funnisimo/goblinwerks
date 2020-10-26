@@ -1,7 +1,8 @@
 
 import * as Flags from '../flags.js';
+import * as Utils from '../utils.js';
 import { actions as Actions } from '../actions/index.js';
-import { data as DATA, def, commands, ui as UI, message as MSG, utils as UTILS, fx as FX } from '../gw.js';
+import { data as DATA, def, commands, ui as UI, message as MSG, fx as FX } from '../gw.js';
 
 
 async function fire(e) {
@@ -17,9 +18,9 @@ async function fire(e) {
 
   const candidates = [];
   let choice;
-  UTILS.eachChain(map.actors, (target) => {
+  Utils.eachChain(map.actors, (target) => {
     if (actor === target) return;
-    if (UTILS.distanceFromTo(actor, target) <= range) {
+    if (Utils.distanceFromTo(actor, target) <= range) {
       if (!actor.kind.willAttack(actor, target)) return;
       if (!actor.canDirectlySee(target, map)) return;
       candidates.push(target);
@@ -34,7 +35,7 @@ async function fire(e) {
   }
   else {
     candidates.sort( (a, b) => {
-      return UTILS.distanceFromTo(actor, a) - UTILS.distanceFromTo(actor, b);
+      return Utils.distanceFromTo(actor, a) - Utils.distanceFromTo(actor, b);
     });
     choice = await UI.chooseTarget(candidates, 'Fire at which target?');
   }

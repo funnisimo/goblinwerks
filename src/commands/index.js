@@ -1,6 +1,7 @@
 
 
-import { data as DATA, commands, utils as UTILS } from '../gw.js';
+import * as Utils from '../utils.js';
+import { data as DATA, commands } from '../gw.js';
 import './grab.js';
 import './movePlayer.js';
 import './bash.js';
@@ -10,7 +11,7 @@ import './fire.js';
 import './attack.js';
 import './push.js';
 
-commands.debug = UTILS.NOOP;
+commands.debug = Utils.NOOP;
 
 async function rest(e) {
 	DATA.player.endTurn();
