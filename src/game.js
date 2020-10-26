@@ -2,6 +2,7 @@
 
 import { colors as COLORS } from './color.js';
 import * as Flags from './flags.js';
+import * as Utils from './utils.js';
 import * as Light from './light.js';
 import { map as MAP } from './map.js';
 import { io as IO } from './io.js';
@@ -12,11 +13,11 @@ import { text as TEXT } from './text.js';
 import { sprite as SPRITE } from './sprite.js';
 import { visibility as VISIBILITY } from './visibility.js';
 
-import { viewport as VIEWPORT, data as DATA, maps as MAPS, types, fx as FX, ui as UI, message as MSG, utils as UTILS, make, config as CONFIG, flavor as FLAVOR } from './gw.js';
+import { viewport as VIEWPORT, data as DATA, maps as MAPS, types, fx as FX, ui as UI, message as MSG, make, config as CONFIG, flavor as FLAVOR } from './gw.js';
 
 export var game = {};
 
-game.debug = UTILS.NOOP;
+game.debug = Utils.NOOP;
 
 DATA.time = 0;
 DATA.running = false;
@@ -44,7 +45,7 @@ export async function startGame(opts={}) {
     map = await game.getMap(map);
   }
 
-  if (!map) UTILS.ERROR('No map!');
+  if (!map) Utils.ERROR('No map!');
 
   if (opts.fov) {
     CONFIG.fov = true;
@@ -136,7 +137,7 @@ export function startMap(map, loc='start') {
 
   Light.updateLighting(map);
 
-  UTILS.eachChain(map.actors, (actor) => {
+  Utils.eachChain(map.actors, (actor) => {
     game.queueActor(actor);
   });
 

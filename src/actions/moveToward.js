@@ -1,7 +1,8 @@
 
 import { grid as GRID } from '../grid.js';
 import { path as PATH } from '../path.js';
-import { data as DATA, utils as UTILS, def } from '../gw.js';
+import * as Utils from '../utils.js';
+import { data as DATA, def } from '../gw.js';
 import { actions as Actions } from './index.js';
 
 
@@ -16,7 +17,7 @@ export async function moveToward(actor, x, y, ctx) {
   }
 
   if (destCell.isVisible() && fromCell.isVisible()) {
-    const dir = UTILS.dirBetween(actor.x, actor.y, x, y);
+    const dir = Utils.dirBetween(actor.x, actor.y, x, y); // TODO = try 3 directions direct, -45, +45
     if (await Actions.moveDir(actor, dir, ctx)) {
       return true;
     }

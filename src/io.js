@@ -1,10 +1,11 @@
 
-import { def, data as DATA, commands as COMMANDS, utils as UTILS, make } from './gw.js';
+import * as Utils from './utils.js';
+import { def, data as DATA, commands as COMMANDS, make } from './gw.js';
 
 
 export var io = {};
 
-io.debug = UTILS.NOOP;
+io.debug = Utils.NOOP;
 
 let KEYMAP = {};
 // const KEYMAPS = [];
@@ -116,7 +117,7 @@ export async function dispatchEvent(ev, km) {
 			result = await COMMANDS[command](ev);
 		}
 		else {
-			UTILS.WARN('No command found: ' + command);
+			Utils.WARN('No command found: ' + command);
 		}
 	}
 
@@ -290,7 +291,7 @@ io.resumeEvents = resumeEvents;
 
 
 export function nextEvent(ms, match) {
-	match = match || UTILS.TRUE;
+	match = match || Utils.TRUE;
 	let elapsed = 0;
 
 	while (EVENTS.length) {
@@ -360,7 +361,7 @@ io.tickMs = tickMs;
 
 export async function nextKeyPress(ms, match) {
 	ms = ms || 0;
-	match = match || UTILS.TRUE;
+	match = match || Utils.TRUE;
 	function matchingKey(e) {
   	if (e.type !== KEYPRESS) return false;
     return match(e);
@@ -372,7 +373,7 @@ io.nextKeyPress = nextKeyPress;
 
 export async function nextKeyOrClick(ms, matchFn) {
 	ms = ms || 0;
-	matchFn = matchFn || UTILS.TRUE;
+	matchFn = matchFn || Utils.TRUE;
 	function match(e) {
   	if (e.type !== KEYPRESS && e.type !== CLICK) return false;
     return matchFn(e);

@@ -1,12 +1,13 @@
 
 import { grid as GRID } from './grid.js';
 import { random } from './random.js';
-import { make, def, utils as UTILS } from './gw.js';
+import * as Utils from './utils.js';
+import { make, def } from './gw.js';
 
 export var digger = {};
 export var diggers = {};
 
-digger.debug = UTILS.NOOP;
+digger.debug = Utils.NOOP;
 
 const DIRS = def.dirs;
 
@@ -29,14 +30,14 @@ function checkDiggerConfig(config, opts) {
   config = config || {};
   opts = opts || {};
 
-  if (!config.width || !config.height) UTILS.ERROR('All diggers require config to include width and height.');
+  if (!config.width || !config.height) Utils.ERROR('All diggers require config to include width and height.');
 
   Object.entries(opts).forEach( ([key,expect]) => {
     const have = config[key];
 
     if (expect === true) {	// needs to be a number > 0
       if (typeof have !== 'number') {
-        UTILS.ERROR('Invalid configuration for digger: ' + key + ' expected number received ' + typeof have);
+        Utils.ERROR('Invalid configuration for digger: ' + key + ' expected number received ' + typeof have);
       }
     }
     else if (typeof expect === 'number') {	// needs to be a number, this is the default
@@ -50,7 +51,7 @@ function checkDiggerConfig(config, opts) {
         config[key] = new Array(expect.length).fill(have);
       }
       else if (!Array.isArray(have)) {
-        UTILS.WARN('Received unexpected config for digger : ' + key + ' expected array, received ' + typeof have + ', using defaults.');
+        Utils.WARN('Received unexpected config for digger : ' + key + ' expected array, received ' + typeof have + ', using defaults.');
         config[key] = expect.slice();
       }
       else if (expect.length > have.length) {
@@ -60,7 +61,7 @@ function checkDiggerConfig(config, opts) {
       }
     }
     else {
-      UTILS.WARN('Unexpected digger configuration parameter: ', key, expect);
+      Utils.WARN('Unexpected digger configuration parameter: ', key, expect);
     }
   });
 
@@ -113,11 +114,11 @@ export function digChoiceRoom(config, grid) {
     choices = Object.keys(config.choices);
   }
   else {
-    UTILS.ERROR('Expected choices to be either array of choices or map { digger: weight }');
+    Utils.ERROR('Expected choices to be either array of choices or map { digger: weight }');
   }
   for(let choice of choices) {
     if (!diggers[choice]) {
-      UTILS.ERROR('Missing digger choice: ' + choice);
+      Utils.ERROR('Missing digger choice: ' + choice);
     }
   }
 
@@ -370,13 +371,13 @@ export function attachHallway(grid, doorSitesArray, opts) {
     opts = opts || {};
     const tile = opts.tile || 1;
 
-    const horizontalLength = UTILS.first('horizontalHallLength', opts, [9,15]);
-    const verticalLength = UTILS.first('verticalHallLength', opts, [2,9]);
+    const horizontalLength = Utils.first('horizontalHallLength', opts, [9,15]);
+    const verticalLength = Utils.first('verticalHallLength', opts, [2,9]);
 
     // Pick a direction.
     dir = opts.dir;
     if (dir === undefined) {
-      const dirs = UTILS.sequence(4);
+      const dirs = Utils.sequence(4);
       random.shuffle(dirs);
       for (i=0; i<4; i++) {
           dir = dirs[i];
@@ -409,8 +410,8 @@ export function attachHallway(grid, doorSitesArray, opts) {
         x += DIRS[dir][0];
         y += DIRS[dir][1];
     }
-    x = UTILS.clamp(x - DIRS[dir][0], 0, grid.width - 1);
-    y = UTILS.clamp(y - DIRS[dir][1], 0, grid.height - 1); // Now (x, y) points at the last interior cell of the hallway.
+    x = Utils.clamp(x - DIRS[dir][0], 0, grid.width - 1);
+    y = Utils.clamp(y - DIRS[dir][1], 0, grid.height - 1); // Now (x, y) points at the last interior cell of the hallway.
     allowObliqueHallwayExit = random.chance(15);
     for (dir2 = 0; dir2 < 4; dir2++) {
         newX = x + DIRS[dir2][0];

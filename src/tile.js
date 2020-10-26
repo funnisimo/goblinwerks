@@ -3,7 +3,8 @@ import { colors as COLORS } from './color.js';
 import { game as GAME } from './game.js';
 import { text as TEXT } from './text.js';
 import * as Flags from './flags.js';
-import { types, def, make, data as DATA, flag as FLAG, utils as UTILS, tiles } from './gw.js';
+import * as Utils from './utils.js';
+import { types, def, make, data as DATA, flag as FLAG, tiles } from './gw.js';
 
 export var tile = {};
 
@@ -26,8 +27,8 @@ export class Tile {
       id: null,
       dissipate: 2000, // 20% of 10000
     });
-    UTILS.assignOmitting(['events'], this, base);
-    UTILS.assignOmitting(['Extends', 'flags', 'mechFlags', 'sprite', 'events'], this, config);
+    Utils.assignOmitting(['events'], this, base);
+    Utils.assignOmitting(['Extends', 'flags', 'mechFlags', 'sprite', 'events'], this, config);
     if (this.priority < 0) {
       this.priority = 50;
     }
@@ -139,7 +140,7 @@ export function addTileKind(id, base, config) {
   }
 
   if (typeof base === 'string') {
-    base = tiles[base] || UTILS.ERROR('Unknown base tile: ' + base);
+    base = tiles[base] || Utils.ERROR('Unknown base tile: ' + base);
   }
 
   config.name = config.name || id.toLowerCase();

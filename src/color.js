@@ -1,6 +1,7 @@
 
 import { cosmetic } from './random.js';
-import { types, make as MAKE, utils as UTILS } from './gw.js';
+import * as Utils from './utils.js';
+import { types, make as MAKE } from './gw.js';
 
 export var color = {};
 export var colors = {};
@@ -66,9 +67,9 @@ export class Color extends Array {
   }
 
   clamp() {
-    this.red		= UTILS.clamp(this.red, 0, 100);
-    this.green	= UTILS.clamp(this.green, 0, 100);
-    this.blue		= UTILS.clamp(this.blue, 0, 100);
+    this.red		= Utils.clamp(this.red, 0, 100);
+    this.green	= Utils.clamp(this.green, 0, 100);
+    this.blue		= Utils.clamp(this.blue, 0, 100);
   }
 
   add(augmentColor, pct=100) {
@@ -200,7 +201,7 @@ color.applyAverage = applyMix;
 
 
 function toRGB(v, vr) {
-  return UTILS.clamp(Math.round(2.551 * (v + cosmetic.value() * vr) ), 0, 255);
+  return Utils.clamp(Math.round(2.551 * (v + cosmetic.value() * vr) ), 0, 255);
 }
 
 const V_TO_CSS = [];
@@ -227,7 +228,7 @@ color.intensity = intensity;
 
 
 export function lighten(destColor, percent) {
-  UTILS.clamp(percent, 0, 100);
+  Utils.clamp(percent, 0, 100);
   destColor.red =    Math.round(destColor.red + (100 - destColor.red) * percent / 100);
   destColor.green =  Math.round(destColor.green + (100 - destColor.green) * percent / 100);
   destColor.blue =   Math.round(destColor.blue + (100 - destColor.blue) * percent / 100);
@@ -239,7 +240,7 @@ export function lighten(destColor, percent) {
 color.lighten = lighten;
 
 export function darken(destColor, percent) {
-  UTILS.clamp(percent, 0, 100);
+  Utils.clamp(percent, 0, 100);
   destColor.red =    Math.round(destColor.red * (100 - percent) / 100);
   destColor.green =  Math.round(destColor.green * (100 - percent) / 100);
   destColor.blue =   Math.round(destColor.blue * (100 - percent) / 100);
@@ -315,12 +316,12 @@ export function separate(/* color */ fore, /* color */ back) {
   f = fore.clone();
   b = back.clone();
 
-  f.red			= UTILS.clamp(f.red, 0, 100);
-  f.green		= UTILS.clamp(f.green, 0, 100);
-  f.blue		= UTILS.clamp(f.blue, 0, 100);
-  b.red			= UTILS.clamp(b.red, 0, 100);
-  b.green		= UTILS.clamp(b.green, 0, 100);
-  b.blue		= UTILS.clamp(b.blue, 0, 100);
+  f.red			= Utils.clamp(f.red, 0, 100);
+  f.green		= Utils.clamp(f.green, 0, 100);
+  f.blue		= Utils.clamp(f.blue, 0, 100);
+  b.red			= Utils.clamp(b.red, 0, 100);
+  b.green		= Utils.clamp(b.green, 0, 100);
+  b.blue		= Utils.clamp(b.blue, 0, 100);
 
   if (f.red + f.blue + f.green > 50 * 3) {
     modifier = colors.black;

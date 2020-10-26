@@ -1,16 +1,17 @@
 
 import { random } from './random.js';
 import * as Flags from './flags.js';
+import * as Utils from './utils.js';
 import { colors as COLORS, color as COLOR } from './color.js';
 import { tileEvent as TILE_EVENT } from './tileEvent.js';
 
-import { types, make, def, config as CONFIG, data as DATA, flag as FLAG, tiles as TILES, utils as UTILS } from './gw.js';
+import { types, make, def, config as CONFIG, data as DATA, flag as FLAG, tiles as TILES } from './gw.js';
 
 export var cell = {};
 
 const TileLayer = def.layer;
 
-cell.debug = UTILS.NOOP;
+cell.debug = Utils.NOOP;
 
 COLOR.install('cursorColor', 25, 100, 150);
 CONFIG.cursorPathIntensity = 50;
@@ -36,7 +37,7 @@ class CellMemory {
   }
 
   copy(other) {
-    UTILS.copyObject(this, other);
+    Utils.copyObject(this, other);
   }
 }
 
@@ -52,7 +53,7 @@ class Cell {
   }
 
   copy(other) {
-    UTILS.copyObject(this, other);
+    Utils.copyObject(this, other);
   }
 
   nullify() {
@@ -351,11 +352,11 @@ class Cell {
       tileId = tile.id;
     }
     else if (tileId !== 0){
-      UTILS.ERROR('Unknown tile: ' + tileId);
+      Utils.ERROR('Unknown tile: ' + tileId);
     }
 
     if (!tile) {
-      UTILS.WARN('Unknown tile - ' + tileId);
+      Utils.WARN('Unknown tile - ' + tileId);
       tile = TILES[0];
       tileId = 0;
     }
@@ -567,10 +568,10 @@ export function getAppearance(cell, dest) {
   for( let tile of cell.tiles() ) {
     let alpha = 100;
     if (tile.layer == TileLayer.LIQUID) {
-      alpha = UTILS.clamp(cell.liquidVolume || 0, 20, 100);
+      alpha = Utils.clamp(cell.liquidVolume || 0, 20, 100);
     }
     else if (tile.layer == TileLayer.GAS) {
-      alpha = UTILS.clamp(cell.gasVolume || 0, 20, 100);
+      alpha = Utils.clamp(cell.gasVolume || 0, 20, 100);
     }
     memory.plot(tile.sprite, alpha);
     if (tile.mechFlags & Flags.TileMech.TM_VISUALLY_DISTINCT) {

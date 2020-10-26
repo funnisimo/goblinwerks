@@ -4,11 +4,12 @@ import { grid as GRID } from './grid.js';
 import { color as COLOR, colors as COLORS } from './color.js';
 import { cell as CELL } from './cell.js';
 import * as Flags from './flags.js';
-import { types, def, make, data as DATA, config as CONFIG, flag as FLAG, utils as UTILS } from './gw.js';
+import * as Utils from './utils.js';
+import { types, def, make, data as DATA, config as CONFIG, flag as FLAG } from './gw.js';
 
 
 export var map = {};
-map.debug = UTILS.NOOP;
+map.debug = Utils.NOOP;
 
 const TileLayer = def.layer;
 
@@ -213,7 +214,7 @@ export class Map {
 	}
 
 	fillCostGrid(costGrid, costFn) {
-		costFn = costFn || UTILS.ONE;
+		costFn = costFn || Utils.ONE;
 		this.cells.forEach( (cell, i, j) => {
       if (cell.isNull()) {
         costGrid[i][j] = def.PDS_OBSTRUCTION;
@@ -257,7 +258,7 @@ export class Map {
 					if (!this.hasXY(i, j)) continue;
 					const cell = this.cell(i, j);
 					// if ((i == x-k || i == x+k || j == y-k || j == y+k)
-					if ((Math.ceil(UTILS.distanceBetween(x, y, i, j)) == k)
+					if ((Math.ceil(Utils.distanceBetween(x, y, i, j)) == k)
 							&& (!blockingMap || !blockingMap[i][j])
 							&& matcher(cell, i, j, this)
 							&& (!forbidLiquid || cell.liquid == def.NOTHING)
@@ -331,12 +332,12 @@ export class Map {
   }
 
   removeLight(info) {
-    UTILS.removeFromChain(this, 'lights', info);
+    Utils.removeFromChain(this, 'lights', info);
     this.flags &= ~(Flags.Map.MAP_STABLE_LIGHTS | Flags.Map.MAP_STABLE_GLOW_LIGHTS);
   }
 
   eachLight( fn ) {
-    UTILS.eachChain(this.lights, (info) => fn(info.light, info.x, info.y));
+    Utils.eachChain(this.lights, (info) => fn(info.light, info.x, info.y));
     this.eachCell( (cell, x, y) => {
       for(let tile of cell.tiles() ) {
         if (tile.light) {
@@ -451,10 +452,11 @@ export class Map {
 	}
 
 	removeActor(actor) {
+    if (!this.hasXY(actor.x, actor.y)) return false;
 		const cell = this.cell(actor.x, actor.y);
 		if (cell.actor === actor) {
 			cell.actor = null;
-      UTILS.removeFromChain(this, 'actors', actor);
+      Utils.removeFromChain(this, 'actors', actor);
 			cell.flags &= ~Flags.Cell.HAS_ACTOR;
 			cell.removeSprite(actor.kind.sprite);
 
@@ -463,7 +465,9 @@ export class Map {
       }
 
       this.redrawCell(cell);
+      return true;
 		}
+    return false;
 	}
 
 	// dormantAt(x, y) {  // creature *
@@ -552,7 +556,7 @@ export class Map {
 		cell.removeSprite(theItem.kind.sprite);
 
 		cell.item = null;
-    UTILS.removeFromChain(this, 'items', theItem);
+    Utils.removeFromChain(this, 'items', theItem);
 
     if (theItem.light || theItem.kind.light) {
       this.flags &= ~(Flags.Map.MAP_STABLE_LIGHTS);

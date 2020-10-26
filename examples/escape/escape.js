@@ -162,25 +162,61 @@ GW.tile.addKind('BLOOD_GREEN', {
   layer: 'LIQUID', dissipate: 1,
 });
 
-// Bad guys!
-GW.actor.addKind('ZOMBIE', {
-  name: 'Zombie',
-  sprite: { ch: 'z', fg: 'red' },
 
-  consoleColor: 'dark_red',
-  corpse: 'ZOMBIE_CORPSE',  // Leave this corpse when you are killed
+class Zombie extends GW.types.ActorKind {
+  constructor(opts={}) {
+    GW.utils.setDefaults(opts, {
+      name: 'Zombie',
+      sprite: { ch: 'z', fg: 'red' },
 
-  stats: { health: 3 },
-  blood: 'BLOOD_GREEN',
-  speed: 180,  // 120 is default, 180 is 50% slower
+      consoleColor: 'dark_red',
+      corpse: 'ZOMBIE_CORPSE',  // Leave this corpse when you are killed
 
-  // performs: ['horde_push'],
-  // resolves: ['horde_push'],
-  // bump: ['horde_push', 'attack'],
-  //
-  // ai: ['Stumbles', 'AttackPlayer', 'MoveTowardPlayer', 'MoveRandomly', 'Idle'],
+      stats: {},
+      blood: 'BLOOD_GREEN',
+      speed: 180,  // 120 is default, 180 is 50% slower
 
-  ai: [stumbles, 'attackPlayer', 'moveTowardPlayer', 'moveRandomly', 'idle'],
+      bump: ['zombiePush', 'attack'],
+      ai: [stumbles, 'attackPlayer', 'moveTowardPlayer', 'moveRandomly', 'idle'],
+
+      attacks: {
+        melee: { damage: 1, verb: 'scratch' }
+      },
+    });
+    GW.utils.setDefaults(opts.stats, { health: 3 });
+    super(opts);
+  }
+
+  // TODO = Can we get zombies to spread out before they start pushing?
+
+  // Zombies do not avoid things (other zombies, furniture, ...).  They just bump into anything in their way.
+  avoidedCellFlags(actor) {
+    return 0;
+  }
+
+  // every time I get pushed by a zombie, I store up some push power
+  zombiePush(actor, target, ctx) {
+    if (actor.kind !== target.kind) return false;
+    const current = actor.current.zombiePush || 0;
+    target.current.zombiePush = 1 + current + (target.current.zombiePush || 0);
+    actor.current.zombiePush = 0;
+    console.log('Zombie push');
+    actor.endTurn();
+    return true;
+  }
+
+  // When I bash something, I release all my zombie power
+  calcBashDamage(actor, target, ctx) {
+    const result = super.calcBashDamage(actor, target, ctx) + (actor.current.zombiePush || 0);
+    actor.current.zombiePush = 0;
+    return result;
+  }
+
+  // After any successful turn, I reset the zombie power
+  endTurn(actor, turnTime) {
+    actor.current.zombiePush = 0;
+    return turnTime;
+  }
 
   // sidebar
   // - Show the name and health of our zombie
@@ -193,14 +229,18 @@ GW.actor.addKind('ZOMBIE', {
     if (actor.status) {
       y = GW.sidebar.addText(buf, y, actor.status, null, null, dim, highlight);
     }
+    if (actor.current.zombiePush) {
+      y = GW.sidebar.addText(buf, y, 'Push: ' + actor.current.zombiePush, null, null, dim, highlight);
+    }
     return y;
-  },
+  }
 
-  attacks: {
-    melee: { damage: 1, verb: 'scratch' }
-  },
+}
 
-});
+GW.types.Zombie = Zombie;
+
+// Bad guys!
+GW.actor.addKind('ZOMBIE', new Zombie());
 
 // Some broken furniture - gets in the way, cannot be moved
 GW.tile.addKind('BROKEN_FURNITURE', {

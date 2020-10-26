@@ -1,7 +1,8 @@
 
 import * as Flags from './flags.js';
+import * as Utils from './utils.js';
 import { random } from './random.js';
-import { def, data as DATA, utils as UTILS, ai } from './gw.js';
+import { def, data as DATA, ai } from './gw.js';
 import { actions as Actions } from './actions/index.js';
 
 
@@ -32,7 +33,7 @@ ai.moveRandomly = { act: moveRandomly };
 async function attackPlayer(actor, ctx) {
   const player = DATA.player;
 
-  const dist = UTILS.distanceFromTo(actor, player);
+  const dist = Utils.distanceFromTo(actor, player);
   if (dist >= 2) return false;
 
   if (!await Actions.attack(actor, player, ctx)) {
@@ -51,7 +52,7 @@ async function moveTowardPlayer(actor, ctx={}) {
   const map = ctx.map || DATA.map;
   const cell = map.cell(actor.x, actor.y);
 
-  const dist = UTILS.distanceFromTo(actor, player);
+  const dist = Utils.distanceFromTo(actor, player);
   if (dist < 2) return false; // Already next to player
 
   if (cell.flags & Flags.Cell.IN_FOV) {

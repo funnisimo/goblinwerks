@@ -126,6 +126,26 @@ export function isSameDir(a, b) {
 
 utils.isSameDir = isSameDir;
 
+export function dirSpread(dir) {
+  const result = [dir];
+  if (dir[0] == 0) {
+    result.push( [ 1, dir[1]] );
+    result.push( [-1, dir[1]] );
+  }
+  else if (dir[1] == 0) {
+    result.push( [dir[0], 1] );
+    result.push( [dir[0],-1] );
+  }
+  else {
+    result.push( [dir[0], 0] );
+    result.push( [0, dir[1]] );
+  }
+  return result;
+}
+
+utils.dirSpread = dirSpread;
+
+
 export function extend(obj, name, fn) {
   const base = obj[name] || NOOP;
   const newFn = fn.bind(obj, base.bind(obj));
