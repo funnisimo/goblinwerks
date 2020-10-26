@@ -15,6 +15,7 @@ export async function moveDir(actor, dir, opts={}) {
   const cell = map.cell(newX, newY);
   const isPlayer = actor.isPlayer();
 
+  const canBump = (opts.bump !== false);
   const ctx = { actor, map, x: newX, y: newY, cell };
 
   actor.debug('moveDir', dir);
@@ -30,19 +31,20 @@ export async function moveDir(actor, dir, opts={}) {
   // PROMOTES ON EXIT, NO KEY(?), PLAYER EXIT, ENTANGLED
 
   if (cell.actor) {
-    if (await Actor.bump(actor, cell.actor, ctx)) {
+    if (canBump && await Actor.bump(actor, cell.actor, ctx)) {
       return true;
     }
 
-    GW.message.forPlayer(actor, '%s bump into %s.', actor.getName(), cell.actor.getName());
-    actor.endTurn(0.5);
-    return true;
+    // GW.message.forPlayer(actor, '%s bump into %s.', actor.getName(), cell.actor.getName());
+    // actor.endTurn(0.5);
+    // return true;
+    return false;
   }
 
   let isPush = false;
   if (cell.item && cell.item.hasKindFlag(Flags.ItemKind.IK_BLOCKS_MOVE)) {
     console.log('bump into item');
-    if (!(await Item.bump(actor, cell.item, ctx))) {
+    if (!canBump || !(await Item.bump(actor, cell.item, ctx))) {
       console.log('bump - no action');
       GW.message.forPlayer(actor, 'Blocked!');
       return false;

@@ -18,9 +18,15 @@ export async function moveToward(actor, x, y, ctx) {
 
   if (destCell.isVisible() && fromCell.isVisible()) {
     const dir = Utils.dirBetween(actor.x, actor.y, x, y); // TODO = try 3 directions direct, -45, +45
-    if (await Actions.moveDir(actor, dir, ctx)) {
-      return true;
+    const spread = Utils.dirSpread(dir);
+    ctx.bump = false;
+    for(let i = 0; i < spread.length; ++i) {
+      const d = spread[i];
+      if (await Actions.moveDir(actor, d, ctx)) {
+        return true;
+      }
     }
+    ctx.bump = true;
   }
 
   let travelGrid = actor.travelGrid;

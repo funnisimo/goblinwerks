@@ -12121,6 +12121,7 @@ async function moveDir(actor, dir, opts={}) {
   const cell = map.cell(newX, newY);
   const isPlayer = actor.isPlayer();
 
+  const canBump = (opts.bump !== false);
   const ctx = { actor, map, x: newX, y: newY, cell };
 
   actor.debug('moveDir', dir);
@@ -12136,19 +12137,20 @@ async function moveDir(actor, dir, opts={}) {
   // PROMOTES ON EXIT, NO KEY(?), PLAYER EXIT, ENTANGLED
 
   if (cell.actor) {
-    if (await bump(actor, cell.actor, ctx)) {
+    if (canBump && await bump(actor, cell.actor, ctx)) {
       return true;
     }
 
-    message.forPlayer(actor, '%s bump into %s.', actor.getName(), cell.actor.getName());
-    actor.endTurn(0.5);
-    return true;
+    // GW.message.forPlayer(actor, '%s bump into %s.', actor.getName(), cell.actor.getName());
+    // actor.endTurn(0.5);
+    // return true;
+    return false;
   }
 
   let isPush = false;
   if (cell.item && cell.item.hasKindFlag(ItemKind.IK_BLOCKS_MOVE)) {
     console.log('bump into item');
-    if (!(await bump$1(actor, cell.item, ctx))) {
+    if (!canBump || !(await bump$1(actor, cell.item, ctx))) {
       console.log('bump - no action');
       message.forPlayer(actor, 'Blocked!');
       return false;
@@ -12515,9 +12517,15 @@ async function moveToward(actor, x, y, ctx) {
 
   if (destCell.isVisible() && fromCell.isVisible()) {
     const dir = dirBetween(actor.x, actor.y, x, y); // TODO = try 3 directions direct, -45, +45
-    if (await actions.moveDir(actor, dir, ctx)) {
-      return true;
+    const spread = dirSpread(dir);
+    ctx.bump = false;
+    for(let i = 0; i < spread.length; ++i) {
+      const d = spread[i];
+      if (await actions.moveDir(actor, d, ctx)) {
+        return true;
+      }
     }
+    ctx.bump = true;
   }
 
   let travelGrid = actor.travelGrid;
