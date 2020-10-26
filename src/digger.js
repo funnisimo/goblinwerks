@@ -371,8 +371,8 @@ export function attachHallway(grid, doorSitesArray, opts) {
     opts = opts || {};
     const tile = opts.tile || 1;
 
-    const horizontalLength = Utils.first('horizontalHallLength', opts, [9,15]);
-    const verticalLength = Utils.first('verticalHallLength', opts, [2,9]);
+    const horizontalLength = Utils.firstOpt('horizontalHallLength', opts, [9,15]);
+    const verticalLength = Utils.firstOpt('verticalHallLength', opts, [2,9]);
 
     // Pick a direction.
     dir = opts.dir;

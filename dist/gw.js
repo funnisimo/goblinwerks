@@ -10,8 +10,6 @@
   var make = {};
   var install = {};
 
-  var utils$1 = {};
-
   var ui = {};
   var message = {};
   var viewport = {};
@@ -113,22 +111,11 @@
   types.Bounds = Bounds;
 
   function NOOP()  {}
-  utils$1.NOOP = NOOP;
-
   function TRUE()  { return true; }
-  utils$1.TRUE = TRUE;
-
   function FALSE() { return false; }
-  utils$1.FALSE = FALSE;
-
   function ONE() { return 1; }
-  utils$1.ONE = ONE;
-
   function ZERO() { return 0; }
-  utils$1.ZERO = ZERO;
-
   function IDENTITY(x) { return x; }
-  utils$1.IDENTITY = IDENTITY;
 
 
   function clamp(v, min, max) {
@@ -137,40 +124,28 @@
     return v;
   }
 
-  utils$1.clamp = clamp;
-
   function x(src) {
     return src.x || src[0] || 0;
   }
-
-  utils$1.x = x;
 
   function y(src) {
     return src.y || src[1] || 0;
   }
 
-  utils$1.y = y;
-
   function copyXY(dest, src) {
-    dest.x = utils$1.x(src);
-    dest.y = utils$1.y(src);
+    dest.x = x(src);
+    dest.y = y(src);
   }
-
-  utils$1.copyXY = copyXY;
 
   function addXY(dest, src) {
-    dest.x += utils$1.x(src);
-    dest.y += utils$1.y(src);
+    dest.x += x(src);
+    dest.y += y(src);
   }
-
-  utils$1.addXY = addXY;
 
   function equalsXY(dest, src) {
-    return (dest.x == utils$1.x(src))
-    && (dest.y == utils$1.y(src));
+    return (dest.x == x(src))
+    && (dest.y == y(src));
   }
-
-  utils$1.equalsXY = equalsXY;
 
   function distanceBetween(x1, y1, x2, y2) {
     const x = Math.abs(x1 - x2);
@@ -179,20 +154,13 @@
     return x + y - (0.6 * min);
   }
 
-  utils$1.distanceBetween = distanceBetween;
-
   function distanceFromTo(a, b) {
-    return utils$1.distanceBetween(utils$1.x(a), utils$1.y(a), utils$1.x(b), utils$1.y(b));
+    return distanceBetween(x(a), y(a), x(b), y(b));
   }
-
-  utils$1.distanceFromTo = distanceFromTo;
 
   function calcRadius(x, y) {
-    return utils$1.distanceBetween(0,0, x, y);
+    return distanceBetween(0,0, x, y);
   }
-
-  utils$1.calcRadius = calcRadius;
-
 
   function dirBetween(x, y, toX, toY) {
   	let diffX = toX - x;
@@ -206,13 +174,9 @@
   	return [Math.sign(diffX), Math.sign(diffY)];
   }
 
-  utils$1.dirBetween = dirBetween;
-
   function dirFromTo(a, b) {
-    return dirBetween(utils$1.x(a), utils$1.y(a), utils$1.x(b), utils$1.y(b));
+    return dirBetween(x(a), y(a), x(b), y(b));
   }
-
-  utils$1.dirFromTo = dirFromTo;
 
   function dirIndex(dir) {
     const x = dir.x || dir[0] || 0;
@@ -220,21 +184,15 @@
     return def.dirs.findIndex( (a) => a[0] == x && a[1] == y );
   }
 
-  utils$1.dirIndex = dirIndex;
-
   function isOppositeDir(a, b) {
     if (a[0] + b[0] != 0) return false;
     if (a[1] + b[1] != 0) return false;
     return true;
   }
 
-  utils$1.isOppositeDir = isOppositeDir;
-
   function isSameDir(a, b) {
     return a[0] == b[0] && a[1] == b[1];
   }
-
-  utils$1.isSameDir = isSameDir;
 
   function dirSpread(dir) {
     const result = [dir];
@@ -253,8 +211,6 @@
     return result;
   }
 
-  utils$1.dirSpread = dirSpread;
-
 
   function extend(obj, name, fn) {
     const base = obj[name] || NOOP;
@@ -263,8 +219,6 @@
     newFn.base = base;
     obj[name] = newFn;
   }
-
-  utils$1.extend = extend;
 
   // export function rebase(obj, name, newBase) {
   //   const fns = [];
@@ -283,15 +237,11 @@
   //   }
   // }
 
-  // utils.rebase = rebase;
-
   function cloneObject(obj) {
     const other = Object.create(obj.__proto__);
-    utils$1.assignObject(other, obj);
+    assignObject(other, obj);
     return other;
   }
-
-  utils$1.cloneObject = cloneObject;
 
   function assignField(dest, src, key) {
     const current = dest[key];
@@ -325,15 +275,11 @@
     });
   }
 
-  utils$1.copyObject = copyObject;
-
   function assignObject(dest, src) {
     Object.keys(src).forEach( (key) => {
       assignField(dest, src, key);
     });
   }
-
-  utils$1.assignObject = assignObject;
 
   function assignOmitting(omit, dest, src) {
     if (typeof omit === 'string') {
@@ -345,15 +291,11 @@
     });
   }
 
-  utils$1.assignOmitting = assignOmitting;
-
   function setDefault(obj, field, val) {
     if (obj[field] === undefined) {
       obj[field] = val;
     }
   }
-
-  utils$1.setDefault = setDefault;
 
   function setDefaults(obj, def) {
     Object.keys(def).forEach( (key) => {
@@ -364,19 +306,13 @@
     });
   }
 
-  utils$1.setDefaults = setDefaults;
-
   function ERROR(message) {
     throw new Error(message);
   }
 
-  utils$1.ERROR = ERROR;
-
   function WARN(...args) {
     console.warn(...args);
   }
-
-  utils$1.WARN = WARN;
 
   function getOpt(obj, member, _default) {
     const v = obj[member];
@@ -384,10 +320,7 @@
     return v;
   }
 
-  utils$1.getOpt = getOpt;
-
-
-  function first(field, ...args) {
+  function firstOpt(field, ...args) {
     for(let arg of args) {
       if (typeof arg !== 'object' || Array.isArray(arg)) {
         return arg;
@@ -399,13 +332,9 @@
     return undefined;
   }
 
-  utils$1.first = first;
-
   function arraysIntersect(a, b) {
     return a.some( (av) => b.includes(av) );
   }
-
-  utils$1.arraysIntersect = arraysIntersect;
 
 
   function sequence(listLength) {
@@ -417,7 +346,6 @@
     return list;
   }
 
-  utils$1.sequence = sequence;
 
   function eachChain(item, fn) {
     while(item) {
@@ -425,8 +353,6 @@
       item = item.next;
     }
   }
-
-  utils$1.eachChain = eachChain;
 
   function removeFromChain(obj, name, entry) {
     const root = obj[name];
@@ -446,7 +372,45 @@
     }
   }
 
-  utils$1.removeFromChain = removeFromChain;
+  var utils$1 = /*#__PURE__*/Object.freeze({
+    __proto__: null,
+    NOOP: NOOP,
+    TRUE: TRUE,
+    FALSE: FALSE,
+    ONE: ONE,
+    ZERO: ZERO,
+    IDENTITY: IDENTITY,
+    clamp: clamp,
+    x: x,
+    y: y,
+    copyXY: copyXY,
+    addXY: addXY,
+    equalsXY: equalsXY,
+    distanceBetween: distanceBetween,
+    distanceFromTo: distanceFromTo,
+    calcRadius: calcRadius,
+    dirBetween: dirBetween,
+    dirFromTo: dirFromTo,
+    dirIndex: dirIndex,
+    isOppositeDir: isOppositeDir,
+    isSameDir: isSameDir,
+    dirSpread: dirSpread,
+    extend: extend,
+    cloneObject: cloneObject,
+    copyObject: copyObject,
+    assignObject: assignObject,
+    assignOmitting: assignOmitting,
+    setDefault: setDefault,
+    setDefaults: setDefaults,
+    ERROR: ERROR,
+    WARN: WARN,
+    getOpt: getOpt,
+    firstOpt: firstOpt,
+    arraysIntersect: arraysIntersect,
+    sequence: sequence,
+    eachChain: eachChain,
+    removeFromChain: removeFromChain
+  });
 
   ///////////////////////////////////
   // FLAG
@@ -1931,7 +1895,7 @@
   //   return out;
   // }
   //
-  // GW.utils.arrayToString = arrayToString;
+  // Utils.arrayToString = arrayToString;
   //
 
   // Inserts line breaks into really long words. Optionally adds a hyphen, but doesn't do anything
@@ -1984,7 +1948,7 @@
     let w, textLength;
     let spaceLeftOnLine, wordWidth;
 
-    if (!width) GW.utils.ERROR('Need string and width');
+    if (!width) ERROR('Need string and width');
     firstWidth = firstWidth || width;
 
     let printString = text.hyphenate(sourceText, Math.min(width, firstWidth), true); // break up any words that are wider than the width.
@@ -3949,7 +3913,7 @@
   const PDS_AVOIDED     = def.PDS_AVOIDED     = 10;
   const PDS_NO_PATH     = def.PDS_NO_PATH     = 30000;
 
-  // GW.actor.avoidsCell = GW.actor.avoidsCell || GW.utils.FALSE;
+  // GW.actor.avoidsCell = GW.actor.avoidsCell || Utils.FALSE;
   // GW.actor.canPass = GW.actor.canPass || ((a, b) => a === b);
 
   function makeCostLink(i) {
@@ -4726,8 +4690,8 @@
       opts = opts || {};
       const tile = opts.tile || 1;
 
-      const horizontalLength = first('horizontalHallLength', opts, [9,15]);
-      const verticalLength = first('verticalHallLength', opts, [2,9]);
+      const horizontalLength = firstOpt('horizontalHallLength', opts, [9,15]);
+      const verticalLength = firstOpt('verticalHallLength', opts, [2,9]);
 
       // Pick a direction.
       dir = opts.dir;
@@ -5592,7 +5556,7 @@
     //   }
     //   return this.layers.some( (tileId) => {
     //     const tile = TILES[tileId] || TILES.NOTHING;
-    //     return GW.utils.intersect(groups, tile.groups);
+    //     return Utils.intersect(groups, tile.groups);
     //   });
     // }
 
@@ -7214,7 +7178,7 @@
   	}
 
   	// Cycle through monsters and paint their lights:
-    utils$1.eachChain(map.actors, (actor) => {
+    eachChain(map.actors, (actor) => {
       if (actor.kind.light) {
   			actor.kind.light.paint(map, actor.x, actor.y);
   		}
@@ -8468,7 +8432,7 @@
 
   // Returns an array of door sites if successful
   function digRoom(opts={}) {
-    const hallChance = first('hallChance', opts, SITE.config, 0);
+    const hallChance = firstOpt('hallChance', opts, SITE.config, 0);
     const diggerId = opts.digger || opts.id || 'SMALL'; // TODO - get random id
 
     const digger$1 = diggers[diggerId];
@@ -10247,7 +10211,7 @@
   		const name = kind;
   		kind = itemKinds[name];
   		if (!kind) {
-        utils$1.WARN('Unknown Item Kind: ' + name);
+        WARN('Unknown Item Kind: ' + name);
         return null;
       }
   	}
@@ -10266,7 +10230,7 @@
       for(let i = 0; i < item.bump.length; ++i) {
         let fn = item.bump[i];
         if (typeof fn === 'string') {
-          fn = actions[fn] || utils$1.FALSE;
+          fn = actions[fn] || FALSE;
         }
 
         if (await fn(actor, item, ctx)) {
@@ -10280,7 +10244,7 @@
       for(let i = 0; i < item.kind.bump.length; ++i) {
         let fn = item.kind.bump[i];
         if (typeof fn === 'string') {
-          fn = actions[fn] || utils$1.FALSE;
+          fn = actions[fn] || FALSE;
         }
 
         if (await fn(actor, item, ctx)) {
@@ -10673,7 +10637,7 @@
   const sidebar$1 = sidebar;
   const DATA = data;
 
-  sidebar$1.debug = utils$1.NOOP;
+  sidebar$1.debug = NOOP;
 
   const blueBar = color.install('blueBar', 	15,		10,		50);
   const redBar = 	color.install('redBar', 	45,		10,		15);
@@ -10700,7 +10664,7 @@
   	else {
   		const x = DATA.player ? DATA.player.x : 0;
   		const y = DATA.player ? DATA.player.y : 0;
-  		distFn = ((item) => utils$1.distanceBetween(item.x, item.y, x, y));
+  		distFn = ((item) => distanceBetween(item.x, item.y, x, y));
   	}
   	items.forEach( (item) => {
   		item.dist = distFn(item);
@@ -10914,7 +10878,7 @@
   		sidebar$1.focus(DATA.player.x, DATA.player.y);
       return SIDEBAR_FOCUS;
   	}
-  	if (SIDEBAR_FOCUS[0] < 0 || utils$1.equalsXY(DATA.player, SIDEBAR_FOCUS)) {
+  	if (SIDEBAR_FOCUS[0] < 0 || equalsXY(DATA.player, SIDEBAR_FOCUS)) {
   		sidebar$1.focus(SIDEBAR_ENTRIES[SIDEBAR_ENTRIES.length - 1].x, SIDEBAR_ENTRIES[SIDEBAR_ENTRIES.length - 1].y);
       return SIDEBAR_FOCUS;
   	}
@@ -11183,7 +11147,7 @@
 
     barText = text.center(barText, SIDE_BOUNDS.width);
 
-  	current = utils$1.clamp(current, 0, max);
+  	current = clamp(current, 0, max);
 
   	if (max < 10000000) {
   		current *= 100;
@@ -12252,12 +12216,12 @@
     }
 
     if (actor.grabbed && !isPush) {
-      const dirToItem = utils$1.dirFromTo(actor, actor.grabbed);
+      const dirToItem = dirFromTo(actor, actor.grabbed);
       let destXY = [actor.grabbed.x + dir[0], actor.grabbed.y + dir[1]];
       const destCell = map.cell(destXY[0], destXY[1]);
 
       let blocked = (destCell.item || destCell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS | Tile.T_OBSTRUCTS_PASSABILITY));
-      if (utils$1.isOppositeDir(dirToItem, dir)) {  // pull
+      if (isOppositeDir(dirToItem, dir)) {  // pull
         if (!actor.grabbed.hasActionFlag(Action.A_PULL)) {
           message.forPlayer(actor, 'you cannot pull %s.', actor.grabbed.getFlavor());
           return false;
@@ -12281,7 +12245,7 @@
     }
 
     if (!map.moveActor(newX, newY, actor)) {
-      utils$1.ERROR('Move failed! ' + newX + ',' + newY);
+      ERROR('Move failed! ' + newX + ',' + newY);
       // TURN ENDED (1/2 turn)?
       return false;
     }
@@ -12439,7 +12403,7 @@
     const info = attacks[type];
     if (!info) return false;
 
-    const dist = Math.floor(utils$1.distanceFromTo(actor, target));
+    const dist = Math.floor(distanceFromTo(actor, target));
     if (dist > (info.range || 1)) {
       return false;
     }
@@ -12502,7 +12466,7 @@
     let damage  = item.stats.damage || 1;
     const verb  = item.kind.verb || 'hit';
 
-    const dist = Math.floor(utils$1.distanceFromTo(actor, target));
+    const dist = Math.floor(distanceFromTo(actor, target));
     if (dist > (range)) {
       return false;
     }
@@ -12672,7 +12636,7 @@
 
     const map = ctx.map || data.map;
     const cell = ctx.cell || map.cell(ctx.x, ctx.y);
-    const dir = ctx.dir || utils$1.dirFromTo(actor, item);
+    const dir = ctx.dir || dirFromTo(actor, item);
 
     if (!item.hasActionFlag(Action.A_PUSH)) {
       ctx.item = item;

@@ -1,6 +1,7 @@
 
 import { color as COLOR, colors as COLORS } from './color.js';
 import * as Flags from './flags.js';
+import * as Utils from './utils.js';
 import { grid as GRID } from './grid.js';
 import { text as TEXT } from './text.js';
 import { cell as CELL } from './cell.js';
@@ -17,7 +18,7 @@ const SIDEBAR_FOCUS = [-1,-1];
 const sidebar = GW.sidebar;
 const DATA = GW.data;
 
-sidebar.debug = GW.utils.NOOP;
+sidebar.debug = Utils.NOOP;
 
 const blueBar = COLOR.install('blueBar', 	15,		10,		50);
 const redBar = 	COLOR.install('redBar', 	45,		10,		15);
@@ -44,7 +45,7 @@ function sortSidebarItems(items) {
 	else {
 		const x = DATA.player ? DATA.player.x : 0;
 		const y = DATA.player ? DATA.player.y : 0;
-		distFn = ((item) => GW.utils.distanceBetween(item.x, item.y, x, y));
+		distFn = ((item) => Utils.distanceBetween(item.x, item.y, x, y));
 	}
 	items.forEach( (item) => {
 		item.dist = distFn(item);
@@ -258,7 +259,7 @@ function sidebarPrevTarget() {
 		sidebar.focus(DATA.player.x, DATA.player.y);
     return SIDEBAR_FOCUS;
 	}
-	if (SIDEBAR_FOCUS[0] < 0 || GW.utils.equalsXY(DATA.player, SIDEBAR_FOCUS)) {
+	if (SIDEBAR_FOCUS[0] < 0 || Utils.equalsXY(DATA.player, SIDEBAR_FOCUS)) {
 		sidebar.focus(SIDEBAR_ENTRIES[SIDEBAR_ENTRIES.length - 1].x, SIDEBAR_ENTRIES[SIDEBAR_ENTRIES.length - 1].y);
     return SIDEBAR_FOCUS;
 	}
@@ -530,7 +531,7 @@ function addProgressBar(y, buf, barText, current, max, color, dim) {
 
   barText = TEXT.center(barText, SIDE_BOUNDS.width);
 
-	current = GW.utils.clamp(current, 0, max);
+	current = Utils.clamp(current, 0, max);
 
 	if (max < 10000000) {
 		current *= 100;

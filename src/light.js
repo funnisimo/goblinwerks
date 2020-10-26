@@ -269,7 +269,7 @@ export function updateLighting(map) {
 	}
 
 	// Cycle through monsters and paint their lights:
-  GW.utils.eachChain(map.actors, (actor) => {
+  Utils.eachChain(map.actors, (actor) => {
     if (actor.kind.light) {
 			actor.kind.light.paint(map, actor.x, actor.y);
 		}

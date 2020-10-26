@@ -1,4 +1,5 @@
 
+import * as Utils from './utils.js';
 import { def, make } from './gw.js';
 
 
@@ -11,7 +12,7 @@ const PDS_OBSTRUCTION = def.PDS_OBSTRUCTION = -2;
 const PDS_AVOIDED     = def.PDS_AVOIDED     = 10;
 const PDS_NO_PATH     = def.PDS_NO_PATH     = 30000;
 
-// GW.actor.avoidsCell = GW.actor.avoidsCell || GW.utils.FALSE;
+// GW.actor.avoidsCell = GW.actor.avoidsCell || Utils.FALSE;
 // GW.actor.canPass = GW.actor.canPass || ((a, b) => a === b);
 
 function makeCostLink(i) {

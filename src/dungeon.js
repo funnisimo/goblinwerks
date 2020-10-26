@@ -56,7 +56,7 @@ dungeon.finish = finish;
 
 // Returns an array of door sites if successful
 export function digRoom(opts={}) {
-  const hallChance = Utils.first('hallChance', opts, SITE.config, 0);
+  const hallChance = Utils.firstOpt('hallChance', opts, SITE.config, 0);
   const diggerId = opts.digger || opts.id || 'SMALL'; // TODO - get random id
 
   const digger = DIGGERS[diggerId];

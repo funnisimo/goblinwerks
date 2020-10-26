@@ -1,6 +1,6 @@
 
 import './bounds.js';
-import './utils.js';
+export * as utils from './utils.js';
 import './flag.js';
 import './flags.js';
 export { random, cosmetic } from './random.js';

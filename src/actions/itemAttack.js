@@ -1,5 +1,6 @@
 
 import * as Flags from '../flags.js';
+import * as Utils from '../utils.js';
 import { spawnTileEvent } from '../tileEvent.js';
 import { gameOver } from '../game.js';
 import * as GW from '../gw.js';
@@ -28,7 +29,7 @@ export async function itemAttack(actor, target, ctx={}) {
   let damage  = item.stats.damage || 1;
   const verb  = item.kind.verb || 'hit';
 
-  const dist = Math.floor(GW.utils.distanceFromTo(actor, target));
+  const dist = Math.floor(Utils.distanceFromTo(actor, target));
   if (dist > (range)) {
     return false;
   }

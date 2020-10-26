@@ -6,8 +6,6 @@ export var types = {};
 export var make = {};
 export var install = {};
 
-export var utils = {};
-
 export var ui = {};
 export var message = {};
 export var viewport = {};

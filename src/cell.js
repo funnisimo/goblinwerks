@@ -203,7 +203,7 @@ class Cell {
   //   }
   //   return this.layers.some( (tileId) => {
   //     const tile = TILES[tileId] || TILES.NOTHING;
-  //     return GW.utils.intersect(groups, tile.groups);
+  //     return Utils.intersect(groups, tile.groups);
   //   });
   // }
 

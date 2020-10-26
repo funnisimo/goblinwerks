@@ -1,4 +1,5 @@
 
+import * as Utils from './utils.js';
 import { color as COLOR } from './color.js';
 import { make, types, def } from './gw.js';
 
@@ -336,7 +337,7 @@ text.removeColors = removeColors;
 //   return out;
 // }
 //
-// GW.utils.arrayToString = arrayToString;
+// Utils.arrayToString = arrayToString;
 //
 
 // Inserts line breaks into really long words. Optionally adds a hyphen, but doesn't do anything
@@ -389,7 +390,7 @@ function splitIntoLines(sourceText, width, firstWidth) {
   let w, textLength, lineCount;
   let spaceLeftOnLine, wordWidth;
 
-  if (!width) GW.utils.ERROR('Need string and width');
+  if (!width) Utils.ERROR('Need string and width');
   firstWidth = firstWidth || width;
 
   let printString = text.hyphenate(sourceText, Math.min(width, firstWidth), true); // break up any words that are wider than the width.
