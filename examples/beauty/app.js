@@ -80,7 +80,7 @@ async function start() {
 		// '?': showHelp
 	});
 
-  await GW.game.start({ player: PLAYER, buildMap: generate, fov: false });
+  await GW.game.start({ player: PLAYER, buildMap: generate, fov: true });
 
   console.log('DONE!');
 }

@@ -2376,7 +2376,7 @@
   		let i, j;
   		for(i = 0; i < this.width; i++) {
   			for(j = 0; j < this.height; j++) {
-  				fn(this[i][j], i, j);
+  				fn(this[i][j], i, j, this);
   			}
   		}
   	}
@@ -2388,7 +2388,7 @@
   			const i = x + dir[0];
   			const j = y + dir[1];
   			if (this.hasXY(i, j)) {
-  				fn(this[i][j], i, j);
+  				fn(this[i][j], i, j, this);
   			}
   		}
   	}
@@ -2399,14 +2399,14 @@
 
   		for(let i = x; i < x + w; ++i) {
   			for(let j = y; j < y + h; ++j) {
-  				fn(this[i][j], i, j);
+  				fn(this[i][j], i, j, this);
   			}
   		}
   	}
 
   	map(fn) {
   		return super.map( (col, x) => {
-  			return col.map( (v, y) => fn(v, x, y) );
+  			return col.map( (v, y) => fn(v, x, y, this) );
   		});
   	}
 
@@ -2416,7 +2416,7 @@
   		for (i=Math.max(0, x - radius - 1); i < Math.min(this.width, x + radius + 1); i++) {
   				for (j=Math.max(0, y - radius - 1); j < Math.min(this.height, y + radius + 1); j++) {
   						if (this.hasXY(i, j) && (((i-x)*(i-x) + (j-y)*(j-y)) < radius * radius + radius)) {	// + radius softens the circle
-  								fn(this[i][j], i, j);
+  								fn(this[i][j], i, j, this);
   						}
   				}
   		}
@@ -2446,7 +2446,7 @@
   		let i, j;
   		for(i = 0; i < this.width; i++) {
   			for(j = 0; j < this.height; j++) {
-  				this[i][j] = fn(this[i][j], i, j);
+  				this[i][j] = fn(this[i][j], i, j, this);
   			}
   		}
   	}
@@ -2456,7 +2456,7 @@
   	    for (i=x; i < x+width; i++) {
   	        for (j=y; j<y+height; j++) {
   						if (this.hasXY(i, j)) {
-  							this[i][j] = fn(this[i][j], i, j);
+  							this[i][j] = fn(this[i][j], i, j, this);
   						}
   	        }
   	    }
@@ -2468,7 +2468,7 @@
   	    for (i=Math.max(0, x - radius - 1); i < Math.min(this.width, x + radius + 1); i++) {
   	        for (j=Math.max(0, y - radius - 1); j < Math.min(this.height, y + radius + 1); j++) {
   	            if (this.hasXY(i, j) && (((i-x)*(i-x) + (j-y)*(j-y)) < radius * radius + radius)) {	// + radius softens the circle
-  	                this[i][j] = fn(this[i][j], i, j);
+  	                this[i][j] = fn(this[i][j], i, j, this);
   	            }
   	        }
   	    }
@@ -2503,7 +2503,7 @@
   	count(match) {
   		const fn = (typeof match === 'function') ? match : ((v) => v == match);
   	  let count = 0;
-  		this.forEach((v, i, j) => { if (fn(v,i,j)) ++count; });
+  		this.forEach((v, i, j) => { if (fn(v,i,j, this)) ++count; });
   	  return count;
   	}
 
@@ -2516,7 +2516,7 @@
   	  let bestDistance = this.width + this.height;
 
   		this.forEach( (v, i, j) => {
-  			if (fn(v, i, j)) {
+  			if (fn(v, i, j, this)) {
   				const dist = distanceBetween(x, y, i, j);
   				if (dist < bestDistance) {
   					bestLoc[0] = i;
@@ -2538,7 +2538,7 @@
   		const fn = (typeof v === 'function') ? v : ((c) => v == c);
   		for(let i = 0; i < this.width; ++i) {
   			for(let j = 0; j < this.height; ++j) {
-  				if (fn(this[i][j], i, j)) {
+  				if (fn(this[i][j], i, j, this)) {
   					return [i, j];
   				}
   			}
@@ -2555,7 +2555,7 @@
 
   	  locationCount = 0;
   		this.forEach( (v, i, j) => {
-  			if (fn(v, i, j)) {
+  			if (fn(v, i, j, this)) {
   				locationCount++;
   			}
   		});
@@ -2571,7 +2571,7 @@
 
   		for(i = 0; i < this.width && index >= 0; i++) {
   			for(j = 0; j < this.height && index >= 0; j++) {
-          if (fn(this[i][j], i, j)) {
+          if (fn(this[i][j], i, j, this)) {
             if (index == 0) {
   						return [i,j];
             }
@@ -2596,7 +2596,7 @@
   				for (j = y-k; j <= y+k; j++) {
   					if (this.hasXY(i, j)
   						&& (i == x-k || i == x+k || j == y-k || j == y+k)
-  						&& fn(this[i][j], i, j))
+  						&& fn(this[i][j], i, j, this))
   	        {
   						candidateLocs++;
   					}
@@ -2620,7 +2620,7 @@
   				for (j = y-k; j <= y+k; j++) {
   					if (this.hasXY(i, j)
   						&& (i == x-k || i == x+k || j == y-k || j == y+k)
-  						&& fn(this[i][j], i, j))
+  						&& fn(this[i][j], i, j, this))
   	        {
   						if (--randIndex == 0) {
   							loc[0] = i;
@@ -2658,8 +2658,8 @@
   			newX = x + CDIRS[dir][0];
   			newY = y + CDIRS[dir][1];
   			// Counts every transition from passable to impassable or vice-versa on the way around the cell:
-  			if ((this.hasXY(newX, newY) && testFn(this[newX][newY], newX, newY))
-  				!= (this.hasXY(oldX, oldY) && testFn(this[oldX][oldY], oldX, oldY)))
+  			if ((this.hasXY(newX, newY) && testFn(this[newX][newY], newX, newY, this))
+  				!= (this.hasXY(oldX, oldY) && testFn(this[oldX][oldY], oldX, oldY, this)))
   			{
   				arcCount++;
   			}
@@ -2947,7 +2947,7 @@
   	const matchFn = (typeof matchValue == 'function') ? matchValue : ((v) => v == matchValue);
   	const fillFn  = (typeof fillValue  == 'function') ? fillValue  : (() => fillValue);
 
-  	grid[x][y] = fillFn(grid[x][y], x, y);
+  	grid[x][y] = fillFn(grid[x][y], x, y, grid);
 
   	// Iterate through the four cardinal neighbors.
   	for (dir=0; dir<4; dir++) {
@@ -2956,7 +2956,7 @@
   		if (!grid.hasXY(newX, newY)) {
   			continue;
   		}
-  		if (matchFn(grid[newX][newY], newX, newY)) { // If the neighbor is an unmarked region cell,
+  		if (matchFn(grid[newX][newY], newX, newY, grid)) { // If the neighbor is an unmarked region cell,
   			numberOfCells += floodFill(grid, newX, newY, matchFn, fillFn); // then recurse.
   		}
   	}
@@ -2974,7 +2974,7 @@
   		const destY = j + srcToDestY;
   		if (!destGrid.hasXY(destX, destY)) return;
   		if (!c) return;
-  		fn(destGrid[destX][destY], c, destX, destY, i, j);
+  		fn(destGrid[destX][destY], c, destX, destY, i, j, destGrid, srcGrid);
   	});
   }
 
@@ -2999,7 +2999,7 @@
           oppY = y - DIRS[dir][1];
           if (grid.hasXY(oppX, oppY)
               && grid.hasXY(newX, newY)
-              && fnOpen(grid[oppX][oppY],oppX, oppY))
+              && fnOpen(grid[oppX][oppY],oppX, oppY, grid))
           {
               // This grid cell would be a valid tile on which to place a door that, facing outward, points dir.
               if (solutionDir != def.NO_DIRECTION) {
@@ -8982,26 +8982,29 @@
   dungeon.removeDiagonalOpenings = removeDiagonalOpenings;
 
 
-  function finishDoors() {
+  function finishDoors(map) {
+    map = map || SITE;
     let i, j;
 
-  	for (i=1; i<SITE.width-1; i++) {
-  		for (j=1; j<SITE.height-1; j++) {
-  			if (SITE.isDoor(i, j))
+  	for (i=1; i<map.width-1; i++) {
+  		for (j=1; j<map.height-1; j++) {
+  			if (map.isDoor(i, j))
   			{
-  				if ((SITE.canBePassed(i+1, j) || SITE.canBePassed(i-1, j))
-  					&& (SITE.canBePassed(i, j+1) || SITE.canBePassed(i, j-1))) {
+  				if ((map.canBePassed(i+1, j) || map.canBePassed(i-1, j))
+  					&& (map.canBePassed(i, j+1) || map.canBePassed(i, j-1)))
+          {
   					// If there's passable terrain to the left or right, and there's passable terrain
   					// above or below, then the door is orphaned and must be removed.
-  					SITE.setTile(i, j, FLOOR);
+  					map.setTile(i, j, FLOOR);
             dungeon.debug('Removed orphan door', i, j);
-  				} else if ((SITE.blocksPathing(i+1, j) ? 1 : 0)
-  						   + (SITE.blocksPathing(i-1, j) ? 1 : 0)
-  						   + (SITE.blocksPathing(i, j+1) ? 1 : 0)
-  						   + (SITE.blocksPathing(i, j-1) ? 1 : 0) >= 3) {
+  				} else if ((map.blocksPathing(i+1, j) ? 1 : 0)
+  						   + (map.blocksPathing(i-1, j) ? 1 : 0)
+  						   + (map.blocksPathing(i, j+1) ? 1 : 0)
+  						   + (map.blocksPathing(i, j-1) ? 1 : 0) >= 3)
+          {
   					// If the door has three or more pathing blocker neighbors in the four cardinal directions,
   					// then the door is orphaned and must be removed.
-            SITE.setTile(i, j, FLOOR);
+            map.setTile(i, j, FLOOR);
             dungeon.debug('Removed blocked door', i, j);
   				}
   			}
@@ -9011,8 +9014,9 @@
 
   dungeon.finishDoors = finishDoors;
 
-  function finishWalls() {
-    SITE.forEach( (cell, i, j) => {
+  function finishWalls(map) {
+    map = map || SITE;
+    map.forEach( (cell, i, j) => {
       if (cell.isNull()) {
         cell.setTile(WALL);
       }
@@ -9023,20 +9027,21 @@
 
 
 
-  function isValidStairLoc(c, x, y) {
+  function isValidStairLoc(c, x, y, map) {
+    map = map || SITE;
     let count = 0;
     if (!c.isNull()) return false;
 
     for(let i = 0; i < 4; ++i) {
       const dir = def.dirs[i];
-      if (!SITE.hasXY(x + dir[0], y + dir[1])) return false;
-      if (!SITE.hasXY(x - dir[0], y - dir[1])) return false;
-      const cell = SITE.cell(x + dir[0], y + dir[1]);
+      if (!map.hasXY(x + dir[0], y + dir[1])) return false;
+      if (!map.hasXY(x - dir[0], y - dir[1])) return false;
+      const cell = map.cell(x + dir[0], y + dir[1]);
       if (cell.hasTile(FLOOR)) {
         count += 1;
-        const va = SITE.cell(x - dir[0] + dir[1], y - dir[1] + dir[0]);
+        const va = map.cell(x - dir[0] + dir[1], y - dir[1] + dir[0]);
         if (!va.isNull()) return false;
-        const vb = SITE.cell(x - dir[0] - dir[1], y - dir[1] - dir[0]);
+        const vb = map.cell(x - dir[0] - dir[1], y - dir[1] - dir[0]);
         if (!vb.isNull()) return false;
       }
       else if (!cell.isNull()) {
@@ -10641,6 +10646,14 @@
 
   viewport.setup = setup$1;
 
+  let VIEW_FILTER = null;
+
+  function setFilter(fn) {
+    VIEW_FILTER = fn || null;
+  }
+
+  viewport.setFilter = setFilter;
+
   // DRAW
 
   function drawViewport(buffer, map) {
@@ -10648,41 +10661,34 @@
     if (!map) return;
     if (!map.flags & Map.MAP_CHANGED) return;
 
+    let offsetX = 0;
+    let offsetY = 0;
     if (config.followPlayer && data.player && data.player.x >= 0) {
-      const offsetX = data.player.x - VIEWPORT.centerX();
-      const offsetY = data.player.y - VIEWPORT.centerY();
+      offsetX = data.player.x - VIEWPORT.centerX();
+      offsetY = data.player.y - VIEWPORT.centerY();
+    }
 
-      for(let x = 0; x < VIEWPORT.width; ++x) {
-        for(let y = 0; y < VIEWPORT.height; ++y) {
+    for(let x = 0; x < VIEWPORT.width; ++x) {
+      for(let y = 0; y < VIEWPORT.height; ++y) {
 
-          const buf = buffer[x + VIEWPORT.x][y + VIEWPORT.y];
-          const mapX= x + offsetX;
-          const mapY = y + offsetY;
-          if (map.hasXY(mapX, mapY)) {
-            map$1.getCellAppearance(map, mapX, mapY, buf);
-            map.clearCellFlags(mapX, mapY, Cell.NEEDS_REDRAW | Cell.CELL_CHANGED);
-          }
-          else {
-            buf.blackOut();
-          }
+        const buf = buffer[x + VIEWPORT.x][y + VIEWPORT.y];
+        const mapX = x + offsetX;
+        const mapY = y + offsetY;
+        if (map.hasXY(mapX, mapY)) {
+          map$1.getCellAppearance(map, mapX, mapY, buf);
+          map.clearCellFlags(mapX, mapY, Cell.NEEDS_REDRAW | Cell.CELL_CHANGED);
+        }
+        else {
+          buf.blackOut();
+        }
+
+        if (VIEW_FILTER) {
+          VIEW_FILTER(buf, mapX, mapY, map);
         }
       }
-      buffer.needsUpdate = true;
     }
-    else {
-      map.cells.forEach( (c, i, j) => {
-        if (!VIEWPORT.containsXY(i + VIEWPORT.x, j + VIEWPORT.y)) return;
-
-        if (c.flags & Cell.NEEDS_REDRAW) {
-          const buf = buffer[i + VIEWPORT.x][j + VIEWPORT.y];
-          map$1.getCellAppearance(map, i, j, buf);
-          c.clearFlags(Cell.NEEDS_REDRAW);
-          buffer.needsUpdate = true;
-        }
-      });
-    }
+    buffer.needsUpdate = true;
     map.flags &= ~Map.MAP_CHANGED;
-
   }
 
   viewport.draw = drawViewport;

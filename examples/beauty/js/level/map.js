@@ -4,9 +4,9 @@
 GW.tile.addKind('BRAMBLES', {ch:"%", fg:"#483", name:"dense brambles" });
 GW.tile.addKind('PRINCESS', {ch:"P", fg:"pink", name:"princess", article: 'the', flags: 'T_OBSTRUCTS_PASSABILITY, TM_LIST_IN_SIDEBAR'});
 GW.tile.addKind('PILLAR',   {ch:"I", fg:"#ccc", name:"pillar", flags: 'T_OBSTRUCTS_PASSABILITY'});
-GW.tile.addKind('GRASS1',    {ch:"'", fg:"#693", name: 'grass', article: 'some' });
-GW.tile.addKind('GRASS2',    {ch:'"', fg:"#693", name: 'grass', article: 'some'});
-GW.tile.addKind('TREE',     {ch:"T", fg:"green", name: 'tree'});
+const GRASS1 = GW.tile.addKind('GRASS1',    {ch:"'", fg:"#693", name: 'grass', article: 'some' });
+const GRASS2 = GW.tile.addKind('GRASS2',    {ch:'"', fg:"#693", name: 'grass', article: 'some'});
+const TREE   = GW.tile.addKind('TREE',     {ch:"T", fg:"#693", name: 'tree'});
 
 GW.tiles.FLOOR.sprite.ch = '.';
 GW.tiles.FLOOR.sprite.fg = GW.colors.gray;
@@ -19,9 +19,6 @@ const WALL = 0;
 const ROOM = 1;
 const CORRIDOR = 2;
 const DOOR = 3;
-const GRASS1 = 4;
-const GRASS2 = 5;
-const TREE = 6;
 
 // ROOM
 
@@ -157,7 +154,7 @@ class Level {
 
 	isOutside(x, y) {
   	const d = Math.sqrt( (x - this.center[0])**2 + (y - this.center[1])**2);
-		return d > dangerToRadius(this.danger) + 2;
+		return d > dangerToRadius(this.danger) + 1;
 	}
 
 	trim() {
@@ -428,6 +425,8 @@ function decorate(map, level) {
 	} else {
 		decorateRegular(map, level);
 	}
+  GW.dungeon.finishDoors(map);
+
 }
 
 
@@ -539,8 +538,30 @@ function generate(id) {
 
 	level.trim();
 
-  const map = GW.make.map(level.width, level.height, { danger });
+  const map = GW.make.map(level.width, level.height, { danger, level });
   level.carveMap(map);
 	decorate(map, level);
 	return map;
 }
+
+const NOISE = new SimplexNoise();
+
+GW.viewport.setFilter( (buf, x, y, map) => {
+  if (!map || !map.config.level) return;
+
+  const level = map.config.level;
+  if (level.isOutside(x, y)) {
+    buf.blackOut();
+
+    let entity;
+    const noise = NOISE.noise2D(x/20, y/20);
+    if (noise < 0) {
+      entity = GRASS2;
+    } else if (noise < 0.8) {
+      entity = GRASS1;
+    } else {
+      entity = TREE;
+    }
+    buf.plot(entity.sprite);
+  }
+});

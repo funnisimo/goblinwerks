@@ -563,26 +563,29 @@ export function removeDiagonalOpenings() {
 dungeon.removeDiagonalOpenings = removeDiagonalOpenings;
 
 
-function finishDoors() {
+function finishDoors(map) {
+  map = map || SITE;
   let i, j;
 
-	for (i=1; i<SITE.width-1; i++) {
-		for (j=1; j<SITE.height-1; j++) {
-			if (SITE.isDoor(i, j))
+	for (i=1; i<map.width-1; i++) {
+		for (j=1; j<map.height-1; j++) {
+			if (map.isDoor(i, j))
 			{
-				if ((SITE.canBePassed(i+1, j) || SITE.canBePassed(i-1, j))
-					&& (SITE.canBePassed(i, j+1) || SITE.canBePassed(i, j-1))) {
+				if ((map.canBePassed(i+1, j) || map.canBePassed(i-1, j))
+					&& (map.canBePassed(i, j+1) || map.canBePassed(i, j-1)))
+        {
 					// If there's passable terrain to the left or right, and there's passable terrain
 					// above or below, then the door is orphaned and must be removed.
-					SITE.setTile(i, j, FLOOR);
+					map.setTile(i, j, FLOOR);
           dungeon.debug('Removed orphan door', i, j);
-				} else if ((SITE.blocksPathing(i+1, j) ? 1 : 0)
-						   + (SITE.blocksPathing(i-1, j) ? 1 : 0)
-						   + (SITE.blocksPathing(i, j+1) ? 1 : 0)
-						   + (SITE.blocksPathing(i, j-1) ? 1 : 0) >= 3) {
+				} else if ((map.blocksPathing(i+1, j) ? 1 : 0)
+						   + (map.blocksPathing(i-1, j) ? 1 : 0)
+						   + (map.blocksPathing(i, j+1) ? 1 : 0)
+						   + (map.blocksPathing(i, j-1) ? 1 : 0) >= 3)
+        {
 					// If the door has three or more pathing blocker neighbors in the four cardinal directions,
 					// then the door is orphaned and must be removed.
-          SITE.setTile(i, j, FLOOR);
+          map.setTile(i, j, FLOOR);
           dungeon.debug('Removed blocked door', i, j);
 				}
 			}
@@ -592,8 +595,9 @@ function finishDoors() {
 
 dungeon.finishDoors = finishDoors;
 
-function finishWalls() {
-  SITE.forEach( (cell, i, j) => {
+function finishWalls(map) {
+  map = map || SITE;
+  map.forEach( (cell, i, j) => {
     if (cell.isNull()) {
       cell.setTile(WALL);
     }
@@ -604,20 +608,21 @@ dungeon.finishWalls = finishWalls;
 
 
 
-export function isValidStairLoc(c, x, y) {
+export function isValidStairLoc(c, x, y, map) {
+  map = map || SITE;
   let count = 0;
   if (!c.isNull()) return false;
 
   for(let i = 0; i < 4; ++i) {
     const dir = def.dirs[i];
-    if (!SITE.hasXY(x + dir[0], y + dir[1])) return false;
-    if (!SITE.hasXY(x - dir[0], y - dir[1])) return false;
-    const cell = SITE.cell(x + dir[0], y + dir[1]);
+    if (!map.hasXY(x + dir[0], y + dir[1])) return false;
+    if (!map.hasXY(x - dir[0], y - dir[1])) return false;
+    const cell = map.cell(x + dir[0], y + dir[1]);
     if (cell.hasTile(FLOOR)) {
       count += 1;
-      const va = SITE.cell(x - dir[0] + dir[1], y - dir[1] + dir[0]);
+      const va = map.cell(x - dir[0] + dir[1], y - dir[1] + dir[0]);
       if (!va.isNull()) return false;
-      const vb = SITE.cell(x - dir[0] - dir[1], y - dir[1] - dir[0]);
+      const vb = map.cell(x - dir[0] - dir[1], y - dir[1] - dir[0]);
       if (!vb.isNull()) return false;
     }
     else if (!cell.isNull()) {
