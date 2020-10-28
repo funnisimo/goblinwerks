@@ -19,7 +19,7 @@ export { tile } from './tile.js';
 export { cell } from './cell.js';
 export { map } from './map.js';
 export { scheduler } from  './scheduler.js';
-export { game } from './game.js';
+export * as game from './game.js';
 import './fx.js';
 export { actor, actorKinds } from './actor.js';
 export { player } from './player.js';

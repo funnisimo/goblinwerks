@@ -88,9 +88,9 @@ class Canvas {
       window.addEventListener('resize', handleResizeEvent.bind(this));
       handleResizeEvent.call(this);
 
-      setFont(this, this.tileSize);
+      this.font = opts.font;
+      setFont(this, this.tileSize, this.font);
     }
-
 
   }
 

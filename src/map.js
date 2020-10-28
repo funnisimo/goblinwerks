@@ -31,7 +31,10 @@ export class Map {
 			this.ambientLight = make.color(ambient);
 		}
     this.lights = null;
+    this.id = opts.id;
 	}
+
+  async start() {}
 
 	nullify() { this.cells.forEach( (c) => c.nullify() ); }
 	dump(fmt) { this.cells.dump(fmt || ((c) => c.dump()) ); }

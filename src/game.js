@@ -15,9 +15,7 @@ import { visibility as VISIBILITY } from './visibility.js';
 
 import { viewport as VIEWPORT, data as DATA, maps as MAPS, types, fx as FX, ui as UI, message as MSG, make, config as CONFIG, flavor as FLAVOR } from './gw.js';
 
-export var game = {};
-
-game.debug = Utils.NOOP;
+const GAME_DEBUG = Utils.NOOP;
 
 DATA.time = 0;
 DATA.running = false;
@@ -25,7 +23,7 @@ DATA.turnTime = 10;
 
 
 
-export async function startGame(opts={}) {
+export async function start(opts={}) {
 
   DATA.time = 0;
   DATA.running = true;
@@ -37,12 +35,12 @@ export async function startGame(opts={}) {
   }
 
   if (opts.buildMap) {
-    game.buildMap = opts.buildMap;
+    buildMap = opts.buildMap;
   }
 
   let map = opts.map;
   if (typeof map === 'number' || !map) {
-    map = await game.getMap(map);
+    map = await getMap(map);
   }
 
   if (!map) Utils.ERROR('No map!');
@@ -51,13 +49,12 @@ export async function startGame(opts={}) {
     CONFIG.fov = true;
   }
 
-  game.startMap(map, opts.start);
-  game.queuePlayer();
+  await startMap(map, opts.start);
+  queuePlayer();
 
-  return game.loop();
+  return loop();
 }
 
-game.start = startGame;
 
 
 export function buildMap(id=0) {
@@ -76,22 +73,19 @@ export function buildMap(id=0) {
   return map;
 }
 
-game.buildMap = buildMap;
-
 
 export async function getMap(id=0) {
   let map = MAPS[id];
   if (!map) {
-    map = await game.buildMap(id);
+    map = await buildMap(id);
+    map.id = id;
     MAPS[id] = map;
   }
   return map;
 }
 
-game.getMap = getMap;
 
-
-export function startMap(map, loc='start') {
+export async function startMap(map, loc='start') {
 
   scheduler.clear();
 
@@ -135,26 +129,30 @@ export function startMap(map, loc='start') {
     VISIBILITY.update(map, DATA.player.x, DATA.player.y);
   }
 
+  if (!CONFIG.fov) {
+    VISIBILITY.revealMap(map);
+  }
+
   Light.updateLighting(map);
 
   Utils.eachChain(map.actors, (actor) => {
-    game.queueActor(actor);
+    queueActor(actor);
   });
 
   UI.blackOutDisplay();
   map.redrawAll();
   UI.draw();
 
+  await map.start();
+
   if (map.config.tick) {
-    scheduler.push( game.updateEnvironment, map.config.tick );
+    scheduler.push( updateEnvironment, map.config.tick );
   }
 }
 
-game.startMap = startMap;
 
 
-
-async function gameLoop() {
+async function loop() {
 
   UI.draw();
 
@@ -182,12 +180,12 @@ async function gameLoop() {
       else {
         if (scheduler.time > DATA.time) {
           DATA.time = scheduler.time;
-          game.debug('- update now: %d', scheduler.time);
+          GAME_DEBUG('- update now: %d', scheduler.time);
           await UI.updateIfRequested();
         }
         const turnTime = await fn();
         if (turnTime) {
-          game.debug('- push actor: %d + %d = %d', scheduler.time, turnTime, scheduler.time + turnTime);
+          GAME_DEBUG('- push actor: %d + %d = %d', scheduler.time, turnTime, scheduler.time + turnTime);
           scheduler.push(fn, turnTime);
         }
         DATA.map.resetEvents();
@@ -199,20 +197,16 @@ async function gameLoop() {
   return DATA.isWin;
 }
 
-game.loop = gameLoop;
 
-
-function queuePlayer() {
+export function queuePlayer() {
   scheduler.push(PLAYER.takeTurn, DATA.player.kind.speed);
 }
 
-game.queuePlayer = queuePlayer;
 
-function queueActor(actor) {
+export function queueActor(actor) {
   scheduler.push(ACTOR.takeTurn.bind(null, actor), actor.kind.speed);
 }
 
-game.queueActor = queueActor;
 
 // TIMERS - Do something in future game time
 
@@ -222,17 +216,14 @@ export function delay(delay, fn) {
   return scheduler.push(fn, delay);
 }
 
-game.delay = delay;
 
 export async function cancelDelay(timer) {
   return scheduler.remove(timer);
 }
 
-game.cancelDelay = cancelDelay;
-
 export async function updateEnvironment() {
 
-  game.debug('update environment');
+  GAME_DEBUG('update environment');
 
   const map = DATA.map;
   if (!map) return 0;
@@ -243,7 +234,6 @@ export async function updateEnvironment() {
   return map.config.tick;
 }
 
-game.updateEnvironment = updateEnvironment;
 
 
 SPRITE.install('hilite', COLORS.white);
@@ -268,9 +258,8 @@ export async function gameOver(isWin, ...args) {
 
 }
 
-game.gameOver = gameOver;
 
-async function useStairs(x, y) {
+export async function useStairs(x, y) {
   const player = DATA.player;
   const map = DATA.map;
   const cell = map.cell(x, y);
@@ -294,13 +283,11 @@ async function useStairs(x, y) {
     mapId = map.id - 1;
   }
 
-  game.debug('use stairs : was on: %d [%d,%d], going to: %d %s', map.id, x, y, mapId, start);
+  GAME_DEBUG('use stairs : was on: %d [%d,%d], going to: %d %s', map.id, x, y, mapId, start);
 
-  const newMap = await game.getMap(mapId);
+  const newMap = await getMap(mapId);
 
-  startMap(newMap, start);
+  await startMap(newMap, start);
 
   return true;
 }
-
-game.useStairs = useStairs;

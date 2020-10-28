@@ -84,6 +84,17 @@ describe('GW.utils', () => {
     expect(UTILS.dirIndex([-1,1])).toEqual(7);
   });
 
+  test('stepFromTo', () => {
+    const fn = jest.fn();
+    UTILS.stepFromTo([0,0], [2,4], fn);
+    expect(fn).toHaveBeenCalledWith(0,0);
+    expect(fn).toHaveBeenCalledWith(0,1);
+    expect(fn).toHaveBeenCalledWith(1,2);
+    expect(fn).toHaveBeenCalledWith(1,3);
+    expect(fn).toHaveBeenCalledWith(2,4);
+    expect(fn).toHaveBeenCalledTimes(5);
+  });
+
   test('assignOmitting', () => {
     const dest = {};
     UTILS.assignOmitting(['a', 'b', 'c'], dest, { a: 1, b: 2, c: 3, d: 4, e: 5 });

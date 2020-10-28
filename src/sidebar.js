@@ -22,6 +22,7 @@ sidebar.debug = Utils.NOOP;
 
 const blueBar = COLOR.install('blueBar', 	15,		10,		50);
 const redBar = 	COLOR.install('redBar', 	45,		10,		15);
+const purpleBar = COLOR.install('purpleBar', 	50,		0,		50);
 
 
 export function setup(opts={}) {
@@ -89,7 +90,7 @@ function refreshSidebar(map) {
 		else if (cell.isAnyKindOfVisible()) {
 			entries.push({ map, x, y, dist: 0, priority: 2, draw: sidebar.addActor, entity: actor, changed });
 		}
-		else if (cell.isRevealed(true) && actor.kind.alwaysVisible(actor))
+		else if (cell.isRevealed(true) && actor.kind.alwaysVisible(actor) && GW.viewport.hasXY(x, y))
 		{
 			entries.push({ map, x, y, dist: 0, priority: 3, draw: sidebar.addActor, entity: actor, changed, dim: true });
 		}
@@ -122,7 +123,7 @@ function refreshSidebar(map) {
 		else if (cell.isAnyKindOfVisible()) {
 			entries.push({ map, x: x, y: y, dist: 0, priority: 2, draw: sidebar.addItem, entity: item, changed });
 		}
-		else if (cell.isRevealed())
+		else if (cell.isRevealed() && GW.viewport.hasXY(x, y))
 		{
 			entries.push({ map, x: x, y: y, dist: 0, priority: 3, draw: sidebar.addItem, entity: item, changed, dim: true });
 		}
@@ -131,7 +132,7 @@ function refreshSidebar(map) {
 
 	// Get tiles
 	map.forEach( (cell, i, j) => {
-		if (!(cell.isRevealed(true) || cell.isAnyKindOfVisible())) return;
+		if (!(cell.isRevealed(true) || cell.isAnyKindOfVisible()) || !GW.viewport.hasXY(i, j)) return;
 		// if (cell.flags & (Flags.Cell.HAS_PLAYER | Flags.Cell.HAS_MONSTER | Flags.Cell.HAS_ITEM)) return;
 		if (doneCells[i][j]) return;
 		doneCells[i][j] = 1;
@@ -588,6 +589,30 @@ sidebar.addHealthBar = addHealthBar;
 
 
 function addManaBar(entry, y, dim, highlight, buf) {
+  if (y >= SIDE_BOUNDS.height - 1) {
+    return SIDE_BOUNDS.height - 1;
+  }
+
+  const map = entry.map;
+  const actor = entry.entity;
+
+  if (actor.max.mana > 1)
+  {
+    let barColor = COLORS.purpleBar;
+		if (actor === DATA.player) {
+			barColor = COLORS.redBar.clone();
+			COLOR.applyAverage(barColor, COLORS.purpleBar, Math.min(100, 100 * actor.current.mana / actor.max.mana));
+		}
+
+    let text = 'Mana';
+		// const percent = actor.statChangePercent('health');
+		if (actor.current.mana <= 0) {
+				text = "None";
+		// } else if (percent != 0) {
+		// 		text = TEXT.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
+		}
+		y = sidebar.addProgressBar(y, buf, text, actor.current.mana, actor.max.mana, barColor, dim);
+	}
 	return y;
 }
 

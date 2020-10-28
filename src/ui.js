@@ -392,9 +392,12 @@ export async function prompt(...args) {
 }
 
 
-export async function fadeTo(color, duration) {
+export async function fadeTo(color, duration=1000, src) {
 
-  const buffer = ui.startDialog();
+  src = src || UI_BASE;
+  color = GW.color.from(color);
+
+  const buffer = ui.canvas.allocBuffer();
 
   let pct = 0;
   let elapsed = 0;
@@ -407,15 +410,16 @@ export async function fadeTo(color, duration) {
 
     pct = Math.floor(100*elapsed/duration);
 
-    ui.clearDialog();
+    buffer.copy(src);
     buffer.forEach( (c, x, y) => {
       COLOR.applyMix(c.fg, color, pct);
       COLOR.applyMix(c.bg, color, pct);
     });
-    ui.draw();
+    ui.canvas.overlay(buffer);
+    ui.canvas.draw();
   }
 
-  ui.finishDialog();
+  ui.canvas.freeBuffer(buffer);
 
 }
 

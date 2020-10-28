@@ -1,6 +1,6 @@
 
 import { colors as COLORS } from './color.js';
-import { game as GAME } from './game.js';
+import * as Game from './game.js';
 import { text as TEXT } from './text.js';
 import * as Flags from './flags.js';
 import * as Utils from './utils.js';
@@ -115,7 +115,7 @@ export class Tile {
     if (this.flags & Flags.Tile.T_LAVA && actor) {
       if (!cell.hasTileFlag(Flags.Tile.T_BRIDGE) && !actor.status.levitating) {
         actor.kind.kill(actor);
-        await GAME.gameOver(false, COLORS.red, 'you fall into lava and perish.');
+        await Game.gameOver(false, COLORS.red, 'you fall into lava and perish.');
         return true;
       }
     }

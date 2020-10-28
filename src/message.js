@@ -5,7 +5,7 @@ import { text as TEXT } from './text.js';
 import { make, types, data as DATA, message, ui as UI } from './gw.js';
 
 
-var SETUP = null;
+var MSG_BOUNDS = null;
 
 // messages
 const ARCHIVE = [];
@@ -31,7 +31,7 @@ function setup(opts) {
     DISPLAYED[i] = null;
   }
 
-  SETUP = message.bounds = new types.Bounds(opts.x, opts.y, opts.w || opts.width, opts.h || opts.height);
+  MSG_BOUNDS = message.bounds = new types.Bounds(opts.x, opts.y, opts.w || opts.width, opts.h || opts.height);
   ARCHIVE_LINES = opts.archive || 0;
   if (!ARCHIVE_LINES) {
     if (UI.canvas) {
@@ -66,8 +66,24 @@ function moveBlocked(ctx) {
 message.moveBlocked = moveBlocked;
 
 
+function addLines(data) {
+  if (MSG_BOUNDS.y > 0) {
+    // bottom (add backwards)
+    for(let i = data.length - 1; i >= 0; --i) {
+      message.add(data[i]);
+    }
+  }
+  else {
+    // top (add forwards)
+    data.forEach((line) => message.add(line));
+  }
+}
+
+message.addLines = addLines;
+
 function add(...args) {
   if (args.length == 0) return;
+  if (args.length == 1 && Array.isArray(args[0])) { args = args[0]; }
   let msg = args[0];
   if (args.length > 1) {
     msg = TEXT.format(...args);
@@ -103,37 +119,37 @@ function drawMessages(buffer) {
 	const tempColor = make.color();
 	let messageColor;
 
-  if (!NEEDS_UPDATE || !SETUP) return false;
+  if (!NEEDS_UPDATE || !MSG_BOUNDS) return false;
 
   commitCombatMessage();
 
-  const isOnTop = (SETUP.y < 10);
+  const isOnTop = (MSG_BOUNDS.y < 10);
 
-	for (i=0; i < SETUP.height; i++) {
+	for (i=0; i < MSG_BOUNDS.height; i++) {
 		messageColor = tempColor;
 		messageColor.copy(COLORS.white);
 
 		if (CONFIRMED[i]) {
 			COLOR.applyMix(messageColor, COLORS.black, 50);
-			COLOR.applyMix(messageColor, COLORS.black, 75 * i / (2*SETUP.height));
+			COLOR.applyMix(messageColor, COLORS.black, 75 * i / (2*MSG_BOUNDS.height));
 		}
 
-    const localY = isOnTop ? (SETUP.height - i - 1) : i;
-    const y = SETUP.toOuterY(localY);
+    const localY = isOnTop ? (MSG_BOUNDS.height - i - 1) : i;
+    const y = MSG_BOUNDS.toOuterY(localY);
 
 		TEXT.eachChar( DISPLAYED[i], (c, color, j) => {
-			const x = SETUP.toOuterX(j);
+			const x = MSG_BOUNDS.toOuterX(j);
 
 			if (color && (messageColor !== color) && CONFIRMED[i]) {
 				COLOR.applyMix(color, COLORS.black, 50);
-				COLOR.applyMix(color, COLORS.black, 75 * i / (2*SETUP.height));
+				COLOR.applyMix(color, COLORS.black, 75 * i / (2*MSG_BOUNDS.height));
 			}
 			messageColor = color || tempColor;
 			buffer.plotChar(x, y, c, messageColor, COLORS.black);
 		});
 
-		for (let j = TEXT.length(DISPLAYED[i]); j < SETUP.width; j++) {
-			const x = SETUP.toOuterX(j);
+		for (let j = TEXT.length(DISPLAYED[i]); j < MSG_BOUNDS.width; j++) {
+			const x = MSG_BOUNDS.toOuterX(j);
 			buffer.plotChar(x, y, ' ', COLORS.black, COLORS.black);
 		}
 	}
@@ -172,7 +188,7 @@ function addMessage(msg) {
 
 	msg = TEXT.capitalize(msg);
 
-  if (!SETUP) {
+  if (!MSG_BOUNDS) {
     console.log(msg);
     return;
   }
@@ -189,9 +205,9 @@ function addMessage(msg) {
   //     }
   // }
 
-	const lines = TEXT.splitIntoLines(msg, SETUP.width);
+	const lines = TEXT.splitIntoLines(msg, MSG_BOUNDS.width);
 
-  if (SETUP.y < 10) {  // On top of UI
+  if (MSG_BOUNDS.y < 10) {  // On top of UI
     lines.forEach( (l) => addMessageLine(l) );
   }
   else {  // On bottom of UI (add in reverse)
@@ -245,23 +261,23 @@ async function showArchive() {
 	let i, j, k, reverse, fadePercent, totalMessageCount, currentMessageCount;
 	let fastForward;
 
-  if (!SETUP) return;
+  if (!MSG_BOUNDS) return;
 
 	// Count the number of lines in the archive.
 	for (totalMessageCount=0;
 		 totalMessageCount < ARCHIVE_LINES && ARCHIVE[totalMessageCount];
 		 totalMessageCount++);
 
-	if (totalMessageCount <= SETUP.height) return;
+	if (totalMessageCount <= MSG_BOUNDS.height) return;
 
-  const isOnTop = (SETUP.y < 10);
+  const isOnTop = (MSG_BOUNDS.y < 10);
 	const dbuf = UI.startDialog();
 
 	// Pull-down/pull-up animation:
 	for (reverse = 0; reverse <= 1; reverse++) {
 		fastForward = false;
-		for (currentMessageCount = (reverse ? totalMessageCount : SETUP.height);
-			 (reverse ? currentMessageCount >= SETUP.height : currentMessageCount <= totalMessageCount);
+		for (currentMessageCount = (reverse ? totalMessageCount : MSG_BOUNDS.height);
+			 (reverse ? currentMessageCount >= MSG_BOUNDS.height : currentMessageCount <= totalMessageCount);
 			 currentMessageCount += (reverse ? -1 : 1))
 	  {
 			UI.clearDialog();
@@ -271,14 +287,14 @@ async function showArchive() {
 				const pos = (CURRENT_ARCHIVE_POS - currentMessageCount + ARCHIVE_LINES + j) % ARCHIVE_LINES;
         const y = isOnTop ? j : dbuf.height - j - 1;
 
-				dbuf.plotLine(SETUP.toOuterX(0), y, SETUP.width, ARCHIVE[pos], COLORS.white, COLORS.black);
+				dbuf.plotLine(MSG_BOUNDS.toOuterX(0), y, MSG_BOUNDS.width, ARCHIVE[pos], COLORS.white, COLORS.black);
 			}
 
 			// Set the dbuf opacity, and do a fade from bottom to top to make it clear that the bottom messages are the most recent.
 			for (j=0; j < currentMessageCount && j < dbuf.height; j++) {
 				fadePercent = 40 * (j + totalMessageCount - currentMessageCount) / totalMessageCount + 60;
-				for (i=0; i<SETUP.width; i++) {
-					const x = SETUP.toOuterX(i);
+				for (i=0; i<MSG_BOUNDS.width; i++) {
+					const x = MSG_BOUNDS.toOuterX(i);
 
           const y = isOnTop ? j : dbuf.height - j - 1;
 					dbuf[x][y].opacity = INTERFACE_OPACITY;
@@ -295,14 +311,14 @@ async function showArchive() {
 			if (!fastForward && await IO.pause(reverse ? 15 : 45)) {
 				fastForward = true;
 				// dequeueEvent();
-				currentMessageCount = (reverse ? SETUP.height + 1 : totalMessageCount - 1); // skip to the end
+				currentMessageCount = (reverse ? MSG_BOUNDS.height + 1 : totalMessageCount - 1); // skip to the end
 			}
 		}
 
 		if (!reverse) {
     	if (!DATA.autoPlayingLevel) {
         const y = isOnTop ? 0 : dbuf.height - 1;
-        dbuf.plotText(SETUP.toOuterX(-8), y, "--DONE--", COLORS.black, COLORS.white);
+        dbuf.plotText(MSG_BOUNDS.toOuterX(-8), y, "--DONE--", COLORS.black, COLORS.white);
       	UI.draw();
       	await IO.waitForAck();
     	}

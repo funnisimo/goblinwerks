@@ -109,6 +109,10 @@ export class Random {
 
 
   lottery(weights) {
+    return this.weighted(weights);
+  }
+
+  weighted(weights) {
     if (Array.isArray(weights)) {
       return lotteryDrawArray(this, weights);
     }

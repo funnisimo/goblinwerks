@@ -90,6 +90,9 @@
         && this.y + this.height > y;
     }
 
+    get right() { return this.x + this.width - 1; }
+    get bottom() { return this.y + this.height -1; }
+
     centerX() { return Math.round(this.width / 2) + this.x; }
     centerY() { return Math.round(this.height / 2) + this.y; }
 
@@ -146,6 +149,17 @@
     return (dest.x == x(src))
     && (dest.y == y(src));
   }
+
+  function lerpXY(a, b, pct) {
+  	if (pct > 1) { pct = pct / 100; }
+    pct = clamp(pct, 0, 1);
+    const dx = x(b) - x(a);
+    const dy = y(b) - y(a);
+    const x2 = x(a) + Math.floor(dx * pct);
+    const y2 = y(a) + Math.floor(dy * pct);
+    return [x2, y2];
+  }
+
 
   function distanceBetween(x1, y1, x2, y2) {
     const x = Math.abs(x1 - x2);
@@ -209,6 +223,23 @@
       result.push( [0, dir[1]] );
     }
     return result;
+  }
+
+  function stepFromTo(a, b, fn) {
+    const diff = [x(b) - x(a), y(b) - y(a)];
+    const steps = Math.abs(diff[0]) + Math.abs(diff[1]);
+    const c = [0, 0];
+    const last = [99999, 99999];
+
+    for(let step = 0; step <= steps; ++step) {
+      c[0] = a[0] + Math.floor(diff[0] * step / steps);
+      c[1] = a[1] + Math.floor(diff[1] * step / steps);
+      if (c[0] != last[0] || c[1] != last[1]) {
+        fn(c[0], c[1]);
+      }
+      last[0] = c[0];
+      last[1] = c[1];
+    }
   }
 
 
@@ -386,6 +417,7 @@
     copyXY: copyXY,
     addXY: addXY,
     equalsXY: equalsXY,
+    lerpXY: lerpXY,
     distanceBetween: distanceBetween,
     distanceFromTo: distanceFromTo,
     calcRadius: calcRadius,
@@ -395,6 +427,7 @@
     isOppositeDir: isOppositeDir,
     isSameDir: isSameDir,
     dirSpread: dirSpread,
+    stepFromTo: stepFromTo,
     extend: extend,
     cloneObject: cloneObject,
     copyObject: copyObject,
@@ -1001,6 +1034,10 @@
 
 
     lottery(weights) {
+      return this.weighted(weights);
+    }
+
+    weighted(weights) {
       if (Array.isArray(weights)) {
         return lotteryDrawArray(this, weights);
       }
@@ -3382,9 +3419,9 @@
         window.addEventListener('resize', handleResizeEvent.bind(this));
         handleResizeEvent.call(this);
 
-        setFont(this, this.tileSize);
+        this.font = opts.font;
+        setFont(this, this.tileSize, this.font);
       }
-
 
     }
 
@@ -5697,7 +5734,10 @@
 
     setTile(tileId=0, volume=0) {
       let tile;
-      if (typeof tileId === 'string') {
+      if (tileId === 0) {
+        tile = tiles['0'];
+      }
+      else if (typeof tileId === 'string') {
         tile = tiles[tileId];
       }
       else if (tileId instanceof types.Tile) {
@@ -5710,7 +5750,7 @@
 
       if (!tile) {
         WARN('Unknown tile - ' + tileId);
-        tile = tiles[0];
+        tile = tiles['0'];
         tileId = 0;
       }
 
@@ -5970,7 +6010,10 @@
   			this.ambientLight = make.color(ambient);
   		}
       this.lights = null;
+      this.id = opts.id;
   	}
+
+    async start() {}
 
   	nullify() { this.cells.forEach( (c) => c.nullify() ); }
   	dump(fmt) { this.cells.dump(fmt || ((c) => c.dump()) ); }
@@ -7328,16 +7371,15 @@
 
 
   function visibilityInitMap(map) {
-    if (config.fov) {
-      map.clearFlags(0, Cell.IS_WAS_ANY_KIND_OF_VISIBLE);
-    }
+    if (!config.fov) return;
+
+    map.clearFlags(0, Cell.IS_WAS_ANY_KIND_OF_VISIBLE);
   }
 
   visibility.initMap = visibilityInitMap;
 
 
   function updateVisibility(map, x, y) {
-
     if (!config.fov) return;
 
     map.forEach( demoteCellVisibility );
@@ -7385,6 +7427,12 @@
   }
 
   visibility.update = updateVisibility;
+
+  function revealMap(map) {
+    map.forEach( (cell) => cell.flags |= Cell.REVEALED );
+  }
+
+  visibility.revealMap = revealMap;
 
   var actions = {};
 
@@ -7944,9 +7992,7 @@
 
   const scheduler = new Scheduler();
 
-  var game = {};
-
-  game.debug = NOOP;
+  const GAME_DEBUG = NOOP;
 
   data.time = 0;
   data.running = false;
@@ -7954,7 +8000,7 @@
 
 
 
-  async function startGame(opts={}) {
+  async function start(opts={}) {
 
     data.time = 0;
     data.running = true;
@@ -7966,12 +8012,12 @@
     }
 
     if (opts.buildMap) {
-      game.buildMap = opts.buildMap;
+      buildMap = opts.buildMap;
     }
 
     let map = opts.map;
     if (typeof map === 'number' || !map) {
-      map = await game.getMap(map);
+      map = await getMap(map);
     }
 
     if (!map) ERROR('No map!');
@@ -7980,13 +8026,12 @@
       config.fov = true;
     }
 
-    game.startMap(map, opts.start);
-    game.queuePlayer();
+    await startMap(map, opts.start);
+    queuePlayer();
 
-    return game.loop();
+    return loop();
   }
 
-  game.start = startGame;
 
 
   function buildMap(id=0) {
@@ -8005,22 +8050,19 @@
     return map;
   }
 
-  game.buildMap = buildMap;
-
 
   async function getMap(id=0) {
     let map = maps[id];
     if (!map) {
-      map = await game.buildMap(id);
+      map = await buildMap(id);
+      map.id = id;
       maps[id] = map;
     }
     return map;
   }
 
-  game.getMap = getMap;
 
-
-  function startMap(map, loc='start') {
+  async function startMap(map, loc='start') {
 
     scheduler.clear();
 
@@ -8064,26 +8106,30 @@
       visibility.update(map, data.player.x, data.player.y);
     }
 
+    if (!config.fov) {
+      visibility.revealMap(map);
+    }
+
     updateLighting(map);
 
     eachChain(map.actors, (actor) => {
-      game.queueActor(actor);
+      queueActor(actor);
     });
 
     ui.blackOutDisplay();
     map.redrawAll();
     ui.draw();
 
+    await map.start();
+
     if (map.config.tick) {
-      scheduler.push( game.updateEnvironment, map.config.tick );
+      scheduler.push( updateEnvironment, map.config.tick );
     }
   }
 
-  game.startMap = startMap;
 
 
-
-  async function gameLoop() {
+  async function loop() {
 
     ui.draw();
 
@@ -8111,12 +8157,10 @@
         else {
           if (scheduler.time > data.time) {
             data.time = scheduler.time;
-            game.debug('- update now: %d', scheduler.time);
             await ui.updateIfRequested();
           }
           const turnTime = await fn();
           if (turnTime) {
-            game.debug('- push actor: %d + %d = %d', scheduler.time, turnTime, scheduler.time + turnTime);
             scheduler.push(fn, turnTime);
           }
           data.map.resetEvents();
@@ -8128,36 +8172,26 @@
     return data.isWin;
   }
 
-  game.loop = gameLoop;
-
 
   function queuePlayer() {
     scheduler.push(player.takeTurn, data.player.kind.speed);
   }
 
-  game.queuePlayer = queuePlayer;
 
   function queueActor(actor$1) {
     scheduler.push(actor.takeTurn.bind(null, actor$1), actor$1.kind.speed);
   }
 
-  game.queueActor = queueActor;
-
   function delay(delay, fn) {
     return scheduler.push(fn, delay);
   }
 
-  game.delay = delay;
 
   async function cancelDelay(timer) {
     return scheduler.remove(timer);
   }
 
-  game.cancelDelay = cancelDelay;
-
   async function updateEnvironment() {
-
-    game.debug('update environment');
 
     const map = data.map;
     if (!map) return 0;
@@ -8168,7 +8202,6 @@
     return map.config.tick;
   }
 
-  game.updateEnvironment = updateEnvironment;
 
 
   sprite.install('hilite', colors.white);
@@ -8193,7 +8226,6 @@
 
   }
 
-  game.gameOver = gameOver;
 
   async function useStairs(x, y) {
     const player = data.player;
@@ -8219,16 +8251,29 @@
       mapId = map.id - 1;
     }
 
-    game.debug('use stairs : was on: %d [%d,%d], going to: %d %s', map.id, x, y, mapId, start);
+    GAME_DEBUG('use stairs : was on: %d [%d,%d], going to: %d %s', map.id);
 
-    const newMap = await game.getMap(mapId);
+    const newMap = await getMap(mapId);
 
-    startMap(newMap, start);
+    await startMap(newMap, start);
 
     return true;
   }
 
-  game.useStairs = useStairs;
+  var game = /*#__PURE__*/Object.freeze({
+    __proto__: null,
+    start: start,
+    get buildMap () { return buildMap; },
+    getMap: getMap,
+    startMap: startMap,
+    queuePlayer: queuePlayer,
+    queueActor: queueActor,
+    delay: delay,
+    cancelDelay: cancelDelay,
+    updateEnvironment: updateEnvironment,
+    gameOver: gameOver,
+    useStairs: useStairs
+  });
 
   var tile = {};
 
@@ -8339,7 +8384,7 @@
       if (this.flags & Tile.T_LAVA && actor) {
         if (!cell.hasTileFlag(Tile.T_BRIDGE) && !actor.status.levitating) {
           actor.kind.kill(actor);
-          await game.gameOver(false, colors.red, 'you fall into lava and perish.');
+          await gameOver(false, colors.red, 'you fall into lava and perish.');
           return true;
         }
       }
@@ -8404,7 +8449,7 @@
   let LOCS;
 
 
-  function start(map, opts={}) {
+  function start$1(map, opts={}) {
 
     LOCS = sequence(map.width * map.height);
     random.shuffle(LOCS);
@@ -8418,7 +8463,7 @@
     SITE = map;
   }
 
-  dungeon.start = start;
+  dungeon.start = start$1;
 
 
   function finish() {
@@ -10259,7 +10304,7 @@
 
   item.bump = bump$1;
 
-  var SETUP = null;
+  var MSG_BOUNDS = null;
 
   // messages
   const ARCHIVE = [];
@@ -10285,7 +10330,7 @@
       DISPLAYED[i] = null;
     }
 
-    SETUP = message.bounds = new types.Bounds(opts.x, opts.y, opts.w || opts.width, opts.h || opts.height);
+    MSG_BOUNDS = message.bounds = new types.Bounds(opts.x, opts.y, opts.w || opts.width, opts.h || opts.height);
     ARCHIVE_LINES = opts.archive || 0;
     if (!ARCHIVE_LINES) {
       if (ui.canvas) {
@@ -10320,8 +10365,24 @@
   message.moveBlocked = moveBlocked;
 
 
+  function addLines(data) {
+    if (MSG_BOUNDS.y > 0) {
+      // bottom (add backwards)
+      for(let i = data.length - 1; i >= 0; --i) {
+        message.add(data[i]);
+      }
+    }
+    else {
+      // top (add forwards)
+      data.forEach((line) => message.add(line));
+    }
+  }
+
+  message.addLines = addLines;
+
   function add(...args) {
     if (args.length == 0) return;
+    if (args.length == 1 && Array.isArray(args[0])) { args = args[0]; }
     let msg = args[0];
     if (args.length > 1) {
       msg = text.format(...args);
@@ -10357,37 +10418,37 @@
   	const tempColor = make.color();
   	let messageColor;
 
-    if (!NEEDS_UPDATE || !SETUP) return false;
+    if (!NEEDS_UPDATE || !MSG_BOUNDS) return false;
 
     commitCombatMessage();
 
-    const isOnTop = (SETUP.y < 10);
+    const isOnTop = (MSG_BOUNDS.y < 10);
 
-  	for (i=0; i < SETUP.height; i++) {
+  	for (i=0; i < MSG_BOUNDS.height; i++) {
   		messageColor = tempColor;
   		messageColor.copy(colors.white);
 
   		if (CONFIRMED[i]) {
   			color.applyMix(messageColor, colors.black, 50);
-  			color.applyMix(messageColor, colors.black, 75 * i / (2*SETUP.height));
+  			color.applyMix(messageColor, colors.black, 75 * i / (2*MSG_BOUNDS.height));
   		}
 
-      const localY = isOnTop ? (SETUP.height - i - 1) : i;
-      const y = SETUP.toOuterY(localY);
+      const localY = isOnTop ? (MSG_BOUNDS.height - i - 1) : i;
+      const y = MSG_BOUNDS.toOuterY(localY);
 
   		text.eachChar( DISPLAYED[i], (c, color$1, j) => {
-  			const x = SETUP.toOuterX(j);
+  			const x = MSG_BOUNDS.toOuterX(j);
 
   			if (color$1 && (messageColor !== color$1) && CONFIRMED[i]) {
   				color.applyMix(color$1, colors.black, 50);
-  				color.applyMix(color$1, colors.black, 75 * i / (2*SETUP.height));
+  				color.applyMix(color$1, colors.black, 75 * i / (2*MSG_BOUNDS.height));
   			}
   			messageColor = color$1 || tempColor;
   			buffer.plotChar(x, y, c, messageColor, colors.black);
   		});
 
-  		for (let j = text.length(DISPLAYED[i]); j < SETUP.width; j++) {
-  			const x = SETUP.toOuterX(j);
+  		for (let j = text.length(DISPLAYED[i]); j < MSG_BOUNDS.width; j++) {
+  			const x = MSG_BOUNDS.toOuterX(j);
   			buffer.plotChar(x, y, ' ', colors.black, colors.black);
   		}
   	}
@@ -10426,7 +10487,7 @@
 
   	msg = text.capitalize(msg);
 
-    if (!SETUP) {
+    if (!MSG_BOUNDS) {
       console.log(msg);
       return;
     }
@@ -10443,9 +10504,9 @@
     //     }
     // }
 
-  	const lines = text.splitIntoLines(msg, SETUP.width);
+  	const lines = text.splitIntoLines(msg, MSG_BOUNDS.width);
 
-    if (SETUP.y < 10) {  // On top of UI
+    if (MSG_BOUNDS.y < 10) {  // On top of UI
       lines.forEach( (l) => addMessageLine(l) );
     }
     else {  // On bottom of UI (add in reverse)
@@ -10498,23 +10559,23 @@
   	let i, j, k, reverse, fadePercent, totalMessageCount, currentMessageCount;
   	let fastForward;
 
-    if (!SETUP) return;
+    if (!MSG_BOUNDS) return;
 
   	// Count the number of lines in the archive.
   	for (totalMessageCount=0;
   		 totalMessageCount < ARCHIVE_LINES && ARCHIVE[totalMessageCount];
   		 totalMessageCount++);
 
-  	if (totalMessageCount <= SETUP.height) return;
+  	if (totalMessageCount <= MSG_BOUNDS.height) return;
 
-    const isOnTop = (SETUP.y < 10);
+    const isOnTop = (MSG_BOUNDS.y < 10);
   	const dbuf = ui.startDialog();
 
   	// Pull-down/pull-up animation:
   	for (reverse = 0; reverse <= 1; reverse++) {
   		fastForward = false;
-  		for (currentMessageCount = (reverse ? totalMessageCount : SETUP.height);
-  			 (reverse ? currentMessageCount >= SETUP.height : currentMessageCount <= totalMessageCount);
+  		for (currentMessageCount = (reverse ? totalMessageCount : MSG_BOUNDS.height);
+  			 (reverse ? currentMessageCount >= MSG_BOUNDS.height : currentMessageCount <= totalMessageCount);
   			 currentMessageCount += (reverse ? -1 : 1))
   	  {
   			ui.clearDialog();
@@ -10524,14 +10585,14 @@
   				const pos = (CURRENT_ARCHIVE_POS - currentMessageCount + ARCHIVE_LINES + j) % ARCHIVE_LINES;
           const y = isOnTop ? j : dbuf.height - j - 1;
 
-  				dbuf.plotLine(SETUP.toOuterX(0), y, SETUP.width, ARCHIVE[pos], colors.white, colors.black);
+  				dbuf.plotLine(MSG_BOUNDS.toOuterX(0), y, MSG_BOUNDS.width, ARCHIVE[pos], colors.white, colors.black);
   			}
 
   			// Set the dbuf opacity, and do a fade from bottom to top to make it clear that the bottom messages are the most recent.
   			for (j=0; j < currentMessageCount && j < dbuf.height; j++) {
   				fadePercent = 40 * (j + totalMessageCount - currentMessageCount) / totalMessageCount + 60;
-  				for (i=0; i<SETUP.width; i++) {
-  					const x = SETUP.toOuterX(i);
+  				for (i=0; i<MSG_BOUNDS.width; i++) {
+  					const x = MSG_BOUNDS.toOuterX(i);
 
             const y = isOnTop ? j : dbuf.height - j - 1;
   					dbuf[x][y].opacity = INTERFACE_OPACITY;
@@ -10548,14 +10609,14 @@
   			if (!fastForward && await io.pause(reverse ? 15 : 45)) {
   				fastForward = true;
   				// dequeueEvent();
-  				currentMessageCount = (reverse ? SETUP.height + 1 : totalMessageCount - 1); // skip to the end
+  				currentMessageCount = (reverse ? MSG_BOUNDS.height + 1 : totalMessageCount - 1); // skip to the end
   			}
   		}
 
   		if (!reverse) {
       	if (!data.autoPlayingLevel) {
           const y = isOnTop ? 0 : dbuf.height - 1;
-          dbuf.plotText(SETUP.toOuterX(-8), y, "--DONE--", colors.black, colors.white);
+          dbuf.plotText(MSG_BOUNDS.toOuterX(-8), y, "--DONE--", colors.black, colors.white);
         	ui.draw();
         	await io.waitForAck();
       	}
@@ -10624,8 +10685,19 @@
 
   }
 
-
   viewport.draw = drawViewport;
+
+  function hasXY(x, y) {
+    let offsetX = 0;
+    let offsetY = 0;
+    if (config.followPlayer && data.player && data.player.x >= 0) {
+      offsetX = data.player.x - VIEWPORT.centerX();
+      offsetY = data.player.y - VIEWPORT.centerY();
+    }
+    return VIEWPORT.containsXY(x - offsetX + VIEWPORT.x, y - offsetY + VIEWPORT.y);
+  }
+
+  viewport.hasXY = hasXY;
 
   // Sidebar
 
@@ -10641,6 +10713,7 @@
 
   const blueBar = color.install('blueBar', 	15,		10,		50);
   const redBar = 	color.install('redBar', 	45,		10,		15);
+  const purpleBar = color.install('purpleBar', 	50,		0,		50);
 
 
   function setup$2(opts={}) {
@@ -10708,7 +10781,7 @@
   		else if (cell.isAnyKindOfVisible()) {
   			entries.push({ map, x, y, dist: 0, priority: 2, draw: sidebar$1.addActor, entity: actor, changed });
   		}
-  		else if (cell.isRevealed(true) && actor.kind.alwaysVisible(actor))
+  		else if (cell.isRevealed(true) && actor.kind.alwaysVisible(actor) && viewport.hasXY(x, y))
   		{
   			entries.push({ map, x, y, dist: 0, priority: 3, draw: sidebar$1.addActor, entity: actor, changed, dim: true });
   		}
@@ -10741,7 +10814,7 @@
   		else if (cell.isAnyKindOfVisible()) {
   			entries.push({ map, x: x, y: y, dist: 0, priority: 2, draw: sidebar$1.addItem, entity: item, changed });
   		}
-  		else if (cell.isRevealed())
+  		else if (cell.isRevealed() && viewport.hasXY(x, y))
   		{
   			entries.push({ map, x: x, y: y, dist: 0, priority: 3, draw: sidebar$1.addItem, entity: item, changed, dim: true });
   		}
@@ -10750,7 +10823,7 @@
 
   	// Get tiles
   	map.forEach( (cell, i, j) => {
-  		if (!(cell.isRevealed(true) || cell.isAnyKindOfVisible())) return;
+  		if (!(cell.isRevealed(true) || cell.isAnyKindOfVisible()) || !viewport.hasXY(i, j)) return;
   		// if (cell.flags & (Flags.Cell.HAS_PLAYER | Flags.Cell.HAS_MONSTER | Flags.Cell.HAS_ITEM)) return;
   		if (doneCells[i][j]) return;
   		doneCells[i][j] = 1;
@@ -11204,6 +11277,30 @@
 
 
   function addManaBar(entry, y, dim, highlight, buf) {
+    if (y >= SIDE_BOUNDS.height - 1) {
+      return SIDE_BOUNDS.height - 1;
+    }
+
+    const map = entry.map;
+    const actor = entry.entity;
+
+    if (actor.max.mana > 1)
+    {
+      let barColor = colors.purpleBar;
+  		if (actor === DATA.player) {
+  			barColor = colors.redBar.clone();
+  			color.applyAverage(barColor, colors.purpleBar, Math.min(100, 100 * actor.current.mana / actor.max.mana));
+  		}
+
+      let text = 'Mana';
+  		// const percent = actor.statChangePercent('health');
+  		if (actor.current.mana <= 0) {
+  				text = "None";
+  		// } else if (percent != 0) {
+  		// 		text = TEXT.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
+  		}
+  		y = sidebar$1.addProgressBar(y, buf, text, actor.current.mana, actor.max.mana, barColor, dim);
+  	}
   	return y;
   }
 
@@ -11568,7 +11665,7 @@
   }
 
 
-  function start$1(opts={}) {
+  function start$2(opts={}) {
 
     setDefaults(opts, {
       width: 100,
@@ -11676,7 +11773,7 @@
     return ui.canvas;
   }
 
-  ui.start = start$1;
+  ui.start = start$2;
 
 
   function stop() {
@@ -11900,9 +11997,12 @@
   ui.clearCursor = clearCursor;
 
 
-  async function fadeTo(color$1, duration) {
+  async function fadeTo(color$1, duration=1000, src) {
 
-    const buffer = ui.startDialog();
+    src = src || UI_BASE;
+    color$1 = GW.color.from(color$1);
+
+    const buffer = ui.canvas.allocBuffer();
 
     let pct = 0;
     let elapsed = 0;
@@ -11915,15 +12015,16 @@
 
       pct = Math.floor(100*elapsed/duration);
 
-      ui.clearDialog();
+      buffer.copy(src);
       buffer.forEach( (c, x, y) => {
         color.applyMix(c.fg, color$1, pct);
         color.applyMix(c.bg, color$1, pct);
       });
-      ui.draw();
+      ui.canvas.overlay(buffer);
+      ui.canvas.draw();
     }
 
-    ui.finishDialog();
+    ui.canvas.freeBuffer(buffer);
 
   }
 
@@ -12276,7 +12377,7 @@
 
     if (cell.hasTileFlag(Tile.T_HAS_STAIRS) && isPlayer) {
       console.log('Use stairs!');
-      await GAME.useStairs(newX, newY);
+      await useStairs(newX, newY);
     }
 
     // auto pickup any items
@@ -12796,13 +12897,13 @@
   addTileKind('UP_STAIRS',   {
     sprite: { ch: '<', fg: [100,40,40], bg: [100,60,20] },
     priority: 200,
-    flags: 'T_UP_STAIRS, T_STAIR_BLOCKERS, TM_VISUALLY_DISTINCT',
+    flags: 'T_UP_STAIRS, T_STAIR_BLOCKERS, TM_VISUALLY_DISTINCT, TM_LIST_IN_SIDEBAR',
     name: 'upward staircase', article: 'an'
   });
   addTileKind('DOWN_STAIRS', {
     sprite: { ch: '>', fg: [100,40,40], bg: [100,60,20] },
     priority: 200,
-    flags: 'T_DOWN_STAIRS, T_STAIR_BLOCKERS, TM_VISUALLY_DISTINCT',
+    flags: 'T_DOWN_STAIRS, T_STAIR_BLOCKERS, TM_VISUALLY_DISTINCT, TM_LIST_IN_SIDEBAR',
     name: 'downward staircase', article: 'a'
   });
 

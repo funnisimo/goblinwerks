@@ -344,7 +344,10 @@ class Cell {
 
   setTile(tileId=0, volume=0) {
     let tile;
-    if (typeof tileId === 'string') {
+    if (tileId === 0) {
+      tile = TILES['0'];
+    }
+    else if (typeof tileId === 'string') {
       tile = TILES[tileId];
     }
     else if (tileId instanceof types.Tile) {
@@ -357,7 +360,7 @@ class Cell {
 
     if (!tile) {
       Utils.WARN('Unknown tile - ' + tileId);
-      tile = TILES[0];
+      tile = TILES['0'];
       tileId = 0;
     }
 

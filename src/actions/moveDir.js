@@ -3,6 +3,7 @@ import * as Flags from '../flags.js';
 import * as Utils from '../utils.js';
 import * as Actor from '../actor.js';
 import * as Item from '../item.js';
+import * as Game from '../game.js';
 import * as GW from '../gw.js'
 import { actions as Actions } from './index.js';
 
@@ -164,7 +165,7 @@ export async function moveDir(actor, dir, opts={}) {
 
   if (cell.hasTileFlag(Flags.Tile.T_HAS_STAIRS) && isPlayer) {
     console.log('Use stairs!');
-    await GAME.useStairs(newX, newY);
+    await Game.useStairs(newX, newY);
   }
 
   // auto pickup any items
