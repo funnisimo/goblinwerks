@@ -127,6 +127,11 @@ class Canvas {
             this.buffer[i][j + 1].needsUpdate = true;	// redraw the row below any hanging letters that changed
             cell.wasHanging = false;
           }
+          if (cell.wasFlying && j) {
+            this.buffer[i][j - 1].needsUpdate = true;
+            this.buffer.needsUpdate = true;
+            cell.wasFlying = false;
+          }
 
           this.drawCell(cell, i, j);
           cell.needsUpdate = false;

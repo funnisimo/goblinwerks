@@ -2150,6 +2150,7 @@ var sprites = {};
 var sprite = {};
 
 const HANGING_LETTERS = ['y', 'p', 'g', 'j', 'q', '[', ']', '(', ')', '{', '}', '|'];
+const FLYING_LETTERS = ["'", '"'];
 
 class Sprite {
 	constructor(ch, fg, bg, opacity) {
@@ -2190,6 +2191,7 @@ class Sprite {
 		this.opacity = opacity || 100;
 		this.needsUpdate = true;
 		this.wasHanging = false;
+    this.wasFlying = false;
 	}
 
 	copy(other) {
@@ -2224,11 +2226,13 @@ class Sprite {
 		this.opacity = other.opacity || this.opacity;
 		this.needsUpdate = other.needsUpdate || this.needsUpdate;
 		this.wasHanging = other.wasHanging || this.wasHanging;
+    this.wasFlying  = other.wasFlying  || this.wasFlying;
 	}
 
 	clone() {
 		const other = new types.Sprite(this.ch, this.fg, this.bg, this.opacity);
 		other.wasHanging = this.wasHanging;
+    other.wasFlying  = this.wasFlying;
 		other.needsUpdate = this.needsUpdate;
 		return other;
 	}
@@ -2236,6 +2240,9 @@ class Sprite {
 	nullify() {
 		if (HANGING_LETTERS.includes(this.ch)) {
 			this.wasHanging = true;
+		}
+    if (FLYING_LETTERS.includes(this.ch)) {
+			this.wasFlying = true;
 		}
 		this.ch = ' ';
 		if (this.fg) this.fg.clear();
@@ -2253,6 +2260,7 @@ class Sprite {
 
 	plotChar(ch, fg, bg) {
 		this.wasHanging = this.wasHanging || (ch != null && HANGING_LETTERS.includes(ch));
+    this.wasFlying  = this.wasFlying  || (ch != null && FLYING_LETTERS.includes(ch));
 		if (!this.opacity) {
 			this.ch = ' ';
 		}
@@ -2273,6 +2281,7 @@ class Sprite {
     }
 
 		this.wasHanging = this.wasHanging || (sprite.ch != null && HANGING_LETTERS.includes(sprite.ch));
+    this.wasFlying  = this.wasFlying  || (sprite.ch != null && FLYING_LETTERS.includes(sprite.ch));
 
     // ch and fore color:
     if (sprite.ch && sprite.ch != ' ') { // Blank cells in the overbuf take the ch from the screen.
@@ -3449,6 +3458,11 @@ class Canvas {
           if (cell.wasHanging && j < this.buffer.height - 1) {
             this.buffer[i][j + 1].needsUpdate = true;	// redraw the row below any hanging letters that changed
             cell.wasHanging = false;
+          }
+          if (cell.wasFlying && j) {
+            this.buffer[i][j - 1].needsUpdate = true;
+            this.buffer.needsUpdate = true;
+            cell.wasFlying = false;
           }
 
           this.drawCell(cell, i, j);
