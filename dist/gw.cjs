@@ -9026,7 +9026,7 @@ dungeon.finishWalls = finishWalls;
 function isValidStairLoc(c, x, y, map) {
   map = map || SITE;
   let count = 0;
-  if (!c.isNull()) return false;
+  if (!(c.isNull() || c.isWall())) return false;
 
   for(let i = 0; i < 4; ++i) {
     const dir = def.dirs[i];
@@ -9036,11 +9036,11 @@ function isValidStairLoc(c, x, y, map) {
     if (cell.hasTile(FLOOR)) {
       count += 1;
       const va = map.cell(x - dir[0] + dir[1], y - dir[1] + dir[0]);
-      if (!va.isNull()) return false;
+      if (!(va.isNull() || va.isWall())) return false;
       const vb = map.cell(x - dir[0] - dir[1], y - dir[1] - dir[0]);
-      if (!vb.isNull()) return false;
+      if (!(vb.isNull() || vb.isWall())) return false;
     }
-    else if (!cell.isNull()) {
+    else if (!(cell.isNull() || cell.isWall())) {
       return false;
     }
   }
@@ -9062,7 +9062,7 @@ function setupStairs(map, x, y, tile) {
 		const cell = map.cell(x0, y0);
 		if (cell.hasTile(FLOOR) && cell.isEmpty()) {
 			const oppCell = map.cell(x - dir[0], y - dir[1]);
-			if (oppCell.isNull()) break;
+			if (oppCell.isNull() || oppCell.isWall()) break;
 		}
 
 		dir = null;
@@ -9091,11 +9091,12 @@ dungeon.setupStairs = setupStairs;
 
 function addStairs(opts = {}) {
 
+  const map = opts.map || SITE;
   let needUp = (opts.up !== false);
   let needDown = (opts.down !== false);
-  const minDistance = opts.minDistance || Math.floor(Math.max(SITE.width,SITE.height)/2);
+  const minDistance = opts.minDistance || Math.floor(Math.max(map.width,map.height)/2);
   const isValidStairLoc = opts.isValid || dungeon.isValidStairLoc;
-  const setup = opts.setup || dungeon.setupStairs;
+  const setupFn = opts.setup || dungeon.setupStairs;
 
   let upLoc = Array.isArray(opts.up) ? opts.up : null;
   let downLoc = Array.isArray(opts.down) ? opts.down : null;
@@ -9103,58 +9104,58 @@ function addStairs(opts = {}) {
   if (opts.start) {
     let start = opts.start;
     if (start === true) {
-      start = SITE.randomMatchingXY( isValidStairLoc );
+      start = map.randomMatchingXY( isValidStairLoc );
     }
     else {
-      start = SITE.matchingXYNear(x(start), y(start), isValidStairLoc);
+      start = map.matchingXYNear(x(start), y(start), isValidStairLoc);
     }
-    SITE.locations.start = start;
+    map.locations.start = start;
   }
 
   if (upLoc && downLoc) {
-    upLoc = SITE.matchingXYNear(x(upLoc), y(upLoc), isValidStairLoc);
-    downLoc = SITE.matchingXYNear(x(downLoc), y(downLoc), isValidStairLoc);
+    upLoc = map.matchingXYNear(x(upLoc), y(upLoc), isValidStairLoc);
+    downLoc = map.matchingXYNear(x(downLoc), y(downLoc), isValidStairLoc);
   }
   else if (upLoc && !downLoc) {
-    upLoc = SITE.matchingXYNear(x(upLoc), y(upLoc), isValidStairLoc);
+    upLoc = map.matchingXYNear(x(upLoc), y(upLoc), isValidStairLoc);
     if (needDown) {
-      downLoc = SITE.randomMatchingXY( (v, x, y) => {
+      downLoc = map.randomMatchingXY( (v, x, y) => {
     		if (distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
-    		return isValidStairLoc(v, x, y, SITE);
+    		return isValidStairLoc(v, x, y, map);
     	});
     }
   }
   else if (downLoc && !upLoc) {
-    downLoc = SITE.matchingXYNear(x(downLoc), y(downLoc), isValidStairLoc);
+    downLoc = map.matchingXYNear(x(downLoc), y(downLoc), isValidStairLoc);
     if (needUp) {
-      upLoc = SITE.randomMatchingXY( (v, x, y) => {
+      upLoc = map.randomMatchingXY( (v, x, y) => {
     		if (distanceBetween(x, y, downLoc[0], downLoc[1]) < minDistance) return false;
-    		return isValidStairLoc(v, x, y, SITE);
+    		return isValidStairLoc(v, x, y, map);
     	});
     }
   }
   else if (needUp) {
-    upLoc = SITE.randomMatchingXY( isValidStairLoc );
+    upLoc = map.randomMatchingXY( isValidStairLoc );
     if (needDown) {
-      downLoc = SITE.randomMatchingXY( (v, x, y) => {
+      downLoc = map.randomMatchingXY( (v, x, y) => {
     		if (distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
-    		return isValidStairLoc(v, x, y, SITE);
+    		return isValidStairLoc(v, x, y, map);
     	});
     }
   }
   else if (needDown) {
-    downLoc = SITE.randomMatchingXY( isValidStairLoc );
+    downLoc = map.randomMatchingXY( isValidStairLoc );
   }
 
   if (upLoc) {
-    SITE.locations.up = upLoc.slice();
-    setup(SITE, upLoc[0], upLoc[1], UP_STAIRS);
-    if (opts.start === 'up') SITE.locations.start = SITE.locations.up;
+    map.locations.up = upLoc.slice();
+    setupFn(map, upLoc[0], upLoc[1], UP_STAIRS);
+    if (opts.start === 'up') map.locations.start = map.locations.up;
   }
   if (downLoc) {
-    SITE.locations.down = downLoc.slice();
-    setup(SITE, downLoc[0], downLoc[1], DOWN_STAIRS);
-    if (opts.start === 'down') SITE.locations.start = SITE.locations.down;
+    map.locations.down = downLoc.slice();
+    setupFn(map, downLoc[0], downLoc[1], DOWN_STAIRS);
+    if (opts.start === 'down') map.locations.start = map.locations.down;
   }
 
   return !!(upLoc || downLoc);

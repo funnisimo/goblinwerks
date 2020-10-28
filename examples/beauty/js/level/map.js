@@ -388,16 +388,33 @@ function decorateRegular(map, level) {
 	const start = map.locations.start = r1.center;
 	const end = map.locations.end = r2.center;
 
-	/* staircase up, all non-last levels */
-	map.setTile(end[0], end[1], 'UP_STAIRS');
-  map.locations.up = end;
+  const stairOpts = {
+    up: end,
+    down: (level.danger <= 1) ? false : start,
+    isValid(cell, x, y, map) {
+      const level = map.config.level;
+
+      if (!level.isInside(x - 1, y - 1)) return false;
+      if (!level.isInside(x - 1, y + 1)) return false;
+      if (!level.isInside(x + 1, y - 1)) return false;
+      if (!level.isInside(x + 1, y + 1)) return false;
+
+      return GW.dungeon.isValidStairLoc(cell, x, y, map);
+    },
+    map
+  };
+	// /* staircase up, all non-last levels */
+	// map.setTile(end[0], end[1], 'UP_STAIRS');
+  // map.locations.up = end;
 
 	/* staircase down, when available */
-	let d = level.danger - 2;
-	if (d in GW.maps) {
-		map.setTile(start[0], start[1], 'DOWN_STAIRS');
-    map.locations.down = start;
-	}
+	// let d = level.danger - 2;
+	// if (d in GW.maps) {
+	// 	map.setTile(start[0], start[1], 'DOWN_STAIRS');
+  //   map.locations.down = start;
+	// }
+
+  GW.dungeon.addStairs(stairOpts);
 
 	if (level.danger == 1) {
 		decorateFirst(map, level);
@@ -405,20 +422,9 @@ function decorateRegular(map, level) {
 		decorateFull(map, level);
 	}
 
-/*
-	let xy = new XY();
-	for (xy.x = r1.lt.x; xy.x <= r1.rb.x; xy.x++) {
-		for (xy.y = r1.lt.y; xy.y <= r1.rb.y; xy.y++) {
-			let item = factory.getItem(2);
-			level.setItem(xy, item);
-		}
-	}
-*/
-
 }
 
 function decorate(map, level) {
-	// levels[level.danger] = level;
 
 	if (level.danger == GW.config.LAST_LEVEL) {
 		decorateLast(map, level);
