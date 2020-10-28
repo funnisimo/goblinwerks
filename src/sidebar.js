@@ -65,9 +65,13 @@ function refreshSidebar(map) {
 	// Gather sidebar entries
 	const entries = [];
 	const doneCells = GRID.alloc();
+  let same = true;
 
 	if (DATA.player) {
 		doneCells[DATA.player.x][DATA.player.y] = 1;
+    if (DATA.player.changed()) {
+      same = false;
+    }
 	}
 
 	// Get actors
@@ -152,7 +156,7 @@ function refreshSidebar(map) {
 
 	// compare to current list
 	const max = Math.floor(SIDE_BOUNDS.height / 2);
-	let same = entries.every( (a, i) => {
+	same = same && entries.every( (a, i) => {
 		if (i > max) return true;
 		const b = SIDEBAR_ENTRIES[i];
 		if (!b) return false;

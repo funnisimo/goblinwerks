@@ -226,6 +226,10 @@ export function setDefaults(obj, def) {
   });
 }
 
+export function clearObject(obj) {
+  Object.keys(obj).forEach( (key) => obj[key] = undefined );
+}
+
 export function ERROR(message) {
   throw new Error(message);
 }

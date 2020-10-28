@@ -394,7 +394,7 @@ export async function prompt(...args) {
 
 export async function fadeTo(color, duration=1000, src) {
 
-  src = src || UI_BASE;
+  src = src || UI_BUFFER;
   color = GW.color.from(color);
 
   const buffer = ui.canvas.allocBuffer();

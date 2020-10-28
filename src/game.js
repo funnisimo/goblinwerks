@@ -28,6 +28,9 @@ export async function start(opts={}) {
   DATA.time = 0;
   DATA.running = true;
   DATA.player = opts.player || null;
+  DATA.gameHasEnded = false;
+
+  GW.utils.clearObject(MAPS);
 
   if (opts.width) {
     CONFIG.width = opts.width;

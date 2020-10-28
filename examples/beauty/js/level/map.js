@@ -1,7 +1,22 @@
 
 // CELLS
 
-GW.tile.addKind('BRAMBLES', {ch:"%", fg:"#483", name:"dense brambles" });
+GW.tile.addKind('BRAMBLES', {
+  name:"dense brambles", article: 'some',
+  ch:"%", fg:"#483",
+  events: {
+    async playerEnter(x, y, ctx={}) {
+      const player = ctx.actor || GW.data.player;
+      await player.kind.applyDamage(player, 1, null, ctx);
+      GW.message.add(GW.colors.red, 'Ouch!  %RYou injure yourself on a %Rthorn%R!', null, 'green', null);
+      await GW.fx.hit(ctx.map, player);
+      if (player.isDead()) {
+        await GW.game.gameOver(false, 'Killed by brambles.');
+      }
+      return true;
+    }
+  }
+});
 GW.tile.addKind('PRINCESS', {ch:"P", fg:"pink", name:"princess", article: 'the', flags: 'T_OBSTRUCTS_PASSABILITY, TM_LIST_IN_SIDEBAR'});
 GW.tile.addKind('PILLAR',   {ch:"I", fg:"#ccc", name:"pillar", flags: 'T_OBSTRUCTS_PASSABILITY'});
 const GRASS1 = GW.tile.addKind('GRASS1',    {ch:"'", fg:"#693", name: 'grass', article: 'some' });

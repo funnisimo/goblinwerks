@@ -337,6 +337,10 @@
     });
   }
 
+  function clearObject(obj) {
+    Object.keys(obj).forEach( (key) => obj[key] = undefined );
+  }
+
   function ERROR(message) {
     throw new Error(message);
   }
@@ -435,6 +439,7 @@
     assignOmitting: assignOmitting,
     setDefault: setDefault,
     setDefaults: setDefaults,
+    clearObject: clearObject,
     ERROR: ERROR,
     WARN: WARN,
     getOpt: getOpt,
@@ -8019,6 +8024,9 @@
     data.time = 0;
     data.running = true;
     data.player = opts.player || null;
+    data.gameHasEnded = false;
+
+    GW.utils.clearObject(maps);
 
     if (opts.width) {
       config.width = opts.width;
@@ -10777,9 +10785,13 @@
   	// Gather sidebar entries
   	const entries = [];
   	const doneCells = GRID$1.alloc();
+    let same = true;
 
   	if (DATA.player) {
   		doneCells[DATA.player.x][DATA.player.y] = 1;
+      if (DATA.player.changed()) {
+        same = false;
+      }
   	}
 
   	// Get actors
@@ -10864,7 +10876,7 @@
 
   	// compare to current list
   	const max = Math.floor(SIDE_BOUNDS.height / 2);
-  	let same = entries.every( (a, i) => {
+  	same = same && entries.every( (a, i) => {
   		if (i > max) return true;
   		const b = SIDEBAR_ENTRIES[i];
   		if (!b) return false;
@@ -12020,7 +12032,7 @@
 
   async function fadeTo(color$1, duration=1000, src) {
 
-    src = src || UI_BASE;
+    src = src || UI_BUFFER;
     color$1 = GW.color.from(color$1);
 
     const buffer = ui.canvas.allocBuffer();

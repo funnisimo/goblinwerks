@@ -18,8 +18,10 @@ GW.config.LEVEL_HP = 4;
 GW.config.REGEN_HP = 0.05;
 GW.config.REGEN_MANA = 0.1;
 
+var PLAYER = null;
 
-const PLAYER = GW.make.player({
+function resetPlayer() {
+  const p = GW.make.player({
 		sprite: GW.make.sprite('@', 'white'),
 		name: 'you',
 		speed: 120,
@@ -47,7 +49,10 @@ const PLAYER = GW.make.player({
       // y = GW.sidebar.addText(buf, y, 'Ranged: ' + ranged, null, null, dim, highlight);
       return y;
     },
-});
+  });
+  return p;
+}
+
 
 
 
@@ -72,15 +77,20 @@ async function start() {
       font: 'metrickal',
   });
 
-  await showIntro();
-
   GW.io.setKeymap({
 		dir: 'movePlayer', space: 'rest',
 		// '>': forceStairs, '<': forceStairs,
 		// '?': showHelp
 	});
 
-  await GW.game.start({ player: PLAYER, buildMap: generate, fov: true });
+  while(true) {
+    GW.ui.canvas.buffer.blackOut();
+    GW.ui.canvas.draw();
+    await showIntro();
+    PLAYER = resetPlayer();
+    await GW.game.start({ player: PLAYER, buildMap: generate, fov: true });
+    await GW.ui.fadeTo('black', 500);
+  }
 
   console.log('DONE!');
 }
