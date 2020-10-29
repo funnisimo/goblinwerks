@@ -304,12 +304,16 @@ function welcomeLast() {
   msg.push("Welcome to the last floor!");
   msg.push("You managed to reach the princess and finish the game.");
 
-  // let gold = who.inventory.getItemByType("gold");
-  // if (gold) {
-  //   let color = gold.getVisual().fg;
-  //   log.add(`Furthermore, you were able to accumulate a total of {${color}}${gold.amount}{} golden coins.`);
-  //   log.pause();
-  // }
+  let gold = 0;
+  player.eachPack( (item) => {
+    if (item.kind === GW.itemKinds.GOLD) {
+      gold += item.quantity;
+    }
+  });
+
+  if (gold) {
+    msg.push(['Furthermore, you were able to accumulate a total of %s!', gold.getName({ quantity: true, color: true })]);
+  }
 
   msg.push("The game is over now, but you are free to look around.");
   msg.push("Press <shift+r> to restart the game.");

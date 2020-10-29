@@ -365,8 +365,8 @@ function sidebarAddText(buf, y, text, fg, bg, dim, highlight) {
 		return SIDE_BOUNDS.height - 1;
 	}
 
-  fg = fg || COLORS.white;
-  bg = bg || COLORS.black;
+  fg = fg ? COLOR.from(fg) : COLORS.white;
+  bg = bg ? COLOR.from(bg) : COLORS.black;
 
   if (dim) {
     fg = fg.clone();
