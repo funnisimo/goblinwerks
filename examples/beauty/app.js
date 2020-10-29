@@ -53,7 +53,12 @@ function resetPlayer() {
   return p;
 }
 
-
+async function restartGame() {
+  if (await GW.ui.confirm('Restart the game.  Are you sure?')) {
+    GW.data.gameHasEnded = true;
+    GW.data.running = false;
+  }
+}
 
 
 
@@ -67,8 +72,8 @@ async function start() {
 	const canvas = GW.ui.start({
       div: 'game',  // use this canvas element ID
       width: 90,    // total width of canvas in cells
-      height: 40,   // total height of canvas in cells
-      messages: -5, // show 5 recent message lines (at the bottom)
+      height: 43,   // total height of canvas in cells
+      messages: -8, // show 5 recent message lines (at the bottom)
       cursor: true, // highlight cursor in map view
       flavor: true, // show flavor for cells under cursor
       sidebar: -40, // right side, 40 wide
@@ -79,6 +84,7 @@ async function start() {
 
   GW.io.setKeymap({
 		dir: 'movePlayer', space: 'rest',
+    'R': restartGame,
 		// '>': forceStairs, '<': forceStairs,
 		// '?': showHelp
 	});

@@ -686,7 +686,7 @@ export function addStairs(opts = {}) {
   let upLoc = Array.isArray(opts.up) ? opts.up : null;
   let downLoc = Array.isArray(opts.down) ? opts.down : null;
 
-  if (opts.start) {
+  if (opts.start && typeof opts.start !== 'string') {
     let start = opts.start;
     if (start === true) {
       start = map.randomMatchingXY( isValidStairLoc );
@@ -734,12 +734,12 @@ export function addStairs(opts = {}) {
 
   if (upLoc) {
     map.locations.up = upLoc.slice();
-    setupFn(map, upLoc[0], upLoc[1], UP_STAIRS);
+    setupFn(map, upLoc[0], upLoc[1], opts.upTile || UP_STAIRS);
     if (opts.start === 'up') map.locations.start = map.locations.up;
   }
   if (downLoc) {
     map.locations.down = downLoc.slice();
-    setupFn(map, downLoc[0], downLoc[1], DOWN_STAIRS);
+    setupFn(map, downLoc[0], downLoc[1], opts.downTile || DOWN_STAIRS);
     if (opts.start === 'down') map.locations.start = map.locations.down;
   }
 

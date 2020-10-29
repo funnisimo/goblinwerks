@@ -385,10 +385,18 @@ function eachChain(item, fn) {
   }
 }
 
+function addToChain(obj, name, entry) {
+  entry.next = obj[name];
+  obj[name] = entry;
+  return true;
+}
+
 function removeFromChain(obj, name, entry) {
   const root = obj[name];
   if (root === entry) {
     obj[name] = entry.next;
+    entry.next = null;
+    return true;
   }
   else {
     let prev = root;
@@ -399,8 +407,11 @@ function removeFromChain(obj, name, entry) {
     }
     if (current === entry) {
       prev.next = current.next;
+      entry.next = null;
+      return true;
     }
   }
+  return false;
 }
 
 var utils$1 = /*#__PURE__*/Object.freeze({
@@ -443,6 +454,7 @@ var utils$1 = /*#__PURE__*/Object.freeze({
   arraysIntersect: arraysIntersect,
   sequence: sequence,
   eachChain: eachChain,
+  addToChain: addToChain,
   removeFromChain: removeFromChain
 });
 
@@ -925,6 +937,7 @@ const Map = installFlag('map', {
 	MAP_STABLE_GLOW_LIGHTS:  Fl(1),
 	MAP_STABLE_LIGHTS: Fl(2),
 	MAP_ALWAYS_LIT:	Fl(3),
+  MAP_SAW_WELCOME: Fl(4),
 
   MAP_DEFAULT: 'MAP_STABLE_LIGHTS, MAP_STABLE_GLOW_LIGHTS',
 });
@@ -6026,6 +6039,7 @@ class Map$1 {
 		}
     this.lights = null;
     this.id = opts.id;
+    this.events = opts.events || {};
 	}
 
   async start() {}
@@ -7650,6 +7664,9 @@ class Actor$1 {
     this.turnTime = 0;
 		this.status = {};
 
+    this.pack = null;
+    this.slots = {};
+
     // stats
     this.current = { health: 1 };
     this.max = { health: 1 };
@@ -7777,6 +7794,52 @@ class Actor$1 {
   debug(...args) {
   	// if (this.flags & Flags.Actor.AF_DEBUG)
   	actor.debug(...args);
+  }
+
+
+  // INVENTORY
+
+  addToPack(item) {
+    // Limits to inventory length?
+    // Stacking?
+    return addToChain(this, 'pack', item);
+  }
+
+  removeFromPack(item) {
+    return removeFromChain(this, 'pack', item);
+  }
+
+  eachPack(fn) {
+    eachChain(this.pack, fn);
+  }
+
+  // EQUIPMENT
+
+  equip(item) {
+    const slot = item.kind.slot;
+    if (!slot) return false;
+    if (this.slots[slot]) return false;
+    this.slots[slot] = item;
+    return true;
+  }
+
+  unequip(item) {
+    const slot = item.kind.slot;
+    if (this.slots[slot] === item) {
+      this.slots[slot] = null;
+      return true;
+    }
+    return false;
+  }
+
+  unequipSlot(slot) {
+    const item = this.slots[slot];
+    this.slots[slot] = null;
+    return item;
+  }
+
+  eachEquip(fn) {
+    Object.values(this.slots).filter( (a) => a ).forEach( (o) => fn(o) );
   }
 
 }
@@ -8138,7 +8201,13 @@ async function startMap(map, loc='start') {
   map.redrawAll();
   ui.draw();
 
-  await map.start();
+  if (map.events.welcome && !(map.flags & Map.MAP_SAW_WELCOME)) {
+    map.flags |= Map.MAP_SAW_WELCOME;
+    await map.events.welcome(map);
+  }
+  else if (map.events.start) {
+    await map.events.start(map);
+  }
 
   if (map.config.tick) {
     scheduler.push( updateEnvironment, map.config.tick );
@@ -9123,7 +9192,7 @@ function addStairs(opts = {}) {
   let upLoc = Array.isArray(opts.up) ? opts.up : null;
   let downLoc = Array.isArray(opts.down) ? opts.down : null;
 
-  if (opts.start) {
+  if (opts.start && typeof opts.start !== 'string') {
     let start = opts.start;
     if (start === true) {
       start = map.randomMatchingXY( isValidStairLoc );
@@ -9171,12 +9240,12 @@ function addStairs(opts = {}) {
 
   if (upLoc) {
     map.locations.up = upLoc.slice();
-    setupFn(map, upLoc[0], upLoc[1], UP_STAIRS);
+    setupFn(map, upLoc[0], upLoc[1], opts.upTile || UP_STAIRS);
     if (opts.start === 'up') map.locations.start = map.locations.up;
   }
   if (downLoc) {
     map.locations.down = downLoc.slice();
-    setupFn(map, downLoc[0], downLoc[1], DOWN_STAIRS);
+    setupFn(map, downLoc[0], downLoc[1], opts.downTile || DOWN_STAIRS);
     if (opts.start === 'down') map.locations.start = map.locations.down;
   }
 
@@ -10014,12 +10083,14 @@ async function fire(e) {
   const actor = e.actor || data.player;
   const map = data.map;
 
-  if (!actor.ranged) {
+  const item = actor.slots.ranged;
+
+  if (!item) {
     message.add('%s have nothing to %Rfire%R.', actor.getName(), 'orange', null);
     return false;
   }
 
-  const range = actor.ranged.stats.range || 0;
+  const range = item.stats.range || 0;
 
   const candidates = [];
   let choice;
@@ -10048,7 +10119,7 @@ async function fire(e) {
     return false; // cancelled
   }
 
-  if (!await actions.itemAttack(actor, choice, { map, actor, x: choice.x, y: choice.y, item: actor.ranged, type: 'ranged' })) {
+  if (!await actions.itemAttack(actor, choice, { map, actor, x: choice.x, y: choice.y, item, type: 'ranged' })) {
     return false;
   }
   return true;
@@ -12079,7 +12150,7 @@ async function messageBox(text, fg, duration) {
 ui.messageBox = messageBox;
 
 
-async function confirm(text, fg) {
+async function confirm(text, fg, opts={}) {
 
   const buffer = ui.startDialog();
 
@@ -12522,7 +12593,7 @@ async function attack$1(actor, target, ctx={}) {
   }
 
   // is this an attack by the player with an equipped item?
-  const item = actor[type];
+  const item = actor.slots[type];
   if (item) {
     if (await actions.itemAttack(actor, target, ctx)) {
       return true;
@@ -12589,7 +12660,7 @@ async function itemAttack(actor, target, ctx={}) {
     return false;
   }
 
-  const item = actor[slot];
+  const item = ctx.item || actor.slots[slot];
   if (!item) {
     return false;
   }

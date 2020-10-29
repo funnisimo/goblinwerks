@@ -146,7 +146,13 @@ export async function startMap(map, loc='start') {
   map.redrawAll();
   UI.draw();
 
-  await map.start();
+  if (map.events.welcome && !(map.flags & Flags.Map.MAP_SAW_WELCOME)) {
+    map.flags |= Flags.Map.MAP_SAW_WELCOME;
+    await map.events.welcome(map);
+  }
+  else if (map.events.start) {
+    await map.events.start(map);
+  }
 
   if (map.config.tick) {
     scheduler.push( updateEnvironment, map.config.tick );

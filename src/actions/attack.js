@@ -20,7 +20,7 @@ export async function attack(actor, target, ctx={}) {
   }
 
   // is this an attack by the player with an equipped item?
-  const item = actor[type];
+  const item = actor.slots[type];
   if (item) {
     if (await Actions.itemAttack(actor, target, ctx)) {
       return true;

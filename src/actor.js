@@ -204,6 +204,9 @@ export class Actor {
     this.turnTime = 0;
 		this.status = {};
 
+    this.pack = null;
+    this.slots = {};
+
     // stats
     this.current = { health: 1 };
     this.max = { health: 1 };
@@ -331,6 +334,52 @@ export class Actor {
   debug(...args) {
   	// if (this.flags & Flags.Actor.AF_DEBUG)
   	actor.debug(...args);
+  }
+
+
+  // INVENTORY
+
+  addToPack(item) {
+    // Limits to inventory length?
+    // Stacking?
+    return Utils.addToChain(this, 'pack', item);
+  }
+
+  removeFromPack(item) {
+    return Utils.removeFromChain(this, 'pack', item);
+  }
+
+  eachPack(fn) {
+    Utils.eachChain(this.pack, fn);
+  }
+
+  // EQUIPMENT
+
+  equip(item) {
+    const slot = item.kind.slot;
+    if (!slot) return false;
+    if (this.slots[slot]) return false;
+    this.slots[slot] = item;
+    return true;
+  }
+
+  unequip(item) {
+    const slot = item.kind.slot;
+    if (this.slots[slot] === item) {
+      this.slots[slot] = null;
+      return true;
+    }
+    return false;
+  }
+
+  unequipSlot(slot) {
+    const item = this.slots[slot];
+    this.slots[slot] = null;
+    return item;
+  }
+
+  eachEquip(fn) {
+    Object.values(this.slots).filter( (a) => a ).forEach( (o) => fn(o) );
   }
 
 }

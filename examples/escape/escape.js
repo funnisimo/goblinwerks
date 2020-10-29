@@ -74,14 +74,14 @@ const PLAYER = GW.make.player({
       y = GW.sidebar.addHealthBar(entry, y, dim, highlight, buf);
 
       let melee = 'Fists [1]';
-      if (player.melee) {
-        melee = GW.text.capitalize(player.melee.getName({ details: true, color: !dim }));
+      if (player.slots.melee) {
+        melee = GW.text.capitalize(player.slots.melee.getName({ details: true, color: !dim }));
       }
       y = GW.sidebar.addText(buf, y, 'Melee : ' + melee, null, null, dim, highlight);
 
       let ranged = 'None';
-      if (player.ranged) {
-        ranged = GW.text.capitalize(player.ranged.getName({ details: true, color: !dim }));
+      if (player.slots.ranged) {
+        ranged = GW.text.capitalize(player.slots.ranged.getName({ details: true, color: !dim }));
       }
       y = GW.sidebar.addText(buf, y, 'Ranged: ' + ranged, null, null, dim, highlight);
       return y;
@@ -121,14 +121,14 @@ class EscapeItem extends GW.types.ItemKind {
     if (item.kind.slot) {
       const slot = item.kind.slot;
       current = true;
-      if (actor[slot]) {
-        current = actor[slot];
+      if (actor.slots[slot]) {
+        current = actor.slots[slot];
         if (current.stats.damage > item.stats.damage) {
           GW.message.add('%s find %s, but your %s is better.', actor.getName(), item.getName({ article: 'a', details: true }), current.getName({ details: true }));
           return false;
         }
       }
-      actor[slot] = item;
+      actor.slots[slot] = item;
     }
     else if (item.stats.heal) {
       if (actor.current.health >= actor.max.health) {

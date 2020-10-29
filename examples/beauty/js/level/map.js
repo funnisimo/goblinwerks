@@ -17,6 +17,19 @@ GW.tile.addKind('BRAMBLES', {
     }
   }
 });
+
+GW.tile.addKind('PORTAL', {
+  name: 'tower exit', article: 'the',
+  ch: '\u03a9', fg: [100,40,40], bg: [100,60,20],
+  flags: 'T_OBSTRUCTS_ITEMS | T_OBSTRUCTS_SURFACE_EFFECTS | T_PORTAL | T_SACRED | TM_STAND_IN_TILE | TM_LIST_IN_SIDEBAR | TM_VISUALLY_DISTINCT | TM_BRIGHT_MEMORY | TM_INTERRUPT_EXPLORATION_WHEN_SEEN | TM_INVERT_WHEN_HIGHLIGHTED',
+  events: {
+    playerEnter(x, y, ctx={}) {
+      GW.message.add(GW.colors.red, 'You cannot leave until you find the princess.');
+      return true;
+    }
+  }
+});
+
 GW.tile.addKind('PRINCESS', {ch:"P", fg:"pink", name:"princess", article: 'the', flags: 'T_OBSTRUCTS_PASSABILITY, TM_LIST_IN_SIDEBAR'});
 GW.tile.addKind('PILLAR',   {ch:"I", fg:"#ccc", name:"pillar", flags: 'T_OBSTRUCTS_PASSABILITY'});
 const GRASS1 = GW.tile.addKind('GRASS1',    {ch:"'", fg:"#693", name: 'grass', article: 'some' });
@@ -284,13 +297,37 @@ function decorateBrambles(map, level) {
 	}
 }
 
+function welcomeLast() {
+  let msg = [];
+
+  msg.push(["%RCongratulations!", 'gold']);
+  msg.push("Welcome to the last floor!");
+  msg.push("You managed to reach the princess and finish the game.");
+
+  // let gold = who.inventory.getItemByType("gold");
+  // if (gold) {
+  //   let color = gold.getVisual().fg;
+  //   log.add(`Furthermore, you were able to accumulate a total of {${color}}${gold.amount}{} golden coins.`);
+  //   log.pause();
+  // }
+
+  msg.push("The game is over now, but you are free to look around.");
+  msg.push("Press <shift+r> to restart the game.");
+
+  GW.message.addLines(msg);
+}
+
+
 function decorateLast(map, level) {
+
+  map.events.welcome = welcomeLast;
+
 	let radius = dangerToRadius(level.danger);
 
   const start = map.locations.start = map.locations.down = level.rooms[0].center.slice();
 	start[0] -= (radius-2);  // move start to left edge
 
-  const princess = map.locations.end = level.rooms[0].center.slice();
+  const princess = map.locations.up = level.rooms[0].center.slice();
   princess[0] += 3;
 	map.setTile(princess[0], princess[1], 'PRINCESS');
 	map.setTile(princess[0] -1, princess[1] -1, 'PILLAR');
@@ -320,7 +357,17 @@ function decorateLast(map, level) {
 	}
 }
 
+function welcomeFirst() {
+  GW.message.addLines([
+    "A truly beautiful day for a heroic action!\nThis tower is surrounded by plains and trees.\nThere might even be a princess sleeping on the last floor.\nApparently the only way to get to her is to advance through all tower levels.",
+	  ["To move around, use the %Rarrow keys%R.", 'gold', null],
+  ]);
+}
+
 function decorateFirst(map, level) {
+
+  map.events.welcome = welcomeFirst;
+
 	let features = ["rat", "potion", "dagger"];
 	level.rooms.forEach(room => {
 		if (GW.utils.equalsXY(room.center, map.locations.start)) { // first room
@@ -328,7 +375,7 @@ function decorateFirst(map, level) {
 			return;
 		}
 
-		if (GW.utils.equalsXY(room.center, map.locations.end)) {
+		if (GW.utils.equalsXY(room.center, map.locations.up)) {
 			level.carveDoors(map, room);
 			return;
 		}
@@ -370,8 +417,8 @@ function decorateFull(map, level) {
 
 	level.rooms.forEach(room => {
 		level.carveDoors(map, room);
-		if ( GW.utils.equalsXY(room.center, map.locations.start)
-        || GW.utils.equalsXY(room.center, map.locations.end))
+		if ( GW.utils.equalsXY(room.center, map.locations.down)
+        || GW.utils.equalsXY(room.center, map.locations.up))
     {
       return;
     }
@@ -397,18 +444,26 @@ function decorateFull(map, level) {
 }
 
 function decorateRegular(map, level) {
-	let r1 = furthestRoom(level.rooms, level.rooms[0]);
-	let r2 = furthestRoom(level.rooms, r1);
+  let start;
+  let downTile;
 
-	const start = map.locations.start = r1.center;
-	const end = map.locations.end = r2.center;
+  if (level.danger <= 1) {
+    start = level.center.slice();
+    start[1] += dangerToRadius(level.danger); // move to bottom of tower
+    downTile = 'PORTAL';
+  }
+  else {
+    start = [GW.data.player.x, GW.data.player.y];
+  }
 
   const stairOpts = {
-    up: end,
-    down: (level.danger <= 1) ? false : start,
+    up: true,
+    down: start,
+    start: 'down',
+    downTile,
+    minDistance: dangerToRadius(level.danger),
     isValid(cell, x, y, map) {
       const level = map.config.level;
-
       if (!level.isInside(x - 1, y - 1)) return false;
       if (!level.isInside(x - 1, y + 1)) return false;
       if (!level.isInside(x + 1, y - 1)) return false;
@@ -418,18 +473,24 @@ function decorateRegular(map, level) {
     },
     map
   };
+  GW.dungeon.addStairs(stairOpts);
+
+  // If you wanted to place the stairs by hand, you could do something like this:
+
+  // let r1 = furthestRoom(level.rooms, level.rooms[0]);
+	// let r2 = furthestRoom(level.rooms, r1);
+  // const start = map.locations.start = r1.center;
+	// const end = map.locations.end = r2.center;
+
 	// /* staircase up, all non-last levels */
 	// map.setTile(end[0], end[1], 'UP_STAIRS');
   // map.locations.up = end;
 
-	/* staircase down, when available */
-	// let d = level.danger - 2;
-	// if (d in GW.maps) {
+	/* staircase down, not first/last levels */
+	// if (level.danger > 1) {
 	// 	map.setTile(start[0], start[1], 'DOWN_STAIRS');
   //   map.locations.down = start;
 	// }
-
-  GW.dungeon.addStairs(stairOpts);
 
 	if (level.danger == 1) {
 		decorateFirst(map, level);

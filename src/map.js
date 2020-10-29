@@ -32,6 +32,7 @@ export class Map {
 		}
     this.lights = null;
     this.id = opts.id;
+    this.events = opts.events || {};
 	}
 
   async start() {}

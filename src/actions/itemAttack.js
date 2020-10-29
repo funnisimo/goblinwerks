@@ -20,7 +20,7 @@ export async function itemAttack(actor, target, ctx={}) {
     return false;
   }
 
-  const item = actor[slot];
+  const item = ctx.item || actor.slots[slot];
   if (!item) {
     return false;
   }

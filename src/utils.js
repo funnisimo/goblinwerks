@@ -278,10 +278,18 @@ export function eachChain(item, fn) {
   }
 }
 
+export function addToChain(obj, name, entry) {
+  entry.next = obj[name];
+  obj[name] = entry;
+  return true;
+}
+
 export function removeFromChain(obj, name, entry) {
   const root = obj[name];
   if (root === entry) {
     obj[name] = entry.next;
+    entry.next = null;
+    return true;
   }
   else {
     let prev = root;
@@ -292,6 +300,9 @@ export function removeFromChain(obj, name, entry) {
     }
     if (current === entry) {
       prev.next = current.next;
+      entry.next = null;
+      return true;
     }
   }
+  return false;
 }

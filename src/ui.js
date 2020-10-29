@@ -445,7 +445,7 @@ export async function messageBox(text, fg, duration) {
 ui.messageBox = messageBox;
 
 
-export async function confirm(text, fg) {
+export async function confirm(text, fg, opts={}) {
 
   const buffer = ui.startDialog();
 

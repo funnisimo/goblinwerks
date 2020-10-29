@@ -371,6 +371,7 @@ export const Map = installFlag('map', {
 	MAP_STABLE_GLOW_LIGHTS:  Fl(1),
 	MAP_STABLE_LIGHTS: Fl(2),
 	MAP_ALWAYS_LIT:	Fl(3),
+  MAP_SAW_WELCOME: Fl(4),
 
   MAP_DEFAULT: 'MAP_STABLE_LIGHTS, MAP_STABLE_GLOW_LIGHTS',
 });
