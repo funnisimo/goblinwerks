@@ -2,6 +2,7 @@
 import * as Flags from '../flags.js';
 import { types } from '../gw.js';
 import { actions as Actions } from './index.js';
+import * as GW from '../gw.js';
 
 
 export async function pickup(actor, item, ctx) {
@@ -20,15 +21,20 @@ export async function pickup(actor, item, ctx) {
   else {
     // if no room in inventory - return false
     // add to inventory
-    success = true;
+    success = actor.addToPack(item);
+    if (!success) return false;
   }
 
   const map = ctx.map;
   map.removeItem(item);
 
-  if (success instanceof types.Item) {
-    map.addItem(item.x, item.y, success);
+  if (!ctx.quiet) {
+    GW.message.add('you pickup %s.', item.getName(true));
   }
+
+  // if (success instanceof types.Item) {
+  //   map.addItem(item.x, item.y, success);
+  // }
 
   actor.endTurn();
   return true;

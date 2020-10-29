@@ -36,6 +36,15 @@ function resetPlayer() {
       y = GW.sidebar.addHealthBar(entry, y, dim, highlight, buf);
       y = GW.sidebar.addManaBar(entry, y, dim, highlight, buf);
 
+      let gold = 0;
+      player.eachPack( (item) => {
+        if (item.kind === GW.itemKinds.GOLD) {
+          gold += item.quantity;
+        }
+      });
+
+      y = GW.sidebar.addText(buf, y, 'Gold: ' + gold, 'gold', null, dim, highlight);
+
       let melee = 'Fists [1]';
       if (player.melee) {
         melee = GW.text.capitalize(player.melee.getName({ details: true, color: !dim }));

@@ -7800,9 +7800,30 @@ class Actor$1 {
   // INVENTORY
 
   addToPack(item) {
-    // Limits to inventory length?
+    let quantity = 0;
     // Stacking?
-    return addToChain(this, 'pack', item);
+    if (item.kind.flags & ItemKind.IK_STACKABLE) {
+      let current = this.pack;
+      while(current && item.quantity) {
+        if (current.kind === item.kind) {
+          quantity += item.quantity;
+          current.quantity += item.quantity;
+          item.quantity = 0;
+          item.flags |= Item.ITEM_DESTROYED;
+        }
+        current = current.next;
+      }
+      if (!item.quantity) {
+        return quantity;
+      }
+    }
+
+    // Limits to inventory length?
+
+    if (addToChain(this, 'pack', item)) {
+      quantity += (item.quantity || 1);
+    }
+    return quantity;
   }
 
   removeFromPack(item) {
@@ -10216,7 +10237,7 @@ class ItemKind$1 {
 		this.name = opts.name || 'item';
 		this.flavor = opts.flavor || null;
     this.article = (opts.article === undefined) ? 'a' : opts.article;
-		this.sprite = make.sprite(opts.sprite);
+		this.sprite = make.sprite(opts.sprite || opts);
     this.flags = ItemKind.toFlag(opts.flags);
 		this.actionFlags = Action.toFlag(opts.flags);
 		this.attackFlags = ItemAttack.toFlag(opts.flags);
@@ -10319,12 +10340,17 @@ item.addKinds = addItemKinds;
 
 
 class Item$1 {
-	constructor(kind) {
+	constructor(kind, opts={}) {
+    Object.assign(this, opts);
 		this.x = -1;
     this.y = -1;
-    this.flags = 0;
+    this.quantity = this.quantity || 1;
+    this.flags = Item.toFlag(opts.flags);
 		this.kind = kind || null;
 		this.stats = Object.assign({}, kind.stats);
+    if (opts.stats) {
+      Object.assign(this.stats, opts.stats);
+    }
 	}
 
 	hasKindFlag(flag) {
@@ -10346,7 +10372,7 @@ class Item$1 {
 
 types.Item = Item$1;
 
-function makeItem(kind) {
+function makeItem(kind, opts) {
 	if (typeof kind === 'string') {
 		const name = kind;
 		kind = itemKinds[name];
@@ -10355,7 +10381,7 @@ function makeItem(kind) {
       return null;
     }
 	}
-	return new types.Item(kind);
+	return new types.Item(kind, opts);
 }
 
 make.item = makeItem;
@@ -12551,15 +12577,20 @@ async function pickup(actor, item, ctx) {
   else {
     // if no room in inventory - return false
     // add to inventory
-    success = true;
+    success = actor.addToPack(item);
+    if (!success) return false;
   }
 
   const map = ctx.map;
   map.removeItem(item);
 
-  if (success instanceof types.Item) {
-    map.addItem(item.x, item.y, success);
+  if (!ctx.quiet) {
+    message.add('you pickup %s.', item.getName(true));
   }
+
+  // if (success instanceof types.Item) {
+  //   map.addItem(item.x, item.y, success);
+  // }
 
   actor.endTurn();
   return true;

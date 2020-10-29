@@ -340,9 +340,30 @@ export class Actor {
   // INVENTORY
 
   addToPack(item) {
-    // Limits to inventory length?
+    let quantity = 0;
     // Stacking?
-    return Utils.addToChain(this, 'pack', item);
+    if (item.kind.flags & Flags.ItemKind.IK_STACKABLE) {
+      let current = this.pack;
+      while(current && item.quantity) {
+        if (current.kind === item.kind) {
+          quantity += item.quantity;
+          current.quantity += item.quantity;
+          item.quantity = 0;
+          item.flags |= Flags.Item.ITEM_DESTROYED;
+        }
+        current = current.next;
+      }
+      if (!item.quantity) {
+        return quantity;
+      }
+    }
+
+    // Limits to inventory length?
+
+    if (Utils.addToChain(this, 'pack', item)) {
+      quantity += (item.quantity || 1);
+    }
+    return quantity;
   }
 
   removeFromPack(item) {

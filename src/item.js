@@ -13,7 +13,7 @@ class ItemKind {
 		this.name = opts.name || 'item';
 		this.flavor = opts.flavor || null;
     this.article = (opts.article === undefined) ? 'a' : opts.article;
-		this.sprite = GW.make.sprite(opts.sprite);
+		this.sprite = GW.make.sprite(opts.sprite || opts);
     this.flags = Flags.ItemKind.toFlag(opts.flags);
 		this.actionFlags = Flags.Action.toFlag(opts.flags);
 		this.attackFlags = Flags.ItemAttack.toFlag(opts.flags);
@@ -116,12 +116,17 @@ GW.item.addKinds = addItemKinds;
 
 
 class Item {
-	constructor(kind) {
+	constructor(kind, opts={}) {
+    Object.assign(this, opts);
 		this.x = -1;
     this.y = -1;
-    this.flags = 0;
+    this.quantity = this.quantity || 1;
+    this.flags = Flags.Item.toFlag(opts.flags);
 		this.kind = kind || null;
 		this.stats = Object.assign({}, kind.stats);
+    if (opts.stats) {
+      Object.assign(this.stats, opts.stats);
+    }
 	}
 
 	hasKindFlag(flag) {
@@ -143,7 +148,7 @@ class Item {
 
 GW.types.Item = Item;
 
-function makeItem(kind) {
+function makeItem(kind, opts) {
 	if (typeof kind === 'string') {
 		const name = kind;
 		kind = GW.itemKinds[name];
@@ -152,7 +157,7 @@ function makeItem(kind) {
       return null;
     }
 	}
-	return new GW.types.Item(kind);
+	return new GW.types.Item(kind, opts);
 }
 
 GW.make.item = makeItem;

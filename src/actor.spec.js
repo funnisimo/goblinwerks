@@ -119,6 +119,30 @@ describe('actor', () => {
       expect(fn).toHaveBeenCalledWith(item2);
     });
 
+    test('can stack items', () => {
+      const thing1 = GW.make.item('THING_STACKABLE', { quantity: 10 });
+      expect(thing1.quantity).toEqual(10);
+      expect(thing1.kind.flags & GW.flags.itemKind.IK_STACKABLE).toBeTruthy();
+
+      expect(actor.addToPack(thing1)).toEqual(thing1.quantity);
+
+      const thing2 = GW.make.item('THING_STACKABLE', { quantity: 10 });
+      expect(thing2.quantity).toEqual(10);
+
+      expect(actor.addToPack(thing2)).toEqual(10);
+      expect(thing2.quantity).toEqual(0);
+      expect(thing1.quantity).toEqual(20);
+      expect(actor.pack).toEqual(thing1);
+      expect(thing1.next).toBeNull();
+      expect(thing2.isDestroyed()).toBeTruthy();
+    });
+
+    test.todo('max pack size, no room');
+
+    test.todo('max stack size, no split');
+    test.todo('max stack size, splits');
+    test.todo('max stack size, splits -> but no room');
+
   });
 
   describe('equipment', () => {

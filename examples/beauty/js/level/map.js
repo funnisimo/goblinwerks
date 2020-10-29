@@ -429,16 +429,22 @@ function decorateFull(map, level) {
       const cell = map.cell(x, y);
 			if (cell.item || cell.actor) { continue; } // wrong place
 
+      let item;
 			let feature = GW.random.weighted(features);
       // console.log('Add', feature, x, y);
-			// switch (feature) {
+			switch (feature) {
 			// 	case "item": level.setItem(xy, factory.getItem(level.danger)); break;
 			// 	case "potion": level.setItem(xy, factory.getPotion()); break;
 			// 	case "lutefisk": level.setItem(xy, new items.Lutefisk()); break;
-			// 	case "gold": level.setItem(xy, new items.Gold()); break;
+				case "gold":
+          item = GW.make.item('GOLD');
+          break;
 			// 	case "enemy": factory.getBeing(level.danger).moveTo(xy, level); break;
 			// 	case "hero": new beings.Hero().moveTo(xy, level); break;
-			// }
+			}
+      if (item) {
+        map.addItemNear(x, y, item);
+      }
 		}
 	});
 }
