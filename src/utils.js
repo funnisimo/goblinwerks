@@ -270,6 +270,21 @@ export function sequence(listLength) {
   return list;
 }
 
+export function chainLength(item) {
+  let count = 0;
+  while(item) {
+    count += 1;
+    item = item.next;
+  }
+  return count;
+}
+
+export function chainIncludes(chain, entry) {
+  while (chain && chain !== entry) {
+    chain = chain.next;
+  }
+  return (chain === entry);
+}
 
 export function eachChain(item, fn) {
   while(item) {
@@ -279,7 +294,7 @@ export function eachChain(item, fn) {
 }
 
 export function addToChain(obj, name, entry) {
-  entry.next = obj[name];
+  entry.next = obj[name] || null;
   obj[name] = entry;
   return true;
 }
@@ -287,9 +302,12 @@ export function addToChain(obj, name, entry) {
 export function removeFromChain(obj, name, entry) {
   const root = obj[name];
   if (root === entry) {
-    obj[name] = entry.next;
+    obj[name] = entry.next || null;
     entry.next = null;
     return true;
+  }
+  else if (!root) {
+    return false;
   }
   else {
     let prev = root;
@@ -299,7 +317,7 @@ export function removeFromChain(obj, name, entry) {
       current = prev.next;
     }
     if (current === entry) {
-      prev.next = current.next;
+      prev.next = current.next || null;
       entry.next = null;
       return true;
     }

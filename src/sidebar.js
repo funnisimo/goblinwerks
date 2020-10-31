@@ -20,9 +20,9 @@ const DATA = GW.data;
 
 sidebar.debug = Utils.NOOP;
 
-const blueBar = COLOR.install('blueBar', 	15,		10,		50);
-const redBar = 	COLOR.install('redBar', 	45,		10,		15);
-const purpleBar = COLOR.install('purpleBar', 	50,		0,		50);
+const blueBar = COLOR.addKind('blueBar', 	15,		10,		50);
+const redBar = 	COLOR.addKind('redBar', 	45,		10,		15);
+const purpleBar = COLOR.addKind('purpleBar', 	50,		0,		50);
 
 
 export function setup(opts={}) {
@@ -359,7 +359,7 @@ function UiDrawSidebar(buf) {
 sidebar.draw = UiDrawSidebar;
 
 
-function sidebarAddText(buf, y, text, fg, bg, dim, highlight) {
+function sidebarAddText(buf, y, text, fg, bg, opts={}) {
 
   if (y >= SIDE_BOUNDS.height - 1) {
 		return SIDE_BOUNDS.height - 1;
@@ -368,17 +368,17 @@ function sidebarAddText(buf, y, text, fg, bg, dim, highlight) {
   fg = fg ? COLOR.from(fg) : COLORS.white;
   bg = bg ? COLOR.from(bg) : COLORS.black;
 
-  if (dim) {
+  if (opts.dim) {
     fg = fg.clone();
     bg = bg.clone();
     COLOR.applyAverage(fg, COLORS.black, 50);
     COLOR.applyAverage(bg, COLORS.black, 50);
   }
-  else if (highlight) {
+  else if (opts.highlight) {
     /// ???
   }
 
-  y = buf.wrapText(SIDE_BOUNDS.x, y, SIDE_BOUNDS.width, text, fg, bg);
+  y = buf.wrapText(SIDE_BOUNDS.x, y, SIDE_BOUNDS.width, text, fg, bg, opts);
 
   return y;
 }

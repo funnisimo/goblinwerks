@@ -43,6 +43,8 @@ import './actions/itemAttack.js';
 import './actions/moveToward.js';
 import './actions/grab.js';
 import './actions/push.js';
+import './actions/use.js';
+import './actions/equip.js';
 export { actions } from './actions/index.js';
 
 import './ai.js';

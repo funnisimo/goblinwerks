@@ -13,7 +13,7 @@ const TileLayer = def.layer;
 
 cell.debug = Utils.NOOP;
 
-COLOR.install('cursorColor', 25, 100, 150);
+COLOR.addKind('cursorColor', 25, 100, 150);
 CONFIG.cursorPathIntensity = 50;
 
 
@@ -487,6 +487,7 @@ class Cell {
   // SPRITES
 
   addSprite(layer, sprite, priority=50) {
+    if (!sprite) return;
 
     // this.flags |= Flags.NEEDS_REDRAW;
     this.flags |= Flags.Cell.CELL_CHANGED;
@@ -506,13 +507,15 @@ class Cell {
   }
 
   removeSprite(sprite) {
+    if (!sprite) return false;
+    if (!this.sprites) return false;
 
     // this.flags |= Flags.NEEDS_REDRAW;
     this.flags |= Flags.Cell.CELL_CHANGED;
 
     if (this.sprites && this.sprites.sprite === sprite) {
       this.sprites = this.sprites.next;
-      return;
+      return true;
     }
 
     let prev = this.sprites;

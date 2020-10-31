@@ -9,17 +9,14 @@
 // 	"epic": 2
 // };
 //
-// const SHIELD_PREFIXES = {
-// 	"small": -1,
-// 	"large": 1,
-// 	"tower": 2
-// };
-//
-// const ARMOR_PREFIXES = {
-// 	"leather": 1,
-// 	"iron": 2,
-// 	"tempered": 3
-// };
+
+const WEARABLE_SUFFIXES = {
+	[GW.config.ATTACK_1]: "power",
+	[GW.config.ATTACK_2]: "treachery",
+	[GW.config.MAGIC_1]: "magical domination",
+	[GW.config.MAGIC_2]: "magical weakness"
+};
+
 //
 // export class Dagger extends Wearable {
 // 	constructor() {
@@ -56,13 +53,54 @@
 // }
 // GreatSword.danger = 5;
 //
-// export class Shield extends Wearable {
-// 	constructor() {
-// 		super("shield", {ch:"[", fg:"#841", name:"shield"}, 2, SHIELD_PREFIXES);
-// 	}
-// }
-// Shield.danger = 2;
-//
+
+const ARMOR_PREFIXES = {
+	"leather": 1,
+	"iron": 2,
+	"tempered": 3
+};
+
+class Armor extends GW.types.ItemKind {
+	constructor(opts={}) {
+    GW.utils.setDefaults(opts, {
+      ch: ']',
+      fg: '#a62',
+      name: 'armor',
+      slot: 'armor',
+      stats: {},
+    });
+    GW.utils.setDefaults(opts.stats, {
+      defense: 2,
+      combatBonus: null,
+    });
+		super(opts);
+  }
+
+  make(item, opts) {
+    let name = this.name;
+    if (this.prefixes && GW.random.chance(50)) {
+			const prefix = GW.random.key(this.prefixes);
+      name = prefix + ' ' + name;
+			item.stats.defense += this.prefixes[prefix];
+    }
+
+		if (this.suffixes && GW.random.chance(GW.config.COMBAT_MODIFIER)) {
+			let combat = GW.random.key(this.suffixes);
+      name = name + ' of ' + this.suffixes[combat];
+			item.stats.combatBonus = combat;
+
+      item.sprite = this.sprite.clone();
+			GW.color.applyMix(item.sprite.fg, GW.config.COMBAT_COLORS[combat], 50);
+    }
+
+    if (name != this.name) {
+      item.name = name;
+    }
+	}
+}
+
+GW.item.addKind('ARMOR', new Armor({ prefixes: ARMOR_PREFIXES, suffixes: WEARABLE_SUFFIXES, stats: { defense: 2 } }));
+
 // export class Helmet extends Wearable {
 // 	constructor() {
 // 		super("helmet", {ch:"]", fg:"#631", name:"helmet"}, 1, ARMOR_PREFIXES);
@@ -70,85 +108,107 @@
 // }
 // Helmet.danger = 2;
 //
-// export class Armor extends Wearable {
-// 	constructor() {
-// 		super("armor", {ch:"]", fg:"#a62", name:"armor"}, 2, ARMOR_PREFIXES);
-// 	}
-// }
-// Armor.danger = 3;
-//
-// export class HealthPotion extends Drinkable {
-// 	constructor() {
-// 		super(rules.POTION_HP, {ch:"!", fg:"#e00", name:"health potion"});
-// 	}
-//
-// 	pick(who) {
-// 		super.pick(who);
-// 		if (who.maxhp == who.hp) {
-// 			log.add("Nothing happens.");
-// 		} else if (who.maxhp - who.hp <= this._strength) {
-// 			log.add("You are completely healed.");
-// 		} else {
-// 			log.add("Some of your health is restored.");
-// 		}
-// 		who.adjustStat("hp", this._strength);
-// 	}
-// }
-//
-// export class Lutefisk extends Drinkable {
-// 	constructor() {
-// 		super(0, {ch:"?", fg:"#ff0", name:"lutefisk"});
-// 		this._visual.name = "lutefisk"; // no modifiers, sry
-// 	}
-//
-// 	pick(who) {
-// 		who.getLevel().setItem(who.getXY(), null);
-// 		log.add("You eat %the. You feel weird.", this);
-// 		who.adjustStat("hp", who.maxhp);
-// 		who.adjustStat("mana", -who.maxmana);
-// 	}
-// }
-//
-// export class ManaPotion extends Drinkable {
-// 	constructor() {
-// 		super(rules.POTION_MANA, {ch:"!", fg:"#00e", name:"mana potion"});
-// 	}
-//
-// 	pick(who) {
-// 		super.pick(who);
-// 		if (who.maxmana == who.mana) {
-// 			log.add("Nothing happens.");
-// 		} else if (who.maxmana - who.mana <= this._strength) {
-// 			log.add("Your mana is completely refilled.");
-// 		} else {
-// 			log.add("Some of your mana is refilled.");
-// 		}
-// 		who.adjustStat("mana", this._strength);
-// 	}
-// }
 
-// export class Gold extends Item {
+GW.item.addKind('HELMET', new Armor({
+  name: 'helmet', slot: 'helmet', stats: { defense: 1 }, fg: '#631',
+  prefixes: ARMOR_PREFIXES, suffixes: WEARABLE_SUFFIXES
+}));
+
+const SHIELD_PREFIXES = {
+	"small": -1,
+	"large": 1,
+	"tower": 2
+};
+
+// export class Shield extends Wearable {
 // 	constructor() {
-// 		super("gold", {ch:"$", fg:"#fc0", name:"golden coin"});
-// 		this.amount = 1;
-// 	}
-//
-// 	pick(who) {
-// 		super.pick(who);
-//
-// 		let other = who.inventory.getItemByType(this._type);
-// 		if (other) {
-// 			other.amount++;
-// 		} else {
-// 			who.inventory.addItem(this);
-// 		}
-//
-// 		pubsub.publish("status-change");
+// 		super("shield", {ch:"[", fg:"#841", name:"shield"}, 2, SHIELD_PREFIXES);
 // 	}
 // }
+// Shield.danger = 2;
+//
+
+GW.item.addKind('SHIELD', new Armor({
+  name: 'shield', slot: 'shield', stats: { defense: 2 }, fg: '#841',
+  prefixes: SHIELD_PREFIXES, suffixes: WEARABLE_SUFFIXES
+}));
+
+
+GW.color.addKind('health', '#e00');
+
+GW.item.addKind('POTION_HEALTH', {
+  name: 'health potion',
+  ch: '!', fg: 'health',
+  flags: 'IK_DESTROY_ON_USE',
+  stats: { strength: 10 },
+  use(item, actor, ctx={}) {
+    if (!actor.isPlayer()) return false;
+    if (actor.current.health >= actor.max.health) {
+      GW.message.add('You do not need to recharge your %Rhealth%R.', 'health', null);
+      return false;
+    }
+    else {
+      if (actor.current.health + item.stats.strength < actor.max.health) {
+        GW.message.add('Some of your %Rhealth%R is refilled.', 'health', null);
+      }
+      else {
+        GW.message.add('Your %Rhealth%R is completely refilled.', 'health', null);
+      }
+      actor.adjustStat('health', item.stats.strength);
+    }
+    return true;
+  }
+});
+
+GW.color.addKind('mana', '#84a');
+
+GW.item.addKind('POTION_MANA', {
+  name: 'mana potion',
+  ch: '!', fg: 'mana',
+  flags: 'IK_DESTROY_ON_USE',
+  stats: { strength: 10 },
+  use(item, actor, ctx={}) {
+    if (!actor.isPlayer()) return false;
+    if (actor.current.mana >= actor.max.mana) {
+      GW.message.add('You do not need to recharge your %Rmana%R.', 'mana', null);
+      return false;
+    }
+    else {
+      if (actor.current.mana + item.stats.strength < actor.max.mana) {
+        GW.message.add('Some of your %Rmana%R is refilled.', 'mana', null);
+      }
+      else {
+        GW.message.add('Your %Rmana%R is completely refilled.', 'mana', null);
+      }
+      actor.adjustStat('mana', item.stats.strength);
+    }
+    return true;
+  }
+});
+
+
+GW.item.addKind('LUTEFISK', {
+  name: 'lutefisk',
+  ch: '?', fg: '#ff0',
+  flags: 'IK_DESTROY_ON_USE',
+  use(item, actor, ctx={}) {
+    if (!actor.isPlayer()) return false;
+    GW.message.add('You eat %s and start to feel weird.', item.getName('the'));
+    actor.adjustStat('health', actor.max.health);
+    actor.adjustStat('mana', -actor.max.mana);
+    return true;
+  }
+});
+
 
 GW.item.addKind('GOLD', {
   name: 'gold coin', article: 'a',
   ch: '$', fg: 'gold',
-  flags: 'IK_STACKABLE',
+  flags: 'IK_DESTROY_ON_USE',
+  use(item, actor, ctx={}) {
+    actor.current.gold = 1 + (actor.current.gold || 0);
+    GW.message.add('You found %s.', item.getName({ article: true, color: true }));
+    item.destroy();
+    return true;
+  }
 });

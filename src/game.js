@@ -52,6 +52,11 @@ export async function start(opts={}) {
     CONFIG.fov = true;
   }
 
+  CONFIG.inventory = true;
+  if (opts.inventory === false || opts.pack === false) {
+    CONFIG.inventory = false;
+  }
+
   await startMap(map, opts.start);
   queuePlayer();
 
@@ -238,6 +243,8 @@ export async function updateEnvironment() {
   if (!map) return 0;
 
   await map.tick();
+  VISIBILITY.update(map, DATA.player.x, DATA.player.y);
+
   UI.requestUpdate();
 
   return map.config.tick;

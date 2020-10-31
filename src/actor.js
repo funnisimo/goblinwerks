@@ -336,34 +336,44 @@ export class Actor {
   	actor.debug(...args);
   }
 
+  // STATS
+
+  adjustStat(stat, delta) {
+    if (this.max[stat] === undefined) {
+      this.max[stat] = Math.max(0, delta);
+    }
+    this.current[stat] = Utils.clamp((this.current[stat] || 0) + delta, 0, this.max[stat]);
+    this.changed(true);
+  }
 
   // INVENTORY
 
   addToPack(item) {
-    let quantity = 0;
+    let quantityLeft = (item.quantity || 1);
     // Stacking?
     if (item.kind.flags & Flags.ItemKind.IK_STACKABLE) {
       let current = this.pack;
-      while(current && item.quantity) {
+      while(current && quantityLeft) {
         if (current.kind === item.kind) {
-          quantity += item.quantity;
+          quantityLeft -= item.quantity;
           current.quantity += item.quantity;
           item.quantity = 0;
-          item.flags |= Flags.Item.ITEM_DESTROYED;
+          item.destroy();
         }
         current = current.next;
       }
-      if (!item.quantity) {
-        return quantity;
+      if (!quantityLeft) {
+        return true;
       }
     }
 
     // Limits to inventory length?
+    // if too many items - return false
 
     if (Utils.addToChain(this, 'pack', item)) {
-      quantity += (item.quantity || 1);
+      return true;
     }
-    return quantity;
+    return false;
   }
 
   removeFromPack(item) {
@@ -394,7 +404,7 @@ export class Actor {
   }
 
   unequipSlot(slot) {
-    const item = this.slots[slot];
+    const item = this.slots[slot] || null;
     this.slots[slot] = null;
     return item;
   }

@@ -104,34 +104,15 @@ class Buffer extends types.Grid {
       this.plotLine(x, y, width, text, fg, bg);
       return y + 1;
     }
-    let first = true;
-    let indent = opts.indent || 0;
-    let start = 0;
-    let last = 0;
-    for(let index = 0; index < text.length; ++index) {
-      const ch = text[index];
-      if (ch === '\n') {
-        last = index;
-      }
-      if ((index - start >= width) || (ch === '\n')) {
-        const sub = text.substring(start, last);
-        this.plotLine(x, y++, width, sub, fg, bg);
-        if (first) {
-          x += indent;
-          first = false;
-        }
-        start = last;
-      }
-      if (ch === ' ') {
-        last = index + 1;
-      }
-    }
+    opts.indent = opts.indent || 0;
 
-    if (start < text.length - 1) {
-      const sub = text.substring(start);
-      this.plotLine(x, y++, width, sub, fg, bg);
-    }
-    return y;
+    const lines = TEXT.splitIntoLines(text, width, opts.indent);
+    lines.forEach( (line, i) => {
+      const offset = i ? opts.indent : 0;
+      this.plotLine(x + offset, y + i, width - offset, line, fg, bg);
+    });
+
+    return y + lines.length;
   }
 
   fill(ch, fg, bg) {

@@ -10,6 +10,7 @@ import * as GW from './gw.js';
 
 class ItemKind {
   constructor(opts={}) {
+    Object.assign(this, opts);
 		this.name = opts.name || 'item';
 		this.flavor = opts.flavor || null;
     this.article = (opts.article === undefined) ? 'a' : opts.article;
@@ -35,7 +36,8 @@ class ItemKind {
     if (opts.projectile) {
       this.projectile = GW.make.sprite(opts.projectile);
     }
-    this.corpse = GW.make.tileEvent(opts.corpse);
+    this.corpse = opts.corpse ? GW.make.tileEvent(opts.corpse) : null;
+
     if (opts.consoleColor === false) {
       this.consoleColor = false;
     }
@@ -66,7 +68,7 @@ class ItemKind {
     if (opts === false) { opts = {}; }
     if (typeof opts === 'string') { opts = { article: opts }; }
 
-    let result = this.name;
+    let result = item.name || this.name;
     if (opts.color || (this.consoleColor && (opts.color !== false))) {
       let color = this.sprite.fg;
       if (this.consoleColor instanceof GW.types.Color) {
@@ -75,7 +77,10 @@ class ItemKind {
       if (opts.color instanceof GW.types.Color) {
         color = opts.color;
       }
-      result = TEXT.format('%R%s%R', color, this.name, null);
+      result = TEXT.format('%R%s%R', color, result, null);
+    }
+    else if (opts.color === false) {
+      result = TEXT.removeColors(result); // In case item has built in color
     }
 
     if (opts.article) {
@@ -117,15 +122,19 @@ GW.item.addKinds = addItemKinds;
 
 class Item {
 	constructor(kind, opts={}) {
-    Object.assign(this, opts);
+    // Object.assign(this, opts);
 		this.x = -1;
     this.y = -1;
-    this.quantity = this.quantity || 1;
+    this.quantity = opts.quantity || 1;
     this.flags = Flags.Item.toFlag(opts.flags);
 		this.kind = kind || null;
 		this.stats = Object.assign({}, kind.stats);
     if (opts.stats) {
       Object.assign(this.stats, opts.stats);
+    }
+
+    if (this.kind.make) {
+      this.kind.make(this, opts);
     }
 	}
 
@@ -137,8 +146,17 @@ class Item {
 		return (this.kind.actionFlags & flag) > 0;
 	}
 
+  destroy() { this.flags |= (Flags.Item.ITEM_DESTROYED | Flags.Item.ITEM_CHANGED); }
 	isDestroyed() { return this.flags & Flags.Item.ITEM_DESTROYED; }
-  changed() { return false; } // ITEM_CHANGED
+  changed(v) {
+    if (v) {
+      this.flags |= Flags.Item.ITEM_CHANGED;
+    }
+    else if (v !== undefined) {
+      this.flags &= ~(Flags.Item.ITEM_CHANGED);
+    }
+    return (this.flags & Flags.Item.ITEM_CHANGED);
+  }
 
 	getFlavor() { return this.kind.flavor || this.kind.getName(this, true); }
   getName(opts={}) {
@@ -157,7 +175,8 @@ function makeItem(kind, opts) {
       return null;
     }
 	}
-	return new GW.types.Item(kind, opts);
+	const item = new GW.types.Item(kind, opts);
+  return item;
 }
 
 GW.make.item = makeItem;

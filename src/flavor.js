@@ -5,8 +5,8 @@ import * as Flags from './flags.js';
 import { types, flavor, data as DATA, def, ui as UI, tiles as TILES, itemKinds as ITEM_KINDS, message as MSG } from './gw.js';
 
 
-const flavorTextColor = COLOR.install('flavorText', 50, 40, 90);
-const flavorPromptColor = COLOR.install('flavorPrompt', 100, 90, 20);
+const flavorTextColor = COLOR.addKind('flavorText', 50, 40, 90);
+const flavorPromptColor = COLOR.addKind('flavorPrompt', 100, 90, 20);
 
 let FLAVOR_TEXT = '';
 let NEED_FLAVOR_UPDATE = false;

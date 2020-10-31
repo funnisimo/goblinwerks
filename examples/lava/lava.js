@@ -4,9 +4,9 @@ const CellFlags = GW.flags.cell;
 
 GW.random.seed(12345);
 
-GW.color.install('fireForeColor', 			70,		20,		0,		0, 15,	10,	0, true);
-GW.color.install('lavaForeColor', 			20,		20,		20,		0, 100,	10,	0, true);
-GW.color.install('lavaBackColor', 			70,		20,		0,		0, 15,	10,	0, true);
+GW.color.addKind('fireForeColor', 			70,		20,		0,		0, 15,	10,	0, true);
+GW.color.addKind('lavaForeColor', 			20,		20,		20,		0, 100,	10,	0, true);
+GW.color.addKind('lavaBackColor', 			70,		20,		0,		0, 15,	10,	0, true);
 
 const PLAYER = GW.make.player({
 		sprite: GW.make.sprite('@', 'white'),

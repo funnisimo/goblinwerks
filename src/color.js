@@ -174,11 +174,14 @@ export function addKind(name, ...args) {
 	return color;
 }
 
-color.install = addKind;
+color.addKind = addKind;
 
 export function from(arg) {
   if (typeof arg === 'string') {
     return colors[arg] || MAKE.color(arg);
+  }
+  if (arg instanceof types.Color) {
+    return arg;
   }
   return MAKE.color(arg);
 }
@@ -187,7 +190,15 @@ color.from = from;
 
 
 export function applyMix(baseColor, newColor, opacity) {
-  if (opacity <= 0) return;
+  baseColor = color.from(baseColor);
+  newColor = color.from(newColor);
+
+  if (opacity <= 0) return baseColor;
+  if (opacity >= 100) {
+    baseColor.copy(newColor);
+    return baseColor;
+  }
+
   const weightComplement = 100 - opacity;
   for(let i = 0; i < baseColor.length; ++i) {
     baseColor[i] = Math.floor((baseColor[i] * weightComplement + newColor[i] * opacity) / 100);

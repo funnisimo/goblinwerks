@@ -153,6 +153,10 @@ export class Random {
   	return list[this.range(0, list.length - 1)];
   }
 
+  key(obj) {
+    return this.item(Object.keys(obj));
+  }
+
   shuffle(list, fromIndex, toIndex) {
   	if (arguments.length == 2) {
   		toIndex = fromIndex;

@@ -77,13 +77,13 @@ const PLAYER = GW.make.player({
       if (player.slots.melee) {
         melee = GW.text.capitalize(player.slots.melee.getName({ details: true, color: !dim }));
       }
-      y = GW.sidebar.addText(buf, y, 'Melee : ' + melee, null, null, dim, highlight);
+      y = GW.sidebar.addText(buf, y, 'Melee : ' + melee, null, null, { dim, highlight, indent: 8 });
 
       let ranged = 'None';
       if (player.slots.ranged) {
         ranged = GW.text.capitalize(player.slots.ranged.getName({ details: true, color: !dim }));
       }
-      y = GW.sidebar.addText(buf, y, 'Ranged: ' + ranged, null, null, dim, highlight);
+      y = GW.sidebar.addText(buf, y, 'Ranged: ' + ranged, null, null, { dim, highlight, indent: 8 });
       return y;
     },
 });
@@ -227,10 +227,10 @@ class Zombie extends GW.types.ActorKind {
       y = GW.sidebar.addHealthBar(entry, y, dim, highlight, buf);
     }
     if (actor.status) {
-      y = GW.sidebar.addText(buf, y, actor.status, null, null, dim, highlight);
+      y = GW.sidebar.addText(buf, y, actor.status, null, null, { dim, highlight });
     }
     if (actor.current.zombiePush) {
-      y = GW.sidebar.addText(buf, y, 'Push: ' + actor.current.zombiePush, null, null, dim, highlight);
+      y = GW.sidebar.addText(buf, y, 'Push: ' + actor.current.zombiePush, null, null, { dim, highlight });
     }
     return y;
   }

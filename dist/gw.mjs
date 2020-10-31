@@ -375,6 +375,21 @@ function sequence(listLength) {
   return list;
 }
 
+function chainLength(item) {
+  let count = 0;
+  while(item) {
+    count += 1;
+    item = item.next;
+  }
+  return count;
+}
+
+function chainIncludes(chain, entry) {
+  while (chain && chain !== entry) {
+    chain = chain.next;
+  }
+  return (chain === entry);
+}
 
 function eachChain(item, fn) {
   while(item) {
@@ -384,7 +399,7 @@ function eachChain(item, fn) {
 }
 
 function addToChain(obj, name, entry) {
-  entry.next = obj[name];
+  entry.next = obj[name] || null;
   obj[name] = entry;
   return true;
 }
@@ -392,9 +407,12 @@ function addToChain(obj, name, entry) {
 function removeFromChain(obj, name, entry) {
   const root = obj[name];
   if (root === entry) {
-    obj[name] = entry.next;
+    obj[name] = entry.next || null;
     entry.next = null;
     return true;
+  }
+  else if (!root) {
+    return false;
   }
   else {
     let prev = root;
@@ -404,7 +422,7 @@ function removeFromChain(obj, name, entry) {
       current = prev.next;
     }
     if (current === entry) {
-      prev.next = current.next;
+      prev.next = current.next || null;
       entry.next = null;
       return true;
     }
@@ -451,6 +469,8 @@ var utils$1 = /*#__PURE__*/Object.freeze({
   firstOpt: firstOpt,
   arraysIntersect: arraysIntersect,
   sequence: sequence,
+  chainLength: chainLength,
+  chainIncludes: chainIncludes,
   eachChain: eachChain,
   addToChain: addToChain,
   removeFromChain: removeFromChain
@@ -829,19 +849,17 @@ const CellMech = installFlag('cellMech', {
 // ITEM KIND
 
 const ItemKind = installFlag('itemKind', {
-	IK_ENCHANT_SPECIALIST 	: Fl(0),
+	IK_ENCHANT_SPECIALIST 	: Fl(0),  // TODO - DELETE (replace with tag?)
 	IK_HIDE_FLAVOR_DETAILS	: Fl(1),
 
-	IK_AUTO_TARGET					: Fl(2),
+	IK_AUTO_TARGET					: Fl(2),  // TODO - DELETE
 
-	IK_HALF_STACK_STOLEN		: Fl(3),
+	IK_HALF_STACK_STOLEN		: Fl(3), // TODO - DELETE
 	IK_ENCHANT_USES_STR 		: Fl(4),
 
-	// IK_ARTICLE_THE					: Fl(5),
-	// IK_NO_ARTICLE						: Fl(6),
-	// IK_PRENAMED	  					: Fl(7),
-
   IK_NO_SIDEBAR           : Fl(5),  // Do not show this item in the sidebar
+  IK_USE_ON_PICKUP        : Fl(6),  // Use item instead of picking up
+  IK_EQUIP_ON_PICKUP		  : Fl(7),
 
 	IK_BREAKS_ON_FALL				: Fl(8),
 	IK_DESTROY_ON_USE				: Fl(9),
@@ -858,20 +876,23 @@ const ItemKind = installFlag('itemKind', {
 	IK_KIND_AUTO_ID       	: Fl(17),	// the item type will become known when the item is picked up.
 	IK_PLAYER_AVOIDS				: Fl(18),	// explore and travel will try to avoid picking the item up
 
-	IK_TWO_HANDED						: Fl(19),
-	IK_NAME_PLURAL					: Fl(20),
+	IK_NAME_PLURAL					: Fl(20), // Replace with name conventions?  'gold coin~'
 
 	IK_STACKABLE						: Fl(21),
-	IK_STACK_SMALL					: Fl(22),
-	IK_STACK_LARGE					: Fl(23),
-	IK_SLOW_RECHARGE				: Fl(24),
+	// IK_STACK_SMALL					: Fl(22),
+	// IK_STACK_LARGE					: Fl(23),
+	// IK_SLOW_RECHARGE				: Fl(24),
 
 	IK_CAN_BE_SWAPPED      	: Fl(25),
-	IK_CAN_BE_RUNIC					: Fl(26),
+	// IK_CAN_BE_RUNIC					: Fl(26),
 	IK_CAN_BE_DETECTED		  : Fl(27),
 
-	IK_TREASURE							: Fl(28),
+	IK_TREASURE							: Fl(28),  // DELETE - tag
 	IK_INTERRUPT_EXPLORATION_WHEN_SEEN:	Fl(29),
+
+  IK_AUTO_CONSUME         : 'IK_USE_ON_PICKUP, IK_DESTROY_ON_USE',
+
+  IK_DEFAULT              : 0,
 });
 
 ///////////////////////////////////////////////////////
@@ -923,7 +944,7 @@ const Item = installFlag('item', {
 	ITEM_MAX_CHARGES_KNOWN	: Fl(12),
 	ITEM_IS_KEY							: Fl(13),
 
-
+  ITEM_CHANGED            : Fl(29),
 	ITEM_DESTROYED					: Fl(30),
 });
 
@@ -1088,6 +1109,10 @@ class Random {
 
   item(list) {
   	return list[this.range(0, list.length - 1)];
+  }
+
+  key(obj) {
+    return this.item(Object.keys(obj));
   }
 
   shuffle(list, fromIndex, toIndex) {
@@ -1393,11 +1418,14 @@ function addKind(name, ...args) {
 	return color;
 }
 
-color.install = addKind;
+color.addKind = addKind;
 
 function from(arg) {
   if (typeof arg === 'string') {
     return colors[arg] || make.color(arg);
+  }
+  if (arg instanceof types.Color) {
+    return arg;
   }
   return make.color(arg);
 }
@@ -1406,7 +1434,15 @@ color.from = from;
 
 
 function applyMix(baseColor, newColor, opacity) {
-  if (opacity <= 0) return;
+  baseColor = color.from(baseColor);
+  newColor = color.from(newColor);
+
+  if (opacity <= 0) return baseColor;
+  if (opacity >= 100) {
+    baseColor.copy(newColor);
+    return baseColor;
+  }
+
   const weightComplement = 100 - opacity;
   for(let i = 0; i < baseColor.length; ++i) {
     baseColor[i] = Math.floor((baseColor[i] * weightComplement + newColor[i] * opacity) / 100);
@@ -1993,15 +2029,16 @@ text.hyphenate = hyphenate;
 
 // Returns the number of lines, including the newlines already in the text.
 // Puts the output in "to" only if we receive a "to" -- can make it null and just get a line count.
-function splitIntoLines(sourceText, width, firstWidth) {
+function splitIntoLines(sourceText, width, indent=0) {
   let w, textLength;
   let spaceLeftOnLine, wordWidth;
 
   if (!width) ERROR('Need string and width');
-  firstWidth = firstWidth || width;
+  const firstWidth = width;
+  width = width - indent;
 
   let printString = text.hyphenate(sourceText, Math.min(width, firstWidth), true); // break up any words that are wider than the width.
-  textLength = text.length(printString); // do NOT discount escape sequences
+  textLength = printString.length; // do NOT remove escape sequences
 
   // Now go through and replace spaces with newlines as needed.
 
@@ -2011,6 +2048,7 @@ function splitIntoLines(sourceText, width, firstWidth) {
 
   let i = -1;
   let lastColor = '';
+  let clearColor = false;
   while (i < textLength) {
     // wordWidth counts the word width of the next word without color escapes.
     // w indicates the position of the space or newline or null terminator that terminates the word.
@@ -2021,7 +2059,7 @@ function splitIntoLines(sourceText, width, firstWidth) {
         w += 4;
       }
       else if (printString.charCodeAt(w) === COLOR_END) {
-        lastColor = '';
+        clearColor = true;
         w += 1;
       }
       else {
@@ -2038,6 +2076,10 @@ function splitIntoLines(sourceText, width, firstWidth) {
       //printf("\n\n%s", printString);
     } else {
       spaceLeftOnLine -= 1 + wordWidth;
+    }
+    if (clearColor) {
+      clearColor = false;
+      lastColor = '';
     }
     i = w; // Advance to the terminator that follows the word.
   }
@@ -2168,7 +2210,7 @@ var sprites = {};
 var sprite = {};
 
 const HANGING_LETTERS = ['y', 'p', 'g', 'j', 'q', '[', ']', '(', ')', '{', '}', '|'];
-const FLYING_LETTERS = ["'", '"'];
+const FLYING_LETTERS = ["'", '"', '$', 'f'];
 
 class Sprite {
 	constructor(ch, fg, bg, opacity) {
@@ -3305,34 +3347,15 @@ class Buffer extends types.Grid {
       this.plotLine(x, y, width, text$1, fg, bg);
       return y + 1;
     }
-    let first = true;
-    let indent = opts.indent || 0;
-    let start = 0;
-    let last = 0;
-    for(let index = 0; index < text$1.length; ++index) {
-      const ch = text$1[index];
-      if (ch === '\n') {
-        last = index;
-      }
-      if ((index - start >= width) || (ch === '\n')) {
-        const sub = text$1.substring(start, last);
-        this.plotLine(x, y++, width, sub, fg, bg);
-        if (first) {
-          x += indent;
-          first = false;
-        }
-        start = last;
-      }
-      if (ch === ' ') {
-        last = index + 1;
-      }
-    }
+    opts.indent = opts.indent || 0;
 
-    if (start < text$1.length - 1) {
-      const sub = text$1.substring(start);
-      this.plotLine(x, y++, width, sub, fg, bg);
-    }
-    return y;
+    const lines = text.splitIntoLines(text$1, width, opts.indent);
+    lines.forEach( (line, i) => {
+      const offset = i ? opts.indent : 0;
+      this.plotLine(x + offset, y + i, width - offset, line, fg, bg);
+    });
+
+    return y + lines.length;
   }
 
   fill(ch, fg, bg) {
@@ -5429,7 +5452,7 @@ const TileLayer$1 = def.layer;
 
 cell.debug = NOOP;
 
-color.install('cursorColor', 25, 100, 150);
+color.addKind('cursorColor', 25, 100, 150);
 config.cursorPathIntensity = 50;
 
 
@@ -5900,6 +5923,7 @@ class Cell$1 {
   // SPRITES
 
   addSprite(layer, sprite, priority=50) {
+    if (!sprite) return;
 
     // this.flags |= Flags.NEEDS_REDRAW;
     this.flags |= Cell.CELL_CHANGED;
@@ -5919,13 +5943,15 @@ class Cell$1 {
   }
 
   removeSprite(sprite) {
+    if (!sprite) return false;
+    if (!this.sprites) return false;
 
     // this.flags |= Flags.NEEDS_REDRAW;
     this.flags |= Cell.CELL_CHANGED;
 
     if (this.sprites && this.sprites.sprite === sprite) {
       this.sprites = this.sprites.next;
-      return;
+      return true;
     }
 
     let prev = this.sprites;
@@ -6408,7 +6434,7 @@ class Map$1 {
 		this.actors = theActor;
 
 		const layer = (theActor === data.player) ? TileLayer$2.PLAYER : TileLayer$2.ACTOR;
-		cell.addSprite(layer, theActor.kind.sprite);
+		cell.addSprite(layer, theActor.sprite || theActor.kind.sprite);
 
 		const flag = (theActor === data.player) ? Cell.HAS_PLAYER : Cell.HAS_MONSTER;
 		cell.flags |= flag;
@@ -6464,6 +6490,7 @@ class Map$1 {
 			cell.actor = null;
       removeFromChain(this, 'actors', actor);
 			cell.flags &= ~Cell.HAS_ACTOR;
+      cell.removeSprite(actor.sprite);
 			cell.removeSprite(actor.kind.sprite);
 
       if (actor.light || actor.kind.light) {
@@ -6521,7 +6548,7 @@ class Map$1 {
 		theItem.next = this.items;
 		this.items = theItem;
 
-		cell.addSprite(TileLayer$2.ITEM, theItem.kind.sprite);
+		cell.addSprite(TileLayer$2.ITEM, theItem.sprite || theItem.kind.sprite);
 		cell.flags |= (Cell.HAS_ITEM);
 
     if (theItem.light || theItem.kind.light) {
@@ -6556,9 +6583,11 @@ class Map$1 {
 	removeItem(theItem, skipRefresh) {
 		const x = theItem.x;
 		const y = theItem.y;
+    if (!this.hasXY(x, y)) return false;
 		const cell = this.cell(x, y);
 		if (cell.item !== theItem) return false;
 
+    cell.removeSprite(theItem.sprite);
 		cell.removeSprite(theItem.kind.sprite);
 
 		cell.item = null;
@@ -7794,34 +7823,43 @@ class Actor$1 {
   	actor.debug(...args);
   }
 
+  // STATS
+
+  adjustStat(stat, delta) {
+    if (this.max[stat] === undefined) {
+      this.max[stat] = Math.max(0, delta);
+    }
+    this.current[stat] = clamp((this.current[stat] || 0) + delta, 0, this.max[stat]);
+    this.changed(true);
+  }
 
   // INVENTORY
 
   addToPack(item) {
-    let quantity = 0;
+    let quantityLeft = (item.quantity || 1);
     // Stacking?
     if (item.kind.flags & ItemKind.IK_STACKABLE) {
       let current = this.pack;
-      while(current && item.quantity) {
+      while(current && quantityLeft) {
         if (current.kind === item.kind) {
-          quantity += item.quantity;
+          quantityLeft -= item.quantity;
           current.quantity += item.quantity;
           item.quantity = 0;
-          item.flags |= Item.ITEM_DESTROYED;
+          item.destroy();
         }
         current = current.next;
       }
-      if (!item.quantity) {
-        return quantity;
+      if (!quantityLeft) {
+        return true;
       }
     }
 
     // Limits to inventory length?
+    // if too many items - return false
 
     if (addToChain(this, 'pack', item)) {
-      quantity += (item.quantity || 1);
+      return true;
     }
-    return quantity;
   }
 
   removeFromPack(item) {
@@ -7852,7 +7890,7 @@ class Actor$1 {
   }
 
   unequipSlot(slot) {
-    const item = this.slots[slot];
+    const item = this.slots[slot] || null;
     this.slots[slot] = null;
     return item;
   }
@@ -8126,6 +8164,11 @@ async function start(opts={}) {
     config.fov = true;
   }
 
+  config.inventory = true;
+  if (opts.inventory === false || opts.pack === false) {
+    config.inventory = false;
+  }
+
   await startMap(map, opts.start);
   queuePlayer();
 
@@ -8303,6 +8346,8 @@ async function updateEnvironment() {
   if (!map) return 0;
 
   await map.tick();
+  visibility.update(map, data.player.x, data.player.y);
+
   ui.requestUpdate();
 
   return map.config.tick;
@@ -9190,6 +9235,7 @@ function setupStairs(map, x, y, tile) {
 		if (i == dirIndex || l == dirIndex || r == dirIndex ) continue;
 		const d = def.clockDirs[i];
 		map.setTile(x + d[0], y + d[1], WALL);
+    map.setCellFlags(x + d[0], y + d[1], Cell.IMPREGNABLE);
 	}
 
 	dungeon.debug('setup stairs', x, y, tile);
@@ -10232,6 +10278,7 @@ commands$1.rest = rest;
 
 class ItemKind$1 {
   constructor(opts={}) {
+    Object.assign(this, opts);
 		this.name = opts.name || 'item';
 		this.flavor = opts.flavor || null;
     this.article = (opts.article === undefined) ? 'a' : opts.article;
@@ -10257,7 +10304,8 @@ class ItemKind$1 {
     if (opts.projectile) {
       this.projectile = make.sprite(opts.projectile);
     }
-    this.corpse = make.tileEvent(opts.corpse);
+    this.corpse = opts.corpse ? make.tileEvent(opts.corpse) : null;
+
     if (opts.consoleColor === false) {
       this.consoleColor = false;
     }
@@ -10288,7 +10336,7 @@ class ItemKind$1 {
     if (opts === false) { opts = {}; }
     if (typeof opts === 'string') { opts = { article: opts }; }
 
-    let result = this.name;
+    let result = item.name || this.name;
     if (opts.color || (this.consoleColor && (opts.color !== false))) {
       let color = this.sprite.fg;
       if (this.consoleColor instanceof types.Color) {
@@ -10297,7 +10345,10 @@ class ItemKind$1 {
       if (opts.color instanceof types.Color) {
         color = opts.color;
       }
-      result = text.format('%R%s%R', color, this.name, null);
+      result = text.format('%R%s%R', color, result, null);
+    }
+    else if (opts.color === false) {
+      result = text.removeColors(result); // In case item has built in color
     }
 
     if (opts.article) {
@@ -10339,15 +10390,19 @@ item.addKinds = addItemKinds;
 
 class Item$1 {
 	constructor(kind, opts={}) {
-    Object.assign(this, opts);
+    // Object.assign(this, opts);
 		this.x = -1;
     this.y = -1;
-    this.quantity = this.quantity || 1;
+    this.quantity = opts.quantity || 1;
     this.flags = Item.toFlag(opts.flags);
 		this.kind = kind || null;
 		this.stats = Object.assign({}, kind.stats);
     if (opts.stats) {
       Object.assign(this.stats, opts.stats);
+    }
+
+    if (this.kind.make) {
+      this.kind.make(this, opts);
     }
 	}
 
@@ -10359,8 +10414,17 @@ class Item$1 {
 		return (this.kind.actionFlags & flag) > 0;
 	}
 
+  destroy() { this.flags |= (Item.ITEM_DESTROYED | Item.ITEM_CHANGED); }
 	isDestroyed() { return this.flags & Item.ITEM_DESTROYED; }
-  changed() { return false; } // ITEM_CHANGED
+  changed(v) {
+    if (v) {
+      this.flags |= Item.ITEM_CHANGED;
+    }
+    else if (v !== undefined) {
+      this.flags &= ~(Item.ITEM_CHANGED);
+    }
+    return (this.flags & Item.ITEM_CHANGED);
+  }
 
 	getFlavor() { return this.kind.flavor || this.kind.getName(this, true); }
   getName(opts={}) {
@@ -10379,7 +10443,8 @@ function makeItem(kind, opts) {
       return null;
     }
 	}
-	return new types.Item(kind, opts);
+	const item = new types.Item(kind, opts);
+  return item;
 }
 
 make.item = makeItem;
@@ -10831,9 +10896,9 @@ const DATA = data;
 
 sidebar$1.debug = NOOP;
 
-const blueBar = color.install('blueBar', 	15,		10,		50);
-const redBar = 	color.install('redBar', 	45,		10,		15);
-const purpleBar = color.install('purpleBar', 	50,		0,		50);
+const blueBar = color.addKind('blueBar', 	15,		10,		50);
+const redBar = 	color.addKind('redBar', 	45,		10,		15);
+const purpleBar = color.addKind('purpleBar', 	50,		0,		50);
 
 
 function setup$2(opts={}) {
@@ -11170,7 +11235,7 @@ function UiDrawSidebar(buf) {
 sidebar$1.draw = UiDrawSidebar;
 
 
-function sidebarAddText(buf, y, text, fg, bg, dim, highlight) {
+function sidebarAddText(buf, y, text, fg, bg, opts={}) {
 
   if (y >= SIDE_BOUNDS.height - 1) {
 		return SIDE_BOUNDS.height - 1;
@@ -11179,14 +11244,15 @@ function sidebarAddText(buf, y, text, fg, bg, dim, highlight) {
   fg = fg ? color.from(fg) : colors.white;
   bg = bg ? color.from(bg) : colors.black;
 
-  if (dim) {
+  if (opts.dim) {
     fg = fg.clone();
     bg = bg.clone();
     color.applyAverage(fg, colors.black, 50);
     color.applyAverage(bg, colors.black, 50);
   }
+  else if (opts.highlight) ;
 
-  y = buf.wrapText(SIDE_BOUNDS.x, y, SIDE_BOUNDS.width, text, fg, bg);
+  y = buf.wrapText(SIDE_BOUNDS.x, y, SIDE_BOUNDS.width, text, fg, bg, opts);
 
   return y;
 }
@@ -11556,8 +11622,8 @@ function sidebarAddItemInfo(entry, y, dim, highlight, buf) {
 
 sidebar$1.addItem = sidebarAddItemInfo;
 
-const flavorTextColor = color.install('flavorText', 50, 40, 90);
-const flavorPromptColor = color.install('flavorPrompt', 100, 90, 20);
+const flavorTextColor = color.addKind('flavorText', 50, 40, 90);
+const flavorPromptColor = color.addKind('flavorPrompt', 100, 90, 20);
 
 let FLAVOR_TEXT = '';
 let NEED_FLAVOR_UPDATE = false;
@@ -12563,32 +12629,45 @@ async function pickup(actor, item, ctx) {
 
   if (!actor.hasActionFlag(Action.A_PICKUP)) return false;
   if (item.hasActionFlag(Action.A_NO_PICKUP)) {
-    // TODO - GW.message.add('...');
+    message.add('you cannot pickup %s.', item.getName({ article: 'the', color: true }));
     return false;
   }
 
-  let success;
-  if (item.kind.pickup) {
-    success = await item.kind.pickup(item, actor, ctx);
-    if (!success) return false;
-  }
-  else {
-    // if no room in inventory - return false
-    // add to inventory
-    success = actor.addToPack(item);
-    if (!success) return false;
-  }
-
-  const map = ctx.map;
+  const map = ctx.map || data.map;
   map.removeItem(item);
 
-  if (!ctx.quiet) {
-    message.add('you pickup %s.', item.getName(true));
+  let success = false;
+  if (!config.inventory) {
+    if (item.kind.slot) {
+      success = await actions.equip(actor, item, ctx);
+    }
+    else {
+      success = await actions.use(actor, item, ctx);
+    }
+    ctx.quiet = true; // no need to log the pickup - we did that in either 'equip' or 'use'
+  }
+  else if (item.kind.pickup) {
+    success = await item.kind.pickup(item, actor, ctx);
+  }
+  else {
+    success = actor.addToPack(item);
   }
 
-  // if (success instanceof types.Item) {
-  //   map.addItem(item.x, item.y, success);
-  // }
+  if (!success) {
+    // put item back on floor
+    map.addItem(item.x, item.y, item);
+    return false;
+  }
+
+  if ((item.kind.flags & ItemKind.IK_EQUIP_ON_PICKUP) && item.kind.slot) {
+    await actions.equip(actor, item, ctx);
+  }
+  else if (item.kind.flags & ItemKind.IK_USE_ON_PICKUP) {
+    await actions.use(actor, item, ctx);
+  }
+  else if (!ctx.quiet) {
+    message.add('you pickup %s.', item.getName('the'));
+  }
 
   actor.endTurn();
   return true;
@@ -12899,6 +12978,137 @@ async function push$1(actor, item, ctx={}) {
 }
 
 actions.push = push$1;
+
+async function use(actor, item, ctx) {
+
+  let success;
+  if (item.kind.use) {
+    success = await item.kind.use(item, actor, ctx);
+    if (!success) return false;
+  }
+  else {
+    message.add('Nothing happens.');
+    return false;
+  }
+
+  if (item.kind.flags & ItemKind.IK_DESTROY_ON_USE) {
+    item.quantity -= 1;
+  }
+
+  if (item.quantity <= 0) {
+    item.destroy();
+  }
+
+  if (item.isDestroyed()) {
+    const map = ctx.map || data.map;
+    if (map) {
+      map.removeItem(item);
+    }
+
+    actor.removeFromPack(item);
+  }
+
+  actor.endTurn();
+  return true;
+}
+
+actions.use = use;
+
+async function equip(actor, item, ctx={}) {
+  if (!item) return false;
+
+  const slot = item.kind.slot;
+  if (!slot) {
+    message.add('%s does not seem to be equippable.', item.getName({ color: true, article: 'the' }));
+    return false;
+  }
+
+  let success;
+
+  const other = actor.slots[slot];
+  if (other) {
+    if (other === item) {
+      message.add('already equipped.');
+      return false;
+    }
+
+    const quietCtx = Object.assign({ quiet: true }, ctx);
+    success = await actions.unequip(actor, slot, quietCtx);
+    if (!success) {
+      return false;
+    }
+  }
+
+  success = actor.equip(item);
+  if (!success) {
+    const article = chainIncludes(actor.pack, item) ? 'your' : true;
+    message.add('you failed to equip %s.', item.getName({ article, color: true }));
+    // TODO - Re-equip other?
+    return false;
+  }
+
+  if (!ctx.quiet) {
+    const article = config.inventory ? 'your' : 'a';
+    if (other) {
+      message.add('you swap %s for %s.', other.getName({ article: 'your', color: true }), item.getName({ article: article, color: true }));
+    }
+    else {
+      // TODO - Custom verb? item.kind.equipVerb -or- Custom message? item.kind.equipMessage
+      message.add('You equip %s.', item.getName({ article, color: true }));
+    }
+  }
+
+  return true;
+}
+
+actions.equip = equip;
+
+
+
+async function unequip(actor, item, ctx={}) {
+  if (!item) return false;
+
+  let slot;
+
+  if (typeof item === 'string') {
+    slot = item;
+  }
+  else {
+    slot = item.kind.slot;
+    if (!slot) {
+      message.add('%s does not seem to be equippable.', item.getName({ color: true, article: true }));
+      return false;
+    }
+    if (actor.slots[slot] !== item) {
+      message.add('%s does not seem to be equipped.', item.getName({ color: true, article: 'the' }));
+      return false;
+    }
+  }
+
+  item = actor.unequipSlot(slot); // will not change item unless it was a slot name
+
+  // TODO - test for curse, etc...
+
+  if (actor.slots[slot]) {
+    // failed to unequip
+    message.add('You cannot remove your %s.', actor.slots[slot].getName({article: false, color: true }));
+    return false;
+  }
+
+  if (!config.inventory) {
+    const map = ctx.map || data.map;
+    map.addItemNear(actor.x, actor.y, item);
+  }
+
+  if (item && !ctx.quiet) {
+    // TODO - Custom verb? item.kind.equipVerb -or- Custom message? item.kind.equipMessage
+    message.add('You remove your %s.', item.getName({ article: false, color: true }));
+  }
+
+  return true;
+}
+
+actions.unequip = unequip;
 
 async function idle(actor, ctx) {
   actor.debug('idle');

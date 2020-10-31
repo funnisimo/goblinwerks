@@ -99,11 +99,12 @@ describe('Message', () => {
       const text = GW.text.format(GW.colors.blue, 'testing a long message that will need to be split into multiple lines in order%R to be shown on the screen completely.', null);
 
       const lines = GW.text.splitIntoLines(text, 30);
-      expect(lines.length).toEqual(4);
+      expect(lines.length).toEqual(5);
       expect(lines[0].charCodeAt(0)).toEqual(GW.def.COLOR_ESCAPE);
       expect(lines[1].charCodeAt(0)).toEqual(GW.def.COLOR_ESCAPE);
       expect(lines[2].charCodeAt(0)).toEqual(GW.def.COLOR_ESCAPE);
-      expect(lines[3].charCodeAt(0)).not.toEqual(GW.def.COLOR_ESCAPE);
+      expect(lines[3]).toEqual('shown on the screen');
+      expect(lines[4]).toEqual('completely.')
     });
 
     test('split game over', () => {
@@ -113,6 +114,21 @@ describe('Message', () => {
       expect(lines[0].length).toBeLessThan(84); // 80 text + color
       expect(lines[1].length).toBeLessThan(84); // 80 text + color
       expect(lines[2].length).toBeLessThan(84); // 80 text + color
+    });
+
+    test('wraps on color ending word correctly', () => {
+      const text = GW.text.format('Armor  : %RTempered armor of magical weakness%R', 'red', null);
+      expect(text.charCodeAt(9)).toEqual(GW.def.COLOR_ESCAPE);
+      expect(text.charCodeAt(10)).toEqual(100);
+      expect(text.charCodeAt(11)).toEqual(0);
+      expect(text.charCodeAt(12)).toEqual(0);
+      const lines = GW.text.splitIntoLines(text, 40, 9);
+      expect(lines.length).toEqual(2);
+      expect(lines[1].charCodeAt(0)).toEqual(GW.def.COLOR_ESCAPE);
+      expect(lines[1].charCodeAt(1)).toEqual(100);
+      expect(lines[1].charCodeAt(2)).toEqual(0);
+      expect(lines[1].charCodeAt(3)).toEqual(0);
+      expect(lines[1][4]).toEqual('w');
     });
 
   });

@@ -124,12 +124,12 @@ describe('actor', () => {
       expect(thing1.quantity).toEqual(10);
       expect(thing1.kind.flags & GW.flags.itemKind.IK_STACKABLE).toBeTruthy();
 
-      expect(actor.addToPack(thing1)).toEqual(thing1.quantity);
+      expect(actor.addToPack(thing1)).toEqual(true);
 
       const thing2 = GW.make.item('THING_STACKABLE', { quantity: 10 });
       expect(thing2.quantity).toEqual(10);
 
-      expect(actor.addToPack(thing2)).toEqual(10);
+      expect(actor.addToPack(thing2)).toEqual(true);
       expect(thing2.quantity).toEqual(0);
       expect(thing1.quantity).toEqual(20);
       expect(actor.pack).toEqual(thing1);

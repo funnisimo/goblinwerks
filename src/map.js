@@ -406,7 +406,7 @@ export class Map {
 		this.actors = theActor;
 
 		const layer = (theActor === DATA.player) ? TileLayer.PLAYER : TileLayer.ACTOR;
-		cell.addSprite(layer, theActor.kind.sprite);
+		cell.addSprite(layer, theActor.sprite || theActor.kind.sprite);
 
 		const flag = (theActor === DATA.player) ? Flags.Cell.HAS_PLAYER : Flags.Cell.HAS_MONSTER;
 		cell.flags |= flag;
@@ -462,6 +462,7 @@ export class Map {
 			cell.actor = null;
       Utils.removeFromChain(this, 'actors', actor);
 			cell.flags &= ~Flags.Cell.HAS_ACTOR;
+      cell.removeSprite(actor.sprite);
 			cell.removeSprite(actor.kind.sprite);
 
       if (actor.light || actor.kind.light) {
@@ -519,7 +520,7 @@ export class Map {
 		theItem.next = this.items;
 		this.items = theItem;
 
-		cell.addSprite(TileLayer.ITEM, theItem.kind.sprite);
+		cell.addSprite(TileLayer.ITEM, theItem.sprite || theItem.kind.sprite);
 		cell.flags |= (Flags.Cell.HAS_ITEM);
 
     if (theItem.light || theItem.kind.light) {
@@ -554,9 +555,11 @@ export class Map {
 	removeItem(theItem, skipRefresh) {
 		const x = theItem.x;
 		const y = theItem.y;
+    if (!this.hasXY(x, y)) return false;
 		const cell = this.cell(x, y);
 		if (cell.item !== theItem) return false;
 
+    cell.removeSprite(theItem.sprite);
 		cell.removeSprite(theItem.kind.sprite);
 
 		cell.item = null;

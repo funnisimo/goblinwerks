@@ -293,6 +293,7 @@ function decorateBrambles(map, level) {
 		if (!level.isInside(x, y)) { continue; }
     const cell = map.cell(x, y);
 		if (cell.ground != 'WALL') { continue; }
+    if (cell.flags & GW.flags.cell.IMPREGNABLE) { continue; }
 		map.setTile(x, y, 'BRAMBLES');
 	}
 }
@@ -304,15 +305,9 @@ function welcomeLast() {
   msg.push("Welcome to the last floor!");
   msg.push("You managed to reach the princess and finish the game.");
 
-  let gold = 0;
-  player.eachPack( (item) => {
-    if (item.kind === GW.itemKinds.GOLD) {
-      gold += item.quantity;
-    }
-  });
-
+  let gold = GW.data.player.current.gold || 0;
   if (gold) {
-    msg.push(['Furthermore, you were able to accumulate a total of %s!', gold.getName({ quantity: true, color: true })]);
+    msg.push(['Furthermore, you were able to accumulate a total of %R%d gold coins%R!', 'gold', gold, null]);
   }
 
   msg.push("The game is over now, but you are free to look around.");
@@ -410,13 +405,21 @@ function decorateFull(map, level) {
 	decorateBrambles(map, level);
 
 	let features = {
-		item: 4,
-		potion: 3,
-		lutefisk: 0.1,
-		gold: 2,
-		enemy: 5,
-		hero: 1,
-		empty: 2
+    dagger: 7,
+    sword: 6,
+    axe: 5,
+    mace: 4,
+    greatSword: 3,
+    shield: 5,
+    helmet: 5,
+		armor: 10,
+		mana: 10,
+    health: 10,
+		lutefisk: 1,
+		gold: 10,
+		enemy: 50,
+		hero: 10,
+		empty: 100,
 	}
 
 	level.rooms.forEach(room => {
@@ -439,7 +442,24 @@ function decorateFull(map, level) {
 			switch (feature) {
 			// 	case "item": level.setItem(xy, factory.getItem(level.danger)); break;
 			// 	case "potion": level.setItem(xy, factory.getPotion()); break;
-			// 	case "lutefisk": level.setItem(xy, new items.Lutefisk()); break;
+        case "armor":
+          item = GW.make.item('ARMOR');
+          break;
+        case "shield":
+          item = GW.make.item('SHIELD');
+          break;
+        case "helmet":
+          item = GW.make.item('HELMET');
+          break;
+				case "lutefisk":
+          item = GW.make.item('LUTEFISK');
+          break;
+        case "health":
+          item = GW.make.item('POTION_HEALTH');
+          break;
+        case "mana":
+          item = GW.make.item('POTION_MANA');
+          break;
 				case "gold":
           item = GW.make.item('GOLD');
           break;

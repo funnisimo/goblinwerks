@@ -386,15 +386,16 @@ text.hyphenate = hyphenate;
 
 // Returns the number of lines, including the newlines already in the text.
 // Puts the output in "to" only if we receive a "to" -- can make it null and just get a line count.
-function splitIntoLines(sourceText, width, firstWidth) {
+function splitIntoLines(sourceText, width, indent=0) {
   let w, textLength, lineCount;
   let spaceLeftOnLine, wordWidth;
 
   if (!width) Utils.ERROR('Need string and width');
-  firstWidth = firstWidth || width;
+  const firstWidth = width;
+  width = width - indent;
 
   let printString = text.hyphenate(sourceText, Math.min(width, firstWidth), true); // break up any words that are wider than the width.
-  textLength = text.length(printString); // do NOT discount escape sequences
+  textLength = printString.length; // do NOT remove escape sequences
   lineCount = 1;
 
   // Now go through and replace spaces with newlines as needed.
@@ -405,6 +406,7 @@ function splitIntoLines(sourceText, width, firstWidth) {
 
   let i = -1;
   let lastColor = '';
+  let clearColor = false;
   while (i < textLength) {
     // wordWidth counts the word width of the next word without color escapes.
     // w indicates the position of the space or newline or null terminator that terminates the word.
@@ -415,7 +417,7 @@ function splitIntoLines(sourceText, width, firstWidth) {
         w += 4;
       }
       else if (printString.charCodeAt(w) === COLOR_END) {
-        lastColor = '';
+        clearColor = true;
         w += 1;
       }
       else {
@@ -433,6 +435,10 @@ function splitIntoLines(sourceText, width, firstWidth) {
       //printf("\n\n%s", printString);
     } else {
       spaceLeftOnLine -= 1 + wordWidth;
+    }
+    if (clearColor) {
+      clearColor = false;
+      lastColor = '';
     }
     i = w; // Advance to the terminator that follows the word.
   }
