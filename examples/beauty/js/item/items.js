@@ -17,6 +17,7 @@ const WEARABLE_SUFFIXES = {
 	[GW.config.MAGIC_2]: "magical weakness"
 };
 
+
 //
 // export class Dagger extends Wearable {
 // 	constructor() {
@@ -97,6 +98,17 @@ class Armor extends GW.types.ItemKind {
       item.name = name;
     }
 	}
+
+  getName(item, opts={}) {
+    let base = super.getName(item, opts);
+    if (opts.details) {
+      base += ` <${item.stats.defense}> `;
+      if (item.stats.combatBonus) {
+        base += COMBAT_BONUS_DISPLAY[item.stats.combatBonus];
+      }
+    }
+    return base;
+  }
 }
 
 GW.item.addKind('ARMOR', new Armor({ prefixes: ARMOR_PREFIXES, suffixes: WEARABLE_SUFFIXES, stats: { defense: 2 } }));

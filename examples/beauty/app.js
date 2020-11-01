@@ -30,6 +30,13 @@ GW.config.COMBAT_COLORS = {
 	[GW.config.MAGIC_2]: "#ff3"
 };
 
+const COMBAT_BONUS_DISPLAY = {
+	[GW.config.ATTACK_1]: GW.text.format('%R+#%R', GW.config.COMBAT_COLORS[GW.config.ATTACK_1], null),
+	[GW.config.ATTACK_2]: GW.text.format('%R+#%R', GW.config.COMBAT_COLORS[GW.config.ATTACK_2], null),
+	[GW.config.MAGIC_1]: GW.text.format('%R+#%R', GW.config.COMBAT_COLORS[GW.config.MAGIC_1], null),
+	[GW.config.MAGIC_2]: GW.text.format('%R+#%R', GW.config.COMBAT_COLORS[GW.config.MAGIC_2], null)
+};
+
 
 var PLAYER = null;
 
@@ -50,7 +57,7 @@ function resetPlayer() {
       y = GW.sidebar.addManaBar(entry, y, dim, highlight, buf);
 
       const gold = player.current.gold || 0;
-      y = GW.sidebar.addText(buf, y, 'Gold: ' + gold, 'gold', null, { dim, highlight });
+      GW.sidebar.addText(buf, y, 'Gold: ' + gold, 'gold', null, { dim, highlight });
 
       let melee = 'Fists [1]';
       if (player.slots.melee) {

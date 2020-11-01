@@ -11829,7 +11829,7 @@ let UI_BASE = null;
 let UI_OVERLAY = null;
 let IN_DIALOG = false;
 
-let time = performance.now();
+let time = 0;
 
 let RUNNING = false;
 

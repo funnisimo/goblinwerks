@@ -18,7 +18,7 @@ let UI_OVERLAY = null;
 let IN_DIALOG = false;
 let REDRAW_UI = false;
 
-let time = performance.now();
+let time = 0;
 
 let RUNNING = false;
 
