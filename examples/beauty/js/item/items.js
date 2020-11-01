@@ -109,6 +109,9 @@ class Armor extends GW.types.ItemKind {
         base += ` <${item.stats.defense}>`;
       }
     }
+    if (opts.color === false) {
+      base = GW.text.removeColors(base);
+    }
     return base;
   }
 }

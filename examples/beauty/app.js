@@ -57,7 +57,7 @@ function resetPlayer() {
       y = GW.sidebar.addManaBar(entry, y, dim, highlight, buf);
 
       const gold = player.current.gold || 0;
-      GW.sidebar.addText(buf, y, 'Gold: ' + gold, 'gold', null, { dim, highlight });
+      y = GW.sidebar.addText(buf, y, 'Gold   : ' + gold, 'gold', null, { dim, highlight });
 
       let melee = 'Fists [1]';
       if (player.slots.melee) {
