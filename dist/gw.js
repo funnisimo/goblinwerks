@@ -2054,6 +2054,7 @@
 
     let i = -1;
     let lastColor = '';
+    let nextColor = null;
     let clearColor = false;
     while (i < textLength) {
       // wordWidth counts the word width of the next word without color escapes.
@@ -2061,11 +2062,13 @@
       wordWidth = 0;
       for (w = i + 1; w < textLength && printString[w] !== ' ' && printString[w] !== '\n';) {
         if (printString.charCodeAt(w) === COLOR_ESCAPE) {
-          lastColor = printString.substring(w, w + 4);
+          nextColor = printString.substring(w, w + 4);
+          clearColor = false;
           w += 4;
         }
         else if (printString.charCodeAt(w) === COLOR_END) {
           clearColor = true;
+          nextColor = null;
           w += 1;
         }
         else {
@@ -2083,10 +2086,16 @@
       } else {
         spaceLeftOnLine -= 1 + wordWidth;
       }
+
+      if (nextColor) {
+        lastColor = nextColor;
+        nextColor = null;
+      }
       if (clearColor) {
         clearColor = false;
         lastColor = '';
       }
+
       i = w; // Advance to the terminator that follows the word.
     }
 

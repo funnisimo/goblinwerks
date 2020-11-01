@@ -131,6 +131,12 @@ describe('Message', () => {
       expect(lines[1][4]).toEqual('w');
     });
 
+    test('wraps on word with color change correctly', () => {
+      const text = GW.text.format('Armor  : %RLeather armor of treachery%R <3%R+#%R>', 'orange', null, 'red', null);
+      const lines = GW.text.splitIntoLines(text, 40, 9);
+      expect(lines.length).toEqual(2);
+      expect(lines[1]).toEqual(GW.text.format('<3%R+#%R>', 'red', null));
+    });
   });
 
   describe('removeColor', () => {

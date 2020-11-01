@@ -102,9 +102,11 @@ class Armor extends GW.types.ItemKind {
   getName(item, opts={}) {
     let base = super.getName(item, opts);
     if (opts.details) {
-      base += ` <${item.stats.defense}> `;
       if (item.stats.combatBonus) {
-        base += COMBAT_BONUS_DISPLAY[item.stats.combatBonus];
+        base += ` <${item.stats.defense}${COMBAT_BONUS_DISPLAY[item.stats.combatBonus]}>`;
+      }
+      else {
+        base += ` <${item.stats.defense}>`;
       }
     }
     return base;
