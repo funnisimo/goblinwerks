@@ -545,7 +545,8 @@ actor.bump = bump;
 export function generateAndPlace(map, opts={}) {
   if (typeof opts === 'number') { opts = { tries: opts }; }
   Utils.setDefaults(opts, {
-    tries: 1,
+    tries: 0,
+    count: 0,
     chance: 100,
     outOfBandChance: 0,
     matchKindFn: null,
@@ -561,9 +562,19 @@ export function generateAndPlace(map, opts={}) {
     ++danger;
   }
 
-  let count = 0;
-  for(let i = 0; i < opts.tries; ++i) {
-    if (random.chance(opts.chance)) {
+  let count = opts.count;
+  if (opts.choices && !count && !opts.tries) {
+    count = opts.choices.length;
+  }
+  else if (opts.tries && opts.chance) {
+    for(let i = 0; i < opts.tries; ++i) {
+      if (random.chance(opts.chance)) {
+        ++count;
+      }
+    }
+  }
+  else if (opts.chance) {
+    while(random.chance(opts.chance)) {
       ++count;
     }
   }

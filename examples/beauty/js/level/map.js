@@ -399,8 +399,13 @@ function decorateFirst(map, level) {
 		// 	break;
 		// }
 
-    GW.actor.generateAndPlace(map, { choices: ['RAT'], count: 1, block: 'start' });
 	});
+
+  GW.dungeon.finishDoors(map);
+
+  GW.actor.generateAndPlace(map, { choices: ['RAT'], block: 'start' });
+  GW.item.generateAndPlace(map, { choices: ['DAGGER', 'POTION_HEALTH'], block: 'start' });
+
 }
 
 function decorateFull(map, level) {
@@ -489,6 +494,8 @@ function decorateFull(map, level) {
 	// 	}
 	// });
 
+  GW.dungeon.finishDoors(map);
+
   const count = GW.item.generateAndPlace(map, { tries: level.rooms.length * 2, chance: 40, makeOpts: { danger: level.danger }, block: 'start' });
   console.log('generated %s items.', count);
 }
@@ -557,7 +564,6 @@ function decorate(map, level) {
 	} else {
 		decorateRegular(map, level);
 	}
-  GW.dungeon.finishDoors(map);
 
 }
 

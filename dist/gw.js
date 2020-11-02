@@ -8122,7 +8122,8 @@
   function generateAndPlace(map, opts={}) {
     if (typeof opts === 'number') { opts = { tries: opts }; }
     setDefaults(opts, {
-      tries: 1,
+      tries: 0,
+      count: 0,
       chance: 100,
       outOfBandChance: 0,
       matchKindFn: null,
@@ -8138,9 +8139,19 @@
       ++danger;
     }
 
-    let count = 0;
-    for(let i = 0; i < opts.tries; ++i) {
-      if (random.chance(opts.chance)) {
+    let count = opts.count;
+    if (opts.choices && !count && !opts.tries) {
+      count = opts.choices.length;
+    }
+    else if (opts.tries && opts.chance) {
+      for(let i = 0; i < opts.tries; ++i) {
+        if (random.chance(opts.chance)) {
+          ++count;
+        }
+      }
+    }
+    else if (opts.chance) {
+      while(random.chance(opts.chance)) {
         ++count;
       }
     }
@@ -10732,7 +10743,8 @@
   function generateAndPlace$1(map, opts={}) {
     if (typeof opts === 'number') { opts = { tries: opts }; }
     setDefaults(opts, {
-      tries: 1,
+      count: 0,
+      tries: 0,
       chance: 100,
       outOfBandChance: 0,
       matchKindFn: null,
@@ -10748,9 +10760,19 @@
       ++danger;
     }
 
-    let count = 0;
-    for(let i = 0; i < opts.tries; ++i) {
-      if (random.chance(opts.chance)) {
+    let count = opts.count;
+    if (opts.choices && !count && !opts.tries) {
+      count = opts.choices.length;
+    }
+    else if (opts.tries && opts.chance) {
+      for(let i = 0; i < opts.tries; ++i) {
+        if (random.chance(opts.chance)) {
+          ++count;
+        }
+      }
+    }
+    else if (opts.chance) {
+      while(random.chance(opts.chance)) {
         ++count;
       }
     }
@@ -10765,12 +10787,25 @@
       let matchKindFn = opts.matchKindFn || TRUE;
       choices = Object.values(itemKinds).filter(matchKindFn);
     }
+
+    let frequencies;
+    if (Array.isArray(choices)) {
+      choices = choices.map( (v) => {
+        if (typeof v === 'string') return itemKinds[v];
+        return v;
+      });
+      frequencies = choices.map( (k) => forDanger(k.frequency, danger) );
+    }
+    else {
+      // { THING: 20, OTHER: 10 }
+      choices = Object.keys(choices).map( (v) => itemKinds[v] );
+      frequencies = Object.values(choices);
+    }
+
     if (!choices.length) {
       WARN('Tried to place items - 0 qualifying kinds to choose from.');
       return 0;
     }
-
-    const frequencies = choices.map( (k) => forDanger(k.frequency, danger) );
 
     const blocked = alloc(map.width, map.height);
     // TODO - allow [x,y] in addition to 'name'

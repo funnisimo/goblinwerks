@@ -65,6 +65,18 @@ GW.actor.addKind('RAT', {
 // 	}
 // }
 // Bat.danger = 1;
+
+GW.actor.addKind('BAT', {
+  name: 'bat',
+  ch: 'b', fg: '#a83',
+  stats: { mana: 0, health: 10, danger: 1 },
+  frequency: { '2+': 20 },
+  ai: ['attackPlayer', 'moveTowardPlayer', 'moveRandomly', 'idle'],
+  attacks: {
+    melee: { verb: 'bite', damage: 1 }
+  }
+});
+
 //
 // export class Goblin extends Autonomous {
 // 	constructor() {
@@ -74,6 +86,19 @@ GW.actor.addKind('RAT', {
 // 	}
 // }
 // Goblin.danger = 2;
+
+GW.actor.addKind('GOBLIN', {
+  name: 'goblin',
+  ch: 'g', fg: '#33a',
+  stats: { mana: 5, health: 10, danger: 2 },
+  frequency: { '2+': 20 },
+  ai: ['attackPlayer', 'moveTowardPlayer', 'moveRandomly', 'idle'],
+  attacks: {
+    melee: { verb: 'clubs', damage: 2 }
+  }
+});
+
+
 //
 // export class Orc extends Autonomous {
 // 	constructor() {
@@ -84,6 +109,20 @@ GW.actor.addKind('RAT', {
 // 	}
 // }
 // Orc.danger = 3;
+
+GW.actor.addKind('ORC', {
+  name: 'orc',
+  ch: 'o', fg: '#3a3',
+  stats: { mana: 10, health: 15, danger: 3 },
+  frequency: { '2+': 20 },
+  ai: ['attackPlayer', 'moveTowardPlayer', 'moveRandomly', 'idle'],
+  attacks: {
+    melee: { verb: 'slash', damage: 3 }
+  },
+  // treasure: [{ DAGGER: 50 }],
+  make(actor, opts={}) { if (GW.random.chance(50)) { actor.pack = GW.make.item('DAGGER'); } }
+});
+
 //
 // export class OrcWitch extends Autonomous {
 // 	constructor() {
