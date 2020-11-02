@@ -51,6 +51,9 @@ GW.actor.addKind('RAT', {
   stats: { mana: 0, health: 1, danger: 1 },
   frequency: 20,
   ai: ['attackPlayer', 'moveTowardPlayer', 'moveRandomly', 'idle'],
+  attacks: {
+    melee: { verb: 'bite', damage: 1 }
+  }
 });
 
 
