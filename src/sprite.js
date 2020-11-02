@@ -8,7 +8,7 @@ export var sprites = {};
 export var sprite = {};
 
 const HANGING_LETTERS = ['y', 'p', 'g', 'j', 'q', '[', ']', '(', ')', '{', '}', '|'];
-const FLYING_LETTERS = ["'", '"', '$', 'f'];
+const FLYING_LETTERS = ["'", '"', '$', 'f', '[', ']', '|'];
 
 export class Sprite {
 	constructor(ch, fg, bg, opacity) {

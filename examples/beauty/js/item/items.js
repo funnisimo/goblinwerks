@@ -3,12 +3,6 @@
 // import * as log from "ui/log.js";
 // import * as rules from "rules.js";
 //
-// const WEAPON_PREFIXES = {
-// 	"sharp": +1,
-// 	"blunt": -1,
-// 	"epic": 2
-// };
-//
 
 const WEARABLE_SUFFIXES = {
 	[GW.config.ATTACK_1]: "power",
@@ -18,60 +12,15 @@ const WEARABLE_SUFFIXES = {
 };
 
 
-//
-// export class Dagger extends Wearable {
-// 	constructor() {
-// 		super("weapon", {ch:"(", fg:"#ccd", name:"dagger"}, 1, WEAPON_PREFIXES);
-// 	}
-// }
-// Dagger.danger = 1;
-//
-// export class Sword extends Wearable {
-// 	constructor() {
-// 		super("weapon", {ch:"(", fg:"#dde", name:"sword"}, 2, WEAPON_PREFIXES);
-// 	}
-// }
-// Sword.danger = 2;
-//
-// export class Axe extends Wearable {
-// 	constructor() {
-// 		super("weapon", {ch:")", fg:"#ccd", name:"axe"}, 3, WEAPON_PREFIXES);
-// 	}
-// }
-// Axe.danger = 3;
-//
-// export class Mace extends Wearable {
-// 	constructor() {
-// 		super("weapon", {ch:")", fg:"#bbc", name:"mace"}, 3, WEAPON_PREFIXES);
-// 	}
-// }
-// Mace.danger = 4;
-//
-// export class GreatSword extends Wearable {
-// 	constructor() {
-// 		super("weapon", {ch:"(", fg:"#fff", name:"greatsword"}, 4, WEAPON_PREFIXES);
-// 	}
-// }
-// GreatSword.danger = 5;
-//
 
-const ARMOR_PREFIXES = {
-	"leather": 1,
-	"iron": 2,
-	"tempered": 3
-};
-
-class Armor extends GW.types.ItemKind {
+class BeautyItem extends GW.types.ItemKind {
 	constructor(opts={}) {
     GW.utils.setDefaults(opts, {
-      ch: ']',
-      fg: '#a62',
-      name: 'armor',
-      slot: 'armor',
       stats: {},
     });
     GW.utils.setDefaults(opts.stats, {
-      defense: 2,
+      defense: 0,
+      attack: 0,
       combatBonus: null,
     });
 		super(opts);
@@ -82,7 +31,12 @@ class Armor extends GW.types.ItemKind {
     if (this.prefixes && GW.random.chance(50)) {
 			const prefix = GW.random.key(this.prefixes);
       name = prefix + ' ' + name;
-			item.stats.defense += this.prefixes[prefix];
+      if (this.slot === 'melee') {
+        item.stats.attack += this.prefixes[prefix];
+      }
+      else {
+        item.stats.defense += this.prefixes[prefix];
+      }
     }
 
 		if (this.suffixes && GW.random.chance(GW.config.COMBAT_MODIFIER)) {
@@ -102,11 +56,24 @@ class Armor extends GW.types.ItemKind {
   getName(item, opts={}) {
     let base = super.getName(item, opts);
     if (opts.details) {
-      if (item.stats.combatBonus) {
-        base += ` <${item.stats.defense}${COMBAT_BONUS_DISPLAY[item.stats.combatBonus]}>`;
+      if (item.stats.defense) {
+        if (item.stats.combatBonus) {
+          base += ` <${item.stats.defense}${COMBAT_BONUS_DISPLAY[item.stats.combatBonus]}>`;
+        }
+        else {
+          base += ` <${item.stats.defense}>`;
+        }
       }
-      else {
-        base += ` <${item.stats.defense}>`;
+      else if (item.stats.attack) {
+        if (item.stats.combatBonus) {
+          base += ` [${item.stats.attack}${COMBAT_BONUS_DISPLAY[item.stats.combatBonus]}]`;
+        }
+        else {
+          base += ` [${item.stats.attack}]`;
+        }
+      }
+      else if (item.stats.combatBonus) {
+        base += ` ${COMBAT_BONUS_DISPLAY[item.stats.combatBonus]}`;
       }
     }
     if (opts.color === false) {
@@ -116,18 +83,152 @@ class Armor extends GW.types.ItemKind {
   }
 }
 
-GW.item.addKind('ARMOR', new Armor({ prefixes: ARMOR_PREFIXES, suffixes: WEARABLE_SUFFIXES, stats: { defense: 2 } }));
 
-// export class Helmet extends Wearable {
-// 	constructor() {
-// 		super("helmet", {ch:"]", fg:"#631", name:"helmet"}, 1, ARMOR_PREFIXES);
-// 	}
-// }
-// Helmet.danger = 2;
-//
+function generateAndPlaceItems(map, opts={}) {
+  if (typeof opts === 'number') { opts = { count: opts }; }
+  GW.utils.setDefaults(opts, {
+    tries: 1,
+    chance: 100,
+    outOfBandChance: 0,
+    matchKindFn: null,
+    allowHallways: false,
+    blockLoc: 'start',
+    locTries: 500,
+    choices: null,
+    makeOpts: null,
+  });
 
-GW.item.addKind('HELMET', new Armor({
-  name: 'helmet', slot: 'helmet', stats: { defense: 1 }, fg: '#631',
+  let danger = opts.danger || map.config.danger || 1;
+  while (GW.random.chance(opts.outOfBandChance)) {
+    ++danger;
+  }
+
+  let count = 0;
+  for(let i = 0; i < opts.tries; ++i) {
+    if (GW.random.chance(opts.chance)) {
+      ++count;
+    }
+  }
+  if (!count) {
+    GW.utils.WARN('Tried to place 0 items.');
+    return 0;
+  }
+
+  let choices = opts.choices;
+  if (!choices) {
+    let matchKindFn = opts.matchKindFn || ((k) => k.stats.danger <= danger);
+    choices = Object.values(GW.itemKinds).filter(matchKindFn);
+  }
+  if (!choices.length) {
+    GW.utils.WARN('Tried to place items - 0 qualifying kinds to choose from.');
+    return 0;
+  }
+
+  const blocked = GW.grid.alloc(map.width, map.height);
+  if (opts.blockLoc && map.locations[opts.blockLoc]) {
+    const loc = map.locations[opts.blockLoc];
+    map.calcFov(blocked, loc[0], loc[1], 20);
+  }
+
+  let placed = 0;
+
+  const makeOpts = {
+    danger
+  };
+
+  if (opts.makeOpts) {
+    Object.assign(makeOpts, opts.makeOpts);
+  }
+
+  const matchOpts = {
+    allowHallways: opts.allowHallways,
+    blockingMap: blocked,
+    allowLiquid: false,
+    forbidCellFlags: 0,
+    forbidTileFlags: 0,
+    forbidTileMechFlags: 0,
+    tries: opts.locTries,
+  };
+
+  for(let i = 0; i < count; ++i) {
+    const kind = GW.random.item(choices);
+    matchOpts.forbidCellFlags = kind.forbiddenCellFlags();
+    matchOpts.forbidTileFlags = kind.forbiddenTileFlags();
+    matchOpts.forbidTileMechFlags = kind.forbiddenTileMechFlags();
+
+    const loc = map.randomMatchingXY(matchOpts);
+    if (loc && loc[0] > 0) {
+      // make and place item
+      const item = GW.make.item(kind, makeOpts);
+      map.addItem(loc[0], loc[1], item);
+      ++placed;
+    }
+  }
+
+  GW.grid.free(blocked);
+  return placed;
+}
+
+
+const WEAPON_PREFIXES = {
+	"sharp": +1,
+	"blunt": -1,
+	"epic": 2
+};
+
+
+
+GW.item.addKind('DAGGER', new BeautyItem({
+  name: 'dagger', slot: 'melee', ch: '|', fg: '#ccd',
+  stats: { attack: 1, danger: 1 },
+  prefixes: WEAPON_PREFIXES, suffixes: WEARABLE_SUFFIXES,
+}));
+
+
+GW.item.addKind('SWORD', new BeautyItem({
+  name: 'sword', slot: 'melee', ch: '|', fg: '#ccd',
+  stats: { attack: 2, danger: 2 },
+  prefixes: WEAPON_PREFIXES, suffixes: WEARABLE_SUFFIXES,
+}));
+
+GW.item.addKind('AXE', new BeautyItem({
+  name: 'axe', slot: 'melee', ch: '|', fg: '#ccd',
+  stats: { attack: 3, danger: 3 },
+  prefixes: WEAPON_PREFIXES, suffixes: WEARABLE_SUFFIXES,
+}));
+
+
+GW.item.addKind('MACE', new BeautyItem({
+  name: 'mace', slot: 'melee', ch: '|', fg: '#ccd',
+  stats: { attack: 3, danger: 4 },
+  prefixes: WEAPON_PREFIXES, suffixes: WEARABLE_SUFFIXES,
+}));
+
+GW.item.addKind('GREATSWORD', new BeautyItem({
+  name: 'greatsword', slot: 'melee', ch: '|', fg: '#ccd',
+  stats: { attack: 4, danger: 5 },
+  prefixes: WEAPON_PREFIXES, suffixes: WEARABLE_SUFFIXES,
+}));
+
+
+
+const ARMOR_PREFIXES = {
+	"leather": 1,
+	"iron": 2,
+	"tempered": 3
+};
+
+
+GW.item.addKind('ARMOR', new BeautyItem({
+  name: 'armor', slot: 'armor', ch: ']', fg: '#a62',
+  stats: { defense: 2, danger: 1 },
+  prefixes: ARMOR_PREFIXES, suffixes: WEARABLE_SUFFIXES
+}));
+
+
+GW.item.addKind('HELMET', new BeautyItem({
+  name: 'helmet', slot: 'helmet', ch: '^', fg: '#631',
+  stats: { defense: 1, danger: 1 },
   prefixes: ARMOR_PREFIXES, suffixes: WEARABLE_SUFFIXES
 }));
 
@@ -137,16 +238,9 @@ const SHIELD_PREFIXES = {
 	"tower": 2
 };
 
-// export class Shield extends Wearable {
-// 	constructor() {
-// 		super("shield", {ch:"[", fg:"#841", name:"shield"}, 2, SHIELD_PREFIXES);
-// 	}
-// }
-// Shield.danger = 2;
-//
-
-GW.item.addKind('SHIELD', new Armor({
-  name: 'shield', slot: 'shield', stats: { defense: 2 }, fg: '#841',
+GW.item.addKind('SHIELD', new BeautyItem({
+  name: 'shield', slot: 'shield', ch: ')', fg: '#841',
+  stats: { defense: 2, danger: 1 },
   prefixes: SHIELD_PREFIXES, suffixes: WEARABLE_SUFFIXES
 }));
 
@@ -157,7 +251,7 @@ GW.item.addKind('POTION_HEALTH', {
   name: 'health potion',
   ch: '!', fg: 'health',
   flags: 'IK_DESTROY_ON_USE',
-  stats: { strength: 10 },
+  stats: { strength: 10, danger: 1 },
   use(item, actor, ctx={}) {
     if (!actor.isPlayer()) return false;
     if (actor.current.health >= actor.max.health) {
@@ -183,7 +277,7 @@ GW.item.addKind('POTION_MANA', {
   name: 'mana potion',
   ch: '!', fg: 'mana',
   flags: 'IK_DESTROY_ON_USE',
-  stats: { strength: 10 },
+  stats: { strength: 10, danger: 1 },
   use(item, actor, ctx={}) {
     if (!actor.isPlayer()) return false;
     if (actor.current.mana >= actor.max.mana) {
@@ -208,6 +302,7 @@ GW.item.addKind('LUTEFISK', {
   name: 'lutefisk',
   ch: '?', fg: '#ff0',
   flags: 'IK_DESTROY_ON_USE',
+  stats: { danger: 3 },
   use(item, actor, ctx={}) {
     if (!actor.isPlayer()) return false;
     GW.message.add('You eat %s and start to feel weird.', item.getName('the'));
@@ -222,10 +317,11 @@ GW.item.addKind('GOLD', {
   name: 'gold coin', article: 'a',
   ch: '$', fg: 'gold',
   flags: 'IK_DESTROY_ON_USE',
+  stats: { danger: 1 },
   use(item, actor, ctx={}) {
     actor.current.gold = 1 + (actor.current.gold || 0);
     GW.message.add('You found %s.', item.getName({ article: true, color: true }));
-    item.destroy();
+    // item.destroy();
     return true;
   }
 });

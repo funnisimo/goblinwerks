@@ -49,7 +49,9 @@ class ItemKind {
     }
   }
 
+  forbiddenCellFlags(item) { return Flags.Cell.HAS_ITEM; }
   forbiddenTileFlags(item) { return Flags.Tile.T_OBSTRUCTS_ITEMS; }
+  forbiddenTileMechFlags(item) { return 0; }
 
   async applyDamage(item, damage, actor, ctx) {
 		if (item.stats.health > 0) {

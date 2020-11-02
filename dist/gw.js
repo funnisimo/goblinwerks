@@ -2225,7 +2225,7 @@
   var sprite = {};
 
   const HANGING_LETTERS = ['y', 'p', 'g', 'j', 'q', '[', ']', '(', ')', '{', '}', '|'];
-  const FLYING_LETTERS = ["'", '"', '$', 'f'];
+  const FLYING_LETTERS = ["'", '"', '$', 'f', '[', ']', '|'];
 
   class Sprite {
   	constructor(ch, fg, bg, opacity) {
@@ -6309,7 +6309,7 @@
   					if ((Math.ceil(distanceBetween(x, y, i, j)) == k)
   							&& (!blockingMap || !blockingMap[i][j])
   							&& matcher(cell, i, j, this)
-  							&& (!forbidLiquid || cell.liquid == def.NOTHING)
+  							&& (!forbidLiquid || !cell.liquid)
   							&& (hallwaysAllowed || this.passableArcCount(i, j) < 2))
   	        {
   						candidateLocs.push([i, j]);
@@ -6338,29 +6338,45 @@
   	// no creatures, items or stairs and with either a matching liquid and dungeon type
   	// or at least one layer of type terrainType.
   	// A dungeon, liquid type of -1 will match anything.
-  	randomMatchingXY(matcher, opts={}) {
-  		let failsafeCount = 0;
+  	randomMatchingXY(opts={}) {
   		let x;
   		let y;
   		let cell;
 
-  		// dungeonType -1 => ignore, otherwise match with 0 = NOTHING, 'string' = MATCH
-  		// liquidType  -1 => ignore, otherwise match with 0 = NOTHING, 'string' = MATCH
+      if (typeof opts === 'function') {
+        opts = { match: opts };
+      }
+
+      const hallwaysAllowed = opts.hallwaysAllowed || opts.hallways || false;
+  		const blockingMap = opts.blockingMap || null;
+  		const forbidLiquid = opts.forbidLiquid || opts.forbidLiquids || false;
+      const matcher = opts.match || TRUE;
+      const forbidCellFlags = opts.forbidCellFlags || 0;
+      const forbidTileFlags = opts.forbidTileFlags || 0;
+      const forbidTileMechFlags = opts.forbidTileMechFlags || 0;
+      let tries = opts.tries || 500;
 
   		let retry = true;
   		while(retry) {
-  			failsafeCount++;
-  			if (failsafeCount >= 500) break;
+  			tries--;
+  			if (!tries) break;
 
   			x = random.range(0, this.width - 1);
   			y = random.range(0, this.height - 1);
   			cell = this.cell(x, y);
 
-  			if (matcher(cell, x, y, this)) {
+  			if ((!blockingMap || !blockingMap[x][y])
+        		&& (!forbidLiquid || !cell.liquid)
+            && (!forbidCellFlags || !(cell.flags & forbidCellFlags))
+            && (!forbidTileFlags || !(cell.hasTileFlag(forbidTileFlags)))
+            && (!forbidTileMechFlags || !(cell.hasTileMechFlag(forbidTileMechFlags)))
+        		&& (hallwaysAllowed || this.passableArcCount(x, y) < 2)
+            && matcher(cell, x, y, this))
+        {
   				retry = false;
   			}
   		}
-  		if (failsafeCount >= 500) {
+  		if (!tries) {
   			// map.debug('randomMatchingLocation', dungeonType, liquidType, terrainType, ' => FAIL');
   			return false;
   		}
@@ -10332,7 +10348,9 @@
       }
     }
 
+    forbiddenCellFlags(item) { return Cell.HAS_ITEM; }
     forbiddenTileFlags(item) { return Tile.T_OBSTRUCTS_ITEMS; }
+    forbiddenTileMechFlags(item) { return 0; }
 
     async applyDamage(item, damage, actor, ctx) {
   		if (item.stats.health > 0) {
