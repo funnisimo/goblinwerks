@@ -398,6 +398,8 @@ function decorateFirst(map, level) {
 		// 		level.setItem(room.center.clone(), new items.Dagger());
 		// 	break;
 		// }
+
+    GW.actor.generateAndPlace(map, { choices: ['RAT'], count: 1, block: 'start' });
 	});
 }
 
@@ -487,7 +489,7 @@ function decorateFull(map, level) {
 	// 	}
 	// });
 
-  const count = GW.item.generateAndPlace(map, { tries: level.rooms.length * 2, chance: 40, makeOpts: { danger: level.danger } });
+  const count = GW.item.generateAndPlace(map, { tries: level.rooms.length * 2, chance: 40, makeOpts: { danger: level.danger }, block: 'start' });
   console.log('generated %s items.', count);
 }
 

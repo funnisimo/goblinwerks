@@ -36,10 +36,9 @@ export async function moveDir(actor, dir, opts={}) {
       return true;
     }
 
-    // GW.message.forPlayer(actor, '%s bump into %s.', actor.getName(), cell.actor.getName());
-    // actor.endTurn(0.5);
-    // return true;
-    return false;
+    GW.message.forPlayer(actor, '%s bump into %s.', actor.getName(), cell.actor.getName('the'));
+    actor.endTurn(0.5);
+    return true;
   }
 
   let isPush = false;

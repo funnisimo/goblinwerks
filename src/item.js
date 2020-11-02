@@ -238,7 +238,7 @@ export function generateAndPlace(map, opts={}) {
     outOfBandChance: 0,
     matchKindFn: null,
     allowHallways: false,
-    blockLoc: 'start',
+    block: 'start',
     locTries: 500,
     choices: null,
     makeOpts: null,
@@ -261,6 +261,7 @@ export function generateAndPlace(map, opts={}) {
   }
 
   let choices = opts.choices;
+  // TODO - allow ['THING'] and { THING: 20 }
   if (!choices) {
     let matchKindFn = opts.matchKindFn || Utils.TRUE;
     choices = Object.values(GW.itemKinds).filter(matchKindFn);
@@ -273,8 +274,9 @@ export function generateAndPlace(map, opts={}) {
   const frequencies = choices.map( (k) => Frequency.forDanger(k.frequency, danger) );
 
   const blocked = Grid.alloc(map.width, map.height);
-  if (opts.blockLoc && map.locations[opts.blockLoc]) {
-    const loc = map.locations[opts.blockLoc];
+  // TODO - allow [x,y] in addition to 'name'
+  if (opts.block && map.locations[opts.block]) {
+    const loc = map.locations[opts.block];
     map.calcFov(blocked, loc[0], loc[1], 20);
   }
 
@@ -301,14 +303,14 @@ export function generateAndPlace(map, opts={}) {
   for(let i = 0; i < count; ++i) {
     const index = random.lottery(frequencies);
     const kind = choices[index];
-    matchOpts.forbidCellFlags = kind.forbiddenCellFlags();
-    matchOpts.forbidTileFlags = kind.forbiddenTileFlags();
-    matchOpts.forbidTileMechFlags = kind.forbiddenTileMechFlags();
+    const item = GW.make.item(kind, makeOpts);
+
+    matchOpts.forbidCellFlags = kind.forbiddenCellFlags(item);
+    matchOpts.forbidTileFlags = kind.forbiddenTileFlags(item);
+    matchOpts.forbidTileMechFlags = kind.forbiddenTileMechFlags(item);
 
     const loc = map.randomMatchingXY(matchOpts);
     if (loc && loc[0] > 0) {
-      // make and place item
-      const item = GW.make.item(kind, makeOpts);
       map.addItem(loc[0], loc[1], item);
       ++placed;
     }

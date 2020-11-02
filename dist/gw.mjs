@@ -7596,7 +7596,7 @@ class ActorKind$1 {
 		this.name = opts.name || 'item';
 		this.description = opts.description || opts.desc || '';
     this.article = (opts.article === undefined) ? 'a' : opts.article;
-		this.sprite = make.sprite(opts.sprite);
+		this.sprite = make.sprite(opts.sprite || opts);
     this.flags = ActorKind.toFlag(opts.flags);
 		this.actionFlags = Action.toFlag(opts.flags);
 		// this.attackFlags = Flags.Attack.toFlag(opts.flags);
@@ -7604,6 +7604,7 @@ class ActorKind$1 {
     this.regen = Object.assign({}, opts.regen || {});
 		this.id = opts.id || null;
     this.bump = opts.bump || ['attack'];  // attack me by default if you bump into me
+    this.frequency = make.frequency(opts.frequency || this.stats.frequency);
 
     if (typeof this.bump === 'string') {
       this.bump = this.bump.split(/[,|]/).map( (t) => t.trim() );
@@ -7672,9 +7673,17 @@ class ActorKind$1 {
     return 0; // ???
   }
 
+  forbiddenCellFlags(actor) {
+		return Cell.HAS_ACTOR;
+	}
+
 	forbiddenTileFlags(actor) {
 		return Tile.T_PATHING_BLOCKER;
 	}
+
+  forbiddenTileMechFlags(actor) {
+    return 0;
+  }
 
   canPass(actor, other) {
     return actor.isPlayer() == other.isPlayer();
@@ -7773,10 +7782,10 @@ actor.addKinds = addActorKinds;
 let ACTOR_COUNT = 0;
 
 class Actor$1 {
-	constructor(kind) {
+	constructor(kind, opts={}) {
 		this.x = -1;
     this.y = -1;
-    this.flags = 0;
+    this.flags = Actor.toFlag(opts.flags);
     this.kind = kind || {};
     this.turnTime = 0;
 		this.status = {};
@@ -7793,10 +7802,16 @@ class Actor$1 {
       Object.assign(this.max, this.kind.stats);
       Object.assign(this.prior, this.kind.stats);
     }
+    if (opts.stats) {
+      Object.assign(this.current, opts.stats);
+    }
 
     this.regen = { health: 0 };
     if (this.kind.regen) {
       Object.assign(this.regen, this.kind.regen);
+    }
+    if (opts.regen) {
+      Object.assign(this.regen, opts.regen);
     }
 
     if (this.kind.ai) {
@@ -7808,6 +7823,10 @@ class Actor$1 {
     }
 
     this.id = ++ACTOR_COUNT;
+
+    if (this.kind.make) {
+      this.kind.make(this, opts);
+    }
   }
 
   turnEnded() { return this.flags & Actor.AF_TURN_ENDED; }
@@ -8093,6 +8112,112 @@ async function bump(actor, target, ctx) {
 
 actor.bump = bump;
 
+
+function generateAndPlace(map, opts={}) {
+  if (typeof opts === 'number') { opts = { tries: opts }; }
+  setDefaults(opts, {
+    tries: 1,
+    chance: 100,
+    outOfBandChance: 0,
+    matchKindFn: null,
+    allowHallways: false,
+    block: 'start',
+    locTries: 500,
+    choices: null,
+    makeOpts: null,
+  });
+
+  let danger = opts.danger || map.config.danger || 1;
+  while (random.chance(opts.outOfBandChance)) {
+    ++danger;
+  }
+
+  let count = 0;
+  for(let i = 0; i < opts.tries; ++i) {
+    if (random.chance(opts.chance)) {
+      ++count;
+    }
+  }
+  if (!count) {
+    WARN('Tried to place 0 actors.');
+    return 0;
+  }
+
+  let choices = opts.choices;
+  // TODO - allow ['THING'] and { THING: 20 }
+  if (!choices) {
+    let matchKindFn = opts.matchKindFn || TRUE;
+    choices = Object.values(GW.actorKinds).filter(matchKindFn);
+  }
+
+  let frequencies;
+  if (Array.isArray(choices)) {
+    choices = choices.map( (v) => {
+      if (typeof v === 'string') return actorKinds[v];
+      return v;
+    });
+    frequencies = choices.map( (k) => forDanger(k.frequency, danger) );
+  }
+  else {
+    // { THING: 20, OTHER: 10 }
+    choices = Object.keys(choices).map( (v) => actorKinds[v] );
+    frequencies = Object.values(choices);
+  }
+
+  if (!choices.length) {
+    WARN('Tried to place actors - 0 qualifying kinds to choose from.');
+    return 0;
+  }
+
+  const blocked = GRID$1.alloc(map.width, map.height);
+  // TODO - allow [x,y] in addition to 'name'
+  if (opts.block && map.locations[opts.block]) {
+    const loc = map.locations[opts.block];
+    map.calcFov(blocked, loc[0], loc[1], 20);
+  }
+
+  let placed = 0;
+
+  const makeOpts = {
+    danger
+  };
+
+  if (opts.makeOpts) {
+    Object.assign(makeOpts, opts.makeOpts);
+  }
+
+  const matchOpts = {
+    allowHallways: opts.allowHallways,
+    blockingMap: blocked,
+    allowLiquid: false,
+    forbidCellFlags: 0,
+    forbidTileFlags: 0,
+    forbidTileMechFlags: 0,
+    tries: opts.locTries,
+  };
+
+  for(let i = 0; i < count; ++i) {
+    const index = random.lottery(frequencies);
+    const kind = choices[index];
+    const actor = make.actor(kind, makeOpts);
+
+    matchOpts.forbidCellFlags = kind.forbiddenCellFlags(actor);
+    matchOpts.forbidTileFlags = kind.forbiddenTileFlags(actor);
+    matchOpts.forbidTileMechFlags = kind.forbiddenTileMechFlags(actor);
+
+    const loc = map.randomMatchingXY(matchOpts);
+    if (loc && loc[0] > 0) {
+      map.addActor(loc[0], loc[1], actor);
+      ++placed;
+    }
+  }
+
+  GRID$1.free(blocked);
+  return placed;
+}
+
+actor.generateAndPlace = generateAndPlace;
+
 var player = {};
 
 player.debug = NOOP;
@@ -8104,7 +8229,11 @@ function makePlayer(kind) {
     setDefaults(kind, {
       sprite: { ch:'@', fg: 'white' },
       name: 'you', article: false,
+      attacks: {},
     });
+    if (!kind.attacks.melee) {
+      kind.attacks.melee = { verb: 'punch', damage: 1 };
+    }
     kind = new types.ActorKind(kind);
   }
   return new types.Actor(kind);
@@ -10594,7 +10723,7 @@ item.bump = bump$1;
 
 
 
-function generateAndPlace(map, opts={}) {
+function generateAndPlace$1(map, opts={}) {
   if (typeof opts === 'number') { opts = { tries: opts }; }
   setDefaults(opts, {
     tries: 1,
@@ -10602,7 +10731,7 @@ function generateAndPlace(map, opts={}) {
     outOfBandChance: 0,
     matchKindFn: null,
     allowHallways: false,
-    blockLoc: 'start',
+    block: 'start',
     locTries: 500,
     choices: null,
     makeOpts: null,
@@ -10625,6 +10754,7 @@ function generateAndPlace(map, opts={}) {
   }
 
   let choices = opts.choices;
+  // TODO - allow ['THING'] and { THING: 20 }
   if (!choices) {
     let matchKindFn = opts.matchKindFn || TRUE;
     choices = Object.values(itemKinds).filter(matchKindFn);
@@ -10637,8 +10767,9 @@ function generateAndPlace(map, opts={}) {
   const frequencies = choices.map( (k) => forDanger(k.frequency, danger) );
 
   const blocked = alloc(map.width, map.height);
-  if (opts.blockLoc && map.locations[opts.blockLoc]) {
-    const loc = map.locations[opts.blockLoc];
+  // TODO - allow [x,y] in addition to 'name'
+  if (opts.block && map.locations[opts.block]) {
+    const loc = map.locations[opts.block];
     map.calcFov(blocked, loc[0], loc[1], 20);
   }
 
@@ -10665,14 +10796,14 @@ function generateAndPlace(map, opts={}) {
   for(let i = 0; i < count; ++i) {
     const index = random.lottery(frequencies);
     const kind = choices[index];
-    matchOpts.forbidCellFlags = kind.forbiddenCellFlags();
-    matchOpts.forbidTileFlags = kind.forbiddenTileFlags();
-    matchOpts.forbidTileMechFlags = kind.forbiddenTileMechFlags();
+    const item = make.item(kind, makeOpts);
+
+    matchOpts.forbidCellFlags = kind.forbiddenCellFlags(item);
+    matchOpts.forbidTileFlags = kind.forbiddenTileFlags(item);
+    matchOpts.forbidTileMechFlags = kind.forbiddenTileMechFlags(item);
 
     const loc = map.randomMatchingXY(matchOpts);
     if (loc && loc[0] > 0) {
-      // make and place item
-      const item = make.item(kind, makeOpts);
       map.addItem(loc[0], loc[1], item);
       ++placed;
     }
@@ -10682,7 +10813,7 @@ function generateAndPlace(map, opts={}) {
   return placed;
 }
 
-item.generateAndPlace = generateAndPlace;
+item.generateAndPlace = generateAndPlace$1;
 
 var MSG_BOUNDS = null;
 
@@ -12634,10 +12765,9 @@ async function moveDir(actor, dir, opts={}) {
       return true;
     }
 
-    // GW.message.forPlayer(actor, '%s bump into %s.', actor.getName(), cell.actor.getName());
-    // actor.endTurn(0.5);
-    // return true;
-    return false;
+    message.forPlayer(actor, '%s bump into %s.', actor.getName(), cell.actor.getName('the'));
+    actor.endTurn(0.5);
+    return true;
   }
 
   let isPush = false;
