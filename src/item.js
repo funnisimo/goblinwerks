@@ -1,8 +1,11 @@
 
 import { color as COLOR } from './color.js';
 import { text as TEXT } from './text.js';
+import { random } from './random.js';
+import * as Grid from './grid.js';
 import * as Flags from './flags.js';
 import * as Utils from './utils.js';
+import * as Frequency from './frequency.js';
 import { actions as Actions } from './actions/index.js';
 import * as GW from './gw.js';
 
@@ -23,6 +26,7 @@ class ItemKind {
     this.slot = opts.slot || null;
     this.projectile = null;
     this.verb = opts.verb || null;
+    this.frequency = GW.make.frequency(opts.frequency || this.stats.frequency);
 
     this.bump = opts.bump || ['pickup'];  // pick me up by default if you bump into me
 
@@ -223,3 +227,95 @@ export async function bump(actor, item, ctx={}) {
 }
 
 GW.item.bump = bump;
+
+
+
+export function generateAndPlace(map, opts={}) {
+  if (typeof opts === 'number') { opts = { tries: opts }; }
+  Utils.setDefaults(opts, {
+    tries: 1,
+    chance: 100,
+    outOfBandChance: 0,
+    matchKindFn: null,
+    allowHallways: false,
+    blockLoc: 'start',
+    locTries: 500,
+    choices: null,
+    makeOpts: null,
+  });
+
+  let danger = opts.danger || map.config.danger || 1;
+  while (random.chance(opts.outOfBandChance)) {
+    ++danger;
+  }
+
+  let count = 0;
+  for(let i = 0; i < opts.tries; ++i) {
+    if (random.chance(opts.chance)) {
+      ++count;
+    }
+  }
+  if (!count) {
+    Utils.WARN('Tried to place 0 items.');
+    return 0;
+  }
+
+  let choices = opts.choices;
+  if (!choices) {
+    let matchKindFn = opts.matchKindFn || Utils.TRUE;
+    choices = Object.values(GW.itemKinds).filter(matchKindFn);
+  }
+  if (!choices.length) {
+    Utils.WARN('Tried to place items - 0 qualifying kinds to choose from.');
+    return 0;
+  }
+
+  const frequencies = choices.map( (k) => Frequency.forDanger(k.frequency, danger) );
+
+  const blocked = Grid.alloc(map.width, map.height);
+  if (opts.blockLoc && map.locations[opts.blockLoc]) {
+    const loc = map.locations[opts.blockLoc];
+    map.calcFov(blocked, loc[0], loc[1], 20);
+  }
+
+  let placed = 0;
+
+  const makeOpts = {
+    danger
+  };
+
+  if (opts.makeOpts) {
+    Object.assign(makeOpts, opts.makeOpts);
+  }
+
+  const matchOpts = {
+    allowHallways: opts.allowHallways,
+    blockingMap: blocked,
+    allowLiquid: false,
+    forbidCellFlags: 0,
+    forbidTileFlags: 0,
+    forbidTileMechFlags: 0,
+    tries: opts.locTries,
+  };
+
+  for(let i = 0; i < count; ++i) {
+    const index = random.lottery(frequencies);
+    const kind = choices[index];
+    matchOpts.forbidCellFlags = kind.forbiddenCellFlags();
+    matchOpts.forbidTileFlags = kind.forbiddenTileFlags();
+    matchOpts.forbidTileMechFlags = kind.forbiddenTileMechFlags();
+
+    const loc = map.randomMatchingXY(matchOpts);
+    if (loc && loc[0] > 0) {
+      // make and place item
+      const item = GW.make.item(kind, makeOpts);
+      map.addItem(loc[0], loc[1], item);
+      ++placed;
+    }
+  }
+
+  Grid.free(blocked);
+  return placed;
+}
+
+GW.item.generateAndPlace = generateAndPlace;

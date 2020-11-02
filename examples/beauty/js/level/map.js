@@ -487,7 +487,8 @@ function decorateFull(map, level) {
 	// 	}
 	// });
 
-  generateAndPlaceItems(map, { tries: level.rooms.length * 2, chance: 50 });
+  const count = GW.item.generateAndPlace(map, { tries: level.rooms.length * 2, chance: 40, makeOpts: { danger: level.danger } });
+  console.log('generated %s items.', count);
 }
 
 function decorateRegular(map, level) {

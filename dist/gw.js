@@ -3613,6 +3613,70 @@
 
   types.Canvas = Canvas;
 
+  function frequency(v) {
+    if (!v) return 100;
+    if (typeof v === 'number') return v;
+    if (typeof v === 'string') {
+      const parts = v.split(',');
+      v = {};
+      parts.forEach( (p) => v[p] = 100 );
+    }
+    if (typeof v === 'object') {
+      const parts = Object.entries(v);
+
+      const funcs = parts.map( ([levels,frequency]) => {
+        frequency = Number.parseInt(frequency);
+
+        if (levels.includes('-')) {
+          let [start, end] = levels.split('-');
+          start = Number.parseInt(start);
+          end = Number.parseInt(end);
+          return ((level) => (level >= start && level <= end) ? frequency : 0);
+        }
+        else if (levels.endsWith('+')) {
+          const found = Number.parseInt(levels);
+          return ((level) => (level >= found) ? frequency : 0);
+        }
+        else {
+          const found = Number.parseInt(levels);
+          return ((level) => (level === found) ? frequency : 0);
+        }
+      });
+
+      if (funcs.length == 1) return funcs[0];
+
+      return ((level) => funcs.reduce( (out, fn) => out || fn(level), 0) );
+    }
+    return 0;
+  }
+
+  make.frequency = frequency;
+
+  function forDanger(frequency, danger) {
+    if (typeof frequency === 'number') {
+      return frequency;
+    }
+    if (typeof frequency === 'function') {
+      if (danger === undefined || danger < 0) {
+        if (data.map && data.map.config.danger) {
+          danger = data.map.config.danger;
+        }
+        else if (data.danger) {
+          danger = data.danger;
+        }
+        danger = 0;
+      }
+      return frequency(danger);
+    }
+    return 0;
+  }
+
+  var frequency$1 = /*#__PURE__*/Object.freeze({
+    __proto__: null,
+    frequency: frequency,
+    forDanger: forDanger
+  });
+
   var io = {};
 
   io.debug = NOOP;
@@ -10322,6 +10386,7 @@
       this.slot = opts.slot || null;
       this.projectile = null;
       this.verb = opts.verb || null;
+      this.frequency = make.frequency(opts.frequency || this.stats.frequency);
 
       this.bump = opts.bump || ['pickup'];  // pick me up by default if you bump into me
 
@@ -10520,6 +10585,98 @@
   }
 
   item.bump = bump$1;
+
+
+
+  function generateAndPlace(map, opts={}) {
+    if (typeof opts === 'number') { opts = { tries: opts }; }
+    setDefaults(opts, {
+      tries: 1,
+      chance: 100,
+      outOfBandChance: 0,
+      matchKindFn: null,
+      allowHallways: false,
+      blockLoc: 'start',
+      locTries: 500,
+      choices: null,
+      makeOpts: null,
+    });
+
+    let danger = opts.danger || map.config.danger || 1;
+    while (random.chance(opts.outOfBandChance)) {
+      ++danger;
+    }
+
+    let count = 0;
+    for(let i = 0; i < opts.tries; ++i) {
+      if (random.chance(opts.chance)) {
+        ++count;
+      }
+    }
+    if (!count) {
+      WARN('Tried to place 0 items.');
+      return 0;
+    }
+
+    let choices = opts.choices;
+    if (!choices) {
+      let matchKindFn = opts.matchKindFn || TRUE;
+      choices = Object.values(itemKinds).filter(matchKindFn);
+    }
+    if (!choices.length) {
+      WARN('Tried to place items - 0 qualifying kinds to choose from.');
+      return 0;
+    }
+
+    const frequencies = choices.map( (k) => forDanger(k.frequency, danger) );
+
+    const blocked = alloc(map.width, map.height);
+    if (opts.blockLoc && map.locations[opts.blockLoc]) {
+      const loc = map.locations[opts.blockLoc];
+      map.calcFov(blocked, loc[0], loc[1], 20);
+    }
+
+    let placed = 0;
+
+    const makeOpts = {
+      danger
+    };
+
+    if (opts.makeOpts) {
+      Object.assign(makeOpts, opts.makeOpts);
+    }
+
+    const matchOpts = {
+      allowHallways: opts.allowHallways,
+      blockingMap: blocked,
+      allowLiquid: false,
+      forbidCellFlags: 0,
+      forbidTileFlags: 0,
+      forbidTileMechFlags: 0,
+      tries: opts.locTries,
+    };
+
+    for(let i = 0; i < count; ++i) {
+      const index = random.lottery(frequencies);
+      const kind = choices[index];
+      matchOpts.forbidCellFlags = kind.forbiddenCellFlags();
+      matchOpts.forbidTileFlags = kind.forbiddenTileFlags();
+      matchOpts.forbidTileMechFlags = kind.forbiddenTileMechFlags();
+
+      const loc = map.randomMatchingXY(matchOpts);
+      if (loc && loc[0] > 0) {
+        // make and place item
+        const item = make.item(kind, makeOpts);
+        map.addItem(loc[0], loc[1], item);
+        ++placed;
+      }
+    }
+
+    free(blocked);
+    return placed;
+  }
+
+  item.generateAndPlace = generateAndPlace;
 
   var MSG_BOUNDS = null;
 
@@ -13313,6 +13470,7 @@
   exports.flags = flags;
   exports.flavor = flavor;
   exports.fov = fov;
+  exports.frequency = frequency$1;
   exports.fx = fx;
   exports.game = game;
   exports.grid = GRID$1;

@@ -6,10 +6,6 @@ GW.config.AI_IDLE_CHANCE = 40;
 GW.config.PC_SIGHT = 8;
 GW.config.LAST_LEVEL = 8;
 
-GW.config.POTION_HP = 10;
-GW.config.POTION_MANA = 10;
-
-GW.config.COMBAT_MODIFIER = 40;
 GW.config.HOSTILE_CHANCE = 70;
 
 GW.config.BRAMBLE_CHANCE = 50;

@@ -10,6 +10,7 @@ export { sprite, sprites } from './sprite.js';
 export { grid } from './grid.js';
 import './buffer.js';
 export { canvas } from './canvas.js';
+export * as frequency from './frequency.js';
 export { io } from './io.js';
 export { path } from './path.js';
 export { digger, diggers } from './digger.js';
