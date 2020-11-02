@@ -11,8 +11,8 @@ GW.config.HOSTILE_CHANCE = 70;
 GW.config.BRAMBLE_CHANCE = 50;
 GW.config.LEVEL_HP = 4;
 
-GW.config.REGEN_HP = 0.05;
-GW.config.REGEN_MANA = 0.1;
+GW.config.REGEN_HP = 20;  // turns
+GW.config.REGEN_MANA = 10;  // turns
 
 GW.config.ATTACK_1 = "a1";
 GW.config.ATTACK_2 = "a2";
@@ -42,6 +42,8 @@ function resetPlayer() {
 		name: 'you',
 		speed: 120,
     stats: { health: 20, mana: 50, gold: 0 },
+    regen: { health: GW.config.REGEN_HP, mana: GW.config.REGEN_MANA },
+    consoleColor: 'green',
 
     sidebar(entry, y, dim, highlight, buf) {
       const player = entry.entity;

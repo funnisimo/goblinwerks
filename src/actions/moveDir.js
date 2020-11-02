@@ -101,7 +101,7 @@ export async function moveDir(actor, dir, opts={}) {
   }
   else if (cell.hasTileFlag(Flags.Tile.T_HAS_STAIRS)) {
     if (actor.grabbed) {
-      GW.message.forPlayer(actor, 'You cannot use stairs while holding %s.', actor.grabbed.getFlavor());
+      GW.message.forPlayer(actor, '%s cannot use stairs while holding %s.', actor.getName({article: 'the', color: true }), actor.grabbed.getFlavor());
       return false;
     }
   }
@@ -114,13 +114,13 @@ export async function moveDir(actor, dir, opts={}) {
     let blocked = (destCell.item || destCell.hasTileFlag(Flags.Tile.T_OBSTRUCTS_ITEMS | Flags.Tile.T_OBSTRUCTS_PASSABILITY));
     if (Utils.isOppositeDir(dirToItem, dir)) {  // pull
       if (!actor.grabbed.hasActionFlag(Flags.Action.A_PULL)) {
-        GW.message.forPlayer(actor, 'you cannot pull %s.', actor.grabbed.getFlavor());
+        GW.message.forPlayer(actor, '%s cannot pull %s.', actor.getName({article: 'the', color: true }), actor.grabbed.getFlavor());
         return false;
       }
     }
     else {  // slide
       if (!actor.grabbed.hasActionFlag(Flags.Action.A_SLIDE)) {
-        GW.message.forPlayer(actor, 'you cannot slide %s.', actor.grabbed.getFlavor());
+        GW.message.forPlayer(actor, '%s cannot slide %s.', actor.getName({article: 'the', color: true }), actor.grabbed.getFlavor());
         return false;
       }
       if (destCell.actor) {

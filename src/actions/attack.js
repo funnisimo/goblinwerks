@@ -15,7 +15,7 @@ export async function attack(actor, target, ctx={}) {
   const kind = actor.kind;
 
   if (actor.grabbed) {
-    GW.message.forPlayer(actor, 'you cannot attack while holding %s.', actor.grabbed.getName('the'));
+    GW.message.forPlayer(actor, '%s cannot attack while holding %s.', actor.getName({article: 'the', color: true }), actor.grabbed.getName('the'));
     return false;
   }
 

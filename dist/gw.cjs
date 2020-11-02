@@ -7603,6 +7603,7 @@ class ActorKind$1 {
 		this.actionFlags = Action.toFlag(opts.flags);
 		// this.attackFlags = Flags.Attack.toFlag(opts.flags);
 		this.stats = Object.assign({}, opts.stats || {});
+    this.regen = Object.assign({}, opts.regen || {});
 		this.id = opts.id || null;
     this.bump = opts.bump || ['attack'];  // attack me by default if you bump into me
 
@@ -7789,11 +7790,15 @@ class Actor$1 {
     this.current = { health: 1 };
     this.max = { health: 1 };
     this.prior = { health: 1 };
-
     if (this.kind.stats) {
       Object.assign(this.current, this.kind.stats);
       Object.assign(this.max, this.kind.stats);
       Object.assign(this.prior, this.kind.stats);
+    }
+
+    this.regen = { health: 0 };
+    if (this.kind.regen) {
+      Object.assign(this.regen, this.kind.regen);
     }
 
     if (this.kind.ai) {
@@ -8022,6 +8027,13 @@ actor.startTurn = startActorTurn;
 function endActorTurn(theActor, turnTime=1) {
   theActor.flags |= Actor.AF_TURN_ENDED;
   theActor.turnTime = Math.floor(theActor.kind.speed * turnTime);
+
+  for(let stat in theActor.regen) {
+    const turns = theActor.regen[stat];
+    const amt = 1/turns;
+    theActor.adjustStat(stat, amt);
+  }
+
   if (theActor.isPlayer()) {
     visibility.update(data.map, theActor.x, theActor.y);
     ui.requestUpdate(48);
@@ -12689,7 +12701,7 @@ async function moveDir(actor, dir, opts={}) {
   }
   else if (cell.hasTileFlag(Tile.T_HAS_STAIRS)) {
     if (actor.grabbed) {
-      message.forPlayer(actor, 'You cannot use stairs while holding %s.', actor.grabbed.getFlavor());
+      message.forPlayer(actor, '%s cannot use stairs while holding %s.', actor.getName({article: 'the', color: true }), actor.grabbed.getFlavor());
       return false;
     }
   }
@@ -12702,13 +12714,13 @@ async function moveDir(actor, dir, opts={}) {
     let blocked = (destCell.item || destCell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS | Tile.T_OBSTRUCTS_PASSABILITY));
     if (isOppositeDir(dirToItem, dir)) {  // pull
       if (!actor.grabbed.hasActionFlag(Action.A_PULL)) {
-        message.forPlayer(actor, 'you cannot pull %s.', actor.grabbed.getFlavor());
+        message.forPlayer(actor, '%s cannot pull %s.', actor.getName({article: 'the', color: true }), actor.grabbed.getFlavor());
         return false;
       }
     }
     else {  // slide
       if (!actor.grabbed.hasActionFlag(Action.A_SLIDE)) {
-        message.forPlayer(actor, 'you cannot slide %s.', actor.grabbed.getFlavor());
+        message.forPlayer(actor, '%s cannot slide %s.', actor.getName({article: 'the', color: true }), actor.grabbed.getFlavor());
         return false;
       }
       if (destCell.actor) {
@@ -12815,7 +12827,7 @@ async function pickup(actor, item, ctx) {
 
   if (!actor.hasActionFlag(Action.A_PICKUP)) return false;
   if (item.hasActionFlag(Action.A_NO_PICKUP)) {
-    message.add('you cannot pickup %s.', item.getName({ article: 'the', color: true }));
+    message.add('%s cannot pickup %s.', actor.getName({article: 'the', color: true }), item.getName({ article: 'the', color: true }));
     return false;
   }
 
@@ -12852,7 +12864,7 @@ async function pickup(actor, item, ctx) {
     await actions.use(actor, item, ctx);
   }
   else if (!ctx.quiet) {
-    message.add('you pickup %s.', item.getName('the'));
+    message.add('%s pickup %s.', actor.getName({article: 'the', color: true }), item.getName('the'));
   }
 
   actor.endTurn();
@@ -12882,7 +12894,7 @@ async function attack$1(actor, target, ctx={}) {
   const kind = actor.kind;
 
   if (actor.grabbed) {
-    message.forPlayer(actor, 'you cannot attack while holding %s.', actor.grabbed.getName('the'));
+    message.forPlayer(actor, '%s cannot attack while holding %s.', actor.getName({article: 'the', color: true }), actor.grabbed.getName('the'));
     return false;
   }
 
@@ -12950,7 +12962,7 @@ async function itemAttack(actor, target, ctx={}) {
   const kind = actor.kind;
 
   if (actor.grabbed) {
-    message.forPlayer(actor, 'you cannot attack while holding %s.', actor.grabbed.getName('the'));
+    message.forPlayer(actor, '%s cannot attack while holding %s.', actor.getName({article: 'the', color: true }), actor.grabbed.getName('the'));
     return false;
   }
 
@@ -13228,7 +13240,7 @@ async function equip(actor, item, ctx={}) {
   success = actor.equip(item);
   if (!success) {
     const article = chainIncludes(actor.pack, item) ? 'your' : true;
-    message.add('you failed to equip %s.', item.getName({ article, color: true }));
+    message.add('%s failed to equip %s.', actor.getName({article: 'the', color: true }), item.getName({ article, color: true }));
     // TODO - Re-equip other?
     return false;
   }
@@ -13236,11 +13248,11 @@ async function equip(actor, item, ctx={}) {
   if (!ctx.quiet) {
     const article = config.inventory ? 'your' : 'a';
     if (other) {
-      message.add('you swap %s for %s.', other.getName({ article: 'your', color: true }), item.getName({ article: article, color: true }));
+      message.add('%s swap %s for %s.', actor.getName({article: 'the', color: true }), other.getName({ article: 'your', color: true }), item.getName({ article: article, color: true }));
     }
     else {
       // TODO - Custom verb? item.kind.equipVerb -or- Custom message? item.kind.equipMessage
-      message.add('You equip %s.', item.getName({ article, color: true }));
+      message.add('%s equip %s.', actor.getName({article: 'the', color: true }), item.getName({ article, color: true }));
     }
   }
 
@@ -13277,7 +13289,7 @@ async function unequip(actor, item, ctx={}) {
 
   if (actor.slots[slot]) {
     // failed to unequip
-    message.add('You cannot remove your %s.', actor.slots[slot].getName({article: false, color: true }));
+    message.add('%s cannot remove your %s.', actor.getName({article: 'the', color: true }), actor.slots[slot].getName({article: false, color: true }));
     return false;
   }
 
@@ -13288,7 +13300,7 @@ async function unequip(actor, item, ctx={}) {
 
   if (item && !ctx.quiet) {
     // TODO - Custom verb? item.kind.equipVerb -or- Custom message? item.kind.equipMessage
-    message.add('You remove your %s.', item.getName({ article: false, color: true }));
+    message.add('%s remove your %s.', actor.getName({article: 'the', color: true }), item.getName({ article: false, color: true }));
   }
 
   return true;

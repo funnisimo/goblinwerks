@@ -31,7 +31,7 @@ export async function equip(actor, item, ctx={}) {
   success = actor.equip(item);
   if (!success) {
     const article = Utils.chainIncludes(actor.pack, item) ? 'your' : true;
-    GW.message.add('you failed to equip %s.', item.getName({ article, color: true }));
+    GW.message.add('%s failed to equip %s.', actor.getName({article: 'the', color: true }), item.getName({ article, color: true }));
     // TODO - Re-equip other?
     return false;
   }
@@ -39,11 +39,11 @@ export async function equip(actor, item, ctx={}) {
   if (!ctx.quiet) {
     const article = GW.config.inventory ? 'your' : 'a';
     if (other) {
-      GW.message.add('you swap %s for %s.', other.getName({ article: 'your', color: true }), item.getName({ article: article, color: true }));
+      GW.message.add('%s swap %s for %s.', actor.getName({article: 'the', color: true }), other.getName({ article: 'your', color: true }), item.getName({ article: article, color: true }));
     }
     else {
       // TODO - Custom verb? item.kind.equipVerb -or- Custom message? item.kind.equipMessage
-      GW.message.add('You equip %s.', item.getName({ article, color: true }));
+      GW.message.add('%s equip %s.', actor.getName({article: 'the', color: true }), item.getName({ article, color: true }));
     }
   }
 
@@ -81,7 +81,7 @@ export async function unequip(actor, item, ctx={}) {
 
   if (actor.slots[slot]) {
     // failed to unequip
-    GW.message.add('You cannot remove your %s.', actor.slots[slot].getName({article: false, color: true }));
+    GW.message.add('%s cannot remove your %s.', actor.getName({article: 'the', color: true }), actor.slots[slot].getName({article: false, color: true }));
     return false;
   }
 
@@ -92,7 +92,7 @@ export async function unequip(actor, item, ctx={}) {
 
   if (item && !ctx.quiet) {
     // TODO - Custom verb? item.kind.equipVerb -or- Custom message? item.kind.equipMessage
-    GW.message.add('You remove your %s.', item.getName({ article: false, color: true }));
+    GW.message.add('%s remove your %s.', actor.getName({article: 'the', color: true }), item.getName({ article: false, color: true }));
   }
 
   return true;

@@ -25,6 +25,7 @@ class ActorKind {
 		this.actionFlags = Flags.Action.toFlag(opts.flags);
 		// this.attackFlags = Flags.Attack.toFlag(opts.flags);
 		this.stats = Object.assign({}, opts.stats || {});
+    this.regen = Object.assign({}, opts.regen || {});
 		this.id = opts.id || null;
     this.bump = opts.bump || ['attack'];  // attack me by default if you bump into me
 
@@ -211,11 +212,15 @@ export class Actor {
     this.current = { health: 1 };
     this.max = { health: 1 };
     this.prior = { health: 1 };
-
     if (this.kind.stats) {
       Object.assign(this.current, this.kind.stats);
       Object.assign(this.max, this.kind.stats);
       Object.assign(this.prior, this.kind.stats);
+    }
+
+    this.regen = { health: 0 };
+    if (this.kind.regen) {
+      Object.assign(this.regen, this.kind.regen);
     }
 
     if (this.kind.ai) {
@@ -445,6 +450,13 @@ actor.startTurn = startActorTurn;
 function endActorTurn(theActor, turnTime=1) {
   theActor.flags |= Flags.Actor.AF_TURN_ENDED;
   theActor.turnTime = Math.floor(theActor.kind.speed * turnTime);
+
+  for(let stat in theActor.regen) {
+    const turns = theActor.regen[stat];
+    const amt = 1/turns;
+    theActor.adjustStat(stat, amt);
+  }
+
   if (theActor.isPlayer()) {
     VISIBILITY.update(DATA.map, theActor.x, theActor.y);
     UI.requestUpdate(48);

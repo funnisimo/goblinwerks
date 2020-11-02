@@ -9,7 +9,7 @@ export async function pickup(actor, item, ctx) {
 
   if (!actor.hasActionFlag(Flags.Action.A_PICKUP)) return false;
   if (item.hasActionFlag(Flags.Action.A_NO_PICKUP)) {
-    GW.message.add('you cannot pickup %s.', item.getName({ article: 'the', color: true }));
+    GW.message.add('%s cannot pickup %s.', actor.getName({article: 'the', color: true }), item.getName({ article: 'the', color: true }));
     return false;
   }
 
@@ -46,7 +46,7 @@ export async function pickup(actor, item, ctx) {
     await Actions.use(actor, item, ctx);
   }
   else if (!ctx.quiet) {
-    GW.message.add('you pickup %s.', item.getName('the'));
+    GW.message.add('%s pickup %s.', actor.getName({article: 'the', color: true }), item.getName('the'));
   }
 
   actor.endTurn();
