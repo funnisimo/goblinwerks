@@ -270,6 +270,8 @@ export function sequence(listLength) {
   return list;
 }
 
+// CHAIN
+
 export function chainLength(item) {
   let count = 0;
   while(item) {

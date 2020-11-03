@@ -318,7 +318,7 @@ async function showArchive() {
 		if (!reverse) {
     	if (!DATA.autoPlayingLevel) {
         const y = isOnTop ? 0 : dbuf.height - 1;
-        dbuf.plotText(MSG_BOUNDS.toOuterX(-8), y, "--DONE--", COLORS.black, COLORS.white);
+        dbuf.plotLine(MSG_BOUNDS.toOuterX(-8), y, 8, "--DONE--", COLORS.black, COLORS.white);
       	UI.draw();
       	await IO.waitForAck();
     	}

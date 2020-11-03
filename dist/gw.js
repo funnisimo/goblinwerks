@@ -381,6 +381,8 @@
     return list;
   }
 
+  // CHAIN
+
   function chainLength(item) {
     let count = 0;
     while(item) {
@@ -1333,6 +1335,21 @@
       return this;
     }
 
+    mix(newColor, opacity=100) {
+      if (opacity <= 0) return this;
+      if (opacity >= 100) {
+        this.copy(newColor);
+        return this;
+      }
+
+      const weightComplement = 100 - opacity;
+      for(let i = 0; i < this.length; ++i) {
+        this[i] = Math.floor((this[i] * weightComplement + newColor[i] * opacity) / 100);
+      }
+      this.dances = (this.dances || newColor.dances);
+      return this;
+    }
+
     applyMultiplier(multiplierColor) {
       this.red = Math.round(this.red * multiplierColor[0] / 100);
       this.green = Math.round(this.green * multiplierColor[1] / 100);
@@ -1409,6 +1426,7 @@
     return null;
   }
 
+  color.make = make$1;
   make.color = make$1;
 
 
@@ -1443,18 +1461,7 @@
     baseColor = color.from(baseColor);
     newColor = color.from(newColor);
 
-    if (opacity <= 0) return baseColor;
-    if (opacity >= 100) {
-      baseColor.copy(newColor);
-      return baseColor;
-    }
-
-    const weightComplement = 100 - opacity;
-    for(let i = 0; i < baseColor.length; ++i) {
-      baseColor[i] = Math.floor((baseColor[i] * weightComplement + newColor[i] * opacity) / 100);
-    }
-    baseColor.dances = (baseColor.dances || newColor.dances);
-    return baseColor;
+    return baseColor.mix(newColor, opacity);
   }
 
   color.applyMix = applyMix;
@@ -1814,7 +1821,7 @@
 
 
 
-  // Returns true if either string has a null terminator before they otherwise disagree.
+  // Returns true if strings have the same text (ignoring colors and case).
   function stringsMatch(str1, str2) {
     let i, j;
 
@@ -2106,7 +2113,7 @@
 
   function format(fmt, ...args) {
 
-    const RE = /%([\-\+0\ \#]+)?(\d+|\*)?(\.\*|\.\d+)?([hLIw]|l{1,2}|I32|I64)?([cCdiouxXeEfgGaAnpsRSZ%])/g;
+    const RE = /%([\-\+0\ \#]+)?(\d+|\*)?(\.\*|\.\d+)?([hLIw]|l{1,2}|I32|I64)?([cCdiouxXeEfgGaAnpsFBSZ%])/g;
 
     if (fmt instanceof types.Color) {
       const buf = encodeColor(fmt) + args.shift();
@@ -2169,7 +2176,7 @@
           sign = '+';
         }
       }
-      else if (p5 == 'R') {
+      else if (p5 == 'F') {
         let color$1 = args.shift() || null;
         if (color$1 && !(color$1 instanceof types.Color)) {
           color$1 = color.from(color$1);
@@ -2326,8 +2333,19 @@
   		// this.needsUpdate = false;
   	}
 
-  	blackOut() {
+  	blackOut(bg) {
   		this.nullify();
+      if (bg) {
+        if (typeof bg === 'string') {
+          bg = color.from(bg);
+        }
+        if (this.bg) {
+          this.bg.copy(bg);
+        }
+        else {
+          this.bg = bg.clone();
+        }
+      }
   		this.opacity = 100;
   		this.needsUpdate = true;
   		this.wasHanging = false;
@@ -3288,13 +3306,13 @@
       this.needsUpdate = true;
     }
 
-    blackOut() {
-      this.forEach( (c) => c.blackOut() );
+    blackOut(bg) {
+      this.forEach( (c) => c.blackOut(bg) );
       this.needsUpdate = true;
     }
 
-    blackOutRect(x, y, w, h) {
-      this.forRect(x, y, w, h, (c) => c.blackOut() );
+    blackOutRect(x, y, w, h, bg) {
+      this.forRect(x, y, w, h, (c) => c.blackOut(bg) );
       this.needsUpdate = true;
     }
 
@@ -3332,12 +3350,12 @@
       this.needsUpdate = true;
     }
 
-    plotText(x, y, text$1, fg, bg) {
-      if (typeof fg === 'string') { fg = colors[fg]; }
-      if (typeof bg === 'string') { bg = colors[bg]; }
-      let len = text$1.length;
+    plotText(x, y, text$1, ...args) {
+      if (args.length) {
+        text$1 = text.format(text$1, ...args);
+      }
       text.eachChar(text$1, (ch, color, i) => {
-        this.plotChar(i + x, y, ch, color || fg, bg);
+        this.plotChar(i + x, y, ch, color || GW.colors.white, null);
       });
     }
 
@@ -3367,7 +3385,7 @@
       const lines = text.splitIntoLines(text$1, width, opts.indent);
       lines.forEach( (line, i) => {
         const offset = i ? opts.indent : 0;
-        this.plotLine(x + offset, y + i, width - offset, line, fg, bg);
+        this.plotLine(x + offset, y + i, width - offset, line, fg || colors.white, bg);
       });
 
       return y + lines.length;
@@ -7272,7 +7290,7 @@
 
     map.eachCell( (cell, i, j) => {
       // clear light flags
-      cell.flags &= ~(Cell.CELL_LIT | Cell.CELL_DARK | Cell.LIGHT_CHANGED);
+      cell.flags &= ~(Cell.CELL_LIT | Cell.CELL_DARK);
 
       if (cell.light.some( (v, i) => v !== cell.oldLight[i])) {
         cell.flags |= Cell.LIGHT_CHANGED;
@@ -7310,6 +7328,7 @@
     map.eachCell( (cell) => {
       for (k=0; k<3; k++) {
   			cell.oldLight[k] = cell.light[k];
+  			cell.flags &= ~(Cell.LIGHT_CHANGED);
   		}
     });
   }
@@ -7346,10 +7365,10 @@
 
   function updateLighting(map) {
 
-    if (map.flags & Map.MAP_STABLE_LIGHTS) return false;
-
   	// Copy Light over oldLight
     recordOldLights(map);
+
+    if (map.flags & Map.MAP_STABLE_LIGHTS) return false;
 
     // and then zero out Light.
   	zeroOutLights(map);
@@ -7746,7 +7765,7 @@
         if (opts.color instanceof types.Color) {
           color = opts.color;
         }
-        result = text.format('%R%s%R', color, this.name, null);
+        result = text.format('%F%s%F', color, this.name, null);
       }
 
       if (opts.article && (this.article !== false)) {
@@ -8432,6 +8451,10 @@
       config.inventory = false;
     }
 
+    if (opts.combat) {
+      config.combat = combat;
+    }
+
     await startMap(map, opts.start);
     queuePlayer();
 
@@ -8776,7 +8799,7 @@
         if (opts.color instanceof types.Color) {
           color = opts.color;
         }
-        result = text.format('%R%s%R', color, this.name, null);
+        result = text.format('%F%s%F', color, this.name, null);
       }
 
       if (opts.article) {
@@ -10414,7 +10437,7 @@
     const item = actor.slots.ranged;
 
     if (!item) {
-      message.add('%s have nothing to %Rfire%R.', actor.getName(), 'orange', null);
+      message.add('%s have nothing to %Ffire%F.', actor.getName(), 'orange', null);
       return false;
     }
 
@@ -10611,7 +10634,7 @@
         if (opts.color instanceof types.Color) {
           color = opts.color;
         }
-        result = text.format('%R%s%R', color, result, null);
+        result = text.format('%F%s%F', color, result, null);
       }
       else if (opts.color === false) {
         result = text.removeColors(result); // In case item has built in color
@@ -11198,7 +11221,7 @@
   		if (!reverse) {
       	if (!data.autoPlayingLevel) {
           const y = isOnTop ? 0 : dbuf.height - 1;
-          dbuf.plotText(MSG_BOUNDS.toOuterX(-8), y, "--DONE--", colors.black, colors.white);
+          dbuf.plotLine(MSG_BOUNDS.toOuterX(-8), y, 8, "--DONE--", colors.black, colors.white);
         	ui.draw();
         	await io.waitForAck();
       	}
@@ -11695,7 +11718,7 @@
 
     const x = SIDE_BOUNDS.x;
   	if (y < SIDE_BOUNDS.height - 1) {
-  		buf.plotText(x, y++, "                    ", (dim ? colors.dark_gray : colors.gray), colors.black);
+  		buf.plotText(x, y++, "                    ");
   	}
 
   	if (highlight) {
@@ -11762,7 +11785,7 @@
         }
     }
 
-    buf.plotText(x + 1, y, ': ', fg, bg);
+    buf.plotText(x + 1, y, '%F: ', fg);
   	y = buf.wrapText(x + 3, y, SIDE_BOUNDS.width - 3, monstName, fg, bg);
 
   	return y;
@@ -11799,33 +11822,13 @@
   		color.applyAverage(color$1, colors.black, 25);
   	}
 
-  	if (dim) {
-  		color.applyAverage(color$1, colors.black, 50);
+    let textColor = colors.white;
+    if (dim) {
+  		color$1.mix(colors.black, 50);
+      textColor = colors.gray;
   	}
 
-    const darkenedBarColor = color$1.clone();
-  	color.applyAverage(darkenedBarColor, colors.black, 75);
-
-    barText = text.center(barText, SIDE_BOUNDS.width);
-
-  	current = clamp(current, 0, max);
-
-  	if (max < 10000000) {
-  		current *= 100;
-  		max *= 100;
-  	}
-
-    const currentFillColor = make.color();
-    const textColor = make.color();
-  	for (let i=0; i<SIDE_BOUNDS.width; i++) {
-  		currentFillColor.copy(i <= (SIDE_BOUNDS.width * current / max) ? color$1 : darkenedBarColor);
-  		if (i == Math.floor(SIDE_BOUNDS.width * current / max)) {
-  			color.applyAverage(currentFillColor, colors.black, 75 - Math.floor(75 * (current % (max / SIDE_BOUNDS.width)) / (max / SIDE_BOUNDS.width)));
-  		}
-  		textColor.copy(dim ? colors.gray : colors.white);
-  		color.applyAverage(textColor, currentFillColor, (dim ? 50 : 33));
-  		buf.plotChar(SIDE_BOUNDS.x + i, y, barText[i], textColor, currentFillColor);
-  	}
+    ui.plotProgressBar(buf, SIDE_BOUNDS.x, y, SIDE_BOUNDS.width, barText, textColor, current/max, color$1);
     return y + 1;
   }
 
@@ -12329,7 +12332,7 @@
           viewH += opts.messages;	// subtract off message height
         }
   			if (opts.flavor) {
-  				viewH -= 1;
+  				if (!opts.wideMessages) viewH -= 1;
   				flavorLine = ui.canvas.height + opts.messages - 1;
   			}
   		}
@@ -12341,7 +12344,7 @@
         }
   			if (opts.flavor) {
   				viewY += 1;
-  				viewH -= 1;
+  				if (!opts.wideMessages) viewH -= 1;
   				flavorLine = opts.messages;
   			}
   		}
@@ -12619,15 +12622,19 @@
   ui.fadeTo = fadeTo;
 
 
-  async function messageBox(text, fg, duration) {
+  async function messageBox(duration, text$1, ...args) {
 
     const buffer = ui.startDialog();
 
-    const len = text.length;
+  	if (args.length) {
+  		text$1 = text.format(text$1, ...args);
+  	}
+
+    const len = text$1.length;
     const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
     const y = Math.floor(ui.canvas.height / 2) - 1;
     buffer.fillRect(x, y, len + 4, 3, ' ', 'black', 'black');
-  	buffer.plotText(x + 2, y + 1, text, fg || 'white');
+  	buffer.plotText(x + 2, y + 1, text$1);
   	ui.draw();
 
   	await io.pause(duration || 30 * 1000);
@@ -12638,17 +12645,29 @@
   ui.messageBox = messageBox;
 
 
-  async function confirm(text, fg, opts={}) {
+  async function confirm(opts, ...args) {
+
+    let text$1;
+    if (typeof opts === 'string') {
+      args.shift(opts);
+      opts = {};
+    }
+    if (args.length > 1) {
+      text$1 = text.format(...args);
+    }
+    else {
+      text$1 = args[0];
+    }
 
     const buffer = ui.startDialog();
 
   	const btnOK = 'OK=Enter';
   	const btnCancel = 'Cancel=Escape';
-    const len = Math.max(text.length, btnOK.length + 4 + btnCancel.length);
+    const len = Math.max(text$1.length, btnOK.length + 4 + btnCancel.length);
     const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
     const y = Math.floor(ui.canvas.height / 2) - 1;
     buffer.fillRect(x, y, len + 4, 5, ' ', 'black', 'black');
-  	buffer.plotText(x + 2, y + 1, text, fg || 'white');
+  	buffer.plotText(x + 2, y + 1, text$1);
   	buffer.plotText(x + 2, y + 3, btnOK, 'white');
   	buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, 'white');
   	ui.draw();
@@ -12807,6 +12826,37 @@
   }
 
   ui.draw = draw;
+
+  // Helpers
+
+  // UI
+
+  function plotProgressBar(buf, x, y, width, barText, textColor, pct, barColor) {
+    if (pct > 1) pct /= 100;
+    pct = clamp(pct, 0, 1);
+
+  	barColor = color.make(barColor);
+    textColor = color.make(textColor);
+    const darkenedBarColor = barColor.clone().mix(colors.black, 75);
+
+    barText = text.center(barText, width);
+
+    const currentFillColor = GW.make.color();
+    const currentTextColor = GW.make.color();
+  	for (let i=0; i < width; i++) {
+  		currentFillColor.copy(i <= (width * pct) ? barColor : darkenedBarColor);
+  		if (i == Math.floor(width * pct)) {
+        const perCell = Math.floor(1000 / width);
+        const rem = (1000 * pct) % perCell;
+  			currentFillColor.mix(colors.black, 75 - Math.floor(75 * rem / perCell));
+  		}
+  		currentTextColor.copy(textColor);
+  		currentTextColor.mix(currentFillColor, 25);
+  		buf.plotChar(x + i, y, barText[i], currentTextColor, currentFillColor);
+  	}
+  }
+
+  ui.plotProgressBar = plotProgressBar;
 
   async function moveDir(actor, dir, opts={}) {
 
@@ -13092,6 +13142,10 @@
     const map = ctx.map || data.map;
     const kind = actor.kind;
 
+    if (config.combat) {
+      return config.combat(actor, target, ctx);
+    }
+
     if (actor.grabbed) {
       message.forPlayer(actor, '%s cannot attack while holding %s.', actor.getName({article: 'the', color: true }), actor.grabbed.getName('the'));
       return false;
@@ -13116,6 +13170,10 @@
       return false;
     }
 
+    if (info.fn) {
+      return await info.fn(actor, target, ctx); // custom combat
+    }
+
     let damage = info.damage;
     if (typeof damage === 'function') {
       damage = damage(actor, target, ctx) || 1;
@@ -13123,7 +13181,7 @@
     const verb = info.verb || 'hit';
 
     damage = target.kind.applyDamage(target, damage, actor, ctx);
-    message.addCombat('%s %s %s for %R%d%R damage', actor.getName(), actor.getVerb(verb), target.getName('the'), 'red', damage, null);
+    message.addCombat('%s %s %s for %F%d%F damage', actor.getName(), actor.getVerb(verb), target.getName('the'), 'red', Math.round(damage), null);
 
     if (target.isDead()) {
       message.addCombat('%s %s', target.isInanimate() ? 'destroying' : 'killing', target.getPronoun('it'));
@@ -13188,7 +13246,7 @@
     }
 
     damage = target.kind.applyDamage(target, damage, actor, ctx);
-    message.addCombat('%s %s %s for %R%d%R damage', actor.getName(), actor.getVerb(verb), target.getName('the'), 'red', damage, null);
+    message.addCombat('%s %s %s for %F%d%F damage', actor.getName(), actor.getVerb(verb), target.getName('the'), 'red', damage, null);
 
     if (target.isDead()) {
       message.addCombat('%s %s', target.isInanimate() ? 'destroying' : 'killing', target.getPronoun('it'));

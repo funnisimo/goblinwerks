@@ -167,7 +167,7 @@ class ActorKind {
       if (opts.color instanceof types.Color) {
         color = opts.color;
       }
-      result = TEXT.format('%R%s%R', color, this.name, null);
+      result = TEXT.format('%F%s%F', color, this.name, null);
     }
 
     if (opts.article && (this.article !== false)) {

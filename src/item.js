@@ -83,7 +83,7 @@ class ItemKind {
       if (opts.color instanceof GW.types.Color) {
         color = opts.color;
       }
-      result = TEXT.format('%R%s%R', color, result, null);
+      result = TEXT.format('%F%s%F', color, result, null);
     }
     else if (opts.color === false) {
       result = TEXT.removeColors(result); // In case item has built in color

@@ -14,6 +14,10 @@ export async function attack(actor, target, ctx={}) {
   const map = ctx.map || GW.data.map;
   const kind = actor.kind;
 
+  if (GW.config.combat) {
+    return GW.config.combat(actor, target, ctx);
+  }
+
   if (actor.grabbed) {
     GW.message.forPlayer(actor, '%s cannot attack while holding %s.', actor.getName({article: 'the', color: true }), actor.grabbed.getName('the'));
     return false;
@@ -38,6 +42,10 @@ export async function attack(actor, target, ctx={}) {
     return false;
   }
 
+  if (info.fn) {
+    return await info.fn(actor, target, ctx); // custom combat
+  }
+
   let damage = info.damage;
   if (typeof damage === 'function') {
     damage = damage(actor, target, ctx) || 1;
@@ -45,7 +53,7 @@ export async function attack(actor, target, ctx={}) {
   const verb = info.verb || 'hit';
 
   damage = target.kind.applyDamage(target, damage, actor, ctx);
-  GW.message.addCombat('%s %s %s for %R%d%R damage', actor.getName(), actor.getVerb(verb), target.getName('the'), 'red', Math.round(damage), null);
+  GW.message.addCombat('%s %s %s for %F%d%F damage', actor.getName(), actor.getVerb(verb), target.getName('the'), 'red', Math.round(damage), null);
 
   if (target.isDead()) {
     GW.message.addCombat('%s %s', target.isInanimate() ? 'destroying' : 'killing', target.getPronoun('it'));

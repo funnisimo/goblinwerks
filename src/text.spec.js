@@ -19,7 +19,7 @@ describe('Message', () => {
         test('mixes in colors', () => {
             let result = '';
             let colorCount = 0;
-            const text = GW.text.format('test %Rcolor%R.', GW.colors.blue, null);
+            const text = GW.text.format('test %Fcolor%F.', GW.colors.blue, null);
             GW.text.eachChar(text, (c, color) => {
                 result += c;
                 if (color) {
@@ -40,7 +40,7 @@ describe('Message', () => {
         });
 
         test('works with colors', () => {
-            const text = GW.text.format('test %Rcolors%R.', GW.colors.green, null);
+            const text = GW.text.format('test %Fcolors%F.', GW.colors.green, null);
             expect(GW.text.length(text)).not.toEqual(text.length);
             expect(GW.text.length(text)).toEqual('test colors.'.length);
         });
@@ -72,7 +72,7 @@ describe('Message', () => {
     });
 
     test('can add some color for a word or two', () => {
-      const msg = GW.text.format('a %Rblue%R msg.', 'blue', null);
+      const msg = GW.text.format('a %Fblue%F msg.', 'blue', null);
       expect(msg).toEqual('a \u0019\u0000\u0000\u0064blue\u001a msg.');
       expect(GW.text.length(msg)).toEqual(11);
       expect(msg.length).toEqual(16);
@@ -96,7 +96,7 @@ describe('Message', () => {
     });
 
     test('Splitting a line will keep color settings on new line.', () => {
-      const text = GW.text.format(GW.colors.blue, 'testing a long message that will need to be split into multiple lines in order%R to be shown on the screen completely.', null);
+      const text = GW.text.format(GW.colors.blue, 'testing a long message that will need to be split into multiple lines in order%F to be shown on the screen completely.', null);
 
       const lines = GW.text.splitIntoLines(text, 30);
       expect(lines.length).toEqual(5);
@@ -117,7 +117,7 @@ describe('Message', () => {
     });
 
     test('wraps on color ending word correctly', () => {
-      const text = GW.text.format('Armor  : %RTempered armor of magical weakness%R', 'red', null);
+      const text = GW.text.format('Armor  : %FTempered armor of magical weakness%F', 'red', null);
       expect(text.charCodeAt(9)).toEqual(GW.def.COLOR_ESCAPE);
       expect(text.charCodeAt(10)).toEqual(100);
       expect(text.charCodeAt(11)).toEqual(0);
@@ -132,11 +132,12 @@ describe('Message', () => {
     });
 
     test('wraps on word with color change correctly', () => {
-      const text = GW.text.format('Armor  : %RLeather armor of treachery%R <3%R+#%R>', 'orange', null, 'red', null);
+      const text = GW.text.format('Armor  : %FLeather armor of treachery%F <3%F+#%F>', 'orange', null, 'red', null);
       const lines = GW.text.splitIntoLines(text, 40, 9);
       expect(lines.length).toEqual(2);
-      expect(lines[1]).toEqual(GW.text.format('<3%R+#%R>', 'red', null));
+      expect(lines[1]).toEqual(GW.text.format('<3%F+#%F>', 'red', null));
     });
+
   });
 
   describe('removeColor', () => {
@@ -152,13 +153,13 @@ describe('Message', () => {
     });
 
     test('removes colors in the middle', () => {
-      const a = GW.text.format('eat %Rtacos%R today!', 'red', null);
+      const a = GW.text.format('eat %Ftacos%F today!', 'red', null);
       expect(a).not.toEqual('eat tacos today!');
       expect(GW.text.removeColors(a)).toEqual('eat tacos today!');
     });
 
     test('removes colors at the end', () => {
-      const a = GW.text.format('eat tacos %Rtoday!', 'red');
+      const a = GW.text.format('eat tacos %Ftoday!', 'red');
       expect(a).not.toEqual('eat tacos today!');
       expect(GW.text.removeColors(a)).toEqual('eat tacos today!');
     });

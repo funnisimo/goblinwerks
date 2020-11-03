@@ -123,15 +123,15 @@ async function showHelp() {
 	const buf = GW.ui.startDialog();
 
 	let y = 2;
-	buf.plotText(20, y++, 'GoblinWerks Dungeon Dig Example', 'green');
+	buf.plotText(20, y++, '%FGoblinWerks Dungeon Dig Example', 'green');
 	y++;
-	y = buf.wrapText(15, y, 50, 'Explore the caves.', 'white');
+	y = buf.wrapText(15, y, 50, 'Explore the caves.');
 	y++;
-	buf.plotText(15, y, 'dir   ', 'yellow');
+	buf.plotText(15, y, '%Fdir   ', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Pressing an arrow key moves the player in that direction.', 'white', null, 2);
-	buf.plotText(15, y, 'space ', 'yellow');
+	buf.plotText(15, y, '%Fspace ', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Wait a short time.', 'white', null, 2);
-	buf.plotText(15, y, '?', 'yellow');
+	buf.plotText(15, y, '%F?', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Show this screen.', 'lighter_gray');
 
 	buf.fillRect(14, 1, 52, y, null, null, 'black' );
@@ -176,7 +176,7 @@ function start() {
 		'?': showHelp
 	});
 
-	GW.message.add('%RWelcome to the Dungeon!\n%RSomewhere at the bottom of this labrynth is a portal that will take you back to your home town.  Find it or perish!\n%RPress <?> for help.', 'yellow', 'purple', null);
+	GW.message.add('%FWelcome to the Dungeon!\n%FSomewhere at the bottom of this labrynth is a portal that will take you back to your home town.  Find it or perish!\n%FPress <?> for help.', 'yellow', 'purple', null);
 	GW.game.start({ player: PLAYER, buildMap: designNewLevel, fov: true });
 }
 

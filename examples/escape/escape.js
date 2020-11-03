@@ -432,7 +432,7 @@ GW.tile.addKind('HELLO_SIGN', {
   flags: ['TM_LIST_IN_SIDEBAR'],
   events: {
     playerEnter(x, y, ctx) {
-      GW.message.add('%RBeware!', 'dark_red');
+      GW.message.add('%FBeware!', 'dark_red');
       return true;
     }
   }
@@ -589,25 +589,25 @@ async function showHelp() {
 	const buf = GW.ui.startDialog();
 
 	let y = 2;
-	buf.plotText(20, y++, 'GoblinWerks Escape from ECMA Labs', 'green');
+	buf.plotText(20, y++, '%FGoblinWerks Escape from ECMA Labs', 'green');
 	y++;
 	y = buf.wrapText(15, y, 50, 'You are in the basement of a secret laboratory that does experiments with toxic chemicals.  There was an accident and a toxic gas was released that will kill you.  It has already affected most of your colleagues.  You must get out quickly!', 'white');
 	y++;
-	buf.plotText(15, y, 'dir   ', 'yellow');
+	buf.plotText(15, y, '%Fdir   ', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Pressing an arrow key moves the player in that direction.', 'white', null, 2);
-  buf.plotText(15, y, 'b', 'yellow');
+  buf.plotText(15, y, '%Fb', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Bash something.', 'lighter_gray');
-  buf.plotText(15, y, 'f', 'yellow');
+  buf.plotText(15, y, '%Ff', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Fire your ranged weapon at a target.', 'lighter_gray');
-  buf.plotText(15, y, 'g', 'yellow');
+  buf.plotText(15, y, '%Fg', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Grab something.', 'white', null, 2);
-  buf.plotText(15, y, 'o', 'yellow');
+  buf.plotText(15, y, '%Fo', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Open something.', 'lighter_gray');
-  buf.plotText(15, y, 'c', 'yellow');
+  buf.plotText(15, y, '%Fc', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Close something.', 'white', null, 2);
-	buf.plotText(15, y, 'space ', 'yellow');
+	buf.plotText(15, y, '%Fspace ', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Wait a short time.', 'white', null, 2);
-	buf.plotText(15, y, '?', 'yellow');
+	buf.plotText(15, y, '%F?', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Show this screen.', 'lighter_gray');
 
   // this just overwrites the background color on the range
@@ -653,7 +653,7 @@ async function start() {
 	});
 
   // welcome message
-	GW.message.add('%REscape from ECMA Labs!\n%RYou are in the basement of a lab where something has gone horribly wrong.\nFind your way to the surface.\n%RPress <?> for help.', 'yellow', 'purple', null);
+	GW.message.add('%FEscape from ECMA Labs!\n%FYou are in the basement of a lab where something has gone horribly wrong.\nFind your way to the surface.\n%FPress <?> for help.', 'yellow', 'purple', null);
 
   // start the game
 	const success = await GW.game.start({ player: PLAYER, map, fov: true });

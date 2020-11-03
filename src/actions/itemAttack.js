@@ -43,7 +43,7 @@ export async function itemAttack(actor, target, ctx={}) {
   }
 
   damage = target.kind.applyDamage(target, damage, actor, ctx);
-  GW.message.addCombat('%s %s %s for %R%d%R damage', actor.getName(), actor.getVerb(verb), target.getName('the'), 'red', damage, null);
+  GW.message.addCombat('%s %s %s for %F%d%F damage', actor.getName(), actor.getVerb(verb), target.getName('the'), 'red', damage, null);
 
   if (target.isDead()) {
     GW.message.addCombat('%s %s', target.isInanimate() ? 'destroying' : 'killing', target.getPronoun('it'));

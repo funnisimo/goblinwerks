@@ -177,15 +177,15 @@ GW.item.addKind('POTION_HEALTH', {
   use(item, actor, ctx={}) {
     if (!actor.isPlayer()) return false;
     if (actor.current.health >= actor.max.health) {
-      GW.message.add('You do not need to recharge your %Rhealth%R.', 'health', null);
+      GW.message.add('You do not need to recharge your %Fhealth%F.', 'health', null);
       return false;
     }
     else {
       if (actor.current.health + item.stats.strength < actor.max.health) {
-        GW.message.add('Some of your %Rhealth%R is refilled.', 'health', null);
+        GW.message.add('Some of your %Fhealth%F is refilled.', 'health', null);
       }
       else {
-        GW.message.add('Your %Rhealth%R is completely refilled.', 'health', null);
+        GW.message.add('Your %Fhealth%F is completely refilled.', 'health', null);
       }
       actor.adjustStat('health', item.stats.strength);
     }
@@ -203,15 +203,15 @@ GW.item.addKind('POTION_MANA', {
   use(item, actor, ctx={}) {
     if (!actor.isPlayer()) return false;
     if (actor.current.mana >= actor.max.mana) {
-      GW.message.add('You do not need to recharge your %Rmana%R.', 'mana', null);
+      GW.message.add('You do not need to recharge your %Fmana%F.', 'mana', null);
       return false;
     }
     else {
       if (actor.current.mana + item.stats.strength < actor.max.mana) {
-        GW.message.add('Some of your %Rmana%R is refilled.', 'mana', null);
+        GW.message.add('Some of your %Fmana%F is refilled.', 'mana', null);
       }
       else {
-        GW.message.add('Your %Rmana%R is completely refilled.', 'mana', null);
+        GW.message.add('Your %Fmana%F is completely refilled.', 'mana', null);
       }
       actor.adjustStat('mana', item.stats.strength);
     }

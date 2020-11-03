@@ -12,7 +12,7 @@ async function fire(e) {
   const item = actor.slots.ranged;
 
   if (!item) {
-    MSG.add('%s have nothing to %Rfire%R.', actor.getName(), 'orange', null);
+    MSG.add('%s have nothing to %Ffire%F.', actor.getName(), 'orange', null);
     return false;
   }
 

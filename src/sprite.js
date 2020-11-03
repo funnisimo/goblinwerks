@@ -109,8 +109,19 @@ export class Sprite {
 		// this.needsUpdate = false;
 	}
 
-	blackOut() {
+	blackOut(bg) {
 		this.nullify();
+    if (bg) {
+      if (typeof bg === 'string') {
+        bg = COLOR.from(bg);
+      }
+      if (this.bg) {
+        this.bg.copy(bg);
+      }
+      else {
+        this.bg = bg.clone();
+      }
+    }
 		this.opacity = 100;
 		this.needsUpdate = true;
 		this.wasHanging = false;

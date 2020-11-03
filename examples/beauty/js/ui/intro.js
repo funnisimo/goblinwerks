@@ -205,7 +205,7 @@ function drawText(buf, x=0, y=0, w=0) {
   							'Many adventurers tried to find and rescue her, but none came back...' +
 								'\n\nHit [Enter] to start the game';
 
-	buf.wrapText(x, y, w, text, 'white');
+	buf.wrapText(x, y, w, text);
 }
 
 const FACTS = [
@@ -228,7 +228,7 @@ function drawFact(buf, y=0) {
   	y = buf.height + y;
   }
 
-	const fact = 'Fun Fact: ' + GW.random.item(FACTS);
+	const fact = '%FFun Fact: ' + GW.random.item(FACTS);
 
 	const x = Math.floor((buf.width - fact.length)/2);
 	buf.plotText(x, y, fact, 'lighter_gray');

@@ -83,6 +83,21 @@ export class Color extends Array {
     return this;
   }
 
+  mix(newColor, opacity=100) {
+    if (opacity <= 0) return this;
+    if (opacity >= 100) {
+      this.copy(newColor);
+      return this;
+    }
+
+    const weightComplement = 100 - opacity;
+    for(let i = 0; i < this.length; ++i) {
+      this[i] = Math.floor((this[i] * weightComplement + newColor[i] * opacity) / 100);
+    }
+    this.dances = (this.dances || newColor.dances);
+    return this;
+  }
+
   applyMultiplier(multiplierColor) {
     this.red = Math.round(this.red * multiplierColor[0] / 100);
     this.green = Math.round(this.green * multiplierColor[1] / 100);
@@ -159,6 +174,7 @@ export function make(...args) {
   return null;
 }
 
+color.make = make;
 MAKE.color = make;
 
 
@@ -193,18 +209,7 @@ export function applyMix(baseColor, newColor, opacity) {
   baseColor = color.from(baseColor);
   newColor = color.from(newColor);
 
-  if (opacity <= 0) return baseColor;
-  if (opacity >= 100) {
-    baseColor.copy(newColor);
-    return baseColor;
-  }
-
-  const weightComplement = 100 - opacity;
-  for(let i = 0; i < baseColor.length; ++i) {
-    baseColor[i] = Math.floor((baseColor[i] * weightComplement + newColor[i] * opacity) / 100);
-  }
-  baseColor.dances = (baseColor.dances || newColor.dances);
-  return baseColor;
+  return baseColor.mix(newColor, opacity);
 }
 
 color.applyMix = applyMix;

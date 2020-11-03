@@ -423,7 +423,7 @@ function sidebarAddActor(entry, y, dim, highlight, buf)
 
   const x = SIDE_BOUNDS.x;
 	if (y < SIDE_BOUNDS.height - 1) {
-		buf.plotText(x, y++, "                    ", (dim ? COLORS.dark_gray : COLORS.gray), COLORS.black);
+		buf.plotText(x, y++, "                    ");
 	}
 
 	if (highlight) {
@@ -490,7 +490,7 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
       }
   }
 
-  buf.plotText(x + 1, y, ': ', fg, bg);
+  buf.plotText(x + 1, y, '%F: ', fg);
 	y = buf.wrapText(x + 3, y, SIDE_BOUNDS.width - 3, monstName, fg, bg);
 
 	return y;
@@ -527,33 +527,13 @@ function addProgressBar(y, buf, barText, current, max, color, dim) {
 		COLOR.applyAverage(color, COLORS.black, 25);
 	}
 
-	if (dim) {
-		COLOR.applyAverage(color, COLORS.black, 50);
+  let textColor = COLORS.white;
+  if (dim) {
+		color.mix(COLORS.black, 50);
+    textColor = COLORS.gray;
 	}
 
-  const darkenedBarColor = color.clone();
-	COLOR.applyAverage(darkenedBarColor, COLORS.black, 75);
-
-  barText = TEXT.center(barText, SIDE_BOUNDS.width);
-
-	current = Utils.clamp(current, 0, max);
-
-	if (max < 10000000) {
-		current *= 100;
-		max *= 100;
-	}
-
-  const currentFillColor = GW.make.color();
-  const textColor = GW.make.color();
-	for (let i=0; i<SIDE_BOUNDS.width; i++) {
-		currentFillColor.copy(i <= (SIDE_BOUNDS.width * current / max) ? color : darkenedBarColor);
-		if (i == Math.floor(SIDE_BOUNDS.width * current / max)) {
-			COLOR.applyAverage(currentFillColor, COLORS.black, 75 - Math.floor(75 * (current % (max / SIDE_BOUNDS.width)) / (max / SIDE_BOUNDS.width)));
-		}
-		textColor.copy(dim ? COLORS.gray : COLORS.white);
-		COLOR.applyAverage(textColor, currentFillColor, (dim ? 50 : 33));
-		buf.plotChar(SIDE_BOUNDS.x + i, y, barText[i], textColor, currentFillColor);
-	}
+  GW.ui.plotProgressBar(buf, SIDE_BOUNDS.x, y, SIDE_BOUNDS.width, barText, textColor, current/max, color);
   return y + 1;
 }
 

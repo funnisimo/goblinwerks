@@ -57,6 +57,10 @@ export async function start(opts={}) {
     CONFIG.inventory = false;
   }
 
+  if (opts.combat) {
+    CONFIG.combat = combat;
+  }
+
   await startMap(map, opts.start);
   queuePlayer();
 

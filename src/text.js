@@ -165,7 +165,7 @@ text.splice = splice;
 
 
 
-// Returns true if either string has a null terminator before they otherwise disagree.
+// Returns true if strings have the same text (ignoring colors and case).
 function stringsMatch(str1, str2) {
   let i, j;
 
@@ -460,7 +460,7 @@ text.splitIntoLines = splitIntoLines;
 
 function format(fmt, ...args) {
 
-  const RE = /%([\-\+0\ \#]+)?(\d+|\*)?(\.\*|\.\d+)?([hLIw]|l{1,2}|I32|I64)?([cCdiouxXeEfgGaAnpsRSZ%])/g;
+  const RE = /%([\-\+0\ \#]+)?(\d+|\*)?(\.\*|\.\d+)?([hLIw]|l{1,2}|I32|I64)?([cCdiouxXeEfgGaAnpsFBSZ%])/g;
 
   if (fmt instanceof types.Color) {
     const buf = encodeColor(fmt) + args.shift();
@@ -523,7 +523,7 @@ function format(fmt, ...args) {
         sign = '+';
       }
     }
-    else if (p5 == 'R') {
+    else if (p5 == 'F') {
       let color = args.shift() || null;
       if (color && !(color instanceof types.Color)) {
         color = COLOR.from(color);

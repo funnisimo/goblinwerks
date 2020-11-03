@@ -14,25 +14,6 @@ GW.config.LEVEL_HP = 4;
 GW.config.REGEN_HP = 20;  // turns
 GW.config.REGEN_MANA = 10;  // turns
 
-GW.config.ATTACK_1 = "a1";
-GW.config.ATTACK_2 = "a2";
-GW.config.MAGIC_1 = "m1";
-GW.config.MAGIC_2 = "m2";
-
-GW.config.COMBAT_COLORS = {
-	[GW.config.ATTACK_1]: "#0f0",
-	[GW.config.ATTACK_2]: "#f00",
-	[GW.config.MAGIC_1]: "#00f",
-	[GW.config.MAGIC_2]: "#ff3"
-};
-
-const COMBAT_BONUS_DISPLAY = {
-	[GW.config.ATTACK_1]: GW.text.format('%R+#%R', GW.config.COMBAT_COLORS[GW.config.ATTACK_1], null),
-	[GW.config.ATTACK_2]: GW.text.format('%R+#%R', GW.config.COMBAT_COLORS[GW.config.ATTACK_2], null),
-	[GW.config.MAGIC_1]: GW.text.format('%R+#%R', GW.config.COMBAT_COLORS[GW.config.MAGIC_1], null),
-	[GW.config.MAGIC_2]: GW.text.format('%R+#%R', GW.config.COMBAT_COLORS[GW.config.MAGIC_2], null)
-};
-
 
 var PLAYER = null;
 
@@ -128,7 +109,7 @@ async function start() {
     GW.ui.canvas.draw();
     await showIntro();
     PLAYER = resetPlayer();
-    await GW.game.start({ player: PLAYER, buildMap: generate, fov: true, inventory: false });
+    await GW.game.start({ player: PLAYER, buildMap: generate, fov: true, inventory: false, combat: combat });
     await GW.ui.fadeTo('black', 500);
   }
 

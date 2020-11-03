@@ -23,84 +23,84 @@ function toggleGameTime() {
 	else {
 		text = 'Selected REAL TIME.';
 	}
-	return GW.ui.messageBox(text, 'red', 500);
+	return GW.ui.messageBox(500, text);
 }
 
 GW.commands.toggleGameTime = toggleGameTime;
 
 function selectWall() {
 	command = 'toggleWall';
-	return GW.ui.messageBox('Selected WALL.', 'red', 500);
+	return GW.ui.messageBox(500, 'Selected WALL.');
 }
 
 GW.commands.selectWall = selectWall;
 
 function selectBeam() {
 	command = 'showBeam';
-	return GW.ui.messageBox('Selected BEAM.', 'red', 500);
+	return GW.ui.messageBox(500, 'Selected BEAM.');
 }
 
 GW.commands.selectBeam = selectBeam;
 
 function selectFlash() {
 	command = 'showFlash';
-	return GW.ui.messageBox('Selected FLASH.', 'red', 500);
+	return GW.ui.messageBox(500, 'Selected FLASH.');
 }
 
 GW.commands.selectFlash = selectFlash;
 
 function selectBolt() {
 	command = 'showBolt';
-	return GW.ui.messageBox('Selected BOLT.', 'red', 500);
+	return GW.ui.messageBox(500, 'Selected BOLT.');
 }
 
 GW.commands.selectBolt = selectBolt;
 
 async function selectHit() {
 	command = 'showHit';
-	await GW.ui.messageBox('Selected HIT.', 'red', 500);
+	await GW.ui.messageBox(500, 'Selected HIT.');
 }
 
 GW.commands.selectHit = selectHit;
 
 async function selectAura() {
 	command = 'showAura';
-	await GW.ui.messageBox('Selected AURA.', 'red', 500);
+	await GW.ui.messageBox(500, 'Selected AURA.');
 }
 
 GW.commands.selectAura = selectAura;
 
 async function selectExplosion() {
 	command = 'showExplosion';
-	await GW.ui.messageBox('Selected EXPLOSION.', 'red', 500);
+	await GW.ui.messageBox(500, 'Selected EXPLOSION.');
 }
 
 GW.commands.selectExplosion = selectExplosion;
 
 async function selectExplosionStar() {
 	command = 'showExplosionStar';
-	await GW.ui.messageBox('Selected STAR.', 'red', 500);
+	await GW.ui.messageBox(500, 'Selected STAR.');
 }
 
 GW.commands.selectExplosionStar = selectExplosionStar;
 
 async function selectExplosionPlus() {
 	command = 'showExplosionPlus';
-	await GW.ui.messageBox('Selected PLUS.', 'red', 500);
+	await GW.ui.messageBox(500, 'Selected PLUS.');
 }
 
 GW.commands.selectExplosionPlus = selectExplosionPlus;
 
 async function selectExplosionX() {
 	command = 'showExplosionX';
-	await GW.ui.messageBox('Selected X.', 'red', 500);
+	await GW.ui.messageBox(500, 'Selected X.');
 }
 
 GW.commands.selectExplosionX = selectExplosionX;
 
 async function selectProjectile() {
 	command = 'showProjectile';
-	await GW.ui.messageBox('Selected PROJECTILE.', 'red', 500);
+	await GW.ui.messageBox(500, 'Selected PROJECTILE.');
 }
 
 GW.commands.selectProjectile = selectProjectile;
@@ -260,30 +260,30 @@ async function showHelp() {
 	const buf = GW.ui.startDialog();
 
 	let y = 2;
-	buf.plotText(20, y++, 'GoblinWerks FX Example', 'green');
+	buf.plotText(20, y++, '%FGoblinWerks FX Example', 'green');
 	y++;
 	y = buf.wrapText(10, y, 60, 'This example allows you to try out some of the special FX in GoblinWerks.', 'white');
 	y++;
-	buf.plotText(10, y++, 'CLICK : When you click on a tile, the current FX is played.', 'white');
-	buf.plotText(10, y++, 'DIR   : Pressing a direction key moves the player.', 'white');
+	buf.plotText(10, y++, 'CLICK : When you click on a tile, the current FX is played.');
+	buf.plotText(10, y++, 'DIR   : Pressing a direction key moves the player.');
 	y = buf.wrapText(10, y, 60, 'SPACE : Rest player - lets game time animations continue. (you could also move the player)', 'white', null, { indent: 8 });
-	buf.plotText(10, y++, 'g     : Toggle between game time and real time FX.', 'white');
-	buf.plotText(10, y++, '>     : Change to a new map.', 'white');
-	buf.plotText(10, y++, '?     : Show this screen.', 'white');
+	buf.plotText(10, y++, 'g     : Toggle between game time and real time FX.');
+	buf.plotText(10, y++, '>     : Change to a new map.');
+	buf.plotText(10, y++, '?     : Show this screen.');
 	y++;
-	buf.plotText(10, y++, 'FX available', 'white');
-	buf.plotText(10, y++, '======================', 'white');
-	buf.plotText(10, y++, 'w     : Enter WALL mode - clicks place/remove walls.', 'white');
-	buf.plotText(10, y++, 'h     : Show a HIT on the clicked tile.', 'white');
-	buf.plotText(10, y++, 'f     : Blink a sprite on the clicked tile.', 'white');
-	buf.plotText(10, y++, 'b     : Fire a BOLT to the clicked tile.', 'white');
-	buf.plotText(10, y++, 'p     : Fire a PROJECTILE to the clicked tile.', 'white');
-	buf.plotText(10, y++, 'm     : Fire a BEAM to the clicked tile.', 'white');
-	buf.plotText(10, y++, 'o     : Cause an explosion at the clicked tile.', 'white');
-	buf.plotText(10, y++, '+     : Fire a + shaped explosion.', 'white');
-	buf.plotText(10, y++, 'x     : Fire an X shaped explosion.', 'white');
-	buf.plotText(10, y++, '*     : Fire a * shaped explosion.', 'white');
-	buf.plotText(10, y++, 'a     : Produce an aura (explosion w/o center).', 'white');
+	buf.plotText(10, y++, 'FX available');
+	buf.plotText(10, y++, '======================');
+	buf.plotText(10, y++, 'w     : Enter WALL mode - clicks place/remove walls.');
+	buf.plotText(10, y++, 'h     : Show a HIT on the clicked tile.');
+	buf.plotText(10, y++, 'f     : Blink a sprite on the clicked tile.');
+	buf.plotText(10, y++, 'b     : Fire a BOLT to the clicked tile.');
+	buf.plotText(10, y++, 'p     : Fire a PROJECTILE to the clicked tile.');
+	buf.plotText(10, y++, 'm     : Fire a BEAM to the clicked tile.');
+	buf.plotText(10, y++, 'o     : Cause an explosion at the clicked tile.');
+	buf.plotText(10, y++, '+     : Fire a + shaped explosion.');
+	buf.plotText(10, y++, 'x     : Fire an X shaped explosion.');
+	buf.plotText(10, y++, '*     : Fire a * shaped explosion.');
+	buf.plotText(10, y++, 'a     : Produce an aura (explosion w/o center).');
 
 	buf.fillRect(8, 1, 64, y, null, null, 'black' );
 

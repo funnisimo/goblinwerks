@@ -8,7 +8,7 @@ GW.tile.addKind('BRAMBLES', {
     async playerEnter(x, y, ctx={}) {
       const player = ctx.actor || GW.data.player;
       await player.kind.applyDamage(player, 1, null, ctx);
-      GW.message.add(GW.colors.red, 'Ouch!  %RYou injure yourself on a %Rthorn%R!', null, 'green', null);
+      GW.message.add(GW.colors.red, 'Ouch!  %FYou injure yourself on a %Fthorn%F!', null, 'green', null);
       await GW.fx.hit(ctx.map, player);
       if (player.isDead()) {
         await GW.game.gameOver(false, 'Killed by brambles.');
@@ -301,13 +301,13 @@ function decorateBrambles(map, level) {
 function welcomeLast() {
   let msg = [];
 
-  msg.push(["%RCongratulations!", 'gold']);
+  msg.push(["%FCongratulations!", 'gold']);
   msg.push("Welcome to the last floor!");
   msg.push("You managed to reach the princess and finish the game.");
 
   let gold = GW.data.player.current.gold || 0;
   if (gold) {
-    msg.push(['Furthermore, you were able to accumulate a total of %R%d gold coins%R!', 'gold', gold, null]);
+    msg.push(['Furthermore, you were able to accumulate a total of %F%d gold coins%F!', 'gold', gold, null]);
   }
 
   msg.push("The game is over now, but you are free to look around.");
@@ -359,7 +359,7 @@ function decorateLast(map, level) {
 function welcomeFirst() {
   GW.message.addLines([
     "A truly beautiful day for a heroic action!\nThis tower is surrounded by plains and trees.\nThere might even be a princess sleeping on the last floor.\nApparently the only way to get to her is to advance through all tower levels.",
-	  ["To move around, use the %Rarrow keys%R.", 'gold', null],
+	  ["To move around, use the %Farrow keys%F.", 'gold', null],
   ]);
 }
 

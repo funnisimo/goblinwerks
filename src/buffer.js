@@ -30,13 +30,13 @@ class Buffer extends types.Grid {
     this.needsUpdate = true;
   }
 
-  blackOut() {
-    this.forEach( (c) => c.blackOut() );
+  blackOut(bg) {
+    this.forEach( (c) => c.blackOut(bg) );
     this.needsUpdate = true;
   }
 
-  blackOutRect(x, y, w, h) {
-    this.forRect(x, y, w, h, (c) => c.blackOut() );
+  blackOutRect(x, y, w, h, bg) {
+    this.forRect(x, y, w, h, (c) => c.blackOut(bg) );
     this.needsUpdate = true;
   }
 
@@ -74,12 +74,12 @@ class Buffer extends types.Grid {
     this.needsUpdate = true;
   }
 
-  plotText(x, y, text, fg, bg) {
-    if (typeof fg === 'string') { fg = COLORS[fg]; }
-    if (typeof bg === 'string') { bg = COLORS[bg]; }
-    let len = text.length;
+  plotText(x, y, text, ...args) {
+    if (args.length) {
+      text = TEXT.format(text, ...args);
+    }
     TEXT.eachChar(text, (ch, color, i) => {
-      this.plotChar(i + x, y, ch, color || fg, bg);
+      this.plotChar(i + x, y, ch, color || GW.colors.white, null);
     });
   }
 
@@ -109,7 +109,7 @@ class Buffer extends types.Grid {
     const lines = TEXT.splitIntoLines(text, width, opts.indent);
     lines.forEach( (line, i) => {
       const offset = i ? opts.indent : 0;
-      this.plotLine(x + offset, y + i, width - offset, line, fg, bg);
+      this.plotLine(x + offset, y + i, width - offset, line, fg || COLORS.white, bg);
     });
 
     return y + lines.length;
