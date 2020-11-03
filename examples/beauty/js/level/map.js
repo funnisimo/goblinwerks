@@ -403,8 +403,8 @@ function decorateFirst(map, level) {
 
   GW.dungeon.finishDoors(map);
 
-  GW.actor.generateAndPlace(map, { choices: ['RAT'], block: 'start' });
-  GW.item.generateAndPlace(map, { choices: ['DAGGER', 'POTION_HEALTH'], block: 'start' });
+  GW.actor.generateAndPlace(map, { kinds: ['RAT'] });
+  GW.item.generateAndPlace(map, { kinds: ['DAGGER', 'POTION_HEALTH'] });
 
 }
 
@@ -496,8 +496,9 @@ function decorateFull(map, level) {
 
   GW.dungeon.finishDoors(map);
 
-  const count = GW.item.generateAndPlace(map, { tries: level.rooms.length * 2, chance: 40, makeOpts: { danger: level.danger }, block: 'start' });
-  console.log('generated %s items.', count);
+  const items = GW.item.generateAndPlace(map, { tries: level.rooms.length * 2, chance: 30 });
+  const actors = GW.actor.generateAndPlace(map, { tries: level.rooms.length * 2, chance: 30 });
+  console.log('%s rooms => generated %s items and %s actors.', level.rooms.length, items, actors);
 }
 
 function decorateRegular(map, level) {

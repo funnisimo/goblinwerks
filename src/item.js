@@ -230,45 +230,31 @@ GW.item.bump = bump;
 
 
 
-export function generateAndPlace(map, opts={}) {
-  if (typeof opts === 'number') { opts = { tries: opts }; }
-  Utils.setDefaults(opts, {
-    count: 0,
-    tries: 0,
-    chance: 100,
-    outOfBandChance: 0,
-    matchKindFn: null,
-    allowHallways: false,
-    block: 'start',
-    locTries: 500,
-    choices: null,
-    makeOpts: null,
-  });
-
-  let danger = opts.danger || map.config.danger || 1;
-  while (random.chance(opts.outOfBandChance)) {
-    ++danger;
+function chooseKinds(opts={}) {
+  opts.danger = opts.danger || 1;
+  if (opts.kinds) {
+    return opts.kinds.map( (a) => {
+      if (typeof a === 'string') return GW.itemKinds[a];
+      return a;
+    });
   }
 
-  let count = opts.count;
-  if (opts.choices && !count && !opts.tries) {
-    count = opts.choices.length;
-  }
-  else if (opts.tries && opts.chance) {
+  let count = opts.count || 0;
+  if (opts.tries && opts.chance) {
     for(let i = 0; i < opts.tries; ++i) {
       if (random.chance(opts.chance)) {
         ++count;
       }
     }
   }
-  else if (opts.chance) {
+  else if (opts.chance < 100) {
     while(random.chance(opts.chance)) {
       ++count;
     }
   }
   if (!count) {
-    Utils.WARN('Tried to place 0 items.');
-    return 0;
+    Utils.WARN('Tried to place 0 actors.');
+    return [];
   }
 
   let choices = opts.choices;
@@ -284,7 +270,7 @@ export function generateAndPlace(map, opts={}) {
       if (typeof v === 'string') return GW.itemKinds[v];
       return v;
     });
-    frequencies = choices.map( (k) => Frequency.forDanger(k.frequency, danger) );
+    frequencies = choices.map( (k) => Frequency.forDanger(k.frequency, opts.danger) );
   }
   else {
     // { THING: 20, OTHER: 10 }
@@ -293,9 +279,44 @@ export function generateAndPlace(map, opts={}) {
   }
 
   if (!choices.length) {
-    Utils.WARN('Tried to place items - 0 qualifying kinds to choose from.');
-    return 0;
+    Utils.WARN('Tried to place actors - 0 qualifying kinds to choose from.');
+    return [];
   }
+
+  const kinds = [];
+  for(let i = 0; i < count; ++i) {
+    const index = random.lottery(frequencies);
+    kinds.push(choices[index]);
+  }
+
+  return kinds;
+}
+
+
+export function generateAndPlace(map, opts={}) {
+  if (typeof opts === 'number') { opts = { tries: opts }; }
+  if (Array.isArray(opts)) { opts = { kinds: opts }; }
+  Utils.setDefaults(opts, {
+    count: 0,
+    tries: 0,
+    chance: 100,
+    outOfBandChance: 0,
+    matchKindFn: null,
+    allowHallways: false,
+    block: 'start',
+    locTries: 500,
+    choices: null,
+    kinds: null,
+    makeOpts: null,
+  });
+
+  let danger = opts.danger || map.config.danger || 1;
+  while (random.chance(opts.outOfBandChance)) {
+    ++danger;
+  }
+  opts.danger = danger;
+
+  const kinds = chooseKinds(opts);
 
   const blocked = Grid.alloc(map.width, map.height);
   // TODO - allow [x,y] in addition to 'name'
@@ -306,13 +327,7 @@ export function generateAndPlace(map, opts={}) {
 
   let placed = 0;
 
-  const makeOpts = {
-    danger
-  };
-
-  if (opts.makeOpts) {
-    Object.assign(makeOpts, opts.makeOpts);
-  }
+  const makeOpts = Object.assign({ danger }, opts.makeOpts || {});
 
   const matchOpts = {
     allowHallways: opts.allowHallways,
@@ -324,9 +339,8 @@ export function generateAndPlace(map, opts={}) {
     tries: opts.locTries,
   };
 
-  for(let i = 0; i < count; ++i) {
-    const index = random.lottery(frequencies);
-    const kind = choices[index];
+  for(let i = 0; i < kinds.length; ++i) {
+    const kind = kinds[i];
     const item = GW.make.item(kind, makeOpts);
 
     matchOpts.forbidCellFlags = kind.forbiddenCellFlags(item);
