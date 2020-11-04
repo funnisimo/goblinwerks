@@ -3884,6 +3884,8 @@ function makeKeyEvent(e) {
   ev.code = code;
   ev.x = -1;
   ev.y = -1;
+  ev.clientX = -1;
+  ev.clientY = -1;
 	ev.dir = io.keyCodeDirection(e.code);
 	ev.dt = 0;
 
@@ -3940,6 +3942,8 @@ function makeMouseEvent(e, x, y) {
   ev.code = null;
   ev.x = x;
   ev.y = y;
+  ev.clientX = e.clientX;
+  ev.clientY = e.clientY;
 	ev.dir = null;
 	ev.dt = 0;
 

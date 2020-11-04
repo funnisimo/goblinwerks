@@ -140,30 +140,46 @@
 // }
 
 
-GW.config.ATTACK_1 = "a1";
-GW.config.ATTACK_2 = "a2";
-GW.config.MAGIC_1 = "m1";
-GW.config.MAGIC_2 = "m2";
+GW.config.ATTACK_1 = 1;
+GW.config.ATTACK_2 = 2;
+GW.config.MAGIC_1 = 3;
+GW.config.MAGIC_2 = 4;
 
-GW.config.COMBAT_COLORS = {
-	[GW.config.ATTACK_1]: "#0f0",
-	[GW.config.ATTACK_2]: "#f00",
-	[GW.config.MAGIC_1]: "#00f",
-	[GW.config.MAGIC_2]: "#ff3"
-};
+GW.config.COMBAT_COLORS = [
+  GW.colors.black,
+	GW.make.color("#0f0"),
+	GW.make.color("#f00"),
+	GW.make.color("#00f"),
+	GW.make.color("#ff3")
+];
 
-const COMBAT_BONUS_DISPLAY = {
-	[GW.config.ATTACK_1]: GW.text.format('+%F#%F', GW.config.COMBAT_COLORS[GW.config.ATTACK_1], null),
-	[GW.config.ATTACK_2]: GW.text.format('+%F#%F', GW.config.COMBAT_COLORS[GW.config.ATTACK_2], null),
-	[GW.config.MAGIC_1]: GW.text.format('+%F#%F', GW.config.COMBAT_COLORS[GW.config.MAGIC_1], null),
-	[GW.config.MAGIC_2]: GW.text.format('+%F#%F', GW.config.COMBAT_COLORS[GW.config.MAGIC_2], null)
-};
+const COMBAT_BONUS_DISPLAY = [
+  '',
+	GW.text.format('+%F#%F', GW.config.COMBAT_COLORS[GW.config.ATTACK_1], null),
+	GW.text.format('+%F#%F', GW.config.COMBAT_COLORS[GW.config.ATTACK_2], null),
+	GW.text.format('+%F#%F', GW.config.COMBAT_COLORS[GW.config.MAGIC_1], null),
+	GW.text.format('+%F#%F', GW.config.COMBAT_COLORS[GW.config.MAGIC_2], null)
+];
 
+
+const COMBAT_BOARD = GW.make.grid(6,6, () => GW.random.number(4) + 1 );
+const COMBAT_SELECTED = [-1,-1];
 
 function drawBoard(buffer, x, y) {
 
   for(let i = 0; i < 6; ++i) {
-    buffer.plotText(x+5, y + i, '%F# # # # # #', 'blue');
+    for(let j = 0; j < 6; ++j) {
+      const v = COMBAT_BOARD[i][j];
+      let fg = GW.config.COMBAT_COLORS[v];
+      let bg = GW.colors.darkest_gray;
+
+      if (COMBAT_SELECTED[0] == i && COMBAT_SELECTED[1] == j) {
+        bg = fg;
+        fg = GW.colors.black;
+      }
+      buffer.plotChar(x + 5 + i*2, y + j, '#', fg, bg);
+    }
+    // buffer.plotText(x+5, y + i, '%F# # # # # #', fy == i ? 'light_blue' : 'dark_blue');
   }
 
   buffer.plotText(x, y+7,  '%F#%F You - Melee Attack', 'green', null)
@@ -222,10 +238,14 @@ async function combat(actor, target, ctx) {
 
   let nextY = buffer.wrapText(x + 4, y + 21, width - 8, help);
 
+  function draw() {
+    GW.message.draw(buffer);
+    GW.flavor.draw(buffer);
+    GW.ui.draw();
+  }
+
   GW.flavor.clear();
-  GW.message.draw(buffer);
-  GW.flavor.draw(buffer);
-  GW.ui.draw();
+  draw();
 
   let running = true;
   while(running) {
@@ -234,7 +254,23 @@ async function combat(actor, target, ctx) {
     await GW.io.dispatchEvent(ev, {
       enter() {
         running = false;
-      }
+      },
+      mousemove(e) {
+        const fx = Math.floor(((buffer.width * e.clientX / GW.ui.canvas.pxWidth) - 38.5) / 2);
+        const fy = Math.floor(buffer.height * e.clientY / GW.ui.canvas.pxHeight) - 4;
+        if (fx >= 0 && fx <= 5 && fy >= 0 && fy <= 5) {
+          GW.flavor.setText('Mouse: ' + e.x + ', ' + e.y + ' => ' + fx.toFixed(2) + ', ' + fy.toFixed(2));
+          COMBAT_SELECTED[0] = fx;
+          COMBAT_SELECTED[1] = fy;
+        }
+        else {
+          GW.flavor.clear();
+          COMBAT_SELECTED[0] = -1;
+          COMBAT_SELECTED[1] = -1;
+        }
+        drawBoard(buffer, x + 34, y + 4);
+        draw();
+      },
     });
   }
 
