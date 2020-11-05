@@ -411,93 +411,10 @@ function decorateFirst(map, level) {
 function decorateFull(map, level) {
 	decorateBrambles(map, level);
 
-	// let features = {
-  //   dagger: 7,
-  //   sword: 6,
-  //   axe: 5,
-  //   mace: 4,
-  //   greatSword: 3,
-  //   shield: 5,
-  //   helmet: 5,
-	// 	armor: 10,
-	// 	mana: 10,
-  //   health: 10,
-	// 	lutefisk: 1,
-	// 	gold: 10,
-	// 	enemy: 50,
-	// 	hero: 10,
-	// 	empty: 100,
-	// }
-  //
-	// level.rooms.forEach(room => {
-	// 	level.carveDoors(map, room);
-	// 	if ( GW.utils.equalsXY(room.center, map.locations.down)
-  //       || GW.utils.equalsXY(room.center, map.locations.up))
-  //   {
-  //     return;
-  //   }
-  //
-	// 	for (let i=0; i<2; i++) {
-	// 		const x = GW.random.range(room.x, room.right);
-	// 		const y = GW.random.range(room.y, room.bottom);
-  //     const cell = map.cell(x, y);
-	// 		if (cell.item || cell.actor) { continue; } // wrong place
-  //
-  //     let item;
-	// 		let feature = GW.random.weighted(features);
-  //     // console.log('Add', feature, x, y);
-	// 		switch (feature) {
-	// 		// 	case "item": level.setItem(xy, factory.getItem(level.danger)); break;
-	// 		// 	case "potion": level.setItem(xy, factory.getPotion()); break;
-  //       case "dagger":
-  //         item = GW.make.item('DAGGER');
-  //         break;
-  //       case "sword":
-  //         item = GW.make.item('SWORD');
-  //         break;
-  //       case "axe":
-  //         item = GW.make.item('AXE');
-  //         break;
-  //       case "mace":
-  //         item = GW.make.item('MACE');
-  //         break;
-  //       case "greatsword":
-  //         item = GW.make.item('GREATSWORD');
-  //         break;
-  //       case "armor":
-  //         item = GW.make.item('ARMOR');
-  //         break;
-  //       case "shield":
-  //         item = GW.make.item('SHIELD');
-  //         break;
-  //       case "helmet":
-  //         item = GW.make.item('HELMET');
-  //         break;
-	// 			case "lutefisk":
-  //         item = GW.make.item('LUTEFISK');
-  //         break;
-  //       case "health":
-  //         item = GW.make.item('POTION_HEALTH');
-  //         break;
-  //       case "mana":
-  //         item = GW.make.item('POTION_MANA');
-  //         break;
-	// 			case "gold":
-  //         item = GW.make.item('GOLD');
-  //         break;
-	// 		// 	case "enemy": factory.getBeing(level.danger).moveTo(xy, level); break;
-	// 		// 	case "hero": new beings.Hero().moveTo(xy, level); break;
-	// 		}
-  //     if (item) {
-  //       map.addItemNear(x, y, item);
-  //     }
-	// 	}
-	// });
-
   GW.dungeon.finishDoors(map);
 
-  const items = GW.item.generateAndPlace(map, { tries: level.rooms.length * 2, chance: 30 });
-  const actors = GW.actor.generateAndPlace(map, { tries: level.rooms.length * 2, chance: 30 });
+  const items = GW.item.generateAndPlace(map, { tries: level.rooms.length, chance: 40 - level.danger*2 });
+  const actors = GW.actor.generateAndPlace(map, { tries: level.rooms.length, chance: 30 + level.danger*2 });
   console.log('%s rooms => generated %s items and %s actors.', level.rooms.length, items, actors);
 }
 

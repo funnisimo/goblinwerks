@@ -209,7 +209,7 @@ function drawText(buf, x=0, y=0, w=0) {
 }
 
 const FACTS = [
-	"This game was created in one week",
+	"This game was originally created in one week",
 	"This game was written using GoblinWerks, a JavaScript Roguelike Toolkit",
 	"The tower is procedurally generated. Try refreshing this page!",
 	"You can reload this page to get another Fun Fact",
@@ -219,7 +219,7 @@ const FACTS = [
 	"This game can be lost!",
 	"This game features permadeath and procedural generation",
 	"This game uses the awesome 'Metrickal' font face",
-	"This game runs even in Microsoft Internet Explorer 11",
+	"This game might even run in Microsoft Internet Explorer 11",
 	"Eating a lutefisk might be dangerous"
 ];
 
