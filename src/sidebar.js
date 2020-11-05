@@ -549,7 +549,7 @@ function addHealthBar(entry, y, dim, highlight, buf) {
   const map = entry.map;
   const actor = entry.entity;
 
-  if (actor.max.health > 1 && !(actor.kind.flags & Flags.ActorKind.AK_INVULNERABLE))
+  if (actor.max.health > 0 && (actor.isPlayer() || (actor.current.health != actor.max.health)) && !actor.isInvulnerable())
   {
     let healthBarColor = COLORS.blueBar;
 		if (actor === DATA.player) {
@@ -580,7 +580,7 @@ function addManaBar(entry, y, dim, highlight, buf) {
   const map = entry.map;
   const actor = entry.entity;
 
-  if (actor.max.mana > 1)
+  if (actor.max.mana > 0 && (actor.isPlayer() || (actor.current.mana != actor.max.mana)))
   {
     let barColor = COLORS.purpleBar;
 		if (actor === DATA.player) {

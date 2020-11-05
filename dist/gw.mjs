@@ -1713,7 +1713,7 @@ function toSingular(verb) {
   if (verb.endsWith('y')) {
     return verb.substring(0, verb.length - 1) + 'ies';
   }
-  if (verb.endsWith('sh') || verb.endsWith('ch')) {
+  if (verb.endsWith('sh') || verb.endsWith('ch') || verb.endsWith('o')) {
     return verb + 'es';
   }
   return verb + 's';
@@ -2726,27 +2726,6 @@ class Grid extends Array {
 		return null; // should never reach this point
 	}
 
-
-
-  // Flood-fills the grid from (x, y) along cells that are within the eligible range.
-  // Returns the total count of filled cells.
-  walk(x, y, continueFn) {
-    let dir;
-  	let newX, newY;
-
-    if (!continueFn(this[x][y], x, y, this)) return 0;
-    let visitCount = 1;
-
-    for (dir = 0; dir < 4; dir++) {
-        newX = x + DIRS[dir][0];
-        newY = y + DIRS[dir][1];
-        if (this.hasXY(newX, newY))
-  			{
-            visitCount += this.walk(newX, newY, continueFn);
-        }
-    }
-    return visitCount;
-  }
 
 	// Rotates around the cell, counting up the number of distinct strings of neighbors with the same test result in a single revolution.
 	//		Zero means there are no impassable tiles adjacent.
@@ -4071,7 +4050,7 @@ io.tickMs = tickMs;
 // TODO - io.tickMs(ms)
 
 async function nextKeyPress(ms, match) {
-	ms = ms || 0;
+  if (ms === undefined) ms = -1;
 	match = match || TRUE;
 	function matchingKey(e) {
   	if (e.type !== KEYPRESS) return false;
@@ -4083,7 +4062,7 @@ async function nextKeyPress(ms, match) {
 io.nextKeyPress = nextKeyPress;
 
 async function nextKeyOrClick(ms, matchFn) {
-	ms = ms || 0;
+	if (ms === undefined) ms = -1;
 	matchFn = matchFn || TRUE;
 	function match(e) {
   	if (e.type !== KEYPRESS && e.type !== CLICK) return false;
@@ -7692,6 +7671,9 @@ class ActorKind$1 {
     if (opts.sidebar) {
       this.sidebar = opts.sidebar.bind(this);
     }
+    if (opts.calcEquipmentBonuses) {
+      this.calcEquipmentBonuses = opts.calcEquipmentBonuses.bind(this);
+    }
 
   }
 
@@ -7878,6 +7860,7 @@ class Actor$1 {
   isPlayer() { return this === data.player; }
   isDead() { return this.current.health <= 0; }
   isInanimate() { return this.kind.flags & ActorKind.AK_INANIMATE; }
+  isInvulnerable() { return this.kind.flags & ActorKind.AK_INVULNERABLE; }
 
 	endTurn(turnTime) {
     if (this.kind.endTurn) {
@@ -11036,6 +11019,12 @@ function addCombat(...args) {
 
 message.addCombat = addCombat;
 
+function forceRedraw() {
+  NEEDS_UPDATE = true;
+}
+
+message.forceRedraw = forceRedraw;
+
 
 function drawMessages(buffer) {
 	let i;
@@ -11863,7 +11852,7 @@ function addHealthBar(entry, y, dim, highlight, buf) {
   const map = entry.map;
   const actor = entry.entity;
 
-  if (actor.max.health > 1 && !(actor.kind.flags & ActorKind.AK_INVULNERABLE))
+  if (actor.max.health > 0 && (actor.isPlayer() || (actor.current.health != actor.max.health)) && !actor.isInvulnerable())
   {
     let healthBarColor = colors.blueBar;
 		if (actor === DATA.player) {
@@ -11894,7 +11883,7 @@ function addManaBar(entry, y, dim, highlight, buf) {
   const map = entry.map;
   const actor = entry.entity;
 
-  if (actor.max.mana > 1)
+  if (actor.max.mana > 0 && (actor.isPlayer() || (actor.current.mana != actor.max.mana)))
   {
     let barColor = colors.purpleBar;
 		if (actor === DATA.player) {
@@ -12242,6 +12231,8 @@ function getFlavorText(map, x, y) {
 flavor.getFlavorText = getFlavorText;
 
 ui.debug = NOOP;
+
+let SHOW_FLAVOR = false;
 let SHOW_CURSOR = false;
 
 let UI_BUFFER = null;
@@ -12371,6 +12362,7 @@ function start$2(opts={}) {
 
 	if (opts.flavor) {
 		flavor.setup({ x: viewX, y: flavorLine, w: msgW, h: 1 });
+    SHOW_FLAVOR = true;
 	}
 
 	viewport.setup({ x: viewX, y: viewY, w: viewW, h: viewH, followPlayer: opts.followPlayer });
@@ -12605,6 +12597,23 @@ function clearCursor() {
 }
 
 ui.clearCursor = clearCursor;
+
+
+
+// FUNCS
+
+async function prompt(...args) {
+	const msg = text.format(...args);
+
+	if (SHOW_FLAVOR) {
+		flavor.showPrompt(msg);
+	}
+	else {
+		console.log(msg);
+	}
+}
+
+ui.prompt = prompt;
 
 
 async function fadeTo(color$1, duration=1000, src) {
@@ -13158,7 +13167,7 @@ async function attack$1(actor, target, ctx={}) {
   if (actor.isPlayer() == target.isPlayer()) return false;
 
   const type = ctx.type = ctx.type || 'melee';
-  const map = ctx.map || data.map;
+  const map = ctx.map = ctx.map || data.map;
   const kind = actor.kind;
 
   if (config.combat) {
@@ -13532,6 +13541,10 @@ async function equip(actor, item, ctx={}) {
     }
   }
 
+  if (actor.kind.calcEquipmentBonuses) {
+    actor.kind.calcEquipmentBonuses(actor);
+  }
+
   return true;
 }
 
@@ -13577,6 +13590,10 @@ async function unequip(actor, item, ctx={}) {
   if (item && !ctx.quiet) {
     // TODO - Custom verb? item.kind.equipVerb -or- Custom message? item.kind.equipMessage
     message.add('%s remove your %s.', actor.getName({article: 'the', color: true }), item.getName({ article: false, color: true }));
+  }
+
+  if (actor.kind.calcEquipmentBonuses) {
+    actor.kind.calcEquipmentBonuses(actor);
   }
 
   return true;

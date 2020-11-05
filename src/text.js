@@ -61,7 +61,7 @@ function toSingular(verb) {
   if (verb.endsWith('y')) {
     return verb.substring(0, verb.length - 1) + 'ies';
   }
-  if (verb.endsWith('sh') || verb.endsWith('ch')) {
+  if (verb.endsWith('sh') || verb.endsWith('ch') || verb.endsWith('o')) {
     return verb + 'es';
   }
   return verb + 's';

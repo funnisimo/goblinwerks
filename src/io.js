@@ -364,7 +364,7 @@ io.tickMs = tickMs;
 // TODO - io.tickMs(ms)
 
 export async function nextKeyPress(ms, match) {
-	ms = ms || 0;
+  if (ms === undefined) ms = -1;
 	match = match || Utils.TRUE;
 	function matchingKey(e) {
   	if (e.type !== KEYPRESS) return false;
@@ -376,7 +376,7 @@ export async function nextKeyPress(ms, match) {
 io.nextKeyPress = nextKeyPress;
 
 export async function nextKeyOrClick(ms, matchFn) {
-	ms = ms || 0;
+	if (ms === undefined) ms = -1;
 	matchFn = matchFn || Utils.TRUE;
 	function match(e) {
   	if (e.type !== KEYPRESS && e.type !== CLICK) return false;

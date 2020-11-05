@@ -11,7 +11,7 @@ export async function attack(actor, target, ctx={}) {
   if (actor.isPlayer() == target.isPlayer()) return false;
 
   const type = ctx.type = ctx.type || 'melee';
-  const map = ctx.map || GW.data.map;
+  const map = ctx.map = ctx.map || GW.data.map;
   const kind = actor.kind;
 
   if (GW.config.combat) {

@@ -113,6 +113,12 @@ function addCombat(...args) {
 
 message.addCombat = addCombat;
 
+function forceRedraw() {
+  NEEDS_UPDATE = true;
+}
+
+message.forceRedraw = forceRedraw;
+
 
 function drawMessages(buffer) {
 	let i, j, m;

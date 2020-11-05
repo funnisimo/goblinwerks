@@ -22,9 +22,23 @@ function resetPlayer() {
 		sprite: GW.make.sprite('@', 'white'),
 		name: 'you',
 		speed: 120,
-    stats: { health: 20, mana: 50, gold: 0 },
+    stats: { health: 20, mana: 50, gold: 0, attack: 1, defense: 0 },
     regen: { health: GW.config.REGEN_HP, mana: GW.config.REGEN_MANA },
     consoleColor: 'green',
+
+    calcEquipmentBonuses(actor) {
+      actor.current.attack = actor.kind.stats.attack;
+      actor.current.defense = actor.kind.stats.defense;
+      actor.current.combatBonus = [0,0,0,0,0];
+
+      Object.values(actor.slots).forEach( (item) => {
+        actor.current.attack += item.stats.attack;
+        actor.current.defense += item.stats.defense;
+        if (item.stats.combatBonus) {
+          actor.current.combatBonus[item.stats.combatBonus] += 1;
+        }
+      });
+    },
 
     sidebar(entry, y, dim, highlight, buf) {
       const player = entry.entity;

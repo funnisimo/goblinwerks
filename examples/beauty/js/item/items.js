@@ -5,10 +5,10 @@
 //
 
 const WEARABLE_SUFFIXES = {
-	[GW.config.ATTACK_1]: "power",
-	[GW.config.ATTACK_2]: "treachery",
-	[GW.config.MAGIC_1]: "magical domination",
-	[GW.config.MAGIC_2]: "magical weakness"
+  "power": 1,
+  "treachery": 2,
+  "magical domination": 3,
+  "magical weakness": 4,
 };
 
 GW.config.POTION_HP = 10;
@@ -25,7 +25,7 @@ class BeautyItem extends GW.types.ItemKind {
     GW.utils.setDefaults(opts.stats, {
       defense: 0,
       attack: 0,
-      combatBonus: null,
+      combatBonus: 0,
     });
 		super(opts);
   }
@@ -48,11 +48,11 @@ class BeautyItem extends GW.types.ItemKind {
 
 		if (this.suffixes && GW.random.chance(GW.config.ITEM_BONUS_BASE + danger * GW.config.ITEM_BONUS_PER_DANGER)) {
 			let combat = GW.random.key(this.suffixes);
-      name = name + ' of ' + this.suffixes[combat];
-			item.stats.combatBonus = combat;
+      name = name + ' of ' + combat;
+			item.stats.combatBonus = this.suffixes[combat];
 
       item.sprite = this.sprite.clone();
-			GW.color.applyMix(item.sprite.fg, GW.config.COMBAT_COLORS[combat], 50);
+			GW.color.applyMix(item.sprite.fg, GW.config.COMBAT_COLORS[item.stats.combatBonus], 50);
     }
 
     if (name != this.name) {

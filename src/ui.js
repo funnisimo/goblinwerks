@@ -142,6 +142,7 @@ export function start(opts={}) {
 
 	if (opts.flavor) {
 		FLAVOR.setup({ x: viewX, y: flavorLine, w: msgW, h: 1 });
+    SHOW_FLAVOR = true;
 	}
 
 	VIEWPORT.setup({ x: viewX, y: viewY, w: viewW, h: viewH, followPlayer: opts.followPlayer });
@@ -391,6 +392,8 @@ export async function prompt(...args) {
 		console.log(msg);
 	}
 }
+
+ui.prompt = prompt;
 
 
 export async function fadeTo(color, duration=1000, src) {

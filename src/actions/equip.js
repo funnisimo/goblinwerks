@@ -47,6 +47,10 @@ export async function equip(actor, item, ctx={}) {
     }
   }
 
+  if (actor.kind.calcEquipmentBonuses) {
+    actor.kind.calcEquipmentBonuses(actor);
+  }
+
   return true;
 }
 
@@ -93,6 +97,10 @@ export async function unequip(actor, item, ctx={}) {
   if (item && !ctx.quiet) {
     // TODO - Custom verb? item.kind.equipVerb -or- Custom message? item.kind.equipMessage
     GW.message.add('%s remove your %s.', actor.getName({article: 'the', color: true }), item.getName({ article: false, color: true }));
+  }
+
+  if (actor.kind.calcEquipmentBonuses) {
+    actor.kind.calcEquipmentBonuses(actor);
   }
 
   return true;

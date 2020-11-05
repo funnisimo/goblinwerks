@@ -75,6 +75,9 @@ class ActorKind {
     if (opts.sidebar) {
       this.sidebar = opts.sidebar.bind(this);
     }
+    if (opts.calcEquipmentBonuses) {
+      this.calcEquipmentBonuses = opts.calcEquipmentBonuses.bind(this);
+    }
 
   }
 
@@ -261,6 +264,7 @@ export class Actor {
   isPlayer() { return this === DATA.player; }
   isDead() { return this.current.health <= 0; }
   isInanimate() { return this.kind.flags & Flags.ActorKind.AK_INANIMATE; }
+  isInvulnerable() { return this.kind.flags & Flags.ActorKind.AK_INVULNERABLE; }
 
 	endTurn(turnTime) {
     if (this.kind.endTurn) {

@@ -48,7 +48,7 @@ const HERO_CHATS = [
 GW.actor.addKind('RAT', {
   name: 'rat',
   ch: 'r', fg: '#aaa',
-  stats: { mana: 0, health: 1, danger: 1 },
+  stats: { mana: 0, health: 1, danger: 1, attack: 1, defense: 1 },
   frequency: 20,
   ai: ['attackPlayer', 'moveTowardPlayer', 'moveRandomly', 'idle'],
   attacks: {
@@ -69,7 +69,7 @@ GW.actor.addKind('RAT', {
 GW.actor.addKind('BAT', {
   name: 'bat',
   ch: 'b', fg: '#a83',
-  stats: { mana: 0, health: 10, danger: 1 },
+  stats: { mana: 0, health: 10, danger: 1, attack: 2, defense: 1 },
   frequency: { '2+': 20 },
   ai: ['attackPlayer', 'moveTowardPlayer', 'moveRandomly', 'idle'],
   attacks: {
@@ -90,7 +90,7 @@ GW.actor.addKind('BAT', {
 GW.actor.addKind('GOBLIN', {
   name: 'goblin',
   ch: 'g', fg: '#33a',
-  stats: { mana: 5, health: 10, danger: 2 },
+  stats: { mana: 5, health: 10, danger: 2, attack: 3, defense: 3 },
   frequency: { '2+': 20 },
   ai: ['attackPlayer', 'moveTowardPlayer', 'moveRandomly', 'idle'],
   attacks: {
@@ -113,7 +113,7 @@ GW.actor.addKind('GOBLIN', {
 GW.actor.addKind('ORC', {
   name: 'orc',
   ch: 'o', fg: '#3a3',
-  stats: { mana: 10, health: 15, danger: 3 },
+  stats: { mana: 10, health: 15, danger: 3, attack: 5, defense: 4 },
   frequency: { '2+': 20 },
   ai: ['attackPlayer', 'moveTowardPlayer', 'moveRandomly', 'idle'],
   attacks: {

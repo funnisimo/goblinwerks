@@ -9,7 +9,10 @@
 // import pc from "being/pc.js";
 // import { ATTACK_1, ATTACK_2, MAGIC_1, MAGIC_2 } from "./types.js";
 //
-// const AMOUNTS = ["slightly", "moderately", "severely", "critically"].reverse();
+
+let SEEN_INTRO = false;
+
+const AMOUNTS = ["slightly", "moderately", "severely", "critically"].reverse();
 //
 // let tutorial = false;
 //
@@ -26,35 +29,51 @@
 // 	resolve();
 // }
 //
-// function doDamage(attacker, defender, options = {}) {
-// //	console.log("combat", options);
-// 	if (options.isMagic) { // check mana
-// 		if (attacker.mana < options.power) {
-// 			log.add("%The %{verb,do} not have enough mana to attack.", attacker, attacker);
-// 			return;
-// 		}
-// 		attacker.adjustStat("mana", -options.power);
-// 	}
-//
-// 	let attack = attacker.getAttack();
-// 	let defense = defender.getDefense();
-// 	let damage = attack + options.power - defense;
-// //	console.log("attack %s, defense %s, damage %s", attack, defense, damage);
-// 	damage = Math.max(1, damage);
-//
-// 	let verb = (options.isMagic ? "%{verb,cast} a spell at %the" : "%{verb,hit} %the").format(attacker, defender);
-// 	let newHP = Math.max(0, defender.hp-damage);
-// 	if (newHP > 0) {
-// 		let frac = newHP/defender.maxhp; // >0, < maxhp
-// 		let amount = AMOUNTS[Math.floor(frac * AMOUNTS.length)];
-// 		log.add(`%The ${verb} and ${amount} %{verb,damage} %it.`, attacker, attacker, defender);
-// 	} else {
-// 		log.add(`%The ${verb} and %{verb,kill} %it!`, attacker, attacker, defender);
-// 	}
-//
-// 	defender.adjustStat("hp", -damage);
-// 	if (defender.hp <= 0) { end(); }
-// }
+// returns whether or not the defender died
+async function doDamage(attacker, defender, power, isMagic, ctx) {
+//	console.log("combat", options);
+	if (isMagic) { // check mana
+		if (attacker.current.mana < power) {
+			GW.message.addCombat("%s %s not have enough mana to attack with magic.", attacker.getName(), attacker.getVerb('do'));
+			return;
+		}
+		attacker.adjustStat("mana", -power);
+	}
+
+	let attack = attacker.current.attack;
+	let defense = defender.current.defense;
+	let damage = attack + power - defense;
+//	console.log("attack %s, defense %s, damage %s", attack, defense, damage);
+	damage = Math.max(1, damage);
+
+  damage = defender.kind.applyDamage(defender, damage, attacker);
+  if (isMagic) {
+    GW.message.addCombat('%s %s a spell at %s for %F%d%F damage', attacker.getName(), attacker.getVerb('cast'), defender.getName('the'), 'red', Math.round(damage), null);
+  }
+  else {
+    GW.message.addCombat('%s %s %s for %F%d%F damage', attacker.getName(), attacker.getVerb('hit'), defender.getName('the'), 'red', Math.round(damage), null);
+  }
+
+  const ctx2 = Object.assign({}, ctx, { x: defender.x, y: defender.y, volume: damage });
+
+  if (defender.kind.blood) {
+    await GW.tileEvent.spawn(defender.kind.blood, ctx2);
+  }
+
+  if (defender.isDead()) {
+    GW.message.addCombat('%s %s', defender.isInanimate() ? 'destroying' : 'killing', defender.getPronoun('it'));
+
+    defender.kind.kill(defender);
+    ctx.map.removeActor(defender);
+    if (defender.kind.corpse) {
+      await GW.tileEvent.spawn(defender.kind.corpse, ctx2);
+    }
+
+    return true;
+  }
+  return false;
+}
+
 //
 // function activate(xy) {
 // 	let segment = board.findSegment(xy);
@@ -300,26 +319,32 @@ function drawPlayer(buffer, x, y, width) {
   buffer.plotText(x, y, GW.text.capitalize(player.getName()));
   GW.ui.plotProgressBar(buffer, x, y + 1, width, 'Health', 'white', player.current.health / player.max.health, 'redBar');
   GW.ui.plotProgressBar(buffer, x, y + 2, width, 'Mana', 'white', player.current.mana / player.max.mana, 'blueBar');
-  buffer.plotText(x, y + 4, 'Damage : 0');
-  buffer.plotText(x, y + 5, 'Defense: 0');
+  buffer.plotText(x, y + 4, 'Damage : ' + player.current.attack);
+  buffer.plotText(x, y + 5, 'Defense: ' + player.current.defense);
   buffer.plotText(x, y + 6, 'Bonus  : ');
 
 }
 
 
 function drawOpponent(buffer, x, y, width, opponent) {
-
   buffer.plotText(x, y, GW.text.capitalize(opponent.getName()));
-  GW.ui.plotProgressBar(buffer, x, y + 1, width, 'Health', 'white', opponent.current.health / opponent.max.health, 'redBar');
-  GW.ui.plotProgressBar(buffer, x, y + 2, width, 'Mana', 'white', opponent.current.mana / opponent.max.mana, 'blueBar');
-  buffer.plotText(x, y + 4, 'Damage : 0');
-  buffer.plotText(x, y + 5, 'Defense: 0');
+
+  const healthText = (opponent.current.health) ? 'Health' : 'Dead';
+  GW.ui.plotProgressBar(buffer, x, y + 1, width, healthText, 'white', opponent.current.health / opponent.max.health, 'redBar');
+
+  const manaText = (opponent.current.mana) ? 'Mana' : 'Cannot cast';
+  GW.ui.plotProgressBar(buffer, x, y + 2, width, manaText, 'white', opponent.current.mana / opponent.max.mana, 'blueBar');
+
+  buffer.plotText(x, y + 4, 'Damage : ' + opponent.current.attack);
+  buffer.plotText(x, y + 5, 'Defense: ' + opponent.current.defense);
   buffer.plotText(x, y + 6, 'Danger : ' + opponent.current.danger);
 
 }
 
 async function combat(actor, target, ctx) {
   const map = ctx.map || GW.data.map;
+  const actors = actor.isPlayer() ? [target, actor] : [actor, target];
+
   console.log('CUSTOM ATTACK!', actor.getName({ color: false }), target.getName({ color: false }));
 
   GW.message.add('%s %s %s', actor.getName(), actor.getVerb('attack'), target.getName('a'));
@@ -339,9 +364,12 @@ async function combat(actor, target, ctx) {
   drawPlayer(buffer, x + 4, y + 4, 20);
   drawOpponent(buffer, x + 66, y + 4, 20, actor.isPlayer() ? target : actor);
 
-  const help = GW.text.format("Combat in Sleeping Beauty happens by fighting the %FBattle of Thorns%F on a square game board.\n\nMatch sequences of 3 or more colored blocks to perform individual actions.\n\nThis includes both your attacks as well as your enemy's.\n\nUse the %Farrow keys%F and %FEnter%F to select.\n\nNote: Certain items in your inventory can modify the frequency of colors on the game board.", 'gold', null, 'yellow', null, 'yellow', null);
+  if (!SEEN_INTRO) {
+    const help = GW.text.format("Combat in Sleeping Beauty happens by fighting the %FBattle of Thorns%F. Match sequences of 3 or more colored blocks to perform individual actions. This includes both your attacks as well as your enemy's. The larger the block, the more damage done.\n\nUse the %Farrow keys%F and %FEnter%F to select.\n\nNote: Certain items in your inventory can modify the frequency of colors on the game board.", 'gold', null, 'yellow', null, 'yellow', null);
 
-  let nextY = buffer.wrapText(x + 4, y + 21, width - 8, help);
+    let nextY = buffer.wrapText(x + 4, y + 21, width - 8, help);
+    SEEN_INTRO = true;
+  }
 
   function draw() {
     GW.message.draw(buffer);
@@ -362,11 +390,24 @@ async function combat(actor, target, ctx) {
       escape() {
         running = false;  // Temporary
       },
-      enter() {
+      async enter() {
         if (COMBAT_COUNT > 2) {
           const selected = COMBAT_BOARD[COMBAT_CURSOR[0]][COMBAT_CURSOR[1]];
           const count = GW.grid.floodFill(COMBAT_BOARD, COMBAT_CURSOR[0], COMBAT_CURSOR[1], selected, 0);
-          console.log('click: ', selected, count);
+          const attacker = actors[selected % 2];
+          const defender = actors[(selected + 1) % 2];
+
+          await doDamage(attacker, defender, count, selected > 2, ctx);
+          drawPlayer(buffer, x + 4, y + 4, 20);
+          drawOpponent(buffer, x + 66, y + 4, 20, actor.isPlayer() ? target : actor);
+          draw();
+
+          if (defender.isDead()) {
+            GW.ui.prompt('Press any key to continue');
+            draw();
+            await GW.io.nextKeyOrClick();
+            running = false;
+          }
         }
       },
       dir(e) {
@@ -387,11 +428,25 @@ async function combat(actor, target, ctx) {
         drawBoard(buffer, x + 34, y + 4);
         draw();
       },
-      click() {
+      async click() {
         if (COMBAT_COUNT > 2) {
           const selected = COMBAT_BOARD[COMBAT_CURSOR[0]][COMBAT_CURSOR[1]];
           const count = GW.grid.floodFill(COMBAT_BOARD, COMBAT_CURSOR[0], COMBAT_CURSOR[1], selected, 0);
-          console.log('click: ', selected, count);
+          const attacker = actors[selected % 2];
+          const defender = actors[(selected + 1) % 2];
+
+          await doDamage(attacker, defender, count, selected > 2, ctx);
+          drawPlayer(buffer, x + 4, y + 4, 20);
+          drawOpponent(buffer, x + 66, y + 4, 20, actor.isPlayer() ? target : actor);
+          draw();
+
+          if (defender.isDead()) {
+            GW.ui.prompt('Press any key to continue');
+            draw();
+            await GW.io.nextKeyOrClick();
+            running = false;
+          }
+
         }
       }
     });
@@ -399,52 +454,14 @@ async function combat(actor, target, ctx) {
 
   GW.ui.finishDialog();
 
+  GW.message.forceRedraw();
+  GW.flavor.clear();
+  GW.ui.draw();
+
+  if (actors[1].isDead()) { // player
+    await GW.game.gameOver(false, 'Killed by %s.', actors[0].getName(true));
+  }
+
   actor.endTurn();
   return true;
 }
-
-
-//
-// export async function confirm(text, fg, opts={}) {
-//
-//
-// 	const btnOK = '%FOK=Enter';
-// 	const btnCancel = '%FCancel=Escape';
-//   const len = Math.max(text.length, btnOK.length + 4 + btnCancel.length);
-//   const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
-//   const y = Math.floor(ui.canvas.height / 2) - 1;
-//   buffer.fillRect(x, y, len + 4, 5, ' ', 'black', 'black');
-// 	buffer.plotText(x + 2, y + 1, text);
-// 	buffer.plotText(x + 2, y + 3, btnOK, 'white');
-// 	buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, 'white');
-// 	ui.draw();
-//
-// 	let result;
-// 	while(result === undefined) {
-// 		const ev = await IO.nextEvent(1000);
-// 		await IO.dispatchEvent(ev, {
-// 			enter() {
-// 				result = true;
-// 			},
-// 			escape() {
-// 				result = false;
-// 			},
-// 			mousemove() {
-// 				let isOK = ev.x < x + btnOK.length + 2;
-// 				let isCancel = ev.x > x + len + 4 - btnCancel.length - 4;
-// 				if (ev.x < x || ev.x > x + len + 4) { isOK = false; isCancel = false; }
-// 				if (ev.y != y + 3 ) { isOK = false; isCancel = false; }
-// 				buffer.plotText(x + 2, y + 3, btnOK, isOK ? 'blue' : 'white');
-// 				buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, isCancel ? 'blue' : 'white');
-// 				ui.draw();
-// 			},
-// 			click() {
-// 				if (ev.x < x || ev.x > x + len + 4) return;
-// 				if (ev.y < y || ev.y > y + 5) return;
-// 				result = ev.x < x + Math.floor(len/2) + 2;
-// 			}
-// 		});
-// 	}
-//
-// 	return result;
-// }
