@@ -2729,6 +2729,27 @@ class Grid extends Array {
 	}
 
 
+
+  // Flood-fills the grid from (x, y) along cells that are within the eligible range.
+  // Returns the total count of filled cells.
+  walk(x, y, continueFn) {
+    let dir;
+  	let newX, newY;
+
+    if (!continueFn(this[x][y], x, y, this)) return 0;
+    let visitCount = 1;
+
+    for (dir = 0; dir < 4; dir++) {
+        newX = x + DIRS[dir][0];
+        newY = y + DIRS[dir][1];
+        if (this.hasXY(newX, newY))
+  			{
+            visitCount += this.walk(newX, newY, continueFn);
+        }
+    }
+    return visitCount;
+  }
+
 	// Rotates around the cell, counting up the number of distinct strings of neighbors with the same test result in a single revolution.
 	//		Zero means there are no impassable tiles adjacent.
 	//		One means it is adjacent to a wall.

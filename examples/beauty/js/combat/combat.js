@@ -150,7 +150,7 @@ GW.config.COMBAT_COLORS = [
 	GW.make.color("#0f0"),
 	GW.make.color("#f00"),
 	GW.make.color("#00f"),
-	GW.make.color("#ff3")
+	GW.make.color("orange")
 ];
 
 const COMBAT_BONUS_DISPLAY = [
@@ -162,10 +162,25 @@ const COMBAT_BONUS_DISPLAY = [
 ];
 
 
-const COMBAT_BOARD = GW.make.grid(6,6, () => GW.random.number(4) + 1 );
-const COMBAT_SELECTED = [-1,-1];
+const COMBAT_BOARD = GW.make.grid(6,6); // , () => GW.random.number(4) + 1 );
+const COMBAT_SELECTED = GW.make.grid(6,6);
+const COMBAT_CURSOR = [0,0];
+let COMBAT_COUNT = 0;
 
-function drawBoard(buffer, x, y) {
+function drawBoard(buffer, x, y, highlight=true) {
+
+  COMBAT_SELECTED.copy(COMBAT_BOARD);
+  let selected = 0;
+  COMBAT_COUNT = 0;
+  if (COMBAT_CURSOR[0] >= 0) {
+    selected = COMBAT_BOARD[COMBAT_CURSOR[0]][COMBAT_CURSOR[1]];
+    if (selected) {
+      GW.grid.floodFill(COMBAT_SELECTED, COMBAT_CURSOR[0], COMBAT_CURSOR[1], (v, i, j) => (v === selected), (v, i, j) => {
+        ++COMBAT_COUNT;
+        return 0;
+      });
+    }
+  }
 
   for(let i = 0; i < 6; ++i) {
     for(let j = 0; j < 6; ++j) {
@@ -173,20 +188,110 @@ function drawBoard(buffer, x, y) {
       let fg = GW.config.COMBAT_COLORS[v];
       let bg = GW.colors.darkest_gray;
 
-      if (COMBAT_SELECTED[0] == i && COMBAT_SELECTED[1] == j) {
-        bg = fg;
-        fg = GW.colors.black;
+      if (highlight) {
+        if (COMBAT_SELECTED[i][j] == 0) {
+          bg = fg;
+          fg = GW.colors.black;
+        }
+        if (COMBAT_CURSOR[0] == i && COMBAT_CURSOR[1] == j && v) {
+          fg = GW.colors.white;
+        }
       }
       buffer.plotChar(x + 5 + i*2, y + j, '#', fg, bg);
     }
     // buffer.plotText(x+5, y + i, '%F# # # # # #', fy == i ? 'light_blue' : 'dark_blue');
   }
 
-  buffer.plotText(x, y+7,  '%F#%F You - Melee Attack', 'green', null)
-  buffer.plotText(x, y+8,  '%F#%F You - Magic Attack', 'blue', null)
-  buffer.plotText(x, y+10, '%F#%F Enemy - Melee Attack', 'red', null)
-  buffer.plotText(x, y+11, '%F#%F Enemy - Magic Attack', 'yellow', null)
+  if (COMBAT_COUNT < 3) {
+    GW.flavor.setText('Not enough connected squares for attack.  Find a larger block.');
+    selected = 0;
+  }
 
+  if (selected == 1) {
+    buffer.plotText(x, y+7,  '%F#%F You - Melee Attack', 'green', 'gold');
+    GW.flavor.setText('Perform a melee attack.');
+  }
+  else {
+    buffer.plotText(x, y+7,  '%F#%F You - Melee Attack', 'dark_green', 'gray');
+  }
+
+  if (selected == 3) {
+    buffer.plotText(x, y+8,  '%F#%F You - Magic Attack', 'blue', 'gold');
+    GW.flavor.setText('Perform a magic attack.');
+  }
+  else {
+    buffer.plotText(x, y+8,  '%F#%F You - Magic Attack', 'dark_blue', 'gray');
+  }
+
+  if (selected == 2) {
+    buffer.plotText(x, y+10, '%F#%F Enemy - Melee Attack', 'red', 'gold');
+    GW.flavor.setText('The enemy performs a melee attack.');
+  }
+  else {
+    buffer.plotText(x, y+10, '%F#%F Enemy - Melee Attack', 'dark_red', 'gray');
+  }
+
+  if (selected == 4) {
+    buffer.plotText(x, y+11, '%F#%F Enemy - Magic Attack', 'orange', 'gold');
+    GW.flavor.setText('The enemy performs a magic attack.');
+  }
+  else {
+    buffer.plotText(x, y+11, '%F#%F Enemy - Magic Attack', 'dark_orange', 'gray');
+  }
+
+}
+
+function boardIsComplete() {
+  const count = COMBAT_BOARD.count(0);
+  return count == 0;
+}
+
+function boardHasMove() {
+  for(let x = 0; x < 6; ++x) {
+    for(let y = 0; y < 6; ++y) {
+      COMBAT_SELECTED.copy(COMBAT_BOARD);
+      let selected = COMBAT_SELECTED[x][y];
+      if (selected) {
+        let count = GW.grid.floodFill(COMBAT_SELECTED, x, y, selected, 0);
+        if (count > 2) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function fillBoard() {
+  for(let x = 0; x < 6; ++x) {
+    for(let y = 5; y > 0; --y) {
+      if (COMBAT_BOARD[x][y] == 0) {
+        COMBAT_BOARD[x][y] = COMBAT_BOARD[x][y-1];
+        COMBAT_BOARD[x][y-1] = 0;
+      }
+    }
+    if (COMBAT_BOARD[x][0] == 0) {
+      COMBAT_BOARD[x][0] = GW.random.number(4) + 1;
+    }
+  }
+}
+
+
+async function updateBoard(buffer, x, y) {
+
+  while(!boardIsComplete()) {
+    fillBoard();
+    drawBoard(buffer, x, y, false);
+    GW.ui.draw();
+    await GW.io.pause(250);
+    if (!boardHasMove()) {
+      const i = GW.random.number(6);
+      const j = GW.random.number(6);
+      COMBAT_BOARD[i][j] = 0;
+      console.log('- Board has no moves.  Removing 1 piece: ', i, j);
+    }
+  }
+
+  drawBoard(buffer, x, y, true);
+  GW.ui.draw();
 }
 
 function drawPlayer(buffer, x, y, width) {
@@ -232,9 +337,9 @@ async function combat(actor, target, ctx) {
 
   drawBoard(buffer, x + 34, y + 4);
   drawPlayer(buffer, x + 4, y + 4, 20);
-  drawOpponent(buffer, x + 66, y + 4, 20, actor.isPlayer() ? opponent : actor);
+  drawOpponent(buffer, x + 66, y + 4, 20, actor.isPlayer() ? target : actor);
 
-  const help = GW.text.format("Combat in Sleeping Beauty happens by fighting the %FBatte of Thorns%F on a square game board.\n\nMatch sequences of 3 or more colored blocks to perform individual actions.\n\nThis includes both your attacks as well as your enemy's.\n\nUse the %Farrow keys%F and %FEnter%F to select.\n\nNote: Certain items in your inventory can modify the frequency of colors on the game board.", 'gold', null, 'yellow', null, 'yellow', null);
+  const help = GW.text.format("Combat in Sleeping Beauty happens by fighting the %FBattle of Thorns%F on a square game board.\n\nMatch sequences of 3 or more colored blocks to perform individual actions.\n\nThis includes both your attacks as well as your enemy's.\n\nUse the %Farrow keys%F and %FEnter%F to select.\n\nNote: Certain items in your inventory can modify the frequency of colors on the game board.", 'gold', null, 'yellow', null, 'yellow', null);
 
   let nextY = buffer.wrapText(x + 4, y + 21, width - 8, help);
 
@@ -250,27 +355,45 @@ async function combat(actor, target, ctx) {
   let running = true;
   while(running) {
 
+    await updateBoard(buffer, x + 34, y + 4);
+
     const ev = await GW.io.nextEvent(1000);
     await GW.io.dispatchEvent(ev, {
+      escape() {
+        running = false;  // Temporary
+      },
       enter() {
-        running = false;
+        if (COMBAT_COUNT > 2) {
+          const selected = COMBAT_BOARD[COMBAT_CURSOR[0]][COMBAT_CURSOR[1]];
+          const count = GW.grid.floodFill(COMBAT_BOARD, COMBAT_CURSOR[0], COMBAT_CURSOR[1], selected, 0);
+          console.log('click: ', selected, count);
+        }
+      },
+      dir(e) {
+        if (e.dir) {
+          COMBAT_CURSOR[0] = GW.utils.clamp(COMBAT_CURSOR[0] + e.dir[0], 0, 5);
+          COMBAT_CURSOR[1] = GW.utils.clamp(COMBAT_CURSOR[1] + e.dir[1], 0, 5);
+          drawBoard(buffer, x + 34, y + 4);
+          draw();
+        }
       },
       mousemove(e) {
-        const fx = Math.floor(((buffer.width * e.clientX / GW.ui.canvas.pxWidth) - 38.5) / 2);
-        const fy = Math.floor(buffer.height * e.clientY / GW.ui.canvas.pxHeight) - 4;
-        if (fx >= 0 && fx <= 5 && fy >= 0 && fy <= 5) {
-          GW.flavor.setText('Mouse: ' + e.x + ', ' + e.y + ' => ' + fx.toFixed(2) + ', ' + fy.toFixed(2));
-          COMBAT_SELECTED[0] = fx;
-          COMBAT_SELECTED[1] = fy;
-        }
-        else {
-          GW.flavor.clear();
-          COMBAT_SELECTED[0] = -1;
-          COMBAT_SELECTED[1] = -1;
-        }
+        let fx = Math.floor(((buffer.width * e.clientX / GW.ui.canvas.pxWidth) - 38.5) / 2);
+        let fy = Math.floor(buffer.height * e.clientY / GW.ui.canvas.pxHeight) - 4;
+        fx = GW.utils.clamp(fx, 0, 5);
+        fy = GW.utils.clamp(fy, 0, 5);
+        COMBAT_CURSOR[0] = fx;
+        COMBAT_CURSOR[1] = fy;
         drawBoard(buffer, x + 34, y + 4);
         draw();
       },
+      click() {
+        if (COMBAT_COUNT > 2) {
+          const selected = COMBAT_BOARD[COMBAT_CURSOR[0]][COMBAT_CURSOR[1]];
+          const count = GW.grid.floodFill(COMBAT_BOARD, COMBAT_CURSOR[0], COMBAT_CURSOR[1], selected, 0);
+          console.log('click: ', selected, count);
+        }
+      }
     });
   }
 
