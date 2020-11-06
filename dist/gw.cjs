@@ -10581,6 +10581,42 @@ async function push(e) {
 
 commands$1.push = push;
 
+async function talk(e) {
+  const actor = e.actor || data.player;
+  const map = data.map;
+
+  const candidates = [];
+  let choice;
+  map.eachNeighbor(actor.x, actor.y, (c) => {
+    if (c.actor && c.actor.kind.talk) {
+      candidates.push(c.actor);
+    }
+  }, true);
+  if (!candidates.length) {
+    message.add('Nobody is listening.');
+    return false;
+  }
+  else if (candidates.length == 1) {
+    choice = candidates[0];
+  }
+  else {
+    choice = await ui.chooseTarget(candidates, 'Talk to whom?');
+  }
+  if (!choice) {
+    return false; // cancelled
+  }
+
+  if (!await actions.talk(actor, choice, { map, actor, x: choice.x, y: choice.y })) {
+    return false;
+  }
+  if (!actor.turnEnded()) {
+    actor.endTurn();
+  }
+  return true;
+}
+
+commands$1.talk = talk;
+
 commands$1.debug = NOOP;
 
 async function rest(e) {
@@ -13627,7 +13663,7 @@ async function unequip(actor, item, ctx={}) {
 
 actions.unequip = unequip;
 
-async function talk(actor, target, ctx={}) {
+async function talk$1(actor, target, ctx={}) {
   let talker = target;
   let listener = actor;
   if (!talker.kind.talk) {
@@ -13645,7 +13681,7 @@ async function talk(actor, target, ctx={}) {
   return false;
 }
 
-actions.talk = talk;
+actions.talk = talk$1;
 
 async function idle(actor, ctx) {
   actor.debug('idle');

@@ -114,6 +114,8 @@ async function start() {
   GW.io.setKeymap({
 		dir: 'movePlayer', space: 'rest',
     'R': restartGame,
+    't': 'talk',
+    'a': 'attack',
 		// '>': forceStairs, '<': forceStairs,
 		// '?': showHelp
 	});
