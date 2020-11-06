@@ -54,6 +54,7 @@ class Monster extends GW.types.ActorKind {
 
   talk(talker, listener, ctx) {
     GW.message.add('%s says nothing.', talker.getName('the'));
+    return true;
   }
 
 };

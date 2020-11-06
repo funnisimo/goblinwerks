@@ -8096,6 +8096,8 @@
   actor.startTurn = startActorTurn;
 
   function endActorTurn(theActor, turnTime=1) {
+    if (theActor.turnEnded()) return;
+
     theActor.flags |= Actor.AF_TURN_ENDED;
     theActor.turnTime = Math.floor(theActor.kind.speed * turnTime);
 
@@ -8155,10 +8157,10 @@
     for(let i = 0; i < allBump.length; ++i) {
       let bump = allBump[i];
       if (typeof bump === 'string') {
-        bump = kind[bump] || actions[bump] || FALSE;
+        bump = actions[bump] || kind[bump] || FALSE;
       }
 
-      if (await bump(actor, target, ctx)) {
+      if (await bump(actor, target, ctx) !== false) {
         return true;
       }
     }
@@ -13640,10 +13642,11 @@
 
     const success = await talker.kind.talk(talker, listener, ctx);
 
-    if (success) {
+    if (success !== false) {
       actor.endTurn();
+      return true;
     }
-    return success;
+    return false;
   }
 
   actions.talk = talk;

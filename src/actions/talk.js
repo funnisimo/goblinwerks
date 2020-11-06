@@ -14,10 +14,11 @@ export async function talk(actor, target, ctx={}) {
 
   const success = await talker.kind.talk(talker, listener, ctx);
 
-  if (success) {
+  if (success !== false) {
     actor.endTurn();
+    return true;
   }
-  return success;
+  return false;
 }
 
 Actions.talk = talk;
