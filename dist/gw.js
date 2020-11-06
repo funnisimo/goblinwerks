@@ -1048,6 +1048,14 @@
       return result;
     }
 
+    int(n) {
+      return this.number(n);
+    }
+
+    float() {
+      return this.value();
+    }
+
     value() {
       return (this.number() / (RNG_M - 1));
     }
@@ -1083,6 +1091,10 @@
         return lotteryDrawArray(this, weights);
       }
       return lotteryDrawObject(this, weights);
+    }
+
+    index(weights) {
+      return lotteryDrawArray(this, weights);
     }
 
 
@@ -7858,6 +7870,9 @@
 
       if (this.kind.make) {
         this.kind.make(this, opts);
+      }
+      if (this.kind.calcEquipmentBonuses) {
+        this.kind.calcEquipmentBonuses(this);
       }
     }
 

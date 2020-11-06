@@ -257,6 +257,9 @@ export class Actor {
     if (this.kind.make) {
       this.kind.make(this, opts);
     }
+    if (this.kind.calcEquipmentBonuses) {
+      this.kind.calcEquipmentBonuses(this);
+    }
   }
 
   turnEnded() { return this.flags & Flags.Actor.AF_TURN_ENDED; }

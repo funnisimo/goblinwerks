@@ -48,11 +48,11 @@ const HERO_CHATS = [
 GW.actor.addKind('RAT', {
   name: 'rat',
   ch: 'r', fg: '#aaa',
-  stats: { mana: 0, health: 1, danger: 1, attack: 1, defense: 1 },
+  stats: { mana: 0, health: 1, danger: 1, attack: 10, defense: 10 },
   frequency: 20,
   ai: ['attackPlayer', 'moveTowardPlayer', 'moveRandomly', 'idle'],
   attacks: {
-    melee: { verb: 'bite', damage: 1 }
+    melee: { verb: 'bite' }
   }
 });
 
@@ -69,11 +69,11 @@ GW.actor.addKind('RAT', {
 GW.actor.addKind('BAT', {
   name: 'bat',
   ch: 'b', fg: '#a83',
-  stats: { mana: 0, health: 10, danger: 1, attack: 2, defense: 1 },
+  stats: { mana: 0, health: 10, danger: 1, attack: 10, defense: 10 },
   frequency: { '2+': 20 },
   ai: ['attackPlayer', 'moveTowardPlayer', 'moveRandomly', 'idle'],
   attacks: {
-    melee: { verb: 'bite', damage: 1 }
+    melee: { verb: 'bite' }
   }
 });
 
@@ -90,11 +90,11 @@ GW.actor.addKind('BAT', {
 GW.actor.addKind('GOBLIN', {
   name: 'goblin',
   ch: 'g', fg: '#33a',
-  stats: { mana: 5, health: 10, danger: 2, attack: 3, defense: 3 },
+  stats: { mana: 5, health: 10, danger: 2, attack: 10, defense: 10 },
   frequency: { '2+': 20 },
   ai: ['attackPlayer', 'moveTowardPlayer', 'moveRandomly', 'idle'],
   attacks: {
-    melee: { verb: 'clubs', damage: 2 }
+    melee: { verb: 'clubs' }
   }
 });
 
@@ -113,11 +113,11 @@ GW.actor.addKind('GOBLIN', {
 GW.actor.addKind('ORC', {
   name: 'orc',
   ch: 'o', fg: '#3a3',
-  stats: { mana: 10, health: 15, danger: 3, attack: 5, defense: 4 },
+  stats: { mana: 10, health: 15, danger: 3, attack: 10, defense: 10 },
   frequency: { '2+': 20 },
   ai: ['attackPlayer', 'moveTowardPlayer', 'moveRandomly', 'idle'],
   attacks: {
-    melee: { verb: 'slash', damage: 3 }
+    melee: { verb: 'slash' }
   },
   // treasure: [{ DAGGER: 50 }],
   make(actor, opts={}) { if (GW.random.chance(50)) { actor.pack = GW.make.item('DAGGER'); } }
@@ -134,6 +134,22 @@ GW.actor.addKind('ORC', {
 // }
 // OrcWitch.danger = 4;
 //
+
+GW.actor.addKind('ORC_WITCH', {
+  name: 'orcish witch',
+  ch: 'O', fg: '#33a',
+  stats: { mana: 10, health: 15, danger: 4, attack: 10, defense: 10 },
+  flags: 'AF_FEMALE',
+  frequency: { '3+': 20 },
+  ai: ['attackPlayer', 'moveTowardPlayer', 'moveRandomly', 'idle'],
+  attacks: {
+    melee: { verb: 'slash' }
+  },
+  // treasure: [{ HELMET: 50 }],
+  make(actor, opts={}) { if (GW.random.chance(50)) { actor.pack = GW.make.item('HELMET'); } }
+});
+
+
 // export class Skeleton extends Autonomous {
 // 	constructor() {
 // 		super({ch:"s", fg:"#eee", name:"skeleton"});
@@ -147,6 +163,25 @@ GW.actor.addKind('ORC', {
 // 	}
 // }
 // Skeleton.danger = 5;
+
+GW.actor.addKind('SKELETON', {
+  name: 'skeleton',
+  ch: 's', fg: '#eee',
+  stats: { mana: 10, health: 25, danger: 5, attack: 15, defense: 10 },
+  flags: 'AF_FEMALE',
+  frequency: { '4+': 20 },
+  ai: ['attackPlayer', 'moveTowardPlayer', 'moveRandomly', 'idle'],
+  attacks: {
+    melee: { verb: 'slash' }
+  },
+  // treasure: [{ DAGGER: 50, SWORD: 50 }],
+  make(actor, opts={}) {
+    const kind = GW.random.item(['DAGGER', 'SWORD']);
+    actor.pack = GW.make.item(kind);
+  }
+});
+
+
 //
 // export class Ogre extends Autonomous {
 // 	constructor() {
@@ -159,6 +194,23 @@ GW.actor.addKind('ORC', {
 // }
 // Ogre.danger = 6;
 //
+
+GW.actor.addKind('OGRE', {
+  name: 'ogre',
+  ch: 'O', fg: '#3a3',
+  stats: { mana: 10, health: 30, danger: 5, attack: 15, defense: 10 },
+  frequency: { '4+': 20 },
+  ai: ['attackPlayer', 'moveTowardPlayer', 'moveRandomly', 'idle'],
+  attacks: {
+    melee: { verb: 'pound' }
+  },
+  // treasure: [{ MACE: 50 }, { SHIELD: 50 }],
+  make(actor, opts={}) {
+    if (GW.random.chance(50)) { actor.addToPack(GW.make.item('MACE')); }
+    if (GW.random.chance(50)) { actor.addToPack(GW.make.item('SHIELD')); }
+  }
+});
+
 // export class Zombie extends Autonomous {
 // 	constructor() {
 // 		super({ch:"z", fg:"#d3d", name:"zombie"});
@@ -166,6 +218,20 @@ GW.actor.addKind('ORC', {
 // }
 // Zombie.danger = 6;
 //
+
+
+GW.actor.addKind('ZOMBIE', {
+  name: 'zombie',
+  ch: 'z', fg: '#d3d',
+  stats: { mana: 10, health: 10, danger: 6, attack: 10, defense: 10 },
+  frequency: { '3+': 20 },
+  ai: ['attackPlayer', 'moveTowardPlayer', 'moveRandomly', 'idle'],
+  attacks: {
+    melee: { verb: 'claw' }
+  },
+});
+
+
 // export class Spider extends Autonomous {
 // 	constructor() {
 // 		super({ch:"s", fg:"#c66", name:"spider"});
@@ -176,6 +242,18 @@ GW.actor.addKind('ORC', {
 // }
 // Spider.danger = 3;
 //
+
+GW.actor.addKind('SPIDER', {
+  name: 'spider',
+  ch: 's', fg: '#c66',
+  stats: { mana: 0, health: 10, danger: 3, attack: 15, defense: 10 },
+  frequency: { '3+': 20 },
+  ai: ['attackPlayer', 'moveTowardPlayer', 'moveRandomly', 'idle'],
+  attacks: {
+    melee: { verb: 'bite' }
+  },
+});
+
 // export class Snake extends Autonomous {
 // 	constructor() {
 // 		super({ch:"s", fg:"#6c6", name:"poisonous snake"});
@@ -186,6 +264,18 @@ GW.actor.addKind('ORC', {
 // }
 // Snake.danger = 4;
 //
+
+GW.actor.addKind('SNAKE', {
+  name: 'poisonous snake',
+  ch: 's', fg: '#6c6',
+  stats: { mana: 0, health: 10, danger: 4, attack: 15, defense: 10 },
+  frequency: { '3+': 20 },
+  ai: ['attackPlayer', 'moveTowardPlayer', 'moveRandomly', 'idle'],
+  attacks: {
+    melee: { verb: 'bite' }
+  },
+});
+
 // export class Minotaur extends Autonomous {
 // 	constructor() {
 // 		super({ch:"M", fg:"#ca7", name:"minotaur warrior"});
@@ -199,6 +289,24 @@ GW.actor.addKind('ORC', {
 // }
 // Minotaur.danger = 8;
 //
+
+GW.actor.addKind('MINOTAUR', {
+  name: 'minotaur',
+  ch: 'M', fg: '#ca7',
+  stats: { mana: 30, health: 30, danger: 8, attack: 15, defense: 10 },
+  frequency: { '5+': 20 },
+  ai: ['attackPlayer', 'moveTowardPlayer', 'moveRandomly', 'idle'],
+  attacks: {
+    melee: { verb: 'pound' }
+  },
+  // treasure: [{ MACE: 50 }, { SHIELD: 50 }, { ARMOR: 50 }],
+  make(actor, opts={}) {
+    if (GW.random.chance(50)) { actor.addToPack(GW.make.item('MACE')); }
+    if (GW.random.chance(50)) { actor.addToPack(GW.make.item('SHIELD')); }
+    if (GW.random.chance(50)) { actor.addToPack(GW.make.item('ARMOR')); }
+  }
+});
+
 // export class Tree extends Autonomous {
 // 	constructor() {
 // 		super({ch:"T", fg:"#3c3", name:"animated tree"});
@@ -210,6 +318,21 @@ GW.actor.addKind('ORC', {
 // }
 // Tree.danger = 8;
 //
+
+
+GW.actor.addKind('TREE', {
+  name: 'animated tree',
+  ch: 'T', fg: '#3c3',
+  stats: { mana: 30, health: 30, danger: 8, attack: 15, defense: 15 },
+  frequency: { '5+': 20 },
+  flags: 'AK_INANIMATE',
+  ai: ['attackPlayer', 'idle'],
+  attacks: {
+    melee: { verb: 'slash' }
+  },
+});
+
+
 // export class Hero extends Autonomous {
 // 	constructor() {
 // 		let race = HERO_RACES.random();

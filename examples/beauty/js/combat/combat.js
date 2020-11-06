@@ -33,10 +33,13 @@ const AMOUNTS = ["slightly", "moderately", "severely", "critically"].reverse();
 async function doDamage(attacker, defender, power, isMagic, ctx) {
 //	console.log("combat", options);
 	if (isMagic) { // check mana
-		if (attacker.current.mana < power) {
+		if (!attacker.current.mana) {
 			GW.message.addCombat("%s %s not have enough mana to attack with magic.", attacker.getName(), attacker.getVerb('do'));
 			return;
 		}
+    else if (attacker.current.mana < power) {
+      power = attacker.current.mana;
+    }
 		attacker.adjustStat("mana", -power);
 	}
 
@@ -280,6 +283,8 @@ function boardHasMove() {
 }
 
 function fillBoard() {
+  const player = GW.data.player;
+
   for(let x = 0; x < 6; ++x) {
     for(let y = 5; y > 0; --y) {
       if (COMBAT_BOARD[x][y] == 0) {
@@ -288,7 +293,8 @@ function fillBoard() {
       }
     }
     if (COMBAT_BOARD[x][0] == 0) {
-      COMBAT_BOARD[x][0] = GW.random.number(4) + 1;
+      const index = GW.random.index(player.current.combatBonus);
+      COMBAT_BOARD[x][0] = index;
     }
   }
 }
