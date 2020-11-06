@@ -7695,6 +7695,8 @@
 
     }
 
+    make(actor, opts) {}
+
     // other is visible to player (invisible, in darkness, etc...) -- NOT LOS/FOV check
     canVisualize(actor, other, map) {
       return true;
@@ -7770,12 +7772,12 @@
       return 20;  // ???
     }
 
-    getName(opts={}) {
+    getName(actor, opts={}) {
       if (opts === true) { opts = { article: true }; }
       if (opts === false) { opts = {}; }
       if (typeof opts === 'string') { opts = { article: opts }; }
 
-      let result = this.name;
+      let result = actor.name || this.name;
       if (opts.color || (this.consoleColor && (opts.color !== false))) {
         let color = this.sprite.fg;
         if (this.consoleColor instanceof types.Color) {
@@ -7784,7 +7786,7 @@
         if (opts.color instanceof types.Color) {
           color = opts.color;
         }
-        result = text.format('%F%s%F', color, this.name, null);
+        result = text.format('%F%s%F', color, result, null);
       }
 
       if (opts.article && (this.article !== false)) {
@@ -7860,6 +7862,10 @@
 
       if (this.kind.ai) {
         this.kind.ai.forEach( (ai) => {
+          const fn = ai.act || ai.fn || ai;
+          if (typeof fn !== 'function') {
+            ERROR('Invalid AI - must be function, or object with function for act or fn member.');
+          }
           if (ai.init) {
             ai.init(this);
           }
@@ -7962,7 +7968,7 @@
 
     getName(opts={}) {
       if (typeof opts === 'string') { opts = { article: opts }; }
-      let base = this.kind.getName(opts);
+      let base = this.kind.getName(this, opts);
       return base;
     }
 
@@ -8069,7 +8075,7 @@
     if (typeof kind === 'string') {
       kind = actorKinds[kind];
     }
-    else if (!(kind instanceof types.Actor)) {
+    else if (!(kind instanceof types.ActorKind)) {
       let type = 'ActorKind';
       if (kind.type) {
         type = kind.type;
@@ -8305,6 +8311,7 @@
         sprite: { ch:'@', fg: 'white' },
         name: 'you', article: false,
         attacks: {},
+        bump: ['talk', 'attack'],
       });
       if (!kind.attacks.melee) {
         kind.attacks.melee = { verb: 'punch', damage: 1 };
@@ -12194,7 +12201,7 @@
           // }
         } else if (cell.memory.actorKind) {
           const kind = cell.memory.actorKind;
-          object = kind.getName({ color: false, article: true });
+          object = kind.getName({}, { color: false, article: true });
   			} else {
   				object = tiles[cell.memory.tile].getFlavor();
   			}
@@ -13622,6 +13629,25 @@
 
   actions.unequip = unequip;
 
+  async function talk(actor, target, ctx={}) {
+    let talker = target;
+    let listener = actor;
+    if (!talker.kind.talk) {
+      if (!actor.kind.talk) return false;
+      talker = actor;
+      listener = target;
+    }
+
+    const success = await talker.kind.talk(talker, listener, ctx);
+
+    if (success) {
+      actor.endTurn();
+    }
+    return success;
+  }
+
+  actions.talk = talk;
+
   async function idle(actor, ctx) {
     actor.debug('idle');
     actor.endTurn();
@@ -13659,6 +13685,24 @@
   }
 
   ai.attackPlayer = { act: attackPlayer };
+
+  async function talkToPlayer(actor, ctx) {
+    const player = data.player;
+
+    if (!actor.kind.talk) return false;
+
+    const dist = distanceFromTo(actor, player);
+    if (dist >= 2) return false;
+
+    if (!await actions.talk(actor, player, ctx)) {
+      return false;
+    }
+    // actor.endTurn();
+    return true;
+  }
+
+  ai.talkToPlayer = { act: talkToPlayer };
+
 
 
   async function moveTowardPlayer(actor, ctx={}) {

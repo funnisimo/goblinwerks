@@ -81,6 +81,8 @@ class ActorKind {
 
   }
 
+  make(actor, opts) {}
+
   // other is visible to player (invisible, in darkness, etc...) -- NOT LOS/FOV check
   canVisualize(actor, other, map) {
     return true;
@@ -156,12 +158,12 @@ class ActorKind {
     return 20;  // ???
   }
 
-  getName(opts={}) {
+  getName(actor, opts={}) {
     if (opts === true) { opts = { article: true }; }
     if (opts === false) { opts = {}; }
     if (typeof opts === 'string') { opts = { article: opts }; }
 
-    let result = this.name;
+    let result = actor.name || this.name;
     if (opts.color || (this.consoleColor && (opts.color !== false))) {
       let color = this.sprite.fg;
       if (this.consoleColor instanceof types.Color) {
@@ -170,7 +172,7 @@ class ActorKind {
       if (opts.color instanceof types.Color) {
         color = opts.color;
       }
-      result = TEXT.format('%F%s%F', color, this.name, null);
+      result = TEXT.format('%F%s%F', color, result, null);
     }
 
     if (opts.article && (this.article !== false)) {
@@ -246,6 +248,10 @@ export class Actor {
 
     if (this.kind.ai) {
       this.kind.ai.forEach( (ai) => {
+        const fn = ai.act || ai.fn || ai;
+        if (typeof fn !== 'function') {
+          Utils.ERROR('Invalid AI - must be function, or object with function for act or fn member.');
+        }
         if (ai.init) {
           ai.init(this);
         }
@@ -348,7 +354,7 @@ export class Actor {
 
   getName(opts={}) {
     if (typeof opts === 'string') { opts = { article: opts }; }
-    let base = this.kind.getName(opts);
+    let base = this.kind.getName(this, opts);
     return base;
   }
 
@@ -456,7 +462,7 @@ export function makeActor(kind) {
   if (typeof kind === 'string') {
     kind = actorKinds[kind];
   }
-  else if (!(kind instanceof types.Actor)) {
+  else if (!(kind instanceof types.ActorKind)) {
     let type = 'ActorKind';
     if (kind.type) {
       type = kind.type;

@@ -157,7 +157,7 @@ function getFlavorText(map, x, y) {
         // }
       } else if (cell.memory.actorKind) {
         const kind = cell.memory.actorKind;
-        object = kind.getName({ color: false, article: true });
+        object = kind.getName({}, { color: false, article: true });
 			} else {
 				object = TILES[cell.memory.tile].getFlavor();
 			}

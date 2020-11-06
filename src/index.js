@@ -46,6 +46,7 @@ import './actions/grab.js';
 import './actions/push.js';
 import './actions/use.js';
 import './actions/equip.js';
+import './actions/talk.js';
 export { actions } from './actions/index.js';
 
 import './ai.js';
