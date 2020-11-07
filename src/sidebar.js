@@ -3,7 +3,7 @@ import { color as COLOR, colors as COLORS } from './color.js';
 import * as Flags from './flags.js';
 import * as Utils from './utils.js';
 import { grid as GRID } from './grid.js';
-import { text as TEXT } from './text.js';
+import * as Text from './text.js';
 import { cell as CELL } from './cell.js';
 import { map as MAP } from './map.js';
 import * as GW from './gw.js';
@@ -478,7 +478,7 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
 	//end patch
 
 	const name = monst.getName({ color: monstForeColor });
-	let monstName = TEXT.capitalize(name);
+	let monstName = Text.capitalize(name);
 
   if (monst.isPlayer()) {
       if (monst.status.invisible) {
@@ -562,7 +562,7 @@ function addHealthBar(entry, y, dim, highlight, buf) {
 		if (actor.current.health <= 0) {
 				text = "Dead";
 		// } else if (percent != 0) {
-		// 		text = TEXT.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
+		// 		text = Text.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
 		}
 		y = sidebar.addProgressBar(y, buf, text, actor.current.health, actor.max.health, healthBarColor, dim);
 	}
@@ -593,7 +593,7 @@ function addManaBar(entry, y, dim, highlight, buf) {
 		if (actor.current.mana <= 0) {
 				text = "None";
 		// } else if (percent != 0) {
-		// 		text = TEXT.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
+		// 		text = Text.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
 		}
 		y = sidebar.addProgressBar(y, buf, text, actor.current.mana, actor.max.mana, barColor, dim);
 	}
@@ -662,7 +662,7 @@ function sidebarAddMapCell(entry, y, dim, highlight, buf) {
 
 	buf.plotChar(x + 1, y, ":", fg, bg);
 	let name = cell.getName();
-	name = TEXT.capitalize(name);
+	name = Text.capitalize(name);
   y = buf.wrapText(x + 3, y, SIDE_BOUNDS.width - 3, name, textColor, bg);
 
 	if (highlight) {
@@ -714,7 +714,7 @@ function sidebarAddItemInfo(entry, y, dim, highlight, buf) {
 	} else {
     name = GW.item.describeHallucinatedItem();
 	}
-	name = TEXT.capitalize(name);
+	name = Text.capitalize(name);
 
   y = buf.wrapText(x + 3, y, SIDE_BOUNDS.width - 3, name, fg, COLORS.black);
 

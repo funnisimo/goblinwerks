@@ -1,7 +1,7 @@
 
 import { colors as COLORS, color as COLOR } from './color.js';
 import { io as IO } from './io.js';
-import { text as TEXT } from './text.js';
+import * as Text from './text.js';
 import { make, types, data as DATA, message, ui as UI } from './gw.js';
 
 
@@ -86,7 +86,7 @@ function add(...args) {
   if (args.length == 1 && Array.isArray(args[0])) { args = args[0]; }
   let msg = args[0];
   if (args.length > 1) {
-    msg = TEXT.format(...args);
+    msg = Text.format(...args);
   }
   commitCombatMessage();
   addMessage(msg);
@@ -106,7 +106,7 @@ function addCombat(...args) {
   if (args.length == 0) return;
   let msg = args[0];
   if (args.length > 1) {
-    msg = TEXT.format(...args);
+    msg = Text.format(...args);
   }
   addCombatMessage(msg);
 }
@@ -143,7 +143,7 @@ function drawMessages(buffer) {
     const localY = isOnTop ? (MSG_BOUNDS.height - i - 1) : i;
     const y = MSG_BOUNDS.toOuterY(localY);
 
-		TEXT.eachChar( DISPLAYED[i], (c, color, j) => {
+		Text.eachChar( DISPLAYED[i], (c, color, j) => {
 			const x = MSG_BOUNDS.toOuterX(j);
 
 			if (color && (messageColor !== color) && CONFIRMED[i]) {
@@ -154,7 +154,7 @@ function drawMessages(buffer) {
 			buffer.plotChar(x, y, c, messageColor, COLORS.black);
 		});
 
-		for (let j = TEXT.length(DISPLAYED[i]); j < MSG_BOUNDS.width; j++) {
+		for (let j = Text.length(DISPLAYED[i]); j < MSG_BOUNDS.width; j++) {
 			const x = MSG_BOUNDS.toOuterX(j);
 			buffer.plotChar(x, y, ' ', COLORS.black, COLORS.black);
 		}
@@ -171,7 +171,7 @@ message.draw = drawMessages;
 function addMessageLine(msg) {
 	let i;
 
-	if (!TEXT.length(msg)) {
+	if (!Text.length(msg)) {
       return;
   }
 
@@ -192,7 +192,7 @@ function addMessage(msg) {
 
 	DATA.disturbed = true;
 
-	msg = TEXT.capitalize(msg);
+	msg = Text.capitalize(msg);
 
   if (!MSG_BOUNDS) {
     console.log(msg);
@@ -211,7 +211,7 @@ function addMessage(msg) {
   //     }
   // }
 
-	const lines = TEXT.splitIntoLines(msg, MSG_BOUNDS.width);
+	const lines = Text.splitIntoLines(msg, MSG_BOUNDS.width);
 
   if (MSG_BOUNDS.y < 10) {  // On top of UI
     lines.forEach( (l) => addMessageLine(l) );
@@ -236,7 +236,7 @@ function addCombatMessage(msg) {
 		COMBAT_MESSAGE = msg;
 	}
 	else {
-		COMBAT_MESSAGE += ', ' + TEXT.capitalize(msg);;
+		COMBAT_MESSAGE += ', ' + Text.capitalize(msg);;
 	}
   NEEDS_UPDATE = true;
   UI.requestUpdate();

@@ -1,11 +1,13 @@
 
 import * as Flags from '../flags.js';
 import * as Utils from '../utils.js';
-import { spawnTileEvent } from '../tileEvent.js';
 import { gameOver } from '../game.js';
 import * as GW from '../gw.js';
 import { actions as Actions } from './index.js';
+import * as Combat from '../combat.js';
 
+// Mostly handles arranging that the correct attack occurs
+// Uses GW.combat functions to do most of the work
 export async function attack(actor, target, ctx={}) {
 
   if (actor.isPlayer() == target.isPlayer()) return false;
@@ -14,6 +16,8 @@ export async function attack(actor, target, ctx={}) {
   const map = ctx.map = ctx.map || GW.data.map;
   const kind = actor.kind;
 
+  // custom combat function
+  // TODO - Should this be 'GW.config.attack'?
   if (GW.config.combat) {
     return GW.config.combat(actor, target, ctx);
   }
@@ -43,38 +47,11 @@ export async function attack(actor, target, ctx={}) {
   }
 
   if (info.fn) {
-    return await info.fn(actor, target, ctx); // custom combat
+    return await info.fn(actor, target, ctx); // custom attack
   }
 
-  let damage = info.damage;
-  if (typeof damage === 'function') {
-    damage = damage(actor, target, ctx) || 1;
-  }
-  const verb = info.verb || 'hit';
-
-  damage = target.kind.applyDamage(target, damage, actor, ctx);
-  GW.message.addCombat('%s %s %s for %F%d%F damage', actor.getName(), actor.getVerb(verb), target.getName('the'), 'red', Math.round(damage), null);
-
-  if (target.isDead()) {
-    GW.message.addCombat('%s %s', target.isInanimate() ? 'destroying' : 'killing', target.getPronoun('it'));
-  }
-
-  const ctx2 = { map: map, x: target.x, y: target.y, volume: damage };
-
-  await GW.fx.hit(GW.data.map, target);
-  if (target.kind.blood) {
-    await spawnTileEvent(target.kind.blood, ctx2);
-  }
-  if (target.isDead()) {
-    target.kind.kill(target);
-    map.removeActor(target);
-    if (target.kind.corpse) {
-      await spawnTileEvent(target.kind.corpse, ctx2);
-    }
-    if (target.isPlayer()) {
-      await gameOver(false, 'Killed by %s.', actor.getName(true));
-    }
-  }
+  ctx.damage = Combat.calcDamage(actor, target, info, ctx);
+  await Combat.applyDamage(actor, target, info, ctx);
 
   actor.endTurn();
   return true;

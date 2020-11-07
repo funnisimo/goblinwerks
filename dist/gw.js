@@ -27,6 +27,7 @@
   var flags = {};
 
   var tiles = {};
+  var tileEvents$1 = {};
 
   var config = {
     fx: {},
@@ -1673,8 +1674,6 @@
   addSpread('silver',      75,   75,   75);
   addSpread('gold',        100,  85,   0);
 
-  var text = {};
-
   ///////////////////////////////////
   // Message String
 
@@ -1685,17 +1684,17 @@
   const TEMP_COLOR = make.color();
 
 
-  text.playerPronoun = {
+  const playerPronoun = {
     it: 'you',
     its: 'your',
   };
 
-  text.singularPronoun = {
+  const singularPronoun = {
     it: 'it',
     its: 'its',
   };
 
-  text.pluralPronoun = {
+  const pluralPronoun = {
     it: 'them',
     its: 'their',
   };
@@ -1718,13 +1717,11 @@
     return null;
   }
 
-  text.firstChar = firstChar;
 
   function isVowel(ch) {
     return 'aeiouAEIOU'.includes(ch);
   }
 
-  text.isVowel = isVowel;
 
 
   function toSingular(verb) {
@@ -1737,7 +1734,6 @@
     return verb + 's';
   }
 
-  text.toSingular = toSingular;
 
 
   function eachChar(msg, fn) {
@@ -1765,7 +1761,6 @@
     }
   }
 
-  text.eachChar = eachChar;
 
   //
   // function strlen(bstring) {
@@ -1777,7 +1772,7 @@
   // text.strlen = strlen;
   //
 
-  function textlen(msg) {
+  function length(msg) {
     let length = 0;
 
     if (!msg || !msg.length) return 0;
@@ -1796,7 +1791,6 @@
     return length;
   }
 
-  text.length = textlen;
 
 
   function splice(msg, begin, length, add='') {
@@ -1805,7 +1799,6 @@
     return preText + add + postText;
   }
 
-  text.splice = splice;
 
   // function strcat(bstring, txt) {
   //   bstring.append(txt);
@@ -1834,7 +1827,7 @@
 
 
   // Returns true if strings have the same text (ignoring colors and case).
-  function stringsMatch(str1, str2) {
+  function matches(str1, str2) {
     let i, j;
 
     // str1 = STRING(str1);
@@ -1859,17 +1852,14 @@
     return true;
   }
 
-  text.matches = stringsMatch;
 
 
-  function centerText(msg, len) {
-    const textlen = text.length(msg);
+  function center(msg, len) {
+    const textlen = length(msg);
     const totalPad = (len - textlen);
     const leftPad = Math.round(totalPad/2);
     return msg.padStart(leftPad + textlen, ' ').padEnd(len, ' ');
   }
-
-  text.center = centerText;
 
 
   function capitalize(msg) {
@@ -1887,7 +1877,6 @@
     return msg;
   }
 
-  text.capitalize = capitalize;
 
   // // Gets the length of a string without the color escape sequences, since those aren't displayed.
   // function strLenWithoutEscapes(text) {
@@ -1941,7 +1930,6 @@
     return out;
   }
 
-  text.removeColors = removeColors;
 
   //
   //
@@ -2049,7 +2037,6 @@
     return buf;
   }
 
-  text.hyphenate = hyphenate;
 
 
   // Returns the number of lines, including the newlines already in the text.
@@ -2062,7 +2049,7 @@
     const firstWidth = width;
     width = width - indent;
 
-    let printString = text.hyphenate(sourceText, Math.min(width, firstWidth), true); // break up any words that are wider than the width.
+    let printString = hyphenate(sourceText, Math.min(width, firstWidth), true); // break up any words that are wider than the width.
     textLength = printString.length; // do NOT remove escape sequences
 
     // Now go through and replace spaces with newlines as needed.
@@ -2097,7 +2084,7 @@
       }
 
       if (1 + wordWidth > spaceLeftOnLine || printString[i] === '\n') {
-        printString = text.splice(printString, i, 1, '\n' + lastColor);	// [i] = '\n';
+        printString = splice(printString, i, 1, '\n' + lastColor);	// [i] = '\n';
         w += lastColor.length;
         textLength += lastColor.length;
         spaceLeftOnLine = width - wordWidth; // line width minus the width of the word we just wrapped
@@ -2120,7 +2107,6 @@
 
     return printString.split('\n');}
 
-  text.splitIntoLines = splitIntoLines;
 
 
   function format(fmt, ...args) {
@@ -2227,7 +2213,6 @@
     return result;
   }
 
-  text.format = format;
 
   // function sprintf(dest, fmt, ...args) {
   //   dest = STRING(dest);
@@ -2237,6 +2222,27 @@
   // }
   //
   // text.sprintf = sprintf;
+
+  var text = /*#__PURE__*/Object.freeze({
+    __proto__: null,
+    playerPronoun: playerPronoun,
+    singularPronoun: singularPronoun,
+    pluralPronoun: pluralPronoun,
+    firstChar: firstChar,
+    isVowel: isVowel,
+    toSingular: toSingular,
+    eachChar: eachChar,
+    length: length,
+    splice: splice,
+    matches: matches,
+    center: center,
+    capitalize: capitalize,
+    encodeColor: encodeColor,
+    removeColors: removeColors,
+    hyphenate: hyphenate,
+    splitIntoLines: splitIntoLines,
+    format: format
+  });
 
   const TEMP_BG = new types.Color();
 
@@ -3364,9 +3370,9 @@
 
     plotText(x, y, text$1, ...args) {
       if (args.length) {
-        text$1 = text.format(text$1, ...args);
+        text$1 = format(text$1, ...args);
       }
-      text.eachChar(text$1, (ch, color, i) => {
+      eachChar(text$1, (ch, color, i) => {
         this.plotChar(i + x, y, ch, color || GW.colors.white, null);
       });
     }
@@ -3374,8 +3380,8 @@
     plotLine(x, y, w, text$1, fg, bg) {
       if (typeof fg === 'string') { fg = colors[fg]; }
       if (typeof bg === 'string') { bg = colors[bg]; }
-      let len = text.length(text$1);
-      text.eachChar(text$1, (ch, color, i) => {
+      let len = length(text$1);
+      eachChar(text$1, (ch, color, i) => {
         this.plotChar(i + x, y, ch, color || fg, bg);
       });
       for(let i = len; i < w; ++i) {
@@ -3388,13 +3394,13 @@
       if (typeof fg === 'string') { fg = colors[fg]; }
       if (typeof bg === 'string') { bg = colors[bg]; }
       width = Math.min(width, this.width - x);
-      if (text.length(text$1) <= width) {
+      if (length(text$1) <= width) {
         this.plotLine(x, y, width, text$1, fg, bg);
         return y + 1;
       }
       opts.indent = opts.indent || 0;
 
-      const lines = text.splitIntoLines(text$1, width, opts.indent);
+      const lines = splitIntoLines(text$1, width, opts.indent);
       lines.forEach( (line, i) => {
         const offset = i ? opts.indent : 0;
         this.plotLine(x + offset, y + i, width - offset, line, fg || colors.white, bg);
@@ -4952,11 +4958,6 @@
 
   digger.attachHallway = attachHallway;
 
-  var tileEvent = {};
-  var tileEvents = {};
-
-  tileEvent.debug = NOOP;
-
   const TileLayer = def.layer;
 
 
@@ -4998,7 +4999,7 @@
 
 
   // Dungeon features, spawned from Architect.c:
-  function makeEvent(opts) {
+  function make$3(opts) {
     if (!opts) return null;
     if (typeof opts === 'string') {
       opts = { tile: opts };
@@ -5007,38 +5008,36 @@
   	return te;
   }
 
-  make.tileEvent = makeEvent;
+  make.tileEvent = make$3;
 
 
-  function installEvent(id, event) {
+  function addKind$1(id, event) {
   	if (arguments.length > 2 || !(event instanceof types.TileEvent)) {
   		event = make.tileEvent(...[].slice.call(arguments, 1));
   	}
-    tileEvents[id] = event;
+    tileEvents$1[id] = event;
   	if (event) tileEvent.id = id;
   	return event;
   }
 
-  tileEvent.install = installEvent;
 
-  installEvent('DF_NONE');
+  addKind$1('DF_NONE');
 
 
 
   function resetAllMessages() {
   	Object.values(tileEvents).forEach( (f) => {
-  		if (f instanceof types.Event) {
+  		if (f instanceof types.TileEvent) {
   			f.messageDisplayed = false;
   		}
   	});
   }
 
-  tileEvent.resetAllMessages = resetAllMessages;
 
 
 
   // returns whether the feature was successfully generated (false if we aborted because of blocking)
-  async function spawnTileEvent(feat, ctx) {
+  async function spawn(feat, ctx) {
   	let i, j;
   	let tile, itemKind;
 
@@ -5047,7 +5046,7 @@
 
   	if (typeof feat === 'string') {
   		const name = feat;
-  		feat = tileEvents[feat];
+  		feat = tileEvents$1[feat];
   		if (!feat) ERROR('Unknown tile Event: ' + name);
   	}
 
@@ -5065,12 +5064,12 @@
 
   	if (ctx.safe && map.hasCellMechFlag(x, y, CellMech.EVENT_FIRED_THIS_TURN)) {
   		if (!(feat.flags & TileEvent.DFF_ALWAYS_FIRE)) {
-        tileEvent.debug('spawn - already fired.');
+        // tileEvent.debug('spawn - already fired.');
   			return false;
   		}
   	}
 
-  	tileEvent.debug('spawn', x, y, 'id=', feat.id, 'tile=', feat.tile, 'item=', feat.item);
+  	// tileEvent.debug('spawn', x, y, 'id=', feat.id, 'tile=', feat.tile, 'item=', feat.item);
 
   	const refreshCell = ctx.refreshCell = ctx.refreshCell || !(feat.flags & TileEvent.DFF_NO_REDRAW_CELL);
   	const abortIfBlocking = ctx.abortIfBlocking = ctx.abortIfBlocking || (feat.flags & TileEvent.DFF_ABORT_IF_BLOCKS_MAP);
@@ -5082,7 +5081,7 @@
 
     if (feat.message && feat.message.length && !feat.messageDisplayed && map.isVisible(x, y)) {
   		feat.messageDisplayed = true;
-  		message.add(feat.message);
+  		MSG.add(feat.message);
   	}
 
     if (feat.tile) {
@@ -5106,33 +5105,33 @@
   										|| (itemKind && (itemKind.flags & ItemKind.IK_BLOCKS_MOVE))
   										|| (feat.flags & TileEvent.DFF_TREAT_AS_BLOCKING))) ? true : false);
 
-  	tileEvent.debug('- blocking', blocking);
+  	// tileEvent.debug('- blocking', blocking);
 
   	const spawnMap = GRID$1.alloc(map.width, map.height);
 
   	let didSomething = false;
-  	tileEvent.computeSpawnMap(feat, spawnMap, ctx);
+  	computeSpawnMap(feat, spawnMap, ctx);
     if (!blocking || !map.gridDisruptsPassability(spawnMap, { bounds: ctx.bounds })) {
   		if (feat.flags & TileEvent.DFF_EVACUATE_CREATURES) { // first, evacuate creatures, so that they do not re-trigger the tile.
-  				if (tileEvent.evacuateCreatures(map, spawnMap)) {
+  				if (evacuateCreatures(map, spawnMap)) {
             didSomething = true;
           }
   		}
 
   		if (feat.flags & TileEvent.DFF_EVACUATE_ITEMS) { // first, evacuate items, so that they do not re-trigger the tile.
-  				if (tileEvent.evacuateItems(map, spawnMap)) {
+  				if (evacuateItems(map, spawnMap)) {
             didSomething = true;
           }
   		}
 
   		if (feat.flags & TileEvent.DFF_NULLIFY_CELL) { // first, clear other tiles (not base/ground)
-  				if (tileEvent.nullifyCells(map, spawnMap, feat.flags)) {
+  				if (nullifyCells(map, spawnMap, feat.flags)) {
             didSomething = true;
           }
   		}
 
   		if (tile || itemKind || feat.fn) {
-  			if (await tileEvent.spawnTiles(feat, spawnMap, ctx, tile, itemKind)) {
+  			if (await spawnTiles(feat, spawnMap, ctx, tile, itemKind)) {
           didSomething = true;
         }
   		}
@@ -5182,14 +5181,14 @@
     //		message(feat.message, false);
     //	}
     if (feat.next && (didSomething || feat.flags & TileEvent.DFF_SUBSEQ_ALWAYS)) {
-      tileEvent.debug('- subsequent: %s, everywhere=%s', feat.next, feat.flags & TileEvent.DFF_SUBSEQ_EVERYWHERE);
+      // tileEvent.debug('- subsequent: %s, everywhere=%s', feat.next, feat.flags & Flags.TileEvent.DFF_SUBSEQ_EVERYWHERE);
       if (feat.flags & TileEvent.DFF_SUBSEQ_EVERYWHERE) {
           for (i=0; i<map.width; i++) {
               for (j=0; j<map.height; j++) {
                   if (spawnMap[i][j]) {
   										ctx.x = i;
   										ctx.y = j;
-                      await tileEvent.spawn(feat.next, ctx);
+                      await spawn(feat.next, ctx);
                   }
               }
           }
@@ -5197,7 +5196,7 @@
   				ctx.y = y;
       }
   		else {
-          await tileEvent.spawn(feat.next, ctx);
+          await spawn(feat.next, ctx);
       }
   	}
   	if (didSomething) {
@@ -5238,13 +5237,12 @@
   		}
   	}
 
-    tileEvent.debug('- spawn complete : @%d,%d, ok=%s, feat=%s', ctx.x, ctx.y, didSomething, feat.id);
+    // tileEvent.debug('- spawn complete : @%d,%d, ok=%s, feat=%s', ctx.x, ctx.y, didSomething, feat.id);
 
   	GRID$1.free(spawnMap);
   	return didSomething;
   }
 
-  tileEvent.spawn = spawnTileEvent;
 
 
   function cellIsOk(feat, x, y, ctx) {
@@ -5291,10 +5289,6 @@
   	const x = ctx.x;
   	const y = ctx.y;
   	const bounds = ctx.bounds || null;
-
-  	if (bounds) {
-  		tileEvent.debug('- bounds', bounds);
-  	}
 
   	let startProb = feat.spread || 0;
   	let probDec = feat.decrement || 0;
@@ -5389,7 +5383,6 @@
 
   }
 
-  tileEvent.computeSpawnMap = computeSpawnMap;
 
 
   async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
@@ -5439,7 +5432,7 @@
   					//     cell.volume += (feat.volume || 0);
   					// }
 
-  					tileEvent.debug('- tile', i, j, 'tile=', tile.id);
+  					// debug('- tile', i, j, 'tile=', tile.id);
 
   					// cell.mechFlags |= Flags.CellMech.EVENT_FIRED_THIS_TURN;
   					accomplishedSomething = true;
@@ -5458,7 +5451,7 @@
               // map.redrawCell(cell);
   						// cell.mechFlags |= Flags.CellMech.EVENT_FIRED_THIS_TURN;
   						accomplishedSomething = true;
-  						tileEvent.debug('- item', i, j, 'item=', itemKind.id);
+  						// tileEvent.debug('- item', i, j, 'item=', itemKind.id);
   					}
   				}
   			}
@@ -5479,7 +5472,6 @@
   	return accomplishedSomething;
   }
 
-  tileEvent.spawnTiles = spawnTiles;
 
 
 
@@ -5496,7 +5488,6 @@
     return didSomething;
   }
 
-  tileEvent.nullifyCells = nullifyCells;
 
 
   function evacuateCreatures(map, blockingMap) {
@@ -5527,7 +5518,6 @@
     return didSomething;
   }
 
-  tileEvent.evacuateCreatures = evacuateCreatures;
 
 
 
@@ -5557,7 +5547,19 @@
     return didSomething;
   }
 
-  tileEvent.evacuateItems = evacuateItems;
+  var tileEvent$1 = /*#__PURE__*/Object.freeze({
+    __proto__: null,
+    TileEvent: TileEvent$1,
+    make: make$3,
+    addKind: addKind$1,
+    resetAllMessages: resetAllMessages,
+    spawn: spawn,
+    computeSpawnMap: computeSpawnMap,
+    spawnTiles: spawnTiles,
+    nullifyCells: nullifyCells,
+    evacuateCreatures: evacuateCreatures,
+    evacuateItems: evacuateItems
+  });
 
   var cell = {};
 
@@ -6016,7 +6018,7 @@
 
           ctx.tile = tile;
           cell.debug(' - spawn event @%d,%d - %s', ctx.x, ctx.y, name);
-          fired = await tileEvent.spawn(ev, ctx) || fired;
+          fired = await spawn(ev, ctx) || fired;
           cell.debug(' - spawned');
           if (fired) {
             break;
@@ -7228,7 +7230,7 @@
   types.Light = Light;
 
 
-  function make$3(color, radius, fadeTo, pass) {
+  function make$4(color, radius, fadeTo, pass) {
 
   	if (arguments.length == 1) {
   		if (color && color.color) {
@@ -7252,7 +7254,7 @@
   	return new types.Light(color, radius, fadeTo, pass);
   }
 
-  make.light = make$3;
+  make.light = make$4;
 
   const LIGHT_SOURCES = lights;
 
@@ -7260,7 +7262,7 @@
   // TODO - USE STRINGS FOR LIGHT SOURCE IDS???
   //      - addLightKind(id, source) { LIIGHT_SOURCES[id] = source; }
   //      - LIGHT_SOURCES = {};
-  function addKind$1(id, ...args) {
+  function addKind$2(id, ...args) {
   	let source = args[0];
   	if (source && !(source instanceof types.Light)) {
   		source = make.light(...args);
@@ -7275,7 +7277,7 @@
   function addKinds(config) {
   	const entries = Object.entries(config);
   	entries.forEach( ([name,info]) => {
-  		addKind$1(name, info);
+  		addKind$2(name, info);
   	});
   }
 
@@ -7287,7 +7289,7 @@
   		const cached = LIGHT_SOURCES[args[0]];
   		if (cached) return cached;
   	}
-  	return make$3(...args);
+  	return make$4(...args);
   }
 
 
@@ -7466,8 +7468,8 @@
 
   var light = /*#__PURE__*/Object.freeze({
     __proto__: null,
-    make: make$3,
-    addKind: addKind$1,
+    make: make$4,
+    addKind: addKind$2,
     addKinds: addKinds,
     from: from$1,
     backUpLighting: backUpLighting,
@@ -7786,12 +7788,12 @@
         if (opts.color instanceof types.Color) {
           color = opts.color;
         }
-        result = text.format('%F%s%F', color, result, null);
+        result = format('%F%s%F', color, result, null);
       }
 
       if (opts.article && (this.article !== false)) {
         let article = (opts.article === true) ? this.article : opts.article;
-        if (article == 'a' && text.isVowel(text.firstChar(result))) {
+        if (article == 'a' && isVowel(firstChar(result))) {
           article = 'an';
         }
         result = article + ' ' + result;
@@ -7974,15 +7976,15 @@
 
     getVerb(verb) {
       if (this.isPlayer()) return verb;
-      return text.toSingular(verb);
+      return toSingular(verb);
     }
 
     getPronoun(pn) {
       if (this.isPlayer()) {
-        return text.playerPronoun[pn];
+        return playerPronoun[pn];
       }
 
-      return text.singularPronoun[pn];
+      return singularPronoun[pn];
     }
 
     debug(...args) {
@@ -8675,8 +8677,8 @@
 
   sprite.install('hilite', colors.white);
 
-  async function gameOver(isWin, ...args) {
-    const msg = text.format(...args);
+  async function gameOver$1(isWin, ...args) {
+    const msg = format(...args);
 
     flavor.clear();
     message.add(msg);
@@ -8740,7 +8742,7 @@
     delay: delay,
     cancelDelay: cancelDelay,
     updateEnvironment: updateEnvironment,
-    gameOver: gameOver,
+    gameOver: gameOver$1,
     useStairs: useStairs
   });
 
@@ -8831,7 +8833,7 @@
         if (opts.color instanceof types.Color) {
           color = opts.color;
         }
-        result = text.format('%F%s%F', color, this.name, null);
+        result = format('%F%s%F', color, this.name, null);
       }
 
       if (opts.article) {
@@ -8853,7 +8855,7 @@
       if (this.flags & Tile.T_LAVA && actor) {
         if (!cell.hasTileFlag(Tile.T_BRIDGE) && !actor.status.levitating) {
           actor.kind.kill(actor);
-          await gameOver(false, colors.red, 'you fall into lava and perish.');
+          await gameOver$1(false, colors.red, 'you fall into lava and perish.');
           return true;
         }
       }
@@ -10271,6 +10273,66 @@
 
   types.FOV = FOV;
 
+  function calcDamage(attacker, defender, attackInfo, ctx) {
+    let damage = attackInfo.damage;
+    if (typeof damage === 'function') {
+      damage = damage(attacker, defender, attackInfo, ctx) || 1;
+    }
+    return damage;
+  }
+
+  async function applyDamage(attacker, defender, attackInfo, ctx) {
+    ctx.damage = attackInfo.damage || ctx.damage || calcDamage(attacker, defender, attackInfo, ctx);
+    const map = ctx.map || data.map;
+
+    ctx.damage = defender.kind.applyDamage(defender, ctx.damage, attacker, ctx);
+
+    let msg = firstOpt('msg', attackInfo, ctx, true);
+    if (msg) {
+      if (typeof msg !== 'string') {
+        let verb = attackInfo.verb || 'hit';
+        msg = format('%s %s %s for %F%d%F damage', attacker.getName(), attacker.getVerb(verb), defender.getName('the'), 'red', Math.round(ctx.damage), null);
+      }
+      message.addCombat(msg);
+    }
+
+    const ctx2 = { map, x: defender.x, y: defender.y, volume: ctx.damage };
+
+    if (map) {
+      let hit = firstOpt('fx', attackInfo, ctx, false);
+      if (hit) {
+        await fx.hit(map, defender);
+      }
+      if (defender.kind.blood) {
+        await spawn(defender.kind.blood, ctx2);
+      }
+    }
+    if (defender.isDead()) {
+      defender.kind.kill(defender);
+      if (map) {
+        map.removeActor(defender);
+        if (defender.kind.corpse) {
+          await spawn(defender.kind.corpse, ctx2);
+        }
+      }
+
+      if (defender.isDead() && (msg !== false)) {
+        message.addCombat('%s %s', defender.isInanimate() ? 'destroying' : 'killing', defender.getPronoun('it'));
+      }
+
+      if (defender.isPlayer()) {
+        await gameOver(false, 'Killed by %s.', attacker.getName(true));
+      }
+    }
+    return ctx.damage;
+  }
+
+  var combat$1 = /*#__PURE__*/Object.freeze({
+    __proto__: null,
+    calcDamage: calcDamage,
+    applyDamage: applyDamage
+  });
+
   async function grab(e) {
     const actor = e.actor || data.player;
     const map = data.map;
@@ -10702,15 +10764,15 @@
         if (opts.color instanceof types.Color) {
           color = opts.color;
         }
-        result = text.format('%F%s%F', color, result, null);
+        result = format('%F%s%F', color, result, null);
       }
       else if (opts.color === false) {
-        result = text.removeColors(result); // In case item has built in color
+        result = removeColors(result); // In case item has built in color
       }
 
       if (opts.article) {
         let article = (opts.article === true) ? this.article : opts.article;
-        if (article == 'a' && text.isVowel(text.firstChar(result))) {
+        if (article == 'a' && isVowel(firstChar(result))) {
           article = 'an';
         }
         result = article + ' ' + result;
@@ -11058,7 +11120,7 @@
     if (args.length == 1 && Array.isArray(args[0])) { args = args[0]; }
     let msg = args[0];
     if (args.length > 1) {
-      msg = text.format(...args);
+      msg = format(...args);
     }
     commitCombatMessage();
     addMessage(msg);
@@ -11078,7 +11140,7 @@
     if (args.length == 0) return;
     let msg = args[0];
     if (args.length > 1) {
-      msg = text.format(...args);
+      msg = format(...args);
     }
     addCombatMessage(msg);
   }
@@ -11115,7 +11177,7 @@
       const localY = isOnTop ? (MSG_BOUNDS.height - i - 1) : i;
       const y = MSG_BOUNDS.toOuterY(localY);
 
-  		text.eachChar( DISPLAYED[i], (c, color$1, j) => {
+  		eachChar( DISPLAYED[i], (c, color$1, j) => {
   			const x = MSG_BOUNDS.toOuterX(j);
 
   			if (color$1 && (messageColor !== color$1) && CONFIRMED[i]) {
@@ -11126,7 +11188,7 @@
   			buffer.plotChar(x, y, c, messageColor, colors.black);
   		});
 
-  		for (let j = text.length(DISPLAYED[i]); j < MSG_BOUNDS.width; j++) {
+  		for (let j = length(DISPLAYED[i]); j < MSG_BOUNDS.width; j++) {
   			const x = MSG_BOUNDS.toOuterX(j);
   			buffer.plotChar(x, y, ' ', colors.black, colors.black);
   		}
@@ -11143,7 +11205,7 @@
   function addMessageLine(msg) {
   	let i;
 
-  	if (!text.length(msg)) {
+  	if (!length(msg)) {
         return;
     }
 
@@ -11164,7 +11226,7 @@
 
   	data.disturbed = true;
 
-  	msg = text.capitalize(msg);
+  	msg = capitalize(msg);
 
     if (!MSG_BOUNDS) {
       console.log(msg);
@@ -11183,7 +11245,7 @@
     //     }
     // }
 
-  	const lines = text.splitIntoLines(msg, MSG_BOUNDS.width);
+  	const lines = splitIntoLines(msg, MSG_BOUNDS.width);
 
     if (MSG_BOUNDS.y < 10) {  // On top of UI
       lines.forEach( (l) => addMessageLine(l) );
@@ -11208,7 +11270,7 @@
   		COMBAT_MESSAGE = msg;
   	}
   	else {
-  		COMBAT_MESSAGE += ', ' + text.capitalize(msg);	}
+  		COMBAT_MESSAGE += ', ' + capitalize(msg);	}
     NEEDS_UPDATE = true;
     ui.requestUpdate();
   }
@@ -11847,7 +11909,7 @@
   	//end patch
 
   	const name = monst.getName({ color: monstForeColor });
-  	let monstName = text.capitalize(name);
+  	let monstName = capitalize(name);
 
     if (monst.isPlayer()) {
         if (monst.status.invisible) {
@@ -11931,7 +11993,7 @@
   		if (actor.current.health <= 0) {
   				text = "Dead";
   		// } else if (percent != 0) {
-  		// 		text = TEXT.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
+  		// 		text = Text.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
   		}
   		y = sidebar$1.addProgressBar(y, buf, text, actor.current.health, actor.max.health, healthBarColor, dim);
   	}
@@ -11962,7 +12024,7 @@
   		if (actor.current.mana <= 0) {
   				text = "None";
   		// } else if (percent != 0) {
-  		// 		text = TEXT.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
+  		// 		text = Text.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
   		}
   		y = sidebar$1.addProgressBar(y, buf, text, actor.current.mana, actor.max.mana, barColor, dim);
   	}
@@ -12029,7 +12091,7 @@
 
   	buf.plotChar(x + 1, y, ":", fg, bg);
   	let name = cell$1.getName();
-  	name = text.capitalize(name);
+  	name = capitalize(name);
     y = buf.wrapText(x + 3, y, SIDE_BOUNDS.width - 3, name, textColor, bg);
 
   	if (highlight) {
@@ -12078,7 +12140,7 @@
   	} else {
       name = item.describeHallucinatedItem();
   	}
-  	name = text.capitalize(name);
+  	name = capitalize(name);
 
     y = buf.wrapText(x + 3, y, SIDE_BOUNDS.width - 3, name, fg, colors.black);
 
@@ -12112,7 +12174,7 @@
   flavor.setup = setupFlavor;
 
   function setFlavorText(text$1) {
-    FLAVOR_TEXT = text.capitalize(text$1);
+    FLAVOR_TEXT = capitalize(text$1);
     NEED_FLAVOR_UPDATE = true;
     IS_PROMPT = false;
     ui.requestUpdate();
@@ -12122,7 +12184,7 @@
 
 
   function showPrompt(text$1) {
-    FLAVOR_TEXT = text.capitalize(text$1);
+    FLAVOR_TEXT = capitalize(text$1);
     NEED_FLAVOR_UPDATE = true;
     IS_PROMPT = true;
     ui.requestUpdate();
@@ -12134,7 +12196,7 @@
   function drawFlavor(buffer) {
     if (!NEED_FLAVOR_UPDATE || !FLAVOR_BOUNDS) return;
     const color = IS_PROMPT ? flavorPromptColor : flavorTextColor;
-    if (text.length(FLAVOR_TEXT) > FLAVOR_BOUNDS.width) {
+    if (length(FLAVOR_TEXT) > FLAVOR_BOUNDS.width) {
       buffer.wrapText(FLAVOR_BOUNDS.x, FLAVOR_BOUNDS.y, FLAVOR_BOUNDS.width, FLAVOR_TEXT, color, colors.black);
       message.needsRedraw();
     }
@@ -12184,7 +12246,7 @@
 
   	if (player && x == player.x && y == player.y) {
   		if (player.status.levitating) {
-  			buf = text.format("you are hovering above %s.", cell.tileFlavor());
+  			buf = format("you are hovering above %s.", cell.tileFlavor());
   		}
       else {
   			// if (theItem) {
@@ -12243,9 +12305,9 @@
   			} else {
   				object = tiles[cell.memory.tile].getFlavor();
   			}
-  			buf = text.format("you remember seeing %s here.", object);
+  			buf = format("you remember seeing %s here.", object);
   		} else if (cell.flags & Cell.MAGIC_MAPPED) { // magic mapped
-  			buf = text.format("you expect %s to be here.", tiles[cell.memory.tile].getFlavor());
+  			buf = format("you expect %s to be here.", tiles[cell.memory.tile].getFlavor());
   		}
   		return buf;
   	}
@@ -12289,7 +12351,7 @@
     }
     let ground = cell.groundTile.getFlavor();
 
-    buf = text.format("you %s %s%s%s%s.", (map.isVisible(x, y) ? "see" : "sense"), object, surface, liquid, ground);
+    buf = format("you %s %s%s%s%s.", (map.isVisible(x, y) ? "see" : "sense"), object, surface, liquid, ground);
 
     return buf;
   }
@@ -12669,7 +12731,7 @@
   // FUNCS
 
   async function prompt(...args) {
-  	const msg = text.format(...args);
+  	const msg = format(...args);
 
   	if (SHOW_FLAVOR) {
   		flavor.showPrompt(msg);
@@ -12721,7 +12783,7 @@
     const buffer = ui.startDialog();
 
   	if (args.length) {
-  		text$1 = text.format(text$1, ...args);
+  		text$1 = format(text$1, ...args);
   	}
 
     const len = text$1.length;
@@ -12747,7 +12809,7 @@
       opts = {};
     }
     if (args.length > 1) {
-      text$1 = text.format(...args);
+      text$1 = format(...args);
     }
     else {
       text$1 = args[0];
@@ -12933,7 +12995,7 @@
     textColor = color.make(textColor);
     const darkenedBarColor = barColor.clone().mix(colors.black, 75);
 
-    barText = text.center(barText, width);
+    barText = center(barText, width);
 
     const currentFillColor = GW.make.color();
     const currentTextColor = GW.make.color();
@@ -13154,7 +13216,7 @@
       map.removeItem(item);
       if (actor.isPlayer()) message.add('%s is destroyed.', item.getName('the'));
       if (item.kind.corpse) {
-        await spawnTileEvent(item.kind.corpse, { map, x: item.x, y: item.y });
+        await spawn(item.kind.corpse, { map, x: item.x, y: item.y });
       }
     }
     if (actor) {
@@ -13228,6 +13290,8 @@
 
   actions.closeItem = closeItem;
 
+  // Mostly handles arranging that the correct attack occurs
+  // Uses GW.combat functions to do most of the work
   async function attack$1(actor, target, ctx={}) {
 
     if (actor.isPlayer() == target.isPlayer()) return false;
@@ -13236,6 +13300,8 @@
     const map = ctx.map = ctx.map || data.map;
     const kind = actor.kind;
 
+    // custom combat function
+    // TODO - Should this be 'GW.config.attack'?
     if (config.combat) {
       return config.combat(actor, target, ctx);
     }
@@ -13265,38 +13331,11 @@
     }
 
     if (info.fn) {
-      return await info.fn(actor, target, ctx); // custom combat
+      return await info.fn(actor, target, ctx); // custom attack
     }
 
-    let damage = info.damage;
-    if (typeof damage === 'function') {
-      damage = damage(actor, target, ctx) || 1;
-    }
-    const verb = info.verb || 'hit';
-
-    damage = target.kind.applyDamage(target, damage, actor, ctx);
-    message.addCombat('%s %s %s for %F%d%F damage', actor.getName(), actor.getVerb(verb), target.getName('the'), 'red', Math.round(damage), null);
-
-    if (target.isDead()) {
-      message.addCombat('%s %s', target.isInanimate() ? 'destroying' : 'killing', target.getPronoun('it'));
-    }
-
-    const ctx2 = { map: map, x: target.x, y: target.y, volume: damage };
-
-    await fx.hit(data.map, target);
-    if (target.kind.blood) {
-      await spawnTileEvent(target.kind.blood, ctx2);
-    }
-    if (target.isDead()) {
-      target.kind.kill(target);
-      map.removeActor(target);
-      if (target.kind.corpse) {
-        await spawnTileEvent(target.kind.corpse, ctx2);
-      }
-      if (target.isPlayer()) {
-        await gameOver(false, 'Killed by %s.', actor.getName(true));
-      }
-    }
+    ctx.damage = calcDamage(actor, target, info, ctx);
+    await applyDamage(actor, target, info, ctx);
 
     actor.endTurn();
     return true;
@@ -13350,16 +13389,16 @@
 
     await fx.hit(data.map, target);
     if (target.kind.blood) {
-      await spawnTileEvent(target.kind.blood, ctx2);
+      await spawn(target.kind.blood, ctx2);
     }
     if (target.isDead()) {
       target.kind.kill(target);
       map.removeActor(target);
       if (target.kind.corpse) {
-        await spawnTileEvent(target.kind.corpse, ctx2);
+        await spawn(target.kind.corpse, ctx2);
       }
       if (target.isPlayer()) {
-        await gameOver(false, 'Killed by %s.', actor.getName(true));
+        await gameOver$1(false, 'Killed by %s.', actor.getName(true));
       }
     }
 
@@ -13863,6 +13902,7 @@
   exports.cell = cell;
   exports.color = color;
   exports.colors = colors;
+  exports.combat = combat$1;
   exports.commands = commands$1;
   exports.config = config;
   exports.cosmetic = cosmetic;
@@ -13898,8 +13938,8 @@
   exports.sprites = sprites;
   exports.text = text;
   exports.tile = tile;
-  exports.tileEvent = tileEvent;
-  exports.tileEvents = tileEvents;
+  exports.tileEvent = tileEvent$1;
+  exports.tileEvents = tileEvents$1;
   exports.tiles = tiles;
   exports.types = types;
   exports.ui = ui;

@@ -3,7 +3,7 @@ import { random } from './random.js';
 import * as Flags from './flags.js';
 import * as Utils from './utils.js';
 import { colors as COLORS, color as COLOR } from './color.js';
-import { tileEvent as TILE_EVENT } from './tileEvent.js';
+import * as TileEvent from './tileEvent.js';
 
 import { types, make, def, config as CONFIG, data as DATA, flag as FLAG, tiles as TILES } from './gw.js';
 
@@ -464,7 +464,7 @@ class Cell {
 
         ctx.tile = tile;
         cell.debug(' - spawn event @%d,%d - %s', ctx.x, ctx.y, name);
-        fired = await TILE_EVENT.spawn(ev, ctx) || fired;
+        fired = await TileEvent.spawn(ev, ctx) || fired;
         cell.debug(' - spawned');
         if (fired) {
           break;

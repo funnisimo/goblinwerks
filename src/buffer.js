@@ -1,6 +1,6 @@
 
 import { colors as COLORS, color as COLOR } from './color.js';
-import { text as TEXT } from './text.js';
+import * as Text from './text.js';
 import * as Utils from './utils.js';
 import { types, make } from './gw.js';
 
@@ -76,9 +76,9 @@ class Buffer extends types.Grid {
 
   plotText(x, y, text, ...args) {
     if (args.length) {
-      text = TEXT.format(text, ...args);
+      text = Text.format(text, ...args);
     }
-    TEXT.eachChar(text, (ch, color, i) => {
+    Text.eachChar(text, (ch, color, i) => {
       this.plotChar(i + x, y, ch, color || GW.colors.white, null);
     });
   }
@@ -86,8 +86,8 @@ class Buffer extends types.Grid {
   plotLine(x, y, w, text, fg, bg) {
     if (typeof fg === 'string') { fg = COLORS[fg]; }
     if (typeof bg === 'string') { bg = COLORS[bg]; }
-    let len = TEXT.length(text);
-    TEXT.eachChar(text, (ch, color, i) => {
+    let len = Text.length(text);
+    Text.eachChar(text, (ch, color, i) => {
       this.plotChar(i + x, y, ch, color || fg, bg);
     });
     for(let i = len; i < w; ++i) {
@@ -100,13 +100,13 @@ class Buffer extends types.Grid {
     if (typeof fg === 'string') { fg = COLORS[fg]; }
     if (typeof bg === 'string') { bg = COLORS[bg]; }
     width = Math.min(width, this.width - x);
-    if (TEXT.length(text) <= width) {
+    if (Text.length(text) <= width) {
       this.plotLine(x, y, width, text, fg, bg);
       return y + 1;
     }
     opts.indent = opts.indent || 0;
 
-    const lines = TEXT.splitIntoLines(text, width, opts.indent);
+    const lines = Text.splitIntoLines(text, width, opts.indent);
     lines.forEach( (line, i) => {
       const offset = i ? opts.indent : 0;
       this.plotLine(x + offset, y + i, width - offset, line, fg || COLORS.white, bg);

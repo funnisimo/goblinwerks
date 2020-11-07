@@ -1,8 +1,3 @@
-// import Item, {Wearable, Drinkable} from "./item.js";
-// import * as pubsub from "util/pubsub.js";
-// import * as log from "ui/log.js";
-// import * as rules from "rules.js";
-//
 
 const WEARABLE_SUFFIXES = {
   "power": 1,

@@ -5,7 +5,7 @@ import * as Utils from './utils.js';
 import { random } from './random.js';
 import { grid as Grid } from './grid.js';
 import * as Frequency from './frequency.js';
-import { text as TEXT } from './text.js';
+import * as Text from './text.js';
 import { visibility as VISIBILITY } from './visibility.js';
 import { actions as Actions } from './actions/index.js';
 import { types, make, data as DATA, config as CONFIG, ui as UI, def, ai as AI } from './gw.js';
@@ -172,12 +172,12 @@ class ActorKind {
       if (opts.color instanceof types.Color) {
         color = opts.color;
       }
-      result = TEXT.format('%F%s%F', color, result, null);
+      result = Text.format('%F%s%F', color, result, null);
     }
 
     if (opts.article && (this.article !== false)) {
       let article = (opts.article === true) ? this.article : opts.article;
-      if (article == 'a' && TEXT.isVowel(TEXT.firstChar(result))) {
+      if (article == 'a' && Text.isVowel(Text.firstChar(result))) {
         article = 'an';
       }
       result = article + ' ' + result;
@@ -360,15 +360,15 @@ export class Actor {
 
   getVerb(verb) {
     if (this.isPlayer()) return verb;
-    return TEXT.toSingular(verb);
+    return Text.toSingular(verb);
   }
 
   getPronoun(pn) {
     if (this.isPlayer()) {
-      return TEXT.playerPronoun[pn];
+      return Text.playerPronoun[pn];
     }
 
-    return TEXT.singularPronoun[pn];
+    return Text.singularPronoun[pn];
   }
 
   debug(...args) {

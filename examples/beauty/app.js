@@ -70,12 +70,6 @@ function resetPlayer() {
         const shield = GW.text.capitalize(player.slots.shield.getName({ details: true, color: !dim }));
         y = GW.sidebar.addText(buf, y, 'Shield : ' + shield, null, null, { dim, highlight, indent: 9 });
       }
-
-      // let ranged = 'None';
-      // if (player.ranged) {
-      //   ranged = GW.text.capitalize(player.ranged.getName({ details: true, color: !dim }));
-      // }
-      // y = GW.sidebar.addText(buf, y, 'Ranged: ' + ranged, null, null, { dim, highlight, indent: 9 });
       return y;
     },
   });

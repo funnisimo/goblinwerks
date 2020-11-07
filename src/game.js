@@ -9,7 +9,7 @@ import { io as IO } from './io.js';
 import { actor as ACTOR } from './actor.js';
 import { player as PLAYER } from './player.js';
 import { scheduler } from './scheduler.js';
-import { text as TEXT } from './text.js';
+import * as Text from './text.js';
 import { sprite as SPRITE } from './sprite.js';
 import { visibility as VISIBILITY } from './visibility.js';
 
@@ -259,7 +259,7 @@ export async function updateEnvironment() {
 SPRITE.install('hilite', COLORS.white);
 
 export async function gameOver(isWin, ...args) {
-  const msg = TEXT.format(...args);
+  const msg = Text.format(...args);
 
   FLAVOR.clear();
   MSG.add(msg);

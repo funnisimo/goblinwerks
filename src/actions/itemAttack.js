@@ -1,7 +1,7 @@
 
 import * as Flags from '../flags.js';
 import * as Utils from '../utils.js';
-import { spawnTileEvent } from '../tileEvent.js';
+import * as TileEvent from '../tileEvent.js';
 import { gameOver } from '../game.js';
 import * as GW from '../gw.js';
 import { actions as Actions } from './index.js';
@@ -53,13 +53,13 @@ export async function itemAttack(actor, target, ctx={}) {
 
   await GW.fx.hit(GW.data.map, target);
   if (target.kind.blood) {
-    await spawnTileEvent(target.kind.blood, ctx2);
+    await TileEvent.spawn(target.kind.blood, ctx2);
   }
   if (target.isDead()) {
     target.kind.kill(target);
     map.removeActor(target);
     if (target.kind.corpse) {
-      await spawnTileEvent(target.kind.corpse, ctx2);
+      await TileEvent.spawn(target.kind.corpse, ctx2);
     }
     if (target.isPlayer()) {
       await gameOver(false, 'Killed by %s.', actor.getName(true));

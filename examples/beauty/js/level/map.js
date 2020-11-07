@@ -367,7 +367,6 @@ function decorateFirst(map, level) {
 
   map.events.welcome = welcomeFirst;
 
-	let features = ["rat", "potion", "dagger"];
 	level.rooms.forEach(room => {
 		if (GW.utils.equalsXY(room.center, map.locations.start)) { // first room
 			level.carveDoors(map, room, { doorChance:1 });
@@ -380,25 +379,6 @@ function decorateFirst(map, level) {
 		}
 
 		level.carveDoors(map, room);
-		if (!features.length) { return; }
-		let feature = features.shift();
-    // console.log('Add', feature, room.center[0], room.center[1]);
-		// switch (feature) {
-		// 	case "rat":
-		// 		let rat = new beings.Rat();
-		// 		rat.ai.hostile = false;
-		// 		rat.moveTo(room.center.clone(), level);
-		// 	break;
-    //
-		// 	case "potion":
-		// 		level.setItem(room.center.clone(), new items.HealthPotion());
-		// 	break;
-    //
-		// 	case "dagger":
-		// 		level.setItem(room.center.clone(), new items.Dagger());
-		// 	break;
-		// }
-
 	});
 
   GW.dungeon.finishDoors(map);

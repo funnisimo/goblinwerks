@@ -1,7 +1,7 @@
 
 import { colors as COLORS } from './color.js';
 import * as Game from './game.js';
-import { text as TEXT } from './text.js';
+import * as Text from './text.js';
 import * as Flags from './flags.js';
 import * as Utils from './utils.js';
 import { types, def, make, data as DATA, flag as FLAG, tiles } from './gw.js';
@@ -93,7 +93,7 @@ export class Tile {
       if (opts.color instanceof types.Color) {
         color = opts.color;
       }
-      result = TEXT.format('%F%s%F', color, this.name, null);
+      result = Text.format('%F%s%F', color, this.name, null);
     }
 
     if (opts.article) {

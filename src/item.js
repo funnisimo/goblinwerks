@@ -1,6 +1,6 @@
 
 import { color as COLOR } from './color.js';
-import { text as TEXT } from './text.js';
+import * as Text from './text.js';
 import { random } from './random.js';
 import * as Grid from './grid.js';
 import * as Flags from './flags.js';
@@ -83,15 +83,15 @@ class ItemKind {
       if (opts.color instanceof GW.types.Color) {
         color = opts.color;
       }
-      result = TEXT.format('%F%s%F', color, result, null);
+      result = Text.format('%F%s%F', color, result, null);
     }
     else if (opts.color === false) {
-      result = TEXT.removeColors(result); // In case item has built in color
+      result = Text.removeColors(result); // In case item has built in color
     }
 
     if (opts.article) {
       let article = (opts.article === true) ? this.article : opts.article;
-      if (article == 'a' && TEXT.isVowel(TEXT.firstChar(result))) {
+      if (article == 'a' && Text.isVowel(Text.firstChar(result))) {
         article = 'an';
       }
       result = article + ' ' + result;

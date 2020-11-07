@@ -4,7 +4,7 @@ import * as Flags from './flags.js';
 import * as Utils from './utils.js';
 import { sprite as SPRITE } from './sprite.js';
 import { color as COLOR, colors as COLORS } from './color.js';
-import { text as TEXT } from './text.js';
+import * as Text from './text.js';
 import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, make, sidebar as SIDEBAR, config as CONFIG } from './gw.js';
 
 ui.debug = Utils.NOOP;
@@ -383,7 +383,7 @@ ui.clearCursor = clearCursor;
 // FUNCS
 
 export async function prompt(...args) {
-	const msg = TEXT.format(...args);
+	const msg = Text.format(...args);
 
 	if (SHOW_FLAVOR) {
 		FLAVOR.showPrompt(msg);
@@ -435,7 +435,7 @@ export async function messageBox(duration, text, ...args) {
   const buffer = ui.startDialog();
 
 	if (args.length) {
-		text = TEXT.format(text, ...args);
+		text = Text.format(text, ...args);
 	}
 
   const len = text.length;
@@ -461,7 +461,7 @@ export async function confirm(opts, ...args) {
     opts = {};
   }
   if (args.length > 1) {
-    text = TEXT.format(...args);
+    text = Text.format(...args);
   }
   else {
     text = args[0];
@@ -650,7 +650,7 @@ export function plotProgressBar(buf, x, y, width, barText, textColor, pct, barCo
   textColor = COLOR.make(textColor);
   const darkenedBarColor = barColor.clone().mix(COLORS.black, 75);
 
-  barText = TEXT.center(barText, width);
+  barText = Text.center(barText, width);
 
   const currentFillColor = GW.make.color();
   const currentTextColor = GW.make.color();
