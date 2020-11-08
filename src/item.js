@@ -152,6 +152,37 @@ class Item {
 		return (this.kind.actionFlags & flag) > 0;
 	}
 
+  async bumpBy(actor, ctx={}) {
+    ctx.quiet = true;
+
+    if (this.kind.bump) {
+      if (typeof this.kind.bump === 'function') {
+        return this.kind.bump(actor, this, ctx);
+      }
+    }
+
+    const itemActions = this.bump || [];
+    const kindActions  = this.kind.bump || [];
+    const actions = itemActions.concat(kindActions);
+
+    if (actions && actions.length) {
+      for(let i = 0; i < actions.length; ++i) {
+        let fn = actions[i];
+        let result;
+        if (typeof fn === 'string') {
+          fn = Actions[fn] || this.kind[fn] || Utils.FALSE;
+        }
+
+        if (await fn(actor, this, ctx)) {
+          ctx.quiet = false;
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
   destroy() { this.flags |= (Flags.Item.ITEM_DESTROYED | Flags.Item.ITEM_CHANGED); }
 	isDestroyed() { return this.flags & Flags.Item.ITEM_DESTROYED; }
   changed(v) {
@@ -187,46 +218,6 @@ function makeItem(kind, opts) {
 
 GW.make.item = makeItem;
 
-export async function bump(actor, item, ctx={}) {
-
-  if (!item) return false;
-
-  ctx.quiet = true;
-
-  if (item.bump) {
-    for(let i = 0; i < item.bump.length; ++i) {
-      let fn = item.bump[i];
-      let result;
-      if (typeof fn === 'string') {
-        fn = Actions[fn] || Utils.FALSE;
-      }
-
-      if (await fn(actor, item, ctx)) {
-        ctx.quiet = false;
-        return true;
-      }
-    }
-  }
-
-  if (item.kind && item.kind.bump) {
-    for(let i = 0; i < item.kind.bump.length; ++i) {
-      let fn = item.kind.bump[i];
-      let result;
-      if (typeof fn === 'string') {
-        fn = Actions[fn] || Utils.FALSE;
-      }
-
-      if (await fn(actor, item, ctx)) {
-        ctx.quiet = false;
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
-GW.item.bump = bump;
 
 
 

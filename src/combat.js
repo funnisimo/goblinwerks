@@ -5,16 +5,9 @@ import * as TileEvent from './tileEvent.js';
 import * as GW from './gw.js';
 
 
-export function calcDamage(attacker, defender, attackInfo, ctx) {
-  let damage = attackInfo.damage;
-  if (typeof damage === 'function') {
-    damage = damage(attacker, defender, attackInfo, ctx) || 1;
-  }
-  return damage;
-}
 
 export async function applyDamage(attacker, defender, attackInfo, ctx) {
-  ctx.damage = attackInfo.damage || ctx.damage || calcDamage(attacker, defender, attackInfo, ctx);
+  ctx.damage = attackInfo.damage || ctx.damage || attacker.calcDamageTo(defender, attackInfo, ctx);
   const map = ctx.map || GW.data.map;
 
   ctx.damage = defender.kind.applyDamage(defender, ctx.damage, attacker, ctx);

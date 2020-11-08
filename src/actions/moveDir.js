@@ -32,7 +32,7 @@ export async function moveDir(actor, dir, opts={}) {
   // PROMOTES ON EXIT, NO KEY(?), PLAYER EXIT, ENTANGLED
 
   if (cell.actor) {
-    if (canBump && await Actor.bump(actor, cell.actor, ctx)) {
+    if (canBump && await cell.actor.bumpBy(actor, ctx)) {
       return true;
     }
 
@@ -44,7 +44,7 @@ export async function moveDir(actor, dir, opts={}) {
   let isPush = false;
   if (cell.item && cell.item.hasKindFlag(Flags.ItemKind.IK_BLOCKS_MOVE)) {
     console.log('bump into item');
-    if (!canBump || !(await Item.bump(actor, cell.item, ctx))) {
+    if (!canBump || !(await cell.item.bumpBy(actor, ctx))) {
       console.log('bump - no action');
       GW.message.forPlayer(actor, 'Blocked!');
       return false;

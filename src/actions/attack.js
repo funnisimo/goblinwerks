@@ -50,7 +50,7 @@ export async function attack(actor, target, ctx={}) {
     return await info.fn(actor, target, ctx); // custom attack
   }
 
-  ctx.damage = Combat.calcDamage(actor, target, info, ctx);
+  ctx.damage = actor.calcDamageTo(target, info, ctx);
   await Combat.applyDamage(actor, target, info, ctx);
 
   actor.endTurn();

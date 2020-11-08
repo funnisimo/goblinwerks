@@ -275,6 +275,34 @@ export class Actor {
   isInanimate() { return this.kind.flags & Flags.ActorKind.AK_INANIMATE; }
   isInvulnerable() { return this.kind.flags & Flags.ActorKind.AK_INVULNERABLE; }
 
+
+  async bumpBy(actor, ctx) {
+
+    if (this.kind.bump && typeof this.kind.bump === 'function') {
+      return this.kind.bump(actor, this, ctx);
+    }
+
+    const kind = this.kind;
+    const actorActions = this.bump || [];
+    const kindActions  = this.kind.bump || [];
+
+    const allBump = actorActions.concat(kindActions);
+
+    for(let i = 0; i < allBump.length; ++i) {
+      let bumpFn = allBump[i];
+      let result;
+      if (typeof bumpFn === 'string') {
+        bumpFn = Actions[bumpFn] || kind[bumpFn] || Utils.FALSE;
+      }
+
+      if (await bumpFn(actor, this, ctx) !== false) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
 	endTurn(turnTime) {
     if (this.kind.endTurn) {
       turnTime = this.kind.endTurn(this, turnTime) || turnTime;
@@ -344,13 +372,16 @@ export class Actor {
     return (this.flags & Flags.Actor.AF_CHANGED);
   }
 
-  statChangePercent(name) {
-    const current = this.current[name] || 0;
-    const prior = this.prior[name] || 0;
-    const max = Math.max(this.max[name] || 0, current, prior);
-
-    return Math.floor(100 * (current - prior)/max);
+  // combat helpers
+  calcDamageTo(defender, attackInfo, ctx) {
+    let damage = attackInfo.damage;
+    if (typeof damage === 'function') {
+      damage = damage(this, defender, attackInfo, ctx) || 1;
+    }
+    return damage;
   }
+
+  // Descriptions
 
   getName(opts={}) {
     if (typeof opts === 'string') { opts = { article: opts }; }
@@ -384,6 +415,14 @@ export class Actor {
     }
     this.current[stat] = Utils.clamp((this.current[stat] || 0) + delta, 0, this.max[stat]);
     this.changed(true);
+  }
+
+  statChangePercent(name) {
+    const current = this.current[name] || 0;
+    const prior = this.prior[name] || 0;
+    const max = Math.max(this.max[name] || 0, current, prior);
+
+    return Math.floor(100 * (current - prior)/max);
   }
 
   // INVENTORY
@@ -532,31 +571,6 @@ actor.takeTurn = takeTurn;
 
 
 
-export async function bump(actor, target, ctx) {
-  if (!target) return false;
-
-  const kind = actor.kind;
-  const actorActions = target.bump || [];
-  const kindActions  = target.kind.bump || [];
-
-  const allBump = actorActions.concat(kindActions);
-
-  for(let i = 0; i < allBump.length; ++i) {
-    let bump = allBump[i];
-    let result;
-    if (typeof bump === 'string') {
-      bump = Actions[bump] || kind[bump] || Utils.FALSE;
-    }
-
-    if (await bump(actor, target, ctx) !== false) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-actor.bump = bump;
 
 
 function chooseKinds(opts={}) {

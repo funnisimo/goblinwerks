@@ -7891,6 +7891,33 @@
     isInanimate() { return this.kind.flags & ActorKind.AK_INANIMATE; }
     isInvulnerable() { return this.kind.flags & ActorKind.AK_INVULNERABLE; }
 
+
+    async bumpBy(actor, ctx) {
+
+      if (this.kind.bump && typeof this.kind.bump === 'function') {
+        return this.kind.bump(actor, this, ctx);
+      }
+
+      const kind = this.kind;
+      const actorActions = this.bump || [];
+      const kindActions  = this.kind.bump || [];
+
+      const allBump = actorActions.concat(kindActions);
+
+      for(let i = 0; i < allBump.length; ++i) {
+        let bumpFn = allBump[i];
+        if (typeof bumpFn === 'string') {
+          bumpFn = actions[bumpFn] || kind[bumpFn] || FALSE;
+        }
+
+        if (await bumpFn(actor, this, ctx) !== false) {
+          return true;
+        }
+      }
+
+      return false;
+    }
+
   	endTurn(turnTime) {
       if (this.kind.endTurn) {
         turnTime = this.kind.endTurn(this, turnTime) || turnTime;
@@ -7960,13 +7987,16 @@
       return (this.flags & Actor.AF_CHANGED);
     }
 
-    statChangePercent(name) {
-      const current = this.current[name] || 0;
-      const prior = this.prior[name] || 0;
-      const max = Math.max(this.max[name] || 0, current, prior);
-
-      return Math.floor(100 * (current - prior)/max);
+    // combat helpers
+    calcDamageTo(defender, attackInfo, ctx) {
+      let damage = attackInfo.damage;
+      if (typeof damage === 'function') {
+        damage = damage(this, defender, attackInfo, ctx) || 1;
+      }
+      return damage;
     }
+
+    // Descriptions
 
     getName(opts={}) {
       if (typeof opts === 'string') { opts = { article: opts }; }
@@ -8000,6 +8030,14 @@
       }
       this.current[stat] = clamp((this.current[stat] || 0) + delta, 0, this.max[stat]);
       this.changed(true);
+    }
+
+    statChangePercent(name) {
+      const current = this.current[name] || 0;
+      const prior = this.prior[name] || 0;
+      const max = Math.max(this.max[name] || 0, current, prior);
+
+      return Math.floor(100 * (current - prior)/max);
     }
 
     // INVENTORY
@@ -8147,30 +8185,6 @@
 
 
 
-  async function bump(actor, target, ctx) {
-    if (!target) return false;
-
-    const kind = actor.kind;
-    const actorActions = target.bump || [];
-    const kindActions  = target.kind.bump || [];
-
-    const allBump = actorActions.concat(kindActions);
-
-    for(let i = 0; i < allBump.length; ++i) {
-      let bump = allBump[i];
-      if (typeof bump === 'string') {
-        bump = actions[bump] || kind[bump] || FALSE;
-      }
-
-      if (await bump(actor, target, ctx) !== false) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  actor.bump = bump;
 
 
   function chooseKinds(opts={}) {
@@ -10273,16 +10287,8 @@
 
   types.FOV = FOV;
 
-  function calcDamage(attacker, defender, attackInfo, ctx) {
-    let damage = attackInfo.damage;
-    if (typeof damage === 'function') {
-      damage = damage(attacker, defender, attackInfo, ctx) || 1;
-    }
-    return damage;
-  }
-
   async function applyDamage(attacker, defender, attackInfo, ctx) {
-    ctx.damage = attackInfo.damage || ctx.damage || calcDamage(attacker, defender, attackInfo, ctx);
+    ctx.damage = attackInfo.damage || ctx.damage || attacker.calcDamageTo(defender, attackInfo, ctx);
     const map = ctx.map || data.map;
 
     ctx.damage = defender.kind.applyDamage(defender, ctx.damage, attacker, ctx);
@@ -10329,7 +10335,6 @@
 
   var combat$1 = /*#__PURE__*/Object.freeze({
     __proto__: null,
-    calcDamage: calcDamage,
     applyDamage: applyDamage
   });
 
@@ -10833,6 +10838,36 @@
   		return (this.kind.actionFlags & flag) > 0;
   	}
 
+    async bumpBy(actor, ctx={}) {
+      ctx.quiet = true;
+
+      if (this.kind.bump) {
+        if (typeof this.kind.bump === 'function') {
+          return this.kind.bump(actor, this, ctx);
+        }
+      }
+
+      const itemActions = this.bump || [];
+      const kindActions  = this.kind.bump || [];
+      const actions$1 = itemActions.concat(kindActions);
+
+      if (actions$1 && actions$1.length) {
+        for(let i = 0; i < actions$1.length; ++i) {
+          let fn = actions$1[i];
+          if (typeof fn === 'string') {
+            fn = actions[fn] || this.kind[fn] || FALSE;
+          }
+
+          if (await fn(actor, this, ctx)) {
+            ctx.quiet = false;
+            return true;
+          }
+        }
+      }
+
+      return false;
+    }
+
     destroy() { this.flags |= (Item.ITEM_DESTROYED | Item.ITEM_CHANGED); }
   	isDestroyed() { return this.flags & Item.ITEM_DESTROYED; }
     changed(v) {
@@ -10868,44 +10903,6 @@
 
   make.item = makeItem;
 
-  async function bump$1(actor, item, ctx={}) {
-
-    if (!item) return false;
-
-    ctx.quiet = true;
-
-    if (item.bump) {
-      for(let i = 0; i < item.bump.length; ++i) {
-        let fn = item.bump[i];
-        if (typeof fn === 'string') {
-          fn = actions[fn] || FALSE;
-        }
-
-        if (await fn(actor, item, ctx)) {
-          ctx.quiet = false;
-          return true;
-        }
-      }
-    }
-
-    if (item.kind && item.kind.bump) {
-      for(let i = 0; i < item.kind.bump.length; ++i) {
-        let fn = item.kind.bump[i];
-        if (typeof fn === 'string') {
-          fn = actions[fn] || FALSE;
-        }
-
-        if (await fn(actor, item, ctx)) {
-          ctx.quiet = false;
-          return true;
-        }
-      }
-    }
-
-    return false;
-  }
-
-  item.bump = bump$1;
 
 
 
@@ -13038,7 +13035,7 @@
     // PROMOTES ON EXIT, NO KEY(?), PLAYER EXIT, ENTANGLED
 
     if (cell.actor) {
-      if (canBump && await bump(actor, cell.actor, ctx)) {
+      if (canBump && await cell.actor.bumpBy(actor, ctx)) {
         return true;
       }
 
@@ -13050,7 +13047,7 @@
     let isPush = false;
     if (cell.item && cell.item.hasKindFlag(ItemKind.IK_BLOCKS_MOVE)) {
       console.log('bump into item');
-      if (!canBump || !(await bump$1(actor, cell.item, ctx))) {
+      if (!canBump || !(await cell.item.bumpBy(actor, ctx))) {
         console.log('bump - no action');
         message.forPlayer(actor, 'Blocked!');
         return false;
@@ -13334,7 +13331,7 @@
       return await info.fn(actor, target, ctx); // custom attack
     }
 
-    ctx.damage = calcDamage(actor, target, info, ctx);
+    ctx.damage = actor.calcDamageTo(target, info, ctx);
     await applyDamage(actor, target, info, ctx);
 
     actor.endTurn();
