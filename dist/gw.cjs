@@ -398,8 +398,9 @@ function chainIncludes(chain, entry) {
 
 function eachChain(item, fn) {
   while(item) {
+    const next = item.next;
     fn(item);
-    item = item.next;
+    item = next;
   }
 }
 
@@ -10315,6 +10316,11 @@ async function applyDamage(attacker, defender, attackInfo, ctx) {
       map.removeActor(defender);
       if (defender.kind.corpse) {
         await spawn(defender.kind.corpse, ctx2);
+      }
+      if (defender.pack && !defender.isPlayer()) {
+        eachChain(defender.pack, (item) => {
+          map.addItemNear(defender.x, defender.y, item);
+        });
       }
     }
 

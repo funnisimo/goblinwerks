@@ -39,6 +39,11 @@ export async function applyDamage(attacker, defender, attackInfo, ctx) {
       if (defender.kind.corpse) {
         await TileEvent.spawn(defender.kind.corpse, ctx2);
       }
+      if (defender.pack && !defender.isPlayer()) {
+        Utils.eachChain(defender.pack, (item) => {
+          map.addItemNear(defender.x, defender.y, item);
+        });
+      }
     }
 
     if (defender.isDead() && (msg !== false)) {

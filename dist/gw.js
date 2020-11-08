@@ -402,8 +402,9 @@
 
   function eachChain(item, fn) {
     while(item) {
+      const next = item.next;
       fn(item);
-      item = item.next;
+      item = next;
     }
   }
 
@@ -10319,6 +10320,11 @@
         map.removeActor(defender);
         if (defender.kind.corpse) {
           await spawn(defender.kind.corpse, ctx2);
+        }
+        if (defender.pack && !defender.isPlayer()) {
+          eachChain(defender.pack, (item) => {
+            map.addItemNear(defender.x, defender.y, item);
+          });
         }
       }
 

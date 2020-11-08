@@ -290,8 +290,9 @@ export function chainIncludes(chain, entry) {
 
 export function eachChain(item, fn) {
   while(item) {
+    const next = item.next;
     fn(item);
-    item = item.next;
+    item = next;
   }
 }
 
