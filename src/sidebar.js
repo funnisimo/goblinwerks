@@ -3,7 +3,7 @@ import { color as COLOR, colors as COLORS } from './color.js';
 import * as Flags from './flags.js';
 import * as Utils from './utils.js';
 import { grid as GRID } from './grid.js';
-import { text as TEXT } from './text.js';
+import * as Text from './text.js';
 import { cell as CELL } from './cell.js';
 import { map as MAP } from './map.js';
 import * as GW from './gw.js';
@@ -20,8 +20,9 @@ const DATA = GW.data;
 
 sidebar.debug = Utils.NOOP;
 
-const blueBar = COLOR.install('blueBar', 	15,		10,		50);
-const redBar = 	COLOR.install('redBar', 	45,		10,		15);
+const blueBar = COLOR.addKind('blueBar', 	15,		10,		50);
+const redBar = 	COLOR.addKind('redBar', 	45,		10,		15);
+const purpleBar = COLOR.addKind('purpleBar', 	50,		0,		50);
 
 
 export function setup(opts={}) {
@@ -64,9 +65,13 @@ function refreshSidebar(map) {
 	// Gather sidebar entries
 	const entries = [];
 	const doneCells = GRID.alloc();
+  let same = true;
 
 	if (DATA.player) {
 		doneCells[DATA.player.x][DATA.player.y] = 1;
+    if (DATA.player.changed()) {
+      same = false;
+    }
 	}
 
 	// Get actors
@@ -89,7 +94,7 @@ function refreshSidebar(map) {
 		else if (cell.isAnyKindOfVisible()) {
 			entries.push({ map, x, y, dist: 0, priority: 2, draw: sidebar.addActor, entity: actor, changed });
 		}
-		else if (cell.isRevealed(true) && actor.kind.alwaysVisible(actor))
+		else if (cell.isRevealed(true) && actor.kind.alwaysVisible(actor) && GW.viewport.hasXY(x, y))
 		{
 			entries.push({ map, x, y, dist: 0, priority: 3, draw: sidebar.addActor, entity: actor, changed, dim: true });
 		}
@@ -122,7 +127,7 @@ function refreshSidebar(map) {
 		else if (cell.isAnyKindOfVisible()) {
 			entries.push({ map, x: x, y: y, dist: 0, priority: 2, draw: sidebar.addItem, entity: item, changed });
 		}
-		else if (cell.isRevealed())
+		else if (cell.isRevealed() && GW.viewport.hasXY(x, y))
 		{
 			entries.push({ map, x: x, y: y, dist: 0, priority: 3, draw: sidebar.addItem, entity: item, changed, dim: true });
 		}
@@ -131,7 +136,7 @@ function refreshSidebar(map) {
 
 	// Get tiles
 	map.forEach( (cell, i, j) => {
-		if (!(cell.isRevealed(true) || cell.isAnyKindOfVisible())) return;
+		if (!(cell.isRevealed(true) || cell.isAnyKindOfVisible()) || !GW.viewport.hasXY(i, j)) return;
 		// if (cell.flags & (Flags.Cell.HAS_PLAYER | Flags.Cell.HAS_MONSTER | Flags.Cell.HAS_ITEM)) return;
 		if (doneCells[i][j]) return;
 		doneCells[i][j] = 1;
@@ -151,7 +156,7 @@ function refreshSidebar(map) {
 
 	// compare to current list
 	const max = Math.floor(SIDE_BOUNDS.height / 2);
-	let same = entries.every( (a, i) => {
+	same = same && entries.every( (a, i) => {
 		if (i > max) return true;
 		const b = SIDEBAR_ENTRIES[i];
 		if (!b) return false;
@@ -354,26 +359,26 @@ function UiDrawSidebar(buf) {
 sidebar.draw = UiDrawSidebar;
 
 
-function sidebarAddText(buf, y, text, fg, bg, dim, highlight) {
+function sidebarAddText(buf, y, text, fg, bg, opts={}) {
 
   if (y >= SIDE_BOUNDS.height - 1) {
 		return SIDE_BOUNDS.height - 1;
 	}
 
-  fg = fg || COLORS.white;
-  bg = bg || COLORS.black;
+  fg = fg ? COLOR.from(fg) : COLORS.white;
+  bg = bg ? COLOR.from(bg) : COLORS.black;
 
-  if (dim) {
+  if (opts.dim) {
     fg = fg.clone();
     bg = bg.clone();
     COLOR.applyAverage(fg, COLORS.black, 50);
     COLOR.applyAverage(bg, COLORS.black, 50);
   }
-  else if (highlight) {
+  else if (opts.highlight) {
     /// ???
   }
 
-  y = buf.wrapText(SIDE_BOUNDS.x, y, SIDE_BOUNDS.width, text, fg, bg);
+  y = buf.wrapText(SIDE_BOUNDS.x, y, SIDE_BOUNDS.width, text, fg, bg, opts);
 
   return y;
 }
@@ -418,7 +423,7 @@ function sidebarAddActor(entry, y, dim, highlight, buf)
 
   const x = SIDE_BOUNDS.x;
 	if (y < SIDE_BOUNDS.height - 1) {
-		buf.plotText(x, y++, "                    ", (dim ? COLORS.dark_gray : COLORS.gray), COLORS.black);
+		buf.plotText(x, y++, "                    ");
 	}
 
 	if (highlight) {
@@ -473,7 +478,7 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
 	//end patch
 
 	const name = monst.getName({ color: monstForeColor });
-	let monstName = TEXT.capitalize(name);
+	let monstName = Text.capitalize(name);
 
   if (monst.isPlayer()) {
       if (monst.status.invisible) {
@@ -485,7 +490,7 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
       }
   }
 
-  buf.plotText(x + 1, y, ': ', fg, bg);
+  buf.plotText(x + 1, y, '%F: ', fg);
 	y = buf.wrapText(x + 3, y, SIDE_BOUNDS.width - 3, monstName, fg, bg);
 
 	return y;
@@ -522,33 +527,13 @@ function addProgressBar(y, buf, barText, current, max, color, dim) {
 		COLOR.applyAverage(color, COLORS.black, 25);
 	}
 
-	if (dim) {
-		COLOR.applyAverage(color, COLORS.black, 50);
+  let textColor = COLORS.white;
+  if (dim) {
+		color.mix(COLORS.black, 50);
+    textColor = COLORS.gray;
 	}
 
-  const darkenedBarColor = color.clone();
-	COLOR.applyAverage(darkenedBarColor, COLORS.black, 75);
-
-  barText = TEXT.center(barText, SIDE_BOUNDS.width);
-
-	current = Utils.clamp(current, 0, max);
-
-	if (max < 10000000) {
-		current *= 100;
-		max *= 100;
-	}
-
-  const currentFillColor = GW.make.color();
-  const textColor = GW.make.color();
-	for (let i=0; i<SIDE_BOUNDS.width; i++) {
-		currentFillColor.copy(i <= (SIDE_BOUNDS.width * current / max) ? color : darkenedBarColor);
-		if (i == Math.floor(SIDE_BOUNDS.width * current / max)) {
-			COLOR.applyAverage(currentFillColor, COLORS.black, 75 - Math.floor(75 * (current % (max / SIDE_BOUNDS.width)) / (max / SIDE_BOUNDS.width)));
-		}
-		textColor.copy(dim ? COLORS.gray : COLORS.white);
-		COLOR.applyAverage(textColor, currentFillColor, (dim ? 50 : 33));
-		buf.plotChar(SIDE_BOUNDS.x + i, y, barText[i], textColor, currentFillColor);
-	}
+  GW.ui.plotProgressBar(buf, SIDE_BOUNDS.x, y, SIDE_BOUNDS.width, barText, textColor, current/max, color);
   return y + 1;
 }
 
@@ -564,7 +549,7 @@ function addHealthBar(entry, y, dim, highlight, buf) {
   const map = entry.map;
   const actor = entry.entity;
 
-  if (actor.max.health > 1 && !(actor.kind.flags & Flags.ActorKind.AK_INVULNERABLE))
+  if (actor.max.health > 0 && (actor.isPlayer() || (actor.current.health != actor.max.health)) && !actor.isInvulnerable())
   {
     let healthBarColor = COLORS.blueBar;
 		if (actor === DATA.player) {
@@ -577,7 +562,7 @@ function addHealthBar(entry, y, dim, highlight, buf) {
 		if (actor.current.health <= 0) {
 				text = "Dead";
 		// } else if (percent != 0) {
-		// 		text = TEXT.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
+		// 		text = Text.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
 		}
 		y = sidebar.addProgressBar(y, buf, text, actor.current.health, actor.max.health, healthBarColor, dim);
 	}
@@ -588,6 +573,30 @@ sidebar.addHealthBar = addHealthBar;
 
 
 function addManaBar(entry, y, dim, highlight, buf) {
+  if (y >= SIDE_BOUNDS.height - 1) {
+    return SIDE_BOUNDS.height - 1;
+  }
+
+  const map = entry.map;
+  const actor = entry.entity;
+
+  if (actor.max.mana > 0 && (actor.isPlayer() || (actor.current.mana != actor.max.mana)))
+  {
+    let barColor = COLORS.purpleBar;
+		if (actor === DATA.player) {
+			barColor = COLORS.redBar.clone();
+			COLOR.applyAverage(barColor, COLORS.purpleBar, Math.min(100, 100 * actor.current.mana / actor.max.mana));
+		}
+
+    let text = 'Mana';
+		// const percent = actor.statChangePercent('health');
+		if (actor.current.mana <= 0) {
+				text = "None";
+		// } else if (percent != 0) {
+		// 		text = Text.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
+		}
+		y = sidebar.addProgressBar(y, buf, text, actor.current.mana, actor.max.mana, barColor, dim);
+	}
 	return y;
 }
 
@@ -653,7 +662,7 @@ function sidebarAddMapCell(entry, y, dim, highlight, buf) {
 
 	buf.plotChar(x + 1, y, ":", fg, bg);
 	let name = cell.getName();
-	name = TEXT.capitalize(name);
+	name = Text.capitalize(name);
   y = buf.wrapText(x + 3, y, SIDE_BOUNDS.width - 3, name, textColor, bg);
 
 	if (highlight) {
@@ -705,7 +714,7 @@ function sidebarAddItemInfo(entry, y, dim, highlight, buf) {
 	} else {
     name = GW.item.describeHallucinatedItem();
 	}
-	name = TEXT.capitalize(name);
+	name = Text.capitalize(name);
 
   y = buf.wrapText(x + 3, y, SIDE_BOUNDS.width - 3, name, fg, COLORS.black);
 

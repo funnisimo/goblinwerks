@@ -4,9 +4,9 @@ const CellFlags = GW.flags.cell;
 
 GW.random.seed(12345);
 
-GW.color.install('fireForeColor', 			70,		20,		0,		0, 15,	10,	0, true);
-GW.color.install('lavaForeColor', 			20,		20,		20,		0, 100,	10,	0, true);
-GW.color.install('lavaBackColor', 			70,		20,		0,		0, 15,	10,	0, true);
+GW.color.addKind('fireForeColor', 			70,		20,		0,		0, 15,	10,	0, true);
+GW.color.addKind('lavaForeColor', 			20,		20,		20,		0, 100,	10,	0, true);
+GW.color.addKind('lavaBackColor', 			70,		20,		0,		0, 15,	10,	0, true);
 
 const PLAYER = GW.make.player({
 		sprite: GW.make.sprite('@', 'white'),
@@ -16,7 +16,7 @@ const PLAYER = GW.make.player({
 
 async function crossedFinish() {
 	const map = makeMap(MAP.id + 1);
-	await GW.ui.messageBox('Level ' + map.id, 'light_blue', 1000);
+	await GW.ui.messageBox(1000, '%FLevel ' + map.id, 'light_blue');
 	GW.message.add('Level: %d', map.id);
 	await GW.game.startMap(map, 'start');
 }
@@ -207,17 +207,17 @@ async function showHelp() {
 	const buf = GW.ui.startDialog();
 
 	let y = 2;
-	buf.plotText(10, y++, 'GoblinWerks Lava Hop Example', 'green');
+	buf.plotText(10, y++, '%FGoblinWerks Lava Hop Example', 'green');
 	y++;
 	y = buf.wrapText(5, y, 40, 'This example is all about crossing the lava field by walking/jumping over the crusted lava.', 'white');
 	y++;
-	buf.plotText(5, y, 'dir   ', 'yellow');
+	buf.plotText(5, y, '%Fdir   ', 'yellow');
 	y = buf.wrapText(11, y, 32, ': Pressing an arrow key moves the player in that direction.', 'white', null, 2);
-	buf.plotText(5, y, 'j     ', 'yellow');
+	buf.plotText(5, y, '%Fj     ', 'yellow');
 	y = buf.wrapText(11, y, 32, ': Jump over one cell in a direction you choose.', 'lighter_gray', null, 2);
-	buf.plotText(5, y, 'space ', 'yellow');
+	buf.plotText(5, y, '%Fspace ', 'yellow');
 	y = buf.wrapText(11, y, 32, ': Wait a short time.', 'white', null, 2);
-	buf.plotText(5, y, '?', 'yellow');
+	buf.plotText(5, y, '%F?', 'yellow');
 	y = buf.wrapText(11, y, 32, ': Show this screen.', 'lighter_gray');
 
 	buf.fillRect(4, 1, 42, y, null, null, 'black' );
@@ -241,7 +241,7 @@ async function start() {
 	});
 
 	MAP = makeMap();
-	GW.message.add('%RWelcome to Lava Hop!\nGet across the Lava field safely to advance.\nPress <?> for help.', 'yellow');
+	GW.message.add('%FWelcome to Lava Hop!\nGet across the Lava field safely to advance.\nPress <?> for help.', 'yellow');
 	GW.game.start({ player: PLAYER, map: MAP });
 }
 

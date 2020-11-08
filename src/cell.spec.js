@@ -30,6 +30,15 @@ describe('CellMemory', () => {
     delete GW.tiles.BLUE_LIQUID;
   });
 
+  test('setTile(0) - can clear tile', () => {
+    const c = GW.make.cell();
+    c.setTile('FLOOR');
+    expect(c.ground).toEqual('FLOOR');
+
+    c.setTile(0);
+    expect(c.ground).toEqual(0);
+  });
+
   test('will copy another memory object', () => {
     const a = new GW.types.CellMemory();
     const b = new GW.types.CellMemory();

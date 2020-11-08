@@ -8,6 +8,7 @@ export var sprites = {};
 export var sprite = {};
 
 const HANGING_LETTERS = ['y', 'p', 'g', 'j', 'q', '[', ']', '(', ')', '{', '}', '|'];
+const FLYING_LETTERS = ["'", '"', '$', 'f', '[', ']', '|'];
 
 export class Sprite {
 	constructor(ch, fg, bg, opacity) {
@@ -48,6 +49,7 @@ export class Sprite {
 		this.opacity = opacity || 100;
 		this.needsUpdate = true;
 		this.wasHanging = false;
+    this.wasFlying = false;
 	}
 
 	copy(other) {
@@ -82,11 +84,13 @@ export class Sprite {
 		this.opacity = other.opacity || this.opacity;
 		this.needsUpdate = other.needsUpdate || this.needsUpdate;
 		this.wasHanging = other.wasHanging || this.wasHanging;
+    this.wasFlying  = other.wasFlying  || this.wasFlying;
 	}
 
 	clone() {
 		const other = new types.Sprite(this.ch, this.fg, this.bg, this.opacity);
 		other.wasHanging = this.wasHanging;
+    other.wasFlying  = this.wasFlying;
 		other.needsUpdate = this.needsUpdate;
 		return other;
 	}
@@ -95,6 +99,9 @@ export class Sprite {
 		if (HANGING_LETTERS.includes(this.ch)) {
 			this.wasHanging = true;
 		}
+    if (FLYING_LETTERS.includes(this.ch)) {
+			this.wasFlying = true;
+		}
 		this.ch = ' ';
 		if (this.fg) this.fg.clear();
 		if (this.bg) this.bg.clear();
@@ -102,8 +109,19 @@ export class Sprite {
 		// this.needsUpdate = false;
 	}
 
-	blackOut() {
+	blackOut(bg) {
 		this.nullify();
+    if (bg) {
+      if (typeof bg === 'string') {
+        bg = COLOR.from(bg);
+      }
+      if (this.bg) {
+        this.bg.copy(bg);
+      }
+      else {
+        this.bg = bg.clone();
+      }
+    }
 		this.opacity = 100;
 		this.needsUpdate = true;
 		this.wasHanging = false;
@@ -111,6 +129,7 @@ export class Sprite {
 
 	plotChar(ch, fg, bg) {
 		this.wasHanging = this.wasHanging || (ch != null && HANGING_LETTERS.includes(ch));
+    this.wasFlying  = this.wasFlying  || (ch != null && FLYING_LETTERS.includes(ch));
 		if (!this.opacity) {
 			this.ch = ' ';
 		}
@@ -131,6 +150,7 @@ export class Sprite {
     }
 
 		this.wasHanging = this.wasHanging || (sprite.ch != null && HANGING_LETTERS.includes(sprite.ch));
+    this.wasFlying  = this.wasFlying  || (sprite.ch != null && FLYING_LETTERS.includes(sprite.ch));
 
     // ch and fore color:
     if (sprite.ch && sprite.ch != ' ') { // Blank cells in the overbuf take the ch from the screen.

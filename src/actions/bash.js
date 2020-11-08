@@ -1,6 +1,6 @@
 
 import * as Flags from '../flags.js';
-import { spawnTileEvent } from '../tileEvent.js';
+import * as TileEvent from '../tileEvent.js';
 import * as GW from '../gw.js';
 import { actions as Actions } from './index.js';
 
@@ -34,7 +34,7 @@ export async function bashItem(actor, item, ctx) {
     map.removeItem(item);
     if (actor.isPlayer()) GW.message.add('%s is destroyed.', item.getName('the'));
     if (item.kind.corpse) {
-      await spawnTileEvent(item.kind.corpse, { map, x: item.x, y: item.y });
+      await TileEvent.spawn(item.kind.corpse, { map, x: item.x, y: item.y });
     }
   }
   if (actor) {

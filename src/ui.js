@@ -3,7 +3,8 @@ import { io as IO } from './io.js';
 import * as Flags from './flags.js';
 import * as Utils from './utils.js';
 import { sprite as SPRITE } from './sprite.js';
-import { color as COLOR } from './color.js';
+import { color as COLOR, colors as COLORS } from './color.js';
+import * as Text from './text.js';
 import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, make, sidebar as SIDEBAR, config as CONFIG } from './gw.js';
 
 ui.debug = Utils.NOOP;
@@ -18,7 +19,7 @@ let UI_OVERLAY = null;
 let IN_DIALOG = false;
 let REDRAW_UI = false;
 
-let time = performance.now();
+let time = 0;
 
 let RUNNING = false;
 
@@ -121,7 +122,7 @@ export function start(opts={}) {
         viewH += opts.messages;	// subtract off message height
       }
 			if (opts.flavor) {
-				viewH -= 1;
+				if (!opts.wideMessages) viewH -= 1;
 				flavorLine = ui.canvas.height + opts.messages - 1;
 			}
 		}
@@ -133,7 +134,7 @@ export function start(opts={}) {
       }
 			if (opts.flavor) {
 				viewY += 1;
-				viewH -= 1;
+				if (!opts.wideMessages) viewH -= 1;
 				flavorLine = opts.messages;
 			}
 		}
@@ -141,6 +142,7 @@ export function start(opts={}) {
 
 	if (opts.flavor) {
 		FLAVOR.setup({ x: viewX, y: flavorLine, w: msgW, h: 1 });
+    SHOW_FLAVOR = true;
 	}
 
 	VIEWPORT.setup({ x: viewX, y: viewY, w: viewW, h: viewH, followPlayer: opts.followPlayer });
@@ -381,7 +383,7 @@ ui.clearCursor = clearCursor;
 // FUNCS
 
 export async function prompt(...args) {
-	const msg = TEXT.format(...args);
+	const msg = Text.format(...args);
 
 	if (SHOW_FLAVOR) {
 		FLAVOR.showPrompt(msg);
@@ -391,10 +393,15 @@ export async function prompt(...args) {
 	}
 }
 
+ui.prompt = prompt;
 
-export async function fadeTo(color, duration) {
 
-  const buffer = ui.startDialog();
+export async function fadeTo(color, duration=1000, src) {
+
+  src = src || UI_BUFFER;
+  color = GW.color.from(color);
+
+  const buffer = ui.canvas.allocBuffer();
 
   let pct = 0;
   let elapsed = 0;
@@ -407,30 +414,35 @@ export async function fadeTo(color, duration) {
 
     pct = Math.floor(100*elapsed/duration);
 
-    ui.clearDialog();
+    buffer.copy(src);
     buffer.forEach( (c, x, y) => {
       COLOR.applyMix(c.fg, color, pct);
       COLOR.applyMix(c.bg, color, pct);
     });
-    ui.draw();
+    ui.canvas.overlay(buffer);
+    ui.canvas.draw();
   }
 
-  ui.finishDialog();
+  ui.canvas.freeBuffer(buffer);
 
 }
 
 ui.fadeTo = fadeTo;
 
 
-export async function messageBox(text, fg, duration) {
+export async function messageBox(duration, text, ...args) {
 
   const buffer = ui.startDialog();
+
+	if (args.length) {
+		text = Text.format(text, ...args);
+	}
 
   const len = text.length;
   const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
   const y = Math.floor(ui.canvas.height / 2) - 1;
   buffer.fillRect(x, y, len + 4, 3, ' ', 'black', 'black');
-	buffer.plotText(x + 2, y + 1, text, fg || 'white');
+	buffer.plotText(x + 2, y + 1, text);
 	ui.draw();
 
 	await IO.pause(duration || 30 * 1000);
@@ -441,7 +453,19 @@ export async function messageBox(text, fg, duration) {
 ui.messageBox = messageBox;
 
 
-export async function confirm(text, fg) {
+export async function confirm(opts, ...args) {
+
+  let text;
+  if (typeof opts === 'string') {
+    args.shift(opts);
+    opts = {};
+  }
+  if (args.length > 1) {
+    text = Text.format(...args);
+  }
+  else {
+    text = args[0];
+  }
 
   const buffer = ui.startDialog();
 
@@ -451,7 +475,7 @@ export async function confirm(text, fg) {
   const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
   const y = Math.floor(ui.canvas.height / 2) - 1;
   buffer.fillRect(x, y, len + 4, 5, ' ', 'black', 'black');
-	buffer.plotText(x + 2, y + 1, text, fg || 'white');
+	buffer.plotText(x + 2, y + 1, text);
 	buffer.plotText(x + 2, y + 3, btnOK, 'white');
 	buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, 'white');
 	ui.draw();
@@ -613,3 +637,34 @@ function draw() {
 }
 
 ui.draw = draw;
+
+// Helpers
+
+// UI
+
+export function plotProgressBar(buf, x, y, width, barText, textColor, pct, barColor) {
+  if (pct > 1) pct /= 100;
+  pct = Utils.clamp(pct, 0, 1);
+
+	barColor = COLOR.make(barColor);
+  textColor = COLOR.make(textColor);
+  const darkenedBarColor = barColor.clone().mix(COLORS.black, 75);
+
+  barText = Text.center(barText, width);
+
+  const currentFillColor = GW.make.color();
+  const currentTextColor = GW.make.color();
+	for (let i=0; i < width; i++) {
+		currentFillColor.copy(i <= (width * pct) ? barColor : darkenedBarColor);
+		if (i == Math.floor(width * pct)) {
+      const perCell = Math.floor(1000 / width);
+      const rem = (1000 * pct) % perCell;
+			currentFillColor.mix(COLORS.black, 75 - Math.floor(75 * rem / perCell));
+		}
+		currentTextColor.copy(textColor);
+		currentTextColor.mix(currentFillColor, 25);
+		buf.plotChar(x + i, y, barText[i], currentTextColor, currentFillColor);
+	}
+}
+
+ui.plotProgressBar = plotProgressBar;

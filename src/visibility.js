@@ -81,16 +81,15 @@ function promoteCellVisibility(cell, i, j, map) {
 
 
 function visibilityInitMap(map) {
-  if (CONFIG.fov) {
-    map.clearFlags(0, Flags.Cell.IS_WAS_ANY_KIND_OF_VISIBLE);
-  }
+  if (!CONFIG.fov) return;
+
+  map.clearFlags(0, Flags.Cell.IS_WAS_ANY_KIND_OF_VISIBLE);
 }
 
 visibility.initMap = visibilityInitMap;
 
 
 function updateVisibility(map, x, y) {
-
   if (!CONFIG.fov) return;
 
   map.forEach( demoteCellVisibility );
@@ -138,3 +137,9 @@ function updateVisibility(map, x, y) {
 }
 
 visibility.update = updateVisibility;
+
+function revealMap(map) {
+  map.forEach( (cell) => cell.flags |= Flags.Cell.REVEALED );
+}
+
+visibility.revealMap = revealMap;

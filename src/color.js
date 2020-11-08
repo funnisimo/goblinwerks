@@ -83,6 +83,21 @@ export class Color extends Array {
     return this;
   }
 
+  mix(newColor, opacity=100) {
+    if (opacity <= 0) return this;
+    if (opacity >= 100) {
+      this.copy(newColor);
+      return this;
+    }
+
+    const weightComplement = 100 - opacity;
+    for(let i = 0; i < this.length; ++i) {
+      this[i] = Math.floor((this[i] * weightComplement + newColor[i] * opacity) / 100);
+    }
+    this.dances = (this.dances || newColor.dances);
+    return this;
+  }
+
   applyMultiplier(multiplierColor) {
     this.red = Math.round(this.red * multiplierColor[0] / 100);
     this.green = Math.round(this.green * multiplierColor[1] / 100);
@@ -159,6 +174,7 @@ export function make(...args) {
   return null;
 }
 
+color.make = make;
 MAKE.color = make;
 
 
@@ -174,11 +190,14 @@ export function addKind(name, ...args) {
 	return color;
 }
 
-color.install = addKind;
+color.addKind = addKind;
 
 export function from(arg) {
   if (typeof arg === 'string') {
     return colors[arg] || MAKE.color(arg);
+  }
+  if (arg instanceof types.Color) {
+    return arg;
   }
   return MAKE.color(arg);
 }
@@ -187,13 +206,10 @@ color.from = from;
 
 
 export function applyMix(baseColor, newColor, opacity) {
-  if (opacity <= 0) return;
-  const weightComplement = 100 - opacity;
-  for(let i = 0; i < baseColor.length; ++i) {
-    baseColor[i] = Math.floor((baseColor[i] * weightComplement + newColor[i] * opacity) / 100);
-  }
-  baseColor.dances = (baseColor.dances || newColor.dances);
-  return baseColor;
+  baseColor = color.from(baseColor);
+  newColor = color.from(newColor);
+
+  return baseColor.mix(newColor, opacity);
 }
 
 color.applyMix = applyMix;
