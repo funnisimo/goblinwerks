@@ -9,12 +9,14 @@ async function fire(e) {
   const actor = e.actor || DATA.player;
   const map = DATA.map;
 
-  if (!actor.ranged) {
-    MSG.add('%s have nothing to %Rfire%R.', actor.getName(), 'orange', null);
+  const item = actor.slots.ranged;
+
+  if (!item) {
+    MSG.add('%s have nothing to %Ffire%F.', actor.getName(), 'orange', null);
     return false;
   }
 
-  const range = actor.ranged.stats.range || 0;
+  const range = item.stats.range || 0;
 
   const candidates = [];
   let choice;
@@ -43,7 +45,7 @@ async function fire(e) {
     return false; // cancelled
   }
 
-  if (!await Actions.itemAttack(actor, choice, { map, actor, x: choice.x, y: choice.y, item: actor.ranged, type: 'ranged' })) {
+  if (!await Actions.itemAttack(actor, choice, { map, actor, x: choice.x, y: choice.y, item, type: 'ranged' })) {
     return false;
   }
   return true;

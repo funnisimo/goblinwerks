@@ -18,10 +18,15 @@ Look at the examples folder to find:
     - Waves of lava
     - jumping over lava (custom command)
   * [Escape](examples/escape) - A GW version of [Escape from ECMA Labs](https://github.com/unstoppablecarl/escape-from-ecma-labs/)
-    - A different way of building the map (bsp)
+    - A different way of building the map -- via prefab
     - Items that you can push, pull, slide, bash.
-    - Bashing, opening, closing doors.
-
+    - Bashing, opening, closing doors, shooting targets, custom bump and ai functions.
+  * [Beauty](examples/beauty) - A GW version of [Sleeping Beauty](https://github.com/ondras/sleeping-beauty)
+    - Title screen
+    - Custom combat screen
+    - Random drops from monsters
+    - Random treasure generation
+    - Fancy dungeon generation - with round shaped levels
 
 ## FAQ
 

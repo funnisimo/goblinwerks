@@ -84,6 +84,17 @@ describe('GW.utils', () => {
     expect(UTILS.dirIndex([-1,1])).toEqual(7);
   });
 
+  test('stepFromTo', () => {
+    const fn = jest.fn();
+    UTILS.stepFromTo([0,0], [2,4], fn);
+    expect(fn).toHaveBeenCalledWith(0,0);
+    expect(fn).toHaveBeenCalledWith(0,1);
+    expect(fn).toHaveBeenCalledWith(1,2);
+    expect(fn).toHaveBeenCalledWith(1,3);
+    expect(fn).toHaveBeenCalledWith(2,4);
+    expect(fn).toHaveBeenCalledTimes(5);
+  });
+
   test('assignOmitting', () => {
     const dest = {};
     UTILS.assignOmitting(['a', 'b', 'c'], dest, { a: 1, b: 2, c: 3, d: 4, e: 5 });
@@ -91,5 +102,38 @@ describe('GW.utils', () => {
 
     UTILS.assignOmitting('c, d, e', dest, { a: 10, b: 20, c: 30, d: 40, e: 50 });
     expect(dest).toEqual({ a: 10, b: 20, d: 4, e: 5 });
+  });
+
+  test('addToChain + removeFromChain', () => {
+    const obj = {
+      chain: null,
+    };
+
+    const a = {};
+    const b = {};
+    const c = {};
+    const d = {};
+    const e = {};
+    const f = {};
+
+    UTILS.addToChain(obj, 'chain', a);
+    UTILS.addToChain(obj, 'chain', b);
+    UTILS.addToChain(obj, 'chain', c);
+    UTILS.addToChain(obj, 'chain', d);
+    UTILS.addToChain(obj, 'chain', e);
+    UTILS.addToChain(obj, 'chain', f);
+    expect(obj.chain).toBe(f);
+    expect(f.next).toBe(e);
+    expect(e.next).toBe(d);
+    expect(d.next).toBe(c);
+    expect(c.next).toBe(b);
+    expect(b.next).toBe(a);
+    expect(a.next).toBeNull();
+    expect(UTILS.chainLength(obj.chain)).toEqual(6);
+
+    UTILS.removeFromChain(obj, 'chain', c);
+    expect(c.next).toBeNull();
+    expect(d.next).toBe(b);
+    expect(UTILS.chainLength(obj.chain)).toEqual(5);
   });
 });

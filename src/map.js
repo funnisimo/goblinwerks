@@ -31,7 +31,11 @@ export class Map {
 			this.ambientLight = make.color(ambient);
 		}
     this.lights = null;
+    this.id = opts.id;
+    this.events = opts.events || {};
 	}
+
+  async start() {}
 
 	nullify() { this.cells.forEach( (c) => c.nullify() ); }
 	dump(fmt) { this.cells.dump(fmt || ((c) => c.dump()) ); }
@@ -261,7 +265,7 @@ export class Map {
 					if ((Math.ceil(Utils.distanceBetween(x, y, i, j)) == k)
 							&& (!blockingMap || !blockingMap[i][j])
 							&& matcher(cell, i, j, this)
-							&& (!forbidLiquid || cell.liquid == def.NOTHING)
+							&& (!forbidLiquid || !cell.liquid)
 							&& (hallwaysAllowed || this.passableArcCount(i, j) < 2))
 	        {
 						candidateLocs.push([i, j]);
@@ -290,30 +294,47 @@ export class Map {
 	// no creatures, items or stairs and with either a matching liquid and dungeon type
 	// or at least one layer of type terrainType.
 	// A dungeon, liquid type of -1 will match anything.
-	randomMatchingXY(matcher, opts={}) {
+	randomMatchingXY(opts={}) {
 		let failsafeCount = 0;
 		let x;
 		let y;
 		let cell;
 
-		// dungeonType -1 => ignore, otherwise match with 0 = NOTHING, 'string' = MATCH
-		// liquidType  -1 => ignore, otherwise match with 0 = NOTHING, 'string' = MATCH
+    if (typeof opts === 'function') {
+      opts = { match: opts };
+    }
+
+    const hallwaysAllowed = opts.hallwaysAllowed || opts.hallways || false;
+		const blockingMap = opts.blockingMap || null;
+		const forbidLiquid = opts.forbidLiquid || opts.forbidLiquids || false;
+    const matcher = opts.match || Utils.TRUE;
+    const forbidCellFlags = opts.forbidCellFlags || 0;
+    const forbidTileFlags = opts.forbidTileFlags || 0;
+    const forbidTileMechFlags = opts.forbidTileMechFlags || 0;
+    let tries = opts.tries || 500;
 
 		let retry = true;
 		while(retry) {
-			failsafeCount++;
-			if (failsafeCount >= 500) break;
+			tries--;
+			if (!tries) break;
 
 			x = random.range(0, this.width - 1);
 			y = random.range(0, this.height - 1);
 			cell = this.cell(x, y);
 
-			if (matcher(cell, x, y, this)) {
+			if ((!blockingMap || !blockingMap[x][y])
+      		&& (!forbidLiquid || !cell.liquid)
+          && (!forbidCellFlags || !(cell.flags & forbidCellFlags))
+          && (!forbidTileFlags || !(cell.hasTileFlag(forbidTileFlags)))
+          && (!forbidTileMechFlags || !(cell.hasTileMechFlag(forbidTileMechFlags)))
+      		&& (hallwaysAllowed || this.passableArcCount(x, y) < 2)
+          && matcher(cell, x, y, this))
+      {
 				retry = false;
 			}
 		};
 
-		if (failsafeCount >= 500) {
+		if (!tries) {
 			// map.debug('randomMatchingLocation', dungeonType, liquidType, terrainType, ' => FAIL');
 			return false;
 		}
@@ -402,7 +423,7 @@ export class Map {
 		this.actors = theActor;
 
 		const layer = (theActor === DATA.player) ? TileLayer.PLAYER : TileLayer.ACTOR;
-		cell.addSprite(layer, theActor.kind.sprite);
+		cell.addSprite(layer, theActor.sprite || theActor.kind.sprite);
 
 		const flag = (theActor === DATA.player) ? Flags.Cell.HAS_PLAYER : Flags.Cell.HAS_MONSTER;
 		cell.flags |= flag;
@@ -458,6 +479,7 @@ export class Map {
 			cell.actor = null;
       Utils.removeFromChain(this, 'actors', actor);
 			cell.flags &= ~Flags.Cell.HAS_ACTOR;
+      cell.removeSprite(actor.sprite);
 			cell.removeSprite(actor.kind.sprite);
 
       if (actor.light || actor.kind.light) {
@@ -515,7 +537,7 @@ export class Map {
 		theItem.next = this.items;
 		this.items = theItem;
 
-		cell.addSprite(TileLayer.ITEM, theItem.kind.sprite);
+		cell.addSprite(TileLayer.ITEM, theItem.sprite || theItem.kind.sprite);
 		cell.flags |= (Flags.Cell.HAS_ITEM);
 
     if (theItem.light || theItem.kind.light) {
@@ -550,9 +572,11 @@ export class Map {
 	removeItem(theItem, skipRefresh) {
 		const x = theItem.x;
 		const y = theItem.y;
+    if (!this.hasXY(x, y)) return false;
 		const cell = this.cell(x, y);
 		if (cell.item !== theItem) return false;
 
+    cell.removeSprite(theItem.sprite);
 		cell.removeSprite(theItem.kind.sprite);
 
 		cell.item = null;

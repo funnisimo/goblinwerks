@@ -1,6 +1,6 @@
 
 import { colors as COLORS, color as COLOR } from './color.js';
-import { text as TEXT } from './text.js';
+import * as Text from './text.js';
 import * as Utils from './utils.js';
 import { types, make } from './gw.js';
 
@@ -30,13 +30,13 @@ class Buffer extends types.Grid {
     this.needsUpdate = true;
   }
 
-  blackOut() {
-    this.forEach( (c) => c.blackOut() );
+  blackOut(bg) {
+    this.forEach( (c) => c.blackOut(bg) );
     this.needsUpdate = true;
   }
 
-  blackOutRect(x, y, w, h) {
-    this.forRect(x, y, w, h, (c) => c.blackOut() );
+  blackOutRect(x, y, w, h, bg) {
+    this.forRect(x, y, w, h, (c) => c.blackOut(bg) );
     this.needsUpdate = true;
   }
 
@@ -74,20 +74,20 @@ class Buffer extends types.Grid {
     this.needsUpdate = true;
   }
 
-  plotText(x, y, text, fg, bg) {
-    if (typeof fg === 'string') { fg = COLORS[fg]; }
-    if (typeof bg === 'string') { bg = COLORS[bg]; }
-    let len = text.length;
-    TEXT.eachChar(text, (ch, color, i) => {
-      this.plotChar(i + x, y, ch, color || fg, bg);
+  plotText(x, y, text, ...args) {
+    if (args.length) {
+      text = Text.format(text, ...args);
+    }
+    Text.eachChar(text, (ch, color, i) => {
+      this.plotChar(i + x, y, ch, color || GW.colors.white, null);
     });
   }
 
   plotLine(x, y, w, text, fg, bg) {
     if (typeof fg === 'string') { fg = COLORS[fg]; }
     if (typeof bg === 'string') { bg = COLORS[bg]; }
-    let len = TEXT.length(text);
-    TEXT.eachChar(text, (ch, color, i) => {
+    let len = Text.length(text);
+    Text.eachChar(text, (ch, color, i) => {
       this.plotChar(i + x, y, ch, color || fg, bg);
     });
     for(let i = len; i < w; ++i) {
@@ -100,38 +100,19 @@ class Buffer extends types.Grid {
     if (typeof fg === 'string') { fg = COLORS[fg]; }
     if (typeof bg === 'string') { bg = COLORS[bg]; }
     width = Math.min(width, this.width - x);
-    if (TEXT.length(text) <= width) {
+    if (Text.length(text) <= width) {
       this.plotLine(x, y, width, text, fg, bg);
       return y + 1;
     }
-    let first = true;
-    let indent = opts.indent || 0;
-    let start = 0;
-    let last = 0;
-    for(let index = 0; index < text.length; ++index) {
-      const ch = text[index];
-      if (ch === '\n') {
-        last = index;
-      }
-      if ((index - start >= width) || (ch === '\n')) {
-        const sub = text.substring(start, last);
-        this.plotLine(x, y++, width, sub, fg, bg);
-        if (first) {
-          x += indent;
-          first = false;
-        }
-        start = last;
-      }
-      if (ch === ' ') {
-        last = index + 1;
-      }
-    }
+    opts.indent = opts.indent || 0;
 
-    if (start < text.length - 1) {
-      const sub = text.substring(start);
-      this.plotLine(x, y++, width, sub, fg, bg);
-    }
-    return y;
+    const lines = Text.splitIntoLines(text, width, opts.indent);
+    lines.forEach( (line, i) => {
+      const offset = i ? opts.indent : 0;
+      this.plotLine(x + offset, y + i, width - offset, line, fg || COLORS.white, bg);
+    });
+
+    return y + lines.length;
   }
 
   fill(ch, fg, bg) {

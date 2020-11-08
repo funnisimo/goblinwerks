@@ -1,0 +1,21 @@
+
+@font-face {
+  font-family: "metrickal";
+  src: url("Metrickal-Regular.otf");
+}
+
+html, body {
+  background-color: black;
+  color: #aaaaaa;
+  font-family: "metrickal", monospace;
+  font-size: 14px;
+}
+
+#game {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  font-family: "metrickal";
+}

@@ -196,6 +196,8 @@ export function makeKeyEvent(e) {
   ev.code = code;
   ev.x = -1;
   ev.y = -1;
+  ev.clientX = -1;
+  ev.clientY = -1;
 	ev.dir = io.keyCodeDirection(e.code);
 	ev.dt = 0;
 
@@ -252,6 +254,8 @@ export function makeMouseEvent(e, x, y) {
   ev.code = null;
   ev.x = x;
   ev.y = y;
+  ev.clientX = e.clientX;
+  ev.clientY = e.clientY;
 	ev.dir = null;
 	ev.dt = 0;
 
@@ -360,7 +364,7 @@ io.tickMs = tickMs;
 // TODO - io.tickMs(ms)
 
 export async function nextKeyPress(ms, match) {
-	ms = ms || 0;
+  if (ms === undefined) ms = -1;
 	match = match || Utils.TRUE;
 	function matchingKey(e) {
   	if (e.type !== KEYPRESS) return false;
@@ -372,7 +376,7 @@ export async function nextKeyPress(ms, match) {
 io.nextKeyPress = nextKeyPress;
 
 export async function nextKeyOrClick(ms, matchFn) {
-	ms = ms || 0;
+	if (ms === undefined) ms = -1;
 	matchFn = matchFn || Utils.TRUE;
 	function match(e) {
   	if (e.type !== KEYPRESS && e.type !== CLICK) return false;

@@ -2,7 +2,7 @@
 import * as Flags from './flags.js';
 import * as Utils from './utils.js';
 import { random } from './random.js';
-import { def, data as DATA, ai } from './gw.js';
+import * as GW from './gw.js';
 import { actions as Actions } from './actions/index.js';
 
 
@@ -13,12 +13,12 @@ async function idle(actor, ctx) {
   return true;
 }
 
-ai.idle = { act: idle };
+GW.ai.idle = { act: idle };
 
 
 async function moveRandomly(actor, ctx) {
   const dirIndex = random.number(4);
-  const dir = def.dirs[dirIndex];
+  const dir = GW.def.dirs[dirIndex];
 
   if (!await Actions.moveDir(actor, dir, ctx)) {
     return false;
@@ -27,11 +27,11 @@ async function moveRandomly(actor, ctx) {
   return true;
 }
 
-ai.moveRandomly = { act: moveRandomly };
+GW.ai.moveRandomly = { act: moveRandomly };
 
 
 async function attackPlayer(actor, ctx) {
-  const player = DATA.player;
+  const player = GW.data.player;
 
   const dist = Utils.distanceFromTo(actor, player);
   if (dist >= 2) return false;
@@ -43,13 +43,31 @@ async function attackPlayer(actor, ctx) {
   return true;
 }
 
-ai.attackPlayer = { act: attackPlayer };
+GW.ai.attackPlayer = { act: attackPlayer };
+
+async function talkToPlayer(actor, ctx) {
+  const player = GW.data.player;
+
+  if (!actor.kind.talk) return false;
+
+  const dist = Utils.distanceFromTo(actor, player);
+  if (dist >= 2) return false;
+
+  if (!await Actions.talk(actor, player, ctx)) {
+    return false;
+  }
+  // actor.endTurn();
+  return true;
+}
+
+GW.ai.talkToPlayer = { act: talkToPlayer };
+
 
 
 async function moveTowardPlayer(actor, ctx={}) {
 
-  const player = DATA.player;
-  const map = ctx.map || DATA.map;
+  const player = GW.data.player;
+  const map = ctx.map || GW.data.map;
   const cell = map.cell(actor.x, actor.y);
 
   const dist = Utils.distanceFromTo(actor, player);
@@ -77,4 +95,4 @@ async function moveTowardPlayer(actor, ctx={}) {
   return false;
 }
 
-ai.moveTowardPlayer = { act: moveTowardPlayer };
+GW.ai.moveTowardPlayer = { act: moveTowardPlayer };

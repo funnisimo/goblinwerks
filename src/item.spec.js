@@ -22,7 +22,7 @@ describe('GW.item', () => {
   })
 
   afterAll( () => {
-    delete GW.items.BOX;
+    delete GW.itemKinds.BOX;
   });
 
   describe('ItemKind', () => {
@@ -49,6 +49,15 @@ describe('GW.item', () => {
       expect(BOX.flags & GW.flags.itemKind.IK_BLOCKS_VISION).toBeFalsy();
     });
 
+    describe('willStack', () => {
+
+      test.todo('Items of different kinds do not stack');
+      test.todo('same kind, not stackable');
+      test.todo('same kind, stackable');
+      test.todo('custom willStack');
+
+    });
+
   });
 
   describe('Item', () => {
@@ -72,6 +81,16 @@ describe('GW.item', () => {
       MAP.removeItem(ITEM);
       expect(MAP.itemAt(3, 4)).toBe(null);
       expect(MAP.items).toBeNull();
+    });
+
+    test('create with kind init function', () => {
+      GW.item.addKind('TEST', {
+        name: 'test',
+        make: jest.fn(),
+      });
+
+      const item = GW.make.item('TEST', { opts: true });
+      expect(GW.itemKinds.TEST.make).toHaveBeenCalledWith(item, { opts: true });
     });
   });
 

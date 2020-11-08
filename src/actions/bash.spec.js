@@ -1,7 +1,7 @@
 
 import * as GW from '../index.js';
 
-describe('itemActions', () => {
+describe('Actions', () => {
 
   describe('bashItem', () => {
 

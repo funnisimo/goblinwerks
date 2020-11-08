@@ -10,6 +10,7 @@ import './close.js';
 import './fire.js';
 import './attack.js';
 import './push.js';
+import './talk.js';
 
 commands.debug = Utils.NOOP;
 

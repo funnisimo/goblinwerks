@@ -1,12 +1,12 @@
 
 import { colors as COLORS, color as COLOR } from './color.js';
-import { text as TEXT } from './text.js';
+import * as Text from './text.js';
 import * as Flags from './flags.js';
 import { types, flavor, data as DATA, def, ui as UI, tiles as TILES, itemKinds as ITEM_KINDS, message as MSG } from './gw.js';
 
 
-const flavorTextColor = COLOR.install('flavorText', 50, 40, 90);
-const flavorPromptColor = COLOR.install('flavorPrompt', 100, 90, 20);
+const flavorTextColor = COLOR.addKind('flavorText', 50, 40, 90);
+const flavorPromptColor = COLOR.addKind('flavorPrompt', 100, 90, 20);
 
 let FLAVOR_TEXT = '';
 let NEED_FLAVOR_UPDATE = false;
@@ -20,7 +20,7 @@ function setupFlavor(opts={}) {
 flavor.setup = setupFlavor;
 
 function setFlavorText(text) {
-  FLAVOR_TEXT = TEXT.capitalize(text);
+  FLAVOR_TEXT = Text.capitalize(text);
   NEED_FLAVOR_UPDATE = true;
   IS_PROMPT = false;
   UI.requestUpdate();
@@ -30,7 +30,7 @@ flavor.setText = setFlavorText;
 
 
 function showPrompt(text) {
-  FLAVOR_TEXT = TEXT.capitalize(text);
+  FLAVOR_TEXT = Text.capitalize(text);
   NEED_FLAVOR_UPDATE = true;
   IS_PROMPT = true;
   UI.requestUpdate();
@@ -42,7 +42,7 @@ flavor.showPrompt = showPrompt;
 function drawFlavor(buffer) {
   if (!NEED_FLAVOR_UPDATE || !FLAVOR_BOUNDS) return;
   const color = IS_PROMPT ? flavorPromptColor : flavorTextColor;
-  if (TEXT.length(FLAVOR_TEXT) > FLAVOR_BOUNDS.width) {
+  if (Text.length(FLAVOR_TEXT) > FLAVOR_BOUNDS.width) {
     buffer.wrapText(FLAVOR_BOUNDS.x, FLAVOR_BOUNDS.y, FLAVOR_BOUNDS.width, FLAVOR_TEXT, color, COLORS.black);
     MSG.needsRedraw();
   }
@@ -102,7 +102,7 @@ function getFlavorText(map, x, y) {
 
 	if (player && x == player.x && y == player.y) {
 		if (player.status.levitating) {
-			buf = TEXT.format("you are hovering above %s.", cell.tileFlavor());
+			buf = Text.format("you are hovering above %s.", cell.tileFlavor());
 		}
     else {
 			// if (theItem) {
@@ -157,13 +157,13 @@ function getFlavorText(map, x, y) {
         // }
       } else if (cell.memory.actorKind) {
         const kind = cell.memory.actorKind;
-        object = kind.getName({ color: false, article: true });
+        object = kind.getName({}, { color: false, article: true });
 			} else {
 				object = TILES[cell.memory.tile].getFlavor();
 			}
-			buf = TEXT.format("you remember seeing %s here.", object);
+			buf = Text.format("you remember seeing %s here.", object);
 		} else if (cell.flags & Flags.Cell.MAGIC_MAPPED) { // magic mapped
-			buf = TEXT.format("you expect %s to be here.", TILES[cell.memory.tile].getFlavor());
+			buf = Text.format("you expect %s to be here.", TILES[cell.memory.tile].getFlavor());
 		}
 		return buf;
 	}
@@ -207,7 +207,7 @@ function getFlavorText(map, x, y) {
   }
   let ground = cell.groundTile.getFlavor();
 
-  buf = TEXT.format("you %s %s%s%s%s.", (map.isVisible(x, y) ? "see" : "sense"), object, surface, liquid, ground);
+  buf = Text.format("you %s %s%s%s%s.", (map.isVisible(x, y) ? "see" : "sense"), object, surface, liquid, ground);
 
   return buf;
 }

@@ -39,6 +39,17 @@ export function equalsXY(dest, src) {
   && (dest.y == y(src));
 }
 
+export function lerpXY(a, b, pct) {
+	if (pct > 1) { pct = pct / 100; }
+  pct = clamp(pct, 0, 1);
+  const dx = x(b) - x(a);
+  const dy = y(b) - y(a);
+  const x2 = x(a) + Math.floor(dx * pct);
+  const y2 = y(a) + Math.floor(dy * pct);
+  return [x2, y2];
+}
+
+
 export function distanceBetween(x1, y1, x2, y2) {
   const x = Math.abs(x1 - x2);
   const y = Math.abs(y1 - y2);
@@ -101,6 +112,23 @@ export function dirSpread(dir) {
     result.push( [0, dir[1]] );
   }
   return result;
+}
+
+export function stepFromTo(a, b, fn) {
+  const diff = [x(b) - x(a), y(b) - y(a)];
+  const steps = Math.abs(diff[0]) + Math.abs(diff[1]);
+  const c = [0, 0];
+  const last = [99999, 99999];
+
+  for(let step = 0; step <= steps; ++step) {
+    c[0] = a[0] + Math.floor(diff[0] * step / steps);
+    c[1] = a[1] + Math.floor(diff[1] * step / steps);
+    if (c[0] != last[0] || c[1] != last[1]) {
+      fn(c[0], c[1]);
+    }
+    last[0] = c[0];
+    last[1] = c[1];
+  }
 }
 
 
@@ -198,6 +226,10 @@ export function setDefaults(obj, def) {
   });
 }
 
+export function clearObject(obj) {
+  Object.keys(obj).forEach( (key) => obj[key] = undefined );
+}
+
 export function ERROR(message) {
   throw new Error(message);
 }
@@ -238,18 +270,47 @@ export function sequence(listLength) {
   return list;
 }
 
+// CHAIN
+
+export function chainLength(item) {
+  let count = 0;
+  while(item) {
+    count += 1;
+    item = item.next;
+  }
+  return count;
+}
+
+export function chainIncludes(chain, entry) {
+  while (chain && chain !== entry) {
+    chain = chain.next;
+  }
+  return (chain === entry);
+}
 
 export function eachChain(item, fn) {
   while(item) {
+    const next = item.next;
     fn(item);
-    item = item.next;
+    item = next;
   }
+}
+
+export function addToChain(obj, name, entry) {
+  entry.next = obj[name] || null;
+  obj[name] = entry;
+  return true;
 }
 
 export function removeFromChain(obj, name, entry) {
   const root = obj[name];
   if (root === entry) {
-    obj[name] = entry.next;
+    obj[name] = entry.next || null;
+    entry.next = null;
+    return true;
+  }
+  else if (!root) {
+    return false;
   }
   else {
     let prev = root;
@@ -259,7 +320,10 @@ export function removeFromChain(obj, name, entry) {
       current = prev.next;
     }
     if (current === entry) {
-      prev.next = current.next;
+      prev.next = current.next || null;
+      entry.next = null;
+      return true;
     }
   }
+  return false;
 }

@@ -265,19 +265,17 @@ export const CellMech = installFlag('cellMech', {
 // ITEM KIND
 
 export const ItemKind = installFlag('itemKind', {
-	IK_ENCHANT_SPECIALIST 	: Fl(0),
+	IK_ENCHANT_SPECIALIST 	: Fl(0),  // TODO - DELETE (replace with tag?)
 	IK_HIDE_FLAVOR_DETAILS	: Fl(1),
 
-	IK_AUTO_TARGET					: Fl(2),
+	IK_AUTO_TARGET					: Fl(2),  // TODO - DELETE
 
-	IK_HALF_STACK_STOLEN		: Fl(3),
+	IK_HALF_STACK_STOLEN		: Fl(3), // TODO - DELETE
 	IK_ENCHANT_USES_STR 		: Fl(4),
 
-	// IK_ARTICLE_THE					: Fl(5),
-	// IK_NO_ARTICLE						: Fl(6),
-	// IK_PRENAMED	  					: Fl(7),
-
   IK_NO_SIDEBAR           : Fl(5),  // Do not show this item in the sidebar
+  IK_USE_ON_PICKUP        : Fl(6),  // Use item instead of picking up
+  IK_EQUIP_ON_PICKUP		  : Fl(7),
 
 	IK_BREAKS_ON_FALL				: Fl(8),
 	IK_DESTROY_ON_USE				: Fl(9),
@@ -294,20 +292,23 @@ export const ItemKind = installFlag('itemKind', {
 	IK_KIND_AUTO_ID       	: Fl(17),	// the item type will become known when the item is picked up.
 	IK_PLAYER_AVOIDS				: Fl(18),	// explore and travel will try to avoid picking the item up
 
-	IK_TWO_HANDED						: Fl(19),
-	IK_NAME_PLURAL					: Fl(20),
+	IK_NAME_PLURAL					: Fl(20), // Replace with name conventions?  'gold coin~'
 
 	IK_STACKABLE						: Fl(21),
-	IK_STACK_SMALL					: Fl(22),
-	IK_STACK_LARGE					: Fl(23),
-	IK_SLOW_RECHARGE				: Fl(24),
+	// IK_STACK_SMALL					: Fl(22),
+	// IK_STACK_LARGE					: Fl(23),
+	// IK_SLOW_RECHARGE				: Fl(24),
 
 	IK_CAN_BE_SWAPPED      	: Fl(25),
-	IK_CAN_BE_RUNIC					: Fl(26),
+	// IK_CAN_BE_RUNIC					: Fl(26),
 	IK_CAN_BE_DETECTED		  : Fl(27),
 
-	IK_TREASURE							: Fl(28),
+	IK_TREASURE							: Fl(28),  // DELETE - tag
 	IK_INTERRUPT_EXPLORATION_WHEN_SEEN:	Fl(29),
+
+  IK_AUTO_CONSUME         : 'IK_USE_ON_PICKUP, IK_DESTROY_ON_USE',
+
+  IK_DEFAULT              : 0,
 });
 
 ///////////////////////////////////////////////////////
@@ -359,7 +360,7 @@ export const Item = installFlag('item', {
 	ITEM_MAX_CHARGES_KNOWN	: Fl(12),
 	ITEM_IS_KEY							: Fl(13),
 
-
+  ITEM_CHANGED            : Fl(29),
 	ITEM_DESTROYED					: Fl(30),
 });
 
@@ -371,6 +372,7 @@ export const Map = installFlag('map', {
 	MAP_STABLE_GLOW_LIGHTS:  Fl(1),
 	MAP_STABLE_LIGHTS: Fl(2),
 	MAP_ALWAYS_LIT:	Fl(3),
+  MAP_SAW_WELCOME: Fl(4),
 
   MAP_DEFAULT: 'MAP_STABLE_LIGHTS, MAP_STABLE_GLOW_LIGHTS',
 });

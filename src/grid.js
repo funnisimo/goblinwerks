@@ -45,7 +45,7 @@ export class Grid extends Array {
 		let i, j;
 		for(i = 0; i < this.width; i++) {
 			for(j = 0; j < this.height; j++) {
-				fn(this[i][j], i, j);
+				fn(this[i][j], i, j, this);
 			}
 		}
 	}
@@ -57,7 +57,7 @@ export class Grid extends Array {
 			const i = x + dir[0];
 			const j = y + dir[1];
 			if (this.hasXY(i, j)) {
-				fn(this[i][j], i, j);
+				fn(this[i][j], i, j, this);
 			}
 		}
 	}
@@ -68,14 +68,14 @@ export class Grid extends Array {
 
 		for(let i = x; i < x + w; ++i) {
 			for(let j = y; j < y + h; ++j) {
-				fn(this[i][j], i, j);
+				fn(this[i][j], i, j, this);
 			}
 		}
 	}
 
 	map(fn) {
 		return super.map( (col, x) => {
-			return col.map( (v, y) => fn(v, x, y) );
+			return col.map( (v, y) => fn(v, x, y, this) );
 		});
 	}
 
@@ -85,7 +85,7 @@ export class Grid extends Array {
 		for (i=Math.max(0, x - radius - 1); i < Math.min(this.width, x + radius + 1); i++) {
 				for (j=Math.max(0, y - radius - 1); j < Math.min(this.height, y + radius + 1); j++) {
 						if (this.hasXY(i, j) && (((i-x)*(i-x) + (j-y)*(j-y)) < radius * radius + radius)) {	// + radius softens the circle
-								fn(this[i][j], i, j);
+								fn(this[i][j], i, j, this);
 						}
 				}
 		}
@@ -115,7 +115,7 @@ export class Grid extends Array {
 		let i, j;
 		for(i = 0; i < this.width; i++) {
 			for(j = 0; j < this.height; j++) {
-				this[i][j] = fn(this[i][j], i, j);
+				this[i][j] = fn(this[i][j], i, j, this);
 			}
 		}
 	}
@@ -125,7 +125,7 @@ export class Grid extends Array {
 	    for (i=x; i < x+width; i++) {
 	        for (j=y; j<y+height; j++) {
 						if (this.hasXY(i, j)) {
-							this[i][j] = fn(this[i][j], i, j);
+							this[i][j] = fn(this[i][j], i, j, this);
 						}
 	        }
 	    }
@@ -137,7 +137,7 @@ export class Grid extends Array {
 	    for (i=Math.max(0, x - radius - 1); i < Math.min(this.width, x + radius + 1); i++) {
 	        for (j=Math.max(0, y - radius - 1); j < Math.min(this.height, y + radius + 1); j++) {
 	            if (this.hasXY(i, j) && (((i-x)*(i-x) + (j-y)*(j-y)) < radius * radius + radius)) {	// + radius softens the circle
-	                this[i][j] = fn(this[i][j], i, j);
+	                this[i][j] = fn(this[i][j], i, j, this);
 	            }
 	        }
 	    }
@@ -172,7 +172,7 @@ export class Grid extends Array {
 	count(match) {
 		const fn = (typeof match === 'function') ? match : ((v) => v == match);
 	  let count = 0;
-		this.forEach((v, i, j) => { if (fn(v,i,j)) ++count; });
+		this.forEach((v, i, j) => { if (fn(v,i,j, this)) ++count; });
 	  return count;
 	}
 
@@ -185,7 +185,7 @@ export class Grid extends Array {
 	  let bestDistance = this.width + this.height;
 
 		this.forEach( (v, i, j) => {
-			if (fn(v, i, j)) {
+			if (fn(v, i, j, this)) {
 				const dist = Utils.distanceBetween(x, y, i, j);
 				if (dist < bestDistance) {
 					bestLoc[0] = i;
@@ -211,7 +211,7 @@ export class Grid extends Array {
 	  locationCount = 0;
 		for(let i = 0; i < this.width; ++i) {
 			for(let j = 0; j < this.height; ++j) {
-				if (fn(this[i][j], i, j)) {
+				if (fn(this[i][j], i, j, this)) {
 					return [i, j];
 				}
 			}
@@ -228,7 +228,7 @@ export class Grid extends Array {
 
 	  locationCount = 0;
 		this.forEach( (v, i, j) => {
-			if (fn(v, i, j)) {
+			if (fn(v, i, j, this)) {
 				locationCount++;
 			}
 		});
@@ -244,7 +244,7 @@ export class Grid extends Array {
 
 		for(i = 0; i < this.width && index >= 0; i++) {
 			for(j = 0; j < this.height && index >= 0; j++) {
-        if (fn(this[i][j], i, j)) {
+        if (fn(this[i][j], i, j, this)) {
           if (index == 0) {
 						return [i,j];
           }
@@ -269,7 +269,7 @@ export class Grid extends Array {
 				for (j = y-k; j <= y+k; j++) {
 					if (this.hasXY(i, j)
 						&& (i == x-k || i == x+k || j == y-k || j == y+k)
-						&& fn(this[i][j], i, j))
+						&& fn(this[i][j], i, j, this))
 	        {
 						candidateLocs++;
 					}
@@ -293,7 +293,7 @@ export class Grid extends Array {
 				for (j = y-k; j <= y+k; j++) {
 					if (this.hasXY(i, j)
 						&& (i == x-k || i == x+k || j == y-k || j == y+k)
-						&& fn(this[i][j], i, j))
+						&& fn(this[i][j], i, j, this))
 	        {
 						if (--randIndex == 0) {
 							loc[0] = i;
@@ -331,8 +331,8 @@ export class Grid extends Array {
 			newX = x + CDIRS[dir][0];
 			newY = y + CDIRS[dir][1];
 			// Counts every transition from passable to impassable or vice-versa on the way around the cell:
-			if ((this.hasXY(newX, newY) && testFn(this[newX][newY], newX, newY))
-				!= (this.hasXY(oldX, oldY) && testFn(this[oldX][oldY], oldX, oldY)))
+			if ((this.hasXY(newX, newY) && testFn(this[newX][newY], newX, newY, this))
+				!= (this.hasXY(oldX, oldY) && testFn(this[oldX][oldY], oldX, oldY, this)))
 			{
 				arcCount++;
 			}
@@ -627,7 +627,7 @@ export function floodFill(grid, x, y, matchValue, fillValue) {
 	const matchFn = (typeof matchValue == 'function') ? matchValue : ((v) => v == matchValue);
 	const fillFn  = (typeof fillValue  == 'function') ? fillValue  : (() => fillValue);
 
-	grid[x][y] = fillFn(grid[x][y], x, y);
+	grid[x][y] = fillFn(grid[x][y], x, y, grid);
 
 	// Iterate through the four cardinal neighbors.
 	for (dir=0; dir<4; dir++) {
@@ -636,7 +636,7 @@ export function floodFill(grid, x, y, matchValue, fillValue) {
 		if (!grid.hasXY(newX, newY)) {
 			continue;
 		}
-		if (matchFn(grid[newX][newY], newX, newY)) { // If the neighbor is an unmarked region cell,
+		if (matchFn(grid[newX][newY], newX, newY, grid)) { // If the neighbor is an unmarked region cell,
 			numberOfCells += floodFill(grid, newX, newY, matchFn, fillFn); // then recurse.
 		}
 	}
@@ -654,7 +654,7 @@ export function offsetZip(destGrid, srcGrid, srcToDestX, srcToDestY, value) {
 		const destY = j + srcToDestY;
 		if (!destGrid.hasXY(destX, destY)) return;
 		if (!c) return;
-		fn(destGrid[destX][destY], c, destX, destY, i, j);
+		fn(destGrid[destX][destY], c, destX, destY, i, j, destGrid, srcGrid);
 	});
 }
 
@@ -679,7 +679,7 @@ export function directionOfDoorSite(grid, x, y, isOpen=1) {
         oppY = y - DIRS[dir][1];
         if (grid.hasXY(oppX, oppY)
             && grid.hasXY(newX, newY)
-            && fnOpen(grid[oppX][oppY],oppX, oppY))
+            && fnOpen(grid[oppX][oppY],oppX, oppY, grid))
         {
             // This grid cell would be a valid tile on which to place a door that, facing outward, points dir.
             if (solutionDir != def.NO_DIRECTION) {

@@ -165,7 +165,7 @@ function updateDisplayDetail(map) {
 
   map.eachCell( (cell, i, j) => {
     // clear light flags
-    cell.flags &= ~(Flags.Cell.CELL_LIT | Flags.Cell.CELL_DARK | Flags.Cell.LIGHT_CHANGED);
+    cell.flags &= ~(Flags.Cell.CELL_LIT | Flags.Cell.CELL_DARK);
 
     if (cell.light.some( (v, i) => v !== cell.oldLight[i])) {
       cell.flags |= Flags.Cell.LIGHT_CHANGED;
@@ -203,6 +203,7 @@ export function recordOldLights(map) {
   map.eachCell( (cell) => {
     for (k=0; k<3; k++) {
 			cell.oldLight[k] = cell.light[k];
+			cell.flags &= ~(Flags.Cell.LIGHT_CHANGED);
 		}
   });
 }
@@ -243,10 +244,10 @@ export function updateLighting(map) {
 	let tile;			// enum tileType
 	let monst;		// creature *
 
-  if (map.flags & Flags.Map.MAP_STABLE_LIGHTS) return false;
-
 	// Copy Light over oldLight
   recordOldLights(map);
+
+  if (map.flags & Flags.Map.MAP_STABLE_LIGHTS) return false;
 
   // and then zero out Light.
 	zeroOutLights(map);

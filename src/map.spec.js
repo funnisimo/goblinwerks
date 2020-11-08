@@ -8,6 +8,7 @@ describe('Map', () => {
     const map = GW.make.map(10, 10);
     expect(map.width).toEqual(10);
     expect(map.height).toEqual(10);
+    expect(map.id).toBeUndefined();
 
     expect(map.hasXY(3, 3)).toBeTruthy();
     expect(map.hasXY(30, 3)).toBeFalsy();
@@ -15,6 +16,13 @@ describe('Map', () => {
     // You need to validate the XY before getting the cell
     expect(map.cell(3, 3)).toBeDefined();
     expect(() => map.cell(30, 3)).toThrow();
+  });
+
+  test('constructor with id', () => {
+    const map = GW.make.map(10, 10, { id: 1 });
+    expect(map.width).toEqual(10);
+    expect(map.height).toEqual(10);
+    expect(map.id).toEqual(1);
   });
 
   test('setTile', () => {

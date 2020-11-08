@@ -3,6 +3,7 @@ import { grid as GRID } from './grid.js';
 import { random } from './random.js';
 import * as Utils from './utils.js';
 import { path as PATH } from './path.js';
+import * as Flags from './flags.js';
 import { map as MAP } from './map.js';
 import { tile as TILE } from './tile.js';
 import { diggers as DIGGERS, digger as DIGGER } from './digger.js';
@@ -563,26 +564,29 @@ export function removeDiagonalOpenings() {
 dungeon.removeDiagonalOpenings = removeDiagonalOpenings;
 
 
-function finishDoors() {
+function finishDoors(map) {
+  map = map || SITE;
   let i, j;
 
-	for (i=1; i<SITE.width-1; i++) {
-		for (j=1; j<SITE.height-1; j++) {
-			if (SITE.isDoor(i, j))
+	for (i=1; i<map.width-1; i++) {
+		for (j=1; j<map.height-1; j++) {
+			if (map.isDoor(i, j))
 			{
-				if ((SITE.canBePassed(i+1, j) || SITE.canBePassed(i-1, j))
-					&& (SITE.canBePassed(i, j+1) || SITE.canBePassed(i, j-1))) {
+				if ((map.canBePassed(i+1, j) || map.canBePassed(i-1, j))
+					&& (map.canBePassed(i, j+1) || map.canBePassed(i, j-1)))
+        {
 					// If there's passable terrain to the left or right, and there's passable terrain
 					// above or below, then the door is orphaned and must be removed.
-					SITE.setTile(i, j, FLOOR);
+					map.setTile(i, j, FLOOR);
           dungeon.debug('Removed orphan door', i, j);
-				} else if ((SITE.blocksPathing(i+1, j) ? 1 : 0)
-						   + (SITE.blocksPathing(i-1, j) ? 1 : 0)
-						   + (SITE.blocksPathing(i, j+1) ? 1 : 0)
-						   + (SITE.blocksPathing(i, j-1) ? 1 : 0) >= 3) {
+				} else if ((map.blocksPathing(i+1, j) ? 1 : 0)
+						   + (map.blocksPathing(i-1, j) ? 1 : 0)
+						   + (map.blocksPathing(i, j+1) ? 1 : 0)
+						   + (map.blocksPathing(i, j-1) ? 1 : 0) >= 3)
+        {
 					// If the door has three or more pathing blocker neighbors in the four cardinal directions,
 					// then the door is orphaned and must be removed.
-          SITE.setTile(i, j, FLOOR);
+          map.setTile(i, j, FLOOR);
           dungeon.debug('Removed blocked door', i, j);
 				}
 			}
@@ -592,8 +596,9 @@ function finishDoors() {
 
 dungeon.finishDoors = finishDoors;
 
-function finishWalls() {
-  SITE.forEach( (cell, i, j) => {
+function finishWalls(map) {
+  map = map || SITE;
+  map.forEach( (cell, i, j) => {
     if (cell.isNull()) {
       cell.setTile(WALL);
     }
@@ -604,23 +609,24 @@ dungeon.finishWalls = finishWalls;
 
 
 
-export function isValidStairLoc(c, x, y) {
+export function isValidStairLoc(c, x, y, map) {
+  map = map || SITE;
   let count = 0;
-  if (!c.isNull()) return false;
+  if (!(c.isNull() || c.isWall())) return false;
 
   for(let i = 0; i < 4; ++i) {
     const dir = def.dirs[i];
-    if (!SITE.hasXY(x + dir[0], y + dir[1])) return false;
-    if (!SITE.hasXY(x - dir[0], y - dir[1])) return false;
-    const cell = SITE.cell(x + dir[0], y + dir[1]);
+    if (!map.hasXY(x + dir[0], y + dir[1])) return false;
+    if (!map.hasXY(x - dir[0], y - dir[1])) return false;
+    const cell = map.cell(x + dir[0], y + dir[1]);
     if (cell.hasTile(FLOOR)) {
       count += 1;
-      const va = SITE.cell(x - dir[0] + dir[1], y - dir[1] + dir[0]);
-      if (!va.isNull()) return false;
-      const vb = SITE.cell(x - dir[0] - dir[1], y - dir[1] - dir[0]);
-      if (!vb.isNull()) return false;
+      const va = map.cell(x - dir[0] + dir[1], y - dir[1] + dir[0]);
+      if (!(va.isNull() || va.isWall())) return false;
+      const vb = map.cell(x - dir[0] - dir[1], y - dir[1] - dir[0]);
+      if (!(vb.isNull() || vb.isWall())) return false;
     }
-    else if (!cell.isNull()) {
+    else if (!(cell.isNull() || cell.isWall())) {
       return false;
     }
   }
@@ -642,7 +648,7 @@ function setupStairs(map, x, y, tile) {
 		const cell = map.cell(x0, y0);
 		if (cell.hasTile(FLOOR) && cell.isEmpty()) {
 			const oppCell = map.cell(x - dir[0], y - dir[1]);
-			if (oppCell.isNull()) break;
+			if (oppCell.isNull() || oppCell.isWall()) break;
 		}
 
 		dir = null;
@@ -660,6 +666,7 @@ function setupStairs(map, x, y, tile) {
 		if (i == dirIndex || l == dirIndex || r == dirIndex ) continue;
 		const d = def.clockDirs[i];
 		map.setTile(x + d[0], y + d[1], WALL);
+    map.setCellFlags(x + d[0], y + d[1], Flags.Cell.IMPREGNABLE);
 	}
 
 	dungeon.debug('setup stairs', x, y, tile);
@@ -671,70 +678,71 @@ dungeon.setupStairs = setupStairs;
 
 export function addStairs(opts = {}) {
 
+  const map = opts.map || SITE;
   let needUp = (opts.up !== false);
   let needDown = (opts.down !== false);
-  const minDistance = opts.minDistance || Math.floor(Math.max(SITE.width,SITE.height)/2);
+  const minDistance = opts.minDistance || Math.floor(Math.max(map.width,map.height)/2);
   const isValidStairLoc = opts.isValid || dungeon.isValidStairLoc;
-  const setup = opts.setup || dungeon.setupStairs;
+  const setupFn = opts.setup || dungeon.setupStairs;
 
   let upLoc = Array.isArray(opts.up) ? opts.up : null;
   let downLoc = Array.isArray(opts.down) ? opts.down : null;
 
-  if (opts.start) {
+  if (opts.start && typeof opts.start !== 'string') {
     let start = opts.start;
     if (start === true) {
-      start = SITE.randomMatchingXY( isValidStairLoc );
+      start = map.randomMatchingXY( isValidStairLoc );
     }
     else {
-      start = SITE.matchingXYNear(Utils.x(start), Utils.y(start), isValidStairLoc);
+      start = map.matchingXYNear(Utils.x(start), Utils.y(start), isValidStairLoc);
     }
-    SITE.locations.start = start;
+    map.locations.start = start;
   }
 
   if (upLoc && downLoc) {
-    upLoc = SITE.matchingXYNear(Utils.x(upLoc), Utils.y(upLoc), isValidStairLoc);
-    downLoc = SITE.matchingXYNear(Utils.x(downLoc), Utils.y(downLoc), isValidStairLoc);
+    upLoc = map.matchingXYNear(Utils.x(upLoc), Utils.y(upLoc), isValidStairLoc);
+    downLoc = map.matchingXYNear(Utils.x(downLoc), Utils.y(downLoc), isValidStairLoc);
   }
   else if (upLoc && !downLoc) {
-    upLoc = SITE.matchingXYNear(Utils.x(upLoc), Utils.y(upLoc), isValidStairLoc);
+    upLoc = map.matchingXYNear(Utils.x(upLoc), Utils.y(upLoc), isValidStairLoc);
     if (needDown) {
-      downLoc = SITE.randomMatchingXY( (v, x, y) => {
+      downLoc = map.randomMatchingXY( (v, x, y) => {
     		if (Utils.distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
-    		return isValidStairLoc(v, x, y, SITE);
+    		return isValidStairLoc(v, x, y, map);
     	});
     }
   }
   else if (downLoc && !upLoc) {
-    downLoc = SITE.matchingXYNear(Utils.x(downLoc), Utils.y(downLoc), isValidStairLoc);
+    downLoc = map.matchingXYNear(Utils.x(downLoc), Utils.y(downLoc), isValidStairLoc);
     if (needUp) {
-      upLoc = SITE.randomMatchingXY( (v, x, y) => {
+      upLoc = map.randomMatchingXY( (v, x, y) => {
     		if (Utils.distanceBetween(x, y, downLoc[0], downLoc[1]) < minDistance) return false;
-    		return isValidStairLoc(v, x, y, SITE);
+    		return isValidStairLoc(v, x, y, map);
     	});
     }
   }
   else if (needUp) {
-    upLoc = SITE.randomMatchingXY( isValidStairLoc );
+    upLoc = map.randomMatchingXY( isValidStairLoc );
     if (needDown) {
-      downLoc = SITE.randomMatchingXY( (v, x, y) => {
+      downLoc = map.randomMatchingXY( (v, x, y) => {
     		if (Utils.distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
-    		return isValidStairLoc(v, x, y, SITE);
+    		return isValidStairLoc(v, x, y, map);
     	});
     }
   }
   else if (needDown) {
-    downLoc = SITE.randomMatchingXY( isValidStairLoc );
+    downLoc = map.randomMatchingXY( isValidStairLoc );
   }
 
   if (upLoc) {
-    SITE.locations.up = upLoc.slice();
-    setup(SITE, upLoc[0], upLoc[1], UP_STAIRS);
-    if (opts.start === 'up') SITE.locations.start = SITE.locations.up;
+    map.locations.up = upLoc.slice();
+    setupFn(map, upLoc[0], upLoc[1], opts.upTile || UP_STAIRS);
+    if (opts.start === 'up') map.locations.start = map.locations.up;
   }
   if (downLoc) {
-    SITE.locations.down = downLoc.slice();
-    setup(SITE, downLoc[0], downLoc[1], DOWN_STAIRS);
-    if (opts.start === 'down') SITE.locations.start = SITE.locations.down;
+    map.locations.down = downLoc.slice();
+    setupFn(map, downLoc[0], downLoc[1], opts.downTile || DOWN_STAIRS);
+    if (opts.start === 'down') map.locations.start = map.locations.down;
   }
 
   return !!(upLoc || downLoc);

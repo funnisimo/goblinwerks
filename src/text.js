@@ -3,7 +3,6 @@ import * as Utils from './utils.js';
 import { color as COLOR } from './color.js';
 import { make, types, def } from './gw.js';
 
-export var text = {};
 
 ///////////////////////////////////
 // Message String
@@ -15,23 +14,23 @@ const COLOR_VALUE_INTERCEPT =	0; // 25;
 const TEMP_COLOR = make.color();
 
 
-text.playerPronoun = {
+export const playerPronoun = {
   it: 'you',
   its: 'your',
 };
 
-text.singularPronoun = {
+export const singularPronoun = {
   it: 'it',
   its: 'its',
 };
 
-text.pluralPronoun = {
+export const pluralPronoun = {
   it: 'them',
   its: 'their',
 };
 
 
-function firstChar(text) {
+export function firstChar(text) {
   let i = 0;
   while( i < text.length ) {
     const code = text.charCodeAt(i);
@@ -48,29 +47,26 @@ function firstChar(text) {
   return null;
 }
 
-text.firstChar = firstChar;
 
-function isVowel(ch) {
+export function isVowel(ch) {
   return 'aeiouAEIOU'.includes(ch);
 }
 
-text.isVowel = isVowel;
 
 
-function toSingular(verb) {
+export function toSingular(verb) {
   if (verb.endsWith('y')) {
     return verb.substring(0, verb.length - 1) + 'ies';
   }
-  if (verb.endsWith('sh') || verb.endsWith('ch')) {
+  if (verb.endsWith('sh') || verb.endsWith('ch') || verb.endsWith('o')) {
     return verb + 'es';
   }
   return verb + 's';
 }
 
-text.toSingular = toSingular;
 
 
-function eachChar(msg, fn) {
+export function eachChar(msg, fn) {
   let color = null;
   const components = [100, 100, 100];
   let index = 0;
@@ -95,7 +91,6 @@ function eachChar(msg, fn) {
   }
 }
 
-text.eachChar = eachChar;
 
 //
 // function strlen(bstring) {
@@ -107,7 +102,7 @@ text.eachChar = eachChar;
 // text.strlen = strlen;
 //
 
-function textlen(msg) {
+export function length(msg) {
   let length = 0;
 
   if (!msg || !msg.length) return 0;
@@ -128,16 +123,14 @@ function textlen(msg) {
   return length;
 }
 
-text.length = textlen;
 
 
-function splice(msg, begin, length, add='') {
+export function splice(msg, begin, length, add='') {
   const preText = msg.substring(0, begin);
   const postText = msg.substring(begin + length);
   return preText + add + postText;
 }
 
-text.splice = splice;
 
 // function strcat(bstring, txt) {
 //   bstring.append(txt);
@@ -165,8 +158,8 @@ text.splice = splice;
 
 
 
-// Returns true if either string has a null terminator before they otherwise disagree.
-function stringsMatch(str1, str2) {
+// Returns true if strings have the same text (ignoring colors and case).
+export function matches(str1, str2) {
   let i, j;
 
   // str1 = STRING(str1);
@@ -191,20 +184,17 @@ function stringsMatch(str1, str2) {
   return true;
 }
 
-text.matches = stringsMatch;
 
 
-function centerText(msg, len) {
-  const textlen = text.length(msg);
+export function center(msg, len) {
+  const textlen = length(msg);
   const totalPad = (len - textlen);
   const leftPad = Math.round(totalPad/2);
   return msg.padStart(leftPad + textlen, ' ').padEnd(len, ' ');
 }
 
-text.center = centerText;
 
-
-function capitalize(msg) {
+export function capitalize(msg) {
   if (!msg.length) return;
 
   let index = 0;
@@ -219,7 +209,6 @@ function capitalize(msg) {
   return msg;
 }
 
-text.capitalize = capitalize;
 
 // // Gets the length of a string without the color escape sequences, since those aren't displayed.
 // function strLenWithoutEscapes(text) {
@@ -243,7 +232,7 @@ text.capitalize = capitalize;
 // Inserts a four-character color escape sequence into a string at the insertion point.
 // Does NOT check string lengths, so it could theoretically write over the null terminator.
 // Returns the new insertion point.
-function encodeColor(theColor) {
+export function encodeColor(theColor) {
   if (!theColor) {
     return String.fromCharCode(COLOR_END);
   }
@@ -254,7 +243,7 @@ function encodeColor(theColor) {
   return String.fromCharCode(COLOR_ESCAPE, copy.red + COLOR_VALUE_INTERCEPT, copy.green + COLOR_VALUE_INTERCEPT, copy.blue + COLOR_VALUE_INTERCEPT);
 }
 
-function removeColors(text) {
+export function removeColors(text) {
   let out = '';
   let start = 0;
   for(let i = 0; i < text.length; ++i) {
@@ -273,7 +262,6 @@ function removeColors(text) {
   return out;
 }
 
-text.removeColors = removeColors;
 
 //
 //
@@ -342,7 +330,7 @@ text.removeColors = removeColors;
 
 // Inserts line breaks into really long words. Optionally adds a hyphen, but doesn't do anything
 // clever regarding hyphen placement. Plays nicely with color escapes.
-function hyphenate(msg, width, useHyphens) {
+export function hyphenate(msg, width, useHyphens) {
   let buf = ''; // char[COLS * ROWS * 2] = "";
   let i, m, nextChar, wordWidth;
   //const short maxLength = useHyphens ? width - 1 : width;
@@ -381,20 +369,20 @@ function hyphenate(msg, width, useHyphens) {
   return buf;
 }
 
-text.hyphenate = hyphenate;
 
 
 // Returns the number of lines, including the newlines already in the text.
 // Puts the output in "to" only if we receive a "to" -- can make it null and just get a line count.
-function splitIntoLines(sourceText, width, firstWidth) {
+export function splitIntoLines(sourceText, width, indent=0) {
   let w, textLength, lineCount;
   let spaceLeftOnLine, wordWidth;
 
   if (!width) Utils.ERROR('Need string and width');
-  firstWidth = firstWidth || width;
+  const firstWidth = width;
+  width = width - indent;
 
-  let printString = text.hyphenate(sourceText, Math.min(width, firstWidth), true); // break up any words that are wider than the width.
-  textLength = text.length(printString); // do NOT discount escape sequences
+  let printString = hyphenate(sourceText, Math.min(width, firstWidth), true); // break up any words that are wider than the width.
+  textLength = printString.length; // do NOT remove escape sequences
   lineCount = 1;
 
   // Now go through and replace spaces with newlines as needed.
@@ -405,17 +393,21 @@ function splitIntoLines(sourceText, width, firstWidth) {
 
   let i = -1;
   let lastColor = '';
+  let nextColor = null;
+  let clearColor = false;
   while (i < textLength) {
     // wordWidth counts the word width of the next word without color escapes.
     // w indicates the position of the space or newline or null terminator that terminates the word.
     wordWidth = 0;
     for (w = i + 1; w < textLength && printString[w] !== ' ' && printString[w] !== '\n';) {
       if (printString.charCodeAt(w) === COLOR_ESCAPE) {
-        lastColor = printString.substring(w, w + 4);
+        nextColor = printString.substring(w, w + 4);
+        clearColor = false;
         w += 4;
       }
       else if (printString.charCodeAt(w) === COLOR_END) {
-        lastColor = '';
+        clearColor = true;
+        nextColor = null;
         w += 1;
       }
       else {
@@ -425,7 +417,7 @@ function splitIntoLines(sourceText, width, firstWidth) {
     }
 
     if (1 + wordWidth > spaceLeftOnLine || printString[i] === '\n') {
-      printString = text.splice(printString, i, 1, '\n' + lastColor);	// [i] = '\n';
+      printString = splice(printString, i, 1, '\n' + lastColor);	// [i] = '\n';
       w += lastColor.length;
       textLength += lastColor.length;
       lineCount++;
@@ -434,18 +426,27 @@ function splitIntoLines(sourceText, width, firstWidth) {
     } else {
       spaceLeftOnLine -= 1 + wordWidth;
     }
+
+    if (nextColor) {
+      lastColor = nextColor;
+      nextColor = null;
+    }
+    if (clearColor) {
+      clearColor = false;
+      lastColor = '';
+    }
+
     i = w; // Advance to the terminator that follows the word.
   }
 
   return printString.split('\n');;
 }
 
-text.splitIntoLines = splitIntoLines;
 
 
-function format(fmt, ...args) {
+export function format(fmt, ...args) {
 
-  const RE = /%([\-\+0\ \#]+)?(\d+|\*)?(\.\*|\.\d+)?([hLIw]|l{1,2}|I32|I64)?([cCdiouxXeEfgGaAnpsRSZ%])/g;
+  const RE = /%([\-\+0\ \#]+)?(\d+|\*)?(\.\*|\.\d+)?([hLIw]|l{1,2}|I32|I64)?([cCdiouxXeEfgGaAnpsFBSZ%])/g;
 
   if (fmt instanceof types.Color) {
     const buf = encodeColor(fmt) + args.shift();
@@ -508,7 +509,7 @@ function format(fmt, ...args) {
         sign = '+';
       }
     }
-    else if (p5 == 'R') {
+    else if (p5 == 'F') {
       let color = args.shift() || null;
       if (color && !(color instanceof types.Color)) {
         color = COLOR.from(color);
@@ -547,7 +548,6 @@ function format(fmt, ...args) {
   return result;
 }
 
-text.format = format;
 
 // function sprintf(dest, fmt, ...args) {
 //   dest = STRING(dest);

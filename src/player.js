@@ -18,7 +18,12 @@ export function makePlayer(kind) {
     Utils.setDefaults(kind, {
       sprite: { ch:'@', fg: 'white' },
       name: 'you', article: false,
+      attacks: {},
+      bump: ['talk', 'attack'],
     });
+    if (!kind.attacks.melee) {
+      kind.attacks.melee = { verb: 'punch', damage: 1 };
+    }
     kind = new types.ActorKind(kind);
   }
   return new types.Actor(kind);

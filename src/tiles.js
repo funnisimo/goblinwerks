@@ -58,13 +58,13 @@ addTileKind('BRIDGE', {
 addTileKind('UP_STAIRS',   {
   sprite: { ch: '<', fg: [100,40,40], bg: [100,60,20] },
   priority: 200,
-  flags: 'T_UP_STAIRS, T_STAIR_BLOCKERS, TM_VISUALLY_DISTINCT',
+  flags: 'T_UP_STAIRS, T_STAIR_BLOCKERS, TM_VISUALLY_DISTINCT, TM_LIST_IN_SIDEBAR',
   name: 'upward staircase', article: 'an'
 });
 addTileKind('DOWN_STAIRS', {
   sprite: { ch: '>', fg: [100,40,40], bg: [100,60,20] },
   priority: 200,
-  flags: 'T_DOWN_STAIRS, T_STAIR_BLOCKERS, TM_VISUALLY_DISTINCT',
+  flags: 'T_DOWN_STAIRS, T_STAIR_BLOCKERS, TM_VISUALLY_DISTINCT, TM_LIST_IN_SIDEBAR',
   name: 'downward staircase', article: 'a'
 });
 

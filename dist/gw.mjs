@@ -21,6 +21,7 @@ var flag = {};
 var flags = {};
 
 var tiles = {};
+var tileEvents$1 = {};
 
 var config = {
   fx: {},
@@ -84,6 +85,9 @@ class Bounds {
       && this.y + this.height > y;
   }
 
+  get right() { return this.x + this.width - 1; }
+  get bottom() { return this.y + this.height -1; }
+
   centerX() { return Math.round(this.width / 2) + this.x; }
   centerY() { return Math.round(this.height / 2) + this.y; }
 
@@ -140,6 +144,17 @@ function equalsXY(dest, src) {
   return (dest.x == x(src))
   && (dest.y == y(src));
 }
+
+function lerpXY(a, b, pct) {
+	if (pct > 1) { pct = pct / 100; }
+  pct = clamp(pct, 0, 1);
+  const dx = x(b) - x(a);
+  const dy = y(b) - y(a);
+  const x2 = x(a) + Math.floor(dx * pct);
+  const y2 = y(a) + Math.floor(dy * pct);
+  return [x2, y2];
+}
+
 
 function distanceBetween(x1, y1, x2, y2) {
   const x = Math.abs(x1 - x2);
@@ -203,6 +218,23 @@ function dirSpread(dir) {
     result.push( [0, dir[1]] );
   }
   return result;
+}
+
+function stepFromTo(a, b, fn) {
+  const diff = [x(b) - x(a), y(b) - y(a)];
+  const steps = Math.abs(diff[0]) + Math.abs(diff[1]);
+  const c = [0, 0];
+  const last = [99999, 99999];
+
+  for(let step = 0; step <= steps; ++step) {
+    c[0] = a[0] + Math.floor(diff[0] * step / steps);
+    c[1] = a[1] + Math.floor(diff[1] * step / steps);
+    if (c[0] != last[0] || c[1] != last[1]) {
+      fn(c[0], c[1]);
+    }
+    last[0] = c[0];
+    last[1] = c[1];
+  }
 }
 
 
@@ -300,6 +332,10 @@ function setDefaults(obj, def) {
   });
 }
 
+function clearObject(obj) {
+  Object.keys(obj).forEach( (key) => obj[key] = undefined );
+}
+
 function ERROR(message) {
   throw new Error(message);
 }
@@ -340,18 +376,47 @@ function sequence(listLength) {
   return list;
 }
 
+// CHAIN
+
+function chainLength(item) {
+  let count = 0;
+  while(item) {
+    count += 1;
+    item = item.next;
+  }
+  return count;
+}
+
+function chainIncludes(chain, entry) {
+  while (chain && chain !== entry) {
+    chain = chain.next;
+  }
+  return (chain === entry);
+}
 
 function eachChain(item, fn) {
   while(item) {
+    const next = item.next;
     fn(item);
-    item = item.next;
+    item = next;
   }
+}
+
+function addToChain(obj, name, entry) {
+  entry.next = obj[name] || null;
+  obj[name] = entry;
+  return true;
 }
 
 function removeFromChain(obj, name, entry) {
   const root = obj[name];
   if (root === entry) {
-    obj[name] = entry.next;
+    obj[name] = entry.next || null;
+    entry.next = null;
+    return true;
+  }
+  else if (!root) {
+    return false;
   }
   else {
     let prev = root;
@@ -361,9 +426,12 @@ function removeFromChain(obj, name, entry) {
       current = prev.next;
     }
     if (current === entry) {
-      prev.next = current.next;
+      prev.next = current.next || null;
+      entry.next = null;
+      return true;
     }
   }
+  return false;
 }
 
 var utils$1 = /*#__PURE__*/Object.freeze({
@@ -380,6 +448,7 @@ var utils$1 = /*#__PURE__*/Object.freeze({
   copyXY: copyXY,
   addXY: addXY,
   equalsXY: equalsXY,
+  lerpXY: lerpXY,
   distanceBetween: distanceBetween,
   distanceFromTo: distanceFromTo,
   calcRadius: calcRadius,
@@ -389,6 +458,7 @@ var utils$1 = /*#__PURE__*/Object.freeze({
   isOppositeDir: isOppositeDir,
   isSameDir: isSameDir,
   dirSpread: dirSpread,
+  stepFromTo: stepFromTo,
   extend: extend,
   cloneObject: cloneObject,
   copyObject: copyObject,
@@ -396,13 +466,17 @@ var utils$1 = /*#__PURE__*/Object.freeze({
   assignOmitting: assignOmitting,
   setDefault: setDefault,
   setDefaults: setDefaults,
+  clearObject: clearObject,
   ERROR: ERROR,
   WARN: WARN,
   getOpt: getOpt,
   firstOpt: firstOpt,
   arraysIntersect: arraysIntersect,
   sequence: sequence,
+  chainLength: chainLength,
+  chainIncludes: chainIncludes,
   eachChain: eachChain,
+  addToChain: addToChain,
   removeFromChain: removeFromChain
 });
 
@@ -779,19 +853,17 @@ const CellMech = installFlag('cellMech', {
 // ITEM KIND
 
 const ItemKind = installFlag('itemKind', {
-	IK_ENCHANT_SPECIALIST 	: Fl(0),
+	IK_ENCHANT_SPECIALIST 	: Fl(0),  // TODO - DELETE (replace with tag?)
 	IK_HIDE_FLAVOR_DETAILS	: Fl(1),
 
-	IK_AUTO_TARGET					: Fl(2),
+	IK_AUTO_TARGET					: Fl(2),  // TODO - DELETE
 
-	IK_HALF_STACK_STOLEN		: Fl(3),
+	IK_HALF_STACK_STOLEN		: Fl(3), // TODO - DELETE
 	IK_ENCHANT_USES_STR 		: Fl(4),
 
-	// IK_ARTICLE_THE					: Fl(5),
-	// IK_NO_ARTICLE						: Fl(6),
-	// IK_PRENAMED	  					: Fl(7),
-
   IK_NO_SIDEBAR           : Fl(5),  // Do not show this item in the sidebar
+  IK_USE_ON_PICKUP        : Fl(6),  // Use item instead of picking up
+  IK_EQUIP_ON_PICKUP		  : Fl(7),
 
 	IK_BREAKS_ON_FALL				: Fl(8),
 	IK_DESTROY_ON_USE				: Fl(9),
@@ -808,20 +880,23 @@ const ItemKind = installFlag('itemKind', {
 	IK_KIND_AUTO_ID       	: Fl(17),	// the item type will become known when the item is picked up.
 	IK_PLAYER_AVOIDS				: Fl(18),	// explore and travel will try to avoid picking the item up
 
-	IK_TWO_HANDED						: Fl(19),
-	IK_NAME_PLURAL					: Fl(20),
+	IK_NAME_PLURAL					: Fl(20), // Replace with name conventions?  'gold coin~'
 
 	IK_STACKABLE						: Fl(21),
-	IK_STACK_SMALL					: Fl(22),
-	IK_STACK_LARGE					: Fl(23),
-	IK_SLOW_RECHARGE				: Fl(24),
+	// IK_STACK_SMALL					: Fl(22),
+	// IK_STACK_LARGE					: Fl(23),
+	// IK_SLOW_RECHARGE				: Fl(24),
 
 	IK_CAN_BE_SWAPPED      	: Fl(25),
-	IK_CAN_BE_RUNIC					: Fl(26),
+	// IK_CAN_BE_RUNIC					: Fl(26),
 	IK_CAN_BE_DETECTED		  : Fl(27),
 
-	IK_TREASURE							: Fl(28),
+	IK_TREASURE							: Fl(28),  // DELETE - tag
 	IK_INTERRUPT_EXPLORATION_WHEN_SEEN:	Fl(29),
+
+  IK_AUTO_CONSUME         : 'IK_USE_ON_PICKUP, IK_DESTROY_ON_USE',
+
+  IK_DEFAULT              : 0,
 });
 
 ///////////////////////////////////////////////////////
@@ -873,7 +948,7 @@ const Item = installFlag('item', {
 	ITEM_MAX_CHARGES_KNOWN	: Fl(12),
 	ITEM_IS_KEY							: Fl(13),
 
-
+  ITEM_CHANGED            : Fl(29),
 	ITEM_DESTROYED					: Fl(30),
 });
 
@@ -885,6 +960,7 @@ const Map = installFlag('map', {
 	MAP_STABLE_GLOW_LIGHTS:  Fl(1),
 	MAP_STABLE_LIGHTS: Fl(2),
 	MAP_ALWAYS_LIT:	Fl(3),
+  MAP_SAW_WELCOME: Fl(4),
 
   MAP_DEFAULT: 'MAP_STABLE_LIGHTS, MAP_STABLE_GLOW_LIGHTS',
 });
@@ -968,6 +1044,14 @@ class Random {
     return result;
   }
 
+  int(n) {
+    return this.number(n);
+  }
+
+  float() {
+    return this.value();
+  }
+
   value() {
     return (this.number() / (RNG_M - 1));
   }
@@ -995,10 +1079,18 @@ class Random {
 
 
   lottery(weights) {
+    return this.weighted(weights);
+  }
+
+  weighted(weights) {
     if (Array.isArray(weights)) {
       return lotteryDrawArray(this, weights);
     }
     return lotteryDrawObject(this, weights);
+  }
+
+  index(weights) {
+    return lotteryDrawArray(this, weights);
   }
 
 
@@ -1033,6 +1125,10 @@ class Random {
 
   item(list) {
   	return list[this.range(0, list.length - 1)];
+  }
+
+  key(obj) {
+    return this.item(Object.keys(obj));
   }
 
   shuffle(list, fromIndex, toIndex) {
@@ -1247,6 +1343,21 @@ class Color extends Array {
     return this;
   }
 
+  mix(newColor, opacity=100) {
+    if (opacity <= 0) return this;
+    if (opacity >= 100) {
+      this.copy(newColor);
+      return this;
+    }
+
+    const weightComplement = 100 - opacity;
+    for(let i = 0; i < this.length; ++i) {
+      this[i] = Math.floor((this[i] * weightComplement + newColor[i] * opacity) / 100);
+    }
+    this.dances = (this.dances || newColor.dances);
+    return this;
+  }
+
   applyMultiplier(multiplierColor) {
     this.red = Math.round(this.red * multiplierColor[0] / 100);
     this.green = Math.round(this.green * multiplierColor[1] / 100);
@@ -1323,6 +1434,7 @@ function make$1(...args) {
   return null;
 }
 
+color.make = make$1;
 make.color = make$1;
 
 
@@ -1338,11 +1450,14 @@ function addKind(name, ...args) {
 	return color;
 }
 
-color.install = addKind;
+color.addKind = addKind;
 
 function from(arg) {
   if (typeof arg === 'string') {
     return colors[arg] || make.color(arg);
+  }
+  if (arg instanceof types.Color) {
+    return arg;
   }
   return make.color(arg);
 }
@@ -1351,13 +1466,10 @@ color.from = from;
 
 
 function applyMix(baseColor, newColor, opacity) {
-  if (opacity <= 0) return;
-  const weightComplement = 100 - opacity;
-  for(let i = 0; i < baseColor.length; ++i) {
-    baseColor[i] = Math.floor((baseColor[i] * weightComplement + newColor[i] * opacity) / 100);
-  }
-  baseColor.dances = (baseColor.dances || newColor.dances);
-  return baseColor;
+  baseColor = color.from(baseColor);
+  newColor = color.from(newColor);
+
+  return baseColor.mix(newColor, opacity);
 }
 
 color.applyMix = applyMix;
@@ -1557,8 +1669,6 @@ addSpread('azure', 			0,    50,   100);
 addSpread('silver',      75,   75,   75);
 addSpread('gold',        100,  85,   0);
 
-var text = {};
-
 ///////////////////////////////////
 // Message String
 
@@ -1569,17 +1679,17 @@ const COLOR_VALUE_INTERCEPT =	0; // 25;
 const TEMP_COLOR = make.color();
 
 
-text.playerPronoun = {
+const playerPronoun = {
   it: 'you',
   its: 'your',
 };
 
-text.singularPronoun = {
+const singularPronoun = {
   it: 'it',
   its: 'its',
 };
 
-text.pluralPronoun = {
+const pluralPronoun = {
   it: 'them',
   its: 'their',
 };
@@ -1602,26 +1712,23 @@ function firstChar(text) {
   return null;
 }
 
-text.firstChar = firstChar;
 
 function isVowel(ch) {
   return 'aeiouAEIOU'.includes(ch);
 }
 
-text.isVowel = isVowel;
 
 
 function toSingular(verb) {
   if (verb.endsWith('y')) {
     return verb.substring(0, verb.length - 1) + 'ies';
   }
-  if (verb.endsWith('sh') || verb.endsWith('ch')) {
+  if (verb.endsWith('sh') || verb.endsWith('ch') || verb.endsWith('o')) {
     return verb + 'es';
   }
   return verb + 's';
 }
 
-text.toSingular = toSingular;
 
 
 function eachChar(msg, fn) {
@@ -1649,7 +1756,6 @@ function eachChar(msg, fn) {
   }
 }
 
-text.eachChar = eachChar;
 
 //
 // function strlen(bstring) {
@@ -1661,7 +1767,7 @@ text.eachChar = eachChar;
 // text.strlen = strlen;
 //
 
-function textlen(msg) {
+function length(msg) {
   let length = 0;
 
   if (!msg || !msg.length) return 0;
@@ -1680,7 +1786,6 @@ function textlen(msg) {
   return length;
 }
 
-text.length = textlen;
 
 
 function splice(msg, begin, length, add='') {
@@ -1689,7 +1794,6 @@ function splice(msg, begin, length, add='') {
   return preText + add + postText;
 }
 
-text.splice = splice;
 
 // function strcat(bstring, txt) {
 //   bstring.append(txt);
@@ -1717,8 +1821,8 @@ text.splice = splice;
 
 
 
-// Returns true if either string has a null terminator before they otherwise disagree.
-function stringsMatch(str1, str2) {
+// Returns true if strings have the same text (ignoring colors and case).
+function matches(str1, str2) {
   let i, j;
 
   // str1 = STRING(str1);
@@ -1743,17 +1847,14 @@ function stringsMatch(str1, str2) {
   return true;
 }
 
-text.matches = stringsMatch;
 
 
-function centerText(msg, len) {
-  const textlen = text.length(msg);
+function center(msg, len) {
+  const textlen = length(msg);
   const totalPad = (len - textlen);
   const leftPad = Math.round(totalPad/2);
   return msg.padStart(leftPad + textlen, ' ').padEnd(len, ' ');
 }
-
-text.center = centerText;
 
 
 function capitalize(msg) {
@@ -1771,7 +1872,6 @@ function capitalize(msg) {
   return msg;
 }
 
-text.capitalize = capitalize;
 
 // // Gets the length of a string without the color escape sequences, since those aren't displayed.
 // function strLenWithoutEscapes(text) {
@@ -1825,7 +1925,6 @@ function removeColors(text) {
   return out;
 }
 
-text.removeColors = removeColors;
 
 //
 //
@@ -1933,20 +2032,20 @@ function hyphenate(msg, width, useHyphens) {
   return buf;
 }
 
-text.hyphenate = hyphenate;
 
 
 // Returns the number of lines, including the newlines already in the text.
 // Puts the output in "to" only if we receive a "to" -- can make it null and just get a line count.
-function splitIntoLines(sourceText, width, firstWidth) {
+function splitIntoLines(sourceText, width, indent=0) {
   let w, textLength;
   let spaceLeftOnLine, wordWidth;
 
   if (!width) ERROR('Need string and width');
-  firstWidth = firstWidth || width;
+  const firstWidth = width;
+  width = width - indent;
 
-  let printString = text.hyphenate(sourceText, Math.min(width, firstWidth), true); // break up any words that are wider than the width.
-  textLength = text.length(printString); // do NOT discount escape sequences
+  let printString = hyphenate(sourceText, Math.min(width, firstWidth), true); // break up any words that are wider than the width.
+  textLength = printString.length; // do NOT remove escape sequences
 
   // Now go through and replace spaces with newlines as needed.
 
@@ -1956,17 +2055,21 @@ function splitIntoLines(sourceText, width, firstWidth) {
 
   let i = -1;
   let lastColor = '';
+  let nextColor = null;
+  let clearColor = false;
   while (i < textLength) {
     // wordWidth counts the word width of the next word without color escapes.
     // w indicates the position of the space or newline or null terminator that terminates the word.
     wordWidth = 0;
     for (w = i + 1; w < textLength && printString[w] !== ' ' && printString[w] !== '\n';) {
       if (printString.charCodeAt(w) === COLOR_ESCAPE) {
-        lastColor = printString.substring(w, w + 4);
+        nextColor = printString.substring(w, w + 4);
+        clearColor = false;
         w += 4;
       }
       else if (printString.charCodeAt(w) === COLOR_END) {
-        lastColor = '';
+        clearColor = true;
+        nextColor = null;
         w += 1;
       }
       else {
@@ -1976,7 +2079,7 @@ function splitIntoLines(sourceText, width, firstWidth) {
     }
 
     if (1 + wordWidth > spaceLeftOnLine || printString[i] === '\n') {
-      printString = text.splice(printString, i, 1, '\n' + lastColor);	// [i] = '\n';
+      printString = splice(printString, i, 1, '\n' + lastColor);	// [i] = '\n';
       w += lastColor.length;
       textLength += lastColor.length;
       spaceLeftOnLine = width - wordWidth; // line width minus the width of the word we just wrapped
@@ -1984,17 +2087,26 @@ function splitIntoLines(sourceText, width, firstWidth) {
     } else {
       spaceLeftOnLine -= 1 + wordWidth;
     }
+
+    if (nextColor) {
+      lastColor = nextColor;
+      nextColor = null;
+    }
+    if (clearColor) {
+      clearColor = false;
+      lastColor = '';
+    }
+
     i = w; // Advance to the terminator that follows the word.
   }
 
   return printString.split('\n');}
 
-text.splitIntoLines = splitIntoLines;
 
 
 function format(fmt, ...args) {
 
-  const RE = /%([\-\+0\ \#]+)?(\d+|\*)?(\.\*|\.\d+)?([hLIw]|l{1,2}|I32|I64)?([cCdiouxXeEfgGaAnpsRSZ%])/g;
+  const RE = /%([\-\+0\ \#]+)?(\d+|\*)?(\.\*|\.\d+)?([hLIw]|l{1,2}|I32|I64)?([cCdiouxXeEfgGaAnpsFBSZ%])/g;
 
   if (fmt instanceof types.Color) {
     const buf = encodeColor(fmt) + args.shift();
@@ -2057,7 +2169,7 @@ function format(fmt, ...args) {
         sign = '+';
       }
     }
-    else if (p5 == 'R') {
+    else if (p5 == 'F') {
       let color$1 = args.shift() || null;
       if (color$1 && !(color$1 instanceof types.Color)) {
         color$1 = color.from(color$1);
@@ -2096,7 +2208,6 @@ function format(fmt, ...args) {
   return result;
 }
 
-text.format = format;
 
 // function sprintf(dest, fmt, ...args) {
 //   dest = STRING(dest);
@@ -2107,12 +2218,34 @@ text.format = format;
 //
 // text.sprintf = sprintf;
 
+var text = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  playerPronoun: playerPronoun,
+  singularPronoun: singularPronoun,
+  pluralPronoun: pluralPronoun,
+  firstChar: firstChar,
+  isVowel: isVowel,
+  toSingular: toSingular,
+  eachChar: eachChar,
+  length: length,
+  splice: splice,
+  matches: matches,
+  center: center,
+  capitalize: capitalize,
+  encodeColor: encodeColor,
+  removeColors: removeColors,
+  hyphenate: hyphenate,
+  splitIntoLines: splitIntoLines,
+  format: format
+});
+
 const TEMP_BG = new types.Color();
 
 var sprites = {};
 var sprite = {};
 
 const HANGING_LETTERS = ['y', 'p', 'g', 'j', 'q', '[', ']', '(', ')', '{', '}', '|'];
+const FLYING_LETTERS = ["'", '"', '$', 'f', '[', ']', '|'];
 
 class Sprite {
 	constructor(ch, fg, bg, opacity) {
@@ -2153,6 +2286,7 @@ class Sprite {
 		this.opacity = opacity || 100;
 		this.needsUpdate = true;
 		this.wasHanging = false;
+    this.wasFlying = false;
 	}
 
 	copy(other) {
@@ -2187,11 +2321,13 @@ class Sprite {
 		this.opacity = other.opacity || this.opacity;
 		this.needsUpdate = other.needsUpdate || this.needsUpdate;
 		this.wasHanging = other.wasHanging || this.wasHanging;
+    this.wasFlying  = other.wasFlying  || this.wasFlying;
 	}
 
 	clone() {
 		const other = new types.Sprite(this.ch, this.fg, this.bg, this.opacity);
 		other.wasHanging = this.wasHanging;
+    other.wasFlying  = this.wasFlying;
 		other.needsUpdate = this.needsUpdate;
 		return other;
 	}
@@ -2200,6 +2336,9 @@ class Sprite {
 		if (HANGING_LETTERS.includes(this.ch)) {
 			this.wasHanging = true;
 		}
+    if (FLYING_LETTERS.includes(this.ch)) {
+			this.wasFlying = true;
+		}
 		this.ch = ' ';
 		if (this.fg) this.fg.clear();
 		if (this.bg) this.bg.clear();
@@ -2207,8 +2346,19 @@ class Sprite {
 		// this.needsUpdate = false;
 	}
 
-	blackOut() {
+	blackOut(bg) {
 		this.nullify();
+    if (bg) {
+      if (typeof bg === 'string') {
+        bg = color.from(bg);
+      }
+      if (this.bg) {
+        this.bg.copy(bg);
+      }
+      else {
+        this.bg = bg.clone();
+      }
+    }
 		this.opacity = 100;
 		this.needsUpdate = true;
 		this.wasHanging = false;
@@ -2216,6 +2366,7 @@ class Sprite {
 
 	plotChar(ch, fg, bg) {
 		this.wasHanging = this.wasHanging || (ch != null && HANGING_LETTERS.includes(ch));
+    this.wasFlying  = this.wasFlying  || (ch != null && FLYING_LETTERS.includes(ch));
 		if (!this.opacity) {
 			this.ch = ' ';
 		}
@@ -2236,6 +2387,7 @@ class Sprite {
     }
 
 		this.wasHanging = this.wasHanging || (sprite.ch != null && HANGING_LETTERS.includes(sprite.ch));
+    this.wasFlying  = this.wasFlying  || (sprite.ch != null && FLYING_LETTERS.includes(sprite.ch));
 
     // ch and fore color:
     if (sprite.ch && sprite.ch != ' ') { // Blank cells in the overbuf take the ch from the screen.
@@ -2333,7 +2485,7 @@ class Grid extends Array {
 		let i, j;
 		for(i = 0; i < this.width; i++) {
 			for(j = 0; j < this.height; j++) {
-				fn(this[i][j], i, j);
+				fn(this[i][j], i, j, this);
 			}
 		}
 	}
@@ -2345,7 +2497,7 @@ class Grid extends Array {
 			const i = x + dir[0];
 			const j = y + dir[1];
 			if (this.hasXY(i, j)) {
-				fn(this[i][j], i, j);
+				fn(this[i][j], i, j, this);
 			}
 		}
 	}
@@ -2356,14 +2508,14 @@ class Grid extends Array {
 
 		for(let i = x; i < x + w; ++i) {
 			for(let j = y; j < y + h; ++j) {
-				fn(this[i][j], i, j);
+				fn(this[i][j], i, j, this);
 			}
 		}
 	}
 
 	map(fn) {
 		return super.map( (col, x) => {
-			return col.map( (v, y) => fn(v, x, y) );
+			return col.map( (v, y) => fn(v, x, y, this) );
 		});
 	}
 
@@ -2373,7 +2525,7 @@ class Grid extends Array {
 		for (i=Math.max(0, x - radius - 1); i < Math.min(this.width, x + radius + 1); i++) {
 				for (j=Math.max(0, y - radius - 1); j < Math.min(this.height, y + radius + 1); j++) {
 						if (this.hasXY(i, j) && (((i-x)*(i-x) + (j-y)*(j-y)) < radius * radius + radius)) {	// + radius softens the circle
-								fn(this[i][j], i, j);
+								fn(this[i][j], i, j, this);
 						}
 				}
 		}
@@ -2403,7 +2555,7 @@ class Grid extends Array {
 		let i, j;
 		for(i = 0; i < this.width; i++) {
 			for(j = 0; j < this.height; j++) {
-				this[i][j] = fn(this[i][j], i, j);
+				this[i][j] = fn(this[i][j], i, j, this);
 			}
 		}
 	}
@@ -2413,7 +2565,7 @@ class Grid extends Array {
 	    for (i=x; i < x+width; i++) {
 	        for (j=y; j<y+height; j++) {
 						if (this.hasXY(i, j)) {
-							this[i][j] = fn(this[i][j], i, j);
+							this[i][j] = fn(this[i][j], i, j, this);
 						}
 	        }
 	    }
@@ -2425,7 +2577,7 @@ class Grid extends Array {
 	    for (i=Math.max(0, x - radius - 1); i < Math.min(this.width, x + radius + 1); i++) {
 	        for (j=Math.max(0, y - radius - 1); j < Math.min(this.height, y + radius + 1); j++) {
 	            if (this.hasXY(i, j) && (((i-x)*(i-x) + (j-y)*(j-y)) < radius * radius + radius)) {	// + radius softens the circle
-	                this[i][j] = fn(this[i][j], i, j);
+	                this[i][j] = fn(this[i][j], i, j, this);
 	            }
 	        }
 	    }
@@ -2460,7 +2612,7 @@ class Grid extends Array {
 	count(match) {
 		const fn = (typeof match === 'function') ? match : ((v) => v == match);
 	  let count = 0;
-		this.forEach((v, i, j) => { if (fn(v,i,j)) ++count; });
+		this.forEach((v, i, j) => { if (fn(v,i,j, this)) ++count; });
 	  return count;
 	}
 
@@ -2473,7 +2625,7 @@ class Grid extends Array {
 	  let bestDistance = this.width + this.height;
 
 		this.forEach( (v, i, j) => {
-			if (fn(v, i, j)) {
+			if (fn(v, i, j, this)) {
 				const dist = distanceBetween(x, y, i, j);
 				if (dist < bestDistance) {
 					bestLoc[0] = i;
@@ -2495,7 +2647,7 @@ class Grid extends Array {
 		const fn = (typeof v === 'function') ? v : ((c) => v == c);
 		for(let i = 0; i < this.width; ++i) {
 			for(let j = 0; j < this.height; ++j) {
-				if (fn(this[i][j], i, j)) {
+				if (fn(this[i][j], i, j, this)) {
 					return [i, j];
 				}
 			}
@@ -2512,7 +2664,7 @@ class Grid extends Array {
 
 	  locationCount = 0;
 		this.forEach( (v, i, j) => {
-			if (fn(v, i, j)) {
+			if (fn(v, i, j, this)) {
 				locationCount++;
 			}
 		});
@@ -2528,7 +2680,7 @@ class Grid extends Array {
 
 		for(i = 0; i < this.width && index >= 0; i++) {
 			for(j = 0; j < this.height && index >= 0; j++) {
-        if (fn(this[i][j], i, j)) {
+        if (fn(this[i][j], i, j, this)) {
           if (index == 0) {
 						return [i,j];
           }
@@ -2553,7 +2705,7 @@ class Grid extends Array {
 				for (j = y-k; j <= y+k; j++) {
 					if (this.hasXY(i, j)
 						&& (i == x-k || i == x+k || j == y-k || j == y+k)
-						&& fn(this[i][j], i, j))
+						&& fn(this[i][j], i, j, this))
 	        {
 						candidateLocs++;
 					}
@@ -2577,7 +2729,7 @@ class Grid extends Array {
 				for (j = y-k; j <= y+k; j++) {
 					if (this.hasXY(i, j)
 						&& (i == x-k || i == x+k || j == y-k || j == y+k)
-						&& fn(this[i][j], i, j))
+						&& fn(this[i][j], i, j, this))
 	        {
 						if (--randIndex == 0) {
 							loc[0] = i;
@@ -2615,8 +2767,8 @@ class Grid extends Array {
 			newX = x + CDIRS[dir][0];
 			newY = y + CDIRS[dir][1];
 			// Counts every transition from passable to impassable or vice-versa on the way around the cell:
-			if ((this.hasXY(newX, newY) && testFn(this[newX][newY], newX, newY))
-				!= (this.hasXY(oldX, oldY) && testFn(this[oldX][oldY], oldX, oldY)))
+			if ((this.hasXY(newX, newY) && testFn(this[newX][newY], newX, newY, this))
+				!= (this.hasXY(oldX, oldY) && testFn(this[oldX][oldY], oldX, oldY, this)))
 			{
 				arcCount++;
 			}
@@ -2904,7 +3056,7 @@ function floodFill(grid, x, y, matchValue, fillValue) {
 	const matchFn = (typeof matchValue == 'function') ? matchValue : ((v) => v == matchValue);
 	const fillFn  = (typeof fillValue  == 'function') ? fillValue  : (() => fillValue);
 
-	grid[x][y] = fillFn(grid[x][y], x, y);
+	grid[x][y] = fillFn(grid[x][y], x, y, grid);
 
 	// Iterate through the four cardinal neighbors.
 	for (dir=0; dir<4; dir++) {
@@ -2913,7 +3065,7 @@ function floodFill(grid, x, y, matchValue, fillValue) {
 		if (!grid.hasXY(newX, newY)) {
 			continue;
 		}
-		if (matchFn(grid[newX][newY], newX, newY)) { // If the neighbor is an unmarked region cell,
+		if (matchFn(grid[newX][newY], newX, newY, grid)) { // If the neighbor is an unmarked region cell,
 			numberOfCells += floodFill(grid, newX, newY, matchFn, fillFn); // then recurse.
 		}
 	}
@@ -2931,7 +3083,7 @@ function offsetZip(destGrid, srcGrid, srcToDestX, srcToDestY, value) {
 		const destY = j + srcToDestY;
 		if (!destGrid.hasXY(destX, destY)) return;
 		if (!c) return;
-		fn(destGrid[destX][destY], c, destX, destY, i, j);
+		fn(destGrid[destX][destY], c, destX, destY, i, j, destGrid, srcGrid);
 	});
 }
 
@@ -2956,7 +3108,7 @@ function directionOfDoorSite(grid, x, y, isOpen=1) {
         oppY = y - DIRS[dir][1];
         if (grid.hasXY(oppX, oppY)
             && grid.hasXY(newX, newY)
-            && fnOpen(grid[oppX][oppY],oppX, oppY))
+            && fnOpen(grid[oppX][oppY],oppX, oppY, grid))
         {
             // This grid cell would be a valid tile on which to place a door that, facing outward, points dir.
             if (solutionDir != def.NO_DIRECTION) {
@@ -3167,13 +3319,13 @@ class Buffer extends types.Grid {
     this.needsUpdate = true;
   }
 
-  blackOut() {
-    this.forEach( (c) => c.blackOut() );
+  blackOut(bg) {
+    this.forEach( (c) => c.blackOut(bg) );
     this.needsUpdate = true;
   }
 
-  blackOutRect(x, y, w, h) {
-    this.forRect(x, y, w, h, (c) => c.blackOut() );
+  blackOutRect(x, y, w, h, bg) {
+    this.forRect(x, y, w, h, (c) => c.blackOut(bg) );
     this.needsUpdate = true;
   }
 
@@ -3211,20 +3363,20 @@ class Buffer extends types.Grid {
     this.needsUpdate = true;
   }
 
-  plotText(x, y, text$1, fg, bg) {
-    if (typeof fg === 'string') { fg = colors[fg]; }
-    if (typeof bg === 'string') { bg = colors[bg]; }
-    let len = text$1.length;
-    text.eachChar(text$1, (ch, color, i) => {
-      this.plotChar(i + x, y, ch, color || fg, bg);
+  plotText(x, y, text$1, ...args) {
+    if (args.length) {
+      text$1 = format(text$1, ...args);
+    }
+    eachChar(text$1, (ch, color, i) => {
+      this.plotChar(i + x, y, ch, color || GW.colors.white, null);
     });
   }
 
   plotLine(x, y, w, text$1, fg, bg) {
     if (typeof fg === 'string') { fg = colors[fg]; }
     if (typeof bg === 'string') { bg = colors[bg]; }
-    let len = text.length(text$1);
-    text.eachChar(text$1, (ch, color, i) => {
+    let len = length(text$1);
+    eachChar(text$1, (ch, color, i) => {
       this.plotChar(i + x, y, ch, color || fg, bg);
     });
     for(let i = len; i < w; ++i) {
@@ -3237,38 +3389,19 @@ class Buffer extends types.Grid {
     if (typeof fg === 'string') { fg = colors[fg]; }
     if (typeof bg === 'string') { bg = colors[bg]; }
     width = Math.min(width, this.width - x);
-    if (text.length(text$1) <= width) {
+    if (length(text$1) <= width) {
       this.plotLine(x, y, width, text$1, fg, bg);
       return y + 1;
     }
-    let first = true;
-    let indent = opts.indent || 0;
-    let start = 0;
-    let last = 0;
-    for(let index = 0; index < text$1.length; ++index) {
-      const ch = text$1[index];
-      if (ch === '\n') {
-        last = index;
-      }
-      if ((index - start >= width) || (ch === '\n')) {
-        const sub = text$1.substring(start, last);
-        this.plotLine(x, y++, width, sub, fg, bg);
-        if (first) {
-          x += indent;
-          first = false;
-        }
-        start = last;
-      }
-      if (ch === ' ') {
-        last = index + 1;
-      }
-    }
+    opts.indent = opts.indent || 0;
 
-    if (start < text$1.length - 1) {
-      const sub = text$1.substring(start);
-      this.plotLine(x, y++, width, sub, fg, bg);
-    }
-    return y;
+    const lines = splitIntoLines(text$1, width, opts.indent);
+    lines.forEach( (line, i) => {
+      const offset = i ? opts.indent : 0;
+      this.plotLine(x + offset, y + i, width - offset, line, fg || colors.white, bg);
+    });
+
+    return y + lines.length;
   }
 
   fill(ch, fg, bg) {
@@ -3376,9 +3509,9 @@ class Canvas {
       window.addEventListener('resize', handleResizeEvent.bind(this));
       handleResizeEvent.call(this);
 
-      setFont(this, this.tileSize);
+      this.font = opts.font;
+      setFont(this, this.tileSize, this.font);
     }
-
 
   }
 
@@ -3412,6 +3545,11 @@ class Canvas {
           if (cell.wasHanging && j < this.buffer.height - 1) {
             this.buffer[i][j + 1].needsUpdate = true;	// redraw the row below any hanging letters that changed
             cell.wasHanging = false;
+          }
+          if (cell.wasFlying && j) {
+            this.buffer[i][j - 1].needsUpdate = true;
+            this.buffer.needsUpdate = true;
+            cell.wasFlying = false;
           }
 
           this.drawCell(cell, i, j);
@@ -3505,6 +3643,70 @@ class Canvas {
 }
 
 types.Canvas = Canvas;
+
+function frequency(v) {
+  if (!v) return 100;
+  if (typeof v === 'number') return v;
+  if (typeof v === 'string') {
+    const parts = v.split(',');
+    v = {};
+    parts.forEach( (p) => v[p] = 100 );
+  }
+  if (typeof v === 'object') {
+    const parts = Object.entries(v);
+
+    const funcs = parts.map( ([levels,frequency]) => {
+      frequency = Number.parseInt(frequency);
+
+      if (levels.includes('-')) {
+        let [start, end] = levels.split('-');
+        start = Number.parseInt(start);
+        end = Number.parseInt(end);
+        return ((level) => (level >= start && level <= end) ? frequency : 0);
+      }
+      else if (levels.endsWith('+')) {
+        const found = Number.parseInt(levels);
+        return ((level) => (level >= found) ? frequency : 0);
+      }
+      else {
+        const found = Number.parseInt(levels);
+        return ((level) => (level === found) ? frequency : 0);
+      }
+    });
+
+    if (funcs.length == 1) return funcs[0];
+
+    return ((level) => funcs.reduce( (out, fn) => out || fn(level), 0) );
+  }
+  return 0;
+}
+
+make.frequency = frequency;
+
+function forDanger(frequency, danger) {
+  if (typeof frequency === 'number') {
+    return frequency;
+  }
+  if (typeof frequency === 'function') {
+    if (danger === undefined || danger < 0) {
+      if (data.map && data.map.config.danger) {
+        danger = data.map.config.danger;
+      }
+      else if (data.danger) {
+        danger = data.danger;
+      }
+      danger = 0;
+    }
+    return frequency(danger);
+  }
+  return 0;
+}
+
+var frequency$1 = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  frequency: frequency,
+  forDanger: forDanger
+});
 
 var io = {};
 
@@ -3699,6 +3901,8 @@ function makeKeyEvent(e) {
   ev.code = code;
   ev.x = -1;
   ev.y = -1;
+  ev.clientX = -1;
+  ev.clientY = -1;
 	ev.dir = io.keyCodeDirection(e.code);
 	ev.dt = 0;
 
@@ -3755,6 +3959,8 @@ function makeMouseEvent(e, x, y) {
   ev.code = null;
   ev.x = x;
   ev.y = y;
+  ev.clientX = e.clientX;
+  ev.clientY = e.clientY;
 	ev.dir = null;
 	ev.dt = 0;
 
@@ -3863,7 +4069,7 @@ io.tickMs = tickMs;
 // TODO - io.tickMs(ms)
 
 async function nextKeyPress(ms, match) {
-	ms = ms || 0;
+  if (ms === undefined) ms = -1;
 	match = match || TRUE;
 	function matchingKey(e) {
   	if (e.type !== KEYPRESS) return false;
@@ -3875,7 +4081,7 @@ async function nextKeyPress(ms, match) {
 io.nextKeyPress = nextKeyPress;
 
 async function nextKeyOrClick(ms, matchFn) {
-	ms = ms || 0;
+	if (ms === undefined) ms = -1;
 	matchFn = matchFn || TRUE;
 	function match(e) {
   	if (e.type !== KEYPRESS && e.type !== CLICK) return false;
@@ -4747,11 +4953,6 @@ function attachHallway(grid, doorSitesArray, opts) {
 
 digger.attachHallway = attachHallway;
 
-var tileEvent = {};
-var tileEvents = {};
-
-tileEvent.debug = NOOP;
-
 const TileLayer = def.layer;
 
 
@@ -4793,7 +4994,7 @@ types.TileEvent = TileEvent$1;
 
 
 // Dungeon features, spawned from Architect.c:
-function makeEvent(opts) {
+function make$3(opts) {
   if (!opts) return null;
   if (typeof opts === 'string') {
     opts = { tile: opts };
@@ -4802,38 +5003,36 @@ function makeEvent(opts) {
 	return te;
 }
 
-make.tileEvent = makeEvent;
+make.tileEvent = make$3;
 
 
-function installEvent(id, event) {
+function addKind$1(id, event) {
 	if (arguments.length > 2 || !(event instanceof types.TileEvent)) {
 		event = make.tileEvent(...[].slice.call(arguments, 1));
 	}
-  tileEvents[id] = event;
+  tileEvents$1[id] = event;
 	if (event) tileEvent.id = id;
 	return event;
 }
 
-tileEvent.install = installEvent;
 
-installEvent('DF_NONE');
+addKind$1('DF_NONE');
 
 
 
 function resetAllMessages() {
 	Object.values(tileEvents).forEach( (f) => {
-		if (f instanceof types.Event) {
+		if (f instanceof types.TileEvent) {
 			f.messageDisplayed = false;
 		}
 	});
 }
 
-tileEvent.resetAllMessages = resetAllMessages;
 
 
 
 // returns whether the feature was successfully generated (false if we aborted because of blocking)
-async function spawnTileEvent(feat, ctx) {
+async function spawn(feat, ctx) {
 	let i, j;
 	let tile, itemKind;
 
@@ -4842,7 +5041,7 @@ async function spawnTileEvent(feat, ctx) {
 
 	if (typeof feat === 'string') {
 		const name = feat;
-		feat = tileEvents[feat];
+		feat = tileEvents$1[feat];
 		if (!feat) ERROR('Unknown tile Event: ' + name);
 	}
 
@@ -4860,12 +5059,12 @@ async function spawnTileEvent(feat, ctx) {
 
 	if (ctx.safe && map.hasCellMechFlag(x, y, CellMech.EVENT_FIRED_THIS_TURN)) {
 		if (!(feat.flags & TileEvent.DFF_ALWAYS_FIRE)) {
-      tileEvent.debug('spawn - already fired.');
+      // tileEvent.debug('spawn - already fired.');
 			return false;
 		}
 	}
 
-	tileEvent.debug('spawn', x, y, 'id=', feat.id, 'tile=', feat.tile, 'item=', feat.item);
+	// tileEvent.debug('spawn', x, y, 'id=', feat.id, 'tile=', feat.tile, 'item=', feat.item);
 
 	const refreshCell = ctx.refreshCell = ctx.refreshCell || !(feat.flags & TileEvent.DFF_NO_REDRAW_CELL);
 	const abortIfBlocking = ctx.abortIfBlocking = ctx.abortIfBlocking || (feat.flags & TileEvent.DFF_ABORT_IF_BLOCKS_MAP);
@@ -4877,7 +5076,7 @@ async function spawnTileEvent(feat, ctx) {
 
   if (feat.message && feat.message.length && !feat.messageDisplayed && map.isVisible(x, y)) {
 		feat.messageDisplayed = true;
-		message.add(feat.message);
+		MSG.add(feat.message);
 	}
 
   if (feat.tile) {
@@ -4901,33 +5100,33 @@ async function spawnTileEvent(feat, ctx) {
 										|| (itemKind && (itemKind.flags & ItemKind.IK_BLOCKS_MOVE))
 										|| (feat.flags & TileEvent.DFF_TREAT_AS_BLOCKING))) ? true : false);
 
-	tileEvent.debug('- blocking', blocking);
+	// tileEvent.debug('- blocking', blocking);
 
 	const spawnMap = GRID$1.alloc(map.width, map.height);
 
 	let didSomething = false;
-	tileEvent.computeSpawnMap(feat, spawnMap, ctx);
+	computeSpawnMap(feat, spawnMap, ctx);
   if (!blocking || !map.gridDisruptsPassability(spawnMap, { bounds: ctx.bounds })) {
 		if (feat.flags & TileEvent.DFF_EVACUATE_CREATURES) { // first, evacuate creatures, so that they do not re-trigger the tile.
-				if (tileEvent.evacuateCreatures(map, spawnMap)) {
+				if (evacuateCreatures(map, spawnMap)) {
           didSomething = true;
         }
 		}
 
 		if (feat.flags & TileEvent.DFF_EVACUATE_ITEMS) { // first, evacuate items, so that they do not re-trigger the tile.
-				if (tileEvent.evacuateItems(map, spawnMap)) {
+				if (evacuateItems(map, spawnMap)) {
           didSomething = true;
         }
 		}
 
 		if (feat.flags & TileEvent.DFF_NULLIFY_CELL) { // first, clear other tiles (not base/ground)
-				if (tileEvent.nullifyCells(map, spawnMap, feat.flags)) {
+				if (nullifyCells(map, spawnMap, feat.flags)) {
           didSomething = true;
         }
 		}
 
 		if (tile || itemKind || feat.fn) {
-			if (await tileEvent.spawnTiles(feat, spawnMap, ctx, tile, itemKind)) {
+			if (await spawnTiles(feat, spawnMap, ctx, tile, itemKind)) {
         didSomething = true;
       }
 		}
@@ -4977,14 +5176,14 @@ async function spawnTileEvent(feat, ctx) {
   //		message(feat.message, false);
   //	}
   if (feat.next && (didSomething || feat.flags & TileEvent.DFF_SUBSEQ_ALWAYS)) {
-    tileEvent.debug('- subsequent: %s, everywhere=%s', feat.next, feat.flags & TileEvent.DFF_SUBSEQ_EVERYWHERE);
+    // tileEvent.debug('- subsequent: %s, everywhere=%s', feat.next, feat.flags & Flags.TileEvent.DFF_SUBSEQ_EVERYWHERE);
     if (feat.flags & TileEvent.DFF_SUBSEQ_EVERYWHERE) {
         for (i=0; i<map.width; i++) {
             for (j=0; j<map.height; j++) {
                 if (spawnMap[i][j]) {
 										ctx.x = i;
 										ctx.y = j;
-                    await tileEvent.spawn(feat.next, ctx);
+                    await spawn(feat.next, ctx);
                 }
             }
         }
@@ -4992,7 +5191,7 @@ async function spawnTileEvent(feat, ctx) {
 				ctx.y = y;
     }
 		else {
-        await tileEvent.spawn(feat.next, ctx);
+        await spawn(feat.next, ctx);
     }
 	}
 	if (didSomething) {
@@ -5033,13 +5232,12 @@ async function spawnTileEvent(feat, ctx) {
 		}
 	}
 
-  tileEvent.debug('- spawn complete : @%d,%d, ok=%s, feat=%s', ctx.x, ctx.y, didSomething, feat.id);
+  // tileEvent.debug('- spawn complete : @%d,%d, ok=%s, feat=%s', ctx.x, ctx.y, didSomething, feat.id);
 
 	GRID$1.free(spawnMap);
 	return didSomething;
 }
 
-tileEvent.spawn = spawnTileEvent;
 
 
 function cellIsOk(feat, x, y, ctx) {
@@ -5086,10 +5284,6 @@ function computeSpawnMap(feat, spawnMap, ctx)
 	const x = ctx.x;
 	const y = ctx.y;
 	const bounds = ctx.bounds || null;
-
-	if (bounds) {
-		tileEvent.debug('- bounds', bounds);
-	}
 
 	let startProb = feat.spread || 0;
 	let probDec = feat.decrement || 0;
@@ -5184,7 +5378,6 @@ function computeSpawnMap(feat, spawnMap, ctx)
 
 }
 
-tileEvent.computeSpawnMap = computeSpawnMap;
 
 
 async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
@@ -5234,7 +5427,7 @@ async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
 					//     cell.volume += (feat.volume || 0);
 					// }
 
-					tileEvent.debug('- tile', i, j, 'tile=', tile.id);
+					// debug('- tile', i, j, 'tile=', tile.id);
 
 					// cell.mechFlags |= Flags.CellMech.EVENT_FIRED_THIS_TURN;
 					accomplishedSomething = true;
@@ -5253,7 +5446,7 @@ async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
             // map.redrawCell(cell);
 						// cell.mechFlags |= Flags.CellMech.EVENT_FIRED_THIS_TURN;
 						accomplishedSomething = true;
-						tileEvent.debug('- item', i, j, 'item=', itemKind.id);
+						// tileEvent.debug('- item', i, j, 'item=', itemKind.id);
 					}
 				}
 			}
@@ -5274,7 +5467,6 @@ async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
 	return accomplishedSomething;
 }
 
-tileEvent.spawnTiles = spawnTiles;
 
 
 
@@ -5291,7 +5483,6 @@ function nullifyCells(map, spawnMap, flags) {
   return didSomething;
 }
 
-tileEvent.nullifyCells = nullifyCells;
 
 
 function evacuateCreatures(map, blockingMap) {
@@ -5322,7 +5513,6 @@ function evacuateCreatures(map, blockingMap) {
   return didSomething;
 }
 
-tileEvent.evacuateCreatures = evacuateCreatures;
 
 
 
@@ -5352,7 +5542,19 @@ function evacuateItems(map, blockingMap) {
   return didSomething;
 }
 
-tileEvent.evacuateItems = evacuateItems;
+var tileEvent$1 = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  TileEvent: TileEvent$1,
+  make: make$3,
+  addKind: addKind$1,
+  resetAllMessages: resetAllMessages,
+  spawn: spawn,
+  computeSpawnMap: computeSpawnMap,
+  spawnTiles: spawnTiles,
+  nullifyCells: nullifyCells,
+  evacuateCreatures: evacuateCreatures,
+  evacuateItems: evacuateItems
+});
 
 var cell = {};
 
@@ -5360,7 +5562,7 @@ const TileLayer$1 = def.layer;
 
 cell.debug = NOOP;
 
-color.install('cursorColor', 25, 100, 150);
+color.addKind('cursorColor', 25, 100, 150);
 config.cursorPathIntensity = 50;
 
 
@@ -5691,7 +5893,10 @@ class Cell$1 {
 
   setTile(tileId=0, volume=0) {
     let tile;
-    if (typeof tileId === 'string') {
+    if (tileId === 0) {
+      tile = tiles['0'];
+    }
+    else if (typeof tileId === 'string') {
       tile = tiles[tileId];
     }
     else if (tileId instanceof types.Tile) {
@@ -5704,7 +5909,7 @@ class Cell$1 {
 
     if (!tile) {
       WARN('Unknown tile - ' + tileId);
-      tile = tiles[0];
+      tile = tiles['0'];
       tileId = 0;
     }
 
@@ -5808,7 +6013,7 @@ class Cell$1 {
 
         ctx.tile = tile;
         cell.debug(' - spawn event @%d,%d - %s', ctx.x, ctx.y, name);
-        fired = await tileEvent.spawn(ev, ctx) || fired;
+        fired = await spawn(ev, ctx) || fired;
         cell.debug(' - spawned');
         if (fired) {
           break;
@@ -5828,6 +6033,7 @@ class Cell$1 {
   // SPRITES
 
   addSprite(layer, sprite, priority=50) {
+    if (!sprite) return;
 
     // this.flags |= Flags.NEEDS_REDRAW;
     this.flags |= Cell.CELL_CHANGED;
@@ -5847,13 +6053,15 @@ class Cell$1 {
   }
 
   removeSprite(sprite) {
+    if (!sprite) return false;
+    if (!this.sprites) return false;
 
     // this.flags |= Flags.NEEDS_REDRAW;
     this.flags |= Cell.CELL_CHANGED;
 
     if (this.sprites && this.sprites.sprite === sprite) {
       this.sprites = this.sprites.next;
-      return;
+      return true;
     }
 
     let prev = this.sprites;
@@ -5964,7 +6172,11 @@ class Map$1 {
 			this.ambientLight = make.color(ambient);
 		}
     this.lights = null;
+    this.id = opts.id;
+    this.events = opts.events || {};
 	}
+
+  async start() {}
 
 	nullify() { this.cells.forEach( (c) => c.nullify() ); }
 	dump(fmt) { this.cells.dump(fmt || ((c) => c.dump()) ); }
@@ -6192,7 +6404,7 @@ class Map$1 {
 					if ((Math.ceil(distanceBetween(x, y, i, j)) == k)
 							&& (!blockingMap || !blockingMap[i][j])
 							&& matcher(cell, i, j, this)
-							&& (!forbidLiquid || cell.liquid == def.NOTHING)
+							&& (!forbidLiquid || !cell.liquid)
 							&& (hallwaysAllowed || this.passableArcCount(i, j) < 2))
 	        {
 						candidateLocs.push([i, j]);
@@ -6221,29 +6433,45 @@ class Map$1 {
 	// no creatures, items or stairs and with either a matching liquid and dungeon type
 	// or at least one layer of type terrainType.
 	// A dungeon, liquid type of -1 will match anything.
-	randomMatchingXY(matcher, opts={}) {
-		let failsafeCount = 0;
+	randomMatchingXY(opts={}) {
 		let x;
 		let y;
 		let cell;
 
-		// dungeonType -1 => ignore, otherwise match with 0 = NOTHING, 'string' = MATCH
-		// liquidType  -1 => ignore, otherwise match with 0 = NOTHING, 'string' = MATCH
+    if (typeof opts === 'function') {
+      opts = { match: opts };
+    }
+
+    const hallwaysAllowed = opts.hallwaysAllowed || opts.hallways || false;
+		const blockingMap = opts.blockingMap || null;
+		const forbidLiquid = opts.forbidLiquid || opts.forbidLiquids || false;
+    const matcher = opts.match || TRUE;
+    const forbidCellFlags = opts.forbidCellFlags || 0;
+    const forbidTileFlags = opts.forbidTileFlags || 0;
+    const forbidTileMechFlags = opts.forbidTileMechFlags || 0;
+    let tries = opts.tries || 500;
 
 		let retry = true;
 		while(retry) {
-			failsafeCount++;
-			if (failsafeCount >= 500) break;
+			tries--;
+			if (!tries) break;
 
 			x = random.range(0, this.width - 1);
 			y = random.range(0, this.height - 1);
 			cell = this.cell(x, y);
 
-			if (matcher(cell, x, y, this)) {
+			if ((!blockingMap || !blockingMap[x][y])
+      		&& (!forbidLiquid || !cell.liquid)
+          && (!forbidCellFlags || !(cell.flags & forbidCellFlags))
+          && (!forbidTileFlags || !(cell.hasTileFlag(forbidTileFlags)))
+          && (!forbidTileMechFlags || !(cell.hasTileMechFlag(forbidTileMechFlags)))
+      		&& (hallwaysAllowed || this.passableArcCount(x, y) < 2)
+          && matcher(cell, x, y, this))
+      {
 				retry = false;
 			}
 		}
-		if (failsafeCount >= 500) {
+		if (!tries) {
 			// map.debug('randomMatchingLocation', dungeonType, liquidType, terrainType, ' => FAIL');
 			return false;
 		}
@@ -6332,7 +6560,7 @@ class Map$1 {
 		this.actors = theActor;
 
 		const layer = (theActor === data.player) ? TileLayer$2.PLAYER : TileLayer$2.ACTOR;
-		cell.addSprite(layer, theActor.kind.sprite);
+		cell.addSprite(layer, theActor.sprite || theActor.kind.sprite);
 
 		const flag = (theActor === data.player) ? Cell.HAS_PLAYER : Cell.HAS_MONSTER;
 		cell.flags |= flag;
@@ -6388,6 +6616,7 @@ class Map$1 {
 			cell.actor = null;
       removeFromChain(this, 'actors', actor);
 			cell.flags &= ~Cell.HAS_ACTOR;
+      cell.removeSprite(actor.sprite);
 			cell.removeSprite(actor.kind.sprite);
 
       if (actor.light || actor.kind.light) {
@@ -6445,7 +6674,7 @@ class Map$1 {
 		theItem.next = this.items;
 		this.items = theItem;
 
-		cell.addSprite(TileLayer$2.ITEM, theItem.kind.sprite);
+		cell.addSprite(TileLayer$2.ITEM, theItem.sprite || theItem.kind.sprite);
 		cell.flags |= (Cell.HAS_ITEM);
 
     if (theItem.light || theItem.kind.light) {
@@ -6480,9 +6709,11 @@ class Map$1 {
 	removeItem(theItem, skipRefresh) {
 		const x = theItem.x;
 		const y = theItem.y;
+    if (!this.hasXY(x, y)) return false;
 		const cell = this.cell(x, y);
 		if (cell.item !== theItem) return false;
 
+    cell.removeSprite(theItem.sprite);
 		cell.removeSprite(theItem.kind.sprite);
 
 		cell.item = null;
@@ -6994,7 +7225,7 @@ class Light {
 types.Light = Light;
 
 
-function make$3(color, radius, fadeTo, pass) {
+function make$4(color, radius, fadeTo, pass) {
 
 	if (arguments.length == 1) {
 		if (color && color.color) {
@@ -7018,7 +7249,7 @@ function make$3(color, radius, fadeTo, pass) {
 	return new types.Light(color, radius, fadeTo, pass);
 }
 
-make.light = make$3;
+make.light = make$4;
 
 const LIGHT_SOURCES = lights;
 
@@ -7026,7 +7257,7 @@ const LIGHT_SOURCES = lights;
 // TODO - USE STRINGS FOR LIGHT SOURCE IDS???
 //      - addLightKind(id, source) { LIIGHT_SOURCES[id] = source; }
 //      - LIGHT_SOURCES = {};
-function addKind$1(id, ...args) {
+function addKind$2(id, ...args) {
 	let source = args[0];
 	if (source && !(source instanceof types.Light)) {
 		source = make.light(...args);
@@ -7041,7 +7272,7 @@ function addKind$1(id, ...args) {
 function addKinds(config) {
 	const entries = Object.entries(config);
 	entries.forEach( ([name,info]) => {
-		addKind$1(name, info);
+		addKind$2(name, info);
 	});
 }
 
@@ -7053,7 +7284,7 @@ function from$1(...args) {
 		const cached = LIGHT_SOURCES[args[0]];
 		if (cached) return cached;
 	}
-	return make$3(...args);
+	return make$4(...args);
 }
 
 
@@ -7072,7 +7303,7 @@ function updateDisplayDetail(map) {
 
   map.eachCell( (cell, i, j) => {
     // clear light flags
-    cell.flags &= ~(Cell.CELL_LIT | Cell.CELL_DARK | Cell.LIGHT_CHANGED);
+    cell.flags &= ~(Cell.CELL_LIT | Cell.CELL_DARK);
 
     if (cell.light.some( (v, i) => v !== cell.oldLight[i])) {
       cell.flags |= Cell.LIGHT_CHANGED;
@@ -7110,6 +7341,7 @@ function recordOldLights(map) {
   map.eachCell( (cell) => {
     for (k=0; k<3; k++) {
 			cell.oldLight[k] = cell.light[k];
+			cell.flags &= ~(Cell.LIGHT_CHANGED);
 		}
   });
 }
@@ -7146,10 +7378,10 @@ function restoreGlowLights(map) {
 
 function updateLighting(map) {
 
-  if (map.flags & Map.MAP_STABLE_LIGHTS) return false;
-
 	// Copy Light over oldLight
   recordOldLights(map);
+
+  if (map.flags & Map.MAP_STABLE_LIGHTS) return false;
 
   // and then zero out Light.
 	zeroOutLights(map);
@@ -7231,8 +7463,8 @@ function playerInDarkness(map, PLAYER, darkColor) {
 
 var light = /*#__PURE__*/Object.freeze({
   __proto__: null,
-  make: make$3,
-  addKind: addKind$1,
+  make: make$4,
+  addKind: addKind$2,
   addKinds: addKinds,
   from: from$1,
   backUpLighting: backUpLighting,
@@ -7322,16 +7554,15 @@ function promoteCellVisibility(cell, i, j, map) {
 
 
 function visibilityInitMap(map) {
-  if (config.fov) {
-    map.clearFlags(0, Cell.IS_WAS_ANY_KIND_OF_VISIBLE);
-  }
+  if (!config.fov) return;
+
+  map.clearFlags(0, Cell.IS_WAS_ANY_KIND_OF_VISIBLE);
 }
 
 visibility.initMap = visibilityInitMap;
 
 
 function updateVisibility(map, x, y) {
-
   if (!config.fov) return;
 
   map.forEach( demoteCellVisibility );
@@ -7380,6 +7611,12 @@ function updateVisibility(map, x, y) {
 
 visibility.update = updateVisibility;
 
+function revealMap(map) {
+  map.forEach( (cell) => cell.flags |= Cell.REVEALED );
+}
+
+visibility.revealMap = revealMap;
+
 var actions = {};
 
 actions.debug = NOOP;
@@ -7397,13 +7634,15 @@ class ActorKind$1 {
 		this.name = opts.name || 'item';
 		this.description = opts.description || opts.desc || '';
     this.article = (opts.article === undefined) ? 'a' : opts.article;
-		this.sprite = make.sprite(opts.sprite);
+		this.sprite = make.sprite(opts.sprite || opts);
     this.flags = ActorKind.toFlag(opts.flags);
 		this.actionFlags = Action.toFlag(opts.flags);
 		// this.attackFlags = Flags.Attack.toFlag(opts.flags);
 		this.stats = Object.assign({}, opts.stats || {});
+    this.regen = Object.assign({}, opts.regen || {});
 		this.id = opts.id || null;
     this.bump = opts.bump || ['attack'];  // attack me by default if you bump into me
+    this.frequency = make.frequency(opts.frequency || this.stats.frequency);
 
     if (typeof this.bump === 'string') {
       this.bump = this.bump.split(/[,|]/).map( (t) => t.trim() );
@@ -7447,8 +7686,13 @@ class ActorKind$1 {
     if (opts.sidebar) {
       this.sidebar = opts.sidebar.bind(this);
     }
+    if (opts.calcEquipmentBonuses) {
+      this.calcEquipmentBonuses = opts.calcEquipmentBonuses.bind(this);
+    }
 
   }
+
+  make(actor, opts) {}
 
   // other is visible to player (invisible, in darkness, etc...) -- NOT LOS/FOV check
   canVisualize(actor, other, map) {
@@ -7472,9 +7716,17 @@ class ActorKind$1 {
     return 0; // ???
   }
 
+  forbiddenCellFlags(actor) {
+		return Cell.HAS_ACTOR;
+	}
+
 	forbiddenTileFlags(actor) {
 		return Tile.T_PATHING_BLOCKER;
 	}
+
+  forbiddenTileMechFlags(actor) {
+    return 0;
+  }
 
   canPass(actor, other) {
     return actor.isPlayer() == other.isPlayer();
@@ -7517,12 +7769,12 @@ class ActorKind$1 {
     return 20;  // ???
   }
 
-  getName(opts={}) {
+  getName(actor, opts={}) {
     if (opts === true) { opts = { article: true }; }
     if (opts === false) { opts = {}; }
     if (typeof opts === 'string') { opts = { article: opts }; }
 
-    let result = this.name;
+    let result = actor.name || this.name;
     if (opts.color || (this.consoleColor && (opts.color !== false))) {
       let color = this.sprite.fg;
       if (this.consoleColor instanceof types.Color) {
@@ -7531,12 +7783,12 @@ class ActorKind$1 {
       if (opts.color instanceof types.Color) {
         color = opts.color;
       }
-      result = text.format('%R%s%R', color, this.name, null);
+      result = format('%F%s%F', color, result, null);
     }
 
     if (opts.article && (this.article !== false)) {
       let article = (opts.article === true) ? this.article : opts.article;
-      if (article == 'a' && text.isVowel(text.firstChar(result))) {
+      if (article == 'a' && isVowel(firstChar(result))) {
         article = 'an';
       }
       result = article + ' ' + result;
@@ -7573,27 +7825,44 @@ actor.addKinds = addActorKinds;
 let ACTOR_COUNT = 0;
 
 class Actor$1 {
-	constructor(kind) {
+	constructor(kind, opts={}) {
 		this.x = -1;
     this.y = -1;
-    this.flags = 0;
+    this.flags = Actor.toFlag(opts.flags);
     this.kind = kind || {};
     this.turnTime = 0;
 		this.status = {};
+
+    this.pack = null;
+    this.slots = {};
 
     // stats
     this.current = { health: 1 };
     this.max = { health: 1 };
     this.prior = { health: 1 };
-
     if (this.kind.stats) {
       Object.assign(this.current, this.kind.stats);
       Object.assign(this.max, this.kind.stats);
       Object.assign(this.prior, this.kind.stats);
     }
+    if (opts.stats) {
+      Object.assign(this.current, opts.stats);
+    }
+
+    this.regen = { health: 0 };
+    if (this.kind.regen) {
+      Object.assign(this.regen, this.kind.regen);
+    }
+    if (opts.regen) {
+      Object.assign(this.regen, opts.regen);
+    }
 
     if (this.kind.ai) {
       this.kind.ai.forEach( (ai) => {
+        const fn = ai.act || ai.fn || ai;
+        if (typeof fn !== 'function') {
+          ERROR('Invalid AI - must be function, or object with function for act or fn member.');
+        }
         if (ai.init) {
           ai.init(this);
         }
@@ -7601,6 +7870,13 @@ class Actor$1 {
     }
 
     this.id = ++ACTOR_COUNT;
+
+    if (this.kind.make) {
+      this.kind.make(this, opts);
+    }
+    if (this.kind.calcEquipmentBonuses) {
+      this.kind.calcEquipmentBonuses(this);
+    }
   }
 
   turnEnded() { return this.flags & Actor.AF_TURN_ENDED; }
@@ -7608,6 +7884,34 @@ class Actor$1 {
   isPlayer() { return this === data.player; }
   isDead() { return this.current.health <= 0; }
   isInanimate() { return this.kind.flags & ActorKind.AK_INANIMATE; }
+  isInvulnerable() { return this.kind.flags & ActorKind.AK_INVULNERABLE; }
+
+
+  async bumpBy(actor, ctx) {
+
+    if (this.kind.bump && typeof this.kind.bump === 'function') {
+      return this.kind.bump(actor, this, ctx);
+    }
+
+    const kind = this.kind;
+    const actorActions = this.bump || [];
+    const kindActions  = this.kind.bump || [];
+
+    const allBump = actorActions.concat(kindActions);
+
+    for(let i = 0; i < allBump.length; ++i) {
+      let bumpFn = allBump[i];
+      if (typeof bumpFn === 'string') {
+        bumpFn = actions[bumpFn] || kind[bumpFn] || FALSE;
+      }
+
+      if (await bumpFn(actor, this, ctx) !== false) {
+        return true;
+      }
+    }
+
+    return false;
+  }
 
 	endTurn(turnTime) {
     if (this.kind.endTurn) {
@@ -7678,6 +7982,51 @@ class Actor$1 {
     return (this.flags & Actor.AF_CHANGED);
   }
 
+  // combat helpers
+  calcDamageTo(defender, attackInfo, ctx) {
+    let damage = attackInfo.damage;
+    if (typeof damage === 'function') {
+      damage = damage(this, defender, attackInfo, ctx) || 1;
+    }
+    return damage;
+  }
+
+  // Descriptions
+
+  getName(opts={}) {
+    if (typeof opts === 'string') { opts = { article: opts }; }
+    let base = this.kind.getName(this, opts);
+    return base;
+  }
+
+  getVerb(verb) {
+    if (this.isPlayer()) return verb;
+    return toSingular(verb);
+  }
+
+  getPronoun(pn) {
+    if (this.isPlayer()) {
+      return playerPronoun[pn];
+    }
+
+    return singularPronoun[pn];
+  }
+
+  debug(...args) {
+  	// if (this.flags & Flags.Actor.AF_DEBUG)
+  	actor.debug(...args);
+  }
+
+  // STATS
+
+  adjustStat(stat, delta) {
+    if (this.max[stat] === undefined) {
+      this.max[stat] = Math.max(0, delta);
+    }
+    this.current[stat] = clamp((this.current[stat] || 0) + delta, 0, this.max[stat]);
+    this.changed(true);
+  }
+
   statChangePercent(name) {
     const current = this.current[name] || 0;
     const prior = this.prior[name] || 0;
@@ -7686,28 +8035,70 @@ class Actor$1 {
     return Math.floor(100 * (current - prior)/max);
   }
 
-  getName(opts={}) {
-    if (typeof opts === 'string') { opts = { article: opts }; }
-    let base = this.kind.getName(opts);
-    return base;
-  }
+  // INVENTORY
 
-  getVerb(verb) {
-    if (this.isPlayer()) return verb;
-    return text.toSingular(verb);
-  }
-
-  getPronoun(pn) {
-    if (this.isPlayer()) {
-      return text.playerPronoun[pn];
+  addToPack(item) {
+    let quantityLeft = (item.quantity || 1);
+    // Stacking?
+    if (item.kind.flags & ItemKind.IK_STACKABLE) {
+      let current = this.pack;
+      while(current && quantityLeft) {
+        if (current.kind === item.kind) {
+          quantityLeft -= item.quantity;
+          current.quantity += item.quantity;
+          item.quantity = 0;
+          item.destroy();
+        }
+        current = current.next;
+      }
+      if (!quantityLeft) {
+        return true;
+      }
     }
 
-    return text.singularPronoun[pn];
+    // Limits to inventory length?
+    // if too many items - return false
+
+    if (addToChain(this, 'pack', item)) {
+      return true;
+    }
   }
 
-  debug(...args) {
-  	// if (this.flags & Flags.Actor.AF_DEBUG)
-  	actor.debug(...args);
+  removeFromPack(item) {
+    return removeFromChain(this, 'pack', item);
+  }
+
+  eachPack(fn) {
+    eachChain(this.pack, fn);
+  }
+
+  // EQUIPMENT
+
+  equip(item) {
+    const slot = item.kind.slot;
+    if (!slot) return false;
+    if (this.slots[slot]) return false;
+    this.slots[slot] = item;
+    return true;
+  }
+
+  unequip(item) {
+    const slot = item.kind.slot;
+    if (this.slots[slot] === item) {
+      this.slots[slot] = null;
+      return true;
+    }
+    return false;
+  }
+
+  unequipSlot(slot) {
+    const item = this.slots[slot] || null;
+    this.slots[slot] = null;
+    return item;
+  }
+
+  eachEquip(fn) {
+    Object.values(this.slots).filter( (a) => a ).forEach( (o) => fn(o) );
   }
 
 }
@@ -7719,7 +8110,7 @@ function makeActor(kind) {
   if (typeof kind === 'string') {
     kind = actorKinds[kind];
   }
-  else if (!(kind instanceof types.Actor)) {
+  else if (!(kind instanceof types.ActorKind)) {
     let type = 'ActorKind';
     if (kind.type) {
       type = kind.type;
@@ -7740,8 +8131,19 @@ function startActorTurn(theActor) {
 actor.startTurn = startActorTurn;
 
 function endActorTurn(theActor, turnTime=1) {
+  if (theActor.turnEnded()) return;
+
   theActor.flags |= Actor.AF_TURN_ENDED;
   theActor.turnTime = Math.floor(theActor.kind.speed * turnTime);
+
+  for(let stat in theActor.regen) {
+    const turns = theActor.regen[stat];
+    if (turns > 0) {
+      const amt = 1/turns;
+      theActor.adjustStat(stat, amt);
+    }
+  }
+
   if (theActor.isPlayer()) {
     visibility.update(data.map, theActor.x, theActor.y);
     ui.requestUpdate(48);
@@ -7778,30 +8180,137 @@ actor.takeTurn = takeTurn;
 
 
 
-async function bump(actor, target, ctx) {
-  if (!target) return false;
 
-  const kind = actor.kind;
-  const actorActions = target.bump || [];
-  const kindActions  = target.kind.bump || [];
 
-  const allBump = actorActions.concat(kindActions);
+function chooseKinds(opts={}) {
+  opts.danger = opts.danger || 1;
+  if (opts.kinds) {
+    return opts.kinds.map( (a) => {
+      if (typeof a === 'string') return GW.actorKinds[a];
+      return a;
+    });
+  }
 
-  for(let i = 0; i < allBump.length; ++i) {
-    let bump = allBump[i];
-    if (typeof bump === 'string') {
-      bump = kind[bump] || actions[bump] || FALSE;
+  let count = opts.count || 0;
+  if (opts.tries && opts.chance) {
+    for(let i = 0; i < opts.tries; ++i) {
+      if (random.chance(opts.chance)) {
+        ++count;
+      }
     }
+  }
+  else if (opts.chance < 100) {
+    while(random.chance(opts.chance)) {
+      ++count;
+    }
+  }
+  if (!count) {
+    WARN('Tried to place 0 actors.');
+    return [];
+  }
 
-    if (await bump(actor, target, ctx)) {
-      return true;
+  let choices = opts.choices;
+  // TODO - allow ['THING'] and { THING: 20 }
+  if (!choices) {
+    let matchKindFn = opts.matchKindFn || TRUE;
+    choices = Object.values(GW.actorKinds).filter(matchKindFn);
+  }
+
+  let frequencies;
+  if (Array.isArray(choices)) {
+    choices = choices.map( (v) => {
+      if (typeof v === 'string') return actorKinds[v];
+      return v;
+    });
+    frequencies = choices.map( (k) => forDanger(k.frequency, opts.danger) );
+  }
+  else {
+    // { THING: 20, OTHER: 10 }
+    choices = Object.keys(choices).map( (v) => actorKinds[v] );
+    frequencies = Object.values(choices);
+  }
+
+  if (!choices.length) {
+    WARN('Tried to place actors - 0 qualifying kinds to choose from.');
+    return [];
+  }
+
+  const kinds = [];
+  for(let i = 0; i < count; ++i) {
+    const index = random.lottery(frequencies);
+    kinds.push(choices[index]);
+  }
+
+  return kinds;
+}
+
+
+function generateAndPlace(map, opts={}) {
+  if (typeof opts === 'number') { opts = { tries: opts }; }
+  if (Array.isArray(opts)) { opts = { kinds: opts }; }
+  setDefaults(opts, {
+    tries: 0,
+    count: 0,
+    chance: 100,
+    outOfBandChance: 0,
+    matchKindFn: null,
+    allowHallways: false,
+    avoid: 'start',
+    locTries: 500,
+    choices: null,
+    kinds: null,
+    makeOpts: null,
+  });
+
+  let danger = opts.danger || map.config.danger || 1;
+  while (random.chance(opts.outOfBandChance)) {
+    ++danger;
+  }
+  opts.danger = danger;
+
+  const kinds = chooseKinds(opts);
+
+  const blocked = GRID$1.alloc(map.width, map.height);
+  // TODO - allow [x,y] in addition to 'name'
+  if (opts.avoid && map.locations[opts.avoid]) {
+    const loc = map.locations[opts.avoid];
+    map.calcFov(blocked, loc[0], loc[1], 20);
+  }
+
+  let placed = 0;
+
+  const makeOpts = Object.assign({ danger }, opts.makeOpts || {});
+
+  const matchOpts = {
+    allowHallways: opts.allowHallways,
+    blockingMap: blocked,
+    allowLiquid: false,
+    forbidCellFlags: 0,
+    forbidTileFlags: 0,
+    forbidTileMechFlags: 0,
+    tries: opts.locTries,
+  };
+
+  for(let i = 0; i < kinds.length; ++i) {
+    const kind = kinds[i];
+    const actor = make.actor(kind, makeOpts);
+
+    matchOpts.forbidCellFlags = kind.forbiddenCellFlags(actor);
+    matchOpts.forbidTileFlags = kind.forbiddenTileFlags(actor);
+    matchOpts.forbidTileMechFlags = kind.forbiddenTileMechFlags(actor);
+
+    const loc = map.randomMatchingXY(matchOpts);
+    if (loc && loc[0] > 0) {
+      map.addActor(loc[0], loc[1], actor);
+      ++placed;
     }
   }
 
-  return false;
+  GRID$1.free(blocked);
+  return placed;
 }
 
-actor.bump = bump;
+actor.generateAndPlace = generateAndPlace;
 
 var player = {};
 
@@ -7814,7 +8323,12 @@ function makePlayer(kind) {
     setDefaults(kind, {
       sprite: { ch:'@', fg: 'white' },
       name: 'you', article: false,
+      attacks: {},
+      bump: ['talk', 'attack'],
     });
+    if (!kind.attacks.melee) {
+      kind.attacks.melee = { verb: 'punch', damage: 1 };
+    }
     kind = new types.ActorKind(kind);
   }
   return new types.Actor(kind);
@@ -7938,9 +8452,7 @@ class Scheduler {
 
 const scheduler = new Scheduler();
 
-var game = {};
-
-game.debug = NOOP;
+const GAME_DEBUG = NOOP;
 
 data.time = 0;
 data.running = false;
@@ -7948,11 +8460,14 @@ data.turnTime = 10;
 
 
 
-async function startGame(opts={}) {
+async function start(opts={}) {
 
   data.time = 0;
   data.running = true;
   data.player = opts.player || null;
+  data.gameHasEnded = false;
+
+  GW.utils.clearObject(maps);
 
   if (opts.width) {
     config.width = opts.width;
@@ -7960,12 +8475,12 @@ async function startGame(opts={}) {
   }
 
   if (opts.buildMap) {
-    game.buildMap = opts.buildMap;
+    buildMap = opts.buildMap;
   }
 
   let map = opts.map;
   if (typeof map === 'number' || !map) {
-    map = await game.getMap(map);
+    map = await getMap(map);
   }
 
   if (!map) ERROR('No map!');
@@ -7974,13 +8489,21 @@ async function startGame(opts={}) {
     config.fov = true;
   }
 
-  game.startMap(map, opts.start);
-  game.queuePlayer();
+  config.inventory = true;
+  if (opts.inventory === false || opts.pack === false) {
+    config.inventory = false;
+  }
 
-  return game.loop();
+  if (opts.combat) {
+    config.combat = combat;
+  }
+
+  await startMap(map, opts.start);
+  queuePlayer();
+
+  return loop();
 }
 
-game.start = startGame;
 
 
 function buildMap(id=0) {
@@ -7999,22 +8522,19 @@ function buildMap(id=0) {
   return map;
 }
 
-game.buildMap = buildMap;
-
 
 async function getMap(id=0) {
   let map = maps[id];
   if (!map) {
-    map = await game.buildMap(id);
+    map = await buildMap(id);
+    map.id = id;
     maps[id] = map;
   }
   return map;
 }
 
-game.getMap = getMap;
 
-
-function startMap(map, loc='start') {
+async function startMap(map, loc='start') {
 
   scheduler.clear();
 
@@ -8058,26 +8578,36 @@ function startMap(map, loc='start') {
     visibility.update(map, data.player.x, data.player.y);
   }
 
+  if (!config.fov) {
+    visibility.revealMap(map);
+  }
+
   updateLighting(map);
 
   eachChain(map.actors, (actor) => {
-    game.queueActor(actor);
+    queueActor(actor);
   });
 
   ui.blackOutDisplay();
   map.redrawAll();
   ui.draw();
 
+  if (map.events.welcome && !(map.flags & Map.MAP_SAW_WELCOME)) {
+    map.flags |= Map.MAP_SAW_WELCOME;
+    await map.events.welcome(map);
+  }
+  else if (map.events.start) {
+    await map.events.start(map);
+  }
+
   if (map.config.tick) {
-    scheduler.push( game.updateEnvironment, map.config.tick );
+    scheduler.push( updateEnvironment, map.config.tick );
   }
 }
 
-game.startMap = startMap;
 
 
-
-async function gameLoop() {
+async function loop() {
 
   ui.draw();
 
@@ -8105,12 +8635,10 @@ async function gameLoop() {
       else {
         if (scheduler.time > data.time) {
           data.time = scheduler.time;
-          game.debug('- update now: %d', scheduler.time);
           await ui.updateIfRequested();
         }
         const turnTime = await fn();
         if (turnTime) {
-          game.debug('- push actor: %d + %d = %d', scheduler.time, turnTime, scheduler.time + turnTime);
           scheduler.push(fn, turnTime);
         }
         data.map.resetEvents();
@@ -8122,53 +8650,44 @@ async function gameLoop() {
   return data.isWin;
 }
 
-game.loop = gameLoop;
-
 
 function queuePlayer() {
   scheduler.push(player.takeTurn, data.player.kind.speed);
 }
 
-game.queuePlayer = queuePlayer;
 
 function queueActor(actor$1) {
   scheduler.push(actor.takeTurn.bind(null, actor$1), actor$1.kind.speed);
 }
 
-game.queueActor = queueActor;
-
 function delay(delay, fn) {
   return scheduler.push(fn, delay);
 }
 
-game.delay = delay;
 
 async function cancelDelay(timer) {
   return scheduler.remove(timer);
 }
 
-game.cancelDelay = cancelDelay;
-
 async function updateEnvironment() {
-
-  game.debug('update environment');
 
   const map = data.map;
   if (!map) return 0;
 
   await map.tick();
+  visibility.update(map, data.player.x, data.player.y);
+
   ui.requestUpdate();
 
   return map.config.tick;
 }
 
-game.updateEnvironment = updateEnvironment;
 
 
 sprite.install('hilite', colors.white);
 
-async function gameOver(isWin, ...args) {
-  const msg = text.format(...args);
+async function gameOver$1(isWin, ...args) {
+  const msg = format(...args);
 
   flavor.clear();
   message.add(msg);
@@ -8187,7 +8706,6 @@ async function gameOver(isWin, ...args) {
 
 }
 
-game.gameOver = gameOver;
 
 async function useStairs(x, y) {
   const player = data.player;
@@ -8213,16 +8731,29 @@ async function useStairs(x, y) {
     mapId = map.id - 1;
   }
 
-  game.debug('use stairs : was on: %d [%d,%d], going to: %d %s', map.id, x, y, mapId, start);
+  GAME_DEBUG('use stairs : was on: %d [%d,%d], going to: %d %s', map.id);
 
-  const newMap = await game.getMap(mapId);
+  const newMap = await getMap(mapId);
 
-  startMap(newMap, start);
+  await startMap(newMap, start);
 
   return true;
 }
 
-game.useStairs = useStairs;
+var game = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  start: start,
+  get buildMap () { return buildMap; },
+  getMap: getMap,
+  startMap: startMap,
+  queuePlayer: queuePlayer,
+  queueActor: queueActor,
+  delay: delay,
+  cancelDelay: cancelDelay,
+  updateEnvironment: updateEnvironment,
+  gameOver: gameOver$1,
+  useStairs: useStairs
+});
 
 var tile = {};
 
@@ -8311,7 +8842,7 @@ class Tile$1 {
       if (opts.color instanceof types.Color) {
         color = opts.color;
       }
-      result = text.format('%R%s%R', color, this.name, null);
+      result = format('%F%s%F', color, this.name, null);
     }
 
     if (opts.article) {
@@ -8333,7 +8864,7 @@ class Tile$1 {
     if (this.flags & Tile.T_LAVA && actor) {
       if (!cell.hasTileFlag(Tile.T_BRIDGE) && !actor.status.levitating) {
         actor.kind.kill(actor);
-        await game.gameOver(false, colors.red, 'you fall into lava and perish.');
+        await gameOver$1(false, colors.red, 'you fall into lava and perish.');
         return true;
       }
     }
@@ -8398,7 +8929,7 @@ let SITE = null;
 let LOCS;
 
 
-function start(map, opts={}) {
+function start$1(map, opts={}) {
 
   LOCS = sequence(map.width * map.height);
   random.shuffle(LOCS);
@@ -8412,7 +8943,7 @@ function start(map, opts={}) {
   SITE = map;
 }
 
-dungeon.start = start;
+dungeon.start = start$1;
 
 
 function finish() {
@@ -8931,26 +9462,29 @@ function removeDiagonalOpenings() {
 dungeon.removeDiagonalOpenings = removeDiagonalOpenings;
 
 
-function finishDoors() {
+function finishDoors(map) {
+  map = map || SITE;
   let i, j;
 
-	for (i=1; i<SITE.width-1; i++) {
-		for (j=1; j<SITE.height-1; j++) {
-			if (SITE.isDoor(i, j))
+	for (i=1; i<map.width-1; i++) {
+		for (j=1; j<map.height-1; j++) {
+			if (map.isDoor(i, j))
 			{
-				if ((SITE.canBePassed(i+1, j) || SITE.canBePassed(i-1, j))
-					&& (SITE.canBePassed(i, j+1) || SITE.canBePassed(i, j-1))) {
+				if ((map.canBePassed(i+1, j) || map.canBePassed(i-1, j))
+					&& (map.canBePassed(i, j+1) || map.canBePassed(i, j-1)))
+        {
 					// If there's passable terrain to the left or right, and there's passable terrain
 					// above or below, then the door is orphaned and must be removed.
-					SITE.setTile(i, j, FLOOR);
+					map.setTile(i, j, FLOOR);
           dungeon.debug('Removed orphan door', i, j);
-				} else if ((SITE.blocksPathing(i+1, j) ? 1 : 0)
-						   + (SITE.blocksPathing(i-1, j) ? 1 : 0)
-						   + (SITE.blocksPathing(i, j+1) ? 1 : 0)
-						   + (SITE.blocksPathing(i, j-1) ? 1 : 0) >= 3) {
+				} else if ((map.blocksPathing(i+1, j) ? 1 : 0)
+						   + (map.blocksPathing(i-1, j) ? 1 : 0)
+						   + (map.blocksPathing(i, j+1) ? 1 : 0)
+						   + (map.blocksPathing(i, j-1) ? 1 : 0) >= 3)
+        {
 					// If the door has three or more pathing blocker neighbors in the four cardinal directions,
 					// then the door is orphaned and must be removed.
-          SITE.setTile(i, j, FLOOR);
+          map.setTile(i, j, FLOOR);
           dungeon.debug('Removed blocked door', i, j);
 				}
 			}
@@ -8960,8 +9494,9 @@ function finishDoors() {
 
 dungeon.finishDoors = finishDoors;
 
-function finishWalls() {
-  SITE.forEach( (cell, i, j) => {
+function finishWalls(map) {
+  map = map || SITE;
+  map.forEach( (cell, i, j) => {
     if (cell.isNull()) {
       cell.setTile(WALL);
     }
@@ -8972,23 +9507,24 @@ dungeon.finishWalls = finishWalls;
 
 
 
-function isValidStairLoc(c, x, y) {
+function isValidStairLoc(c, x, y, map) {
+  map = map || SITE;
   let count = 0;
-  if (!c.isNull()) return false;
+  if (!(c.isNull() || c.isWall())) return false;
 
   for(let i = 0; i < 4; ++i) {
     const dir = def.dirs[i];
-    if (!SITE.hasXY(x + dir[0], y + dir[1])) return false;
-    if (!SITE.hasXY(x - dir[0], y - dir[1])) return false;
-    const cell = SITE.cell(x + dir[0], y + dir[1]);
+    if (!map.hasXY(x + dir[0], y + dir[1])) return false;
+    if (!map.hasXY(x - dir[0], y - dir[1])) return false;
+    const cell = map.cell(x + dir[0], y + dir[1]);
     if (cell.hasTile(FLOOR)) {
       count += 1;
-      const va = SITE.cell(x - dir[0] + dir[1], y - dir[1] + dir[0]);
-      if (!va.isNull()) return false;
-      const vb = SITE.cell(x - dir[0] - dir[1], y - dir[1] - dir[0]);
-      if (!vb.isNull()) return false;
+      const va = map.cell(x - dir[0] + dir[1], y - dir[1] + dir[0]);
+      if (!(va.isNull() || va.isWall())) return false;
+      const vb = map.cell(x - dir[0] - dir[1], y - dir[1] - dir[0]);
+      if (!(vb.isNull() || vb.isWall())) return false;
     }
-    else if (!cell.isNull()) {
+    else if (!(cell.isNull() || cell.isWall())) {
       return false;
     }
   }
@@ -9010,7 +9546,7 @@ function setupStairs(map, x, y, tile) {
 		const cell = map.cell(x0, y0);
 		if (cell.hasTile(FLOOR) && cell.isEmpty()) {
 			const oppCell = map.cell(x - dir[0], y - dir[1]);
-			if (oppCell.isNull()) break;
+			if (oppCell.isNull() || oppCell.isWall()) break;
 		}
 
 		dir = null;
@@ -9028,6 +9564,7 @@ function setupStairs(map, x, y, tile) {
 		if (i == dirIndex || l == dirIndex || r == dirIndex ) continue;
 		const d = def.clockDirs[i];
 		map.setTile(x + d[0], y + d[1], WALL);
+    map.setCellFlags(x + d[0], y + d[1], Cell.IMPREGNABLE);
 	}
 
 	dungeon.debug('setup stairs', x, y, tile);
@@ -9039,70 +9576,71 @@ dungeon.setupStairs = setupStairs;
 
 function addStairs(opts = {}) {
 
+  const map = opts.map || SITE;
   let needUp = (opts.up !== false);
   let needDown = (opts.down !== false);
-  const minDistance = opts.minDistance || Math.floor(Math.max(SITE.width,SITE.height)/2);
+  const minDistance = opts.minDistance || Math.floor(Math.max(map.width,map.height)/2);
   const isValidStairLoc = opts.isValid || dungeon.isValidStairLoc;
-  const setup = opts.setup || dungeon.setupStairs;
+  const setupFn = opts.setup || dungeon.setupStairs;
 
   let upLoc = Array.isArray(opts.up) ? opts.up : null;
   let downLoc = Array.isArray(opts.down) ? opts.down : null;
 
-  if (opts.start) {
+  if (opts.start && typeof opts.start !== 'string') {
     let start = opts.start;
     if (start === true) {
-      start = SITE.randomMatchingXY( isValidStairLoc );
+      start = map.randomMatchingXY( isValidStairLoc );
     }
     else {
-      start = SITE.matchingXYNear(x(start), y(start), isValidStairLoc);
+      start = map.matchingXYNear(x(start), y(start), isValidStairLoc);
     }
-    SITE.locations.start = start;
+    map.locations.start = start;
   }
 
   if (upLoc && downLoc) {
-    upLoc = SITE.matchingXYNear(x(upLoc), y(upLoc), isValidStairLoc);
-    downLoc = SITE.matchingXYNear(x(downLoc), y(downLoc), isValidStairLoc);
+    upLoc = map.matchingXYNear(x(upLoc), y(upLoc), isValidStairLoc);
+    downLoc = map.matchingXYNear(x(downLoc), y(downLoc), isValidStairLoc);
   }
   else if (upLoc && !downLoc) {
-    upLoc = SITE.matchingXYNear(x(upLoc), y(upLoc), isValidStairLoc);
+    upLoc = map.matchingXYNear(x(upLoc), y(upLoc), isValidStairLoc);
     if (needDown) {
-      downLoc = SITE.randomMatchingXY( (v, x, y) => {
+      downLoc = map.randomMatchingXY( (v, x, y) => {
     		if (distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
-    		return isValidStairLoc(v, x, y, SITE);
+    		return isValidStairLoc(v, x, y, map);
     	});
     }
   }
   else if (downLoc && !upLoc) {
-    downLoc = SITE.matchingXYNear(x(downLoc), y(downLoc), isValidStairLoc);
+    downLoc = map.matchingXYNear(x(downLoc), y(downLoc), isValidStairLoc);
     if (needUp) {
-      upLoc = SITE.randomMatchingXY( (v, x, y) => {
+      upLoc = map.randomMatchingXY( (v, x, y) => {
     		if (distanceBetween(x, y, downLoc[0], downLoc[1]) < minDistance) return false;
-    		return isValidStairLoc(v, x, y, SITE);
+    		return isValidStairLoc(v, x, y, map);
     	});
     }
   }
   else if (needUp) {
-    upLoc = SITE.randomMatchingXY( isValidStairLoc );
+    upLoc = map.randomMatchingXY( isValidStairLoc );
     if (needDown) {
-      downLoc = SITE.randomMatchingXY( (v, x, y) => {
+      downLoc = map.randomMatchingXY( (v, x, y) => {
     		if (distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
-    		return isValidStairLoc(v, x, y, SITE);
+    		return isValidStairLoc(v, x, y, map);
     	});
     }
   }
   else if (needDown) {
-    downLoc = SITE.randomMatchingXY( isValidStairLoc );
+    downLoc = map.randomMatchingXY( isValidStairLoc );
   }
 
   if (upLoc) {
-    SITE.locations.up = upLoc.slice();
-    setup(SITE, upLoc[0], upLoc[1], UP_STAIRS);
-    if (opts.start === 'up') SITE.locations.start = SITE.locations.up;
+    map.locations.up = upLoc.slice();
+    setupFn(map, upLoc[0], upLoc[1], opts.upTile || UP_STAIRS);
+    if (opts.start === 'up') map.locations.start = map.locations.up;
   }
   if (downLoc) {
-    SITE.locations.down = downLoc.slice();
-    setup(SITE, downLoc[0], downLoc[1], DOWN_STAIRS);
-    if (opts.start === 'down') SITE.locations.start = SITE.locations.down;
+    map.locations.down = downLoc.slice();
+    setupFn(map, downLoc[0], downLoc[1], opts.downTile || DOWN_STAIRS);
+    if (opts.start === 'down') map.locations.start = map.locations.down;
   }
 
   return !!(upLoc || downLoc);
@@ -9744,6 +10282,62 @@ class FOV {
 
 types.FOV = FOV;
 
+async function applyDamage(attacker, defender, attackInfo, ctx) {
+  ctx.damage = attackInfo.damage || ctx.damage || attacker.calcDamageTo(defender, attackInfo, ctx);
+  const map = ctx.map || data.map;
+
+  ctx.damage = defender.kind.applyDamage(defender, ctx.damage, attacker, ctx);
+
+  let msg = firstOpt('msg', attackInfo, ctx, true);
+  if (msg) {
+    if (typeof msg !== 'string') {
+      let verb = attackInfo.verb || 'hit';
+      msg = format('%s %s %s for %F%d%F damage', attacker.getName(), attacker.getVerb(verb), defender.getName('the'), 'red', Math.round(ctx.damage), null);
+    }
+    message.addCombat(msg);
+  }
+
+  const ctx2 = { map, x: defender.x, y: defender.y, volume: ctx.damage };
+
+  if (map) {
+    let hit = firstOpt('fx', attackInfo, ctx, false);
+    if (hit) {
+      await fx.hit(map, defender);
+    }
+    if (defender.kind.blood) {
+      await spawn(defender.kind.blood, ctx2);
+    }
+  }
+  if (defender.isDead()) {
+    defender.kind.kill(defender);
+    if (map) {
+      map.removeActor(defender);
+      if (defender.kind.corpse) {
+        await spawn(defender.kind.corpse, ctx2);
+      }
+      if (defender.pack && !defender.isPlayer()) {
+        eachChain(defender.pack, (item) => {
+          map.addItemNear(defender.x, defender.y, item);
+        });
+      }
+    }
+
+    if (defender.isDead() && (msg !== false)) {
+      message.addCombat('%s %s', defender.isInanimate() ? 'destroying' : 'killing', defender.getPronoun('it'));
+    }
+
+    if (defender.isPlayer()) {
+      await gameOver(false, 'Killed by %s.', attacker.getName(true));
+    }
+  }
+  return ctx.damage;
+}
+
+var combat$1 = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  applyDamage: applyDamage
+});
+
 async function grab(e) {
   const actor = e.actor || data.player;
   const map = data.map;
@@ -9939,12 +10533,14 @@ async function fire(e) {
   const actor = e.actor || data.player;
   const map = data.map;
 
-  if (!actor.ranged) {
-    message.add('%s have nothing to %Rfire%R.', actor.getName(), 'orange', null);
+  const item = actor.slots.ranged;
+
+  if (!item) {
+    message.add('%s have nothing to %Ffire%F.', actor.getName(), 'orange', null);
     return false;
   }
 
-  const range = actor.ranged.stats.range || 0;
+  const range = item.stats.range || 0;
 
   const candidates = [];
   let choice;
@@ -9973,7 +10569,7 @@ async function fire(e) {
     return false; // cancelled
   }
 
-  if (!await actions.itemAttack(actor, choice, { map, actor, x: choice.x, y: choice.y, item: actor.ranged, type: 'ranged' })) {
+  if (!await actions.itemAttack(actor, choice, { map, actor, x: choice.x, y: choice.y, item, type: 'ranged' })) {
     return false;
   }
   return true;
@@ -10056,6 +10652,42 @@ async function push(e) {
 
 commands$1.push = push;
 
+async function talk(e) {
+  const actor = e.actor || data.player;
+  const map = data.map;
+
+  const candidates = [];
+  let choice;
+  map.eachNeighbor(actor.x, actor.y, (c) => {
+    if (c.actor && c.actor.kind.talk) {
+      candidates.push(c.actor);
+    }
+  }, true);
+  if (!candidates.length) {
+    message.add('Nobody is listening.');
+    return false;
+  }
+  else if (candidates.length == 1) {
+    choice = candidates[0];
+  }
+  else {
+    choice = await ui.chooseTarget(candidates, 'Talk to whom?');
+  }
+  if (!choice) {
+    return false; // cancelled
+  }
+
+  if (!await actions.talk(actor, choice, { map, actor, x: choice.x, y: choice.y })) {
+    return false;
+  }
+  if (!actor.turnEnded()) {
+    actor.endTurn();
+  }
+  return true;
+}
+
+commands$1.talk = talk;
+
 commands$1.debug = NOOP;
 
 async function rest(e) {
@@ -10067,10 +10699,11 @@ commands$1.rest = rest;
 
 class ItemKind$1 {
   constructor(opts={}) {
+    Object.assign(this, opts);
 		this.name = opts.name || 'item';
 		this.flavor = opts.flavor || null;
     this.article = (opts.article === undefined) ? 'a' : opts.article;
-		this.sprite = make.sprite(opts.sprite);
+		this.sprite = make.sprite(opts.sprite || opts);
     this.flags = ItemKind.toFlag(opts.flags);
 		this.actionFlags = Action.toFlag(opts.flags);
 		this.attackFlags = ItemAttack.toFlag(opts.flags);
@@ -10079,6 +10712,7 @@ class ItemKind$1 {
     this.slot = opts.slot || null;
     this.projectile = null;
     this.verb = opts.verb || null;
+    this.frequency = make.frequency(opts.frequency || this.stats.frequency);
 
     this.bump = opts.bump || ['pickup'];  // pick me up by default if you bump into me
 
@@ -10092,7 +10726,8 @@ class ItemKind$1 {
     if (opts.projectile) {
       this.projectile = make.sprite(opts.projectile);
     }
-    this.corpse = make.tileEvent(opts.corpse);
+    this.corpse = opts.corpse ? make.tileEvent(opts.corpse) : null;
+
     if (opts.consoleColor === false) {
       this.consoleColor = false;
     }
@@ -10104,7 +10739,9 @@ class ItemKind$1 {
     }
   }
 
+  forbiddenCellFlags(item) { return Cell.HAS_ITEM; }
   forbiddenTileFlags(item) { return Tile.T_OBSTRUCTS_ITEMS; }
+  forbiddenTileMechFlags(item) { return 0; }
 
   async applyDamage(item, damage, actor, ctx) {
 		if (item.stats.health > 0) {
@@ -10123,7 +10760,7 @@ class ItemKind$1 {
     if (opts === false) { opts = {}; }
     if (typeof opts === 'string') { opts = { article: opts }; }
 
-    let result = this.name;
+    let result = item.name || this.name;
     if (opts.color || (this.consoleColor && (opts.color !== false))) {
       let color = this.sprite.fg;
       if (this.consoleColor instanceof types.Color) {
@@ -10132,12 +10769,15 @@ class ItemKind$1 {
       if (opts.color instanceof types.Color) {
         color = opts.color;
       }
-      result = text.format('%R%s%R', color, this.name, null);
+      result = format('%F%s%F', color, result, null);
+    }
+    else if (opts.color === false) {
+      result = removeColors(result); // In case item has built in color
     }
 
     if (opts.article) {
       let article = (opts.article === true) ? this.article : opts.article;
-      if (article == 'a' && text.isVowel(text.firstChar(result))) {
+      if (article == 'a' && isVowel(firstChar(result))) {
         article = 'an';
       }
       result = article + ' ' + result;
@@ -10173,12 +10813,21 @@ item.addKinds = addItemKinds;
 
 
 class Item$1 {
-	constructor(kind) {
+	constructor(kind, opts={}) {
+    // Object.assign(this, opts);
 		this.x = -1;
     this.y = -1;
-    this.flags = 0;
+    this.quantity = opts.quantity || 1;
+    this.flags = Item.toFlag(opts.flags);
 		this.kind = kind || null;
 		this.stats = Object.assign({}, kind.stats);
+    if (opts.stats) {
+      Object.assign(this.stats, opts.stats);
+    }
+
+    if (this.kind.make) {
+      this.kind.make(this, opts);
+    }
 	}
 
 	hasKindFlag(flag) {
@@ -10189,8 +10838,47 @@ class Item$1 {
 		return (this.kind.actionFlags & flag) > 0;
 	}
 
+  async bumpBy(actor, ctx={}) {
+    ctx.quiet = true;
+
+    if (this.kind.bump) {
+      if (typeof this.kind.bump === 'function') {
+        return this.kind.bump(actor, this, ctx);
+      }
+    }
+
+    const itemActions = this.bump || [];
+    const kindActions  = this.kind.bump || [];
+    const actions$1 = itemActions.concat(kindActions);
+
+    if (actions$1 && actions$1.length) {
+      for(let i = 0; i < actions$1.length; ++i) {
+        let fn = actions$1[i];
+        if (typeof fn === 'string') {
+          fn = actions[fn] || this.kind[fn] || FALSE;
+        }
+
+        if (await fn(actor, this, ctx)) {
+          ctx.quiet = false;
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  destroy() { this.flags |= (Item.ITEM_DESTROYED | Item.ITEM_CHANGED); }
 	isDestroyed() { return this.flags & Item.ITEM_DESTROYED; }
-  changed() { return false; } // ITEM_CHANGED
+  changed(v) {
+    if (v) {
+      this.flags |= Item.ITEM_CHANGED;
+    }
+    else if (v !== undefined) {
+      this.flags &= ~(Item.ITEM_CHANGED);
+    }
+    return (this.flags & Item.ITEM_CHANGED);
+  }
 
 	getFlavor() { return this.kind.flavor || this.kind.getName(this, true); }
   getName(opts={}) {
@@ -10200,7 +10888,7 @@ class Item$1 {
 
 types.Item = Item$1;
 
-function makeItem(kind) {
+function makeItem(kind, opts) {
 	if (typeof kind === 'string') {
 		const name = kind;
 		kind = itemKinds[name];
@@ -10209,51 +10897,146 @@ function makeItem(kind) {
       return null;
     }
 	}
-	return new types.Item(kind);
+	const item = new types.Item(kind, opts);
+  return item;
 }
 
 make.item = makeItem;
 
-async function bump$1(actor, item, ctx={}) {
 
-  if (!item) return false;
 
-  ctx.quiet = true;
 
-  if (item.bump) {
-    for(let i = 0; i < item.bump.length; ++i) {
-      let fn = item.bump[i];
-      if (typeof fn === 'string') {
-        fn = actions[fn] || FALSE;
-      }
+function chooseKinds$1(opts={}) {
+  opts.danger = opts.danger || 1;
+  if (opts.kinds) {
+    return opts.kinds.map( (a) => {
+      if (typeof a === 'string') return itemKinds[a];
+      return a;
+    });
+  }
 
-      if (await fn(actor, item, ctx)) {
-        ctx.quiet = false;
-        return true;
+  let count = opts.count || 0;
+  if (opts.tries && opts.chance) {
+    for(let i = 0; i < opts.tries; ++i) {
+      if (random.chance(opts.chance)) {
+        ++count;
       }
     }
   }
-
-  if (item.kind && item.kind.bump) {
-    for(let i = 0; i < item.kind.bump.length; ++i) {
-      let fn = item.kind.bump[i];
-      if (typeof fn === 'string') {
-        fn = actions[fn] || FALSE;
-      }
-
-      if (await fn(actor, item, ctx)) {
-        ctx.quiet = false;
-        return true;
-      }
+  else if (opts.chance < 100) {
+    while(random.chance(opts.chance)) {
+      ++count;
     }
   }
+  if (!count) {
+    WARN('Tried to place 0 actors.');
+    return [];
+  }
 
-  return false;
+  let choices = opts.choices;
+  // TODO - allow ['THING'] and { THING: 20 }
+  if (!choices) {
+    let matchKindFn = opts.matchKindFn || TRUE;
+    choices = Object.values(itemKinds).filter(matchKindFn);
+  }
+
+  let frequencies;
+  if (Array.isArray(choices)) {
+    choices = choices.map( (v) => {
+      if (typeof v === 'string') return itemKinds[v];
+      return v;
+    });
+    frequencies = choices.map( (k) => forDanger(k.frequency, opts.danger) );
+  }
+  else {
+    // { THING: 20, OTHER: 10 }
+    choices = Object.keys(choices).map( (v) => itemKinds[v] );
+    frequencies = Object.values(choices);
+  }
+
+  if (!choices.length) {
+    WARN('Tried to place actors - 0 qualifying kinds to choose from.');
+    return [];
+  }
+
+  const kinds = [];
+  for(let i = 0; i < count; ++i) {
+    const index = random.lottery(frequencies);
+    kinds.push(choices[index]);
+  }
+
+  return kinds;
 }
 
-item.bump = bump$1;
 
-var SETUP = null;
+function generateAndPlace$1(map, opts={}) {
+  if (typeof opts === 'number') { opts = { tries: opts }; }
+  if (Array.isArray(opts)) { opts = { kinds: opts }; }
+  setDefaults(opts, {
+    count: 0,
+    tries: 0,
+    chance: 100,
+    outOfBandChance: 0,
+    matchKindFn: null,
+    allowHallways: false,
+    block: 'start',
+    locTries: 500,
+    choices: null,
+    kinds: null,
+    makeOpts: null,
+  });
+
+  let danger = opts.danger || map.config.danger || 1;
+  while (random.chance(opts.outOfBandChance)) {
+    ++danger;
+  }
+  opts.danger = danger;
+
+  const kinds = chooseKinds$1(opts);
+
+  const blocked = alloc(map.width, map.height);
+  // TODO - allow [x,y] in addition to 'name'
+  if (opts.block && map.locations[opts.block]) {
+    const loc = map.locations[opts.block];
+    map.calcFov(blocked, loc[0], loc[1], 20);
+  }
+
+  let placed = 0;
+
+  const makeOpts = Object.assign({ danger }, opts.makeOpts || {});
+
+  const matchOpts = {
+    allowHallways: opts.allowHallways,
+    blockingMap: blocked,
+    allowLiquid: false,
+    forbidCellFlags: 0,
+    forbidTileFlags: 0,
+    forbidTileMechFlags: 0,
+    tries: opts.locTries,
+  };
+
+  for(let i = 0; i < kinds.length; ++i) {
+    const kind = kinds[i];
+    const item = make.item(kind, makeOpts);
+
+    matchOpts.forbidCellFlags = kind.forbiddenCellFlags(item);
+    matchOpts.forbidTileFlags = kind.forbiddenTileFlags(item);
+    matchOpts.forbidTileMechFlags = kind.forbiddenTileMechFlags(item);
+
+    const loc = map.randomMatchingXY(matchOpts);
+    if (loc && loc[0] > 0) {
+      map.addItem(loc[0], loc[1], item);
+      ++placed;
+    }
+  }
+
+  free(blocked);
+  return placed;
+}
+
+item.generateAndPlace = generateAndPlace$1;
+
+var MSG_BOUNDS = null;
 
 // messages
 const ARCHIVE = [];
@@ -10279,7 +11062,7 @@ function setup(opts) {
     DISPLAYED[i] = null;
   }
 
-  SETUP = message.bounds = new types.Bounds(opts.x, opts.y, opts.w || opts.width, opts.h || opts.height);
+  MSG_BOUNDS = message.bounds = new types.Bounds(opts.x, opts.y, opts.w || opts.width, opts.h || opts.height);
   ARCHIVE_LINES = opts.archive || 0;
   if (!ARCHIVE_LINES) {
     if (ui.canvas) {
@@ -10314,11 +11097,27 @@ function moveBlocked(ctx) {
 message.moveBlocked = moveBlocked;
 
 
+function addLines(data) {
+  if (MSG_BOUNDS.y > 0) {
+    // bottom (add backwards)
+    for(let i = data.length - 1; i >= 0; --i) {
+      message.add(data[i]);
+    }
+  }
+  else {
+    // top (add forwards)
+    data.forEach((line) => message.add(line));
+  }
+}
+
+message.addLines = addLines;
+
 function add(...args) {
   if (args.length == 0) return;
+  if (args.length == 1 && Array.isArray(args[0])) { args = args[0]; }
   let msg = args[0];
   if (args.length > 1) {
-    msg = text.format(...args);
+    msg = format(...args);
   }
   commitCombatMessage();
   addMessage(msg);
@@ -10338,12 +11137,18 @@ function addCombat(...args) {
   if (args.length == 0) return;
   let msg = args[0];
   if (args.length > 1) {
-    msg = text.format(...args);
+    msg = format(...args);
   }
   addCombatMessage(msg);
 }
 
 message.addCombat = addCombat;
+
+function forceRedraw() {
+  NEEDS_UPDATE = true;
+}
+
+message.forceRedraw = forceRedraw;
 
 
 function drawMessages(buffer) {
@@ -10351,37 +11156,37 @@ function drawMessages(buffer) {
 	const tempColor = make.color();
 	let messageColor;
 
-  if (!NEEDS_UPDATE || !SETUP) return false;
+  if (!NEEDS_UPDATE || !MSG_BOUNDS) return false;
 
   commitCombatMessage();
 
-  const isOnTop = (SETUP.y < 10);
+  const isOnTop = (MSG_BOUNDS.y < 10);
 
-	for (i=0; i < SETUP.height; i++) {
+	for (i=0; i < MSG_BOUNDS.height; i++) {
 		messageColor = tempColor;
 		messageColor.copy(colors.white);
 
 		if (CONFIRMED[i]) {
 			color.applyMix(messageColor, colors.black, 50);
-			color.applyMix(messageColor, colors.black, 75 * i / (2*SETUP.height));
+			color.applyMix(messageColor, colors.black, 75 * i / (2*MSG_BOUNDS.height));
 		}
 
-    const localY = isOnTop ? (SETUP.height - i - 1) : i;
-    const y = SETUP.toOuterY(localY);
+    const localY = isOnTop ? (MSG_BOUNDS.height - i - 1) : i;
+    const y = MSG_BOUNDS.toOuterY(localY);
 
-		text.eachChar( DISPLAYED[i], (c, color$1, j) => {
-			const x = SETUP.toOuterX(j);
+		eachChar( DISPLAYED[i], (c, color$1, j) => {
+			const x = MSG_BOUNDS.toOuterX(j);
 
 			if (color$1 && (messageColor !== color$1) && CONFIRMED[i]) {
 				color.applyMix(color$1, colors.black, 50);
-				color.applyMix(color$1, colors.black, 75 * i / (2*SETUP.height));
+				color.applyMix(color$1, colors.black, 75 * i / (2*MSG_BOUNDS.height));
 			}
 			messageColor = color$1 || tempColor;
 			buffer.plotChar(x, y, c, messageColor, colors.black);
 		});
 
-		for (let j = text.length(DISPLAYED[i]); j < SETUP.width; j++) {
-			const x = SETUP.toOuterX(j);
+		for (let j = length(DISPLAYED[i]); j < MSG_BOUNDS.width; j++) {
+			const x = MSG_BOUNDS.toOuterX(j);
 			buffer.plotChar(x, y, ' ', colors.black, colors.black);
 		}
 	}
@@ -10397,7 +11202,7 @@ message.draw = drawMessages;
 function addMessageLine(msg) {
 	let i;
 
-	if (!text.length(msg)) {
+	if (!length(msg)) {
       return;
   }
 
@@ -10418,9 +11223,9 @@ function addMessage(msg) {
 
 	data.disturbed = true;
 
-	msg = text.capitalize(msg);
+	msg = capitalize(msg);
 
-  if (!SETUP) {
+  if (!MSG_BOUNDS) {
     console.log(msg);
     return;
   }
@@ -10437,9 +11242,9 @@ function addMessage(msg) {
   //     }
   // }
 
-	const lines = text.splitIntoLines(msg, SETUP.width);
+	const lines = splitIntoLines(msg, MSG_BOUNDS.width);
 
-  if (SETUP.y < 10) {  // On top of UI
+  if (MSG_BOUNDS.y < 10) {  // On top of UI
     lines.forEach( (l) => addMessageLine(l) );
   }
   else {  // On bottom of UI (add in reverse)
@@ -10462,7 +11267,7 @@ function addCombatMessage(msg) {
 		COMBAT_MESSAGE = msg;
 	}
 	else {
-		COMBAT_MESSAGE += ', ' + text.capitalize(msg);	}
+		COMBAT_MESSAGE += ', ' + capitalize(msg);	}
   NEEDS_UPDATE = true;
   ui.requestUpdate();
 }
@@ -10492,23 +11297,23 @@ async function showArchive() {
 	let i, j, k, reverse, fadePercent, totalMessageCount, currentMessageCount;
 	let fastForward;
 
-  if (!SETUP) return;
+  if (!MSG_BOUNDS) return;
 
 	// Count the number of lines in the archive.
 	for (totalMessageCount=0;
 		 totalMessageCount < ARCHIVE_LINES && ARCHIVE[totalMessageCount];
 		 totalMessageCount++);
 
-	if (totalMessageCount <= SETUP.height) return;
+	if (totalMessageCount <= MSG_BOUNDS.height) return;
 
-  const isOnTop = (SETUP.y < 10);
+  const isOnTop = (MSG_BOUNDS.y < 10);
 	const dbuf = ui.startDialog();
 
 	// Pull-down/pull-up animation:
 	for (reverse = 0; reverse <= 1; reverse++) {
 		fastForward = false;
-		for (currentMessageCount = (reverse ? totalMessageCount : SETUP.height);
-			 (reverse ? currentMessageCount >= SETUP.height : currentMessageCount <= totalMessageCount);
+		for (currentMessageCount = (reverse ? totalMessageCount : MSG_BOUNDS.height);
+			 (reverse ? currentMessageCount >= MSG_BOUNDS.height : currentMessageCount <= totalMessageCount);
 			 currentMessageCount += (reverse ? -1 : 1))
 	  {
 			ui.clearDialog();
@@ -10518,14 +11323,14 @@ async function showArchive() {
 				const pos = (CURRENT_ARCHIVE_POS - currentMessageCount + ARCHIVE_LINES + j) % ARCHIVE_LINES;
         const y = isOnTop ? j : dbuf.height - j - 1;
 
-				dbuf.plotLine(SETUP.toOuterX(0), y, SETUP.width, ARCHIVE[pos], colors.white, colors.black);
+				dbuf.plotLine(MSG_BOUNDS.toOuterX(0), y, MSG_BOUNDS.width, ARCHIVE[pos], colors.white, colors.black);
 			}
 
 			// Set the dbuf opacity, and do a fade from bottom to top to make it clear that the bottom messages are the most recent.
 			for (j=0; j < currentMessageCount && j < dbuf.height; j++) {
 				fadePercent = 40 * (j + totalMessageCount - currentMessageCount) / totalMessageCount + 60;
-				for (i=0; i<SETUP.width; i++) {
-					const x = SETUP.toOuterX(i);
+				for (i=0; i<MSG_BOUNDS.width; i++) {
+					const x = MSG_BOUNDS.toOuterX(i);
 
           const y = isOnTop ? j : dbuf.height - j - 1;
 					dbuf[x][y].opacity = INTERFACE_OPACITY;
@@ -10542,14 +11347,14 @@ async function showArchive() {
 			if (!fastForward && await io.pause(reverse ? 15 : 45)) {
 				fastForward = true;
 				// dequeueEvent();
-				currentMessageCount = (reverse ? SETUP.height + 1 : totalMessageCount - 1); // skip to the end
+				currentMessageCount = (reverse ? MSG_BOUNDS.height + 1 : totalMessageCount - 1); // skip to the end
 			}
 		}
 
 		if (!reverse) {
     	if (!data.autoPlayingLevel) {
         const y = isOnTop ? 0 : dbuf.height - 1;
-        dbuf.plotText(SETUP.toOuterX(-8), y, "--DONE--", colors.black, colors.white);
+        dbuf.plotLine(MSG_BOUNDS.toOuterX(-8), y, 8, "--DONE--", colors.black, colors.white);
       	ui.draw();
       	await io.waitForAck();
     	}
@@ -10574,6 +11379,14 @@ function setup$1(opts={}) {
 
 viewport.setup = setup$1;
 
+let VIEW_FILTER = null;
+
+function setFilter(fn) {
+  VIEW_FILTER = fn || null;
+}
+
+viewport.setFilter = setFilter;
+
 // DRAW
 
 function drawViewport(buffer, map) {
@@ -10581,45 +11394,49 @@ function drawViewport(buffer, map) {
   if (!map) return;
   if (!map.flags & Map.MAP_CHANGED) return;
 
+  let offsetX = 0;
+  let offsetY = 0;
   if (config.followPlayer && data.player && data.player.x >= 0) {
-    const offsetX = data.player.x - VIEWPORT.centerX();
-    const offsetY = data.player.y - VIEWPORT.centerY();
+    offsetX = data.player.x - VIEWPORT.centerX();
+    offsetY = data.player.y - VIEWPORT.centerY();
+  }
 
-    for(let x = 0; x < VIEWPORT.width; ++x) {
-      for(let y = 0; y < VIEWPORT.height; ++y) {
+  for(let x = 0; x < VIEWPORT.width; ++x) {
+    for(let y = 0; y < VIEWPORT.height; ++y) {
 
-        const buf = buffer[x + VIEWPORT.x][y + VIEWPORT.y];
-        const mapX= x + offsetX;
-        const mapY = y + offsetY;
-        if (map.hasXY(mapX, mapY)) {
-          map$1.getCellAppearance(map, mapX, mapY, buf);
-          map.clearCellFlags(mapX, mapY, Cell.NEEDS_REDRAW | Cell.CELL_CHANGED);
-        }
-        else {
-          buf.blackOut();
-        }
+      const buf = buffer[x + VIEWPORT.x][y + VIEWPORT.y];
+      const mapX = x + offsetX;
+      const mapY = y + offsetY;
+      if (map.hasXY(mapX, mapY)) {
+        map$1.getCellAppearance(map, mapX, mapY, buf);
+        map.clearCellFlags(mapX, mapY, Cell.NEEDS_REDRAW | Cell.CELL_CHANGED);
+      }
+      else {
+        buf.blackOut();
+      }
+
+      if (VIEW_FILTER) {
+        VIEW_FILTER(buf, mapX, mapY, map);
       }
     }
-    buffer.needsUpdate = true;
   }
-  else {
-    map.cells.forEach( (c, i, j) => {
-      if (!VIEWPORT.containsXY(i + VIEWPORT.x, j + VIEWPORT.y)) return;
-
-      if (c.flags & Cell.NEEDS_REDRAW) {
-        const buf = buffer[i + VIEWPORT.x][j + VIEWPORT.y];
-        map$1.getCellAppearance(map, i, j, buf);
-        c.clearFlags(Cell.NEEDS_REDRAW);
-        buffer.needsUpdate = true;
-      }
-    });
-  }
+  buffer.needsUpdate = true;
   map.flags &= ~Map.MAP_CHANGED;
-
 }
 
-
 viewport.draw = drawViewport;
+
+function hasXY(x, y) {
+  let offsetX = 0;
+  let offsetY = 0;
+  if (config.followPlayer && data.player && data.player.x >= 0) {
+    offsetX = data.player.x - VIEWPORT.centerX();
+    offsetY = data.player.y - VIEWPORT.centerY();
+  }
+  return VIEWPORT.containsXY(x - offsetX + VIEWPORT.x, y - offsetY + VIEWPORT.y);
+}
+
+viewport.hasXY = hasXY;
 
 // Sidebar
 
@@ -10633,8 +11450,9 @@ const DATA = data;
 
 sidebar$1.debug = NOOP;
 
-const blueBar = color.install('blueBar', 	15,		10,		50);
-const redBar = 	color.install('redBar', 	45,		10,		15);
+const blueBar = color.addKind('blueBar', 	15,		10,		50);
+const redBar = 	color.addKind('redBar', 	45,		10,		15);
+const purpleBar = color.addKind('purpleBar', 	50,		0,		50);
 
 
 function setup$2(opts={}) {
@@ -10677,9 +11495,13 @@ function refreshSidebar(map) {
 	// Gather sidebar entries
 	const entries = [];
 	const doneCells = GRID$1.alloc();
+  let same = true;
 
 	if (DATA.player) {
 		doneCells[DATA.player.x][DATA.player.y] = 1;
+    if (DATA.player.changed()) {
+      same = false;
+    }
 	}
 
 	// Get actors
@@ -10702,7 +11524,7 @@ function refreshSidebar(map) {
 		else if (cell.isAnyKindOfVisible()) {
 			entries.push({ map, x, y, dist: 0, priority: 2, draw: sidebar$1.addActor, entity: actor, changed });
 		}
-		else if (cell.isRevealed(true) && actor.kind.alwaysVisible(actor))
+		else if (cell.isRevealed(true) && actor.kind.alwaysVisible(actor) && viewport.hasXY(x, y))
 		{
 			entries.push({ map, x, y, dist: 0, priority: 3, draw: sidebar$1.addActor, entity: actor, changed, dim: true });
 		}
@@ -10735,7 +11557,7 @@ function refreshSidebar(map) {
 		else if (cell.isAnyKindOfVisible()) {
 			entries.push({ map, x: x, y: y, dist: 0, priority: 2, draw: sidebar$1.addItem, entity: item, changed });
 		}
-		else if (cell.isRevealed())
+		else if (cell.isRevealed() && viewport.hasXY(x, y))
 		{
 			entries.push({ map, x: x, y: y, dist: 0, priority: 3, draw: sidebar$1.addItem, entity: item, changed, dim: true });
 		}
@@ -10744,7 +11566,7 @@ function refreshSidebar(map) {
 
 	// Get tiles
 	map.forEach( (cell, i, j) => {
-		if (!(cell.isRevealed(true) || cell.isAnyKindOfVisible())) return;
+		if (!(cell.isRevealed(true) || cell.isAnyKindOfVisible()) || !viewport.hasXY(i, j)) return;
 		// if (cell.flags & (Flags.Cell.HAS_PLAYER | Flags.Cell.HAS_MONSTER | Flags.Cell.HAS_ITEM)) return;
 		if (doneCells[i][j]) return;
 		doneCells[i][j] = 1;
@@ -10764,7 +11586,7 @@ function refreshSidebar(map) {
 
 	// compare to current list
 	const max = Math.floor(SIDE_BOUNDS.height / 2);
-	let same = entries.every( (a, i) => {
+	same = same && entries.every( (a, i) => {
 		if (i > max) return true;
 		const b = SIDEBAR_ENTRIES[i];
 		if (!b) return false;
@@ -10967,23 +11789,24 @@ function UiDrawSidebar(buf) {
 sidebar$1.draw = UiDrawSidebar;
 
 
-function sidebarAddText(buf, y, text, fg, bg, dim, highlight) {
+function sidebarAddText(buf, y, text, fg, bg, opts={}) {
 
   if (y >= SIDE_BOUNDS.height - 1) {
 		return SIDE_BOUNDS.height - 1;
 	}
 
-  fg = fg || colors.white;
-  bg = bg || colors.black;
+  fg = fg ? color.from(fg) : colors.white;
+  bg = bg ? color.from(bg) : colors.black;
 
-  if (dim) {
+  if (opts.dim) {
     fg = fg.clone();
     bg = bg.clone();
     color.applyAverage(fg, colors.black, 50);
     color.applyAverage(bg, colors.black, 50);
   }
+  else if (opts.highlight) ;
 
-  y = buf.wrapText(SIDE_BOUNDS.x, y, SIDE_BOUNDS.width, text, fg, bg);
+  y = buf.wrapText(SIDE_BOUNDS.x, y, SIDE_BOUNDS.width, text, fg, bg, opts);
 
   return y;
 }
@@ -11028,7 +11851,7 @@ function sidebarAddActor(entry, y, dim, highlight, buf)
 
   const x = SIDE_BOUNDS.x;
 	if (y < SIDE_BOUNDS.height - 1) {
-		buf.plotText(x, y++, "                    ", (dim ? colors.dark_gray : colors.gray), colors.black);
+		buf.plotText(x, y++, "                    ");
 	}
 
 	if (highlight) {
@@ -11083,7 +11906,7 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
 	//end patch
 
 	const name = monst.getName({ color: monstForeColor });
-	let monstName = text.capitalize(name);
+	let monstName = capitalize(name);
 
   if (monst.isPlayer()) {
       if (monst.status.invisible) {
@@ -11095,7 +11918,7 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
       }
   }
 
-  buf.plotText(x + 1, y, ': ', fg, bg);
+  buf.plotText(x + 1, y, '%F: ', fg);
 	y = buf.wrapText(x + 3, y, SIDE_BOUNDS.width - 3, monstName, fg, bg);
 
 	return y;
@@ -11132,33 +11955,13 @@ function addProgressBar(y, buf, barText, current, max, color$1, dim) {
 		color.applyAverage(color$1, colors.black, 25);
 	}
 
-	if (dim) {
-		color.applyAverage(color$1, colors.black, 50);
+  let textColor = colors.white;
+  if (dim) {
+		color$1.mix(colors.black, 50);
+    textColor = colors.gray;
 	}
 
-  const darkenedBarColor = color$1.clone();
-	color.applyAverage(darkenedBarColor, colors.black, 75);
-
-  barText = text.center(barText, SIDE_BOUNDS.width);
-
-	current = clamp(current, 0, max);
-
-	if (max < 10000000) {
-		current *= 100;
-		max *= 100;
-	}
-
-  const currentFillColor = make.color();
-  const textColor = make.color();
-	for (let i=0; i<SIDE_BOUNDS.width; i++) {
-		currentFillColor.copy(i <= (SIDE_BOUNDS.width * current / max) ? color$1 : darkenedBarColor);
-		if (i == Math.floor(SIDE_BOUNDS.width * current / max)) {
-			color.applyAverage(currentFillColor, colors.black, 75 - Math.floor(75 * (current % (max / SIDE_BOUNDS.width)) / (max / SIDE_BOUNDS.width)));
-		}
-		textColor.copy(dim ? colors.gray : colors.white);
-		color.applyAverage(textColor, currentFillColor, (dim ? 50 : 33));
-		buf.plotChar(SIDE_BOUNDS.x + i, y, barText[i], textColor, currentFillColor);
-	}
+  ui.plotProgressBar(buf, SIDE_BOUNDS.x, y, SIDE_BOUNDS.width, barText, textColor, current/max, color$1);
   return y + 1;
 }
 
@@ -11174,7 +11977,7 @@ function addHealthBar(entry, y, dim, highlight, buf) {
   const map = entry.map;
   const actor = entry.entity;
 
-  if (actor.max.health > 1 && !(actor.kind.flags & ActorKind.AK_INVULNERABLE))
+  if (actor.max.health > 0 && (actor.isPlayer() || (actor.current.health != actor.max.health)) && !actor.isInvulnerable())
   {
     let healthBarColor = colors.blueBar;
 		if (actor === DATA.player) {
@@ -11187,7 +11990,7 @@ function addHealthBar(entry, y, dim, highlight, buf) {
 		if (actor.current.health <= 0) {
 				text = "Dead";
 		// } else if (percent != 0) {
-		// 		text = TEXT.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
+		// 		text = Text.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
 		}
 		y = sidebar$1.addProgressBar(y, buf, text, actor.current.health, actor.max.health, healthBarColor, dim);
 	}
@@ -11198,6 +12001,30 @@ sidebar$1.addHealthBar = addHealthBar;
 
 
 function addManaBar(entry, y, dim, highlight, buf) {
+  if (y >= SIDE_BOUNDS.height - 1) {
+    return SIDE_BOUNDS.height - 1;
+  }
+
+  const map = entry.map;
+  const actor = entry.entity;
+
+  if (actor.max.mana > 0 && (actor.isPlayer() || (actor.current.mana != actor.max.mana)))
+  {
+    let barColor = colors.purpleBar;
+		if (actor === DATA.player) {
+			barColor = colors.redBar.clone();
+			color.applyAverage(barColor, colors.purpleBar, Math.min(100, 100 * actor.current.mana / actor.max.mana));
+		}
+
+    let text = 'Mana';
+		// const percent = actor.statChangePercent('health');
+		if (actor.current.mana <= 0) {
+				text = "None";
+		// } else if (percent != 0) {
+		// 		text = Text.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
+		}
+		y = sidebar$1.addProgressBar(y, buf, text, actor.current.mana, actor.max.mana, barColor, dim);
+	}
 	return y;
 }
 
@@ -11261,7 +12088,7 @@ function sidebarAddMapCell(entry, y, dim, highlight, buf) {
 
 	buf.plotChar(x + 1, y, ":", fg, bg);
 	let name = cell$1.getName();
-	name = text.capitalize(name);
+	name = capitalize(name);
   y = buf.wrapText(x + 3, y, SIDE_BOUNDS.width - 3, name, textColor, bg);
 
 	if (highlight) {
@@ -11310,7 +12137,7 @@ function sidebarAddItemInfo(entry, y, dim, highlight, buf) {
 	} else {
     name = item.describeHallucinatedItem();
 	}
-	name = text.capitalize(name);
+	name = capitalize(name);
 
   y = buf.wrapText(x + 3, y, SIDE_BOUNDS.width - 3, name, fg, colors.black);
 
@@ -11329,8 +12156,8 @@ function sidebarAddItemInfo(entry, y, dim, highlight, buf) {
 
 sidebar$1.addItem = sidebarAddItemInfo;
 
-const flavorTextColor = color.install('flavorText', 50, 40, 90);
-const flavorPromptColor = color.install('flavorPrompt', 100, 90, 20);
+const flavorTextColor = color.addKind('flavorText', 50, 40, 90);
+const flavorPromptColor = color.addKind('flavorPrompt', 100, 90, 20);
 
 let FLAVOR_TEXT = '';
 let NEED_FLAVOR_UPDATE = false;
@@ -11344,7 +12171,7 @@ function setupFlavor(opts={}) {
 flavor.setup = setupFlavor;
 
 function setFlavorText(text$1) {
-  FLAVOR_TEXT = text.capitalize(text$1);
+  FLAVOR_TEXT = capitalize(text$1);
   NEED_FLAVOR_UPDATE = true;
   IS_PROMPT = false;
   ui.requestUpdate();
@@ -11354,7 +12181,7 @@ flavor.setText = setFlavorText;
 
 
 function showPrompt(text$1) {
-  FLAVOR_TEXT = text.capitalize(text$1);
+  FLAVOR_TEXT = capitalize(text$1);
   NEED_FLAVOR_UPDATE = true;
   IS_PROMPT = true;
   ui.requestUpdate();
@@ -11366,7 +12193,7 @@ flavor.showPrompt = showPrompt;
 function drawFlavor(buffer) {
   if (!NEED_FLAVOR_UPDATE || !FLAVOR_BOUNDS) return;
   const color = IS_PROMPT ? flavorPromptColor : flavorTextColor;
-  if (text.length(FLAVOR_TEXT) > FLAVOR_BOUNDS.width) {
+  if (length(FLAVOR_TEXT) > FLAVOR_BOUNDS.width) {
     buffer.wrapText(FLAVOR_BOUNDS.x, FLAVOR_BOUNDS.y, FLAVOR_BOUNDS.width, FLAVOR_TEXT, color, colors.black);
     message.needsRedraw();
   }
@@ -11416,7 +12243,7 @@ function getFlavorText(map, x, y) {
 
 	if (player && x == player.x && y == player.y) {
 		if (player.status.levitating) {
-			buf = text.format("you are hovering above %s.", cell.tileFlavor());
+			buf = format("you are hovering above %s.", cell.tileFlavor());
 		}
     else {
 			// if (theItem) {
@@ -11471,13 +12298,13 @@ function getFlavorText(map, x, y) {
         // }
       } else if (cell.memory.actorKind) {
         const kind = cell.memory.actorKind;
-        object = kind.getName({ color: false, article: true });
+        object = kind.getName({}, { color: false, article: true });
 			} else {
 				object = tiles[cell.memory.tile].getFlavor();
 			}
-			buf = text.format("you remember seeing %s here.", object);
+			buf = format("you remember seeing %s here.", object);
 		} else if (cell.flags & Cell.MAGIC_MAPPED) { // magic mapped
-			buf = text.format("you expect %s to be here.", tiles[cell.memory.tile].getFlavor());
+			buf = format("you expect %s to be here.", tiles[cell.memory.tile].getFlavor());
 		}
 		return buf;
 	}
@@ -11521,7 +12348,7 @@ function getFlavorText(map, x, y) {
   }
   let ground = cell.groundTile.getFlavor();
 
-  buf = text.format("you %s %s%s%s%s.", (map.isVisible(x, y) ? "see" : "sense"), object, surface, liquid, ground);
+  buf = format("you %s %s%s%s%s.", (map.isVisible(x, y) ? "see" : "sense"), object, surface, liquid, ground);
 
   return buf;
 }
@@ -11529,6 +12356,8 @@ function getFlavorText(map, x, y) {
 flavor.getFlavorText = getFlavorText;
 
 ui.debug = NOOP;
+
+let SHOW_FLAVOR = false;
 let SHOW_CURSOR = false;
 
 let UI_BUFFER = null;
@@ -11536,7 +12365,7 @@ let UI_BASE = null;
 let UI_OVERLAY = null;
 let IN_DIALOG = false;
 
-let time = performance.now();
+let time = 0;
 
 let RUNNING = false;
 
@@ -11562,7 +12391,7 @@ function uiLoop(t) {
 }
 
 
-function start$1(opts={}) {
+function start$2(opts={}) {
 
   setDefaults(opts, {
     width: 100,
@@ -11638,7 +12467,7 @@ function start$1(opts={}) {
         viewH += opts.messages;	// subtract off message height
       }
 			if (opts.flavor) {
-				viewH -= 1;
+				if (!opts.wideMessages) viewH -= 1;
 				flavorLine = ui.canvas.height + opts.messages - 1;
 			}
 		}
@@ -11650,7 +12479,7 @@ function start$1(opts={}) {
       }
 			if (opts.flavor) {
 				viewY += 1;
-				viewH -= 1;
+				if (!opts.wideMessages) viewH -= 1;
 				flavorLine = opts.messages;
 			}
 		}
@@ -11658,6 +12487,7 @@ function start$1(opts={}) {
 
 	if (opts.flavor) {
 		flavor.setup({ x: viewX, y: flavorLine, w: msgW, h: 1 });
+    SHOW_FLAVOR = true;
 	}
 
 	viewport.setup({ x: viewX, y: viewY, w: viewW, h: viewH, followPlayer: opts.followPlayer });
@@ -11670,7 +12500,7 @@ function start$1(opts={}) {
   return ui.canvas;
 }
 
-ui.start = start$1;
+ui.start = start$2;
 
 
 function stop() {
@@ -11894,9 +12724,29 @@ function clearCursor() {
 ui.clearCursor = clearCursor;
 
 
-async function fadeTo(color$1, duration) {
 
-  const buffer = ui.startDialog();
+// FUNCS
+
+async function prompt(...args) {
+	const msg = format(...args);
+
+	if (SHOW_FLAVOR) {
+		flavor.showPrompt(msg);
+	}
+	else {
+		console.log(msg);
+	}
+}
+
+ui.prompt = prompt;
+
+
+async function fadeTo(color$1, duration=1000, src) {
+
+  src = src || UI_BUFFER;
+  color$1 = GW.color.from(color$1);
+
+  const buffer = ui.canvas.allocBuffer();
 
   let pct = 0;
   let elapsed = 0;
@@ -11909,30 +12759,35 @@ async function fadeTo(color$1, duration) {
 
     pct = Math.floor(100*elapsed/duration);
 
-    ui.clearDialog();
+    buffer.copy(src);
     buffer.forEach( (c, x, y) => {
       color.applyMix(c.fg, color$1, pct);
       color.applyMix(c.bg, color$1, pct);
     });
-    ui.draw();
+    ui.canvas.overlay(buffer);
+    ui.canvas.draw();
   }
 
-  ui.finishDialog();
+  ui.canvas.freeBuffer(buffer);
 
 }
 
 ui.fadeTo = fadeTo;
 
 
-async function messageBox(text, fg, duration) {
+async function messageBox(duration, text$1, ...args) {
 
   const buffer = ui.startDialog();
 
-  const len = text.length;
+	if (args.length) {
+		text$1 = format(text$1, ...args);
+	}
+
+  const len = text$1.length;
   const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
   const y = Math.floor(ui.canvas.height / 2) - 1;
   buffer.fillRect(x, y, len + 4, 3, ' ', 'black', 'black');
-	buffer.plotText(x + 2, y + 1, text, fg || 'white');
+	buffer.plotText(x + 2, y + 1, text$1);
 	ui.draw();
 
 	await io.pause(duration || 30 * 1000);
@@ -11943,17 +12798,29 @@ async function messageBox(text, fg, duration) {
 ui.messageBox = messageBox;
 
 
-async function confirm(text, fg) {
+async function confirm(opts, ...args) {
+
+  let text$1;
+  if (typeof opts === 'string') {
+    args.shift(opts);
+    opts = {};
+  }
+  if (args.length > 1) {
+    text$1 = format(...args);
+  }
+  else {
+    text$1 = args[0];
+  }
 
   const buffer = ui.startDialog();
 
 	const btnOK = 'OK=Enter';
 	const btnCancel = 'Cancel=Escape';
-  const len = Math.max(text.length, btnOK.length + 4 + btnCancel.length);
+  const len = Math.max(text$1.length, btnOK.length + 4 + btnCancel.length);
   const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
   const y = Math.floor(ui.canvas.height / 2) - 1;
   buffer.fillRect(x, y, len + 4, 5, ' ', 'black', 'black');
-	buffer.plotText(x + 2, y + 1, text, fg || 'white');
+	buffer.plotText(x + 2, y + 1, text$1);
 	buffer.plotText(x + 2, y + 3, btnOK, 'white');
 	buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, 'white');
 	ui.draw();
@@ -12113,6 +12980,37 @@ function draw() {
 
 ui.draw = draw;
 
+// Helpers
+
+// UI
+
+function plotProgressBar(buf, x, y, width, barText, textColor, pct, barColor) {
+  if (pct > 1) pct /= 100;
+  pct = clamp(pct, 0, 1);
+
+	barColor = color.make(barColor);
+  textColor = color.make(textColor);
+  const darkenedBarColor = barColor.clone().mix(colors.black, 75);
+
+  barText = center(barText, width);
+
+  const currentFillColor = GW.make.color();
+  const currentTextColor = GW.make.color();
+	for (let i=0; i < width; i++) {
+		currentFillColor.copy(i <= (width * pct) ? barColor : darkenedBarColor);
+		if (i == Math.floor(width * pct)) {
+      const perCell = Math.floor(1000 / width);
+      const rem = (1000 * pct) % perCell;
+			currentFillColor.mix(colors.black, 75 - Math.floor(75 * rem / perCell));
+		}
+		currentTextColor.copy(textColor);
+		currentTextColor.mix(currentFillColor, 25);
+		buf.plotChar(x + i, y, barText[i], currentTextColor, currentFillColor);
+	}
+}
+
+ui.plotProgressBar = plotProgressBar;
+
 async function moveDir(actor, dir, opts={}) {
 
   const newX = dir[0] + actor.x;
@@ -12137,20 +13035,19 @@ async function moveDir(actor, dir, opts={}) {
   // PROMOTES ON EXIT, NO KEY(?), PLAYER EXIT, ENTANGLED
 
   if (cell.actor) {
-    if (canBump && await bump(actor, cell.actor, ctx)) {
+    if (canBump && await cell.actor.bumpBy(actor, ctx)) {
       return true;
     }
 
-    // GW.message.forPlayer(actor, '%s bump into %s.', actor.getName(), cell.actor.getName());
-    // actor.endTurn(0.5);
-    // return true;
-    return false;
+    message.forPlayer(actor, '%s bump into %s.', actor.getName(), cell.actor.getName('the'));
+    actor.endTurn(0.5);
+    return true;
   }
 
   let isPush = false;
   if (cell.item && cell.item.hasKindFlag(ItemKind.IK_BLOCKS_MOVE)) {
     console.log('bump into item');
-    if (!canBump || !(await bump$1(actor, cell.item, ctx))) {
+    if (!canBump || !(await cell.item.bumpBy(actor, ctx))) {
       console.log('bump - no action');
       message.forPlayer(actor, 'Blocked!');
       return false;
@@ -12206,7 +13103,7 @@ async function moveDir(actor, dir, opts={}) {
   }
   else if (cell.hasTileFlag(Tile.T_HAS_STAIRS)) {
     if (actor.grabbed) {
-      message.forPlayer(actor, 'You cannot use stairs while holding %s.', actor.grabbed.getFlavor());
+      message.forPlayer(actor, '%s cannot use stairs while holding %s.', actor.getName({article: 'the', color: true }), actor.grabbed.getFlavor());
       return false;
     }
   }
@@ -12219,13 +13116,13 @@ async function moveDir(actor, dir, opts={}) {
     let blocked = (destCell.item || destCell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS | Tile.T_OBSTRUCTS_PASSABILITY));
     if (isOppositeDir(dirToItem, dir)) {  // pull
       if (!actor.grabbed.hasActionFlag(Action.A_PULL)) {
-        message.forPlayer(actor, 'you cannot pull %s.', actor.grabbed.getFlavor());
+        message.forPlayer(actor, '%s cannot pull %s.', actor.getName({article: 'the', color: true }), actor.grabbed.getFlavor());
         return false;
       }
     }
     else {  // slide
       if (!actor.grabbed.hasActionFlag(Action.A_SLIDE)) {
-        message.forPlayer(actor, 'you cannot slide %s.', actor.grabbed.getFlavor());
+        message.forPlayer(actor, '%s cannot slide %s.', actor.getName({article: 'the', color: true }), actor.grabbed.getFlavor());
         return false;
       }
       if (destCell.actor) {
@@ -12270,7 +13167,7 @@ async function moveDir(actor, dir, opts={}) {
 
   if (cell.hasTileFlag(Tile.T_HAS_STAIRS) && isPlayer) {
     console.log('Use stairs!');
-    await GAME.useStairs(newX, newY);
+    await useStairs(newX, newY);
   }
 
   // auto pickup any items
@@ -12316,7 +13213,7 @@ async function bashItem(actor, item, ctx) {
     map.removeItem(item);
     if (actor.isPlayer()) message.add('%s is destroyed.', item.getName('the'));
     if (item.kind.corpse) {
-      await spawnTileEvent(item.kind.corpse, { map, x: item.x, y: item.y });
+      await spawn(item.kind.corpse, { map, x: item.x, y: item.y });
     }
   }
   if (actor) {
@@ -12332,26 +13229,44 @@ async function pickup(actor, item, ctx) {
 
   if (!actor.hasActionFlag(Action.A_PICKUP)) return false;
   if (item.hasActionFlag(Action.A_NO_PICKUP)) {
-    // TODO - GW.message.add('...');
+    message.add('%s cannot pickup %s.', actor.getName({article: 'the', color: true }), item.getName({ article: 'the', color: true }));
     return false;
   }
 
-  let success;
-  if (item.kind.pickup) {
-    success = await item.kind.pickup(item, actor, ctx);
-    if (!success) return false;
-  }
-  else {
-    // if no room in inventory - return false
-    // add to inventory
-    success = true;
-  }
-
-  const map = ctx.map;
+  const map = ctx.map || data.map;
   map.removeItem(item);
 
-  if (success instanceof types.Item) {
-    map.addItem(item.x, item.y, success);
+  let success = false;
+  if (!config.inventory) {
+    if (item.kind.slot) {
+      success = await actions.equip(actor, item, ctx);
+    }
+    else {
+      success = await actions.use(actor, item, ctx);
+    }
+    ctx.quiet = true; // no need to log the pickup - we did that in either 'equip' or 'use'
+  }
+  else if (item.kind.pickup) {
+    success = await item.kind.pickup(item, actor, ctx);
+  }
+  else {
+    success = actor.addToPack(item);
+  }
+
+  if (!success) {
+    // put item back on floor
+    map.addItem(item.x, item.y, item);
+    return false;
+  }
+
+  if ((item.kind.flags & ItemKind.IK_EQUIP_ON_PICKUP) && item.kind.slot) {
+    await actions.equip(actor, item, ctx);
+  }
+  else if (item.kind.flags & ItemKind.IK_USE_ON_PICKUP) {
+    await actions.use(actor, item, ctx);
+  }
+  else if (!ctx.quiet) {
+    message.add('%s pickup %s.', actor.getName({article: 'the', color: true }), item.getName('the'));
   }
 
   actor.endTurn();
@@ -12372,21 +13287,29 @@ async function closeItem(actor, item, ctx={}) {
 
 actions.closeItem = closeItem;
 
+// Mostly handles arranging that the correct attack occurs
+// Uses GW.combat functions to do most of the work
 async function attack$1(actor, target, ctx={}) {
 
   if (actor.isPlayer() == target.isPlayer()) return false;
 
   const type = ctx.type = ctx.type || 'melee';
-  const map = ctx.map || data.map;
+  const map = ctx.map = ctx.map || data.map;
   const kind = actor.kind;
 
+  // custom combat function
+  // TODO - Should this be 'GW.config.attack'?
+  if (config.combat) {
+    return config.combat(actor, target, ctx);
+  }
+
   if (actor.grabbed) {
-    message.forPlayer(actor, 'you cannot attack while holding %s.', actor.grabbed.getName('the'));
+    message.forPlayer(actor, '%s cannot attack while holding %s.', actor.getName({article: 'the', color: true }), actor.grabbed.getName('the'));
     return false;
   }
 
   // is this an attack by the player with an equipped item?
-  const item = actor[type];
+  const item = actor.slots[type];
   if (item) {
     if (await actions.itemAttack(actor, target, ctx)) {
       return true;
@@ -12404,35 +13327,12 @@ async function attack$1(actor, target, ctx={}) {
     return false;
   }
 
-  let damage = info.damage;
-  if (typeof damage === 'function') {
-    damage = damage(actor, target, ctx) || 1;
-  }
-  const verb = info.verb || 'hit';
-
-  damage = target.kind.applyDamage(target, damage, actor, ctx);
-  message.addCombat('%s %s %s for %R%d%R damage', actor.getName(), actor.getVerb(verb), target.getName('the'), 'red', damage, null);
-
-  if (target.isDead()) {
-    message.addCombat('%s %s', target.isInanimate() ? 'destroying' : 'killing', target.getPronoun('it'));
+  if (info.fn) {
+    return await info.fn(actor, target, ctx); // custom attack
   }
 
-  const ctx2 = { map: map, x: target.x, y: target.y, volume: damage };
-
-  await fx.hit(data.map, target);
-  if (target.kind.blood) {
-    await spawnTileEvent(target.kind.blood, ctx2);
-  }
-  if (target.isDead()) {
-    target.kind.kill(target);
-    map.removeActor(target);
-    if (target.kind.corpse) {
-      await spawnTileEvent(target.kind.corpse, ctx2);
-    }
-    if (target.isPlayer()) {
-      await gameOver(false, 'Killed by %s.', actor.getName(true));
-    }
-  }
+  ctx.damage = actor.calcDamageTo(target, info, ctx);
+  await applyDamage(actor, target, info, ctx);
 
   actor.endTurn();
   return true;
@@ -12449,11 +13349,11 @@ async function itemAttack(actor, target, ctx={}) {
   const kind = actor.kind;
 
   if (actor.grabbed) {
-    message.forPlayer(actor, 'you cannot attack while holding %s.', actor.grabbed.getName('the'));
+    message.forPlayer(actor, '%s cannot attack while holding %s.', actor.getName({article: 'the', color: true }), actor.grabbed.getName('the'));
     return false;
   }
 
-  const item = actor[slot];
+  const item = ctx.item || actor.slots[slot];
   if (!item) {
     return false;
   }
@@ -12476,7 +13376,7 @@ async function itemAttack(actor, target, ctx={}) {
   }
 
   damage = target.kind.applyDamage(target, damage, actor, ctx);
-  message.addCombat('%s %s %s for %R%d%R damage', actor.getName(), actor.getVerb(verb), target.getName('the'), 'red', damage, null);
+  message.addCombat('%s %s %s for %F%d%F damage', actor.getName(), actor.getVerb(verb), target.getName('the'), 'red', damage, null);
 
   if (target.isDead()) {
     message.addCombat('%s %s', target.isInanimate() ? 'destroying' : 'killing', target.getPronoun('it'));
@@ -12486,16 +13386,16 @@ async function itemAttack(actor, target, ctx={}) {
 
   await fx.hit(data.map, target);
   if (target.kind.blood) {
-    await spawnTileEvent(target.kind.blood, ctx2);
+    await spawn(target.kind.blood, ctx2);
   }
   if (target.isDead()) {
     target.kind.kill(target);
     map.removeActor(target);
     if (target.kind.corpse) {
-      await spawnTileEvent(target.kind.corpse, ctx2);
+      await spawn(target.kind.corpse, ctx2);
     }
     if (target.isPlayer()) {
-      await gameOver(false, 'Killed by %s.', actor.getName(true));
+      await gameOver$1(false, 'Killed by %s.', actor.getName(true));
     }
   }
 
@@ -12664,6 +13564,165 @@ async function push$1(actor, item, ctx={}) {
 
 actions.push = push$1;
 
+async function use(actor, item, ctx) {
+
+  let success;
+  if (item.kind.use) {
+    success = await item.kind.use(item, actor, ctx);
+    if (!success) return false;
+  }
+  else {
+    message.add('Nothing happens.');
+    return false;
+  }
+
+  if (item.kind.flags & ItemKind.IK_DESTROY_ON_USE) {
+    item.quantity -= 1;
+  }
+
+  if (item.quantity <= 0) {
+    item.destroy();
+  }
+
+  if (item.isDestroyed()) {
+    const map = ctx.map || data.map;
+    if (map) {
+      map.removeItem(item);
+    }
+
+    actor.removeFromPack(item);
+  }
+
+  actor.endTurn();
+  return true;
+}
+
+actions.use = use;
+
+async function equip(actor, item, ctx={}) {
+  if (!item) return false;
+
+  const slot = item.kind.slot;
+  if (!slot) {
+    message.add('%s does not seem to be equippable.', item.getName({ color: true, article: 'the' }));
+    return false;
+  }
+
+  let success;
+
+  const other = actor.slots[slot];
+  if (other) {
+    if (other === item) {
+      message.add('already equipped.');
+      return false;
+    }
+
+    const quietCtx = Object.assign({ quiet: true }, ctx);
+    success = await actions.unequip(actor, slot, quietCtx);
+    if (!success) {
+      return false;
+    }
+  }
+
+  success = actor.equip(item);
+  if (!success) {
+    const article = chainIncludes(actor.pack, item) ? 'your' : true;
+    message.add('%s failed to equip %s.', actor.getName({article: 'the', color: true }), item.getName({ article, color: true }));
+    // TODO - Re-equip other?
+    return false;
+  }
+
+  if (!ctx.quiet) {
+    const article = config.inventory ? 'your' : 'a';
+    if (other) {
+      message.add('%s swap %s for %s.', actor.getName({article: 'the', color: true }), other.getName({ article: 'your', color: true }), item.getName({ article: article, color: true }));
+    }
+    else {
+      // TODO - Custom verb? item.kind.equipVerb -or- Custom message? item.kind.equipMessage
+      message.add('%s equip %s.', actor.getName({article: 'the', color: true }), item.getName({ article, color: true }));
+    }
+  }
+
+  if (actor.kind.calcEquipmentBonuses) {
+    actor.kind.calcEquipmentBonuses(actor);
+  }
+
+  return true;
+}
+
+actions.equip = equip;
+
+
+
+async function unequip(actor, item, ctx={}) {
+  if (!item) return false;
+
+  let slot;
+
+  if (typeof item === 'string') {
+    slot = item;
+  }
+  else {
+    slot = item.kind.slot;
+    if (!slot) {
+      message.add('%s does not seem to be equippable.', item.getName({ color: true, article: true }));
+      return false;
+    }
+    if (actor.slots[slot] !== item) {
+      message.add('%s does not seem to be equipped.', item.getName({ color: true, article: 'the' }));
+      return false;
+    }
+  }
+
+  item = actor.unequipSlot(slot); // will not change item unless it was a slot name
+
+  // TODO - test for curse, etc...
+
+  if (actor.slots[slot]) {
+    // failed to unequip
+    message.add('%s cannot remove your %s.', actor.getName({article: 'the', color: true }), actor.slots[slot].getName({article: false, color: true }));
+    return false;
+  }
+
+  if (!config.inventory) {
+    const map = ctx.map || data.map;
+    map.addItemNear(actor.x, actor.y, item);
+  }
+
+  if (item && !ctx.quiet) {
+    // TODO - Custom verb? item.kind.equipVerb -or- Custom message? item.kind.equipMessage
+    message.add('%s remove your %s.', actor.getName({article: 'the', color: true }), item.getName({ article: false, color: true }));
+  }
+
+  if (actor.kind.calcEquipmentBonuses) {
+    actor.kind.calcEquipmentBonuses(actor);
+  }
+
+  return true;
+}
+
+actions.unequip = unequip;
+
+async function talk$1(actor, target, ctx={}) {
+  let talker = target;
+  let listener = actor;
+  if (!talker.kind.talk) {
+    if (!actor.kind.talk) return false;
+    talker = actor;
+    listener = target;
+  }
+
+  const success = await talker.kind.talk(talker, listener, ctx);
+
+  if (success !== false) {
+    actor.endTurn();
+    return true;
+  }
+  return false;
+}
+
+actions.talk = talk$1;
+
 async function idle(actor, ctx) {
   actor.debug('idle');
   actor.endTurn();
@@ -12701,6 +13760,24 @@ async function attackPlayer(actor, ctx) {
 }
 
 ai.attackPlayer = { act: attackPlayer };
+
+async function talkToPlayer(actor, ctx) {
+  const player = data.player;
+
+  if (!actor.kind.talk) return false;
+
+  const dist = distanceFromTo(actor, player);
+  if (dist >= 2) return false;
+
+  if (!await actions.talk(actor, player, ctx)) {
+    return false;
+  }
+  // actor.endTurn();
+  return true;
+}
+
+ai.talkToPlayer = { act: talkToPlayer };
+
 
 
 async function moveTowardPlayer(actor, ctx={}) {
@@ -12790,13 +13867,13 @@ addTileKind('BRIDGE', {
 addTileKind('UP_STAIRS',   {
   sprite: { ch: '<', fg: [100,40,40], bg: [100,60,20] },
   priority: 200,
-  flags: 'T_UP_STAIRS, T_STAIR_BLOCKERS, TM_VISUALLY_DISTINCT',
+  flags: 'T_UP_STAIRS, T_STAIR_BLOCKERS, TM_VISUALLY_DISTINCT, TM_LIST_IN_SIDEBAR',
   name: 'upward staircase', article: 'an'
 });
 addTileKind('DOWN_STAIRS', {
   sprite: { ch: '>', fg: [100,40,40], bg: [100,60,20] },
   priority: 200,
-  flags: 'T_DOWN_STAIRS, T_STAIR_BLOCKERS, TM_VISUALLY_DISTINCT',
+  flags: 'T_DOWN_STAIRS, T_STAIR_BLOCKERS, TM_VISUALLY_DISTINCT, TM_LIST_IN_SIDEBAR',
   name: 'downward staircase', article: 'a'
 });
 
@@ -12814,4 +13891,4 @@ addTileKind('LAKE', {
   name: 'deep water', article: 'the'
 });
 
-export { actions, actor, actorKinds, ai, canvas, cell, color, colors, commands$1 as commands, config, cosmetic, data, def, digger, diggers, dungeon, flag, flags, flavor, fov, fx, game, GRID$1 as grid, install, io, item, itemKinds, light, lights, make, map$1 as map, maps, message, PATH as path, player, random, scheduler, sidebar, sprite, sprites, text, tile, tileEvent, tileEvents, tiles, types, ui, utils$1 as utils, viewport, visibility };
+export { actions, actor, actorKinds, ai, canvas, cell, color, colors, combat$1 as combat, commands$1 as commands, config, cosmetic, data, def, digger, diggers, dungeon, flag, flags, flavor, fov, frequency$1 as frequency, fx, game, GRID$1 as grid, install, io, item, itemKinds, light, lights, make, map$1 as map, maps, message, PATH as path, player, random, scheduler, sidebar, sprite, sprites, text, tile, tileEvent$1 as tileEvent, tileEvents$1 as tileEvents, tiles, types, ui, utils$1 as utils, viewport, visibility };

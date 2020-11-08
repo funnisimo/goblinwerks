@@ -88,9 +88,9 @@ class Canvas {
       window.addEventListener('resize', handleResizeEvent.bind(this));
       handleResizeEvent.call(this);
 
-      setFont(this, this.tileSize);
+      this.font = opts.font;
+      setFont(this, this.tileSize, this.font);
     }
-
 
   }
 
@@ -126,6 +126,11 @@ class Canvas {
           if (cell.wasHanging && j < this.buffer.height - 1) {
             this.buffer[i][j + 1].needsUpdate = true;	// redraw the row below any hanging letters that changed
             cell.wasHanging = false;
+          }
+          if (cell.wasFlying && j) {
+            this.buffer[i][j - 1].needsUpdate = true;
+            this.buffer.needsUpdate = true;
+            cell.wasFlying = false;
           }
 
           this.drawCell(cell, i, j);

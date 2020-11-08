@@ -39,6 +39,15 @@ describe('GW.random', () => {
     always( () => expect(GW.random.number()).toBeWithin(0, GW.types.Random.MAX) );
   });
 
+  test('can give a random key from an object', () => {
+    GW.random.seed(12345);
+    const source = {
+      a: 1, b: 2, c: 3, d: 4
+    };
+
+    expect(GW.random.key(source)).toEqual('b');
+  });
+
 });
 
 describe('GW.cosmetic', () => {

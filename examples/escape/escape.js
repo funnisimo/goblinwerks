@@ -74,16 +74,16 @@ const PLAYER = GW.make.player({
       y = GW.sidebar.addHealthBar(entry, y, dim, highlight, buf);
 
       let melee = 'Fists [1]';
-      if (player.melee) {
-        melee = GW.text.capitalize(player.melee.getName({ details: true, color: !dim }));
+      if (player.slots.melee) {
+        melee = GW.text.capitalize(player.slots.melee.getName({ details: true, color: !dim }));
       }
-      y = GW.sidebar.addText(buf, y, 'Melee : ' + melee, null, null, dim, highlight);
+      y = GW.sidebar.addText(buf, y, 'Melee : ' + melee, null, null, { dim, highlight, indent: 8 });
 
       let ranged = 'None';
-      if (player.ranged) {
-        ranged = GW.text.capitalize(player.ranged.getName({ details: true, color: !dim }));
+      if (player.slots.ranged) {
+        ranged = GW.text.capitalize(player.slots.ranged.getName({ details: true, color: !dim }));
       }
-      y = GW.sidebar.addText(buf, y, 'Ranged: ' + ranged, null, null, dim, highlight);
+      y = GW.sidebar.addText(buf, y, 'Ranged: ' + ranged, null, null, { dim, highlight, indent: 8 });
       return y;
     },
 });
@@ -121,14 +121,14 @@ class EscapeItem extends GW.types.ItemKind {
     if (item.kind.slot) {
       const slot = item.kind.slot;
       current = true;
-      if (actor[slot]) {
-        current = actor[slot];
+      if (actor.slots[slot]) {
+        current = actor.slots[slot];
         if (current.stats.damage > item.stats.damage) {
           GW.message.add('%s find %s, but your %s is better.', actor.getName(), item.getName({ article: 'a', details: true }), current.getName({ details: true }));
           return false;
         }
       }
-      actor[slot] = item;
+      actor.slots[slot] = item;
     }
     else if (item.stats.heal) {
       if (actor.current.health >= actor.max.health) {
@@ -227,10 +227,10 @@ class Zombie extends GW.types.ActorKind {
       y = GW.sidebar.addHealthBar(entry, y, dim, highlight, buf);
     }
     if (actor.status) {
-      y = GW.sidebar.addText(buf, y, actor.status, null, null, dim, highlight);
+      y = GW.sidebar.addText(buf, y, actor.status, null, null, { dim, highlight });
     }
     if (actor.current.zombiePush) {
-      y = GW.sidebar.addText(buf, y, 'Push: ' + actor.current.zombiePush, null, null, dim, highlight);
+      y = GW.sidebar.addText(buf, y, 'Push: ' + actor.current.zombiePush, null, null, { dim, highlight });
     }
     return y;
   }
@@ -432,7 +432,7 @@ GW.tile.addKind('HELLO_SIGN', {
   flags: ['TM_LIST_IN_SIDEBAR'],
   events: {
     playerEnter(x, y, ctx) {
-      GW.message.add('%RBeware!', 'dark_red');
+      GW.message.add('%FBeware!', 'dark_red');
       return true;
     }
   }
@@ -589,25 +589,25 @@ async function showHelp() {
 	const buf = GW.ui.startDialog();
 
 	let y = 2;
-	buf.plotText(20, y++, 'GoblinWerks Escape from ECMA Labs', 'green');
+	buf.plotText(20, y++, '%FGoblinWerks Escape from ECMA Labs', 'green');
 	y++;
 	y = buf.wrapText(15, y, 50, 'You are in the basement of a secret laboratory that does experiments with toxic chemicals.  There was an accident and a toxic gas was released that will kill you.  It has already affected most of your colleagues.  You must get out quickly!', 'white');
 	y++;
-	buf.plotText(15, y, 'dir   ', 'yellow');
+	buf.plotText(15, y, '%Fdir   ', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Pressing an arrow key moves the player in that direction.', 'white', null, 2);
-  buf.plotText(15, y, 'b', 'yellow');
+  buf.plotText(15, y, '%Fb', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Bash something.', 'lighter_gray');
-  buf.plotText(15, y, 'f', 'yellow');
+  buf.plotText(15, y, '%Ff', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Fire your ranged weapon at a target.', 'lighter_gray');
-  buf.plotText(15, y, 'g', 'yellow');
+  buf.plotText(15, y, '%Fg', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Grab something.', 'white', null, 2);
-  buf.plotText(15, y, 'o', 'yellow');
+  buf.plotText(15, y, '%Fo', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Open something.', 'lighter_gray');
-  buf.plotText(15, y, 'c', 'yellow');
+  buf.plotText(15, y, '%Fc', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Close something.', 'white', null, 2);
-	buf.plotText(15, y, 'space ', 'yellow');
+	buf.plotText(15, y, '%Fspace ', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Wait a short time.', 'white', null, 2);
-	buf.plotText(15, y, '?', 'yellow');
+	buf.plotText(15, y, '%F?', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Show this screen.', 'lighter_gray');
 
   // this just overwrites the background color on the range
@@ -653,7 +653,7 @@ async function start() {
 	});
 
   // welcome message
-	GW.message.add('%REscape from ECMA Labs!\n%RYou are in the basement of a lab where something has gone horribly wrong.\nFind your way to the surface.\n%RPress <?> for help.', 'yellow', 'purple', null);
+	GW.message.add('%FEscape from ECMA Labs!\n%FYou are in the basement of a lab where something has gone horribly wrong.\nFind your way to the surface.\n%FPress <?> for help.', 'yellow', 'purple', null);
 
   // start the game
 	const success = await GW.game.start({ player: PLAYER, map, fov: true });

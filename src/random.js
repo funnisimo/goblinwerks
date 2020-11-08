@@ -82,6 +82,14 @@ export class Random {
     return result;
   }
 
+  int(n) {
+    return this.number(n);
+  }
+
+  float() {
+    return this.value();
+  }
+
   value() {
     return (this.number() / (RNG_M - 1));
   }
@@ -109,10 +117,18 @@ export class Random {
 
 
   lottery(weights) {
+    return this.weighted(weights);
+  }
+
+  weighted(weights) {
     if (Array.isArray(weights)) {
       return lotteryDrawArray(this, weights);
     }
     return lotteryDrawObject(this, weights);
+  }
+
+  index(weights) {
+    return lotteryDrawArray(this, weights);
   }
 
 
@@ -147,6 +163,10 @@ export class Random {
 
   item(list) {
   	return list[this.range(0, list.length - 1)];
+  }
+
+  key(obj) {
+    return this.item(Object.keys(obj));
   }
 
   shuffle(list, fromIndex, toIndex) {

@@ -3,7 +3,7 @@ import { random } from './random.js';
 import * as Flags from './flags.js';
 import * as Utils from './utils.js';
 import { colors as COLORS, color as COLOR } from './color.js';
-import { tileEvent as TILE_EVENT } from './tileEvent.js';
+import * as TileEvent from './tileEvent.js';
 
 import { types, make, def, config as CONFIG, data as DATA, flag as FLAG, tiles as TILES } from './gw.js';
 
@@ -13,7 +13,7 @@ const TileLayer = def.layer;
 
 cell.debug = Utils.NOOP;
 
-COLOR.install('cursorColor', 25, 100, 150);
+COLOR.addKind('cursorColor', 25, 100, 150);
 CONFIG.cursorPathIntensity = 50;
 
 
@@ -344,7 +344,10 @@ class Cell {
 
   setTile(tileId=0, volume=0) {
     let tile;
-    if (typeof tileId === 'string') {
+    if (tileId === 0) {
+      tile = TILES['0'];
+    }
+    else if (typeof tileId === 'string') {
       tile = TILES[tileId];
     }
     else if (tileId instanceof types.Tile) {
@@ -357,7 +360,7 @@ class Cell {
 
     if (!tile) {
       Utils.WARN('Unknown tile - ' + tileId);
-      tile = TILES[0];
+      tile = TILES['0'];
       tileId = 0;
     }
 
@@ -461,7 +464,7 @@ class Cell {
 
         ctx.tile = tile;
         cell.debug(' - spawn event @%d,%d - %s', ctx.x, ctx.y, name);
-        fired = await TILE_EVENT.spawn(ev, ctx) || fired;
+        fired = await TileEvent.spawn(ev, ctx) || fired;
         cell.debug(' - spawned');
         if (fired) {
           break;
@@ -484,6 +487,7 @@ class Cell {
   // SPRITES
 
   addSprite(layer, sprite, priority=50) {
+    if (!sprite) return;
 
     // this.flags |= Flags.NEEDS_REDRAW;
     this.flags |= Flags.Cell.CELL_CHANGED;
@@ -503,13 +507,15 @@ class Cell {
   }
 
   removeSprite(sprite) {
+    if (!sprite) return false;
+    if (!this.sprites) return false;
 
     // this.flags |= Flags.NEEDS_REDRAW;
     this.flags |= Flags.Cell.CELL_CHANGED;
 
     if (this.sprites && this.sprites.sprite === sprite) {
       this.sprites = this.sprites.next;
-      return;
+      return true;
     }
 
     let prev = this.sprites;
