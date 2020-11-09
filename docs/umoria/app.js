@@ -54,13 +54,17 @@ async function forceStairs(ev) {
 }
 
 // start the environment
-function start() {
-	const canvas = GW.ui.start({ width: 80, height: 36, div: 'game', messages: -5, cursor: true, flavor: true });
+async function start() {
+	const canvas = GW.ui.start({ width: 100, height: 38, div: 'game', messages: -5, cursor: true, flavor: true });
 	GW.io.setKeymap({
 		dir: 'movePlayer', space: 'rest',
 		'>': forceStairs, '<': forceStairs,
 		'?': showHelp
 	});
+
+  const result = await titleMenu({ title: UMORIA_TITLE, version: UMORIA_VERSION });
+
+  console.log('You chose:', result);
 
 	GW.message.add('%FWelcome to the Dungeon!\n%FSomewhere at the bottom of this labrynth is a portal that will take you back to your home town.  Find it or perish!\n%FPress <?> for help.', 'yellow', 'purple', null);
 	GW.game.start({ player: PLAYER, buildMap: designNewLevel, fov: true });
