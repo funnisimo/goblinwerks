@@ -270,6 +270,10 @@ export function sequence(listLength) {
   return list;
 }
 
+export function sum(arr) {
+  return arr.reduce( (a, b) => a + b );
+}
+
 // CHAIN
 
 export function chainLength(item) {

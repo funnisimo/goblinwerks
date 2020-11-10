@@ -63,8 +63,9 @@ async function start() {
 	});
 
   const result = await titleMenu({ title: UMORIA_TITLE, version: UMORIA_VERSION });
-
   console.log('You chose:', result);
+
+  const player = await createPlayer();
 
 	GW.message.add('%FWelcome to the Dungeon!\n%FSomewhere at the bottom of this labrynth is a portal that will take you back to your home town.  Find it or perish!\n%FPress <?> for help.', 'yellow', 'purple', null);
 	GW.game.start({ player: PLAYER, buildMap: designNewLevel, fov: true });

@@ -260,9 +260,7 @@ export class Actor {
 
     this.id = ++ACTOR_COUNT;
 
-    if (this.kind.make) {
-      this.kind.make(this, opts);
-    }
+    this.kind.make(this, opts);
     if (this.kind.calcEquipmentBonuses) {
       this.kind.calcEquipmentBonuses(this);
     }
@@ -425,6 +423,10 @@ export class Actor {
     return Math.floor(100 * (current - prior)/max);
   }
 
+  initStat(stat, value) {
+    this.max[stat] = this.current[stat] = this.prior[stat] = value;
+  }
+
   // INVENTORY
 
   addToPack(item) {
@@ -497,7 +499,7 @@ export class Actor {
 types.Actor = Actor;
 
 
-export function makeActor(kind) {
+export function makeActor(kind, opts) {
   if (typeof kind === 'string') {
     kind = actorKinds[kind];
   }
@@ -506,9 +508,9 @@ export function makeActor(kind) {
     if (kind.type) {
       type = kind.type;
     }
-    kind = new types[type](kind);
+    kind = new types[type](kind, opts);
   }
-  return new types.Actor(kind);
+  return new types.Actor(kind, opts);
 }
 
 make.actor = makeActor;

@@ -378,6 +378,10 @@ function sequence(listLength) {
   return list;
 }
 
+function sum(arr) {
+  return arr.reduce( (a, b) => a + b );
+}
+
 // CHAIN
 
 function chainLength(item) {
@@ -475,6 +479,7 @@ var utils$1 = /*#__PURE__*/Object.freeze({
   firstOpt: firstOpt,
   arraysIntersect: arraysIntersect,
   sequence: sequence,
+  sum: sum,
   chainLength: chainLength,
   chainIncludes: chainIncludes,
   eachChain: eachChain,
@@ -1235,7 +1240,7 @@ function makeRange(config, rng) {
   }
   if (config.length == 0) return new Range(0);
 
-	const RE = /^(?:([+-]?\d*)[Dd](\d+)([+-]?\d*)|([+-]?\d+)-(\d+):?(\d+)?|([+-]?\d+\.?\d*))/g;
+	const RE = /^(?:([+-]?\d*)[Dd](\d+)([+-]?\d*)|([+-]?\d+)-(\d+):?(\d+)?|([+-]?\d+)~(\d+)|([+-]?\d+\.?\d*))/g;
   let results;
   while ((results = RE.exec(config)) !== null) {
     if (results[2]) {
@@ -1254,8 +1259,13 @@ function makeRange(config, rng) {
       const clumps = Number.parseInt(results[6]);
       return new Range(min, max, clumps, rng);
     }
-		else if (results[7]) {
-      const v = Number.parseFloat(results[7]);
+    else if (results[7] && results[8]) {
+      const base = Number.parseInt(results[7]);
+      const std = Number.parseInt(results[8]);
+      return new Range(base - 2*std, base + 2*std, 3, rng);
+    }
+		else if (results[9]) {
+      const v = Number.parseFloat(results[9]);
       return new Range(v, v, 1, rng);
     }
   }
@@ -7873,9 +7883,7 @@ class Actor$1 {
 
     this.id = ++ACTOR_COUNT;
 
-    if (this.kind.make) {
-      this.kind.make(this, opts);
-    }
+    this.kind.make(this, opts);
     if (this.kind.calcEquipmentBonuses) {
       this.kind.calcEquipmentBonuses(this);
     }
@@ -8037,6 +8045,10 @@ class Actor$1 {
     return Math.floor(100 * (current - prior)/max);
   }
 
+  initStat(stat, value) {
+    this.max[stat] = this.current[stat] = this.prior[stat] = value;
+  }
+
   // INVENTORY
 
   addToPack(item) {
@@ -8108,7 +8120,7 @@ class Actor$1 {
 types.Actor = Actor$1;
 
 
-function makeActor(kind) {
+function makeActor(kind, opts) {
   if (typeof kind === 'string') {
     kind = actorKinds[kind];
   }
@@ -8117,9 +8129,9 @@ function makeActor(kind) {
     if (kind.type) {
       type = kind.type;
     }
-    kind = new types[type](kind);
+    kind = new types[type](kind, opts);
   }
-  return new types.Actor(kind);
+  return new types.Actor(kind, opts);
 }
 
 make.actor = makeActor;
