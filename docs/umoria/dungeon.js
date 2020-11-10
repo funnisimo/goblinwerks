@@ -64,7 +64,7 @@ function designNewLevel(id=0, attempt=0) {
 	const seed = GW.random._v - 1;
 
 	// dig a map
-	const map = GW.make.map(80, 30);
+	const map = GW.make.map(80, 32);
 	map.id = id;
 	GW.dungeon.start(map);
 

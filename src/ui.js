@@ -60,9 +60,10 @@ export function start(opts={}) {
     div: 'canvas',
     io: true,
     followPlayer: false,
+    loop: true,
   });
 
-  if (!ui.canvas) {
+  if (!ui.canvas && (opts.canvas !== false)) {
     ui.canvas = new types.Canvas(opts.width, opts.height, opts.div, opts);
 
     if (opts.io && typeof document !== 'undefined') {
@@ -70,17 +71,23 @@ export function start(opts={}) {
       ui.canvas.element.onmousemove = ui.onmousemove;
     	document.onkeydown = ui.onkeydown;
     }
-  }
 
-  // TODO - init sidebar, messages, flavor, menu
-  UI_BUFFER = UI_BUFFER || ui.canvas.allocBuffer();
-  UI_BASE = UI_BASE || ui.canvas.allocBuffer();
-  UI_OVERLAY = UI_OVERLAY || ui.canvas.allocBuffer();
-  UI_BASE.nullify();
-  UI_OVERLAY.nullify();
+    // TODO - init sidebar, messages, flavor, menu
+    UI_BUFFER = UI_BUFFER || ui.canvas.allocBuffer();
+    UI_BASE = UI_BASE || ui.canvas.allocBuffer();
+    UI_OVERLAY = UI_OVERLAY || ui.canvas.allocBuffer();
+    UI_BASE.nullify();
+    UI_OVERLAY.nullify();
+
+    ui.blackOutDisplay();
+  }
 
   IN_DIALOG = false;
   REDRAW_UI = false;
+
+  if (opts.sidebar === true) {
+    opts.sidebar = 20;
+  }
 
 	let viewX = 0;
 	let viewY = 0;
@@ -89,68 +96,60 @@ export function start(opts={}) {
 
 	let flavorLine = -1;
 
-  if (opts.wideMessages) {
-    if (opts.messages) {
-      viewH -= Math.abs(opts.messages);
-    }
-    if (opts.flavor) {
-      viewH -= 1;
-    }
+  if (opts.messages) {
+    viewH -= Math.abs(opts.messages);
+  }
+  if (opts.flavor) {
+    viewH -= 1;
   }
 
   if (opts.sidebar) {
-    if (opts.sidebar === true) {
-      opts.sidebar = 20;
-    }
+    const sideH = (opts.wideMessages ? viewH : opts.height);
+    let sideY = (opts.wideMessages && opts.messages > 0) ? opts.height - viewH : 0;
+
     if (opts.sidebar < 0) { // right side
       viewW += opts.sidebar;  // subtract
-      SIDEBAR.setup({ x: viewW, y: 0, width: -opts.sidebar, height: viewH });
+      SIDEBAR.setup({ x: viewW, y: sideY, width: -opts.sidebar, height: sideH });
     }
     else {  // left side
       viewW -= opts.sidebar;
       viewX = opts.sidebar;
-      SIDEBAR.setup({ x: 0, y: 0, width: opts.sidebar, height: viewH });
+      SIDEBAR.setup({ x: 0, y: sideY, width: opts.sidebar, height: sideH });
     }
   }
 
   const msgW = (opts.wideMessages ? opts.width : viewW);
+  const msgX = (opts.wideMessages ? 0 : viewX);
 
 	if (opts.messages) {
 		if (opts.messages < 0) {	// on bottom of screen
-			MSG.setup({x: 0, y: ui.canvas.height + opts.messages, width: msgW, height: -opts.messages, archive: ui.canvas.height });
-      if (!opts.wideMessages) {
-        viewH += opts.messages;	// subtract off message height
-      }
+			MSG.setup({x: msgX, y: opts.height + opts.messages, width: msgW, height: -opts.messages, archive: opts.height });
 			if (opts.flavor) {
-				if (!opts.wideMessages) viewH -= 1;
-				flavorLine = ui.canvas.height + opts.messages - 1;
+				flavorLine = opts.height + opts.messages - 1;
 			}
 		}
 		else {	// on top of screen
-			MSG.setup({x: 0, y: 0, width: msgW, height: opts.messages, archive: ui.canvas.height });
+			MSG.setup({x: msgX, y: 0, width: msgW, height: opts.messages, archive: opts.height });
 			viewY = opts.messages;
-      if (! opts.wideMessages) {
-        viewH -= opts.messages;
-      }
 			if (opts.flavor) {
 				viewY += 1;
-				if (!opts.wideMessages) viewH -= 1;
 				flavorLine = opts.messages;
 			}
 		}
 	}
 
 	if (opts.flavor) {
-		FLAVOR.setup({ x: viewX, y: flavorLine, w: msgW, h: 1 });
+		FLAVOR.setup({ x: msgX, y: flavorLine, w: msgW, h: 1 });
     SHOW_FLAVOR = true;
 	}
 
 	VIEWPORT.setup({ x: viewX, y: viewY, w: viewW, h: viewH, followPlayer: opts.followPlayer });
 	SHOW_CURSOR = opts.cursor;
 
-  ui.blackOutDisplay();
-	RUNNING = true;
-	uiLoop();
+  if (opts.loop) {
+    RUNNING = true;
+  	uiLoop();
+  }
 
   return ui.canvas;
 }
