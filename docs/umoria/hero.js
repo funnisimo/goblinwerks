@@ -114,7 +114,8 @@ class HeroKind extends GW.types.ActorKind {
       xpFactor: this.xpFactor + role.xpFactor,
       hitDie: this.hitDie + role.hitDie,
     };
-    if (actor.flags & GW.flags.actor.AF_FEMALE) {
+
+    if (actor.isFemale()) {
       actor.data.height = Math.round(actor.data.height * 0.92);
       actor.data.weight = Math.round(actor.data.weight * 0.82);
     }
@@ -197,7 +198,7 @@ class HeroKind extends GW.types.ActorKind {
     gold += goldFromStat(actor.current.chr);
 
     // She charmed the banker into it! -CJS-
-    if (actor.flags & GW.flags.actor.AF_FEMALE) {
+    if (actor.isFemale()) {
         gold += 50;
     }
 

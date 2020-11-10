@@ -260,6 +260,19 @@ export class Actor {
 
     this.id = ++ACTOR_COUNT;
 
+    if (opts.female) {
+      this.flags &= ~Flags.Actor.AF_MALE;
+      this.flags |= Flags.Actor.AF_FEMALE;
+    }
+    else if (opts.male) {
+      this.flags &= ~Flags.Actor.AF_FEMALE;
+      this.flags |= Flags.Actor.AF_MALE;
+    }
+    else if (this.hasAllFlags(Flags.Actor.AF_MALE | Flags.Actor.AF_FEMALE)) {
+      const remove = random.chance(50) ? Flags.Actor.AF_MALE : Flags.Actor.AF_FEMALE;
+      this.flags &= ~remove;
+    }
+
     this.kind.make(this, opts);
     if (this.kind.calcEquipmentBonuses) {
       this.kind.calcEquipmentBonuses(this);
@@ -272,6 +285,18 @@ export class Actor {
   isDead() { return this.current.health <= 0; }
   isInanimate() { return this.kind.flags & Flags.ActorKind.AK_INANIMATE; }
   isInvulnerable() { return this.kind.flags & Flags.ActorKind.AK_INVULNERABLE; }
+
+  isFemale() { return this.flags & Flags.Actor.AF_FEMALE; }
+  isMale() { return this.flags & Flags.Actor.AF_MALE; }
+
+  hasAllFlags(flags) {
+    return (this.flags & flags) === flags;
+  }
+
+  hasActionFlag(flag) {
+    if (this.isPlayer()) return true; // Players can do everything
+    return this.kind.actionFlags & flag;
+  }
 
 
   async bumpBy(actor, ctx) {
@@ -353,11 +378,6 @@ export class Actor {
       if (cell.flags & avoidedCellFlags) return def.PDS_AVOIDED;
       return 1;
     });
-  }
-
-  hasActionFlag(flag) {
-    if (this.isPlayer()) return true; // Players can do everything
-    return this.kind.actionFlags & flag;
   }
 
   changed(v) {

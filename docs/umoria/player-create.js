@@ -13,78 +13,65 @@ const CHAR_ROLE_COL = 25;
 const CHAR_INFO_COL = 45;
 
 // // Gets the character's gender
-// async function getPlayerGender() {
-//
-//   let x, y;
-//   let highlighted = 0;
-//
-//   const theEvent = rogueEvent();
-//   const buf = STRING(); // char[buffer.width*3];
-//   const buttons = ARRAY(50, brogueButton); // brogueButton[50] = {{{0}}};
-//   const dbuf = GRID(buffer.width, ROWS, cellDisplayBuffer); // cellDisplayBuffer[buffer.width][ROWS];
-// 	const rbuf = GRID(buffer.width, ROWS, cellDisplayBuffer); // cellDisplayBuffer[buffer.width][ROWS];
-//
-// 	blackOutScreen();
-//
-// 	let prompt = "Select your avatar's gender:";
-// 	x = Math.floor((buffer.width - strlen(prompt)) / 2);
-// 	y = 2;
-// 	printString(prompt, x, y, yellow, black);
-//
-// 	prompt = 'Press [Enter] to accept, [Escape] to cancel.';
-// 	x = Math.floor((buffer.width - strlen(prompt)) / 2);
-// 	y = 24;
-// 	printString(prompt, x, y, white, black);
-//
-//   copyDisplayBuffer(rbuf);
-//
-//   while(true) {
-//
-// 		clearDisplayBuffer(dbuf);
-//
-//     y = 4;
-//     printString('a) Male', CHAR_KIND_COL, y, (highlighted == 0) ? teal : white, black, dbuf);
-//     printString('b) Female', CHAR_ROLE_COL, y, (highlighted == 1) ? teal : white, black, dbuf);
-//
-//     const desc = GENDER_DESCRIPTIONS[highlighted]; // getPlayerDescription(highlighted, -1);
-//     printStringWithWrapping(desc, CHAR_INFO_COL, 4, 50, white, black, dbuf);
-//
-//     overlayDisplayBuffer(dbuf);
-//
-//     await nextBrogueEvent(theEvent);
-//     if (ev.type === GW.def.KEYPRESS) {
-//       const key = theEvent.param1;
-//       if (key === ESCAPE_KEY) {
-//         return -1;
-//       }
-//       else if (key === 'Enter' || key === 'Return' || key == DOWN_ARROW) {
-//         return highlighted;
-//       }
-//       else if (key === LEFT_KEY || key === LEFT_ARROW) {
-//         highlighted = Math.max(0, highlighted - 1);
-//       }
-//       else if (key === RIGHT_KEY || key === 'ArrowRight') {
-//         highlighted = Math.min(1, highlighted + 1);
-//       }
-//     }
-//     else if (ev.type === GW.def.MOUSEMOVE) {
-//       if (theEvent.param2 === y && theEvent.param1 < CHAR_INFO_COL) {
-//         highlighted = (theEvent.param1 < CHAR_ROLE_COL) ? 0 : 1;
-//       }
-//     }
-//     else if (ev.type === GW.def.CLICK) {
-//       if (theEvent.param2 === y && theEvent.param1 < CHAR_INFO_COL) {
-//         return highlighted;
-//       }
-//     }
-//
-// 		overlayDisplayBuffer(rbuf);
-//
-//   }
-//
-// }
+async function getPlayerGender(buffer) {
 
-async function getPlayerKind(buffer) {
+  let x, y;
+  let highlighted = 0;
+
+	buffer.blackOut();
+
+	let prompt = GW.text.format("%FSelect your avatar's gender:", 'yellow');
+	x = Math.floor((buffer.width - GW.text.length(prompt)) / 2);
+	y = 2;
+	buffer.plotText(x, y, prompt);
+
+	prompt = 'Press [Enter] to accept, [Escape] to cancel.';
+	x = Math.floor((buffer.width - prompt.length) / 2);
+	y = 24;
+	buffer.plotText(x, y, prompt);
+
+  while(true) {
+
+    y = 4;
+    buffer.plotText(CHAR_KIND_COL, y, '%FA) Male', (highlighted == 0) ? 'teal' : 'white');
+    buffer.plotText(CHAR_ROLE_COL, y, '%FB) Female', (highlighted == 1) ? 'teal' : 'white');
+
+    const desc = GENDER_DESCRIPTIONS[highlighted]; // getPlayerDescription(highlighted, -1);
+    buffer.wrapText(CHAR_INFO_COL, 4, 50, desc);
+
+    GW.ui.draw();
+
+    const ev = await GW.io.nextEvent(-1);
+    if (ev.type === GW.def.KEYPRESS) {
+      const key = ev.key;
+      if (key === 'Escape') {
+        return -1;
+      }
+      else if (key === 'Enter' || key === 'Return' || key == 'ArrowDown') {
+        return highlighted;
+      }
+      else if (key === 'ArrowLeft') {
+        highlighted = Math.max(0, highlighted - 1);
+      }
+      else if (key === 'ArrowRight') {
+        highlighted = Math.min(1, highlighted + 1);
+      }
+    }
+    else if (ev.type === GW.def.MOUSEMOVE) {
+      if (ev.y === y && ev.x < CHAR_INFO_COL) {
+        highlighted = (ev.x < CHAR_ROLE_COL) ? 0 : 1;
+      }
+    }
+    else if (ev.type === GW.def.CLICK) {
+      if (ev.y === y && ev.x < CHAR_INFO_COL) {
+        return highlighted;
+      }
+    }
+  }
+
+}
+
+async function getPlayerKind(buffer, genderId) {
 
   let x, y;
   let highlighted = 0;
@@ -105,6 +92,10 @@ async function getPlayerKind(buffer) {
   const heroKinds = Object.values(HERO_KINDS);
 
   while(true) {
+
+    y = 4;
+    buffer.plotText(CHAR_KIND_COL, y, '%FA) Male', (genderId == 0) ? 'teal' : 'white');
+    buffer.plotText(CHAR_ROLE_COL, y, '%FB) Female', (genderId == 1) ? 'teal' : 'white');
 
     y = 6;
     heroKinds.forEach( (r, i) => {
@@ -156,7 +147,7 @@ async function getPlayerKind(buffer) {
 }
 
 
-async function getPlayerRole(buffer, kindId) {
+async function getPlayerRole(buffer, kindId, genderId) {
 	kindId = kindId || 0;	// Default is human
 
 	let x, y;
@@ -178,6 +169,10 @@ async function getPlayerRole(buffer, kindId) {
 	buffer.plotText(x, y, prompt);
 
   while(true) {
+
+    y = 4;
+    buffer.plotText(CHAR_KIND_COL, y, '%FA) Male', (genderId == 0) ? 'teal' : 'white');
+    buffer.plotText(CHAR_ROLE_COL, y, '%FB) Female', (genderId == 1) ? 'teal' : 'white');
 
     y = 6;
     heroKinds.forEach( (kind, i) => {
@@ -222,18 +217,18 @@ async function getPlayerRole(buffer, kindId) {
       }
     }
     else if (ev.type === GW.def.MOUSEMOVE) {
-      if (theEvent.x >= CHAR_ROLE_COL && theEvent.x <= CHAR_INFO_COL) {
-        if (theEvent.y >= 6 && theEvent.y < 6 + roles.length) {
-          highlighted = theEvent.y - 6;
+      if (ev.x >= CHAR_ROLE_COL && ev.x <= CHAR_INFO_COL) {
+        if (ev.y >= 6 && ev.y < 6 + roles.length) {
+          highlighted = ev.y - 6;
         }
       }
     }
     else if (ev.type === GW.def.CLICK) {
-      if (theEvent.y < 5) return null;
-      if (theEvent.x < CHAR_ROLE_COL) return null;
+      if (ev.y < 5) return null;
+      if (ev.x < CHAR_ROLE_COL) return null;
 
-      if (theEvent.x >= CHAR_ROLE_COL && theEvent.x <= CHAR_INFO_COL) {
-        if (theEvent.y >= 6 && theEvent.y < 6 + roles.length) {
+      if (ev.x >= CHAR_ROLE_COL && ev.x <= CHAR_INFO_COL) {
+        if (ev.y >= 6 && ev.y < 6 + roles.length) {
           return roles[highlighted].id;
         }
       }
@@ -245,11 +240,11 @@ async function getPlayerRole(buffer, kindId) {
 
 
 
-async function rollPlayerStats(buffer, kindId, roleId) {
+async function rollPlayerStats(buffer, kindId, roleId, genderId) {
 
   while(true) {
 
-    const player = GW.make.actor(kindId, { role: roleId });
+    const player = GW.make.actor(kindId, { role: roleId, female: (genderId == 1), male: (genderId == 0) });
 
     buffer.blackOut();
 
@@ -326,27 +321,34 @@ async function createPlayer() {
 	let kindId = null;
 	let roleId = null;
   let player = null;
+  let genderId = -1;
 
   const buffer = GW.ui.startDialog();
 
 	while(!done) {
 
-    if (!kindId) {
-			kindId = await getPlayerKind(buffer);
-			if (!kindId) {
+    if (genderId < 0) {
+      genderId = await getPlayerGender(buffer);
+      if (genderId < 0) {
         done = true;
+      }
+    }
+    else if (!kindId) {
+			kindId = await getPlayerKind(buffer, genderId);
+			if (!kindId) {
+        genderId = -1;
 			}
       console.log('You chose:', kindId);
 		}
 		else if (!roleId) {
-			roleId = await getPlayerRole(buffer, kindId);
+			roleId = await getPlayerRole(buffer, kindId, genderId);
 			if (!roleId) {
 				kindId = null;
 			}
       console.log('You chose:', roleId);
 		}
 		else if (!player) {	// Roll
-			player = await rollPlayerStats(buffer, kindId, roleId);
+			player = await rollPlayerStats(buffer, kindId, roleId, genderId);
 			if (!player) {
 				roleId = null;	// go back
 			}

@@ -117,7 +117,7 @@ function printCharacterVitalStatistics(buffer, actor, yOffset) {
     buffer.plotText(x, y,     "Age          : %d", actor.data.age);
     buffer.plotText(x, y + 1, "Height       : %s", toHeightString(actor.data.height));
     buffer.plotText(x, y + 2, "Weight       : %d lbs", actor.data.weight);
-    buffer.plotText(x, y + 3, "Social Class : %d", actor.data.socialClass);
+    buffer.plotText(x, y + 3, "Gender       : %s", actor.isFemale() ? 'Female' : 'Male');
     buffer.plotText(x, y + 4, "Gold         : %d", actor.current.gold);
 }
 

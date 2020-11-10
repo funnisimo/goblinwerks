@@ -630,6 +630,9 @@ const Actor = installFlag('actor', {
   AF_DYING        : Fl(1),
   AF_TURN_ENDED   : Fl(2),
 
+  AF_MALE         : Fl(3),
+  AF_FEMALE       : Fl(4),
+
   AF_DEBUG        : Fl(30),
 });
 
@@ -7881,6 +7884,19 @@ class Actor$1 {
 
     this.id = ++ACTOR_COUNT;
 
+    if (opts.female) {
+      this.flags &= ~Actor.AF_MALE;
+      this.flags |= Actor.AF_FEMALE;
+    }
+    else if (opts.male) {
+      this.flags &= ~Actor.AF_FEMALE;
+      this.flags |= Actor.AF_MALE;
+    }
+    else if (this.hasAllFlags(Actor.AF_MALE | Actor.AF_FEMALE)) {
+      const remove = random.chance(50) ? Actor.AF_MALE : Actor.AF_FEMALE;
+      this.flags &= ~remove;
+    }
+
     this.kind.make(this, opts);
     if (this.kind.calcEquipmentBonuses) {
       this.kind.calcEquipmentBonuses(this);
@@ -7893,6 +7909,18 @@ class Actor$1 {
   isDead() { return this.current.health <= 0; }
   isInanimate() { return this.kind.flags & ActorKind.AK_INANIMATE; }
   isInvulnerable() { return this.kind.flags & ActorKind.AK_INVULNERABLE; }
+
+  isFemale() { return this.flags & Actor.AF_FEMALE; }
+  isMale() { return this.flags & Actor.AF_MALE; }
+
+  hasAllFlags(flags) {
+    return (this.flags & flags) === flags;
+  }
+
+  hasActionFlag(flag) {
+    if (this.isPlayer()) return true; // Players can do everything
+    return this.kind.actionFlags & flag;
+  }
 
 
   async bumpBy(actor, ctx) {
@@ -7973,11 +8001,6 @@ class Actor$1 {
       if (cell.flags & avoidedCellFlags) return def.PDS_AVOIDED;
       return 1;
     });
-  }
-
-  hasActionFlag(flag) {
-    if (this.isPlayer()) return true; // Players can do everything
-    return this.kind.actionFlags & flag;
   }
 
   changed(v) {

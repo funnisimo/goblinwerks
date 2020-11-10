@@ -37,6 +37,9 @@ export const Actor = installFlag('actor', {
   AF_DYING        : Fl(1),
   AF_TURN_ENDED   : Fl(2),
 
+  AF_MALE         : Fl(3),
+  AF_FEMALE       : Fl(4),
+
   AF_DEBUG        : Fl(30),
 });
 
