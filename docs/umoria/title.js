@@ -317,6 +317,12 @@ async function titleMenu(opts) {
   text = GW.text.format(" New Game with %FS%Feed ", 'gold', null);
   button = buttons.addButton(text, { hotkey: ['s', 'S'] });
 
+  text = GW.text.format("       S%Ft%Fory        ", 'gold', null);
+  button = buttons.addButton(text, { hotkey: ['t', 'T'] });
+
+  text = GW.text.format("       %FA%Fbout        ", 'gold', null);
+  button = buttons.addButton(text, { hotkey: ['a', 'A'] });
+
 	x = buffer.width - 1 - 20 - 2;
 	y = buffer.height - 1;
 	for (i = buttons.buttons.length-1; i >= 0; i--) {
