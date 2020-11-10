@@ -71,7 +71,7 @@ class HeroKind extends GW.types.ActorKind {
       // You could easily add it later
       actorFlags: 'AF_MALE', // error prone if you send it in opts
 
-      ch: 'h',
+      ch: '@',
       fg: 'white',
     });
 

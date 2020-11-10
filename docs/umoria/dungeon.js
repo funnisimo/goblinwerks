@@ -2,11 +2,6 @@
 const startingXY = [40, 28];
 const TILES = GW.tiles;
 
-const PLAYER = GW.make.player({
-		sprite: GW.make.sprite('@', 'white'),
-		name: 'you',
-		speed: 120
-});
 
 // GW.cell.debug = console.log;
 // GW.tileEvent.debug = console.log;

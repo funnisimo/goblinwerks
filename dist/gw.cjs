@@ -12942,6 +12942,58 @@ async function chooseTarget(choices, prompt, opts={}) {
 
 ui.chooseTarget = chooseTarget;
 
+
+
+// assumes you are in a dialog and give the buffer for that dialog
+async function getInputAt(buffer, x, y, maxLength, opts={})
+{
+  let defaultEntry = opts.default || '';
+  let numbersOnly = opts.number || false;
+
+	const textEntryBounds = (numbersOnly ? ['0', '9'] : [' ', '~']);
+
+	maxLength = Math.min(maxLength, buffer.width - x);
+
+	let inputText = defaultEntry;
+	let charNum = GW.text.length(inputText);
+
+  const backup = GW.ui.canvas.allocBuffer();
+  backup.copy(buffer);
+
+  let ev;
+	do {
+    GW.ui.draw();
+
+		ev = await GW.io.nextKeyPress(-1);
+		if ( (ev.key == 'Delete' || ev.key == 'Backspace') && charNum > 0) {
+			buffer.plot(x + charNum - 1, y, backup[x + charNum - 1][y]);
+			charNum--;
+			inputText.splice(charNum, 1);
+		} else if (ev.key.length > 1) ; else if (ev.key >= textEntryBounds[0]
+				   && ev.key <= textEntryBounds[1]) // allow only permitted input
+		{
+			inputText += ev.key;
+			buffer.plotChar(x + charNum, y, ev.key, 'white');
+			if (charNum < maxLength) {
+				charNum++;
+			}
+		}
+
+		if (ev.key == 'Escape') {
+      GW.ui.canvas.freeBuffer(backup);
+			return '';
+		}
+
+	} while ((!inputText.length) || ev.key != 'Enter');
+
+  GW.ui.draw();
+	GW.ui.canvas.freeBuffer(backup);
+	return inputText;
+}
+
+ui.getInputAt = getInputAt;
+
+
 // DIALOG
 
 function startDialog() {

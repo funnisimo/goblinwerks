@@ -295,38 +295,28 @@ async function getPlayerName(buffer, player) {
   let x, y;
   let highlighted = 0;
 
-  const buf = STRING(); // char[buffer.width*3];
-  const buttons = ARRAY(50, brogueButton); // brogueButton[50] = {{{0}}};
-  const dbuf = GRID(buffer.width, ROWS, cellDisplayBuffer); // cellDisplayBuffer[buffer.width][ROWS];
-	const rbuf = GRID(buffer.width, ROWS, cellDisplayBuffer); // cellDisplayBuffer[buffer.width][ROWS];
+  buffer.blackOut();
+  const lastY = printCharacter(buffer, player, 3);
 
-  blackOutScreen();
-  clearDisplayBuffer(dbuf);
-  const lastY = printCharacter(dbuf, 3);
+  prompt = GW.text.format("%FWhat is your character's name?", 'yellow');
+  x = Math.round((buffer.width - GW.text.length(prompt)) / 2);
+  buffer.plotText(x, 2, prompt);
 
-  prompt = "What is your character's name?";
-  x = Math.round((buffer.width - strlen(prompt)) / 2);
-  printString(prompt, x, 2, yellow, black, dbuf);
-
-  printString('             ', 25, 5, white, lightGray, dbuf);
+  buffer.fillRect(25, 5, 13, 1, ' ', 'gray', 'gray');
 
   prompt = "Press [Enter] to accept, [Escape] to go back.";
-  x = Math.round((buffer.width - strlen(prompt)) / 2);
-  printString(prompt, x, lastY + 2, white, black, dbuf);
+  x = Math.round((buffer.width - prompt.length) / 2);
+  buffer.plotText(x, lastY + 2, prompt);
 
-  overlayDisplayBuffer(dbuf);
+  GW.ui.draw();
 
-  const success = await getInputAt(buf, 25, 5,
-               13,
-               "",
-               TEXT_INPUT_NORMAL);
+  const name = await GW.ui.getInputAt(buffer, 25, 5, 13);
 
-  if (success && strlen(buf)) {
-    strcpy(PLAYER.misc.name, buf);
+  if (name && name.length) {
+    player.name = name;
     return true;
   }
   return false;
-
 }
 
 
@@ -335,7 +325,7 @@ async function createPlayer() {
 	let done = false;
 	let kindId = null;
 	let roleId = null;
-  let PLAYER = null;
+  let player = null;
 
   const buffer = GW.ui.startDialog();
 
@@ -355,16 +345,16 @@ async function createPlayer() {
 			}
       console.log('You chose:', roleId);
 		}
-		else if (!PLAYER) {	// Roll
-			PLAYER = await rollPlayerStats(buffer, kindId, roleId);
-			if (!PLAYER) {
+		else if (!player) {	// Roll
+			player = await rollPlayerStats(buffer, kindId, roleId);
+			if (!player) {
 				roleId = null;	// go back
 			}
 		}
 		else {
-			done = await getPlayerName(buffer, PLAYER);
+			done = await getPlayerName(buffer, player);
 			if (!done) {
-				PLAYER = null;
+				player = null;
 			}
 		}
 	}
@@ -420,6 +410,6 @@ async function createPlayer() {
   // theItem = GW.make.item('BOOK_PRAYER_IV');
   // theItem = addItemToPack(theItem);
 
-	console.log('HERE IS YOUR PLAYER:', PLAYER);
-  return PLAYER;
+	console.log('HERE IS YOUR PLAYER:', player);
+  return player;
 }
