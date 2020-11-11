@@ -311,6 +311,9 @@ async function titleMenu(opts) {
   let button;
   let text;
 
+  text = GW.text.format("    %FQ%Fuick start     ", 'gold', null);
+  button = buttons.addButton(text, { hotkey: ['q', 'Q'] });
+
   text = GW.text.format("      %FN%Few Game      ", 'gold', null);
   button = buttons.addButton(text, { hotkey: ['n', 'N'] });
 

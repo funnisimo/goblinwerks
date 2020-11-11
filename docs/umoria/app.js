@@ -67,18 +67,23 @@ async function start() {
     const result = await titleMenu({ title: UMORIA_TITLE, version: UMORIA_VERSION });
     console.log('You chose:', result);
 
-    if (result < 2) {
-      PLAYER = await createPlayer();
+    if (result < 3) {
+      if (result == 0) {
+        PLAYER = GW.make.actor('HUMAN', { role: 'WARRIOR', name: 'Hero' });
+      }
+      else {
+        PLAYER = await createPlayer();
+      }
 
       if (PLAYER) {
-        GW.message.add('%FWelcome to the Dungeon!\n%FSomewhere at the bottom of this labrynth is a portal that will take you back to your home town.  Find it or perish!\n%FPress <?> for help.', 'yellow', 'purple', null);
+        GW.message.add('%FWelcome to Town!\n%FVisit our shops to equip yourself for a journey into the %FDungeons of Moria%F.  Once you are prepared, enter the dungeon and seek the %FBalrog%F.  Destroy him to free us all!\n%FPress <?> for help.', 'yellow', 'dark_purple', 'green', 'dark_purple', 'dark_red', 'dark_purple', null);
       	await GW.game.start({ player: PLAYER, buildMap: designNewLevel, fov: true });
       }
     }
-    else if (result == 2) {
+    else if (result == 3) {
       await showStory();
     }
-    else if (result == 3) {
+    else if (result == 4) {
       await showAbout();
     }
   }

@@ -190,6 +190,13 @@ export class Random {
     return list;
   }
 
+  sequence(n) {
+    const list = [];
+    for (let i=0; i<n; i++) {
+      list[i] = i;
+    }
+    return this.shuffle(list);
+  }
 }
 
 Random.MAX = RNG_M;

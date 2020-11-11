@@ -57,6 +57,9 @@ GW.digger.install('FIRST_ROOM',   		GW.digger.choiceRoom,
 let time = 0;
 
 function designNewLevel(id=0, attempt=0) {
+
+  if (id == 0) return generateTown(0);
+
 	if (attempt > 20) {
 		console.error('Failed to build map!');
 		return false;

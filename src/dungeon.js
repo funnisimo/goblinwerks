@@ -31,8 +31,7 @@ let LOCS;
 
 export function start(map, opts={}) {
 
-  LOCS = Utils.sequence(map.width * map.height);
-  random.shuffle(LOCS);
+  LOCS = random.sequence(map.width * map.height);
 
   const startX = opts.x || -1;
   const startY = opts.y || -1;
@@ -224,8 +223,7 @@ function attachRoomAtXY(roomGrid, xy, doors, opts={}) {
 
 function insertRoomAtXY(x, y, roomGrid, doorSites, opts={}) {
 
-  const dirs = Utils.sequence(4);
-  random.shuffle(dirs);
+  const dirs = random.sequence(4);
 
   for(let dir of dirs) {
     const oppDir = (dir + 2) % 4;
@@ -257,8 +255,7 @@ function insertRoomAtXY(x, y, roomGrid, doorSites, opts={}) {
 
 function attachRoomAtDoors(roomGrid, roomDoors, siteDoors, opts={}) {
 
-  const doorIndexes = Utils.sequence(siteDoors.length);
-  random.shuffle(doorIndexes);
+  const doorIndexes = random.sequence(siteDoors.length);
 
   // Slide hyperspace across real space, in a random but predetermined order, until the room matches up with a wall.
   for (let i = 0; i < doorIndexes.length; i++) {
@@ -638,7 +635,7 @@ dungeon.isValidStairLoc = isValidStairLoc;
 
 function setupStairs(map, x, y, tile) {
 
-	const indexes = random.shuffle(Utils.sequence(4));
+	const indexes = random.sequence(4);
 
 	let dir;
 	for(let i = 0; i < indexes.length; ++i) {

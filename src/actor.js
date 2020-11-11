@@ -221,6 +221,7 @@ export class Actor {
     this.kind = kind || {};
     this.turnTime = 0;
 		this.status = {};
+    this.name = opts.name || null;
 
     this.pack = null;
     this.slots = {};

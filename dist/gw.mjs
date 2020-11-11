@@ -368,16 +368,6 @@ function arraysIntersect(a, b) {
   return a.some( (av) => b.includes(av) );
 }
 
-
-function sequence(listLength) {
-  const list = [];
-  let i;
-  for (i=0; i<listLength; i++) {
-      list[i] = i;
-  }
-  return list;
-}
-
 function sum(arr) {
   return arr.reduce( (a, b) => a + b );
 }
@@ -479,7 +469,6 @@ var utils$1 = /*#__PURE__*/Object.freeze({
   getOpt: getOpt,
   firstOpt: firstOpt,
   arraysIntersect: arraysIntersect,
-  sequence: sequence,
   sum: sum,
   chainLength: chainLength,
   chainIncludes: chainIncludes,
@@ -1163,6 +1152,13 @@ class Random {
     return list;
   }
 
+  sequence(n) {
+    const list = [];
+    for (let i=0; i<n; i++) {
+      list[i] = i;
+    }
+    return this.shuffle(list);
+  }
 }
 
 Random.MAX = RNG_M;
@@ -4912,8 +4908,7 @@ function attachHallway(grid, doorSitesArray, opts) {
     // Pick a direction.
     dir = opts.dir;
     if (dir === undefined) {
-      const dirs = sequence(4);
-      random.shuffle(dirs);
+      const dirs = random.sequence(4);
       for (i=0; i<4; i++) {
           dir = dirs[i];
           if (doorSitesArray[dir][0] != -1
@@ -6181,7 +6176,7 @@ class Map$1 {
 		this.config.tick = this.config.tick || 100;
 		this.actors = null;
 		this.items = null;
-    this.flags = Map.toFlag(Map.MAP_DEFAULT, opts.flag);
+    this.flags = Map.toFlag(Map.MAP_DEFAULT, opts.flags);
 		this.ambientLight = null;
 		const ambient = (opts.ambient || opts.ambientLight || opts.light);
 		if (ambient) {
@@ -6221,6 +6216,10 @@ class Map$1 {
 	hasTileFlag(x, y, flag) 		{ return this.cell(x, y).hasTileFlag(flag); }
 	hasTileMechFlag(x, y, flag) { return this.cell(x, y).hasTileMechFlag(flag); }
 
+  setCellFlag(x, y, flag) {
+    this.cell(x, y).flags |= flag;
+  }
+
 	redrawCell(cell) {
     // if (cell.isAnyKindOfVisible()) {
       cell.flags |= Cell.NEEDS_REDRAW;
@@ -6242,6 +6241,12 @@ class Map$1 {
 		this.flags |= Map.MAP_CHANGED;
   }
 
+  revealAll() {
+    this.forEach( (c) => {
+      c.markRevealed();
+      c.storeMemory();
+    });
+  }
 	markRevealed(x, y) { return this.cell(x, y).markRevealed(); }
 	isVisible(x, y)    { return this.cell(x, y).isVisible(); }
 	isAnyKindOfVisible(x, y) { return this.cell(x, y).isAnyKindOfVisible(); }
@@ -6885,8 +6890,10 @@ function makeMap(w, h, opts={}) {
     opts = { tile: opts };
   }
 	const map = new types.Map(w, h, opts);
-	if (opts.tile) {
-		map.fill(opts.tile, opts.boundary);
+	const floor = opts.tile || opts.floor || opts.floorTile;
+	const boundary = opts.boundary || opts.wall || opts.wallTile;
+	if (floor) {
+		map.fill(floor, boundary);
 	}
   if (!data.map) {
     data.map = map;
@@ -7848,6 +7855,7 @@ class Actor$1 {
     this.kind = kind || {};
     this.turnTime = 0;
 		this.status = {};
+    this.name = opts.name || null;
 
     this.pack = null;
     this.slots = {};
@@ -8969,8 +8977,7 @@ let LOCS;
 
 function start$1(map, opts={}) {
 
-  LOCS = sequence(map.width * map.height);
-  random.shuffle(LOCS);
+  LOCS = random.sequence(map.width * map.height);
 
   const startX = opts.x || -1;
   const startY = opts.y || -1;
@@ -9162,8 +9169,7 @@ function attachRoomAtXY(roomGrid, xy, doors, opts={}) {
 
 function insertRoomAtXY(x, y, roomGrid, doorSites, opts={}) {
 
-  const dirs = sequence(4);
-  random.shuffle(dirs);
+  const dirs = random.sequence(4);
 
   for(let dir of dirs) {
     const oppDir = (dir + 2) % 4;
@@ -9195,8 +9201,7 @@ function insertRoomAtXY(x, y, roomGrid, doorSites, opts={}) {
 
 function attachRoomAtDoors(roomGrid, roomDoors, siteDoors, opts={}) {
 
-  const doorIndexes = sequence(siteDoors.length);
-  random.shuffle(doorIndexes);
+  const doorIndexes = random.sequence(siteDoors.length);
 
   // Slide hyperspace across real space, in a random but predetermined order, until the room matches up with a wall.
   for (let i = 0; i < doorIndexes.length; i++) {
@@ -9574,7 +9579,7 @@ dungeon.isValidStairLoc = isValidStairLoc;
 
 function setupStairs(map, x, y, tile) {
 
-	const indexes = random.shuffle(sequence(4));
+	const indexes = random.sequence(4);
 
 	let dir;
 	for(let i = 0; i < indexes.length; ++i) {

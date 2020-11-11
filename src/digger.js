@@ -377,8 +377,7 @@ export function attachHallway(grid, doorSitesArray, opts) {
     // Pick a direction.
     dir = opts.dir;
     if (dir === undefined) {
-      const dirs = Utils.sequence(4);
-      random.shuffle(dirs);
+      const dirs = random.sequence(4);
       for (i=0; i<4; i++) {
           dir = dirs[i];
           if (doorSitesArray[dir][0] != -1

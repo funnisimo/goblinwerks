@@ -24,7 +24,7 @@ export class Map {
 		this.config.tick = this.config.tick || 100;
 		this.actors = null;
 		this.items = null;
-    this.flags = Flags.Map.toFlag(Flags.Map.MAP_DEFAULT, opts.flag);
+    this.flags = Flags.Map.toFlag(Flags.Map.MAP_DEFAULT, opts.flags);
 		this.ambientLight = null;
 		const ambient = (opts.ambient || opts.ambientLight || opts.light);
 		if (ambient) {
@@ -64,6 +64,10 @@ export class Map {
 	hasTileFlag(x, y, flag) 		{ return this.cell(x, y).hasTileFlag(flag); }
 	hasTileMechFlag(x, y, flag) { return this.cell(x, y).hasTileMechFlag(flag); }
 
+  setCellFlag(x, y, flag) {
+    this.cell(x, y).flags |= flag;
+  }
+
 	redrawCell(cell) {
     // if (cell.isAnyKindOfVisible()) {
       cell.flags |= Flags.Cell.NEEDS_REDRAW;
@@ -85,6 +89,12 @@ export class Map {
 		this.flags |= Flags.Map.MAP_CHANGED;
   }
 
+  revealAll() {
+    this.forEach( (c) => {
+      c.markRevealed();
+      c.storeMemory();
+    });
+  }
 	markRevealed(x, y) { return this.cell(x, y).markRevealed(); }
 	isVisible(x, y)    { return this.cell(x, y).isVisible(); }
 	isAnyKindOfVisible(x, y) { return this.cell(x, y).isAnyKindOfVisible(); }
@@ -736,8 +746,10 @@ export function makeMap(w, h, opts={}) {
     opts = { tile: opts };
   }
 	const map = new types.Map(w, h, opts);
-	if (opts.tile) {
-		map.fill(opts.tile, opts.boundary);
+	const floor = opts.tile || opts.floor || opts.floorTile;
+	const boundary = opts.boundary || opts.wall || opts.wallTile;
+	if (floor) {
+		map.fill(floor, boundary);
 	}
   if (!DATA.map) {
     DATA.map = map;

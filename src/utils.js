@@ -261,16 +261,6 @@ export function arraysIntersect(a, b) {
   return a.some( (av) => b.includes(av) );
 }
 
-
-export function sequence(listLength) {
-  const list = [];
-  let i;
-  for (i=0; i<listLength; i++) {
-      list[i] = i;
-  }
-  return list;
-}
-
 export function sum(arr) {
   return arr.reduce( (a, b) => a + b );
 }
