@@ -2,6 +2,7 @@
 
 import './bounds.js';
 export * as utils from './utils.js';
+export * from './events.js';
 import './flag.js';
 import './flags.js';
 export { random, cosmetic } from './random.js';

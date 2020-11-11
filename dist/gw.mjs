@@ -477,6 +477,142 @@ var utils$1 = /*#__PURE__*/Object.freeze({
   removeFromChain: removeFromChain
 });
 
+// This is based on EventEmitter3, but converted to classes and with a minor change to do an await...
+
+
+var EVENTS = {};
+
+/**
+ * Representation of a single event listener.
+ *
+ * @param {Function} fn The listener function.
+ * @param {*} context The context to invoke the listener with.
+ * @param {Boolean} [once=false] Specify if the listener is a one-time listener.
+ * @constructor
+ * @private
+ */
+class Listener {
+  constructor(fn, context, once) {
+    this.fn = fn;
+    this.context = context;
+    this.once = once || false;
+    this.next = null;
+  }
+
+  matches(fn, context, once) {
+    return ((this.fn === fn) &&
+        ((once === undefined) || (once == this.once)) &&
+        (!context || this.context === context));
+  }
+}
+
+
+/**
+ * Add a listener for a given event.
+ *
+ * @param {String} event The event name.
+ * @param {Function} fn The listener function.
+ * @param {*} context The context to invoke the listener with.
+ * @param {Boolean} once Specify if the listener is a one-time listener.
+ * @returns {Listener}
+ */
+function addListener(event, fn, context, once) {
+  if (typeof fn !== 'function') {
+    throw new TypeError('The listener must be a function');
+  }
+
+  const listener = new Listener(fn, context || null, once);
+  addToChain(EVENTS, event, listener);
+  return listener;
+}
+
+function on(event, fn, context, once) {
+  return addListener(event, fn, context, once);
+}
+
+/**
+ * Add a one-time listener for a given event.
+ *
+ * @param {(String|Symbol)} event The event name.
+ * @param {Function} fn The listener function.
+ * @param {*} [context=this] The context to invoke the listener with.
+ * @returns {EventEmitter} `this`.
+ * @public
+ */
+function once(event, fn, context) {
+  return addListener(event, fn, context, true);
+}
+/**
+ * Remove the listeners of a given event.
+ *
+ * @param {(String|Symbol)} event The event name.
+ * @param {Function} fn Only remove the listeners that match this function.
+ * @param {*} context Only remove the listeners that have this context.
+ * @param {Boolean} once Only remove one-time listeners.
+ * @returns {EventEmitter} `this`.
+ * @public
+ */
+function removeListener(event, fn, context, once) {
+  if (!EVENTS[event]) return;
+  if (!fn) {
+    clearEvent(event);
+    return;
+  }
+
+  eachChain(EVENTS[event], (l) => {
+    if (l.matches(fn, context, once)) {
+      removeFromChain(EVENTS, event, l);
+    }
+  });
+}
+function off(event, fn, context, once) {
+  removeListener(event, fn, context, once);
+}
+
+/**
+ * Clear event by name.
+ *
+ * @param {String} evt The Event name.
+ */
+function clearEvent(event) {
+  EVENTS[event] = null;
+}
+
+
+/**
+ * Remove all listeners, or those of the specified event.
+ *
+ * @param {(String|Symbol)} [event] The event name.
+ * @returns {EventEmitter} `this`.
+ * @public
+ */
+function removeAllListeners(event) {
+  if (event) {
+    if (EVENTS[event]) clearEvent(event);
+  } else {
+    EVENTS = {};
+  }
+}
+
+/**
+ * Calls each of the listeners registered for a given event.
+ *
+ * @param {(String|Symbol)} event The event name.
+ * @returns {Boolean} `true` if the event had listeners, else `false`.
+ * @public
+ */
+async function emit(event, ...args) {
+  if (!EVENTS[event]) return true;  // no events to send
+  let listener = EVENTS[event];
+
+  while(listener) {
+    let next = listener.next;
+    if (listener.once) removeListener(event, listener.fn, listener.context, true);
+    await listener.fn.apply(listener.context, args);
+    listener = next;
+  }
+}
+
 ///////////////////////////////////
 // FLAG
 
@@ -3726,7 +3862,7 @@ io.debug = NOOP;
 
 let KEYMAP = {};
 // const KEYMAPS = [];
-const EVENTS = [];
+const EVENTS$1 = [];
 const DEAD_EVENTS = [];
 
 const KEYPRESS  = def.KEYPRESS  = 'keypress';
@@ -3759,15 +3895,15 @@ function busy() {
 io.busy = busy;
 
 function hasEvents() {
-	return EVENTS.length;
+	return EVENTS$1.length;
 }
 
 io.hasEvents = hasEvents;
 
 
 function clearEvents() {
-	while (EVENTS.length) {
-		const ev = EVENTS.shift();
+	while (EVENTS$1.length) {
+		const ev = EVENTS$1.shift();
 		DEAD_EVENTS.push(ev);
 	}
 }
@@ -3776,8 +3912,8 @@ io.clearEvents = clearEvents;
 
 
 function pushEvent(ev) {
-  if (EVENTS.length) {
-		const last = EVENTS[EVENTS.length - 1];
+  if (EVENTS$1.length) {
+		const last = EVENTS$1[EVENTS$1.length - 1];
 		if (last.type === MOUSEMOVE) {
 	    if (last.type === ev.type) {
 				last.x = ev.x;
@@ -3793,16 +3929,16 @@ function pushEvent(ev) {
   }
   else {
 		if (ev.type === TICK) {
-			const first = EVENTS[0];
+			const first = EVENTS$1[0];
 			if (first && first.type === TICK) {
 				first.dt += ev.dt;
 				io.recycleEvent(ev);
 				return;
 			}
-			EVENTS.unshift(ev);	// ticks go first
+			EVENTS$1.unshift(ev);	// ticks go first
 		}
 		else {
-			EVENTS.push(ev);
+			EVENTS$1.push(ev);
 		}
   }
 }
@@ -3999,8 +4135,8 @@ function resumeEvents() {
 	PAUSED = null;
 	// io.debug('resuming events');
 
-	if (EVENTS.length && CURRENT_HANDLER) {
-		const e = EVENTS.shift();
+	if (EVENTS$1.length && CURRENT_HANDLER) {
+		const e = EVENTS$1.shift();
 		// io.debug('- processing paused event', e.type);
 		CURRENT_HANDLER(e);
 		// io.recycleEvent(e);	// DO NOT DO THIS B/C THE HANDLER MAY PUT IT BACK ON THE QUEUE (see tickMs)
@@ -4015,8 +4151,8 @@ function nextEvent(ms, match) {
 	match = match || TRUE;
 	let elapsed = 0;
 
-	while (EVENTS.length) {
-  	const e = EVENTS.shift();
+	while (EVENTS$1.length) {
+  	const e = EVENTS$1.shift();
 		if (e.type === MOUSEMOVE) {
 			io.mouse.x = e.x;
 			io.mouse.y = e.y;
@@ -4062,7 +4198,7 @@ async function tickMs(ms=1) {
 
 	CURRENT_HANDLER = ((e) => {
   	if (e.type !== TICK) {
-			EVENTS.push(e);
+			EVENTS$1.push(e);
     	return;
     }
 		elapsed += e.dt;
@@ -13997,4 +14133,4 @@ addTileKind('LAKE', {
   name: 'deep water', article: 'the'
 });
 
-export { actions, actor, actorKinds, ai, canvas, cell, color, colors, combat$1 as combat, commands$1 as commands, config, cosmetic, data, def, digger, diggers, dungeon, flag, flags, flavor, fov, frequency$1 as frequency, fx, game, GRID$1 as grid, install, io, item, itemKinds, light, lights, make, map$1 as map, maps, message, PATH as path, player, random, scheduler, sidebar, sprite, sprites, text, tile, tileEvent$1 as tileEvent, tileEvents$1 as tileEvents, tiles, types, ui, utils$1 as utils, viewport, visibility };
+export { actions, actor, actorKinds, addListener, ai, canvas, cell, clearEvent, color, colors, combat$1 as combat, commands$1 as commands, config, cosmetic, data, def, digger, diggers, dungeon, emit, flag, flags, flavor, fov, frequency$1 as frequency, fx, game, GRID$1 as grid, install, io, item, itemKinds, light, lights, make, map$1 as map, maps, message, off, on, once, PATH as path, player, random, removeAllListeners, removeListener, scheduler, sidebar, sprite, sprites, text, tile, tileEvent$1 as tileEvent, tileEvents$1 as tileEvents, tiles, types, ui, utils$1 as utils, viewport, visibility };
