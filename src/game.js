@@ -1,6 +1,5 @@
 
 
-import { colors as COLORS } from './color.js';
 import * as Flags from './flags.js';
 import * as Utils from './utils.js';
 import * as Light from './light.js';
@@ -13,7 +12,7 @@ import * as Text from './text.js';
 import { sprite as SPRITE } from './sprite.js';
 import { visibility as VISIBILITY } from './visibility.js';
 
-import { viewport as VIEWPORT, data as DATA, maps as MAPS, types, fx as FX, ui as UI, message as MSG, make, config as CONFIG, flavor as FLAVOR } from './gw.js';
+import { viewport as VIEWPORT, data as DATA, maps as MAPS, types, fx as FX, ui as UI, message as MSG, make, config as CONFIG, flavor as FLAVOR, colors as COLORS } from './gw.js';
 
 const GAME_DEBUG = Utils.NOOP;
 

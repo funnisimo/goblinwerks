@@ -1,12 +1,12 @@
 
-import { colors as COLORS, color as COLOR } from './color.js';
+import * as Color from './color.js';
 import * as Text from './text.js';
 import * as Flags from './flags.js';
-import { types, flavor, data as DATA, def, ui as UI, tiles as TILES, itemKinds as ITEM_KINDS, message as MSG } from './gw.js';
+import { types, flavor, data as DATA, def, ui as UI, tiles as TILES, itemKinds as ITEM_KINDS, message as MSG, colors as COLORS } from './gw.js';
 
 
-const flavorTextColor = COLOR.addKind('flavorText', 50, 40, 90);
-const flavorPromptColor = COLOR.addKind('flavorPrompt', 100, 90, 20);
+const flavorTextColor = Color.addKind('flavorText', 50, 40, 90);
+const flavorPromptColor = Color.addKind('flavorPrompt', 100, 90, 20);
 
 let FLAVOR_TEXT = '';
 let NEED_FLAVOR_UPDATE = false;

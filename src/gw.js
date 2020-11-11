@@ -3,6 +3,8 @@
 export var def = {};
 export var types = {};
 
+export var colors = {};
+
 export var make = {};
 export var install = {};
 

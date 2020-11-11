@@ -1,11 +1,11 @@
 
 import { random } from './random.js';
 import { grid as GRID } from './grid.js';
-import { color as COLOR, colors as COLORS } from './color.js';
+import * as Color from './color.js';
 import { cell as CELL } from './cell.js';
 import * as Flags from './flags.js';
 import * as Utils from './utils.js';
-import { types, def, make, data as DATA, config as CONFIG, flag as FLAG } from './gw.js';
+import { types, def, make, data as DATA, config as CONFIG, flag as FLAG, colors as COLORS } from './gw.js';
 
 
 export var map = {};
@@ -779,28 +779,28 @@ export function getCellAppearance(map, x, y, dest) {
     dest.blackOut();
   }
   else if (!cell.isAnyKindOfVisible()) {
-    COLOR.applyMix(dest.bg, COLORS.black, 30);
-    COLOR.applyMix(dest.fg, COLORS.black, 30);
-    // COLOR.bake(dest.bg);
-    // COLOR.bake(dest.fg);
+    dest.bg.mix(COLORS.black, 30);
+    dest.fg.mix(COLORS.black, 30);
+    // Color.bake(dest.bg);
+    // Color.bake(dest.fg);
   }
 
   let needDistinctness = false;
   if (cell.flags & (Flags.Cell.IS_CURSOR | Flags.Cell.IS_IN_PATH)) {
     const highlight = (cell.flags & Flags.Cell.IS_CURSOR) ? COLORS.cursorColor : COLORS.yellow;
     if (cell.hasTileMechFlag(Flags.TileMech.TM_INVERT_WHEN_HIGHLIGHTED)) {
-      COLOR.swap(dest.fg, dest.bg);
+      Color.swap(dest.fg, dest.bg);
     } else {
       // if (!GAME.trueColorMode || !dest.needDistinctness) {
-          COLOR.applyMix(dest.fg, highlight, CONFIG.cursorPathIntensity || 20);
+          dest.fg.mix(highlight, CONFIG.cursorPathIntensity || 20);
       // }
-      COLOR.applyMix(dest.bg, highlight, CONFIG.cursorPathIntensity || 20);
+      dest.bg.mix(highlight, CONFIG.cursorPathIntensity || 20);
     }
     needDistinctness = true;
   }
 
   if (needDistinctness) {
-    COLOR.separate(dest.fg, dest.bg);
+    Color.separate(dest.fg, dest.bg);
   }
 
 	// dest.bake();

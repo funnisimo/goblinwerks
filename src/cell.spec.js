@@ -111,10 +111,12 @@ describe('CellMemory', () => {
     expect(app).toEqual(ex);
   });
 
-  test('layers will blend opacities', () => {
+  test.only('layers will blend opacities', () => {
     GW.cosmetic.seed(12345);
     const c = GW.make.cell();
     c.setTile('FLOOR');
+
+    debugger;
 
     const a = GW.make.sprite('@', 'white', 'blue');
     const b = GW.make.sprite(null, null, 'red', 50);

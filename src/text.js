@@ -1,6 +1,6 @@
 
 import * as Utils from './utils.js';
-import { color as COLOR } from './color.js';
+import * as Color from './color.js';
 import { make, types, def } from './gw.js';
 
 
@@ -11,7 +11,6 @@ import { make, types, def } from './gw.js';
 const COLOR_ESCAPE = def.COLOR_ESCAPE =	25;
 const COLOR_END    = def.COLOR_END    = 26;
 const COLOR_VALUE_INTERCEPT =	0; // 25;
-const TEMP_COLOR = make.color();
 
 
 export const playerPronoun = {
@@ -78,7 +77,7 @@ export function eachChar(msg, fn) {
         components[0] = msg.charCodeAt(i + 1) - COLOR_VALUE_INTERCEPT;
         components[1] = msg.charCodeAt(i + 2) - COLOR_VALUE_INTERCEPT;
         components[2] = msg.charCodeAt(i + 3) - COLOR_VALUE_INTERCEPT;
-        color = TEMP_COLOR.copy(components);
+        color = Color.make(components);
         i += 3;
     }
     else if (ch === COLOR_END) {
@@ -237,7 +236,7 @@ export function encodeColor(theColor) {
     return String.fromCharCode(COLOR_END);
   }
 
-  const copy = COLOR.from(theColor);
+  const copy = Color.from(theColor);
   copy.bake();
   copy.clamp();
   return String.fromCharCode(COLOR_ESCAPE, copy.red + COLOR_VALUE_INTERCEPT, copy.green + COLOR_VALUE_INTERCEPT, copy.blue + COLOR_VALUE_INTERCEPT);
@@ -512,7 +511,7 @@ export function format(fmt, ...args) {
     else if (p5 == 'F') {
       let color = args.shift() || null;
       if (color && !(color instanceof types.Color)) {
-        color = COLOR.from(color);
+        color = Color.from(color);
       }
       r = encodeColor(color);
     }

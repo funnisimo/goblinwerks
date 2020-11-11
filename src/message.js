@@ -1,8 +1,8 @@
 
-import { colors as COLORS, color as COLOR } from './color.js';
+import * as Color from './color.js';
 import { io as IO } from './io.js';
 import * as Text from './text.js';
-import { make, types, data as DATA, message, ui as UI } from './gw.js';
+import { make, types, data as DATA, message, ui as UI, colors as COLORS } from './gw.js';
 
 
 var MSG_BOUNDS = null;
@@ -136,8 +136,8 @@ function drawMessages(buffer) {
 		messageColor.copy(COLORS.white);
 
 		if (CONFIRMED[i]) {
-			COLOR.applyMix(messageColor, COLORS.black, 50);
-			COLOR.applyMix(messageColor, COLORS.black, 75 * i / (2*MSG_BOUNDS.height));
+			messageColor.mix(COLORS.black, 50);
+			messageColor.mix(COLORS.black, 75 * i / (2*MSG_BOUNDS.height));
 		}
 
     const localY = isOnTop ? (MSG_BOUNDS.height - i - 1) : i;
@@ -147,8 +147,8 @@ function drawMessages(buffer) {
 			const x = MSG_BOUNDS.toOuterX(j);
 
 			if (color && (messageColor !== color) && CONFIRMED[i]) {
-				COLOR.applyMix(color, COLORS.black, 50);
-				COLOR.applyMix(color, COLORS.black, 75 * i / (2*MSG_BOUNDS.height));
+				color.mix(COLORS.black, 50);
+				color.mix(COLORS.black, 75 * i / (2*MSG_BOUNDS.height));
 			}
 			messageColor = color || tempColor;
 			buffer.plotChar(x, y, c, messageColor, COLORS.black);

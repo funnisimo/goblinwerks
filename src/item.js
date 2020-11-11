@@ -1,5 +1,5 @@
 
-import { color as COLOR } from './color.js';
+import * as Color from './color.js';
 import * as Text from './text.js';
 import { random } from './random.js';
 import * as Grid from './grid.js';
@@ -48,7 +48,7 @@ class ItemKind {
     else {
       this.consoleColor = opts.consoleColor || true;
       if (typeof this.consoleColor === 'string') {
-        this.consoleColor = COLOR.from(this.consoleColor);
+        this.consoleColor = Color.from(this.consoleColor);
       }
     }
   }

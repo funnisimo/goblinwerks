@@ -3,9 +3,9 @@ import { io as IO } from './io.js';
 import * as Flags from './flags.js';
 import * as Utils from './utils.js';
 import { sprite as SPRITE } from './sprite.js';
-import { color as COLOR, colors as COLORS } from './color.js';
+import * as Color from './color.js';
 import * as Text from './text.js';
-import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, make, sidebar as SIDEBAR, config as CONFIG } from './gw.js';
+import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, make, sidebar as SIDEBAR, config as CONFIG, colors as COLORS } from './gw.js';
 
 ui.debug = Utils.NOOP;
 
@@ -415,8 +415,8 @@ export async function fadeTo(color, duration=1000, src) {
 
     buffer.copy(src);
     buffer.forEach( (c, x, y) => {
-      COLOR.applyMix(c.fg, color, pct);
-      COLOR.applyMix(c.bg, color, pct);
+      c.fg.mix(color, pct);
+      c.bg.mix(color, pct);
     });
     ui.canvas.overlay(buffer);
     ui.canvas.draw();
@@ -699,8 +699,8 @@ export function plotProgressBar(buf, x, y, width, barText, textColor, pct, barCo
   if (pct > 1) pct /= 100;
   pct = Utils.clamp(pct, 0, 1);
 
-	barColor = COLOR.make(barColor);
-  textColor = COLOR.make(textColor);
+	barColor = Color.make(barColor);
+  textColor = Color.make(textColor);
   const darkenedBarColor = barColor.clone().mix(COLORS.black, 75);
 
   barText = Text.center(barText, width);

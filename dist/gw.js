@@ -7,6 +7,8 @@
   var def = {};
   var types = {};
 
+  var colors = {};
+
   var make = {};
   var install = {};
 
@@ -1417,8 +1419,7 @@
 
   make.range = makeRange;
 
-  var color = {};
-  var colors = {};
+  // export var color = {};
 
 
   class Color extends Array {
@@ -1486,55 +1487,59 @@
       this.blue		= clamp(this.blue, 0, 100);
     }
 
-    add(augmentColor, pct=100) {
-      this.red += Math.floor((augmentColor.red * pct) / 100);
-      this.redRand += Math.floor((augmentColor.redRand * pct) / 100);
-      this.green += Math.floor((augmentColor.green * pct) / 100);
-      this.greenRand += Math.floor((augmentColor.greenRand * pct) / 100);
-      this.blue += Math.floor((augmentColor.blue * pct) / 100);
-      this.blueRand += Math.floor((augmentColor.blueRand * pct) / 100);
-      this.rand += Math.floor((augmentColor.rand * pct) / 100);
+    add(other, pct=100) {
+      other = from(other);
+
+      this.red += Math.floor((other.red * pct) / 100);
+      this.redRand += Math.floor((other.redRand * pct) / 100);
+      this.green += Math.floor((other.green * pct) / 100);
+      this.greenRand += Math.floor((other.greenRand * pct) / 100);
+      this.blue += Math.floor((other.blue * pct) / 100);
+      this.blueRand += Math.floor((other.blueRand * pct) / 100);
+      this.rand += Math.floor((other.rand * pct) / 100);
       return this;
     }
 
-    mix(newColor, opacity=100) {
+    mix(other, opacity=100) {
+      other = from(other);
+
       if (opacity <= 0) return this;
       if (opacity >= 100) {
-        this.copy(newColor);
+        this.copy(other);
         return this;
       }
 
       const weightComplement = 100 - opacity;
       for(let i = 0; i < this.length; ++i) {
-        this[i] = Math.floor((this[i] * weightComplement + newColor[i] * opacity) / 100);
+        this[i] = Math.floor((this[i] * weightComplement + other[i] * opacity) / 100);
       }
-      this.dances = (this.dances || newColor.dances);
+      this.dances = (this.dances || other.dances);
       return this;
     }
 
-    applyMultiplier(multiplierColor) {
-      this.red = Math.round(this.red * multiplierColor[0] / 100);
-      this.green = Math.round(this.green * multiplierColor[1] / 100);
-      this.blue = Math.round(this.blue * multiplierColor[2] / 100);
+    applyMultiplier(other) {
+      this.red = Math.round(this.red * other[0] / 100);
+      this.green = Math.round(this.green * other[1] / 100);
+      this.blue = Math.round(this.blue * other[2] / 100);
 
-      if (multiplierColor.length > 3) {
-        this.rand = Math.round(this.rand * multiplierColor[3] / 100);
-        this.redRand = Math.round(this.redRand * multiplierColor[4] / 100);
-        this.greenRand = Math.round(this.greenRand * multiplierColor[5] / 100);
-        this.blueRand = Math.round(this.blueRand * multiplierColor[6] / 100);
-        this.dances = this.dances || multiplierColor.dances;
+      if (other instanceof Color) {
+        this.rand = Math.round(this.rand * other.rand / 100);
+        this.redRand = Math.round(this.redRand * other.redRand / 100);
+        this.greenRand = Math.round(this.greenRand * other.greenRand / 100);
+        this.blueRand = Math.round(this.blueRand * other.blueRand / 100);
+        this.dances = this.dances || other.dances;
       }
       return this;
     }
 
-    applyScalar(scalar) {
-      this.red          = Math.round(this.red        * scalar / 100);
-      this.redRand      = Math.round(this.redRand    * scalar / 100);
-      this.green        = Math.round(this.green      * scalar / 100);
-      this.greenRand    = Math.round(this.greenRand  * scalar / 100);
-      this.blue         = Math.round(this.blue       * scalar / 100);
-      this.blueRand     = Math.round(this.blueRand   * scalar / 100);
-      this.rand         = Math.round(this.rand       * scalar / 100);
+    applyScalar(other) {
+      this.red          = Math.round(this.red        * other / 100);
+      this.redRand      = Math.round(this.redRand    * other / 100);
+      this.green        = Math.round(this.green      * other / 100);
+      this.greenRand    = Math.round(this.greenRand  * other / 100);
+      this.blue         = Math.round(this.blue       * other / 100);
+      this.blueRand     = Math.round(this.blueRand   * other / 100);
+      this.rand         = Math.round(this.rand       * other / 100);
       return this;
     }
 
@@ -1547,6 +1552,33 @@
       this.redRand = this.greenRand = this.blueRand = this.rand = 0;
       return this;
     }
+
+
+    lighten(percent) {
+      this.red =    Math.round(this.red + (100 - this.red) * percent / 100);
+      this.green =  Math.round(this.green + (100 - this.green) * percent / 100);
+      this.blue =   Math.round(this.blue + (100 - this.blue) * percent / 100);
+
+      // leave randoms the same
+      return this;
+    }
+
+    darken(percent) {
+      this.red =    Math.round(this.red * (100 - percent) / 100);
+      this.green =  Math.round(this.green * (100 - percent) / 100);
+      this.blue =   Math.round(this.blue * (100 - percent) / 100);
+
+      // leave randoms the same
+      return this;
+    }
+
+    randomize(randomizePercent) {
+      this.red = _randomizeColorByPercent(this.red, randomizePercent);
+      this.green = _randomizeColorByPercent(this.green, randomizePercent);
+      this.blue = _randomizeColorByPercent(this.blue, randomizePercent);
+      return this;
+    }
+
 
   }
 
@@ -1588,7 +1620,6 @@
     return null;
   }
 
-  color.make = make$1;
   make.color = make$1;
 
 
@@ -1604,7 +1635,6 @@
   	return color;
   }
 
-  color.addKind = addKind;
 
   function from(arg) {
     if (typeof arg === 'string') {
@@ -1616,18 +1646,6 @@
     return make.color(arg);
   }
 
-  color.from = from;
-
-
-  function applyMix(baseColor, newColor, opacity) {
-    baseColor = color.from(baseColor);
-    newColor = color.from(newColor);
-
-    return baseColor.mix(newColor, opacity);
-  }
-
-  color.applyMix = applyMix;
-  color.applyAverage = applyMix;
 
 
   function toRGB(v, vr) {
@@ -1654,45 +1672,12 @@
     return Math.max(color[0], color[1], color[2]);
   }
 
-  color.intensity = intensity;
-
-
-  function lighten(destColor, percent) {
-    destColor.red =    Math.round(destColor.red + (100 - destColor.red) * percent / 100);
-    destColor.green =  Math.round(destColor.green + (100 - destColor.green) * percent / 100);
-    destColor.blue =   Math.round(destColor.blue + (100 - destColor.blue) * percent / 100);
-
-    // leave randoms the same
-    return destColor;
-  }
-
-  color.lighten = lighten;
-
-  function darken(destColor, percent) {
-    destColor.red =    Math.round(destColor.red * (100 - percent) / 100);
-    destColor.green =  Math.round(destColor.green * (100 - percent) / 100);
-    destColor.blue =   Math.round(destColor.blue * (100 - percent) / 100);
-
-    // leave randoms the same
-    return destColor;
-  }
-
-  color.darken = darken;
-
-
 
 
   function _randomizeColorByPercent(input, percent) {
     return (cosmetic.range( Math.floor(input * (100 - percent) / 100), Math.floor(input * (100 + percent) / 100)));
   }
 
-  function randomize(baseColor, randomizePercent) {
-    baseColor.red = _randomizeColorByPercent(baseColor.red, randomizePercent);
-    baseColor.green = _randomizeColorByPercent(baseColor.green, randomizePercent);
-    baseColor.blue = _randomizeColorByPercent(baseColor.blue, randomizePercent);
-  }
-
-  color.randomize = randomize;
 
   function swap(color1, color2) {
       const tempColor = color1.clone();
@@ -1700,7 +1685,6 @@
       color2.copy(tempColor);
   }
 
-  color.swap = swap;
 
   const MIN_COLOR_DIFF =			600;
 
@@ -1711,7 +1695,6 @@
       + (f.blue - b.blue) * (f.blue - b.blue) * 0.0722);
   }
 
-  color.diff = diff;
 
   function normalize(baseColor, aggregateMultiplier, colorTranslation) {
 
@@ -1731,7 +1714,6 @@
       baseColor.rand = 0;
   }
 
-  color.normalize = normalize;
 
 
   // if forecolor is too similar to back, darken or lighten it and return true.
@@ -1760,8 +1742,8 @@
     madeChange = false;
     failsafe = 10;
 
-    while(color.diff(f, b) < MIN_COLOR_DIFF && --failsafe) {
-      applyMix(f, modifier, 20);
+    while(diff(f, b) < MIN_COLOR_DIFF && --failsafe) {
+      f.mix(modifier, 20);
       madeChange = true;
     }
 
@@ -1773,22 +1755,20 @@
     }
   }
 
-  color.separate = separate;
 
 
   function addSpread(name, r, g, b) {
   	let baseColor;
   	baseColor = addKind(name, r, g, b);
-  	addKind('light_' + name, color.lighten(baseColor.clone(), 25));
-  	addKind('lighter_' + name, color.lighten(baseColor.clone(), 50));
-  	addKind('lightest_' + name, color.lighten(baseColor.clone(), 75));
-  	addKind('dark_' + name, color.darken(baseColor.clone(), 25));
-  	addKind('darker_' + name, color.darken(baseColor.clone(), 50));
-  	addKind('darkest_' + name, color.darken(baseColor.clone(), 75));
+  	addKind('light_' + name, baseColor.clone().lighten(25));
+  	addKind('lighter_' + name, baseColor.clone().lighten(50));
+  	addKind('lightest_' + name, baseColor.clone().lighten(75));
+  	addKind('dark_' + name, baseColor.clone().darken(25));
+  	addKind('darker_' + name, baseColor.clone().darken(50));
+  	addKind('darkest_' + name, baseColor.clone().darken(75));
   	return baseColor;
   }
 
-  color.addSpread = addSpread;
 
   addKind('white', 				100,	100,	100);
   addKind('black', 				0,		0,		0);
@@ -1823,6 +1803,20 @@
   addSpread('silver',      75,   75,   75);
   addSpread('gold',        100,  85,   0);
 
+  var color = /*#__PURE__*/Object.freeze({
+    __proto__: null,
+    Color: Color,
+    make: make$1,
+    addKind: addKind,
+    from: from,
+    intensity: intensity,
+    swap: swap,
+    diff: diff,
+    normalize: normalize,
+    separate: separate,
+    addSpread: addSpread
+  });
+
   ///////////////////////////////////
   // Message String
 
@@ -1830,7 +1824,6 @@
   const COLOR_ESCAPE = def.COLOR_ESCAPE =	25;
   const COLOR_END    = def.COLOR_END    = 26;
   const COLOR_VALUE_INTERCEPT =	0; // 25;
-  const TEMP_COLOR = make.color();
 
 
   const playerPronoun = {
@@ -1886,7 +1879,7 @@
 
 
   function eachChar(msg, fn) {
-    let color = null;
+    let color$1 = null;
     const components = [100, 100, 100];
     let index = 0;
     if (!msg || !msg.length) return;
@@ -1897,14 +1890,14 @@
           components[0] = msg.charCodeAt(i + 1) - COLOR_VALUE_INTERCEPT;
           components[1] = msg.charCodeAt(i + 2) - COLOR_VALUE_INTERCEPT;
           components[2] = msg.charCodeAt(i + 3) - COLOR_VALUE_INTERCEPT;
-          color = TEMP_COLOR.copy(components);
+          color$1 = make$1(components);
           i += 3;
       }
       else if (ch === COLOR_END) {
-        color = null;
+        color$1 = null;
       }
       else {
-        fn(msg[i], color, index);
+        fn(msg[i], color$1, index);
         ++index;
       }
     }
@@ -2054,7 +2047,7 @@
       return String.fromCharCode(COLOR_END);
     }
 
-    const copy = color.from(theColor);
+    const copy = from(theColor);
     copy.bake();
     copy.clamp();
     return String.fromCharCode(COLOR_ESCAPE, copy.red + COLOR_VALUE_INTERCEPT, copy.green + COLOR_VALUE_INTERCEPT, copy.blue + COLOR_VALUE_INTERCEPT);
@@ -2326,7 +2319,7 @@
       else if (p5 == 'F') {
         let color$1 = args.shift() || null;
         if (color$1 && !(color$1 instanceof types.Color)) {
-          color$1 = color.from(color$1);
+          color$1 = from(color$1);
         }
         r = encodeColor(color$1);
       }
@@ -2504,7 +2497,7 @@
   		this.nullify();
       if (bg) {
         if (typeof bg === 'string') {
-          bg = color.from(bg);
+          bg = from(bg);
         }
         if (this.bg) {
           this.bg.copy(bg);
@@ -2549,11 +2542,11 @@
       }
 
   		if (sprite.fg && sprite.ch != ' ') {
-  			color.applyMix(this.fg, sprite.fg, opacity);
+  			this.fg.mix(sprite.fg, opacity);
   		}
 
   		if (sprite.bg) {
-  			color.applyMix(this.bg, sprite.bg, opacity);
+  			this.bg.mix(sprite.bg, opacity);
   		}
 
       if (this.ch != ' ' && this.fg.equals(this.bg))
@@ -5134,7 +5127,7 @@
 
   		this.message = opts.message || null;
   	  this.lightFlare = opts.flare || 0;
-  		this.flashColor = opts.flash ? color.from(opts.flash) : null;
+  		this.flashColor = opts.flash ? from(opts.flash) : null;
   		// this.effectRadius = radius || 0;
   		this.messageDisplayed = false;
   		this.eventName = opts.event || null;	// name of the event to emit when activated
@@ -5715,7 +5708,7 @@
 
   cell.debug = NOOP;
 
-  color.addKind('cursorColor', 25, 100, 150);
+  addKind('cursorColor', 25, 100, 150);
   config.cursorPathIntensity = 50;
 
 
@@ -5826,8 +5819,8 @@
     }
 
     // TODO - Use functions in LIGHT to check these on cell.light directly???
-    hasVisibleLight() { return color.intensity(this.light) > def.INTENSITY_DARK; }  // TODO
-    isDark() { return color.intensity(this.light) <= def.INTENSITY_DARK; }  // TODO
+    hasVisibleLight() { return intensity(this.light) > def.INTENSITY_DARK; }  // TODO
+    isDark() { return intensity(this.light) <= def.INTENSITY_DARK; }  // TODO
     lightChanged() { return this.flags & Cell.LIGHT_CHANGED; }  // TODO
 
     tile(layer=0) {
@@ -6294,7 +6287,7 @@
     memory.bg.applyMultiplier(cell.light);
     memory.bake();
     if (needDistinctness) {
-      color.separate(memory.fg, memory.bg);
+      separate(memory.fg, memory.bg);
     }
     dest.plot(memory);
     return true;
@@ -7063,28 +7056,28 @@
       dest.blackOut();
     }
     else if (!cell$1.isAnyKindOfVisible()) {
-      color.applyMix(dest.bg, colors.black, 30);
-      color.applyMix(dest.fg, colors.black, 30);
-      // COLOR.bake(dest.bg);
-      // COLOR.bake(dest.fg);
+      dest.bg.mix(colors.black, 30);
+      dest.fg.mix(colors.black, 30);
+      // Color.bake(dest.bg);
+      // Color.bake(dest.fg);
     }
 
     let needDistinctness = false;
     if (cell$1.flags & (Cell.IS_CURSOR | Cell.IS_IN_PATH)) {
       const highlight = (cell$1.flags & Cell.IS_CURSOR) ? colors.cursorColor : colors.yellow;
       if (cell$1.hasTileMechFlag(TileMech.TM_INVERT_WHEN_HIGHLIGHTED)) {
-        color.swap(dest.fg, dest.bg);
+        swap(dest.fg, dest.bg);
       } else {
         // if (!GAME.trueColorMode || !dest.needDistinctness) {
-            color.applyMix(dest.fg, highlight, config.cursorPathIntensity || 20);
+            dest.fg.mix(highlight, config.cursorPathIntensity || 20);
         // }
-        color.applyMix(dest.bg, highlight, config.cursorPathIntensity || 20);
+        dest.bg.mix(highlight, config.cursorPathIntensity || 20);
       }
       needDistinctness = true;
     }
 
     if (needDistinctness) {
-      color.separate(dest.fg, dest.bg);
+      separate(dest.fg, dest.bg);
     }
 
   	// dest.bake();
@@ -7316,8 +7309,8 @@
   const LIGHT_COMPONENTS = make$1();
 
   class Light {
-  	constructor(color, range, fadeTo, pass) {
-  		this.color = from(color) || null;	/* color */
+  	constructor(color$1, range, fadeTo, pass) {
+  		this.color = from(color$1) || null;	/* color */
   		this.radius = make.range(range || 1);
   		this.fadeTo = Number.parseInt(fadeTo) || 0;
   		this.passThroughActors = (pass && (pass !== 'false')) ? true : false; // generally no, but miner light does
@@ -7827,7 +7820,7 @@
       else {
         this.consoleColor = opts.consoleColor || true;
         if (typeof this.consoleColor === 'string') {
-          this.consoleColor = color.from(this.consoleColor);
+          this.consoleColor = from(this.consoleColor);
         }
       }
 
@@ -10931,7 +10924,7 @@
       else {
         this.consoleColor = opts.consoleColor || true;
         if (typeof this.consoleColor === 'string') {
-          this.consoleColor = color.from(this.consoleColor);
+          this.consoleColor = from(this.consoleColor);
         }
       }
     }
@@ -11364,21 +11357,21 @@
   		messageColor.copy(colors.white);
 
   		if (CONFIRMED[i]) {
-  			color.applyMix(messageColor, colors.black, 50);
-  			color.applyMix(messageColor, colors.black, 75 * i / (2*MSG_BOUNDS.height));
+  			messageColor.mix(colors.black, 50);
+  			messageColor.mix(colors.black, 75 * i / (2*MSG_BOUNDS.height));
   		}
 
       const localY = isOnTop ? (MSG_BOUNDS.height - i - 1) : i;
       const y = MSG_BOUNDS.toOuterY(localY);
 
-  		eachChar( DISPLAYED[i], (c, color$1, j) => {
+  		eachChar( DISPLAYED[i], (c, color, j) => {
   			const x = MSG_BOUNDS.toOuterX(j);
 
-  			if (color$1 && (messageColor !== color$1) && CONFIRMED[i]) {
-  				color.applyMix(color$1, colors.black, 50);
-  				color.applyMix(color$1, colors.black, 75 * i / (2*MSG_BOUNDS.height));
+  			if (color && (messageColor !== color) && CONFIRMED[i]) {
+  				color.mix(colors.black, 50);
+  				color.mix(colors.black, 75 * i / (2*MSG_BOUNDS.height));
   			}
-  			messageColor = color$1 || tempColor;
+  			messageColor = color || tempColor;
   			buffer.plotChar(x, y, c, messageColor, colors.black);
   		});
 
@@ -11647,9 +11640,9 @@
 
   sidebar$1.debug = NOOP;
 
-  const blueBar = color.addKind('blueBar', 	15,		10,		50);
-  const redBar = 	color.addKind('redBar', 	45,		10,		15);
-  const purpleBar = color.addKind('purpleBar', 	50,		0,		50);
+  const blueBar = addKind('blueBar', 	15,		10,		50);
+  const redBar = 	addKind('redBar', 	45,		10,		15);
+  const purpleBar = addKind('purpleBar', 	50,		0,		50);
 
 
   function setup$2(opts={}) {
@@ -11992,14 +11985,14 @@
   		return SIDE_BOUNDS.height - 1;
   	}
 
-    fg = fg ? color.from(fg) : colors.white;
-    bg = bg ? color.from(bg) : colors.black;
+    fg = fg ? from(fg) : colors.white;
+    bg = bg ? from(bg) : colors.black;
 
     if (opts.dim) {
       fg = fg.clone();
       bg = bg.clone();
-      color.applyAverage(fg, colors.black, 50);
-      color.applyAverage(bg, colors.black, 50);
+      fg.mix(colors.black, 50);
+      bg.mix(colors.black, 50);
     }
     else if (opts.highlight) ;
 
@@ -12088,8 +12081,8 @@
   	cell.getAppearance(cell$1, monstApp);
 
   	if (dim) {
-  		color.applyMix(monstApp.fg, bg, 50);
-  		color.applyMix(monstApp.bg, bg, 50);
+  		monstApp.fg.mix(bg, 50);
+  		monstApp.bg.mix(bg, 50);
   	} else if (highlight) {
   		// Does this do anything?
   		monstApp.fg.add(bg, 100);
@@ -12134,7 +12127,7 @@
 
   // Progress Bars
 
-  function addProgressBar(y, buf, barText, current, max, color$1, dim) {
+  function addProgressBar(y, buf, barText, current, max, color, dim) {
   	if (y >= SIDE_BOUNDS.height - 1) {
   		return SIDE_BOUNDS.height - 1;
   	}
@@ -12147,18 +12140,18 @@
   		max = 1;
   	}
 
-  	color$1 = color$1.clone();
+  	color = color.clone();
   	if (!(y % 2)) {
-  		color.applyAverage(color$1, colors.black, 25);
+  		color.mix(colors.black, 25);
   	}
 
     let textColor = colors.white;
     if (dim) {
-  		color$1.mix(colors.black, 50);
+  		color.mix(colors.black, 50);
       textColor = colors.gray;
   	}
 
-    ui.plotProgressBar(buf, SIDE_BOUNDS.x, y, SIDE_BOUNDS.width, barText, textColor, current/max, color$1);
+    ui.plotProgressBar(buf, SIDE_BOUNDS.x, y, SIDE_BOUNDS.width, barText, textColor, current/max, color);
     return y + 1;
   }
 
@@ -12179,7 +12172,7 @@
       let healthBarColor = colors.blueBar;
   		if (actor === DATA.player) {
   			healthBarColor = colors.redBar.clone();
-  			color.applyAverage(healthBarColor, colors.blueBar, Math.min(100, 100 * actor.current.health / actor.max.health));
+  			healthBarColor.mix(colors.blueBar, Math.min(100, 100 * actor.current.health / actor.max.health));
   		}
 
       let text = 'Health';
@@ -12210,7 +12203,7 @@
       let barColor = colors.purpleBar;
   		if (actor === DATA.player) {
   			barColor = colors.redBar.clone();
-  			color.applyAverage(barColor, colors.purpleBar, Math.min(100, 100 * actor.current.mana / actor.max.mana));
+  			barColor.mix(colors.purpleBar, Math.min(100, 100 * actor.current.mana / actor.max.mana));
   		}
 
       let text = 'Mana';
@@ -12279,8 +12272,8 @@
     const app = buf[x][y];
   	cell.getAppearance(cell$1, app);
   	if (dim) {
-  		color.applyAverage(app.fg, bg, 50);
-  		color.applyAverage(app.bg, bg, 50);
+  		app.fg.mix(bg, 50);
+  		app.bg.mix(bg, 50);
   	}
 
   	buf.plotChar(x + 1, y, ":", fg, bg);
@@ -12324,8 +12317,8 @@
     const app = buf[x][y];
   	cell.getAppearance(cell$1, app);
   	if (dim) {
-  		color.applyAverage(app.fg, colors.black, 50);
-  		color.applyAverage(app.bg, colors.black, 50);
+  		app.fg.mix(colors.black, 50);
+  		app.bg.mix(colors.black, 50);
   	}
 
   	buf.plotChar(x + 1, y, ":", fg, colors.black);
@@ -12353,8 +12346,8 @@
 
   sidebar$1.addItem = sidebarAddItemInfo;
 
-  const flavorTextColor = color.addKind('flavorText', 50, 40, 90);
-  const flavorPromptColor = color.addKind('flavorPrompt', 100, 90, 20);
+  const flavorTextColor = addKind('flavorText', 50, 40, 90);
+  const flavorPromptColor = addKind('flavorPrompt', 100, 90, 20);
 
   let FLAVOR_TEXT = '';
   let NEED_FLAVOR_UPDATE = false;
@@ -12937,10 +12930,10 @@
   ui.prompt = prompt;
 
 
-  async function fadeTo(color$1, duration=1000, src) {
+  async function fadeTo(color, duration=1000, src) {
 
     src = src || UI_BUFFER;
-    color$1 = GW.color.from(color$1);
+    color = GW.color.from(color);
 
     const buffer = ui.canvas.allocBuffer();
 
@@ -12957,8 +12950,8 @@
 
       buffer.copy(src);
       buffer.forEach( (c, x, y) => {
-        color.applyMix(c.fg, color$1, pct);
-        color.applyMix(c.bg, color$1, pct);
+        c.fg.mix(color, pct);
+        c.bg.mix(color, pct);
       });
       ui.canvas.overlay(buffer);
       ui.canvas.draw();
@@ -13236,8 +13229,8 @@
     if (pct > 1) pct /= 100;
     pct = clamp(pct, 0, 1);
 
-  	barColor = color.make(barColor);
-    textColor = color.make(textColor);
+  	barColor = make$1(barColor);
+    textColor = make$1(textColor);
     const darkenedBarColor = barColor.clone().mix(colors.black, 75);
 
     barText = center(barText, width);

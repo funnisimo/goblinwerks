@@ -1,5 +1,5 @@
 
-import { color as COLOR, colors as COLORS } from './color.js';
+import * as Color from './color.js';
 import * as Flags from './flags.js';
 import * as Utils from './utils.js';
 import { grid as GRID } from './grid.js';
@@ -20,9 +20,9 @@ const DATA = GW.data;
 
 sidebar.debug = Utils.NOOP;
 
-const blueBar = COLOR.addKind('blueBar', 	15,		10,		50);
-const redBar = 	COLOR.addKind('redBar', 	45,		10,		15);
-const purpleBar = COLOR.addKind('purpleBar', 	50,		0,		50);
+const blueBar = Color.addKind('blueBar', 	15,		10,		50);
+const redBar = 	Color.addKind('redBar', 	45,		10,		15);
+const purpleBar = Color.addKind('purpleBar', 	50,		0,		50);
 
 
 export function setup(opts={}) {
@@ -291,7 +291,7 @@ function drawSidebar(buf, forceFocused) {
 	let focusShown = !dim;
 	let highlight = false;
 
-  buf.fillRect(SIDE_BOUNDS.x, SIDE_BOUNDS.y, SIDE_BOUNDS.width, SIDE_BOUNDS.height, ' ', COLORS.black, COLORS.black);
+  buf.fillRect(SIDE_BOUNDS.x, SIDE_BOUNDS.y, SIDE_BOUNDS.width, SIDE_BOUNDS.height, ' ', GW.colors.black, GW.colors.black);
 
 	if (DATA.player) {
 		highlight = (SIDEBAR_FOCUS[0] === DATA.player.x && SIDEBAR_FOCUS[1] === DATA.player.y );
@@ -365,14 +365,14 @@ function sidebarAddText(buf, y, text, fg, bg, opts={}) {
 		return SIDE_BOUNDS.height - 1;
 	}
 
-  fg = fg ? COLOR.from(fg) : COLORS.white;
-  bg = bg ? COLOR.from(bg) : COLORS.black;
+  fg = fg ? Color.from(fg) : GW.colors.white;
+  bg = bg ? Color.from(bg) : GW.colors.black;
 
   if (opts.dim) {
     fg = fg.clone();
     bg = bg.clone();
-    COLOR.applyAverage(fg, COLORS.black, 50);
-    COLOR.applyAverage(bg, COLORS.black, 50);
+    fg.mix(GW.colors.black, 50);
+    bg.mix(GW.colors.black, 50);
   }
   else if (opts.highlight) {
     /// ???
@@ -430,7 +430,7 @@ function sidebarAddActor(entry, y, dim, highlight, buf)
 		for (let i=0; i<SIDE_BOUNDS.width; i++) {
 			const highlightStrength = smoothHiliteGradient(i, SIDE_BOUNDS.width-1) / 10;
 			for (let j=initialY; j < (y == SIDE_BOUNDS.height - 1 ? y : Math.min(y - 1, SIDE_BOUNDS.height - 1)); j++) {
-				buf.highlight(x + i, j, COLORS.white, highlightStrength);
+				buf.highlight(x + i, j, GW.colors.white, highlightStrength);
 			}
 		}
 	}
@@ -445,8 +445,8 @@ sidebar.addActor = sidebarAddActor;
 function sidebarAddName(entry, y, dim, highlight, buf) {
   const monst = entry.entity;
   const map = entry.map;
-  const fg = (dim ? COLORS.gray : COLORS.white);
-  const bg = COLORS.black;
+  const fg = (dim ? GW.colors.gray : GW.colors.white);
+  const bg = GW.colors.black;
 
 	if (y >= SIDE_BOUNDS.height - 1) {
     return SIDE_BOUNDS.height - 1;
@@ -463,8 +463,8 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
 	CELL.getAppearance(cell, monstApp);
 
 	if (dim) {
-		COLOR.applyMix(monstApp.fg, bg, 50);
-		COLOR.applyMix(monstApp.bg, bg, 50);
+		monstApp.fg.mix(bg, 50);
+		monstApp.bg.mix(bg, 50);
 	} else if (highlight) {
 		// Does this do anything?
 		monstApp.fg.add(bg, 100);
@@ -524,13 +524,13 @@ function addProgressBar(y, buf, barText, current, max, color, dim) {
 
 	color = color.clone();
 	if (!(y % 2)) {
-		COLOR.applyAverage(color, COLORS.black, 25);
+		color.mix(GW.colors.black, 25);
 	}
 
-  let textColor = COLORS.white;
+  let textColor = GW.colors.white;
   if (dim) {
-		color.mix(COLORS.black, 50);
-    textColor = COLORS.gray;
+		color.mix(GW.colors.black, 50);
+    textColor = GW.colors.gray;
 	}
 
   GW.ui.plotProgressBar(buf, SIDE_BOUNDS.x, y, SIDE_BOUNDS.width, barText, textColor, current/max, color);
@@ -551,10 +551,10 @@ function addHealthBar(entry, y, dim, highlight, buf) {
 
   if (actor.max.health > 0 && (actor.isPlayer() || (actor.current.health != actor.max.health)) && !actor.isInvulnerable())
   {
-    let healthBarColor = COLORS.blueBar;
+    let healthBarColor = GW.colors.blueBar;
 		if (actor === DATA.player) {
-			healthBarColor = COLORS.redBar.clone();
-			COLOR.applyAverage(healthBarColor, COLORS.blueBar, Math.min(100, 100 * actor.current.health / actor.max.health));
+			healthBarColor = GW.colors.redBar.clone();
+			healthBarColor.mix(GW.colors.blueBar, Math.min(100, 100 * actor.current.health / actor.max.health));
 		}
 
     let text = 'Health';
@@ -582,10 +582,10 @@ function addManaBar(entry, y, dim, highlight, buf) {
 
   if (actor.max.mana > 0 && (actor.isPlayer() || (actor.current.mana != actor.max.mana)))
   {
-    let barColor = COLORS.purpleBar;
+    let barColor = GW.colors.purpleBar;
 		if (actor === DATA.player) {
-			barColor = COLORS.redBar.clone();
-			COLOR.applyAverage(barColor, COLORS.purpleBar, Math.min(100, 100 * actor.current.mana / actor.max.mana));
+			barColor = GW.colors.redBar.clone();
+			barColor.mix(GW.colors.purpleBar, Math.min(100, 100 * actor.current.mana / actor.max.mana));
 		}
 
     let text = 'Mana';
@@ -637,11 +637,11 @@ function sidebarAddMapCell(entry, y, dim, highlight, buf) {
 	let displayChar;
 	let foreColor, backColor;    // color
 	let i, j, lineCount;
-  const fg = (dim ? COLORS.gray : COLORS.white);
-  const bg = COLORS.black;
+  const fg = (dim ? GW.colors.gray : GW.colors.white);
+  const bg = GW.colors.black;
 
   const cell = entry.entity;
-  const textColor = COLORS.flavorText.clone();
+  const textColor = GW.colors.flavorText.clone();
   if (dim) {
       textColor.applyScalar(50);
   }
@@ -656,8 +656,8 @@ function sidebarAddMapCell(entry, y, dim, highlight, buf) {
   const app = buf[x][y];
 	CELL.getAppearance(cell, app);
 	if (dim) {
-		COLOR.applyAverage(app.fg, bg, 50);
-		COLOR.applyAverage(app.bg, bg, 50);
+		app.fg.mix(bg, 50);
+		app.bg.mix(bg, 50);
 	}
 
 	buf.plotChar(x + 1, y, ":", fg, bg);
@@ -669,7 +669,7 @@ function sidebarAddMapCell(entry, y, dim, highlight, buf) {
 		for (i=0; i<SIDE_BOUNDS.width; i++) {
 			const highlightStrength = smoothHiliteGradient(i, SIDE_BOUNDS.width-1) / 10;
 			for (j=initialY; j < y && j < SIDE_BOUNDS.height - 1; j++) {
-				buf.highlight(x + i, j, COLORS.white, highlightStrength);
+				buf.highlight(x + i, j, GW.colors.white, highlightStrength);
 			}
 		}
 	}
@@ -688,8 +688,8 @@ function sidebarAddItemInfo(entry, y, dim, highlight, buf) {
 	let itemChar;
 	let itemForeColor, itemBackColor;  // color
 	let i, j, lineCount;
-  const fg = (dim ? COLORS.gray : COLORS.white);
-  const bg = COLORS.black;
+  const fg = (dim ? GW.colors.gray : GW.colors.white);
+  const bg = GW.colors.black;
 
 	if (y >= SIDE_BOUNDS.height - 1) {
 		return SIDE_BOUNDS.height - 1;
@@ -704,11 +704,11 @@ function sidebarAddItemInfo(entry, y, dim, highlight, buf) {
   const app = buf[x][y];
 	CELL.getAppearance(cell, app);
 	if (dim) {
-		COLOR.applyAverage(app.fg, COLORS.black, 50);
-		COLOR.applyAverage(app.bg, COLORS.black, 50);
+		app.fg.mix(GW.colors.black, 50);
+		app.bg.mix(GW.colors.black, 50);
 	}
 
-	buf.plotChar(x + 1, y, ":", fg, COLORS.black);
+	buf.plotChar(x + 1, y, ":", fg, GW.colors.black);
 	if (GW.config.playbackOmniscience || !DATA.player.status.hallucinating) {
 		name = theItem.getName({ color: !dim, details: true });
 	} else {
@@ -716,13 +716,13 @@ function sidebarAddItemInfo(entry, y, dim, highlight, buf) {
 	}
 	name = Text.capitalize(name);
 
-  y = buf.wrapText(x + 3, y, SIDE_BOUNDS.width - 3, name, fg, COLORS.black);
+  y = buf.wrapText(x + 3, y, SIDE_BOUNDS.width - 3, name, fg, GW.colors.black);
 
 	if (highlight) {
 		for (i=0; i<SIDE_BOUNDS.width; i++) {
 			const highlightStrength = smoothHiliteGradient(i, SIDE_BOUNDS.width-1) / 10;
 			for (j=initialY; j < y && j < SIDE_BOUNDS.height - 1; j++) {
-				buf.highlight(x + i, j, COLORS.white, highlightStrength);
+				buf.highlight(x + i, j, GW.colors.white, highlightStrength);
 			}
 		}
 	}

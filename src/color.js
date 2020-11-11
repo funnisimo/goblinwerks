@@ -1,10 +1,9 @@
 
 import { cosmetic } from './random.js';
 import * as Utils from './utils.js';
-import { types, make as MAKE } from './gw.js';
+import { types, make as MAKE, colors } from './gw.js';
 
-export var color = {};
-export var colors = {};
+// export var color = {};
 
 
 export class Color extends Array {
@@ -72,55 +71,59 @@ export class Color extends Array {
     this.blue		= Utils.clamp(this.blue, 0, 100);
   }
 
-  add(augmentColor, pct=100) {
-    this.red += Math.floor((augmentColor.red * pct) / 100);
-    this.redRand += Math.floor((augmentColor.redRand * pct) / 100);
-    this.green += Math.floor((augmentColor.green * pct) / 100);
-    this.greenRand += Math.floor((augmentColor.greenRand * pct) / 100);
-    this.blue += Math.floor((augmentColor.blue * pct) / 100);
-    this.blueRand += Math.floor((augmentColor.blueRand * pct) / 100);
-    this.rand += Math.floor((augmentColor.rand * pct) / 100);
+  add(other, pct=100) {
+    other = from(other);
+
+    this.red += Math.floor((other.red * pct) / 100);
+    this.redRand += Math.floor((other.redRand * pct) / 100);
+    this.green += Math.floor((other.green * pct) / 100);
+    this.greenRand += Math.floor((other.greenRand * pct) / 100);
+    this.blue += Math.floor((other.blue * pct) / 100);
+    this.blueRand += Math.floor((other.blueRand * pct) / 100);
+    this.rand += Math.floor((other.rand * pct) / 100);
     return this;
   }
 
-  mix(newColor, opacity=100) {
+  mix(other, opacity=100) {
+    other = from(other);
+
     if (opacity <= 0) return this;
     if (opacity >= 100) {
-      this.copy(newColor);
+      this.copy(other);
       return this;
     }
 
     const weightComplement = 100 - opacity;
     for(let i = 0; i < this.length; ++i) {
-      this[i] = Math.floor((this[i] * weightComplement + newColor[i] * opacity) / 100);
+      this[i] = Math.floor((this[i] * weightComplement + other[i] * opacity) / 100);
     }
-    this.dances = (this.dances || newColor.dances);
+    this.dances = (this.dances || other.dances);
     return this;
   }
 
-  applyMultiplier(multiplierColor) {
-    this.red = Math.round(this.red * multiplierColor[0] / 100);
-    this.green = Math.round(this.green * multiplierColor[1] / 100);
-    this.blue = Math.round(this.blue * multiplierColor[2] / 100);
+  applyMultiplier(other) {
+    this.red = Math.round(this.red * other[0] / 100);
+    this.green = Math.round(this.green * other[1] / 100);
+    this.blue = Math.round(this.blue * other[2] / 100);
 
-    if (multiplierColor.length > 3) {
-      this.rand = Math.round(this.rand * multiplierColor[3] / 100);
-      this.redRand = Math.round(this.redRand * multiplierColor[4] / 100);
-      this.greenRand = Math.round(this.greenRand * multiplierColor[5] / 100);
-      this.blueRand = Math.round(this.blueRand * multiplierColor[6] / 100);
-      this.dances = this.dances || multiplierColor.dances;
+    if (other instanceof Color) {
+      this.rand = Math.round(this.rand * other.rand / 100);
+      this.redRand = Math.round(this.redRand * other.redRand / 100);
+      this.greenRand = Math.round(this.greenRand * other.greenRand / 100);
+      this.blueRand = Math.round(this.blueRand * other.blueRand / 100);
+      this.dances = this.dances || other.dances;
     }
     return this;
   }
 
-  applyScalar(scalar) {
-    this.red          = Math.round(this.red        * scalar / 100);
-    this.redRand      = Math.round(this.redRand    * scalar / 100);
-    this.green        = Math.round(this.green      * scalar / 100);
-    this.greenRand    = Math.round(this.greenRand  * scalar / 100);
-    this.blue         = Math.round(this.blue       * scalar / 100);
-    this.blueRand     = Math.round(this.blueRand   * scalar / 100);
-    this.rand         = Math.round(this.rand       * scalar / 100);
+  applyScalar(other) {
+    this.red          = Math.round(this.red        * other / 100);
+    this.redRand      = Math.round(this.redRand    * other / 100);
+    this.green        = Math.round(this.green      * other / 100);
+    this.greenRand    = Math.round(this.greenRand  * other / 100);
+    this.blue         = Math.round(this.blue       * other / 100);
+    this.blueRand     = Math.round(this.blueRand   * other / 100);
+    this.rand         = Math.round(this.rand       * other / 100);
     return this;
   }
 
@@ -133,6 +136,35 @@ export class Color extends Array {
     this.redRand = this.greenRand = this.blueRand = this.rand = 0;
     return this;
   }
+
+
+  lighten(percent) {
+    Utils.clamp(percent, 0, 100);
+    this.red =    Math.round(this.red + (100 - this.red) * percent / 100);
+    this.green =  Math.round(this.green + (100 - this.green) * percent / 100);
+    this.blue =   Math.round(this.blue + (100 - this.blue) * percent / 100);
+
+    // leave randoms the same
+    return this;
+  }
+
+  darken(percent) {
+    Utils.clamp(percent, 0, 100);
+    this.red =    Math.round(this.red * (100 - percent) / 100);
+    this.green =  Math.round(this.green * (100 - percent) / 100);
+    this.blue =   Math.round(this.blue * (100 - percent) / 100);
+
+    // leave randoms the same
+    return this;
+  }
+
+  randomize(randomizePercent) {
+    this.red = _randomizeColorByPercent(this.red, randomizePercent);
+    this.green = _randomizeColorByPercent(this.green, randomizePercent);
+    this.blue = _randomizeColorByPercent(this.blue, randomizePercent);
+    return this;
+  }
+
 
 }
 
@@ -174,7 +206,6 @@ export function make(...args) {
   return null;
 }
 
-color.make = make;
 MAKE.color = make;
 
 
@@ -190,7 +221,6 @@ export function addKind(name, ...args) {
 	return color;
 }
 
-color.addKind = addKind;
 
 export function from(arg) {
   if (typeof arg === 'string') {
@@ -202,18 +232,6 @@ export function from(arg) {
   return MAKE.color(arg);
 }
 
-color.from = from;
-
-
-export function applyMix(baseColor, newColor, opacity) {
-  baseColor = color.from(baseColor);
-  newColor = color.from(newColor);
-
-  return baseColor.mix(newColor, opacity);
-}
-
-color.applyMix = applyMix;
-color.applyAverage = applyMix;
 
 
 function toRGB(v, vr) {
@@ -240,47 +258,12 @@ export function intensity(color) {
   return Math.max(color[0], color[1], color[2]);
 }
 
-color.intensity = intensity;
-
-
-export function lighten(destColor, percent) {
-  Utils.clamp(percent, 0, 100);
-  destColor.red =    Math.round(destColor.red + (100 - destColor.red) * percent / 100);
-  destColor.green =  Math.round(destColor.green + (100 - destColor.green) * percent / 100);
-  destColor.blue =   Math.round(destColor.blue + (100 - destColor.blue) * percent / 100);
-
-  // leave randoms the same
-  return destColor;
-}
-
-color.lighten = lighten;
-
-export function darken(destColor, percent) {
-  Utils.clamp(percent, 0, 100);
-  destColor.red =    Math.round(destColor.red * (100 - percent) / 100);
-  destColor.green =  Math.round(destColor.green * (100 - percent) / 100);
-  destColor.blue =   Math.round(destColor.blue * (100 - percent) / 100);
-
-  // leave randoms the same
-  return destColor;
-}
-
-color.darken = darken;
-
-
 
 
 function _randomizeColorByPercent(input, percent) {
   return (cosmetic.range( Math.floor(input * (100 - percent) / 100), Math.floor(input * (100 + percent) / 100)));
 }
 
-export function randomize(baseColor, randomizePercent) {
-  baseColor.red = _randomizeColorByPercent(baseColor.red, randomizePercent);
-  baseColor.green = _randomizeColorByPercent(baseColor.green, randomizePercent);
-  baseColor.blue = _randomizeColorByPercent(baseColor.blue, randomizePercent);
-}
-
-color.randomize = randomize;
 
 export function swap(color1, color2) {
     const tempColor = color1.clone();
@@ -288,7 +271,6 @@ export function swap(color1, color2) {
     color2.copy(tempColor);
 }
 
-color.swap = swap;
 
 const MIN_COLOR_DIFF =			600;
 
@@ -299,7 +281,6 @@ export function diff(f, b)		 {
     + (f.blue - b.blue) * (f.blue - b.blue) * 0.0722);
 }
 
-color.diff = diff;
 
 export function normalize(baseColor, aggregateMultiplier, colorTranslation) {
 
@@ -319,7 +300,6 @@ export function normalize(baseColor, aggregateMultiplier, colorTranslation) {
     baseColor.rand = 0;
 }
 
-color.normalize = normalize;
 
 
 // if forecolor is too similar to back, darken or lighten it and return true.
@@ -348,8 +328,8 @@ export function separate(/* color */ fore, /* color */ back) {
   madeChange = false;
   failsafe = 10;
 
-  while(color.diff(f, b) < MIN_COLOR_DIFF && --failsafe) {
-    applyMix(f, modifier, 20);
+  while(diff(f, b) < MIN_COLOR_DIFF && --failsafe) {
+    f.mix(modifier, 20);
     madeChange = true;
   }
 
@@ -361,22 +341,20 @@ export function separate(/* color */ fore, /* color */ back) {
   }
 }
 
-color.separate = separate;
 
 
 export function addSpread(name, r, g, b) {
 	let baseColor;
 	baseColor = addKind(name, r, g, b);
-	addKind('light_' + name, color.lighten(baseColor.clone(), 25));
-	addKind('lighter_' + name, color.lighten(baseColor.clone(), 50));
-	addKind('lightest_' + name, color.lighten(baseColor.clone(), 75));
-	addKind('dark_' + name, color.darken(baseColor.clone(), 25));
-	addKind('darker_' + name, color.darken(baseColor.clone(), 50));
-	addKind('darkest_' + name, color.darken(baseColor.clone(), 75));
+	addKind('light_' + name, baseColor.clone().lighten(25));
+	addKind('lighter_' + name, baseColor.clone().lighten(50));
+	addKind('lightest_' + name, baseColor.clone().lighten(75));
+	addKind('dark_' + name, baseColor.clone().darken(25));
+	addKind('darker_' + name, baseColor.clone().darken(50));
+	addKind('darkest_' + name, baseColor.clone().darken(75));
 	return baseColor;
 }
 
-color.addSpread = addSpread;
 
 addKind('white', 				100,	100,	100);
 addKind('black', 				0,		0,		0);

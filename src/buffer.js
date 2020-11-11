@@ -1,8 +1,7 @@
 
-import { colors as COLORS, color as COLOR } from './color.js';
 import * as Text from './text.js';
 import * as Utils from './utils.js';
-import { types, make } from './gw.js';
+import { types, make, colors as COLORS } from './gw.js';
 
 class Buffer extends types.Grid {
   constructor(w, h) {

@@ -1,5 +1,5 @@
 
-import { color as COLOR } from './color.js';
+import * as Color from './color.js';
 import { types, make } from './gw.js';
 
 const TEMP_BG = new types.Color();
@@ -113,7 +113,7 @@ export class Sprite {
 		this.nullify();
     if (bg) {
       if (typeof bg === 'string') {
-        bg = COLOR.from(bg);
+        bg = Color.from(bg);
       }
       if (this.bg) {
         this.bg.copy(bg);
@@ -158,11 +158,11 @@ export class Sprite {
     }
 
 		if (sprite.fg && sprite.ch != ' ') {
-			COLOR.applyMix(this.fg, sprite.fg, opacity);
+			this.fg.mix(sprite.fg, opacity);
 		}
 
 		if (sprite.bg) {
-			COLOR.applyMix(this.bg, sprite.bg, opacity);
+			this.bg.mix(sprite.bg, opacity);
 		}
 
     if (this.ch != ' ' && this.fg.equals(this.bg))
