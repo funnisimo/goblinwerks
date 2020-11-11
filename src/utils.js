@@ -1,6 +1,7 @@
 
 import { def } from './gw.js';
 
+export var makeDebug = (typeof debug !== 'undefined') ? debug : (() => (() => {}));
 
 export function NOOP()  {}
 export function TRUE()  { return true; }
