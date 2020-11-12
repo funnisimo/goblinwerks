@@ -16,7 +16,7 @@ function makeOwner(opts={}) {
     maxInflate: opts.maxInflate || opts[2] || 200,
     minInflate: opts.minInflate || opts[3] || 100,
     hagglesPer: opts.hagglesPer || opts[4] || 5,
-    race:       opts.race       || opts[5] || 'HUMAN',
+    kind:       opts.kind       || opts[5] || 'HUMAN',
     maxInsults: opts.maxInsults || opts[6] || 10,
   };
 }
@@ -186,7 +186,7 @@ function addStore(id, opts={}) {
 
 // Store owners have different characteristics for pricing and haggling
 // Note: Store owners should be added in groups, one for each store
-const GENERAL_STORE_OWNERS = [  // Owner_t[MAX_OWNERS] = {
+const GENERAL_STORE_OWNERS = [
     ["Erick the Honest",          250, 175, 108, 4, 0, 12],
     ["Andy the Friendly",         200, 170, 108, 5, 3, 15],
     ["Lyar-el the Comely",        300, 165, 107, 6, 2, 18],
