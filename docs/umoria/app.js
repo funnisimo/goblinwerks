@@ -3,6 +3,8 @@ let canvas = null;
 
 GW.random.seed(12345);
 
+GW.tiles.WALL.sprite.bg = GW.make.color(50,50,50,10);
+
 var PLAYER = null;
 
 async function showHelp() {
