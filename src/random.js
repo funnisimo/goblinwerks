@@ -66,6 +66,8 @@ export class Random {
 
   // returns a pseudo-random number from set 0, 1, 2, ..., RNG_M - 2
   number(max) {
+    if (max==1) return 0;
+
 		++this.count;
     const high = Math.floor(this._v / RNG_Q);
     const low = Math.floor(this._v % RNG_Q);

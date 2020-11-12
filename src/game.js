@@ -2,6 +2,7 @@
 
 import * as Flags from './flags.js';
 import * as Utils from './utils.js';
+import * as Events from './events.js';
 import * as Light from './light.js';
 import { map as MAP } from './map.js';
 import { io as IO } from './io.js';
@@ -30,6 +31,8 @@ export async function start(opts={}) {
   DATA.gameHasEnded = false;
 
   GW.utils.clearObject(MAPS);
+
+  await Events.emit('GAME_START', opts);
 
   if (opts.width) {
     CONFIG.width = opts.width;
@@ -62,6 +65,7 @@ export async function start(opts={}) {
 
   await startMap(map, opts.start);
   queuePlayer();
+
 
   return loop();
 }
@@ -101,6 +105,8 @@ export async function startMap(map, loc='start') {
   scheduler.clear();
 
   if (DATA.map && DATA.player) {
+    await Events.emit('STOP_MAP', DATA.map);
+
     DATA.map.removeActor(DATA.player);
   }
 
@@ -165,6 +171,9 @@ export async function startMap(map, loc='start') {
   if (map.config.tick) {
     scheduler.push( updateEnvironment, map.config.tick );
   }
+
+  await Events.emit('START_MAP', map);
+
 }
 
 

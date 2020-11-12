@@ -1172,6 +1172,8 @@
 
     // returns a pseudo-random number from set 0, 1, 2, ..., RNG_M - 2
     number(max) {
+      if (max==1) return 0;
+
   		++this.count;
       const high = Math.floor(this._v / RNG_Q);
       const low = Math.floor(this._v % RNG_Q);
@@ -8662,6 +8664,8 @@
 
     GW.utils.clearObject(maps);
 
+    await emit('GAME_START', opts);
+
     if (opts.width) {
       config.width = opts.width;
       config.height = opts.height;
@@ -8693,6 +8697,7 @@
 
     await startMap(map, opts.start);
     queuePlayer();
+
 
     return loop();
   }
@@ -8732,6 +8737,8 @@
     scheduler.clear();
 
     if (data.map && data.player) {
+      await emit('STOP_MAP', data.map);
+
       data.map.removeActor(data.player);
     }
 
@@ -8796,6 +8803,9 @@
     if (map.config.tick) {
       scheduler.push( updateEnvironment, map.config.tick );
     }
+
+    await emit('START_MAP', map);
+
   }
 
 

@@ -5,6 +5,13 @@ var STORES = {};
 const storeFG = GW.colors.green;
 const storeBG = GW.tiles.DOOR.sprite.bg;
 
+GW.config.store = {
+    MAX_AUTO_BUY_ITEMS: 18,  // Max diff objects in stock for auto buy
+    MIN_AUTO_SELL_ITEMS: 10, // Min diff objects in stock for auto sell
+    STOCK_TURN_AROUND: 9,    // Amount of buying and selling normally
+    MAINTENANCE_SPEED: 1000 * 100,  // update stock every 1000 turns
+};
+
 
 function makeOwner(opts={}) {
   if (arguments.length > 1 || (typeof arguments[0] === 'string')) {
@@ -12,45 +19,120 @@ function makeOwner(opts={}) {
   }
   return {
     name:       opts.name       || opts[0] || 'The Merchant',
-    maxCost:    opts.maxCost    || opts[1] || 100,
-    maxInflate: opts.maxInflate || opts[2] || 200,
+    maxCost:    opts.maxCost    || opts[1] || 1000000,
+    maxInflate: opts.maxInflate || opts[2] || 100,
     minInflate: opts.minInflate || opts[3] || 100,
-    hagglesPer: opts.hagglesPer || opts[4] || 5,
+    hagglesPer: opts.hagglesPer || opts[4] || 0,
     kind:       opts.kind       || opts[5] || 'HUMAN',
-    maxInsults: opts.maxInsults || opts[6] || 10,
+    maxInsults: opts.maxInsults || opts[6] || 1000,
   };
 }
 
-function makeStore(opts={}) {
-  const store = {};
+class Store {
+  constructor(opts={}) {
+    this.id = opts.id || 'STORE';
+    this.name = opts.name || 'The General Store';
 
-  store.id = opts.id || 'STORE';
-  store.name = opts.name || 'The General Store';
+    if (Array.isArray(opts.owner)) {
+      this.owner = GW.random.item(opts.owner);
+    }
+    else {
+      this.owner = opts.owner || makeOwner();
+    }
 
-  if (Array.isArray(opts.owner)) {
-    store.owner = GW.random.item(opts.owner);
+    this.ch = opts.ch || GW.tiles.DOOR.sprite.ch;
+    this.fg = storeFG;
+    this.bg = storeBG;
+
+    this.items = null;
+    this.gold = 100;
+    this.turnsLeftBeforeClosing = 0;
+    this.insultsCounter = 0;
+    this.uniqueItemsCounter = 0;
+    this.goodPurchases = 0;
+    this.badPurchases = 0;
+
+    this.welcome = this.owner.name + ' welcomes you to ' + this.name + '!';
+    this.updateTime = opts.turns || GW.config.store.MAINTENANCE_SPEED;
   }
-  else {
-    store.owner = opts.owner || makeOwner();
+
+  itemCost(item) {
+    const base = item.stats.cost || 1;
+    const qty = item.quantity || 1;
+    return base * qty;
   }
 
-  store.ch = opts.ch || GW.tiles.DOOR.sprite.ch;
-  store.fg = storeFG;
-  store.bg = storeBG;
+  update() {
+    console.log('Update Store', this.id);
+    const count = GW.utils.chainLength(this.items);
+    if (count >= GW.config.store.MIN_AUTO_SELL_ITEMS) {
+        let turnaround = GW.random.number(GW.config.store.STOCK_TURN_AROUND);
+        if (count >= GW.config.store.MAX_AUTO_BUY_ITEMS) {
+            turnaround += 1 + count - GW.config.store.MAX_AUTO_BUY_ITEMS;
+        }
+        while (--turnaround >= 0) {
+            this.removeStockItem();
+        }
+    }
 
-  store.items = null;
-  store.gold = 100;
-  store.turnsLeftBeforeClosing = 0;
-  store.insultsCounter = 0;
-  store.uniqueItemsCounter = 0;
-  store.goodPurchases = 0;
-  store.badPurchases = 0;
+    if (count <= GW.config.store.MAX_AUTO_BUY_ITEMS) {
+        let turnaround = GW.random.number(GW.config.store.STOCK_TURN_AROUND);
+        if (count < GW.config.store.MIN_AUTO_SELL_ITEMS) {
+            turnaround += GW.config.store.MIN_AUTO_SELL_ITEMS - count;
+        }
 
-  store.welcome = store.owner.name + ' welcomes you to ' + store.name + '!';
+        while (--turnaround >= 0) {
+            this.stockNewItem();
+        }
+    }
 
-  return store;
+    return this.updateTime;
+  }
+
+  removeStockItem() {
+    let count = GW.utils.chainLength(this.items);
+    if (!count) return;
+    let index = GW.random.number(count);
+    let item = this.items;
+    while(index && item) {
+      index--;
+      item = item.next;
+    }
+    count = GW.random.number(item.quantity) + 1;
+    item.quantity -= count;
+
+    if (item.quantity < 1) {
+      GW.utils.removeFromChain(this, 'items', item);
+    }
+  }
+
+  stockNewItem() {
+    let maxCost = this.owner.maxCost;
+    const choices = Object.values(GW.itemKinds).filter((k) => k.store == this.id);
+    if (!choices.length) return false;
+
+    const level = GW.data.player ? (GW.data.player.data.maxDepth || 0) : 0;
+
+    for(let tries = 0; tries < 5; ++tries) {
+      const kind = GW.random.item(choices);
+      const item = GW.make.item(kind, { level });
+      const cost = this.itemCost(item);
+      if (cost > 0 && cost < maxCost) {
+        GW.utils.addToChain(this, 'items', item);
+        return true;
+      }
+    }
+    return false;
+  }
 }
 
+GW.types.Store = Store;
+
+function makeStore(opts={}) {
+  return new Store(opts);
+}
+
+GW.make.store = makeStore;
 
 
 const STORE_SALE_ACCEPTED = [    // char *[14] = {
@@ -177,49 +259,58 @@ function addStore(id, opts={}) {
   });
 
   GW.on(store.event, enterStore, store);
+  store.update();
 
   STORES[id] = store;
   return store;
 }
 
+function registerStores() {
+  for(let id in STORES) {
+    const store = STORES[id];
+    GW.scheduler.push(store.update.bind(store), GW.random.number(store.updateTime));
+  }
+}
+
+GW.on('START_MAP', registerStores);
 
 
 // Store owners have different characteristics for pricing and haggling
 // Note: Store owners should be added in groups, one for each store
 const GENERAL_STORE_OWNERS = [
-    ["Erick the Honest",          250, 175, 108, 4, 0, 12],
-    ["Andy the Friendly",         200, 170, 108, 5, 3, 15],
-    ["Lyar-el the Comely",        300, 165, 107, 6, 2, 18],
+    ["Erick the Honest",          250, 175, 108, 4, 'HUMAN', 12],
+    ["Andy the Friendly",         200, 170, 108, 5, 'HALFLING', 15],
+    ["Lyar-el the Comely",        300, 165, 107, 6, 'ELF', 18],
 ].map( (d) => makeOwner(...d) );
 
 const ARMOR_STORE_OWNERS = [
-    ["Mauglin the Grumpy",      32000, 200, 112, 4, 5,  5],
-    ["Darg-Low the Grim",       10000, 190, 111, 4, 0,  9],
-    ["Mauglim the Horrible",     3000, 200, 113, 5, 6,  9],
+    ["Mauglin the Grumpy",      32000, 200, 112, 4, 'DWARF',  5],
+    ["Darg-Low the Grim",       10000, 190, 111, 4, 'HUMAN',  9],
+    ["Mauglim the Horrible",     3000, 200, 113, 5, 'HALF_ORC',  9],
 ].map( (d) => makeOwner(...d) );
 
 const WEAPON_STORE_OWNERS = [
-    ["Arndal Beast-Slayer",     10000, 185, 110, 5, 1,  8],
-    ["Oglign Dragon-Slayer",    32000, 195, 112, 4, 5,  8],
-    ["Ithyl-Mak the Beastly",    3000, 210, 115, 6, 7,  8],
+    ["Arndal Beast-Slayer",     10000, 185, 110, 5, 'HALF_ELF',  8],
+    ["Oglign Dragon-Slayer",    32000, 195, 112, 4, 'DWARF',  8],
+    ["Ithyl-Mak the Beastly",    3000, 210, 115, 6, 'HALF_TROLL',  8],
 ].map( (d) => makeOwner(...d) );
 
 const ALCHEMY_STORE_OWNERS = [
-    ["Hardblow the Humble",      3500, 175, 109, 6, 0, 15],
-    ["Gunnar the Paladin",       5000, 185, 110, 5, 0, 23],
-    ["Delilah the Pure",        25000, 180, 107, 6, 1, 20],
+    ["Hardblow the Humble",      3500, 175, 109, 6, 'HUMAN', 15],
+    ["Gunnar the Paladin",       5000, 185, 110, 5, 'HUMAN', 23],
+    ["Delilah the Pure",        25000, 180, 107, 6, 'HALF_ELF', 20],
 ].map( (d) => makeOwner(...d) );
 
 const MAGIC_STORE_OWNERS = [
-    ["Ga-nat the Greedy",       12000, 220, 115, 4, 4,  9],
-    ["Mauser the Chemist",      10000, 190, 111, 5, 1,  8],
-    ["Wizzle the Chaotic",      10000, 190, 110, 6, 3,  8],
+    ["Ga-nat the Greedy",       12000, 220, 115, 4, 'GNOME',  9],
+    ["Mauser the Chemist",      10000, 190, 111, 5, 'HALF_ELF',  8],
+    ["Wizzle the Chaotic",      10000, 190, 110, 6, 'HALFLING',  8],
 ].map( (d) => makeOwner(...d) );
 
 const JEWELRY_STORE_OWNERS = [
-    ["Valeria Starshine",       32000, 175, 110, 5, 2, 11],
-    ["Gopher the Great!",       20000, 215, 113, 6, 4, 10],
-    ["Inglorian the Mage",      32000, 200, 110, 7, 0, 10],
+    ["Valeria Starshine",       32000, 175, 110, 5, 'ELF', 11],
+    ["Gopher the Great!",       20000, 215, 113, 6, 'GNOME', 10],
+    ["Inglorian the Mage",      32000, 200, 110, 7, 'HUMAN', 10],
 ].map( (d) => makeOwner(...d) );
 
 
