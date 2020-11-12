@@ -62,6 +62,7 @@ async function start() {
 	const canvas = GW.ui.start({ width: 100, height: 38, sidebar: 20, div: 'game', messages: 5, wideMessages: false, cursor: true, flavor: true });
 	GW.io.setKeymap({
 		dir: 'movePlayer', space: 'rest',
+    '@': showCharacter,
 		'>': forceStairs, '<': forceStairs,
 		'?': showHelp
 	});

@@ -230,3 +230,26 @@ function printCharacter(buffer, actor, yOffset) {
 
   return 22 + yOffset;
 }
+
+async function showCharacter(ev) {
+  const buffer = GW.ui.startDialog();
+
+  buffer.blackOut();
+
+  const lastY = printCharacter(buffer, PLAYER, 3);
+
+  let prompt = GW.text.format("%FYour character", 'yellow');
+  let x = Math.round((buffer.width - GW.text.length(prompt)) / 2);
+  buffer.plotText(x, 2, prompt);
+
+  prompt = 'Press [Escape] to go back.';
+  x = Math.round((buffer.width - prompt.length) / 2);
+  buffer.plotText(x, lastY + 2, prompt);
+
+  GW.ui.draw();
+
+  await GW.io.nextKeyPress(-1, (ev) => ev.key === 'Escape');
+
+  GW.ui.finishDialog();
+  return true;
+}
