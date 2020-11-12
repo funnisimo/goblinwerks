@@ -1,8 +1,6 @@
 
 import * as Utils from './utils.js';
 
-// This is based on EventEmitter3, but converted to classes and with a minor change to do an await...
-
 
 var EVENTS = {};
 
@@ -128,14 +126,16 @@ export function removeAllListeners(event) {
  * @returns {Boolean} `true` if the event had listeners, else `false`.
  * @public
  */
-export async function emit(event, ...args) {
-  if (!EVENTS[event]) return true;  // no events to send
+export async function emit(...args) {
+  const event = args[0];
+  if (!EVENTS[event]) return false;  // no events to send
   let listener = EVENTS[event];
 
   while(listener) {
     let next = listener.next;
-    if (listener.once) removeListener(event, listener.fn, listener.context, true);
+    if (listener.once) Utils.removeFromChain(EVENTS, event, listener);
     await listener.fn.apply(listener.context, args);
     listener = next;
   }
+  return true;
 };

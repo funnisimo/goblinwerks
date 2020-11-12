@@ -95,7 +95,7 @@ export class Tile {
       result = Text.format('%F%s%F', color, this.name, null);
     }
 
-    if (opts.article) {
+    if (opts.article && this.article) {
       let article = (opts.article === true) ? this.article : opts.article;
       result = article + ' ' + result;
     }

@@ -3,7 +3,7 @@
 
 
 // Builds a store at a row, column coordinate
-function townBuildStore(map, store_id, x, y) {
+function townBuildStore(map, store, x, y) {
   const width = map.width;  // 80
   const height = map.height;  // 32
 
@@ -55,7 +55,7 @@ function townBuildStore(map, store_id, x, y) {
   // const store = STORES[store_id] || null;
 
   const door = map.cell(posX, posY);
-  door.setTile('DOOR');
+  door.setTile(store.tile);
   door.flags |= (GW.flags.cell.IS_IN_AREA_MACHINE | GW.flags.cell.IMPREGNABLE);
 
   map.eachNeighbor(posX, posY, (cell) => {
@@ -85,12 +85,13 @@ function townBuildStore(map, store_id, x, y) {
 // }
 
 function townPlaceStores(map) {
-    const stores = GW.random.sequence(6);  // We can only place 6 stores
+    const stores = Object.values(STORES);
+    GW.random.shuffle(stores);  // We can only place 6 stores
 
     for (let y = 0; y < 2; y++) {
         for (let x = 0; x < 3; x++) {
-            const store_id = stores.shift();
-            townBuildStore(map, store_id, x, y);
+            const store = stores.shift();
+            townBuildStore(map, store, x, y);
         }
     }
 }

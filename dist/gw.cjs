@@ -481,9 +481,6 @@ var utils$1 = /*#__PURE__*/Object.freeze({
   removeFromChain: removeFromChain
 });
 
-// This is based on EventEmitter3, but converted to classes and with a minor change to do an await...
-
-
 var EVENTS = {};
 
 /**
@@ -605,16 +602,18 @@ function removeAllListeners(event) {
  * @returns {Boolean} `true` if the event had listeners, else `false`.
  * @public
  */
-async function emit(event, ...args) {
-  if (!EVENTS[event]) return true;  // no events to send
+async function emit(...args) {
+  const event = args[0];
+  if (!EVENTS[event]) return false;  // no events to send
   let listener = EVENTS[event];
 
   while(listener) {
     let next = listener.next;
-    if (listener.once) removeListener(event, listener.fn, listener.context, true);
+    if (listener.once) removeFromChain(EVENTS, event, listener);
     await listener.fn.apply(listener.context, args);
     listener = next;
   }
+  return true;
 }
 
 ///////////////////////////////////
@@ -5126,7 +5125,7 @@ class TileEvent$1 {
 		this.flashColor = opts.flash ? from(opts.flash) : null;
 		// this.effectRadius = radius || 0;
 		this.messageDisplayed = false;
-		this.eventName = opts.event || null;	// name of the event to emit when activated
+		this.eventName = opts.event || opts.emit || null;	// name of the event to emit when activated
 		this.id = opts.id || null;
 	}
 
@@ -5308,6 +5307,11 @@ async function spawn(feat, ctx) {
 		}
 	}
 
+  if (feat.eventName) {
+		await emit(feat.eventName, x, y, ctx);
+    didSomething = true;
+	}
+
 	if (data.gameHasEnded) {
 		GRID$1.free(spawnMap);
 		return didSomething;
@@ -5353,10 +5357,6 @@ async function spawn(feat, ctx) {
     //     }
     // }
   }
-
-	// if (didSomething && feat.flags & Flags.TileEvent.DFF_EMIT_EVENT && feat.eventName) {
-	// 	await GAME.emit(feat.eventName, x, y);
-	// }
 
 	if (didSomething) {
     spawnMap.forEach( (v, i, j) => {
@@ -9022,7 +9022,7 @@ class Tile$1 {
       result = format('%F%s%F', color, this.name, null);
     }
 
-    if (opts.article) {
+    if (opts.article && this.article) {
       let article = (opts.article === true) ? this.article : opts.article;
       result = article + ' ' + result;
     }
