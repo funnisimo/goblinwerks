@@ -53,7 +53,7 @@ export function isVowel(ch) {
 
 
 
-export function toSingular(verb) {
+export function toSingularVerb(verb) {
   if (verb.endsWith('y')) {
     return verb.substring(0, verb.length - 1) + 'ies';
   }
@@ -63,6 +63,13 @@ export function toSingular(verb) {
   return verb + 's';
 }
 
+
+export function toPluralNoun(noun, isPlural=true) {
+  if (!isPlural) return noun.replace('~','');
+  const place = noun.indexOf('~');
+  if (place < 0) return toSingularVerb(noun);
+  return noun.replace('~', 's');
+}
 
 
 export function eachChar(msg, fn) {

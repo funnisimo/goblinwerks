@@ -165,4 +165,19 @@ describe('Message', () => {
     });
   });
 
+  describe('toPluralNoun', () => {
+    test('will remove marker', () => {
+      expect(GW.text.toPluralNoun('bowl~ of mush', false)).toEqual('bowl of mush');
+    });
+
+    test('will add appropriate plural', () => {
+      expect(GW.text.toPluralNoun('bowl~ of mush')).toEqual('bowls of mush');
+    });
+
+    test('works without the ~', () => {
+      expect(GW.text.toPluralNoun('sword')).toEqual('swords');
+      expect(GW.text.toPluralNoun('strawberry')).toEqual('strawberries');
+    });
+  });
+
 });

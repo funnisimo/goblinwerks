@@ -767,6 +767,7 @@
 
     AF_MALE         : Fl(3),
     AF_FEMALE       : Fl(4),
+    AF_YOU          : Fl(5),  // Use 'you' as the actor name in messages
 
     AF_DEBUG        : Fl(30),
   });
@@ -1865,7 +1866,7 @@
 
 
 
-  function toSingular(verb) {
+  function toSingularVerb(verb) {
     if (verb.endsWith('y')) {
       return verb.substring(0, verb.length - 1) + 'ies';
     }
@@ -1875,6 +1876,13 @@
     return verb + 's';
   }
 
+
+  function toPluralNoun(noun, isPlural=true) {
+    if (!isPlural) return noun.replace('~','');
+    const place = noun.indexOf('~');
+    if (place < 0) return toSingularVerb(noun);
+    return noun.replace('~', 's');
+  }
 
 
   function eachChar(msg, fn) {
@@ -2371,7 +2379,8 @@
     pluralPronoun: pluralPronoun,
     firstChar: firstChar,
     isVowel: isVowel,
-    toSingular: toSingular,
+    toSingularVerb: toSingularVerb,
+    toPluralNoun: toPluralNoun,
     eachChar: eachChar,
     length: length,
     splice: splice,
@@ -7933,6 +7942,9 @@
       if (typeof opts === 'string') { opts = { article: opts }; }
 
       let result = actor.name || this.name;
+      if (!opts.formal && actor.isPlayer()) {
+        result = 'you';
+      }
       if (opts.color || (this.consoleColor && (opts.color !== false))) {
         let color = this.sprite.fg;
         if (this.consoleColor instanceof types.Color) {
@@ -8178,7 +8190,7 @@
 
     getVerb(verb) {
       if (this.isPlayer()) return verb;
-      return toSingular(verb);
+      return toSingularVerb(verb);
     }
 
     getPronoun(pn) {
@@ -10950,7 +10962,7 @@
       if (opts === false) { opts = {}; }
       if (typeof opts === 'string') { opts = { article: opts }; }
 
-      let result = item.name || this.name;
+      let result = toPluralNoun(item.name || this.name, item.quantity > 1);
       if (opts.color || (this.consoleColor && (opts.color !== false))) {
         let color = this.sprite.fg;
         if (this.consoleColor instanceof types.Color) {
@@ -11643,6 +11655,7 @@
   const blueBar = addKind('blueBar', 	15,		10,		50);
   const redBar = 	addKind('redBar', 	45,		10,		15);
   const purpleBar = addKind('purpleBar', 	50,		0,		50);
+  const greenBar = addKind('greenBar', 	10,		50,		10);
 
 
   function setup$2(opts={}) {
@@ -12033,7 +12046,7 @@
     	// Progress Bars
     	y = sidebar$1.addHealthBar(entry, y, dim, highlight, buf);
     	y = sidebar$1.addManaBar(entry, y, dim, highlight, buf);
-    	y = sidebar$1.addNutritionBar(entry, y, dim, highlight, buf);
+    	y = sidebar$1.addFoodBar(entry, y, dim, highlight, buf);
     	y = sidebar$1.addStatuses(entry, y, dim, highlight, buf);
     	y = sidebar$1.addStateInfo(entry, y, dim, highlight, buf);
     	y = sidebar$1.addPlayerInfo(entry, y, dim, highlight, buf);
@@ -12095,7 +12108,7 @@
   	// }
   	//end patch
 
-  	const name = monst.getName({ color: monstForeColor });
+  	const name = monst.getName({ color: monstForeColor, formal: true });
   	let monstName = capitalize(name);
 
     if (monst.isPlayer()) {
@@ -12170,7 +12183,7 @@
     if (actor.max.health > 0 && (actor.isPlayer() || (actor.current.health != actor.max.health)) && !actor.isInvulnerable())
     {
       let healthBarColor = colors.blueBar;
-  		if (actor === DATA.player) {
+  		if (actor.isPlayer()) {
   			healthBarColor = colors.redBar.clone();
   			healthBarColor.mix(colors.blueBar, Math.min(100, 100 * actor.current.health / actor.max.health));
   		}
@@ -12201,7 +12214,7 @@
     if (actor.max.mana > 0 && (actor.isPlayer() || (actor.current.mana != actor.max.mana)))
     {
       let barColor = colors.purpleBar;
-  		if (actor === DATA.player) {
+  		if (actor.isPlayer()) {
   			barColor = colors.redBar.clone();
   			barColor.mix(colors.purpleBar, Math.min(100, 100 * actor.current.mana / actor.max.mana));
   		}
@@ -12221,11 +12234,35 @@
   sidebar$1.addManaBar = addManaBar;
 
 
-  function addNutritionBar(entry, y, dim, highlight, buf) {
+  function addFoodBar(entry, y, dim, highlight, buf) {
+    if (y >= SIDE_BOUNDS.height - 1) {
+      return SIDE_BOUNDS.height - 1;
+    }
+
+    const map = entry.map;
+    const actor = entry.entity;
+
+    if (actor.max.food > 0 && (actor.isPlayer() || (actor.current.food != actor.max.food)))
+    {
+      let barColor = colors.greenBar;
+  		if (actor.isPlayer()) {
+  			barColor = colors.purpleBar.clone();
+  			barColor.mix(colors.greenBar, Math.min(100, 100 * actor.current.food / actor.max.food));
+  		}
+
+      let text = 'Food';
+  		// const percent = actor.statChangePercent('health');
+  		if (actor.current.food <= 0) {
+  				text = "None";
+  		// } else if (percent != 0) {
+  		// 		text = Text.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
+  		}
+  		y = sidebar$1.addProgressBar(y, buf, text, actor.current.food, actor.max.food, barColor, dim);
+  	}
   	return y;
   }
 
-  sidebar$1.addNutritionBar = addNutritionBar;
+  sidebar$1.addFoodBar = addFoodBar;
 
 
   function addStatuses(entry, y, dim, highlight, buf) {

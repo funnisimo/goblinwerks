@@ -164,6 +164,9 @@ class ActorKind {
     if (typeof opts === 'string') { opts = { article: opts }; }
 
     let result = actor.name || this.name;
+    if (!opts.formal && actor.isPlayer()) {
+      result = 'you';
+    }
     if (opts.color || (this.consoleColor && (opts.color !== false))) {
       let color = this.sprite.fg;
       if (this.consoleColor instanceof types.Color) {
@@ -410,7 +413,7 @@ export class Actor {
 
   getVerb(verb) {
     if (this.isPlayer()) return verb;
-    return Text.toSingular(verb);
+    return Text.toSingularVerb(verb);
   }
 
   getPronoun(pn) {

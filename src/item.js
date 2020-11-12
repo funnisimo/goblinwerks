@@ -74,7 +74,7 @@ class ItemKind {
     if (opts === false) { opts = {}; }
     if (typeof opts === 'string') { opts = { article: opts }; }
 
-    let result = item.name || this.name;
+    let result = Text.toPluralNoun(item.name || this.name, item.quantity > 1);
     if (opts.color || (this.consoleColor && (opts.color !== false))) {
       let color = this.sprite.fg;
       if (this.consoleColor instanceof GW.types.Color) {

@@ -23,6 +23,7 @@ sidebar.debug = Utils.NOOP;
 const blueBar = Color.addKind('blueBar', 	15,		10,		50);
 const redBar = 	Color.addKind('redBar', 	45,		10,		15);
 const purpleBar = Color.addKind('purpleBar', 	50,		0,		50);
+const greenBar = Color.addKind('greenBar', 	10,		50,		10);
 
 
 export function setup(opts={}) {
@@ -415,7 +416,7 @@ function sidebarAddActor(entry, y, dim, highlight, buf)
   	// Progress Bars
   	y = sidebar.addHealthBar(entry, y, dim, highlight, buf);
   	y = sidebar.addManaBar(entry, y, dim, highlight, buf);
-  	y = sidebar.addNutritionBar(entry, y, dim, highlight, buf);
+  	y = sidebar.addFoodBar(entry, y, dim, highlight, buf);
   	y = sidebar.addStatuses(entry, y, dim, highlight, buf);
   	y = sidebar.addStateInfo(entry, y, dim, highlight, buf);
   	y = sidebar.addPlayerInfo(entry, y, dim, highlight, buf);
@@ -477,7 +478,7 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
 	// }
 	//end patch
 
-	const name = monst.getName({ color: monstForeColor });
+	const name = monst.getName({ color: monstForeColor, formal: true });
 	let monstName = Text.capitalize(name);
 
   if (monst.isPlayer()) {
@@ -552,7 +553,7 @@ function addHealthBar(entry, y, dim, highlight, buf) {
   if (actor.max.health > 0 && (actor.isPlayer() || (actor.current.health != actor.max.health)) && !actor.isInvulnerable())
   {
     let healthBarColor = GW.colors.blueBar;
-		if (actor === DATA.player) {
+		if (actor.isPlayer()) {
 			healthBarColor = GW.colors.redBar.clone();
 			healthBarColor.mix(GW.colors.blueBar, Math.min(100, 100 * actor.current.health / actor.max.health));
 		}
@@ -583,7 +584,7 @@ function addManaBar(entry, y, dim, highlight, buf) {
   if (actor.max.mana > 0 && (actor.isPlayer() || (actor.current.mana != actor.max.mana)))
   {
     let barColor = GW.colors.purpleBar;
-		if (actor === DATA.player) {
+		if (actor.isPlayer()) {
 			barColor = GW.colors.redBar.clone();
 			barColor.mix(GW.colors.purpleBar, Math.min(100, 100 * actor.current.mana / actor.max.mana));
 		}
@@ -603,11 +604,35 @@ function addManaBar(entry, y, dim, highlight, buf) {
 sidebar.addManaBar = addManaBar;
 
 
-function addNutritionBar(entry, y, dim, highlight, buf) {
+function addFoodBar(entry, y, dim, highlight, buf) {
+  if (y >= SIDE_BOUNDS.height - 1) {
+    return SIDE_BOUNDS.height - 1;
+  }
+
+  const map = entry.map;
+  const actor = entry.entity;
+
+  if (actor.max.food > 0 && (actor.isPlayer() || (actor.current.food != actor.max.food)))
+  {
+    let barColor = GW.colors.greenBar;
+		if (actor.isPlayer()) {
+			barColor = GW.colors.purpleBar.clone();
+			barColor.mix(GW.colors.greenBar, Math.min(100, 100 * actor.current.food / actor.max.food));
+		}
+
+    let text = 'Food';
+		// const percent = actor.statChangePercent('health');
+		if (actor.current.food <= 0) {
+				text = "None";
+		// } else if (percent != 0) {
+		// 		text = Text.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
+		}
+		y = sidebar.addProgressBar(y, buf, text, actor.current.food, actor.max.food, barColor, dim);
+	}
 	return y;
 }
 
-sidebar.addNutritionBar = addNutritionBar;
+sidebar.addFoodBar = addFoodBar;
 
 
 function addStatuses(entry, y, dim, highlight, buf) {

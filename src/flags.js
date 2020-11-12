@@ -39,6 +39,7 @@ export const Actor = installFlag('actor', {
 
   AF_MALE         : Fl(3),
   AF_FEMALE       : Fl(4),
+  AF_YOU          : Fl(5),  // Use 'you' as the actor name in messages
 
   AF_DEBUG        : Fl(30),
 });

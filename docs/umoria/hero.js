@@ -1,4 +1,13 @@
 
+GW.config.hunger = {
+  STOMACH_SIZE:					2150,
+  HUNGER_THRESHOLD:			300,
+  WEAK_THRESHOLD:				150,
+  FAINT_THRESHOLD:			50,
+};
+
+
+
 const HERO_MAX_LEVEL = 40;
 const TURNS_FOR_FULL_MANA_REGEN = 100;
 const BTH_PER_PLUS_TO_HIT_ADJUST = 3; // Adjust BTH per plus-to-hit
@@ -66,6 +75,7 @@ class HeroKind extends GW.types.ActorKind {
       roles: [],
       history: 0,
       description: null,
+      stats: {},
 
       // Electing not to do gender/sex just to simplify some things
       // You could easily add it later
@@ -74,6 +84,7 @@ class HeroKind extends GW.types.ActorKind {
       ch: '@',
       fg: 'white',
     });
+    opts.stats.food = GW.config.hunger.STOMACH_SIZE;
 
     super(opts);
 
