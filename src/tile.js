@@ -92,7 +92,7 @@ export class Tile {
       if (opts.color instanceof types.Color) {
         color = opts.color;
       }
-      result = Text.format('%F%s%F', color, this.name, null);
+      result = Text.apply('#color#$name$##', { color, name: this.name });
     }
 
     if (opts.article && this.article) {
@@ -114,7 +114,7 @@ export class Tile {
     if (this.flags & Flags.Tile.T_LAVA && actor) {
       if (!cell.hasTileFlag(Flags.Tile.T_BRIDGE) && !actor.status.levitating) {
         actor.kind.kill(actor);
-        await Game.gameOver(false, COLORS.red, 'you fall into lava and perish.');
+        await Game.gameOver(false, '#red#you fall into lava and perish.');
         return true;
       }
     }

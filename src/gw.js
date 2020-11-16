@@ -27,6 +27,8 @@ export var flags = {};
 export var tiles = {};
 export var tileEvents = {};
 
+export var messages = {};
+
 export var config = {
   fx: {},
 };

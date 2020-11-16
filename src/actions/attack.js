@@ -53,6 +53,10 @@ export async function attack(actor, target, ctx={}) {
   ctx.damage = actor.calcDamageTo(target, info, ctx);
   await Combat.applyDamage(actor, target, info, ctx);
 
+  if (target.isPlayer() && target.isDead()) {
+    await Game.gameOver(false, 'Killed by $attacker$.', { actor });
+  }
+
   actor.endTurn();
   return true;
 }

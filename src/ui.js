@@ -381,14 +381,16 @@ ui.clearCursor = clearCursor;
 
 // FUNCS
 
-export async function prompt(...args) {
-	const msg = Text.format(...args);
+export async function prompt(text, args) {
+  if (args) {
+    text = Text.apply(text, args);
+  }
 
 	if (SHOW_FLAVOR) {
-		FLAVOR.showPrompt(msg);
+		FLAVOR.showPrompt(text);
 	}
 	else {
-		console.log(msg);
+		console.log(text);
 	}
 }
 
@@ -429,12 +431,12 @@ export async function fadeTo(color, duration=1000, src) {
 ui.fadeTo = fadeTo;
 
 
-export async function messageBox(duration, text, ...args) {
+export async function messageBox(duration, text, args) {
 
   const buffer = ui.startDialog();
 
-	if (args.length) {
-		text = Text.format(text, ...args);
+	if (args) {
+		text = Text.apply(text, args);
 	}
 
   const len = text.length;
@@ -452,18 +454,16 @@ export async function messageBox(duration, text, ...args) {
 ui.messageBox = messageBox;
 
 
-export async function confirm(opts, ...args) {
+export async function confirm(opts, prompt, args) {
 
   let text;
   if (typeof opts === 'string') {
-    args.shift(opts);
+    args = prompt;
+    prompt = opts;
     opts = {};
   }
-  if (args.length > 1) {
-    text = Text.format(...args);
-  }
-  else {
-    text = args[0];
+  if (prompt && args) {
+    text = Text.apply(prompt, args);
   }
 
   const buffer = ui.startDialog();

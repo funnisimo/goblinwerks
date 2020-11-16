@@ -7,7 +7,7 @@ describe('GW.events', () => {
     const listener = jest.fn();
     GW.on('test', listener);
     await GW.emit('test', 1, 2, 3);
-    expect(listener).toHaveBeenCalledWith(1, 2, 3);
+    expect(listener).toHaveBeenCalledWith('test', 1, 2, 3);
   });
 
   test('basic event removing', async () => {

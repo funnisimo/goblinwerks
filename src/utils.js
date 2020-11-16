@@ -227,6 +227,64 @@ export function setDefaults(obj, def) {
   });
 }
 
+export function kindDefaults(obj, def) {
+  let current;
+  let dest;
+  Object.keys(def).forEach( (key) => {
+    const origKey = key;
+    let defValue = def[key];
+    dest = obj;
+
+    // allow for => 'stats.health': 100
+    const parts = key.split('.');
+    while (parts.length > 1) {
+      key = parts.shift();
+      if (dest[key] === undefined) {
+        dest = dest[key] = {};
+      }
+      else if (typeof dest[key] !== 'object') {
+        ERROR('Trying to set default member on non-object config item: ' + origKey);
+      }
+      else {
+        dest = dest[key];
+      }
+    }
+
+    key = parts.shift();
+    let current = dest[key];
+
+    // console.log('def - ', key, current, defValue, obj, dest);
+
+    if (key.search(/[fF]lags$/) >= 0) {
+      if (!current) {
+        current = [];
+      }
+      else if (!Array.isArray(current)) {
+        current = [current];
+      }
+
+      if (!Array.isArray(defValue)) {
+        defValue = [defValue];
+      }
+
+      // console.log('flags', key, defValue, current);
+
+      dest[key] = defValue.concat(current);
+    }
+    else if (current === undefined) {
+      if (Array.isArray(defValue)) {
+        dest[key] = defValue.slice();
+      }
+      else if (typeof defValue === 'object') {
+        dest[key] = Object.assign({}, defValue);
+      }
+      else {
+        dest[key] = defValue;
+      }
+    }
+  });
+}
+
 export function clearObject(obj) {
   Object.keys(obj).forEach( (key) => obj[key] = undefined );
 }

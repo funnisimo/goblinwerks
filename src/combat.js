@@ -2,6 +2,7 @@
 import * as Utils from './utils.js';
 import * as Text from './text.js';
 import * as TileEvent from './tileEvent.js';
+import * as Game from './game.js';
 import * as GW from './gw.js';
 
 
@@ -16,9 +17,11 @@ export async function applyDamage(attacker, defender, attackInfo, ctx) {
   if (msg) {
     if (typeof msg !== 'string') {
       let verb = attackInfo.verb || 'hit';
-      msg = Text.format('%s %s %s for %F%d%F damage', attacker.getName(), attacker.getVerb(verb), defender.getName('the'), 'red', Math.round(ctx.damage), null);
+      GW.message.addCombat('$attacker$ $verb$ $the.defender$ for #red#$damage$## damage', { attacker, verb, defender, damage: Math.round(ctx.damage) });
     }
-    GW.message.addCombat(msg);
+    else {
+      GW.message.addCombat(msg);
+    }
   }
 
   const ctx2 = { map, x: defender.x, y: defender.y, volume: ctx.damage };
@@ -47,11 +50,7 @@ export async function applyDamage(attacker, defender, attackInfo, ctx) {
     }
 
     if (defender.isDead() && (msg !== false)) {
-      GW.message.addCombat('%s %s', defender.isInanimate() ? 'destroying' : 'killing', defender.getPronoun('it'));
-    }
-
-    if (defender.isPlayer()) {
-      await gameOver(false, 'Killed by %s.', attacker.getName(true));
+      GW.message.addCombat('#red#$action$## $it.defender$', { action: defender.isInanimate() ? 'destroying' : 'killing', defender });
     }
   }
   return ctx.damage;

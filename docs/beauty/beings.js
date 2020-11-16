@@ -48,12 +48,13 @@ class Monster extends GW.types.ActorKind {
   }
 
   talk(talker, listener, ctx) {
-    GW.message.add('%s says nothing.', talker.getName('the'));
+    GW.message.add('TALK_NOTHING', { talker, listener });
     return true;
   }
 
 };
 
+GW.message.addKind('TALK_NOTHING', '$the.talker$ $say$ nothing.');
 
 
 GW.actor.addKind('RAT', new Monster({
@@ -201,10 +202,10 @@ GW.actor.addKind('TREE', new Monster({
 
 class Hero extends Monster {
   constructor(opts) {
-    GW.utils.setDefaults(opts, {
+    GW.utils.kindDefaults(opts, {
       bump: ['talk'],
       ai: ['moveRandomly', 'idle'],
-      attacks: { melee: { verb: 'slash' } },
+      'attacks.melee.verb': 'slash',
     });
     super(opts);
   }
@@ -223,10 +224,12 @@ class Hero extends Monster {
       chats = HERO_LAST_CHATS;
     }
     const text = GW.random.item(chats);
-    GW.message.add(`%s says, \"%s\"`, talker.getName(), text);
+    GW.message.add('TALK_TEXT', { talker, text, listener });
     return true;
   }
 }
+
+GW.message.addKind('TALK_TEXT', '$talker$ $say$, "$text$"');
 
 
 GW.actor.addKind('HERO', new Hero({

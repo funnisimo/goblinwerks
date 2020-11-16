@@ -136,4 +136,84 @@ describe('GW.utils', () => {
     expect(d.next).toBe(b);
     expect(UTILS.chainLength(obj.chain)).toEqual(5);
   });
+
+  describe('kindDefaults', () => {
+
+    test('sets basic values', () => {
+      const dest = {};
+      UTILS.kindDefaults(dest, {
+        a: 1,
+        b: 2,
+        'c.d': 3,
+        'e.f.g': 4
+      });
+
+      expect(dest.a).toEqual(1);
+      expect(dest.b).toEqual(2);
+      expect(dest.c.d).toEqual(3);
+      expect(dest.e.f.g).toEqual(4);
+
+    });
+
+    test('honors set values', () => {
+
+      const dest = {
+        b: 3,
+        c: { h: 2 },
+        e: { f: { g: 5 } },
+      };
+      UTILS.kindDefaults(dest, {
+        a: 1,
+        b: 2,
+        'c.d': 3,
+        'e.f.g': 4
+      });
+
+      expect(dest.a).toEqual(1);
+      expect(dest.b).toEqual(3);
+      expect(dest.c.d).toEqual(3);
+      expect(dest.e.f.g).toEqual(5);
+
+    });
+
+    test('treats flags as an array', () => {
+      const dest = {};
+      UTILS.kindDefaults(dest, {
+        flags: 'TEST',
+      });
+      expect(dest.flags).toEqual(['TEST']);
+    });
+
+    test('concats default value first', () => {
+      const dest = {
+        flags: 'VALUE',
+      };
+      UTILS.kindDefaults(dest, {
+        flags: 'TEST',
+      });
+      expect(dest.flags).toEqual(['TEST', 'VALUE']);
+    });
+
+    test('works with # flags', () => {
+      const dest = {
+        flags: 8,
+      };
+      UTILS.kindDefaults(dest, {
+        flags: 32,
+      });
+      expect(dest.flags).toEqual([32, 8]);
+    });
+
+    test('works with array flags', () => {
+      const dest = {
+        flags: ['A', 'B'],
+      };
+      UTILS.kindDefaults(dest, {
+        flags: ['B', 'C'],
+      });
+      expect(dest.flags).toEqual(['B', 'C', 'A', 'B']);
+    });
+
+  });
+
 });

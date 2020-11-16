@@ -88,6 +88,12 @@ const PLAYER = GW.make.player({
     },
 });
 
+
+GW.message.addKind('PICKUP_BETTER', '$you$ $find$ $a.item$, but $your.actor$ $current$ $is$ better.');
+GW.message.addKind('PICKUP_NO_NEED', '$you$ $find$ $a.item$, but $you$ $do$ not need $it.item$.');
+GW.message.addKind('PICKUP', '$you$ $pickup$ $a.item$.');
+
+
 // Our item base class
 class EscapeItem extends GW.types.ItemKind {
   constructor(opts={}) {
@@ -124,7 +130,7 @@ class EscapeItem extends GW.types.ItemKind {
       if (actor.slots[slot]) {
         current = actor.slots[slot];
         if (current.stats.damage > item.stats.damage) {
-          GW.message.add('%s find %s, but your %s is better.', actor.getName(), item.getName({ article: 'a', details: true }), current.getName({ details: true }));
+          GW.message.add('PICKUP_BETTER', { actor, item, current });
           return false;
         }
       }
@@ -132,13 +138,13 @@ class EscapeItem extends GW.types.ItemKind {
     }
     else if (item.stats.heal) {
       if (actor.current.health >= actor.max.health) {
-        GW.message.add('%s find %s, but you do not need it.', actor.getName(), item.getName({ article: 'a', details: true }));
+        GW.message.add('PICKUP_NO_NEED', { actor, item });
         return false;
       }
       actor.kind.heal(actor, item.stats.heal);
       current = true;
     }
-    GW.message.add('%s pickup %s.', actor.getName(), item.getName({ article: 'a', details: true }));
+    GW.message.add('PICKUP', { actor, item });
     actor.flags |= GW.flags.actor.AF_CHANGED;
     return current;
   }
@@ -165,25 +171,22 @@ GW.tile.addKind('BLOOD_GREEN', {
 
 class Zombie extends GW.types.ActorKind {
   constructor(opts={}) {
-    GW.utils.setDefaults(opts, {
+    GW.utils.kindDefaults(opts, {
       name: 'Zombie',
-      sprite: { ch: 'z', fg: 'red' },
+      ch: 'z', fg: 'red',
+      'stats.health': 3,
 
       consoleColor: 'dark_red',
       corpse: 'ZOMBIE_CORPSE',  // Leave this corpse when you are killed
 
-      stats: {},
       blood: 'BLOOD_GREEN',
       speed: 180,  // 120 is default, 180 is 50% slower
 
       bump: ['zombiePush', 'attack'],
       ai: [stumbles, 'attackPlayer', 'moveTowardPlayer', 'moveRandomly', 'idle'],
 
-      attacks: {
-        melee: { damage: 1, verb: 'scratch' }
-      },
+      'attacks.melee': { damage: 1, verb: 'scratch' }
     });
-    GW.utils.setDefaults(opts.stats, { health: 3 });
     super(opts);
   }
 
@@ -415,7 +418,7 @@ GW.item.addKind('BANDAGE', new EscapeItem({
 
 
 async function exitLevel() {
-	await GW.game.gameOver(true, GW.colors.teal, 'You push open the doors and feel the fresh air hit your face.  The relief is palpable, but in the back of your mind you morn for your colleagues who remain inside.');
+	await GW.game.gameOver(true, '#teal#You push open the doors and feel the fresh air hit your face.  The relief is palpable, but in the back of your mind you morn for your colleagues who remain inside.');
 }
 
 // Here is your goal, when the player enters call the exitLevel function
@@ -425,6 +428,8 @@ GW.tile.addKind('EXIT', {
 	events: { playerEnter: exitLevel }
 });
 
+GW.message.addKind('BEWARE', '#dark_red#Beware!');
+
 GW.tile.addKind('HELLO_SIGN', {
   name: 'sign',
   layer: 'SURFACE',
@@ -432,7 +437,7 @@ GW.tile.addKind('HELLO_SIGN', {
   flags: ['TM_LIST_IN_SIDEBAR'],
   events: {
     playerEnter(x, y, ctx) {
-      GW.message.add('%FBeware!', 'dark_red');
+      GW.message.add('BEWARE', { actor: GW.data.player });
       return true;
     }
   }
@@ -623,7 +628,7 @@ async function showHelp() {
 	GW.ui.finishDialog();
 }
 
-
+GW.message.addKind('WELCOME', '#yellow#Escape from ECMA Labs!\n#purple#You are in the basement of a lab where something has gone horribly wrong.\nFind your way to the surface.\n##Press <?> for help.');
 
 // start the game
 async function start() {
@@ -653,7 +658,7 @@ async function start() {
 	});
 
   // welcome message
-	GW.message.add('%FEscape from ECMA Labs!\n%FYou are in the basement of a lab where something has gone horribly wrong.\nFind your way to the surface.\n%FPress <?> for help.', 'yellow', 'purple', null);
+	GW.message.add('WELCOME');
 
   // start the game
 	const success = await GW.game.start({ player: PLAYER, map, fov: true });

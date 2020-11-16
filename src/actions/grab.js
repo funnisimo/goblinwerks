@@ -18,7 +18,7 @@ export async function grab(actor, item, ctx={}) {
   }
 
   actor.grabbed = item;
-  MSG.add('%s grab %s.', actor.getName(), actor.grabbed.getName('a'));
+  MSG.add('$you$ $grab$ $a.item$.', { actor, item: actor.grabbed });
   await FX.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
   actor.endTurn();
   return true;
@@ -30,7 +30,7 @@ Actions.grab = grab;
 export async function release(actor, item, ctx={}) {
   if (!actor.grabbed) return false;
 
-  MSG.add('%s let go of %s.', actor.getName(), actor.grabbed.getName('a'));
+  MSG.add('$you$ $let$ go of $a.item$.', { actor, item: actor.grabbed });
   await FX.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
   actor.grabbed = null;
   actor.endTurn();

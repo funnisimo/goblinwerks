@@ -31,6 +31,9 @@ async function showHelp() {
 	GW.ui.finishDialog();
 }
 
+GW.message.addKind('LEVEL_START', '#teal#At start of dungeon.');
+GW.message.addKind('LEVEL_ASCEND', '$you$ $ascend$ to level $level$.');
+GW.message.addKind('LEVEL_DESCEND', '$you$ $descend$ to level $level$.');
 
 async function forceStairs(ev) {
 	const isUp = (ev.key == '<');
@@ -38,14 +41,14 @@ async function forceStairs(ev) {
 	const mapId = GW.data.map.id + (isUp ? 1 : -1);
 
 	if (isUp && GW.data.map.id == 0) {
-		GW.message.add(GW.colors.teal, 'At start of dungeon.');
+		GW.message.add('LEVEL_START', { actor: PLAYER, level: 0});
 		return false;
 	}
 	else if (isUp) {
-		GW.message.add('You ascend to level %d.', Math.abs(mapId));
+		GW.message.add('LEVEL_ASCEND', { actor: PLAYER, level: Math.abs(mapId) });
 	}
 	else {
-		GW.message.add('You descend to level %d.', Math.abs(mapId));
+		GW.message.add('LEVEL_DESCEND', { actor: PLAYER, level: Math.abs(mapId) });
 	}
 
 	const newMap = await GW.game.getMap(mapId);
@@ -56,6 +59,8 @@ async function forceStairs(ev) {
   PLAYER.endTurn();
   return true;
 }
+
+GW.message.addKind('WELCOME', '#yellow#Welcome to Town!\n#dark_purple#Visit our shops to equip yourself for a journey into the #green#Dungeons of Moria##.  Once you are prepared, enter the dungeon and seek the #dark_red#Balrog##.  Destroy him to free us all!\n##Press <?> for help.');
 
 // start the environment
 async function start() {
@@ -81,7 +86,7 @@ async function start() {
       }
 
       if (PLAYER) {
-        GW.message.add('%FWelcome to Town!\n%FVisit our shops to equip yourself for a journey into the %FDungeons of Moria%F.  Once you are prepared, enter the dungeon and seek the %FBalrog%F.  Destroy him to free us all!\n%FPress <?> for help.', 'yellow', 'dark_purple', 'green', 'dark_purple', 'dark_red', 'dark_purple', null);
+        GW.message.add('WELCOME');
       	await GW.game.start({ player: PLAYER, buildMap: designNewLevel, fov: true });
       }
     }

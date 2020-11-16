@@ -266,20 +266,22 @@ export async function updateEnvironment() {
 
 SPRITE.install('hilite', COLORS.white);
 
-export async function gameOver(isWin, ...args) {
-  const msg = Text.format(...args);
+export async function gameOver(isWin, msg, args) {
+  if (args) {
+    msg = Text.apply(msg, args);
+  }
 
   FLAVOR.clear();
   MSG.add(msg);
   if (isWin) {
     DATA.isWin = true;
-    MSG.add(COLORS.yellow, 'WINNER!');
+    MSG.add('#yellow#WINNER!');
   }
   else {
     DATA.isWin = false;
-    MSG.add(COLORS.red, 'GAME OVER');
+    MSG.add('#red#GAME OVER');
   }
-  MSG.add(COLORS.white, 'Press <Enter> to continue.');
+  MSG.add('Press <Enter> to continue.');
   UI.updateNow();
   await FX.flashSprite(DATA.map, DATA.player.x, DATA.player.y, 'hilite', 500, 3);
   DATA.gameHasEnded = true;
@@ -296,12 +298,12 @@ export async function useStairs(x, y) {
   if (cell.hasTileFlag(Flags.Tile.T_UP_STAIRS)) {
     start = 'down';
     mapId = map.id + 1;
-    MSG.add('you ascend.');
+    MSG.add('$you$ $ascend$.', { actor: player });
   }
   else if (cell.hasTileFlag(Flags.Tile.T_DOWN_STAIRS)) {
     start = 'up';
     mapId = map.id - 1;
-    MSG.add('you descend.');
+    MSG.add('$you$ $descend$.', { actor: player });
   }
   else if (cell.hasTileFlag(Flags.Tile.T_PORTAL)) {
     start = cell.data.portalLocation;

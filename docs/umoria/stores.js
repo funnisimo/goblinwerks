@@ -56,6 +56,10 @@ class Store {
     this.updateTime = opts.turns || GW.config.store.MAINTENANCE_SPEED;
   }
 
+  getName() {
+    return this.name;
+  }
+
   itemCost(item) {
     const base = item.stats.cost || 1;
     const qty = item.quantity || 1;
@@ -235,11 +239,27 @@ const STORE_SORRY = [  // char *[5] = {
 ];
 
 
+GW.message.addKind('STORE_WELCOME', '#green#Welcome to $store$!');
 
-async function enterStore(id, ...args) {
-  GW.message.add(GW.colors.green, 'Welcome to the %s!', this.name);
+async function enterStore(id, ctx) {
+  GW.message.add('STORE_WELCOME', { store: this, actor: ctx.actor });
+
+  let mode = 0;
+  while(mode >=0) {
+    if (mode == 0) {
+      mode = await showStoreInventory(this, ctx.actor);
+    }
+    else if (mode == 1) {
+      mode = await showPlayerInventory(this, ctx.actor);
+    }
+  }
+  return true;
 }
 
+
+async function showStoreInventory(store, actor) {
+
+}
 
 
 function addStore(id, opts={}) {

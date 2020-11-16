@@ -19,13 +19,15 @@ var commands$1 = {};
 var ai = {};
 
 var itemKinds = {};
-var item = {};
+var item$1 = {};
 
 var flag = {};
 var flags = {};
 
 var tiles = {};
 var tileEvents$1 = {};
+
+var messages = {};
 
 var config = {
   fx: {},
@@ -338,6 +340,63 @@ function setDefaults(obj, def) {
   });
 }
 
+function kindDefaults(obj, def) {
+  let dest;
+  Object.keys(def).forEach( (key) => {
+    const origKey = key;
+    let defValue = def[key];
+    dest = obj;
+
+    // allow for => 'stats.health': 100
+    const parts = key.split('.');
+    while (parts.length > 1) {
+      key = parts.shift();
+      if (dest[key] === undefined) {
+        dest = dest[key] = {};
+      }
+      else if (typeof dest[key] !== 'object') {
+        ERROR('Trying to set default member on non-object config item: ' + origKey);
+      }
+      else {
+        dest = dest[key];
+      }
+    }
+
+    key = parts.shift();
+    let current = dest[key];
+
+    // console.log('def - ', key, current, defValue, obj, dest);
+
+    if (key.search(/[fF]lags$/) >= 0) {
+      if (!current) {
+        current = [];
+      }
+      else if (!Array.isArray(current)) {
+        current = [current];
+      }
+
+      if (!Array.isArray(defValue)) {
+        defValue = [defValue];
+      }
+
+      // console.log('flags', key, defValue, current);
+
+      dest[key] = defValue.concat(current);
+    }
+    else if (current === undefined) {
+      if (Array.isArray(defValue)) {
+        dest[key] = defValue.slice();
+      }
+      else if (typeof defValue === 'object') {
+        dest[key] = Object.assign({}, defValue);
+      }
+      else {
+        dest[key] = defValue;
+      }
+    }
+  });
+}
+
 function clearObject(obj) {
   Object.keys(obj).forEach( (key) => obj[key] = undefined );
 }
@@ -467,6 +526,7 @@ var utils$1 = /*#__PURE__*/Object.freeze({
   assignOmitting: assignOmitting,
   setDefault: setDefault,
   setDefaults: setDefaults,
+  kindDefaults: kindDefaults,
   clearObject: clearObject,
   ERROR: ERROR,
   WARN: WARN,
@@ -1827,16 +1887,30 @@ const COLOR_VALUE_INTERCEPT =	0; // 25;
 const playerPronoun = {
   it: 'you',
   its: 'your',
+  you: 'you',
+  your: 'your',
+  he: 'you',
+  she: 'you',
+  his: 'your',
+  hers: 'your',
 };
 
 const singularPronoun = {
   it: 'it',
   its: 'its',
+  he: 'he',
+  she: 'she',
+  his: 'his',
+  hers: 'hers',
 };
 
 const pluralPronoun = {
   it: 'them',
   its: 'their',
+  he: 'them',
+  she: 'them',
+  his: 'their',
+  hers: 'their',
 };
 
 
@@ -1865,13 +1939,30 @@ function isVowel(ch) {
 
 
 function toSingularVerb(verb) {
+  if (verb === 'pickup') return 'picks up';
+  if (verb === 'have') return 'has';
   if (verb.endsWith('y')) {
-    return verb.substring(0, verb.length - 1) + 'ies';
+    if (!verb.endsWith('ay')) {
+      return verb.substring(0, verb.length - 1) + 'ies';
+    }
   }
   if (verb.endsWith('sh') || verb.endsWith('ch') || verb.endsWith('o')) {
     return verb + 'es';
   }
   return verb + 's';
+}
+
+
+function toPluralVerb(verb) {
+  if (verb === 'is') return 'are';
+  if (verb === 'has') return 'have';
+  if (verb.endsWith('ies')) {
+    return verb.substring(0, verb.length - 3) + 'y';
+  }
+  if (verb.endsWith('es')) {
+    return verb.substring(0, verb.length - 2);
+  }
+  return verb;
 }
 
 
@@ -1889,9 +1980,13 @@ function eachChar(msg, fn) {
   let index = 0;
   if (!msg || !msg.length) return;
 
+  const colors = [];
+
   for(let i = 0; i < msg.length; ++i) {
     const ch = msg.charCodeAt(i);
     if (ch === COLOR_ESCAPE) {
+        if (color$1) colors.push(color$1);
+
         components[0] = msg.charCodeAt(i + 1) - COLOR_VALUE_INTERCEPT;
         components[1] = msg.charCodeAt(i + 2) - COLOR_VALUE_INTERCEPT;
         components[2] = msg.charCodeAt(i + 3) - COLOR_VALUE_INTERCEPT;
@@ -1899,7 +1994,7 @@ function eachChar(msg, fn) {
         i += 3;
     }
     else if (ch === COLOR_END) {
-      color$1 = null;
+      color$1 = colors.pop() || null;
     }
     else {
       fn(msg[i], color$1, index);
@@ -2048,11 +2143,12 @@ function capitalize(msg) {
 // Does NOT check string lengths, so it could theoretically write over the null terminator.
 // Returns the new insertion point.
 function encodeColor(theColor) {
-  if (!theColor) {
+  if ((!theColor) || theColor == '') {
     return String.fromCharCode(COLOR_END);
   }
 
   const copy = from(theColor);
+  if (!copy) ERROR('Invalid color - [' + theColor + ']');
   copy.bake();
   copy.clamp();
   return String.fromCharCode(COLOR_ESCAPE, copy.red + COLOR_VALUE_INTERCEPT, copy.green + COLOR_VALUE_INTERCEPT, copy.blue + COLOR_VALUE_INTERCEPT);
@@ -2205,23 +2301,27 @@ function splitIntoLines(sourceText, width, indent=0) {
   // for (i=0; printString.charCodeAt(i) == COLOR_ESCAPE; i+= 4);
   spaceLeftOnLine = firstWidth;
 
+  const colors = [];
+
   let i = -1;
   let lastColor = '';
-  let nextColor = null;
-  let clearColor = false;
+  let lineStart = 0;
   while (i < textLength) {
     // wordWidth counts the word width of the next word without color escapes.
     // w indicates the position of the space or newline or null terminator that terminates the word.
     wordWidth = 0;
     for (w = i + 1; w < textLength && printString[w] !== ' ' && printString[w] !== '\n';) {
       if (printString.charCodeAt(w) === COLOR_ESCAPE) {
-        nextColor = printString.substring(w, w + 4);
-        clearColor = false;
+        // colors.push(lastColor);
+        // lastColor = printString.substring(w, w + 4);
+        // nextColor = printString.substring(w, w + 4);
+        // clearColor = false;
         w += 4;
       }
       else if (printString.charCodeAt(w) === COLOR_END) {
-        clearColor = true;
-        nextColor = null;
+        // clearColor = true;
+        // nextColor = null;
+        // lastColor = colors.pop() || '';
         w += 1;
       }
       else {
@@ -2231,23 +2331,40 @@ function splitIntoLines(sourceText, width, indent=0) {
     }
 
     if (1 + wordWidth > spaceLeftOnLine || printString[i] === '\n') {
+
+      for(let k = lineStart; k <= i; ++k) {
+        if (printString.charCodeAt(k) === COLOR_ESCAPE) {
+          colors.push(lastColor);
+          lastColor = printString.substring(k, k + 4);
+          k += 3;
+        }
+        else if (printString.charCodeAt(k) === COLOR_END) {
+          lastColor = colors.pop() || '';
+        }
+      }
+
+      // console.log('Add line - ', printString.substring(lineStart, i));
+      // console.log(lastColor, colors);
+
       printString = splice(printString, i, 1, '\n' + lastColor);	// [i] = '\n';
       w += lastColor.length;
       textLength += lastColor.length;
+      lineStart = i + lastColor.length;
       spaceLeftOnLine = width - wordWidth; // line width minus the width of the word we just wrapped
       //printf("\n\n%s", printString);
     } else {
       spaceLeftOnLine -= 1 + wordWidth;
     }
 
-    if (nextColor) {
-      lastColor = nextColor;
-      nextColor = null;
-    }
-    if (clearColor) {
-      clearColor = false;
-      lastColor = '';
-    }
+    // if (nextColor) {
+    //   colors.push(lastColor);
+    //   lastColor = nextColor;
+    //   nextColor = null;
+    // }
+    // if (clearColor) {
+    //   clearColor = false;
+    //   lastColor = colors.pop() || '';
+    // }
 
     i = w; // Advance to the terminator that follows the word.
   }
@@ -2361,14 +2478,60 @@ function format(fmt, ...args) {
 }
 
 
-// function sprintf(dest, fmt, ...args) {
-//   dest = STRING(dest);
-//   dest._textLength = -1;
-//   dest.text = text.format(fmt, ...args);
-//   return dest;
-// }
-//
-// text.sprintf = sprintf;
+
+function apply(template, args={}) {
+
+  const RE = /#(\w+)#|##(?!#)|\$(\w+)\.?(\w+)?\$/g;
+
+  let source = 'actor';
+  let result = template.replace(RE, (match, color, first, second, offset) => {
+    // console.log(m, p1, p2, p3, p4, offset);
+    if (match === '##') {
+      return encodeColor(null);
+    }
+    else if (color !== undefined) {
+      if (args[color] !== undefined) {
+        color = args[color];
+      }
+      return encodeColor(color);
+    }
+    else if (first) {
+      if (first !== 'verb' && args[first]) {
+        // TODO - allow formatting e.g. $cost.2f$, $total.4d$
+        const obj = args[first];
+        if (obj.getName) {
+          source = first;
+          return obj.getName(false);  // no article
+        }
+        return '' + obj;
+      }
+
+      if (first == 'you') {
+        first = 'the';
+        second = second || 'actor';
+      }
+      source = second || source;
+      const sourceObj = args[source] || data[source] || {};
+      if (first == 'the') {
+        if (sourceObj.getName) return sourceObj.getName('the');
+      }
+      else if (first == 'a' || first == 'an') {
+        if (sourceObj.getName) return sourceObj.getName('a');
+      }
+      else if (first == 'verb') {
+        first = args.verb || first;
+      }
+      else if (['him', 'her', 'he', 'she', 'it', 'his', 'hers', 'its', 'your'].includes(first) ) {
+        if (sourceObj.getPronoun) return sourceObj.getPronoun(first);
+      }
+
+      if (sourceObj.getVerb) return sourceObj.getVerb(first);
+    }
+    return match;
+  });
+
+  return result;
+}
 
 var text = /*#__PURE__*/Object.freeze({
   __proto__: null,
@@ -2378,6 +2541,7 @@ var text = /*#__PURE__*/Object.freeze({
   firstChar: firstChar,
   isVowel: isVowel,
   toSingularVerb: toSingularVerb,
+  toPluralVerb: toPluralVerb,
   toPluralNoun: toPluralNoun,
   eachChar: eachChar,
   length: length,
@@ -2389,7 +2553,8 @@ var text = /*#__PURE__*/Object.freeze({
   removeColors: removeColors,
   hyphenate: hyphenate,
   splitIntoLines: splitIntoLines,
-  format: format
+  format: format,
+  apply: apply
 });
 
 const TEMP_BG = new types.Color();
@@ -5319,7 +5484,7 @@ async function spawn(feat, ctx) {
 	}
 
   if (feat.eventName) {
-		await emit(feat.eventName, x, y, ctx);
+		await emit(feat.eventName, ctx);
     didSomething = true;
 	}
 
@@ -7670,14 +7835,14 @@ function promoteCellVisibility(cell, i, j, map) {
         if (cell.item) {
             const theItem = cell.item;
             if (theItem.hasKindFlag(ItemKind.IK_INTERRUPT_EXPLORATION_WHEN_SEEN)) {
-                MSG.add(COLORS.itemMessageColor, 'you see %s.', theItem.name());
+                MSG.add('$you$ $see$ #itemMessageColor#$item$##.', { item, actor: GW.data.player });
             }
         }
         if (!(cell.flags & Cell.MAGIC_MAPPED)
             && cell.hasTileMechFlag(TileMech.TM_INTERRUPT_EXPLORATION_WHEN_SEEN))
 				{
             const tile = cell.tileWithMechFlag(TileMech.TM_INTERRUPT_EXPLORATION_WHEN_SEEN);
-            GW.ui.message(GW.colors.backgroundMessageColor, 'you see %s.', tile.name);
+            MSG.add('$you$ $see$ #backgroundMessageColor#$item$##.', { actor: GW.data.player, item: tile.name });
         }
     }
     cell.markRevealed();
@@ -7944,14 +8109,19 @@ class ActorKind$1 {
       result = 'you';
     }
     if (opts.color || (this.consoleColor && (opts.color !== false))) {
-      let color = this.sprite.fg;
+      let color$1 = this.sprite.fg;
       if (this.consoleColor instanceof types.Color) {
-        color = this.consoleColor;
+        color$1 = this.consoleColor;
       }
       if (opts.color instanceof types.Color) {
-        color = opts.color;
+        color$1 = opts.color;
       }
-      result = format('%F%s%F', color, result, null);
+      else if (typeof opts.color === 'string') {
+        color$1 = from(opts.color);
+      }
+      if (color$1) {
+        result = apply('#color#$result$##', { color: color$1, result });
+      }
     }
 
     if (opts.article && (this.article !== false)) {
@@ -8511,15 +8681,12 @@ player.debug = NOOP;
 
 function makePlayer(kind) {
   if (!(kind instanceof types.ActorKind)) {
-    setDefaults(kind, {
-      sprite: { ch:'@', fg: 'white' },
+    kindDefaults(kind, {
+      ch:'@', fg: 'white',
       name: 'you', article: false,
-      attacks: {},
+      'attacks.melee': { verb: 'punch', damage: 1 },
       bump: ['talk', 'attack'],
     });
-    if (!kind.attacks.melee) {
-      kind.attacks.melee = { verb: 'punch', damage: 1 };
-    }
     kind = new types.ActorKind(kind);
   }
   return new types.Actor(kind);
@@ -8885,20 +9052,22 @@ async function updateEnvironment() {
 
 sprite.install('hilite', colors.white);
 
-async function gameOver$1(isWin, ...args) {
-  const msg = format(...args);
+async function gameOver(isWin, msg, args) {
+  if (args) {
+    msg = apply(msg, args);
+  }
 
   flavor.clear();
   message.add(msg);
   if (isWin) {
     data.isWin = true;
-    message.add(colors.yellow, 'WINNER!');
+    message.add('#yellow#WINNER!');
   }
   else {
     data.isWin = false;
-    message.add(colors.red, 'GAME OVER');
+    message.add('#red#GAME OVER');
   }
-  message.add(colors.white, 'Press <Enter> to continue.');
+  message.add('Press <Enter> to continue.');
   ui.updateNow();
   await fx.flashSprite(data.map, data.player.x, data.player.y, 'hilite', 500, 3);
   data.gameHasEnded = true;
@@ -8915,12 +9084,12 @@ async function useStairs(x, y) {
   if (cell.hasTileFlag(Tile.T_UP_STAIRS)) {
     start = 'down';
     mapId = map.id + 1;
-    message.add('you ascend.');
+    message.add('$you$ $ascend$.', { actor: player });
   }
   else if (cell.hasTileFlag(Tile.T_DOWN_STAIRS)) {
     start = 'up';
     mapId = map.id - 1;
-    message.add('you descend.');
+    message.add('$you$ $descend$.', { actor: player });
   }
   else if (cell.hasTileFlag(Tile.T_PORTAL)) {
     start = cell.data.portalLocation;
@@ -8950,7 +9119,7 @@ var game = /*#__PURE__*/Object.freeze({
   delay: delay,
   cancelDelay: cancelDelay,
   updateEnvironment: updateEnvironment,
-  gameOver: gameOver$1,
+  gameOver: gameOver,
   useStairs: useStairs
 });
 
@@ -9041,7 +9210,7 @@ class Tile$1 {
       if (opts.color instanceof types.Color) {
         color = opts.color;
       }
-      result = format('%F%s%F', color, this.name, null);
+      result = apply('#color#$name$##', { color, name: this.name });
     }
 
     if (opts.article && this.article) {
@@ -9063,7 +9232,7 @@ class Tile$1 {
     if (this.flags & Tile.T_LAVA && actor) {
       if (!cell.hasTileFlag(Tile.T_BRIDGE) && !actor.status.levitating) {
         actor.kind.kill(actor);
-        await gameOver$1(false, colors.red, 'you fall into lava and perish.');
+        await gameOver(false, '#red#you fall into lava and perish.');
         return true;
       }
     }
@@ -10500,9 +10669,11 @@ async function applyDamage(attacker, defender, attackInfo, ctx) {
   if (msg) {
     if (typeof msg !== 'string') {
       let verb = attackInfo.verb || 'hit';
-      msg = format('%s %s %s for %F%d%F damage', attacker.getName(), attacker.getVerb(verb), defender.getName('the'), 'red', Math.round(ctx.damage), null);
+      message.addCombat('$attacker$ $verb$ $the.defender$ for #red#$damage$## damage', { attacker, verb, defender, damage: Math.round(ctx.damage) });
     }
-    message.addCombat(msg);
+    else {
+      message.addCombat(msg);
+    }
   }
 
   const ctx2 = { map, x: defender.x, y: defender.y, volume: ctx.damage };
@@ -10531,11 +10702,7 @@ async function applyDamage(attacker, defender, attackInfo, ctx) {
     }
 
     if (defender.isDead() && (msg !== false)) {
-      message.addCombat('%s %s', defender.isInanimate() ? 'destroying' : 'killing', defender.getPronoun('it'));
-    }
-
-    if (defender.isPlayer()) {
-      await gameOver(false, 'Killed by %s.', attacker.getName(true));
+      message.addCombat('#red#$action$## $it.defender$', { action: defender.isInanimate() ? 'destroying' : 'killing', defender });
     }
   }
   return ctx.damage;
@@ -10551,7 +10718,7 @@ async function grab(e) {
   const map = data.map;
 
   if (actor.grabbed) {
-    message.add('%s let go of %s.', actor.getName(), actor.grabbed.getName('a'));
+    message.add('$you$ $let$ go of $a.item$.', { actor, item: actor.grabbed });
     await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
     actor.grabbed = null;
     actor.endTurn();
@@ -10744,7 +10911,7 @@ async function fire(e) {
   const item = actor.slots.ranged;
 
   if (!item) {
-    message.add('%s have nothing to %Ffire%F.', actor.getName(), 'orange', null);
+    message.add('$you$ $have$ nothing to #orange#fire##.', { actor });
     return false;
   }
 
@@ -10963,6 +11130,11 @@ class ItemKind$1 {
 		return 0;
 	}
 
+  getVerb(verb) {
+    if (this.quantity > 1) return toPluralVerb(verb);
+    return toSingularVerb(verb);
+  }
+
   getName(item, opts={}) {
     if (opts === true) { opts = { article: true }; }
     if (opts === false) { opts = {}; }
@@ -10970,14 +11142,19 @@ class ItemKind$1 {
 
     let result = toPluralNoun(item.name || this.name, item.quantity > 1);
     if (opts.color || (this.consoleColor && (opts.color !== false))) {
-      let color = this.sprite.fg;
+      let color$1 = this.sprite.fg;
       if (this.consoleColor instanceof types.Color) {
-        color = this.consoleColor;
+        color$1 = this.consoleColor;
       }
       if (opts.color instanceof types.Color) {
-        color = opts.color;
+        color$1 = opts.color;
       }
-      result = format('%F%s%F', color, result, null);
+      else if (typeof color$1 === 'string') {
+        color$1 = from(color$1);
+      }
+      if (color$1) {
+        result = apply('#color#$result$##', { color: color$1, result });
+      }
     }
     else if (opts.color === false) {
       result = removeColors(result); // In case item has built in color
@@ -11009,15 +11186,15 @@ function addItemKind(id, opts={}) {
 	return kind;
 }
 
-item.addKind = addItemKind;
+item$1.addKind = addItemKind;
 
 function addItemKinds(opts={}) {
   Object.entries(opts).forEach( ([key, config]) => {
-    item.addKind(key, config);
+    item$1.addKind(key, config);
   });
 }
 
-item.addKinds = addItemKinds;
+item$1.addKinds = addItemKinds;
 
 
 class Item$1 {
@@ -11242,9 +11419,24 @@ function generateAndPlace$1(map, opts={}) {
   return placed;
 }
 
-item.generateAndPlace = generateAndPlace$1;
+item$1.generateAndPlace = generateAndPlace$1;
 
 var MSG_BOUNDS = null;
+
+
+
+function addKind$3(id, msg) {
+  messages[id] = msg;
+}
+
+message.addKind = addKind$3;
+
+function addKinds$1(config) {
+  Object.entries(config).forEach( ([id, msg]) => message.addKind(id, msg) );
+}
+
+message.addKinds = addKinds$1;
+
 
 // messages
 const ARCHIVE = [];
@@ -11293,40 +11485,9 @@ message.setup = setup;
 ////////////////////////////////////
 // Messages
 
-function moveBlocked(ctx) {
-  if (ctx.item) {
-    message.add('Blocked by %s!', ctx.item.getFlavor());
-  }
-  else {
-    message.add('Blocked!');
-  }
-}
-
-message.moveBlocked = moveBlocked;
-
-
-function addLines(data) {
-  if (MSG_BOUNDS.y > 0) {
-    // bottom (add backwards)
-    for(let i = data.length - 1; i >= 0; --i) {
-      message.add(data[i]);
-    }
-  }
-  else {
-    // top (add forwards)
-    data.forEach((line) => message.add(line));
-  }
-}
-
-message.addLines = addLines;
-
-function add(...args) {
-  if (args.length == 0) return;
-  if (args.length == 1 && Array.isArray(args[0])) { args = args[0]; }
-  let msg = args[0];
-  if (args.length > 1) {
-    msg = format(...args);
-  }
+function add(msg, args) {
+  msg = messages[msg] || msg;
+  msg = apply(msg, args);
   commitCombatMessage();
   addMessage(msg);
 }
@@ -11341,12 +11502,8 @@ function forPlayer(actor, ...args) {
 
 message.forPlayer = forPlayer;
 
-function addCombat(...args) {
-  if (args.length == 0) return;
-  let msg = args[0];
-  if (args.length > 1) {
-    msg = format(...args);
-  }
+function addCombat(msg, args) {
+  msg = apply(msg, args);
   addCombatMessage(msg);
 }
 
@@ -12368,7 +12525,7 @@ function sidebarAddItemInfo(entry, y, dim, highlight, buf) {
 	if (config.playbackOmniscience || !DATA.player.status.hallucinating) {
 		name = theItem.getName({ color: !dim, details: true });
 	} else {
-    name = item.describeHallucinatedItem();
+    name = item$1.describeHallucinatedItem();
 	}
 	name = capitalize(name);
 
@@ -12461,9 +12618,10 @@ function getFlavorText(map, x, y) {
 	let monst;
 	let theItem;
 	let standsInTerrain;
-	let object;
+	let object = '';
 
   const player = data.player || null;
+  const actor = player;
 
 	monst = null;
 	standsInTerrain = ((cell.highestPriorityTile().mechFlags & TileMech.TM_STAND_IN_TILE) ? true : false);
@@ -12476,14 +12634,14 @@ function getFlavorText(map, x, y) {
 
 	if (player && x == player.x && y == player.y) {
 		if (player.status.levitating) {
-			buf = format("you are hovering above %s.", cell.tileFlavor());
+			buf = apply("you are hovering above $flavor$.", { actor: player, flavor: cell.tileFlavor() });
 		}
     else {
 			// if (theItem) {
 			// 	buf = ITEM.getFlavor(theItem);
 			// }
       // else {
-        buf = 'you see yourself.';
+        buf = apply('you see yourself.', {actor});
       // }
 		}
     return buf;
@@ -12535,9 +12693,9 @@ function getFlavorText(map, x, y) {
 			} else {
 				object = tiles[cell.memory.tile].getFlavor();
 			}
-			buf = format("you remember seeing %s here.", object);
+			buf = apply("you remember seeing $object$ here.", { actor, object });
 		} else if (cell.flags & Cell.MAGIC_MAPPED) { // magic mapped
-			buf = format("you expect %s to be here.", tiles[cell.memory.tile].getFlavor());
+			buf = apply("you expect $text$ to be here.", { actor, text: tiles[cell.memory.tile].getFlavor() });
 		}
 		return buf;
 	}
@@ -12581,7 +12739,7 @@ function getFlavorText(map, x, y) {
   }
   let ground = cell.groundTile.getFlavor();
 
-  buf = format("you %s %s%s%s%s.", (map.isVisible(x, y) ? "see" : "sense"), object, surface, liquid, ground);
+  buf = apply("you $action$ $text$.", { actor, action: (map.isVisible(x, y) ? "see" : "sense"), text: object + surface + liquid + ground });
 
   return buf;
 }
@@ -12959,14 +13117,16 @@ ui.clearCursor = clearCursor;
 
 // FUNCS
 
-async function prompt(...args) {
-	const msg = format(...args);
+async function prompt(text$1, args) {
+  if (args) {
+    text$1 = apply(text$1, args);
+  }
 
 	if (SHOW_FLAVOR) {
-		flavor.showPrompt(msg);
+		flavor.showPrompt(text$1);
 	}
 	else {
-		console.log(msg);
+		console.log(text$1);
 	}
 }
 
@@ -13007,12 +13167,12 @@ async function fadeTo(color, duration=1000, src) {
 ui.fadeTo = fadeTo;
 
 
-async function messageBox(duration, text$1, ...args) {
+async function messageBox(duration, text$1, args) {
 
   const buffer = ui.startDialog();
 
-	if (args.length) {
-		text$1 = format(text$1, ...args);
+	if (args) {
+		text$1 = apply(text$1, args);
 	}
 
   const len = text$1.length;
@@ -13030,18 +13190,16 @@ async function messageBox(duration, text$1, ...args) {
 ui.messageBox = messageBox;
 
 
-async function confirm(opts, ...args) {
+async function confirm(opts, prompt, args) {
 
   let text$1;
   if (typeof opts === 'string') {
-    args.shift(opts);
+    args = prompt;
+    prompt = opts;
     opts = {};
   }
-  if (args.length > 1) {
-    text$1 = format(...args);
-  }
-  else {
-    text$1 = args[0];
+  if (prompt && args) {
+    text$1 = apply(prompt, args);
   }
 
   const buffer = ui.startDialog();
@@ -13468,12 +13626,16 @@ async function moveDir(actor, dir, opts={}) {
 
 actions.moveDir = moveDir;
 
+message.addKind('BASH_NO', '$you$ cannot bash $item$.');
+message.addKind('BASH_ITEM', '$you$ $bash$ $the.item$ [-$damage$].');
+message.addKind('BASH_DESTROYED', '$the.item$ $is$ destroyed.');
+
 async function bashItem(actor, item, ctx) {
 
   const map = ctx.map || data.map;
 
   if (!item.hasActionFlag(Action.A_BASH)) {
-    if (!ctx.quiet) message.add('%s cannot bash %s.', actor.getName(), item.getName());
+    if (!ctx.quiet) message.add('BASH_NO', { actor, item });
     return false;
   }
 
@@ -13485,7 +13647,7 @@ async function bashItem(actor, item, ctx) {
   else if (actor) {
     const damage = actor.kind.calcBashDamage(actor, item, ctx);
     if (item.kind.applyDamage(item, damage, actor, ctx)) {
-      message.forPlayer(actor, '%s %s %s [-%d].', actor.getName(), actor.getVerb('bash'), item.getName('the'), damage);
+      if (actor.isPlayer()) message.add('BASH_ITEM', { actor, item, damage });
       await fx.flashSprite(map, item.x, item.y, 'hit', 100, 1);
     }
   }
@@ -13495,7 +13657,7 @@ async function bashItem(actor, item, ctx) {
 
   if (item.isDestroyed()) {
     map.removeItem(item);
-    if (actor.isPlayer()) message.add('%s is destroyed.', item.getName('the'));
+    if (actor.isPlayer()) message.add('BASH_DESTROYED', { item });
     if (item.kind.corpse) {
       await spawn(item.kind.corpse, { map, x: item.x, y: item.y });
     }
@@ -13509,11 +13671,14 @@ async function bashItem(actor, item, ctx) {
 
 actions.bashItem = bashItem;
 
+message.addKind('PICKUP_NO', '$you$ cannot pickup $the.item$.');
+message.addKind('PICKUP_ITEM', '$you$ $pickup$ $the.item$.');
+
 async function pickup(actor, item, ctx) {
 
   if (!actor.hasActionFlag(Action.A_PICKUP)) return false;
   if (item.hasActionFlag(Action.A_NO_PICKUP)) {
-    message.add('%s cannot pickup %s.', actor.getName({article: 'the', color: true }), item.getName({ article: 'the', color: true }));
+    message.add('PICKUP_NO', { actor, item });
     return false;
   }
 
@@ -13550,7 +13715,7 @@ async function pickup(actor, item, ctx) {
     await actions.use(actor, item, ctx);
   }
   else if (!ctx.quiet) {
-    message.add('%s pickup %s.', actor.getName({article: 'the', color: true }), item.getName('the'));
+    message.add('PICKUP_ITEM', { actor, item });
   }
 
   actor.endTurn();
@@ -13618,6 +13783,10 @@ async function attack$1(actor, target, ctx={}) {
   ctx.damage = actor.calcDamageTo(target, info, ctx);
   await applyDamage(actor, target, info, ctx);
 
+  if (target.isPlayer() && target.isDead()) {
+    await Game.gameOver(false, 'Killed by $attacker$.', { actor });
+  }
+
   actor.endTurn();
   return true;
 }
@@ -13660,10 +13829,10 @@ async function itemAttack(actor, target, ctx={}) {
   }
 
   damage = target.kind.applyDamage(target, damage, actor, ctx);
-  message.addCombat('%s %s %s for %F%d%F damage', actor.getName(), actor.getVerb(verb), target.getName('the'), 'red', damage, null);
+  message.addCombat('$you$ $verb$ $the.target$ for #red#$damage$## damage', { actor, verb, target, damage });
 
   if (target.isDead()) {
-    message.addCombat('%s %s', target.isInanimate() ? 'destroying' : 'killing', target.getPronoun('it'));
+    message.addCombat('$action$ $it.target$', { action: target.isInanimate() ? 'destroying' : 'killing', target });
   }
 
   const ctx2 = { map: map, x: target.x, y: target.y, volume: damage };
@@ -13679,7 +13848,7 @@ async function itemAttack(actor, target, ctx={}) {
       await spawn(target.kind.corpse, ctx2);
     }
     if (target.isPlayer()) {
-      await gameOver$1(false, 'Killed by %s.', actor.getName(true));
+      await gameOver(false, 'Killed by $actor$.', { actor });
     }
   }
 
@@ -13796,7 +13965,7 @@ async function grab$1(actor, item, ctx={}) {
   }
 
   actor.grabbed = item;
-  message.add('%s grab %s.', actor.getName(), actor.grabbed.getName('a'));
+  message.add('$you$ $grab$ $a.item$.', { actor, item: actor.grabbed });
   await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
   actor.endTurn();
   return true;
@@ -13808,7 +13977,7 @@ actions.grab = grab$1;
 async function release(actor, item, ctx={}) {
   if (!actor.grabbed) return false;
 
-  message.add('%s let go of %s.', actor.getName(), actor.grabbed.getName('a'));
+  message.add('$you$ $let$ go of $a.item$.', { actor, item: actor.grabbed });
   await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
   actor.grabbed = null;
   actor.endTurn();
@@ -13848,6 +14017,8 @@ async function push$1(actor, item, ctx={}) {
 
 actions.push = push$1;
 
+message.addKind('USE_NOTHING', 'Nothing happens.');
+
 async function use(actor, item, ctx) {
 
   let success;
@@ -13856,7 +14027,7 @@ async function use(actor, item, ctx) {
     if (!success) return false;
   }
   else {
-    message.add('Nothing happens.');
+    message.add('USE_NOTHING', { actor, item });
     return false;
   }
 
@@ -13883,12 +14054,21 @@ async function use(actor, item, ctx) {
 
 actions.use = use;
 
+message.addKind('EQUIP_NO', '$the.item$ $do$ not seem to be equippable.');
+message.addKind('EQUIP_FAILED', '$you$ failed to equip $the.item$.');
+message.addKind('EQUIP_SWAP', '$you$ $swap$ your $other$ for $your.actor$ $item$.');
+message.addKind('EQUIP_SWAP_FLOOR', '$you$ $swap$ your $other$ for $a.item$.');
+message.addKind('EQUIP_ITEM', '$you$ $equip$ $your $item$.');
+message.addKind('EQUIP_ITEM_FLOOR', '$you$ $equip$ $a.item$.');
+message.addKind('EQUIP_ALREADY', 'already equipped.');
+
+
 async function equip(actor, item, ctx={}) {
   if (!item) return false;
 
   const slot = item.kind.slot;
   if (!slot) {
-    message.add('%s does not seem to be equippable.', item.getName({ color: true, article: 'the' }));
+    message.add('EQUIP_NO', { actor, item });
     return false;
   }
 
@@ -13897,7 +14077,7 @@ async function equip(actor, item, ctx={}) {
   const other = actor.slots[slot];
   if (other) {
     if (other === item) {
-      message.add('already equipped.');
+      message.add('EQUIP_ALREADY', { actor, item });
       return false;
     }
 
@@ -13911,20 +14091,17 @@ async function equip(actor, item, ctx={}) {
   success = actor.equip(item);
   if (!success) {
     const article = chainIncludes(actor.pack, item) ? 'your' : true;
-    message.add('%s failed to equip %s.', actor.getName({article: 'the', color: true }), item.getName({ article, color: true }));
+    message.add('EQUIP_FAILED', { actor, item });
     // TODO - Re-equip other?
     return false;
   }
 
   if (!ctx.quiet) {
-    const article = config.inventory ? 'your' : 'a';
-    if (other) {
-      message.add('%s swap %s for %s.', actor.getName({article: 'the', color: true }), other.getName({ article: 'your', color: true }), item.getName({ article: article, color: true }));
+    let id = (other) ? 'EQUIP_SWAP' : 'EQUIP_ITEM';
+    if (!config.inventory) {
+      id += '_FLOOR';
     }
-    else {
-      // TODO - Custom verb? item.kind.equipVerb -or- Custom message? item.kind.equipMessage
-      message.add('%s equip %s.', actor.getName({article: 'the', color: true }), item.getName({ article, color: true }));
-    }
+    message.add(id, { actor, other, item });
   }
 
   if (actor.kind.calcEquipmentBonuses) {
@@ -13937,6 +14114,10 @@ async function equip(actor, item, ctx={}) {
 actions.equip = equip;
 
 
+message.addKind('UNEQUIP_NO', '$the.item$ does not seem to be equippable.');
+message.addKind('UNEQUIP_NOT_EQUIPPED', '$the.item$ does not seem to be equipped.');
+message.addKind('UNEQUIP_FAIL', '$you$ cannot remove $your$ $item$.');
+message.addKind('UNEQUIP_ITEM', '$you$ $remove$ $your$ $item$.');
 
 async function unequip(actor, item, ctx={}) {
   if (!item) return false;
@@ -13949,11 +14130,11 @@ async function unequip(actor, item, ctx={}) {
   else {
     slot = item.kind.slot;
     if (!slot) {
-      message.add('%s does not seem to be equippable.', item.getName({ color: true, article: true }));
+      message.add('UNEQUIP_NO', { item });
       return false;
     }
     if (actor.slots[slot] !== item) {
-      message.add('%s does not seem to be equipped.', item.getName({ color: true, article: 'the' }));
+      message.add('UNEQUIP_NOT_EQUIPPED', { item });
       return false;
     }
   }
@@ -13964,7 +14145,7 @@ async function unequip(actor, item, ctx={}) {
 
   if (actor.slots[slot]) {
     // failed to unequip
-    message.add('%s cannot remove your %s.', actor.getName({article: 'the', color: true }), actor.slots[slot].getName({article: false, color: true }));
+    message.add('UNEQUIP_FAIL', { actor, item: actor.slots[slot] });
     return false;
   }
 
@@ -13975,7 +14156,7 @@ async function unequip(actor, item, ctx={}) {
 
   if (item && !ctx.quiet) {
     // TODO - Custom verb? item.kind.equipVerb -or- Custom message? item.kind.equipMessage
-    message.add('%s remove your %s.', actor.getName({article: 'the', color: true }), item.getName({ article: false, color: true }));
+    message.add('UNEQUIP_ITEM', { actor, item });
   }
 
   if (actor.kind.calcEquipmentBonuses) {
@@ -14205,7 +14386,7 @@ exports.game = game;
 exports.grid = GRID$1;
 exports.install = install;
 exports.io = io;
-exports.item = item;
+exports.item = item$1;
 exports.itemKinds = itemKinds;
 exports.light = light;
 exports.lights = lights;
@@ -14213,6 +14394,7 @@ exports.make = make;
 exports.map = map$1;
 exports.maps = maps;
 exports.message = message;
+exports.messages = messages;
 exports.off = off;
 exports.on = on;
 exports.once = once;

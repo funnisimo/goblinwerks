@@ -69,6 +69,11 @@ class ItemKind {
 		return 0;
 	}
 
+  getVerb(verb) {
+    if (this.quantity > 1) return Text.toPluralVerb(verb);
+    return Text.toSingularVerb(verb);
+  }
+
   getName(item, opts={}) {
     if (opts === true) { opts = { article: true }; }
     if (opts === false) { opts = {}; }
@@ -83,7 +88,12 @@ class ItemKind {
       if (opts.color instanceof GW.types.Color) {
         color = opts.color;
       }
-      result = Text.format('%F%s%F', color, result, null);
+      else if (typeof color === 'string') {
+        color = Color.from(color);
+      }
+      if (color) {
+        result = Text.apply('#color#$result$##', { color, result });
+      }
     }
     else if (opts.color === false) {
       result = Text.removeColors(result); // In case item has built in color

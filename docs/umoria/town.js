@@ -8,9 +8,9 @@ function townBuildStore(map, store, x, y) {
   const height = map.height;  // 32
 
   let perX = Math.floor(width/4);
-  let hpx = Math.round(perX/2);
+  let hpx = Math.floor(perX/2) - 1;
   let perY = Math.floor(height/3);
-  let hpy = Math.round(perY/2);
+  let hpy = Math.floor(perY/2) - 1;
 
   let cx = perX * (x + 1);
   let cy = perY * (y + 1);
@@ -19,6 +19,8 @@ function townBuildStore(map, store, x, y) {
   let bottom = cy + GW.random.range(2,hpy);
   let left = cx - GW.random.range(3,hpx);
   let right = cx + GW.random.range(3,hpx);
+
+  console.log('build store', cx, cy, left, top, right, bottom, hpy, hpx);
 
   let posX, posY;
 
@@ -30,7 +32,7 @@ function townBuildStore(map, store, x, y) {
 
   let tmp = GW.random.number(4);
   if (tmp < 3) {
-      posY = GW.random.number(bottom - top) + top;
+      posY = GW.random.number(bottom - top - 1) + top + 1;
 
       if (tmp == 1) {
           posX = left;
@@ -38,7 +40,7 @@ function townBuildStore(map, store, x, y) {
           posX = right;
       }
   } else {
-      posX = GW.random.number(right - left) + left;
+      posX = GW.random.number(right - left - 1) + left + 1;
 
       if (tmp == 3) {
           posY = bottom;

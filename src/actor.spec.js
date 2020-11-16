@@ -30,11 +30,19 @@ describe('actor', () => {
     delete GW.itemKinds.THING_STACKABLE;
   });
 
-  describe('inventory', () => {
+  beforeEach( () => {
+    actor = GW.make.actor({ name: 'test' });
+  });
 
-    beforeEach( () => {
-      actor = GW.make.actor({ name: 'test' });
+
+  describe('getName', () => {
+    test('can get the name with color', () => {
+      expect(actor.getName({ color: true })).toEqual('test');
+      expect(actor.getName({ color: 'blue' })).toEqual(GW.text.format('%Ftest%F', 'blue', null));
     });
+  });
+
+  describe('inventory', () => {
 
     test('actor has no inventory by default', () => {
       expect(actor.pack).toBeNull();

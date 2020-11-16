@@ -236,7 +236,7 @@ export async function spawn(feat, ctx) {
 	}
 
   if (feat.eventName) {
-		await Events.emit(feat.eventName, x, y, ctx);
+		await Events.emit(feat.eventName, ctx);
     didSomething = true;
 	}
 

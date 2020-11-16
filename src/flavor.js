@@ -84,10 +84,11 @@ function getFlavorText(map, x, y) {
 	let subject;
 	let verb;
 	let preposition;
-	let object;
+	let object = '';
 	let adjective;
 
   const player = DATA.player || null;
+  const actor = player;
 
 	monst = null;
 	standsInTerrain = ((cell.highestPriorityTile().mechFlags & Flags.TileMech.TM_STAND_IN_TILE) ? true : false);
@@ -102,14 +103,14 @@ function getFlavorText(map, x, y) {
 
 	if (player && x == player.x && y == player.y) {
 		if (player.status.levitating) {
-			buf = Text.format("you are hovering above %s.", cell.tileFlavor());
+			buf = Text.apply("you are hovering above $flavor$.", { actor: player, flavor: cell.tileFlavor() });
 		}
     else {
 			// if (theItem) {
 			// 	buf = ITEM.getFlavor(theItem);
 			// }
       // else {
-        buf = 'you see yourself.';
+        buf = Text.apply('you see yourself.', {actor});
       // }
 		}
     return buf;
@@ -161,9 +162,9 @@ function getFlavorText(map, x, y) {
 			} else {
 				object = TILES[cell.memory.tile].getFlavor();
 			}
-			buf = Text.format("you remember seeing %s here.", object);
+			buf = Text.apply("you remember seeing $object$ here.", { actor, object });
 		} else if (cell.flags & Flags.Cell.MAGIC_MAPPED) { // magic mapped
-			buf = Text.format("you expect %s to be here.", TILES[cell.memory.tile].getFlavor());
+			buf = Text.apply("you expect $text$ to be here.", { actor, text: TILES[cell.memory.tile].getFlavor() });
 		}
 		return buf;
 	}
@@ -207,7 +208,7 @@ function getFlavorText(map, x, y) {
   }
   let ground = cell.groundTile.getFlavor();
 
-  buf = Text.format("you %s %s%s%s%s.", (map.isVisible(x, y) ? "see" : "sense"), object, surface, liquid, ground);
+  buf = Text.apply("you $action$ $text$.", { actor, action: (map.isVisible(x, y) ? "see" : "sense"), text: object + surface + liquid + ground });
 
   return buf;
 }

@@ -9,6 +9,9 @@ describe('flavor', () => {
     let flavor;
 
     beforeAll( () => {
+
+      GW.data.player = GW.make.player({ name: 'Hero' });
+
       GW.tile.addKind('DESK', {
         name: 'desk', article: 'a',
         ch: 'T', fg: 'brown',

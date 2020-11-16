@@ -61,9 +61,12 @@ function attributesAsObject(base) {
 }
 
 
+GW.message.addKind('HERO_SPELL_FORGET', '#badMessageColor#You are having trouble remembering some spells.');
+GW.message.addKind('HERO_SPELL_MORE',   '#goodMessageColor#You feel a thirst for more knowledge.');
+
 class HeroKind extends GW.types.ActorKind {
   constructor(opts={}) {
-    GW.utils.setDefaults(opts, {
+    GW.utils.kindDefaults(opts, {
       attributes: {},
       age: 18,
       height: 70,
@@ -75,7 +78,7 @@ class HeroKind extends GW.types.ActorKind {
       roles: [],
       history: 0,
       description: null,
-      stats: {},
+      'stats.food': GW.config.hunger.STOMACH_SIZE,
 
       // Electing not to do gender/sex just to simplify some things
       // You could easily add it later
@@ -84,7 +87,6 @@ class HeroKind extends GW.types.ActorKind {
       ch: '@',
       fg: 'white',
     });
-    opts.stats.food = GW.config.hunger.STOMACH_SIZE;
 
     super(opts);
 
@@ -277,11 +279,11 @@ class HeroKind extends GW.types.ActorKind {
     const memorized = actor.memorized = actor.memorized || [];
     if (!forceReset) {
       if (memorized.length > count) {
-        GW.message.add('%FYou are having trouble remembering some spells.', 'badMessageColor');
+        GW.message.add('HERO_SPELL_FORGET');
         // TODO - We could probably be smart about compacting the list, but not yet...
       }
       else if (memorized.length < count) {
-        GW.message.add('%FYou feel a thirst for more knowledge.', 'goodMessageColor');
+        GW.message.add('HERO_SPELL_MORE');
       }
     }
 

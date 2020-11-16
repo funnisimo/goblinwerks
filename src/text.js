@@ -1,7 +1,7 @@
 
 import * as Utils from './utils.js';
 import * as Color from './color.js';
-import { make, types, def } from './gw.js';
+import { make, types, def, data as DATA } from './gw.js';
 
 
 ///////////////////////////////////
@@ -16,16 +16,30 @@ const COLOR_VALUE_INTERCEPT =	0; // 25;
 export const playerPronoun = {
   it: 'you',
   its: 'your',
+  you: 'you',
+  your: 'your',
+  he: 'you',
+  she: 'you',
+  his: 'your',
+  hers: 'your',
 };
 
 export const singularPronoun = {
   it: 'it',
   its: 'its',
+  he: 'he',
+  she: 'she',
+  his: 'his',
+  hers: 'hers',
 };
 
 export const pluralPronoun = {
   it: 'them',
   its: 'their',
+  he: 'them',
+  she: 'them',
+  his: 'their',
+  hers: 'their',
 };
 
 
@@ -54,13 +68,30 @@ export function isVowel(ch) {
 
 
 export function toSingularVerb(verb) {
+  if (verb === 'pickup') return 'picks up';
+  if (verb === 'have') return 'has';
   if (verb.endsWith('y')) {
-    return verb.substring(0, verb.length - 1) + 'ies';
+    if (!verb.endsWith('ay')) {
+      return verb.substring(0, verb.length - 1) + 'ies';
+    }
   }
   if (verb.endsWith('sh') || verb.endsWith('ch') || verb.endsWith('o')) {
     return verb + 'es';
   }
   return verb + 's';
+}
+
+
+export function toPluralVerb(verb) {
+  if (verb === 'is') return 'are';
+  if (verb === 'has') return 'have';
+  if (verb.endsWith('ies')) {
+    return verb.substring(0, verb.length - 3) + 'y';
+  }
+  if (verb.endsWith('es')) {
+    return verb.substring(0, verb.length - 2);
+  }
+  return verb;
 }
 
 
@@ -78,9 +109,13 @@ export function eachChar(msg, fn) {
   let index = 0;
   if (!msg || !msg.length) return;
 
+  const colors = [];
+
   for(let i = 0; i < msg.length; ++i) {
     const ch = msg.charCodeAt(i);
     if (ch === COLOR_ESCAPE) {
+        if (color) colors.push(color);
+
         components[0] = msg.charCodeAt(i + 1) - COLOR_VALUE_INTERCEPT;
         components[1] = msg.charCodeAt(i + 2) - COLOR_VALUE_INTERCEPT;
         components[2] = msg.charCodeAt(i + 3) - COLOR_VALUE_INTERCEPT;
@@ -88,7 +123,7 @@ export function eachChar(msg, fn) {
         i += 3;
     }
     else if (ch === COLOR_END) {
-      color = null;
+      color = colors.pop() || null;
     }
     else {
       fn(msg[i], color, index);
@@ -239,11 +274,12 @@ export function capitalize(msg) {
 // Does NOT check string lengths, so it could theoretically write over the null terminator.
 // Returns the new insertion point.
 export function encodeColor(theColor) {
-  if (!theColor) {
+  if ((!theColor) || theColor == '') {
     return String.fromCharCode(COLOR_END);
   }
 
   const copy = Color.from(theColor);
+  if (!copy) Utils.ERROR('Invalid color - [' + theColor + ']');
   copy.bake();
   copy.clamp();
   return String.fromCharCode(COLOR_ESCAPE, copy.red + COLOR_VALUE_INTERCEPT, copy.green + COLOR_VALUE_INTERCEPT, copy.blue + COLOR_VALUE_INTERCEPT);
@@ -397,23 +433,29 @@ export function splitIntoLines(sourceText, width, indent=0) {
   // for (i=0; printString.charCodeAt(i) == COLOR_ESCAPE; i+= 4);
   spaceLeftOnLine = firstWidth;
 
+  const colors = [];
+
   let i = -1;
   let lastColor = '';
   let nextColor = null;
   let clearColor = false;
+  let lineStart = 0;
   while (i < textLength) {
     // wordWidth counts the word width of the next word without color escapes.
     // w indicates the position of the space or newline or null terminator that terminates the word.
     wordWidth = 0;
     for (w = i + 1; w < textLength && printString[w] !== ' ' && printString[w] !== '\n';) {
       if (printString.charCodeAt(w) === COLOR_ESCAPE) {
-        nextColor = printString.substring(w, w + 4);
-        clearColor = false;
+        // colors.push(lastColor);
+        // lastColor = printString.substring(w, w + 4);
+        // nextColor = printString.substring(w, w + 4);
+        // clearColor = false;
         w += 4;
       }
       else if (printString.charCodeAt(w) === COLOR_END) {
-        clearColor = true;
-        nextColor = null;
+        // clearColor = true;
+        // nextColor = null;
+        // lastColor = colors.pop() || '';
         w += 1;
       }
       else {
@@ -423,24 +465,41 @@ export function splitIntoLines(sourceText, width, indent=0) {
     }
 
     if (1 + wordWidth > spaceLeftOnLine || printString[i] === '\n') {
+
+      for(let k = lineStart; k <= i; ++k) {
+        if (printString.charCodeAt(k) === COLOR_ESCAPE) {
+          colors.push(lastColor);
+          lastColor = printString.substring(k, k + 4);
+          k += 3;
+        }
+        else if (printString.charCodeAt(k) === COLOR_END) {
+          lastColor = colors.pop() || '';
+        }
+      }
+
+      // console.log('Add line - ', printString.substring(lineStart, i));
+      // console.log(lastColor, colors);
+
       printString = splice(printString, i, 1, '\n' + lastColor);	// [i] = '\n';
       w += lastColor.length;
       textLength += lastColor.length;
       lineCount++;
+      lineStart = i + lastColor.length;
       spaceLeftOnLine = width - wordWidth; // line width minus the width of the word we just wrapped
       //printf("\n\n%s", printString);
     } else {
       spaceLeftOnLine -= 1 + wordWidth;
     }
 
-    if (nextColor) {
-      lastColor = nextColor;
-      nextColor = null;
-    }
-    if (clearColor) {
-      clearColor = false;
-      lastColor = '';
-    }
+    // if (nextColor) {
+    //   colors.push(lastColor);
+    //   lastColor = nextColor;
+    //   nextColor = null;
+    // }
+    // if (clearColor) {
+    //   clearColor = false;
+    //   lastColor = colors.pop() || '';
+    // }
 
     i = w; // Advance to the terminator that follows the word.
   }
@@ -555,11 +614,57 @@ export function format(fmt, ...args) {
 }
 
 
-// function sprintf(dest, fmt, ...args) {
-//   dest = STRING(dest);
-//   dest._textLength = -1;
-//   dest.text = text.format(fmt, ...args);
-//   return dest;
-// }
-//
-// text.sprintf = sprintf;
+
+export function apply(template, args={}) {
+
+  const RE = /#(\w+)#|##(?!#)|\$(\w+)\.?(\w+)?\$/g;
+
+  let source = 'actor';
+  let result = template.replace(RE, (match, color, first, second, offset) => {
+    // console.log(m, p1, p2, p3, p4, offset);
+    if (match === '##') {
+      return encodeColor(null);
+    }
+    else if (color !== undefined) {
+      if (args[color] !== undefined) {
+        color = args[color];
+      }
+      return encodeColor(color);
+    }
+    else if (first) {
+      if (first !== 'verb' && args[first]) {
+        // TODO - allow formatting e.g. $cost.2f$, $total.4d$
+        const obj = args[first];
+        if (obj.getName) {
+          source = first;
+          return obj.getName(false);  // no article
+        }
+        return '' + obj;
+      }
+
+      if (first == 'you') {
+        first = 'the';
+        second = second || 'actor';
+      }
+      source = second || source;
+      const sourceObj = args[source] || DATA[source] || {};
+      if (first == 'the') {
+        if (sourceObj.getName) return sourceObj.getName('the');
+      }
+      else if (first == 'a' || first == 'an') {
+        if (sourceObj.getName) return sourceObj.getName('a');
+      }
+      else if (first == 'verb') {
+        first = args.verb || first;
+      }
+      else if (['him', 'her', 'he', 'she', 'it', 'his', 'hers', 'its', 'your'].includes(first) ) {
+        if (sourceObj.getPronoun) return sourceObj.getPronoun(first);
+      }
+
+      if (sourceObj.getVerb) return sourceObj.getVerb(first);
+    }
+    return match;
+  });
+
+  return result;
+}

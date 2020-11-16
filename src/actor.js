@@ -175,7 +175,12 @@ class ActorKind {
       if (opts.color instanceof types.Color) {
         color = opts.color;
       }
-      result = Text.format('%F%s%F', color, result, null);
+      else if (typeof opts.color === 'string') {
+        color = Color.from(opts.color);
+      }
+      if (color) {
+        result = Text.apply('#color#$result$##', { color, result });
+      }
     }
 
     if (opts.article && (this.article !== false)) {

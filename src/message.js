@@ -2,10 +2,25 @@
 import * as Color from './color.js';
 import { io as IO } from './io.js';
 import * as Text from './text.js';
-import { make, types, data as DATA, message, ui as UI, colors as COLORS } from './gw.js';
+import * as GW from './gw.js';
 
 
 var MSG_BOUNDS = null;
+
+
+
+function addKind(id, msg) {
+  GW.messages[id] = msg;
+}
+
+GW.message.addKind = addKind;
+
+function addKinds(config) {
+  Object.entries(config).forEach( ([id, msg]) => GW.message.addKind(id, msg) );
+}
+
+GW.message.addKinds = addKinds;
+
 
 // messages
 const ARCHIVE = [];
@@ -21,7 +36,7 @@ export function needsRedraw() {
   NEEDS_UPDATE = true;
 }
 
-message.needsRedraw = needsRedraw;
+GW.message.needsRedraw = needsRedraw;
 
 
 function setup(opts) {
@@ -31,11 +46,11 @@ function setup(opts) {
     DISPLAYED[i] = null;
   }
 
-  MSG_BOUNDS = message.bounds = new types.Bounds(opts.x, opts.y, opts.w || opts.width, opts.h || opts.height);
+  MSG_BOUNDS = GW.message.bounds = new GW.types.Bounds(opts.x, opts.y, opts.w || opts.width, opts.h || opts.height);
   ARCHIVE_LINES = opts.archive || 0;
   if (!ARCHIVE_LINES) {
-    if (UI.canvas) {
-      ARCHIVE_LINES = UI.canvas.height;
+    if (GW.ui.canvas) {
+      ARCHIVE_LINES = GW.ui.canvas.height;
     }
     else {
       ARCHIVE_LINES = 30;
@@ -48,51 +63,20 @@ function setup(opts) {
   INTERFACE_OPACITY = opts.opacity || INTERFACE_OPACITY;
 }
 
-message.setup = setup;
+GW.message.setup = setup;
 
 
 ////////////////////////////////////
 // Messages
 
-function moveBlocked(ctx) {
-  if (ctx.item) {
-    message.add('Blocked by %s!', ctx.item.getFlavor());
-  }
-  else {
-    message.add('Blocked!');
-  }
-}
-
-message.moveBlocked = moveBlocked;
-
-
-function addLines(data) {
-  if (MSG_BOUNDS.y > 0) {
-    // bottom (add backwards)
-    for(let i = data.length - 1; i >= 0; --i) {
-      message.add(data[i]);
-    }
-  }
-  else {
-    // top (add forwards)
-    data.forEach((line) => message.add(line));
-  }
-}
-
-message.addLines = addLines;
-
-function add(...args) {
-  if (args.length == 0) return;
-  if (args.length == 1 && Array.isArray(args[0])) { args = args[0]; }
-  let msg = args[0];
-  if (args.length > 1) {
-    msg = Text.format(...args);
-  }
+function add(msg, args) {
+  msg = GW.messages[msg] || msg;
+  msg = Text.apply(msg, args);
   commitCombatMessage();
   addMessage(msg);
 }
 
-message.add = add;
+GW.message.add = add;
 
 
 function forPlayer(actor, ...args) {
@@ -100,29 +84,25 @@ function forPlayer(actor, ...args) {
   add(...args);
 }
 
-message.forPlayer = forPlayer;
+GW.message.forPlayer = forPlayer;
 
-function addCombat(...args) {
-  if (args.length == 0) return;
-  let msg = args[0];
-  if (args.length > 1) {
-    msg = Text.format(...args);
-  }
+function addCombat(msg, args) {
+  msg = Text.apply(msg, args);
   addCombatMessage(msg);
 }
 
-message.addCombat = addCombat;
+GW.message.addCombat = addCombat;
 
 function forceRedraw() {
   NEEDS_UPDATE = true;
 }
 
-message.forceRedraw = forceRedraw;
+GW.message.forceRedraw = forceRedraw;
 
 
 function drawMessages(buffer) {
 	let i, j, m;
-	const tempColor = make.color();
+	const tempColor = GW.make.color();
 	let messageColor;
 
   if (!NEEDS_UPDATE || !MSG_BOUNDS) return false;
@@ -133,11 +113,11 @@ function drawMessages(buffer) {
 
 	for (i=0; i < MSG_BOUNDS.height; i++) {
 		messageColor = tempColor;
-		messageColor.copy(COLORS.white);
+		messageColor.copy(GW.colors.white);
 
 		if (CONFIRMED[i]) {
-			messageColor.mix(COLORS.black, 50);
-			messageColor.mix(COLORS.black, 75 * i / (2*MSG_BOUNDS.height));
+			messageColor.mix(GW.colors.black, 50);
+			messageColor.mix(GW.colors.black, 75 * i / (2*MSG_BOUNDS.height));
 		}
 
     const localY = isOnTop ? (MSG_BOUNDS.height - i - 1) : i;
@@ -147,16 +127,16 @@ function drawMessages(buffer) {
 			const x = MSG_BOUNDS.toOuterX(j);
 
 			if (color && (messageColor !== color) && CONFIRMED[i]) {
-				color.mix(COLORS.black, 50);
-				color.mix(COLORS.black, 75 * i / (2*MSG_BOUNDS.height));
+				color.mix(GW.colors.black, 50);
+				color.mix(GW.colors.black, 75 * i / (2*MSG_BOUNDS.height));
 			}
 			messageColor = color || tempColor;
-			buffer.plotChar(x, y, c, messageColor, COLORS.black);
+			buffer.plotChar(x, y, c, messageColor, GW.colors.black);
 		});
 
 		for (let j = Text.length(DISPLAYED[i]); j < MSG_BOUNDS.width; j++) {
 			const x = MSG_BOUNDS.toOuterX(j);
-			buffer.plotChar(x, y, ' ', COLORS.black, COLORS.black);
+			buffer.plotChar(x, y, ' ', GW.colors.black, GW.colors.black);
 		}
 	}
 
@@ -164,7 +144,7 @@ function drawMessages(buffer) {
   return true;
 }
 
-message.draw = drawMessages;
+GW.message.draw = drawMessages;
 
 
 // function messageWithoutCaps(msg, requireAcknowledgment) {
@@ -190,7 +170,7 @@ function addMessageLine(msg) {
 
 function addMessage(msg) {
 
-	DATA.disturbed = true;
+	GW.data.disturbed = true;
 
 	msg = Text.capitalize(msg);
 
@@ -224,7 +204,7 @@ function addMessage(msg) {
 
   // display the message:
   NEEDS_UPDATE = true;
-  UI.requestUpdate();
+  GW.ui.requestUpdate();
 
   // if (GAME.playbackMode) {
 	// 	GAME.playbackDelayThisTurn += GAME.playbackDelayPerTurn * 5;
@@ -239,7 +219,7 @@ function addCombatMessage(msg) {
 		COMBAT_MESSAGE += ', ' + Text.capitalize(msg);;
 	}
   NEEDS_UPDATE = true;
-  UI.requestUpdate();
+  GW.ui.requestUpdate();
 }
 
 
@@ -257,10 +237,10 @@ function confirmAll() {
 		CONFIRMED[i] = true;
 	}
   NEEDS_UPDATE = true;
-  UI.requestUpdate();
+  GW.ui.requestUpdate();
 }
 
-message.confirmAll = confirmAll;
+GW.message.confirmAll = confirmAll;
 
 
 async function showArchive() {
@@ -277,7 +257,7 @@ async function showArchive() {
 	if (totalMessageCount <= MSG_BOUNDS.height) return;
 
   const isOnTop = (MSG_BOUNDS.y < 10);
-	const dbuf = UI.startDialog();
+	const dbuf = GW.ui.startDialog();
 
 	// Pull-down/pull-up animation:
 	for (reverse = 0; reverse <= 1; reverse++) {
@@ -286,14 +266,14 @@ async function showArchive() {
 			 (reverse ? currentMessageCount >= MSG_BOUNDS.height : currentMessageCount <= totalMessageCount);
 			 currentMessageCount += (reverse ? -1 : 1))
 	  {
-			UI.clearDialog();
+			GW.ui.clearDialog();
 
 			// Print the message archive text to the dbuf.
 			for (j=0; j < currentMessageCount && j < dbuf.height; j++) {
 				const pos = (CURRENT_ARCHIVE_POS - currentMessageCount + ARCHIVE_LINES + j) % ARCHIVE_LINES;
         const y = isOnTop ? j : dbuf.height - j - 1;
 
-				dbuf.plotLine(MSG_BOUNDS.toOuterX(0), y, MSG_BOUNDS.width, ARCHIVE[pos], COLORS.white, COLORS.black);
+				dbuf.plotLine(MSG_BOUNDS.toOuterX(0), y, MSG_BOUNDS.width, ARCHIVE[pos], GW.colors.white, GW.colors.black);
 			}
 
 			// Set the dbuf opacity, and do a fade from bottom to top to make it clear that the bottom messages are the most recent.
@@ -312,7 +292,7 @@ async function showArchive() {
 				}
 			}
 
-			UI.draw();
+			GW.ui.draw();
 
 			if (!fastForward && await IO.pause(reverse ? 15 : 45)) {
 				fastForward = true;
@@ -322,20 +302,20 @@ async function showArchive() {
 		}
 
 		if (!reverse) {
-    	if (!DATA.autoPlayingLevel) {
+    	if (!GW.data.autoPlayingLevel) {
         const y = isOnTop ? 0 : dbuf.height - 1;
-        dbuf.plotLine(MSG_BOUNDS.toOuterX(-8), y, 8, "--DONE--", COLORS.black, COLORS.white);
-      	UI.draw();
+        dbuf.plotLine(MSG_BOUNDS.toOuterX(-8), y, 8, "--DONE--", GW.colors.black, GW.colors.white);
+      	GW.ui.draw();
       	await IO.waitForAck();
     	}
 
 		}
 	}
-	UI.finishDialog();
+	GW.ui.finishDialog();
 
-	message.confirmAll();
+	GW.message.confirmAll();
   NEEDS_UPDATE = true;
-  UI.requestUpdate();
+  GW.ui.requestUpdate();
 }
 
-message.showArchive = showArchive;
+GW.message.showArchive = showArchive;

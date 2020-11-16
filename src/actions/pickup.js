@@ -5,11 +5,14 @@ import { actions as Actions } from './index.js';
 import * as GW from '../gw.js';
 
 
+GW.message.addKind('PICKUP_NO', '$you$ cannot pickup $the.item$.');
+GW.message.addKind('PICKUP_ITEM', '$you$ $pickup$ $the.item$.');
+
 export async function pickup(actor, item, ctx) {
 
   if (!actor.hasActionFlag(Flags.Action.A_PICKUP)) return false;
   if (item.hasActionFlag(Flags.Action.A_NO_PICKUP)) {
-    GW.message.add('%s cannot pickup %s.', actor.getName({article: 'the', color: true }), item.getName({ article: 'the', color: true }));
+    GW.message.add('PICKUP_NO', { actor, item });
     return false;
   }
 
@@ -46,7 +49,7 @@ export async function pickup(actor, item, ctx) {
     await Actions.use(actor, item, ctx);
   }
   else if (!ctx.quiet) {
-    GW.message.add('%s pickup %s.', actor.getName({article: 'the', color: true }), item.getName('the'));
+    GW.message.add('PICKUP_ITEM', { actor, item });
   }
 
   actor.endTurn();

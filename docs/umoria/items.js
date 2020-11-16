@@ -1,15 +1,17 @@
 
 
+GW.message.addKind('FOOD_NOT_HUNGRY', '$you$ $are$ not hungry.');
+GW.message.addKind('FOOD_EAT', '$you$ $verb$ $the.item$');
+GW.message.addKind('FOOD_FULL', '$you$ $are$ full');
+
+
 class Food extends GW.types.ItemKind {
   constructor(opts={}) {
-    GW.utils.setDefaults(opts, {
-      stats: {},
+    GW.utils.kindDefaults(opts, {
+      'stats.food': 1,
       ch: '', fg: 'itemColor',
       frequency: 0,
       verb: 'eat',
-    });
-    GW.utils.setDefaults(opts.stats, {
-      food: 1,
     });
     super(opts);
     this.flags |= GW.flags.itemKind.IK_DESTROY_ON_USE;
@@ -18,12 +20,12 @@ class Food extends GW.types.ItemKind {
   use(item, actor, ctx={}) {
     if (!actor.isPlayer()) return false;
     if (actor.current.food >= actor.max.food) {
-      GW.message.add('You are not hungry.');
+      GW.message.add('FOOD_NOT_HUNGRY', { actor, item });
       return false;
     }
-    GW.message.addCombat('%s %s %s', actor.getName(), actor.getVerb(this.verb), item.getName({ article: true, quantity: 1 }));
+    GW.message.addCombat('FOOD_EAT', { actor, verb: this.verb, item });
     if (actor.current.food + item.stats.food > actor.max.food) {
-      GW.message.addCombat('%s %s full', actor.getName(), actor.getVerb('are'));
+      GW.message.addCombat('FOOD_FULL', { actor, item });
     }
     actor.adjustStat('food', item.stats.food);
     return true;

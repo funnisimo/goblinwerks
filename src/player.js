@@ -15,15 +15,12 @@ player.debug = Utils.NOOP;
 
 export function makePlayer(kind) {
   if (!(kind instanceof types.ActorKind)) {
-    Utils.setDefaults(kind, {
-      sprite: { ch:'@', fg: 'white' },
+    Utils.kindDefaults(kind, {
+      ch:'@', fg: 'white',
       name: 'you', article: false,
-      attacks: {},
+      'attacks.melee': { verb: 'punch', damage: 1 },
       bump: ['talk', 'attack'],
     });
-    if (!kind.attacks.melee) {
-      kind.attacks.melee = { verb: 'punch', damage: 1 };
-    }
     kind = new types.ActorKind(kind);
   }
   return new types.Actor(kind);

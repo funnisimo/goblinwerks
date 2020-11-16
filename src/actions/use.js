@@ -4,6 +4,8 @@ import { actions as Actions } from './index.js';
 import * as GW from '../gw.js';
 
 
+GW.message.addKind('USE_NOTHING', 'Nothing happens.');
+
 export async function use(actor, item, ctx) {
 
   let success;
@@ -12,7 +14,7 @@ export async function use(actor, item, ctx) {
     if (!success) return false;
   }
   else {
-    GW.message.add('Nothing happens.');
+    GW.message.add('USE_NOTHING', { actor, item });
     return false;
   }
 
