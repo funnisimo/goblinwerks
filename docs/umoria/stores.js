@@ -75,7 +75,7 @@ class Store {
             turnaround += 1 + count - GW.config.store.MAX_AUTO_BUY_ITEMS;
         }
         while (--turnaround >= 0) {
-            this.removeStockItem();
+            this.deleteStockItem();
         }
     }
 
@@ -93,7 +93,7 @@ class Store {
     return this.updateTime;
   }
 
-  removeStockItem() {
+  deleteStockItem() {
     let count = GW.utils.chainLength(this.items);
     if (!count) return;
     let index = GW.random.number(count);
@@ -102,7 +102,10 @@ class Store {
       index--;
       item = item.next;
     }
-    count = GW.random.number(item.quantity) + 1;
+    count = 1;
+    if (item.kind.flags & GW.flags.itemKind.IK_STACKABLE) {
+      count += GW.random.number(item.quantity);
+    }
     item.quantity -= count;
 
     if (item.quantity < 1) {
@@ -122,9 +125,32 @@ class Store {
       const item = GW.make.item(kind, { level });
       const cost = this.itemCost(item);
       if (cost > 0 && cost < maxCost) {
-        GW.utils.addToChain(this, 'items', item);
+        this.addToItems(item);
         return true;
       }
+    }
+    return false;
+  }
+
+  addToItems(item) {
+    if (item.kind.flags & GW.flags.itemKind.IK_STACKABLE) {
+      let current = this.items;
+      while(current) {
+        if (current.kind === item.kind) {
+          current.quantity += item.quantity;
+          item.quantity = 0;
+          item.destroy();
+          return true;
+        }
+        current = current.next;
+      }
+    }
+
+    // Limits to inventory length?
+    // if too many items - return false
+
+    if (GW.utils.addToChain(this, 'items', item)) {
+      return true;
     }
     return false;
   }

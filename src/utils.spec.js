@@ -214,6 +214,16 @@ describe('GW.utils', () => {
       expect(dest.flags).toEqual(['B', 'C', 'A', 'B']);
     });
 
+    test('works with string flags', () => {
+      const dest = {
+        flags: 'A, B',
+      };
+      UTILS.kindDefaults(dest, {
+        flags: 'B, C',
+      });
+      expect(dest.flags).toEqual(['B', 'C', 'A', 'B']);
+    });
+
   });
 
 });

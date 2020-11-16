@@ -375,11 +375,17 @@
         if (!current) {
           current = [];
         }
+        else if (typeof current == 'string') {
+          current = current.split(/[,|]/).map( (t) => t.trim() );
+        }
         else if (!Array.isArray(current)) {
           current = [current];
         }
 
-        if (!Array.isArray(defValue)) {
+        if (typeof defValue === 'string') {
+          defValue = defValue.split(/[,|]/).map( (t) => t.trim() );
+        }
+        else if (!Array.isArray(defValue)) {
           defValue = [defValue];
         }
 
@@ -1950,7 +1956,7 @@
         return verb.substring(0, verb.length - 1) + 'ies';
       }
     }
-    if (verb.endsWith('sh') || verb.endsWith('ch') || verb.endsWith('o')) {
+    if (verb.endsWith('sh') || verb.endsWith('ch') || verb.endsWith('o') || verb.endsWith('s')) {
       return verb + 'es';
     }
     return verb + 's';
@@ -1974,7 +1980,13 @@
     if (!isPlural) return noun.replace('~','');
     const place = noun.indexOf('~');
     if (place < 0) return toSingularVerb(noun);
-    return noun.replace('~', 's');
+
+    let wordStart = noun.lastIndexOf(' ', place);
+    if (wordStart < 0) wordStart = 0;
+    const word = noun.substring(wordStart, place);
+    const newWord = toSingularVerb(word);
+
+    return splice(noun, wordStart, place - wordStart + 1, newWord);
   }
 
 

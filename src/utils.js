@@ -259,11 +259,17 @@ export function kindDefaults(obj, def) {
       if (!current) {
         current = [];
       }
+      else if (typeof current == 'string') {
+        current = current.split(/[,|]/).map( (t) => t.trim() );
+      }
       else if (!Array.isArray(current)) {
         current = [current];
       }
 
-      if (!Array.isArray(defValue)) {
+      if (typeof defValue === 'string') {
+        defValue = defValue.split(/[,|]/).map( (t) => t.trim() );
+      }
+      else if (!Array.isArray(defValue)) {
         defValue = [defValue];
       }
 

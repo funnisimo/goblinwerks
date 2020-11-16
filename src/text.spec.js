@@ -258,12 +258,14 @@ describe('Message', () => {
 
     test('will add appropriate plural', () => {
       expect(GW.text.toPluralNoun('bowl~ of mush')).toEqual('bowls of mush');
+      expect(GW.text.toPluralNoun('glass~ of wine')).toEqual('glasses of wine');
     });
 
     test('works without the ~', () => {
       expect(GW.text.toPluralNoun('sword')).toEqual('swords');
       expect(GW.text.toPluralNoun('strawberry')).toEqual('strawberries');
     });
+
   });
 
 });

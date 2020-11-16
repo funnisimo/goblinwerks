@@ -11,10 +11,11 @@ class Food extends GW.types.ItemKind {
       'stats.food': 1,
       ch: '', fg: 'itemColor',
       frequency: 0,
+      flags: 'IK_STACKABLE, IK_DESTROY_ON_USE',
       verb: 'eat',
     });
     super(opts);
-    this.flags |= GW.flags.itemKind.IK_DESTROY_ON_USE;
+    // this.flags |= GW.flags.itemKind.IK_DESTROY_ON_USE;
   }
 
   use(item, actor, ctx={}) {
