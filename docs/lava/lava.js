@@ -14,10 +14,12 @@ const PLAYER = GW.make.player({
 		speed: 120
 });
 
+GW.message.addKind('FINISH', 'Level: $level$');
+
 async function crossedFinish() {
 	const map = makeMap(MAP.id + 1);
-	await GW.ui.messageBox(1000, '%FLevel ' + map.id, 'light_blue');
-	GW.message.add('Level: %d', map.id);
+	await GW.ui.alert(1000, '#light_blue#Level $level$.',{ level: map.id });
+	GW.message.add('FINISH', { actor: PLAYER, level: map.id });
 	await GW.game.startMap(map, 'start');
 }
 
@@ -95,7 +97,7 @@ async function jump() {
 				return true;
 			},
 			update(newDir) {
-				GW.ui.clearDialog();
+				GW.ui.resetDialog();
 				buf.plotLine(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, 'Jump: Which direction?', GW.colors.orange);
 				if (newDir) {
 					buf.plot(PLAYER.x + newDir[0]*2, PLAYER.y + newDir[1]*2, jumpHilite);
@@ -168,7 +170,7 @@ GW.tile.addKind('LAVA_ERUPTED', {
 
 
 
-
+GW.message.addKind('MAP_WELCOME', '#light_blue#Erupt: $erupt$, Crust: $crust$, StartBreak: $start$, Break: $break$');
 
 function makeMap(id=1) {
 	// dig a map
@@ -188,7 +190,9 @@ function makeMap(id=1) {
 	BREAK_CHANCE = Math.min(90, Math.floor(60 + id));
   LAVA_START_BREAK = Math.min(90, Math.floor(20 + id*2));
 
-	GW.message.add(GW.colors.blue, 'Erupt: %d, Crust: %d, StartBreak: %d, Break: %d', ERUPT_CHANCE, CRUST_CHANCE, LAVA_START_BREAK, BREAK_CHANCE);
+	GW.message.add('MAP_WELCOME', {
+    erupt: ERUPT_CHANCE, crust: CRUST_CHANCE, start: LAVA_START_BREAK, break: BREAK_CHANCE
+  });
 
 	let height = 3 + Math.floor(id / 2);
 	let top = Math.floor( (30 - height) / 2 ) + 1;
@@ -229,6 +233,7 @@ async function showHelp() {
 
 GW.commands.showHelp = showHelp;
 
+GW.message.addKind('WELCOME', '#yellow#Welcome to Lava Hop!\n##Get across the Lava field safely to advance.\nPress <?> for help.');
 
 // start the environment
 async function start() {
@@ -241,7 +246,7 @@ async function start() {
 	});
 
 	MAP = makeMap();
-	GW.message.add('%FWelcome to Lava Hop!\nGet across the Lava field safely to advance.\nPress <?> for help.', 'yellow');
+	GW.message.add('WELCOME');
 	GW.game.start({ player: PLAYER, map: MAP });
 }
 

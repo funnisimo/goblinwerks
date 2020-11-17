@@ -66,6 +66,8 @@ export class Random {
 
   // returns a pseudo-random number from set 0, 1, 2, ..., RNG_M - 2
   number(max) {
+    if (max==1) return 0;
+
 		++this.count;
     const high = Math.floor(this._v / RNG_Q);
     const low = Math.floor(this._v % RNG_Q);
@@ -190,6 +192,13 @@ export class Random {
     return list;
   }
 
+  sequence(n) {
+    const list = [];
+    for (let i=0; i<n; i++) {
+      list[i] = i;
+    }
+    return this.shuffle(list);
+  }
 }
 
 Random.MAX = RNG_M;
@@ -271,7 +280,7 @@ export function makeRange(config, rng) {
   }
   if (config.length == 0) return new Range(0);
 
-	const RE = /^(?:([+-]?\d*)[Dd](\d+)([+-]?\d*)|([+-]?\d+)-(\d+):?(\d+)?|([+-]?\d+\.?\d*))/g;
+	const RE = /^(?:([+-]?\d*)[Dd](\d+)([+-]?\d*)|([+-]?\d+)-(\d+):?(\d+)?|([+-]?\d+)~(\d+)|([+-]?\d+\.?\d*))/g;
   let results;
   while ((results = RE.exec(config)) !== null) {
     if (results[2]) {
@@ -290,8 +299,13 @@ export function makeRange(config, rng) {
       const clumps = Number.parseInt(results[6]);
       return new Range(min, max, clumps, rng);
     }
-		else if (results[7]) {
-      const v = Number.parseFloat(results[7]);
+    else if (results[7] && results[8]) {
+      const base = Number.parseInt(results[7]);
+      const std = Number.parseInt(results[8]);
+      return new Range(base - 2*std, base + 2*std, 3, rng);
+    }
+		else if (results[9]) {
+      const v = Number.parseFloat(results[9]);
       return new Range(v, v, 1, rng);
     }
   }

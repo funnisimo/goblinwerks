@@ -87,4 +87,11 @@ describe('GW.types.Range', () => {
     expect(r.hi).toEqual(3);
     expect(r.clumps).toEqual(1);
   });
+
+  test('can be made with a semi-standard deviation', () => {
+    r = GW.make.range('100~10');  // 100 +/- 10
+    expect(r.lo).toEqual(80);
+    expect(r.hi).toEqual(120);
+    expect(r.clumps).toEqual(3);
+  });
 });

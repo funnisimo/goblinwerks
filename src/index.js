@@ -1,10 +1,12 @@
 
+
 import './bounds.js';
 export * as utils from './utils.js';
+export * from './events.js';
 import './flag.js';
 import './flags.js';
 export { random, cosmetic } from './random.js';
-export { color, colors } from './color.js';
+export * as color from './color.js';
 export * as text from './text.js';
 export { sprite, sprites } from './sprite.js';
 export { grid } from './grid.js';
@@ -32,6 +34,7 @@ import './message.js';
 import './viewport.js';
 import './sidebar.js';
 import './flavor.js';
+import './table.js';
 import './ui.js';
 export { visibility } from './visibility.js';
 

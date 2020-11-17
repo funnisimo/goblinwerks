@@ -7,6 +7,8 @@
   var def = {};
   var types = {};
 
+  var colors = {};
+
   var make = {};
   var install = {};
 
@@ -21,13 +23,15 @@
   var ai = {};
 
   var itemKinds = {};
-  var item = {};
+  var item$1 = {};
 
   var flag = {};
   var flags = {};
 
   var tiles = {};
   var tileEvents$1 = {};
+
+  var messages = {};
 
   var config = {
     fx: {},
@@ -113,6 +117,8 @@
   }
 
   types.Bounds = Bounds;
+
+  var makeDebug = (typeof debug !== 'undefined') ? debug : (() => (() => {}));
 
   function NOOP()  {}
   function TRUE()  { return true; }
@@ -338,6 +344,69 @@
     });
   }
 
+  function kindDefaults(obj, def) {
+    let dest;
+    Object.keys(def).forEach( (key) => {
+      const origKey = key;
+      let defValue = def[key];
+      dest = obj;
+
+      // allow for => 'stats.health': 100
+      const parts = key.split('.');
+      while (parts.length > 1) {
+        key = parts.shift();
+        if (dest[key] === undefined) {
+          dest = dest[key] = {};
+        }
+        else if (typeof dest[key] !== 'object') {
+          ERROR('Trying to set default member on non-object config item: ' + origKey);
+        }
+        else {
+          dest = dest[key];
+        }
+      }
+
+      key = parts.shift();
+      let current = dest[key];
+
+      // console.log('def - ', key, current, defValue, obj, dest);
+
+      if (key.search(/[fF]lags$/) >= 0) {
+        if (!current) {
+          current = [];
+        }
+        else if (typeof current == 'string') {
+          current = current.split(/[,|]/).map( (t) => t.trim() );
+        }
+        else if (!Array.isArray(current)) {
+          current = [current];
+        }
+
+        if (typeof defValue === 'string') {
+          defValue = defValue.split(/[,|]/).map( (t) => t.trim() );
+        }
+        else if (!Array.isArray(defValue)) {
+          defValue = [defValue];
+        }
+
+        // console.log('flags', key, defValue, current);
+
+        dest[key] = defValue.concat(current);
+      }
+      else if (current === undefined) {
+        if (Array.isArray(defValue)) {
+          dest[key] = defValue.slice();
+        }
+        else if (typeof defValue === 'object') {
+          dest[key] = Object.assign({}, defValue);
+        }
+        else {
+          dest[key] = defValue;
+        }
+      }
+    });
+  }
+
   function clearObject(obj) {
     Object.keys(obj).forEach( (key) => obj[key] = undefined );
   }
@@ -372,14 +441,8 @@
     return a.some( (av) => b.includes(av) );
   }
 
-
-  function sequence(listLength) {
-    const list = [];
-    let i;
-    for (i=0; i<listLength; i++) {
-        list[i] = i;
-    }
-    return list;
+  function sum(arr) {
+    return arr.reduce( (a, b) => a + b );
   }
 
   // CHAIN
@@ -401,11 +464,13 @@
   }
 
   function eachChain(item, fn) {
+    let index = 0;
     while(item) {
       const next = item.next;
-      fn(item);
+      fn(item, index++);
       item = next;
     }
+    return index; // really count
   }
 
   function addToChain(obj, name, entry) {
@@ -442,6 +507,7 @@
 
   var utils$1 = /*#__PURE__*/Object.freeze({
     __proto__: null,
+    makeDebug: makeDebug,
     NOOP: NOOP,
     TRUE: TRUE,
     FALSE: FALSE,
@@ -472,19 +538,155 @@
     assignOmitting: assignOmitting,
     setDefault: setDefault,
     setDefaults: setDefaults,
+    kindDefaults: kindDefaults,
     clearObject: clearObject,
     ERROR: ERROR,
     WARN: WARN,
     getOpt: getOpt,
     firstOpt: firstOpt,
     arraysIntersect: arraysIntersect,
-    sequence: sequence,
+    sum: sum,
     chainLength: chainLength,
     chainIncludes: chainIncludes,
     eachChain: eachChain,
     addToChain: addToChain,
     removeFromChain: removeFromChain
   });
+
+  var EVENTS = {};
+
+  /**
+   * Representation of a single event listener.
+   *
+   * @param {Function} fn The listener function.
+   * @param {*} context The context to invoke the listener with.
+   * @param {Boolean} [once=false] Specify if the listener is a one-time listener.
+   * @constructor
+   * @private
+   */
+  class Listener {
+    constructor(fn, context, once) {
+      this.fn = fn;
+      this.context = context;
+      this.once = once || false;
+      this.next = null;
+    }
+
+    matches(fn, context, once) {
+      return ((this.fn === fn) &&
+          ((once === undefined) || (once == this.once)) &&
+          (!context || this.context === context));
+    }
+  }
+
+
+  /**
+   * Add a listener for a given event.
+   *
+   * @param {String} event The event name.
+   * @param {Function} fn The listener function.
+   * @param {*} context The context to invoke the listener with.
+   * @param {Boolean} once Specify if the listener is a one-time listener.
+   * @returns {Listener}
+   */
+  function addListener(event, fn, context, once) {
+    if (typeof fn !== 'function') {
+      throw new TypeError('The listener must be a function');
+    }
+
+    const listener = new Listener(fn, context || null, once);
+    addToChain(EVENTS, event, listener);
+    return listener;
+  }
+
+  function on(event, fn, context, once) {
+    return addListener(event, fn, context, once);
+  }
+
+  /**
+   * Add a one-time listener for a given event.
+   *
+   * @param {(String|Symbol)} event The event name.
+   * @param {Function} fn The listener function.
+   * @param {*} [context=this] The context to invoke the listener with.
+   * @returns {EventEmitter} `this`.
+   * @public
+   */
+  function once(event, fn, context) {
+    return addListener(event, fn, context, true);
+  }
+  /**
+   * Remove the listeners of a given event.
+   *
+   * @param {(String|Symbol)} event The event name.
+   * @param {Function} fn Only remove the listeners that match this function.
+   * @param {*} context Only remove the listeners that have this context.
+   * @param {Boolean} once Only remove one-time listeners.
+   * @returns {EventEmitter} `this`.
+   * @public
+   */
+  function removeListener(event, fn, context, once) {
+    if (!EVENTS[event]) return;
+    if (!fn) {
+      clearEvent(event);
+      return;
+    }
+
+    eachChain(EVENTS[event], (l) => {
+      if (l.matches(fn, context, once)) {
+        removeFromChain(EVENTS, event, l);
+      }
+    });
+  }
+  function off(event, fn, context, once) {
+    removeListener(event, fn, context, once);
+  }
+
+  /**
+   * Clear event by name.
+   *
+   * @param {String} evt The Event name.
+   */
+  function clearEvent(event) {
+    EVENTS[event] = null;
+  }
+
+
+  /**
+   * Remove all listeners, or those of the specified event.
+   *
+   * @param {(String|Symbol)} [event] The event name.
+   * @returns {EventEmitter} `this`.
+   * @public
+   */
+  function removeAllListeners(event) {
+    if (event) {
+      if (EVENTS[event]) clearEvent(event);
+    } else {
+      EVENTS = {};
+    }
+  }
+
+  /**
+   * Calls each of the listeners registered for a given event.
+   *
+   * @param {(String|Symbol)} event The event name.
+   * @returns {Boolean} `true` if the event had listeners, else `false`.
+   * @public
+   */
+  async function emit(...args) {
+    const event = args[0];
+    if (!EVENTS[event]) return false;  // no events to send
+    let listener = EVENTS[event];
+
+    while(listener) {
+      let next = listener.next;
+      if (listener.once) removeFromChain(EVENTS, event, listener);
+      await listener.fn.apply(listener.context, args);
+      listener = next;
+    }
+    return true;
+  }
 
   ///////////////////////////////////
   // FLAG
@@ -630,6 +832,10 @@
     AF_CHANGED      : Fl(0),
     AF_DYING        : Fl(1),
     AF_TURN_ENDED   : Fl(2),
+
+    AF_MALE         : Fl(3),
+    AF_FEMALE       : Fl(4),
+    AF_YOU          : Fl(5),  // Use 'you' as the actor name in messages
 
     AF_DEBUG        : Fl(30),
   });
@@ -886,13 +1092,12 @@
   	IK_KIND_AUTO_ID       	: Fl(17),	// the item type will become known when the item is picked up.
   	IK_PLAYER_AVOIDS				: Fl(18),	// explore and travel will try to avoid picking the item up
 
-  	IK_NAME_PLURAL					: Fl(20), // Replace with name conventions?  'gold coin~'
+  	IK_NAME_PLURAL					: Fl(20), // TODO - Replace with name conventions?  'gold coin~'
 
   	IK_STACKABLE						: Fl(21),
-  	// IK_STACK_SMALL					: Fl(22),
-  	// IK_STACK_LARGE					: Fl(23),
-  	// IK_SLOW_RECHARGE				: Fl(24),
+    IK_STACK_AS_ONE         : Fl(22),
 
+  	// IK_SLOW_RECHARGE				: Fl(24),
   	IK_CAN_BE_SWAPPED      	: Fl(25),
   	// IK_CAN_BE_RUNIC					: Fl(26),
   	IK_CAN_BE_DETECTED		  : Fl(27),
@@ -1034,6 +1239,8 @@
 
     // returns a pseudo-random number from set 0, 1, 2, ..., RNG_M - 2
     number(max) {
+      if (max==1) return 0;
+
   		++this.count;
       const high = Math.floor(this._v / RNG_Q);
       const low = Math.floor(this._v % RNG_Q);
@@ -1158,6 +1365,13 @@
       return list;
     }
 
+    sequence(n) {
+      const list = [];
+      for (let i=0; i<n; i++) {
+        list[i] = i;
+      }
+      return this.shuffle(list);
+    }
   }
 
   Random.MAX = RNG_M;
@@ -1239,7 +1453,7 @@
     }
     if (config.length == 0) return new Range(0);
 
-  	const RE = /^(?:([+-]?\d*)[Dd](\d+)([+-]?\d*)|([+-]?\d+)-(\d+):?(\d+)?|([+-]?\d+\.?\d*))/g;
+  	const RE = /^(?:([+-]?\d*)[Dd](\d+)([+-]?\d*)|([+-]?\d+)-(\d+):?(\d+)?|([+-]?\d+)~(\d+)|([+-]?\d+\.?\d*))/g;
     let results;
     while ((results = RE.exec(config)) !== null) {
       if (results[2]) {
@@ -1258,8 +1472,13 @@
         const clumps = Number.parseInt(results[6]);
         return new Range(min, max, clumps, rng);
       }
-  		else if (results[7]) {
-        const v = Number.parseFloat(results[7]);
+      else if (results[7] && results[8]) {
+        const base = Number.parseInt(results[7]);
+        const std = Number.parseInt(results[8]);
+        return new Range(base - 2*std, base + 2*std, 3, rng);
+      }
+  		else if (results[9]) {
+        const v = Number.parseFloat(results[9]);
         return new Range(v, v, 1, rng);
       }
     }
@@ -1269,8 +1488,7 @@
 
   make.range = makeRange;
 
-  var color = {};
-  var colors = {};
+  // export var color = {};
 
 
   class Color extends Array {
@@ -1338,55 +1556,59 @@
       this.blue		= clamp(this.blue, 0, 100);
     }
 
-    add(augmentColor, pct=100) {
-      this.red += Math.floor((augmentColor.red * pct) / 100);
-      this.redRand += Math.floor((augmentColor.redRand * pct) / 100);
-      this.green += Math.floor((augmentColor.green * pct) / 100);
-      this.greenRand += Math.floor((augmentColor.greenRand * pct) / 100);
-      this.blue += Math.floor((augmentColor.blue * pct) / 100);
-      this.blueRand += Math.floor((augmentColor.blueRand * pct) / 100);
-      this.rand += Math.floor((augmentColor.rand * pct) / 100);
+    add(other, pct=100) {
+      other = from(other);
+
+      this.red += Math.floor((other.red * pct) / 100);
+      this.redRand += Math.floor((other.redRand * pct) / 100);
+      this.green += Math.floor((other.green * pct) / 100);
+      this.greenRand += Math.floor((other.greenRand * pct) / 100);
+      this.blue += Math.floor((other.blue * pct) / 100);
+      this.blueRand += Math.floor((other.blueRand * pct) / 100);
+      this.rand += Math.floor((other.rand * pct) / 100);
       return this;
     }
 
-    mix(newColor, opacity=100) {
+    mix(other, opacity=100) {
+      other = from(other);
+
       if (opacity <= 0) return this;
       if (opacity >= 100) {
-        this.copy(newColor);
+        this.copy(other);
         return this;
       }
 
       const weightComplement = 100 - opacity;
       for(let i = 0; i < this.length; ++i) {
-        this[i] = Math.floor((this[i] * weightComplement + newColor[i] * opacity) / 100);
+        this[i] = Math.floor((this[i] * weightComplement + other[i] * opacity) / 100);
       }
-      this.dances = (this.dances || newColor.dances);
+      this.dances = (this.dances || other.dances);
       return this;
     }
 
-    applyMultiplier(multiplierColor) {
-      this.red = Math.round(this.red * multiplierColor[0] / 100);
-      this.green = Math.round(this.green * multiplierColor[1] / 100);
-      this.blue = Math.round(this.blue * multiplierColor[2] / 100);
+    applyMultiplier(other) {
+      this.red = Math.round(this.red * other[0] / 100);
+      this.green = Math.round(this.green * other[1] / 100);
+      this.blue = Math.round(this.blue * other[2] / 100);
 
-      if (multiplierColor.length > 3) {
-        this.rand = Math.round(this.rand * multiplierColor[3] / 100);
-        this.redRand = Math.round(this.redRand * multiplierColor[4] / 100);
-        this.greenRand = Math.round(this.greenRand * multiplierColor[5] / 100);
-        this.blueRand = Math.round(this.blueRand * multiplierColor[6] / 100);
-        this.dances = this.dances || multiplierColor.dances;
+      if (other instanceof Color) {
+        this.rand = Math.round(this.rand * other.rand / 100);
+        this.redRand = Math.round(this.redRand * other.redRand / 100);
+        this.greenRand = Math.round(this.greenRand * other.greenRand / 100);
+        this.blueRand = Math.round(this.blueRand * other.blueRand / 100);
+        this.dances = this.dances || other.dances;
       }
       return this;
     }
 
-    applyScalar(scalar) {
-      this.red          = Math.round(this.red        * scalar / 100);
-      this.redRand      = Math.round(this.redRand    * scalar / 100);
-      this.green        = Math.round(this.green      * scalar / 100);
-      this.greenRand    = Math.round(this.greenRand  * scalar / 100);
-      this.blue         = Math.round(this.blue       * scalar / 100);
-      this.blueRand     = Math.round(this.blueRand   * scalar / 100);
-      this.rand         = Math.round(this.rand       * scalar / 100);
+    applyScalar(other) {
+      this.red          = Math.round(this.red        * other / 100);
+      this.redRand      = Math.round(this.redRand    * other / 100);
+      this.green        = Math.round(this.green      * other / 100);
+      this.greenRand    = Math.round(this.greenRand  * other / 100);
+      this.blue         = Math.round(this.blue       * other / 100);
+      this.blueRand     = Math.round(this.blueRand   * other / 100);
+      this.rand         = Math.round(this.rand       * other / 100);
       return this;
     }
 
@@ -1399,6 +1621,33 @@
       this.redRand = this.greenRand = this.blueRand = this.rand = 0;
       return this;
     }
+
+
+    lighten(percent) {
+      this.red =    Math.round(this.red + (100 - this.red) * percent / 100);
+      this.green =  Math.round(this.green + (100 - this.green) * percent / 100);
+      this.blue =   Math.round(this.blue + (100 - this.blue) * percent / 100);
+
+      // leave randoms the same
+      return this;
+    }
+
+    darken(percent) {
+      this.red =    Math.round(this.red * (100 - percent) / 100);
+      this.green =  Math.round(this.green * (100 - percent) / 100);
+      this.blue =   Math.round(this.blue * (100 - percent) / 100);
+
+      // leave randoms the same
+      return this;
+    }
+
+    randomize(randomizePercent) {
+      this.red = _randomizeColorByPercent(this.red, randomizePercent);
+      this.green = _randomizeColorByPercent(this.green, randomizePercent);
+      this.blue = _randomizeColorByPercent(this.blue, randomizePercent);
+      return this;
+    }
+
 
   }
 
@@ -1440,7 +1689,6 @@
     return null;
   }
 
-  color.make = make$1;
   make.color = make$1;
 
 
@@ -1456,7 +1704,6 @@
   	return color;
   }
 
-  color.addKind = addKind;
 
   function from(arg) {
     if (typeof arg === 'string') {
@@ -1468,18 +1715,6 @@
     return make.color(arg);
   }
 
-  color.from = from;
-
-
-  function applyMix(baseColor, newColor, opacity) {
-    baseColor = color.from(baseColor);
-    newColor = color.from(newColor);
-
-    return baseColor.mix(newColor, opacity);
-  }
-
-  color.applyMix = applyMix;
-  color.applyAverage = applyMix;
 
 
   function toRGB(v, vr) {
@@ -1506,45 +1741,12 @@
     return Math.max(color[0], color[1], color[2]);
   }
 
-  color.intensity = intensity;
-
-
-  function lighten(destColor, percent) {
-    destColor.red =    Math.round(destColor.red + (100 - destColor.red) * percent / 100);
-    destColor.green =  Math.round(destColor.green + (100 - destColor.green) * percent / 100);
-    destColor.blue =   Math.round(destColor.blue + (100 - destColor.blue) * percent / 100);
-
-    // leave randoms the same
-    return destColor;
-  }
-
-  color.lighten = lighten;
-
-  function darken(destColor, percent) {
-    destColor.red =    Math.round(destColor.red * (100 - percent) / 100);
-    destColor.green =  Math.round(destColor.green * (100 - percent) / 100);
-    destColor.blue =   Math.round(destColor.blue * (100 - percent) / 100);
-
-    // leave randoms the same
-    return destColor;
-  }
-
-  color.darken = darken;
-
-
 
 
   function _randomizeColorByPercent(input, percent) {
     return (cosmetic.range( Math.floor(input * (100 - percent) / 100), Math.floor(input * (100 + percent) / 100)));
   }
 
-  function randomize(baseColor, randomizePercent) {
-    baseColor.red = _randomizeColorByPercent(baseColor.red, randomizePercent);
-    baseColor.green = _randomizeColorByPercent(baseColor.green, randomizePercent);
-    baseColor.blue = _randomizeColorByPercent(baseColor.blue, randomizePercent);
-  }
-
-  color.randomize = randomize;
 
   function swap(color1, color2) {
       const tempColor = color1.clone();
@@ -1552,7 +1754,6 @@
       color2.copy(tempColor);
   }
 
-  color.swap = swap;
 
   const MIN_COLOR_DIFF =			600;
 
@@ -1563,7 +1764,6 @@
       + (f.blue - b.blue) * (f.blue - b.blue) * 0.0722);
   }
 
-  color.diff = diff;
 
   function normalize(baseColor, aggregateMultiplier, colorTranslation) {
 
@@ -1583,7 +1783,6 @@
       baseColor.rand = 0;
   }
 
-  color.normalize = normalize;
 
 
   // if forecolor is too similar to back, darken or lighten it and return true.
@@ -1612,8 +1811,8 @@
     madeChange = false;
     failsafe = 10;
 
-    while(color.diff(f, b) < MIN_COLOR_DIFF && --failsafe) {
-      applyMix(f, modifier, 20);
+    while(diff(f, b) < MIN_COLOR_DIFF && --failsafe) {
+      f.mix(modifier, 20);
       madeChange = true;
     }
 
@@ -1625,22 +1824,20 @@
     }
   }
 
-  color.separate = separate;
 
 
   function addSpread(name, r, g, b) {
   	let baseColor;
   	baseColor = addKind(name, r, g, b);
-  	addKind('light_' + name, color.lighten(baseColor.clone(), 25));
-  	addKind('lighter_' + name, color.lighten(baseColor.clone(), 50));
-  	addKind('lightest_' + name, color.lighten(baseColor.clone(), 75));
-  	addKind('dark_' + name, color.darken(baseColor.clone(), 25));
-  	addKind('darker_' + name, color.darken(baseColor.clone(), 50));
-  	addKind('darkest_' + name, color.darken(baseColor.clone(), 75));
+  	addKind('light_' + name, baseColor.clone().lighten(25));
+  	addKind('lighter_' + name, baseColor.clone().lighten(50));
+  	addKind('lightest_' + name, baseColor.clone().lighten(75));
+  	addKind('dark_' + name, baseColor.clone().darken(25));
+  	addKind('darker_' + name, baseColor.clone().darken(50));
+  	addKind('darkest_' + name, baseColor.clone().darken(75));
   	return baseColor;
   }
 
-  color.addSpread = addSpread;
 
   addKind('white', 				100,	100,	100);
   addKind('black', 				0,		0,		0);
@@ -1675,6 +1872,20 @@
   addSpread('silver',      75,   75,   75);
   addSpread('gold',        100,  85,   0);
 
+  var color = /*#__PURE__*/Object.freeze({
+    __proto__: null,
+    Color: Color,
+    make: make$1,
+    addKind: addKind,
+    from: from,
+    intensity: intensity,
+    swap: swap,
+    diff: diff,
+    normalize: normalize,
+    separate: separate,
+    addSpread: addSpread
+  });
+
   ///////////////////////////////////
   // Message String
 
@@ -1682,22 +1893,35 @@
   const COLOR_ESCAPE = def.COLOR_ESCAPE =	25;
   const COLOR_END    = def.COLOR_END    = 26;
   const COLOR_VALUE_INTERCEPT =	0; // 25;
-  const TEMP_COLOR = make.color();
 
 
   const playerPronoun = {
     it: 'you',
     its: 'your',
+    you: 'you',
+    your: 'your',
+    he: 'you',
+    she: 'you',
+    his: 'your',
+    hers: 'your',
   };
 
   const singularPronoun = {
     it: 'it',
     its: 'its',
+    he: 'he',
+    she: 'she',
+    his: 'his',
+    hers: 'hers',
   };
 
   const pluralPronoun = {
     it: 'them',
     its: 'their',
+    he: 'them',
+    she: 'them',
+    his: 'their',
+    hers: 'their',
   };
 
 
@@ -1725,38 +1949,72 @@
 
 
 
-  function toSingular(verb) {
+  function toSingularVerb(verb) {
+    if (verb === 'pickup') return 'picks up';
+    if (verb === 'have') return 'has';
     if (verb.endsWith('y')) {
-      return verb.substring(0, verb.length - 1) + 'ies';
+      if (!verb.endsWith('ay')) {
+        return verb.substring(0, verb.length - 1) + 'ies';
+      }
     }
-    if (verb.endsWith('sh') || verb.endsWith('ch') || verb.endsWith('o')) {
+    if (verb.endsWith('sh') || verb.endsWith('ch') || verb.endsWith('o') || verb.endsWith('s')) {
       return verb + 'es';
     }
     return verb + 's';
   }
 
 
+  function toPluralVerb(verb) {
+    if (verb === 'is') return 'are';
+    if (verb === 'has') return 'have';
+    if (verb.endsWith('ies')) {
+      return verb.substring(0, verb.length - 3) + 'y';
+    }
+    if (verb.endsWith('es')) {
+      return verb.substring(0, verb.length - 2);
+    }
+    return verb;
+  }
+
+
+  function toPluralNoun(noun, isPlural=true) {
+    if (!isPlural) return noun.replace('~','');
+    const place = noun.indexOf('~');
+    if (place < 0) return toSingularVerb(noun);
+
+    let wordStart = noun.lastIndexOf(' ', place);
+    if (wordStart < 0) wordStart = 0;
+    const word = noun.substring(wordStart, place);
+    const newWord = toSingularVerb(word);
+
+    return splice(noun, wordStart, place - wordStart + 1, newWord);
+  }
+
 
   function eachChar(msg, fn) {
-    let color = null;
+    let color$1 = null;
     const components = [100, 100, 100];
     let index = 0;
     if (!msg || !msg.length) return;
 
+    const colors = [];
+
     for(let i = 0; i < msg.length; ++i) {
       const ch = msg.charCodeAt(i);
       if (ch === COLOR_ESCAPE) {
+          if (color$1) colors.push(color$1);
+
           components[0] = msg.charCodeAt(i + 1) - COLOR_VALUE_INTERCEPT;
           components[1] = msg.charCodeAt(i + 2) - COLOR_VALUE_INTERCEPT;
           components[2] = msg.charCodeAt(i + 3) - COLOR_VALUE_INTERCEPT;
-          color = TEMP_COLOR.copy(components);
+          color$1 = make$1(components);
           i += 3;
       }
       else if (ch === COLOR_END) {
-        color = null;
+        color$1 = colors.pop() || null;
       }
       else {
-        fn(msg[i], color, index);
+        fn(msg[i], color$1, index);
         ++index;
       }
     }
@@ -1902,11 +2160,12 @@
   // Does NOT check string lengths, so it could theoretically write over the null terminator.
   // Returns the new insertion point.
   function encodeColor(theColor) {
-    if (!theColor) {
+    if ((!theColor) || theColor == '') {
       return String.fromCharCode(COLOR_END);
     }
 
-    const copy = color.from(theColor);
+    const copy = from(theColor);
+    if (!copy) ERROR('Invalid color - [' + theColor + ']');
     copy.bake();
     copy.clamp();
     return String.fromCharCode(COLOR_ESCAPE, copy.red + COLOR_VALUE_INTERCEPT, copy.green + COLOR_VALUE_INTERCEPT, copy.blue + COLOR_VALUE_INTERCEPT);
@@ -2059,23 +2318,27 @@
     // for (i=0; printString.charCodeAt(i) == COLOR_ESCAPE; i+= 4);
     spaceLeftOnLine = firstWidth;
 
+    const colors = [];
+
     let i = -1;
     let lastColor = '';
-    let nextColor = null;
-    let clearColor = false;
+    let lineStart = 0;
     while (i < textLength) {
       // wordWidth counts the word width of the next word without color escapes.
       // w indicates the position of the space or newline or null terminator that terminates the word.
       wordWidth = 0;
       for (w = i + 1; w < textLength && printString[w] !== ' ' && printString[w] !== '\n';) {
         if (printString.charCodeAt(w) === COLOR_ESCAPE) {
-          nextColor = printString.substring(w, w + 4);
-          clearColor = false;
+          // colors.push(lastColor);
+          // lastColor = printString.substring(w, w + 4);
+          // nextColor = printString.substring(w, w + 4);
+          // clearColor = false;
           w += 4;
         }
         else if (printString.charCodeAt(w) === COLOR_END) {
-          clearColor = true;
-          nextColor = null;
+          // clearColor = true;
+          // nextColor = null;
+          // lastColor = colors.pop() || '';
           w += 1;
         }
         else {
@@ -2085,23 +2348,40 @@
       }
 
       if (1 + wordWidth > spaceLeftOnLine || printString[i] === '\n') {
+
+        for(let k = lineStart; k <= i; ++k) {
+          if (printString.charCodeAt(k) === COLOR_ESCAPE) {
+            colors.push(lastColor);
+            lastColor = printString.substring(k, k + 4);
+            k += 3;
+          }
+          else if (printString.charCodeAt(k) === COLOR_END) {
+            lastColor = colors.pop() || '';
+          }
+        }
+
+        // console.log('Add line - ', printString.substring(lineStart, i));
+        // console.log(lastColor, colors);
+
         printString = splice(printString, i, 1, '\n' + lastColor);	// [i] = '\n';
         w += lastColor.length;
         textLength += lastColor.length;
+        lineStart = i + lastColor.length;
         spaceLeftOnLine = width - wordWidth; // line width minus the width of the word we just wrapped
         //printf("\n\n%s", printString);
       } else {
         spaceLeftOnLine -= 1 + wordWidth;
       }
 
-      if (nextColor) {
-        lastColor = nextColor;
-        nextColor = null;
-      }
-      if (clearColor) {
-        clearColor = false;
-        lastColor = '';
-      }
+      // if (nextColor) {
+      //   colors.push(lastColor);
+      //   lastColor = nextColor;
+      //   nextColor = null;
+      // }
+      // if (clearColor) {
+      //   clearColor = false;
+      //   lastColor = colors.pop() || '';
+      // }
 
       i = w; // Advance to the terminator that follows the word.
     }
@@ -2178,7 +2458,7 @@
       else if (p5 == 'F') {
         let color$1 = args.shift() || null;
         if (color$1 && !(color$1 instanceof types.Color)) {
-          color$1 = color.from(color$1);
+          color$1 = from(color$1);
         }
         r = encodeColor(color$1);
       }
@@ -2215,14 +2495,60 @@
   }
 
 
-  // function sprintf(dest, fmt, ...args) {
-  //   dest = STRING(dest);
-  //   dest._textLength = -1;
-  //   dest.text = text.format(fmt, ...args);
-  //   return dest;
-  // }
-  //
-  // text.sprintf = sprintf;
+
+  function apply(template, args={}) {
+
+    const RE = /#(\w+)#|##(?!#)|\$(\w+)\.?(\w+)?\$/g;
+
+    let source = 'actor';
+    let result = template.replace(RE, (match, color, first, second, offset) => {
+      // console.log(m, p1, p2, p3, p4, offset);
+      if (match === '##') {
+        return encodeColor(null);
+      }
+      else if (color !== undefined) {
+        if (args[color] !== undefined) {
+          color = args[color];
+        }
+        return encodeColor(color);
+      }
+      else if (first) {
+        if (first !== 'verb' && (args[first] !== undefined)) {
+          // TODO - allow formatting e.g. $cost.2f$, $total.4d$
+          const obj = args[first];
+          if (obj.getName) {
+            source = first;
+            return obj.getName(false);  // no article
+          }
+          return '' + obj;
+        }
+
+        if (first == 'you') {
+          first = 'the';
+          second = second || 'actor';
+        }
+        source = second || source;
+        const sourceObj = args[source] || data[source] || {};
+        if (first == 'the') {
+          if (sourceObj.getName) return sourceObj.getName('the');
+        }
+        else if (first == 'a' || first == 'an') {
+          if (sourceObj.getName) return sourceObj.getName('a');
+        }
+        else if (first == 'verb') {
+          first = args.verb || first;
+        }
+        else if (['him', 'her', 'he', 'she', 'it', 'his', 'hers', 'its', 'your'].includes(first) ) {
+          if (sourceObj.getPronoun) return sourceObj.getPronoun(first);
+        }
+
+        if (sourceObj.getVerb) return sourceObj.getVerb(first);
+      }
+      return match;
+    });
+
+    return result;
+  }
 
   var text = /*#__PURE__*/Object.freeze({
     __proto__: null,
@@ -2231,7 +2557,9 @@
     pluralPronoun: pluralPronoun,
     firstChar: firstChar,
     isVowel: isVowel,
-    toSingular: toSingular,
+    toSingularVerb: toSingularVerb,
+    toPluralVerb: toPluralVerb,
+    toPluralNoun: toPluralNoun,
     eachChar: eachChar,
     length: length,
     splice: splice,
@@ -2242,7 +2570,8 @@
     removeColors: removeColors,
     hyphenate: hyphenate,
     splitIntoLines: splitIntoLines,
-    format: format
+    format: format,
+    apply: apply
   });
 
   const TEMP_BG = new types.Color();
@@ -2356,7 +2685,7 @@
   		this.nullify();
       if (bg) {
         if (typeof bg === 'string') {
-          bg = color.from(bg);
+          bg = from(bg);
         }
         if (this.bg) {
           this.bg.copy(bg);
@@ -2369,6 +2698,13 @@
   		this.needsUpdate = true;
   		this.wasHanging = false;
   	}
+
+    fade(color, pct) {
+      if (this.bg) this.bg.mix(color, pct);
+      if (this.fg) this.fg.mix(color, pct);
+      this.needsUpdate = true;
+      this.opacity = this.opacity || 100;
+    }
 
   	plotChar(ch, fg, bg) {
   		this.wasHanging = this.wasHanging || (ch != null && HANGING_LETTERS.includes(ch));
@@ -2401,11 +2737,11 @@
       }
 
   		if (sprite.fg && sprite.ch != ' ') {
-  			color.applyMix(this.fg, sprite.fg, opacity);
+  			this.fg.mix(sprite.fg, opacity);
   		}
 
   		if (sprite.bg) {
-  			color.applyMix(this.bg, sprite.bg, opacity);
+  			this.bg.mix(sprite.bg, opacity);
   		}
 
       if (this.ch != ' ' && this.fg.equals(this.bg))
@@ -3340,6 +3676,11 @@
       this.needsUpdate = true;
     }
 
+    fade(color$1, pct) {
+      color$1 = from(color$1);
+      this.forEach( (s) => s.fade(color$1, pct) );
+    }
+
     dump(fmt) { super.dump( fmt || ((s) => s.ch) ); }
 
     plot(x, y, sprite) {
@@ -3374,13 +3715,22 @@
         text$1 = format(text$1, ...args);
       }
       eachChar(text$1, (ch, color, i) => {
-        this.plotChar(i + x, y, ch, color || GW.colors.white, null);
+        this.plotChar(i + x, y, ch, color || colors.white, null);
       });
     }
+
+    applyText(x, y, text$1, args) {
+      text$1 = apply(text$1, args);
+      eachChar(text$1, (ch, color, i) => {
+        this.plotChar(i + x, y, ch, color || colors.white, null);
+      });
+    }
+
 
     plotLine(x, y, w, text$1, fg, bg) {
       if (typeof fg === 'string') { fg = colors[fg]; }
       if (typeof bg === 'string') { bg = colors[bg]; }
+      fg = fg || colors.white;
       let len = length(text$1);
       eachChar(text$1, (ch, color, i) => {
         this.plotChar(i + x, y, ch, color || fg, bg);
@@ -3720,7 +4070,7 @@
 
   let KEYMAP = {};
   // const KEYMAPS = [];
-  const EVENTS = [];
+  const EVENTS$1 = [];
   const DEAD_EVENTS = [];
 
   const KEYPRESS  = def.KEYPRESS  = 'keypress';
@@ -3753,15 +4103,15 @@
   io.busy = busy;
 
   function hasEvents() {
-  	return EVENTS.length;
+  	return EVENTS$1.length;
   }
 
   io.hasEvents = hasEvents;
 
 
   function clearEvents() {
-  	while (EVENTS.length) {
-  		const ev = EVENTS.shift();
+  	while (EVENTS$1.length) {
+  		const ev = EVENTS$1.shift();
   		DEAD_EVENTS.push(ev);
   	}
   }
@@ -3770,8 +4120,8 @@
 
 
   function pushEvent(ev) {
-    if (EVENTS.length) {
-  		const last = EVENTS[EVENTS.length - 1];
+    if (EVENTS$1.length) {
+  		const last = EVENTS$1[EVENTS$1.length - 1];
   		if (last.type === MOUSEMOVE) {
   	    if (last.type === ev.type) {
   				last.x = ev.x;
@@ -3787,16 +4137,16 @@
     }
     else {
   		if (ev.type === TICK) {
-  			const first = EVENTS[0];
+  			const first = EVENTS$1[0];
   			if (first && first.type === TICK) {
   				first.dt += ev.dt;
   				io.recycleEvent(ev);
   				return;
   			}
-  			EVENTS.unshift(ev);	// ticks go first
+  			EVENTS$1.unshift(ev);	// ticks go first
   		}
   		else {
-  			EVENTS.push(ev);
+  			EVENTS$1.push(ev);
   		}
     }
   }
@@ -3814,7 +4164,7 @@
   		command = km.dir;
   	}
   	else if (ev.type === KEYPRESS) {
-  		command = km[ev.key] || km[ev.code];
+  		command = km[ev.key] || km[ev.code] || km.keypress;
   	}
   	else if (km[ev.type]) {
   		command = km[ev.type];
@@ -3993,8 +4343,8 @@
   	PAUSED = null;
   	// io.debug('resuming events');
 
-  	if (EVENTS.length && CURRENT_HANDLER) {
-  		const e = EVENTS.shift();
+  	if (EVENTS$1.length && CURRENT_HANDLER) {
+  		const e = EVENTS$1.shift();
   		// io.debug('- processing paused event', e.type);
   		CURRENT_HANDLER(e);
   		// io.recycleEvent(e);	// DO NOT DO THIS B/C THE HANDLER MAY PUT IT BACK ON THE QUEUE (see tickMs)
@@ -4009,8 +4359,8 @@
   	match = match || TRUE;
   	let elapsed = 0;
 
-  	while (EVENTS.length) {
-    	const e = EVENTS.shift();
+  	while (EVENTS$1.length) {
+    	const e = EVENTS$1.shift();
   		if (e.type === MOUSEMOVE) {
   			io.mouse.x = e.x;
   			io.mouse.y = e.y;
@@ -4056,7 +4406,7 @@
 
   	CURRENT_HANDLER = ((e) => {
     	if (e.type !== TICK) {
-  			EVENTS.push(e);
+  			EVENTS$1.push(e);
       	return;
       }
   		elapsed += e.dt;
@@ -4072,7 +4422,6 @@
   io.tickMs = tickMs;
 
 
-  // TODO - io.tickMs(ms)
 
   async function nextKeyPress(ms, match) {
     if (ms === undefined) ms = -1;
@@ -4110,6 +4459,19 @@
   }
 
   io.waitForAck = waitForAck;
+
+
+  async function loop(handler) {
+    let running = true;
+    while(running) {
+      const ev = await io.nextEvent();
+      if (await io.dispatchEvent(ev, handler)) {
+        running = false;
+      }
+    }
+  }
+
+  io.loop = loop;
 
   var PATH = {};
 
@@ -4902,8 +5264,7 @@
       // Pick a direction.
       dir = opts.dir;
       if (dir === undefined) {
-        const dirs = sequence(4);
-        random.shuffle(dirs);
+        const dirs = random.sequence(4);
         for (i=0; i<4; i++) {
             dir = dirs[i];
             if (doorSitesArray[dir][0] != -1
@@ -4987,10 +5348,10 @@
 
   		this.message = opts.message || null;
   	  this.lightFlare = opts.flare || 0;
-  		this.flashColor = opts.flash ? color.from(opts.flash) : null;
+  		this.flashColor = opts.flash ? from(opts.flash) : null;
   		// this.effectRadius = radius || 0;
   		this.messageDisplayed = false;
-  		this.eventName = opts.event || null;	// name of the event to emit when activated
+  		this.eventName = opts.event || opts.emit || null;	// name of the event to emit when activated
   		this.id = opts.id || null;
   	}
 
@@ -5172,6 +5533,11 @@
   		}
   	}
 
+    if (feat.eventName) {
+  		await emit(feat.eventName, ctx);
+      didSomething = true;
+  	}
+
   	if (data.gameHasEnded) {
   		GRID$1.free(spawnMap);
   		return didSomething;
@@ -5217,10 +5583,6 @@
       //     }
       // }
     }
-
-  	// if (didSomething && feat.flags & Flags.TileEvent.DFF_EMIT_EVENT && feat.eventName) {
-  	// 	await GAME.emit(feat.eventName, x, y);
-  	// }
 
   	if (didSomething) {
       spawnMap.forEach( (v, i, j) => {
@@ -5568,7 +5930,7 @@
 
   cell.debug = NOOP;
 
-  color.addKind('cursorColor', 25, 100, 150);
+  addKind('cursorColor', 25, 100, 150);
   config.cursorPathIntensity = 50;
 
 
@@ -5679,8 +6041,8 @@
     }
 
     // TODO - Use functions in LIGHT to check these on cell.light directly???
-    hasVisibleLight() { return color.intensity(this.light) > def.INTENSITY_DARK; }  // TODO
-    isDark() { return color.intensity(this.light) <= def.INTENSITY_DARK; }  // TODO
+    hasVisibleLight() { return intensity(this.light) > def.INTENSITY_DARK; }  // TODO
+    isDark() { return intensity(this.light) <= def.INTENSITY_DARK; }  // TODO
     lightChanged() { return this.flags & Cell.LIGHT_CHANGED; }  // TODO
 
     tile(layer=0) {
@@ -6147,7 +6509,7 @@
     memory.bg.applyMultiplier(cell.light);
     memory.bake();
     if (needDistinctness) {
-      color.separate(memory.fg, memory.bg);
+      separate(memory.fg, memory.bg);
     }
     dest.plot(memory);
     return true;
@@ -6171,7 +6533,7 @@
   		this.config.tick = this.config.tick || 100;
   		this.actors = null;
   		this.items = null;
-      this.flags = Map.toFlag(Map.MAP_DEFAULT, opts.flag);
+      this.flags = Map.toFlag(Map.MAP_DEFAULT, opts.flags);
   		this.ambientLight = null;
   		const ambient = (opts.ambient || opts.ambientLight || opts.light);
   		if (ambient) {
@@ -6211,6 +6573,10 @@
   	hasTileFlag(x, y, flag) 		{ return this.cell(x, y).hasTileFlag(flag); }
   	hasTileMechFlag(x, y, flag) { return this.cell(x, y).hasTileMechFlag(flag); }
 
+    setCellFlag(x, y, flag) {
+      this.cell(x, y).flags |= flag;
+    }
+
   	redrawCell(cell) {
       // if (cell.isAnyKindOfVisible()) {
         cell.flags |= Cell.NEEDS_REDRAW;
@@ -6232,6 +6598,12 @@
   		this.flags |= Map.MAP_CHANGED;
     }
 
+    revealAll() {
+      this.forEach( (c) => {
+        c.markRevealed();
+        c.storeMemory();
+      });
+    }
   	markRevealed(x, y) { return this.cell(x, y).markRevealed(); }
   	isVisible(x, y)    { return this.cell(x, y).isVisible(); }
   	isAnyKindOfVisible(x, y) { return this.cell(x, y).isAnyKindOfVisible(); }
@@ -6875,8 +7247,10 @@
       opts = { tile: opts };
     }
   	const map = new types.Map(w, h, opts);
-  	if (opts.tile) {
-  		map.fill(opts.tile, opts.boundary);
+  	const floor = opts.tile || opts.floor || opts.floorTile;
+  	const boundary = opts.boundary || opts.wall || opts.wallTile;
+  	if (floor) {
+  		map.fill(floor, boundary);
   	}
     if (!data.map) {
       data.map = map;
@@ -6904,28 +7278,28 @@
       dest.blackOut();
     }
     else if (!cell$1.isAnyKindOfVisible()) {
-      color.applyMix(dest.bg, colors.black, 30);
-      color.applyMix(dest.fg, colors.black, 30);
-      // COLOR.bake(dest.bg);
-      // COLOR.bake(dest.fg);
+      dest.bg.mix(colors.black, 30);
+      dest.fg.mix(colors.black, 30);
+      // Color.bake(dest.bg);
+      // Color.bake(dest.fg);
     }
 
     let needDistinctness = false;
     if (cell$1.flags & (Cell.IS_CURSOR | Cell.IS_IN_PATH)) {
       const highlight = (cell$1.flags & Cell.IS_CURSOR) ? colors.cursorColor : colors.yellow;
       if (cell$1.hasTileMechFlag(TileMech.TM_INVERT_WHEN_HIGHLIGHTED)) {
-        color.swap(dest.fg, dest.bg);
+        swap(dest.fg, dest.bg);
       } else {
         // if (!GAME.trueColorMode || !dest.needDistinctness) {
-            color.applyMix(dest.fg, highlight, config.cursorPathIntensity || 20);
+            dest.fg.mix(highlight, config.cursorPathIntensity || 20);
         // }
-        color.applyMix(dest.bg, highlight, config.cursorPathIntensity || 20);
+        dest.bg.mix(highlight, config.cursorPathIntensity || 20);
       }
       needDistinctness = true;
     }
 
     if (needDistinctness) {
-      color.separate(dest.fg, dest.bg);
+      separate(dest.fg, dest.bg);
     }
 
   	// dest.bake();
@@ -7157,8 +7531,8 @@
   const LIGHT_COMPONENTS = make$1();
 
   class Light {
-  	constructor(color, range, fadeTo, pass) {
-  		this.color = from(color) || null;	/* color */
+  	constructor(color$1, range, fadeTo, pass) {
+  		this.color = from(color$1) || null;	/* color */
   		this.radius = make.range(range || 1);
   		this.fadeTo = Number.parseInt(fadeTo) || 0;
   		this.passThroughActors = (pass && (pass !== 'false')) ? true : false; // generally no, but miner light does
@@ -7511,14 +7885,14 @@
           if (cell.item) {
               const theItem = cell.item;
               if (theItem.hasKindFlag(ItemKind.IK_INTERRUPT_EXPLORATION_WHEN_SEEN)) {
-                  MSG.add(COLORS.itemMessageColor, 'you see %s.', theItem.name());
+                  MSG.add('$you$ $see$ #itemMessageColor#$item$##.', { item, actor: GW.data.player });
               }
           }
           if (!(cell.flags & Cell.MAGIC_MAPPED)
               && cell.hasTileMechFlag(TileMech.TM_INTERRUPT_EXPLORATION_WHEN_SEEN))
   				{
               const tile = cell.tileWithMechFlag(TileMech.TM_INTERRUPT_EXPLORATION_WHEN_SEEN);
-              GW.ui.message(GW.colors.backgroundMessageColor, 'you see %s.', tile.name);
+              MSG.add('$you$ $see$ #backgroundMessageColor#$item$##.', { actor: GW.data.player, item: tile.name });
           }
       }
       cell.markRevealed();
@@ -7668,7 +8042,7 @@
       else {
         this.consoleColor = opts.consoleColor || true;
         if (typeof this.consoleColor === 'string') {
-          this.consoleColor = color.from(this.consoleColor);
+          this.consoleColor = from(this.consoleColor);
         }
       }
 
@@ -7781,23 +8155,33 @@
       if (typeof opts === 'string') { opts = { article: opts }; }
 
       let result = actor.name || this.name;
+      if (!opts.formal && actor.isPlayer()) {
+        result = 'you';
+      }
       if (opts.color || (this.consoleColor && (opts.color !== false))) {
-        let color = this.sprite.fg;
+        let color$1 = this.sprite.fg;
         if (this.consoleColor instanceof types.Color) {
-          color = this.consoleColor;
+          color$1 = this.consoleColor;
         }
         if (opts.color instanceof types.Color) {
-          color = opts.color;
+          color$1 = opts.color;
         }
-        result = format('%F%s%F', color, result, null);
+        else if (typeof opts.color === 'string') {
+          color$1 = from(opts.color);
+        }
+        if (color$1) {
+          result = apply('#color#$result$##', { color: color$1, result });
+        }
       }
 
       if (opts.article && (this.article !== false)) {
-        let article = (opts.article === true) ? this.article : opts.article;
-        if (article == 'a' && isVowel(firstChar(result))) {
-          article = 'an';
+        if (opts.formal || !actor.isPlayer()) {
+          let article = (opts.article === true) ? this.article : opts.article;
+          if (article == 'a' && isVowel(firstChar(result))) {
+            article = 'an';
+          }
+          result = article + ' ' + result;
         }
-        result = article + ' ' + result;
       }
       return result;
     }
@@ -7838,6 +8222,7 @@
       this.kind = kind || {};
       this.turnTime = 0;
   		this.status = {};
+      this.name = opts.name || null;
 
       this.pack = null;
       this.slots = {};
@@ -7877,9 +8262,20 @@
 
       this.id = ++ACTOR_COUNT;
 
-      if (this.kind.make) {
-        this.kind.make(this, opts);
+      if (opts.female) {
+        this.flags &= ~Actor.AF_MALE;
+        this.flags |= Actor.AF_FEMALE;
       }
+      else if (opts.male) {
+        this.flags &= ~Actor.AF_FEMALE;
+        this.flags |= Actor.AF_MALE;
+      }
+      else if (this.hasAllFlags(Actor.AF_MALE | Actor.AF_FEMALE)) {
+        const remove = random.chance(50) ? Actor.AF_MALE : Actor.AF_FEMALE;
+        this.flags &= ~remove;
+      }
+
+      this.kind.make(this, opts);
       if (this.kind.calcEquipmentBonuses) {
         this.kind.calcEquipmentBonuses(this);
       }
@@ -7891,6 +8287,18 @@
     isDead() { return this.current.health <= 0; }
     isInanimate() { return this.kind.flags & ActorKind.AK_INANIMATE; }
     isInvulnerable() { return this.kind.flags & ActorKind.AK_INVULNERABLE; }
+
+    isFemale() { return this.flags & Actor.AF_FEMALE; }
+    isMale() { return this.flags & Actor.AF_MALE; }
+
+    hasAllFlags(flags) {
+      return (this.flags & flags) === flags;
+    }
+
+    hasActionFlag(flag) {
+      if (this.isPlayer()) return true; // Players can do everything
+      return this.kind.actionFlags & flag;
+    }
 
 
     async bumpBy(actor, ctx) {
@@ -7973,11 +8381,6 @@
       });
     }
 
-    hasActionFlag(flag) {
-      if (this.isPlayer()) return true; // Players can do everything
-      return this.kind.actionFlags & flag;
-    }
-
     changed(v) {
       if (v) {
         this.flags |= Actor.AF_CHANGED;
@@ -8007,7 +8410,7 @@
 
     getVerb(verb) {
       if (this.isPlayer()) return verb;
-      return toSingular(verb);
+      return toSingularVerb(verb);
     }
 
     getPronoun(pn) {
@@ -8041,12 +8444,16 @@
       return Math.floor(100 * (current - prior)/max);
     }
 
+    initStat(stat, value) {
+      this.max[stat] = this.current[stat] = this.prior[stat] = value;
+    }
+
     // INVENTORY
 
     addToPack(item) {
       let quantityLeft = (item.quantity || 1);
       // Stacking?
-      if (item.kind.flags & ItemKind.IK_STACKABLE) {
+      if (item.isStackable()) {
         let current = this.pack;
         while(current && quantityLeft) {
           if (current.kind === item.kind) {
@@ -8076,6 +8483,24 @@
 
     eachPack(fn) {
       eachChain(this.pack, fn);
+    }
+
+    itemWillFitInPack(item, quantity) {
+      if (!this.pack) return true;
+      const maxSize = GW.config.PACK_MAX_ITEMS || 26;
+
+      const count = chainLength(this.pack);
+      if (count < maxSize) return true;
+
+      if (!item.isStackable()) return false;
+      let willStack = false;
+      eachChain(this.pack, (packItem) => {
+        if (item.willStackInto(packItem, quantity)) {
+          willStack = true;
+        }
+      });
+
+      return willStack;
     }
 
     // EQUIPMENT
@@ -8112,7 +8537,7 @@
   types.Actor = Actor$1;
 
 
-  function makeActor(kind) {
+  function makeActor(kind, opts) {
     if (typeof kind === 'string') {
       kind = actorKinds[kind];
     }
@@ -8121,9 +8546,9 @@
       if (kind.type) {
         type = kind.type;
       }
-      kind = new types[type](kind);
+      kind = new types[type](kind, opts);
     }
-    return new types.Actor(kind);
+    return new types.Actor(kind, opts);
   }
 
   make.actor = makeActor;
@@ -8142,11 +8567,13 @@
     theActor.flags |= Actor.AF_TURN_ENDED;
     theActor.turnTime = Math.floor(theActor.kind.speed * turnTime);
 
-    for(let stat in theActor.regen) {
-      const turns = theActor.regen[stat];
-      if (turns > 0) {
-        const amt = 1/turns;
-        theActor.adjustStat(stat, amt);
+    if (!theActor.isDead()) {
+      for(let stat in theActor.regen) {
+        const turns = theActor.regen[stat];
+        if (turns > 0) {
+          const amt = 1/turns;
+          theActor.adjustStat(stat, amt);
+        }
       }
     }
 
@@ -8326,15 +8753,12 @@
 
   function makePlayer(kind) {
     if (!(kind instanceof types.ActorKind)) {
-      setDefaults(kind, {
-        sprite: { ch:'@', fg: 'white' },
+      kindDefaults(kind, {
+        ch:'@', fg: 'white',
         name: 'you', article: false,
-        attacks: {},
+        'attacks.melee': { verb: 'punch', damage: 1 },
         bump: ['talk', 'attack'],
       });
-      if (!kind.attacks.melee) {
-        kind.attacks.melee = { verb: 'punch', damage: 1 };
-      }
       kind = new types.ActorKind(kind);
     }
     return new types.Actor(kind);
@@ -8475,6 +8899,8 @@
 
     GW.utils.clearObject(maps);
 
+    await emit('GAME_START', opts);
+
     if (opts.width) {
       config.width = opts.width;
       config.height = opts.height;
@@ -8507,7 +8933,8 @@
     await startMap(map, opts.start);
     queuePlayer();
 
-    return loop();
+
+    return loop$1();
   }
 
 
@@ -8545,6 +8972,8 @@
     scheduler.clear();
 
     if (data.map && data.player) {
+      await emit('STOP_MAP', data.map);
+
       data.map.removeActor(data.player);
     }
 
@@ -8609,11 +9038,14 @@
     if (map.config.tick) {
       scheduler.push( updateEnvironment, map.config.tick );
     }
+
+    await emit('START_MAP', map);
+
   }
 
 
 
-  async function loop() {
+  async function loop$1() {
 
     ui.draw();
 
@@ -8692,20 +9124,22 @@
 
   sprite.install('hilite', colors.white);
 
-  async function gameOver$1(isWin, ...args) {
-    const msg = format(...args);
+  async function gameOver(isWin, msg, args) {
+    if (args) {
+      msg = apply(msg, args);
+    }
 
     flavor.clear();
     message.add(msg);
     if (isWin) {
       data.isWin = true;
-      message.add(colors.yellow, 'WINNER!');
+      message.add('#yellow#WINNER!');
     }
     else {
       data.isWin = false;
-      message.add(colors.red, 'GAME OVER');
+      message.add('#red#GAME OVER');
     }
-    message.add(colors.white, 'Press <Enter> to continue.');
+    message.add('Press <Enter> to continue.');
     ui.updateNow();
     await fx.flashSprite(data.map, data.player.x, data.player.y, 'hilite', 500, 3);
     data.gameHasEnded = true;
@@ -8722,12 +9156,12 @@
     if (cell.hasTileFlag(Tile.T_UP_STAIRS)) {
       start = 'down';
       mapId = map.id + 1;
-      message.add('you ascend.');
+      message.add('$you$ $ascend$.', { actor: player });
     }
     else if (cell.hasTileFlag(Tile.T_DOWN_STAIRS)) {
       start = 'up';
       mapId = map.id - 1;
-      message.add('you descend.');
+      message.add('$you$ $descend$.', { actor: player });
     }
     else if (cell.hasTileFlag(Tile.T_PORTAL)) {
       start = cell.data.portalLocation;
@@ -8757,7 +9191,7 @@
     delay: delay,
     cancelDelay: cancelDelay,
     updateEnvironment: updateEnvironment,
-    gameOver: gameOver$1,
+    gameOver: gameOver,
     useStairs: useStairs
   });
 
@@ -8848,10 +9282,10 @@
         if (opts.color instanceof types.Color) {
           color = opts.color;
         }
-        result = format('%F%s%F', color, this.name, null);
+        result = apply('#color#$name$##', { color, name: this.name });
       }
 
-      if (opts.article) {
+      if (opts.article && this.article) {
         let article = (opts.article === true) ? this.article : opts.article;
         result = article + ' ' + result;
       }
@@ -8870,7 +9304,7 @@
       if (this.flags & Tile.T_LAVA && actor) {
         if (!cell.hasTileFlag(Tile.T_BRIDGE) && !actor.status.levitating) {
           actor.kind.kill(actor);
-          await gameOver$1(false, colors.red, 'you fall into lava and perish.');
+          await gameOver(false, '#red#you fall into lava and perish.');
           return true;
         }
       }
@@ -8937,8 +9371,7 @@
 
   function start$1(map, opts={}) {
 
-    LOCS = sequence(map.width * map.height);
-    random.shuffle(LOCS);
+    LOCS = random.sequence(map.width * map.height);
 
     const startX = opts.x || -1;
     const startY = opts.y || -1;
@@ -9130,8 +9563,7 @@
 
   function insertRoomAtXY(x, y, roomGrid, doorSites, opts={}) {
 
-    const dirs = sequence(4);
-    random.shuffle(dirs);
+    const dirs = random.sequence(4);
 
     for(let dir of dirs) {
       const oppDir = (dir + 2) % 4;
@@ -9163,8 +9595,7 @@
 
   function attachRoomAtDoors(roomGrid, roomDoors, siteDoors, opts={}) {
 
-    const doorIndexes = sequence(siteDoors.length);
-    random.shuffle(doorIndexes);
+    const doorIndexes = random.sequence(siteDoors.length);
 
     // Slide hyperspace across real space, in a random but predetermined order, until the room matches up with a wall.
     for (let i = 0; i < doorIndexes.length; i++) {
@@ -9542,7 +9973,7 @@
 
   function setupStairs(map, x, y, tile) {
 
-  	const indexes = random.shuffle(sequence(4));
+  	const indexes = random.sequence(4);
 
   	let dir;
   	for(let i = 0; i < indexes.length; ++i) {
@@ -10229,59 +10660,71 @@
 
     // NOTE: slope starts a 1 and ends at 0.
     castLight(row, startSlope, endSlope, xx, xy, yx, yy) {
-        let newStart = 0.0;
-        if (startSlope < endSlope) {
-            return;
+        if (row >= this.maxRadius) {
+          // fov.debug('CAST: row=%d, start=%d, end=%d, row >= maxRadius => cancel', row, startSlope.toFixed(2), endSlope.toFixed(2));
+          return;
         }
-        // fov.debug('CAST: row=%d, start=%d, end=%d, x=%d,%d, y=%d,%d', row, startSlope, endSlope, xx, xy, yx, yy);
+        if (startSlope < endSlope) {
+          // fov.debug('CAST: row=%d, start=%d, end=%d, start < end => cancel', row, startSlope.toFixed(2), endSlope.toFixed(2));
+          return;
+        }
+        fov.debug('CAST: row=%d, start=%d, end=%d, x=%d,%d, y=%d,%d', row, startSlope.toFixed(2), endSlope.toFixed(2), xx, xy, yx, yy);
+
+        let nextStart = startSlope;
 
         let blocked = false;
-        for (let distance = row; distance < this.maxRadius && !blocked; distance++) {
-            let deltaY = -distance;
-            for (let deltaX = -distance; deltaX <= 0; deltaX++) {
-                let currentX = Math.floor(this.startX + deltaX * xx + deltaY * xy);
-                let currentY = Math.floor(this.startY + deltaX * yx + deltaY * yy);
-                let outerSlope = (deltaX - 0.5) / (deltaY + 0.5);
-                let innerSlope = (deltaX + 0.5) / (deltaY - 0.5);
-                let maxSlope = ((deltaX) / (deltaY + 0.5));
-                let minSlope = ((deltaX + 0.5) / (deltaY));
+        let deltaY = -row;
+        for (let deltaX = -row; deltaX <= 0; deltaX++) {
+            let currentX = Math.floor(this.startX + deltaX * xx + deltaY * xy);
+            let currentY = Math.floor(this.startY + deltaX * yx + deltaY * yy);
+            let outerSlope = (deltaX - 0.5) / (deltaY + 0.5);
+            let innerSlope = (deltaX + 0.5) / (deltaY - 0.5);
+            let maxSlope = ((deltaX) / (deltaY + 0.5));
+            let minSlope = ((deltaX + 0.5) / (deltaY));
 
-                if (!this.hasXY(currentX, currentY)) {
-                  continue;
-                }
+            if (!this.hasXY(currentX, currentY)) {
+              blocked = true;
+              // nextStart = innerSlope;
+              continue;
+            }
 
-                // fov.debug('- test %d,%d ... start=%d, min=%d, max=%d, end=%d, dx=%d, dy=%d', currentX, currentY, startSlope.toFixed(2), maxSlope.toFixed(2), minSlope.toFixed(2), endSlope.toFixed(2), deltaX, deltaY);
+            fov.debug('- test %d,%d ... start=%d, min=%d, max=%d, end=%d, dx=%d, dy=%d', currentX, currentY, startSlope.toFixed(2), maxSlope.toFixed(2), minSlope.toFixed(2), endSlope.toFixed(2), deltaX, deltaY);
 
-                if (startSlope < minSlope) {
+            if (startSlope < minSlope) {
+                blocked = this.isBlocked(currentX, currentY);
+                continue;
+            } else if (endSlope > maxSlope) {
+                break;
+            }
+
+            //check if it's within the lightable area and light if needed
+            const radius = this.calcRadius(deltaX, deltaY);
+            if (radius < this.maxRadius) {
+                const bright = (1 - (radius / this.maxRadius));
+                this.setVisible(currentX, currentY, bright);
+                fov.debug('       - visible');
+            }
+
+            if (blocked) { //previous cell was a blocking one
+                if (this.isBlocked(currentX,currentY)) {//hit a wall
+                    fov.debug('       - blocked ... nextStart: %d', innerSlope.toFixed(2));
+                    nextStart = innerSlope;
                     continue;
-                } else if (endSlope > maxSlope) {
-                    break;
-                }
-
-                //check if it's within the lightable area and light if needed
-                const radius = this.calcRadius(deltaX, deltaY);
-                if (radius < this.maxRadius) {
-                    const bright = (1 - (radius / this.maxRadius));
-                    this.setVisible(currentX, currentY, bright);
-                    // fov.debug('       - visible');
-                }
-
-                if (blocked) { //previous cell was a blocking one
-                    if (this.isBlocked(currentX,currentY)) {//hit a wall
-                        newStart = innerSlope;
-                        continue;
-                    } else {
-                        blocked = false;
-                        startSlope = newStart;
-                    }
                 } else {
-                    if (this.isBlocked(currentX, currentY) && distance < this.maxRadius) {//hit a wall within sight line
-                        blocked = true;
-                        this.castLight(distance + 1, startSlope, outerSlope, xx, xy, yx, yy);
-                        newStart = innerSlope;
-                    }
+                    blocked = false;
+                }
+            } else {
+                if (this.isBlocked(currentX, currentY) && row < this.maxRadius) {//hit a wall within sight line
+                    fov.debug('       - blocked ... start:%d, end:%d, nextStart: %d', nextStart.toFixed(2), outerSlope.toFixed(2), innerSlope.toFixed(2));
+                    blocked = true;
+                    this.castLight(row + 1, nextStart, outerSlope, xx, xy, yx, yy);
+                    nextStart = innerSlope;
                 }
             }
+        }
+
+        if (!blocked) {
+          this.castLight(row + 1, nextStart, endSlope, xx, xy, yx, yy);
         }
     }
   }
@@ -10298,9 +10741,11 @@
     if (msg) {
       if (typeof msg !== 'string') {
         let verb = attackInfo.verb || 'hit';
-        msg = format('%s %s %s for %F%d%F damage', attacker.getName(), attacker.getVerb(verb), defender.getName('the'), 'red', Math.round(ctx.damage), null);
+        message.addCombat('$attacker$ $verb$ $the.defender$ for #red#$damage$## damage', { attacker, verb, defender, damage: Math.round(ctx.damage) });
       }
-      message.addCombat(msg);
+      else {
+        message.addCombat(msg);
+      }
     }
 
     const ctx2 = { map, x: defender.x, y: defender.y, volume: ctx.damage };
@@ -10329,11 +10774,7 @@
       }
 
       if (defender.isDead() && (msg !== false)) {
-        message.addCombat('%s %s', defender.isInanimate() ? 'destroying' : 'killing', defender.getPronoun('it'));
-      }
-
-      if (defender.isPlayer()) {
-        await gameOver(false, 'Killed by %s.', attacker.getName(true));
+        message.addCombat('#red#$action$## $it.defender$', { action: defender.isInanimate() ? 'destroying' : 'killing', defender });
       }
     }
     return ctx.damage;
@@ -10349,7 +10790,7 @@
     const map = data.map;
 
     if (actor.grabbed) {
-      message.add('%s let go of %s.', actor.getName(), actor.grabbed.getName('a'));
+      message.add('$you$ $let$ go of $a.item$.', { actor, item: actor.grabbed });
       await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
       actor.grabbed = null;
       actor.endTurn();
@@ -10542,7 +10983,7 @@
     const item = actor.slots.ranged;
 
     if (!item) {
-      message.add('%s have nothing to %Ffire%F.', actor.getName(), 'orange', null);
+      message.add('$you$ $have$ nothing to #orange#fire##.', { actor });
       return false;
     }
 
@@ -10740,14 +11181,25 @@
       else {
         this.consoleColor = opts.consoleColor || true;
         if (typeof this.consoleColor === 'string') {
-          this.consoleColor = color.from(this.consoleColor);
+          this.consoleColor = from(this.consoleColor);
         }
       }
+
+      this.maxStack = opts.maxStack || ((this.flags & ItemKind.IK_STACKABLE) ? 99 : 1);
     }
 
     forbiddenCellFlags(item) { return Cell.HAS_ITEM; }
     forbiddenTileFlags(item) { return Tile.T_OBSTRUCTS_ITEMS; }
     forbiddenTileMechFlags(item) { return 0; }
+
+    isStackable() { return this.flags & ItemKind.IK_STACKABLE; }
+    willStackInto(item, other, quantity) {
+      quantity = quantity || item.quantity;
+      if (other.kind !== item.kind) return false;
+      if (!this.isStackable()) return false;
+      // Compare enchants, etc...
+      return (other.quantity + quantity <= this.maxStack);
+    }
 
     async applyDamage(item, damage, actor, ctx) {
   		if (item.stats.health > 0) {
@@ -10761,21 +11213,31 @@
   		return 0;
   	}
 
+    getVerb(verb) {
+      if (this.quantity > 1) return toPluralVerb(verb);
+      return toSingularVerb(verb);
+    }
+
     getName(item, opts={}) {
       if (opts === true) { opts = { article: true }; }
       if (opts === false) { opts = {}; }
       if (typeof opts === 'string') { opts = { article: opts }; }
 
-      let result = item.name || this.name;
+      let result = toPluralNoun(item.name || this.name, item.quantity > 1);
       if (opts.color || (this.consoleColor && (opts.color !== false))) {
-        let color = this.sprite.fg;
+        let color$1 = this.sprite.fg;
         if (this.consoleColor instanceof types.Color) {
-          color = this.consoleColor;
+          color$1 = this.consoleColor;
         }
         if (opts.color instanceof types.Color) {
-          color = opts.color;
+          color$1 = opts.color;
         }
-        result = format('%F%s%F', color, result, null);
+        else if (typeof color$1 === 'string') {
+          color$1 = from(color$1);
+        }
+        if (color$1) {
+          result = apply('#color#$result$##', { color: color$1, result });
+        }
       }
       else if (opts.color === false) {
         result = removeColors(result); // In case item has built in color
@@ -10807,15 +11269,15 @@
   	return kind;
   }
 
-  item.addKind = addItemKind;
+  item$1.addKind = addItemKind;
 
   function addItemKinds(opts={}) {
     Object.entries(opts).forEach( ([key, config]) => {
-      item.addKind(key, config);
+      item$1.addKind(key, config);
     });
   }
 
-  item.addKinds = addItemKinds;
+  item$1.addKinds = addItemKinds;
 
 
   class Item$1 {
@@ -10843,6 +11305,23 @@
   	hasActionFlag(flag) {
   		return (this.kind.actionFlags & flag) > 0;
   	}
+
+    isStackable() {
+      return this.kind.flags & ItemKind.IK_STACKABLE;
+    }
+    willStackInto(other, quantity) {
+      return this.kind.willStackInto(this, other, quantity);
+    }
+    inventoryCount() {
+      return (this.kind.flags & ItemKind.IK_STACK_AS_ONE) ? 1 : this.quantity;
+    }
+
+    split(quantity=1) {
+      if (quantity >= this.quantity) return null;
+      const newItem = make.item(this.kind, { quantity, flags: this.flags, stats: this.stats });
+      this.quantity -= quantity;
+      return newItem;
+    }
 
     async bumpBy(actor, ctx={}) {
       ctx.quiet = true;
@@ -11040,9 +11519,24 @@
     return placed;
   }
 
-  item.generateAndPlace = generateAndPlace$1;
+  item$1.generateAndPlace = generateAndPlace$1;
 
   var MSG_BOUNDS = null;
+
+
+
+  function addKind$3(id, msg) {
+    messages[id] = msg;
+  }
+
+  message.addKind = addKind$3;
+
+  function addKinds$1(config) {
+    Object.entries(config).forEach( ([id, msg]) => message.addKind(id, msg) );
+  }
+
+  message.addKinds = addKinds$1;
+
 
   // messages
   const ARCHIVE = [];
@@ -11091,40 +11585,9 @@
   ////////////////////////////////////
   // Messages
 
-  function moveBlocked(ctx) {
-    if (ctx.item) {
-      message.add('Blocked by %s!', ctx.item.getFlavor());
-    }
-    else {
-      message.add('Blocked!');
-    }
-  }
-
-  message.moveBlocked = moveBlocked;
-
-
-  function addLines(data) {
-    if (MSG_BOUNDS.y > 0) {
-      // bottom (add backwards)
-      for(let i = data.length - 1; i >= 0; --i) {
-        message.add(data[i]);
-      }
-    }
-    else {
-      // top (add forwards)
-      data.forEach((line) => message.add(line));
-    }
-  }
-
-  message.addLines = addLines;
-
-  function add(...args) {
-    if (args.length == 0) return;
-    if (args.length == 1 && Array.isArray(args[0])) { args = args[0]; }
-    let msg = args[0];
-    if (args.length > 1) {
-      msg = format(...args);
-    }
+  function add(msg, args) {
+    msg = messages[msg] || msg;
+    msg = apply(msg, args);
     commitCombatMessage();
     addMessage(msg);
   }
@@ -11139,12 +11602,8 @@
 
   message.forPlayer = forPlayer;
 
-  function addCombat(...args) {
-    if (args.length == 0) return;
-    let msg = args[0];
-    if (args.length > 1) {
-      msg = format(...args);
-    }
+  function addCombat(msg, args) {
+    msg = apply(msg, args);
     addCombatMessage(msg);
   }
 
@@ -11173,21 +11632,21 @@
   		messageColor.copy(colors.white);
 
   		if (CONFIRMED[i]) {
-  			color.applyMix(messageColor, colors.black, 50);
-  			color.applyMix(messageColor, colors.black, 75 * i / (2*MSG_BOUNDS.height));
+  			messageColor.mix(colors.black, 50);
+  			messageColor.mix(colors.black, 75 * i / (2*MSG_BOUNDS.height));
   		}
 
       const localY = isOnTop ? (MSG_BOUNDS.height - i - 1) : i;
       const y = MSG_BOUNDS.toOuterY(localY);
 
-  		eachChar( DISPLAYED[i], (c, color$1, j) => {
+  		eachChar( DISPLAYED[i], (c, color, j) => {
   			const x = MSG_BOUNDS.toOuterX(j);
 
-  			if (color$1 && (messageColor !== color$1) && CONFIRMED[i]) {
-  				color.applyMix(color$1, colors.black, 50);
-  				color.applyMix(color$1, colors.black, 75 * i / (2*MSG_BOUNDS.height));
+  			if (color && (messageColor !== color) && CONFIRMED[i]) {
+  				color.mix(colors.black, 50);
+  				color.mix(colors.black, 75 * i / (2*MSG_BOUNDS.height));
   			}
-  			messageColor = color$1 || tempColor;
+  			messageColor = color || tempColor;
   			buffer.plotChar(x, y, c, messageColor, colors.black);
   		});
 
@@ -11322,7 +11781,7 @@
   			 (reverse ? currentMessageCount >= MSG_BOUNDS.height : currentMessageCount <= totalMessageCount);
   			 currentMessageCount += (reverse ? -1 : 1))
   	  {
-  			ui.clearDialog();
+  			ui.resetDialog();
 
   			// Print the message archive text to the dbuf.
   			for (j=0; j < currentMessageCount && j < dbuf.height; j++) {
@@ -11456,9 +11915,10 @@
 
   sidebar$1.debug = NOOP;
 
-  const blueBar = color.addKind('blueBar', 	15,		10,		50);
-  const redBar = 	color.addKind('redBar', 	45,		10,		15);
-  const purpleBar = color.addKind('purpleBar', 	50,		0,		50);
+  const blueBar = addKind('blueBar', 	15,		10,		50);
+  const redBar = 	addKind('redBar', 	45,		10,		15);
+  const purpleBar = addKind('purpleBar', 	50,		0,		50);
+  const greenBar = addKind('greenBar', 	10,		50,		10);
 
 
   function setup$2(opts={}) {
@@ -11801,14 +12261,14 @@
   		return SIDE_BOUNDS.height - 1;
   	}
 
-    fg = fg ? color.from(fg) : colors.white;
-    bg = bg ? color.from(bg) : colors.black;
+    fg = fg ? from(fg) : colors.white;
+    bg = bg ? from(bg) : colors.black;
 
     if (opts.dim) {
       fg = fg.clone();
       bg = bg.clone();
-      color.applyAverage(fg, colors.black, 50);
-      color.applyAverage(bg, colors.black, 50);
+      fg.mix(colors.black, 50);
+      bg.mix(colors.black, 50);
     }
     else if (opts.highlight) ;
 
@@ -11849,7 +12309,7 @@
     	// Progress Bars
     	y = sidebar$1.addHealthBar(entry, y, dim, highlight, buf);
     	y = sidebar$1.addManaBar(entry, y, dim, highlight, buf);
-    	y = sidebar$1.addNutritionBar(entry, y, dim, highlight, buf);
+    	y = sidebar$1.addFoodBar(entry, y, dim, highlight, buf);
     	y = sidebar$1.addStatuses(entry, y, dim, highlight, buf);
     	y = sidebar$1.addStateInfo(entry, y, dim, highlight, buf);
     	y = sidebar$1.addPlayerInfo(entry, y, dim, highlight, buf);
@@ -11897,8 +12357,8 @@
   	cell.getAppearance(cell$1, monstApp);
 
   	if (dim) {
-  		color.applyMix(monstApp.fg, bg, 50);
-  		color.applyMix(monstApp.bg, bg, 50);
+  		monstApp.fg.mix(bg, 50);
+  		monstApp.bg.mix(bg, 50);
   	} else if (highlight) {
   		// Does this do anything?
   		monstApp.fg.add(bg, 100);
@@ -11911,7 +12371,7 @@
   	// }
   	//end patch
 
-  	const name = monst.getName({ color: monstForeColor });
+  	const name = monst.getName({ color: monstForeColor, formal: true });
   	let monstName = capitalize(name);
 
     if (monst.isPlayer()) {
@@ -11943,7 +12403,7 @@
 
   // Progress Bars
 
-  function addProgressBar(y, buf, barText, current, max, color$1, dim) {
+  function addProgressBar(y, buf, barText, current, max, color, dim) {
   	if (y >= SIDE_BOUNDS.height - 1) {
   		return SIDE_BOUNDS.height - 1;
   	}
@@ -11956,18 +12416,18 @@
   		max = 1;
   	}
 
-  	color$1 = color$1.clone();
+  	color = color.clone();
   	if (!(y % 2)) {
-  		color.applyAverage(color$1, colors.black, 25);
+  		color.mix(colors.black, 25);
   	}
 
     let textColor = colors.white;
     if (dim) {
-  		color$1.mix(colors.black, 50);
+  		color.mix(colors.black, 50);
       textColor = colors.gray;
   	}
 
-    ui.plotProgressBar(buf, SIDE_BOUNDS.x, y, SIDE_BOUNDS.width, barText, textColor, current/max, color$1);
+    ui.plotProgressBar(buf, SIDE_BOUNDS.x, y, SIDE_BOUNDS.width, barText, textColor, current/max, color);
     return y + 1;
   }
 
@@ -11986,9 +12446,9 @@
     if (actor.max.health > 0 && (actor.isPlayer() || (actor.current.health != actor.max.health)) && !actor.isInvulnerable())
     {
       let healthBarColor = colors.blueBar;
-  		if (actor === DATA.player) {
+  		if (actor.isPlayer()) {
   			healthBarColor = colors.redBar.clone();
-  			color.applyAverage(healthBarColor, colors.blueBar, Math.min(100, 100 * actor.current.health / actor.max.health));
+  			healthBarColor.mix(colors.blueBar, Math.min(100, 100 * actor.current.health / actor.max.health));
   		}
 
       let text = 'Health';
@@ -12017,9 +12477,9 @@
     if (actor.max.mana > 0 && (actor.isPlayer() || (actor.current.mana != actor.max.mana)))
     {
       let barColor = colors.purpleBar;
-  		if (actor === DATA.player) {
+  		if (actor.isPlayer()) {
   			barColor = colors.redBar.clone();
-  			color.applyAverage(barColor, colors.purpleBar, Math.min(100, 100 * actor.current.mana / actor.max.mana));
+  			barColor.mix(colors.purpleBar, Math.min(100, 100 * actor.current.mana / actor.max.mana));
   		}
 
       let text = 'Mana';
@@ -12037,11 +12497,35 @@
   sidebar$1.addManaBar = addManaBar;
 
 
-  function addNutritionBar(entry, y, dim, highlight, buf) {
+  function addFoodBar(entry, y, dim, highlight, buf) {
+    if (y >= SIDE_BOUNDS.height - 1) {
+      return SIDE_BOUNDS.height - 1;
+    }
+
+    const map = entry.map;
+    const actor = entry.entity;
+
+    if (actor.max.food > 0 && (actor.isPlayer() || (actor.current.food != actor.max.food)))
+    {
+      let barColor = colors.greenBar;
+  		if (actor.isPlayer()) {
+  			barColor = colors.purpleBar.clone();
+  			barColor.mix(colors.greenBar, Math.min(100, 100 * actor.current.food / actor.max.food));
+  		}
+
+      let text = 'Food';
+  		// const percent = actor.statChangePercent('health');
+  		if (actor.current.food <= 0) {
+  				text = "None";
+  		// } else if (percent != 0) {
+  		// 		text = Text.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
+  		}
+  		y = sidebar$1.addProgressBar(y, buf, text, actor.current.food, actor.max.food, barColor, dim);
+  	}
   	return y;
   }
 
-  sidebar$1.addNutritionBar = addNutritionBar;
+  sidebar$1.addFoodBar = addFoodBar;
 
 
   function addStatuses(entry, y, dim, highlight, buf) {
@@ -12088,8 +12572,8 @@
     const app = buf[x][y];
   	cell.getAppearance(cell$1, app);
   	if (dim) {
-  		color.applyAverage(app.fg, bg, 50);
-  		color.applyAverage(app.bg, bg, 50);
+  		app.fg.mix(bg, 50);
+  		app.bg.mix(bg, 50);
   	}
 
   	buf.plotChar(x + 1, y, ":", fg, bg);
@@ -12133,15 +12617,15 @@
     const app = buf[x][y];
   	cell.getAppearance(cell$1, app);
   	if (dim) {
-  		color.applyAverage(app.fg, colors.black, 50);
-  		color.applyAverage(app.bg, colors.black, 50);
+  		app.fg.mix(colors.black, 50);
+  		app.bg.mix(colors.black, 50);
   	}
 
   	buf.plotChar(x + 1, y, ":", fg, colors.black);
   	if (config.playbackOmniscience || !DATA.player.status.hallucinating) {
   		name = theItem.getName({ color: !dim, details: true });
   	} else {
-      name = item.describeHallucinatedItem();
+      name = item$1.describeHallucinatedItem();
   	}
   	name = capitalize(name);
 
@@ -12162,8 +12646,8 @@
 
   sidebar$1.addItem = sidebarAddItemInfo;
 
-  const flavorTextColor = color.addKind('flavorText', 50, 40, 90);
-  const flavorPromptColor = color.addKind('flavorPrompt', 100, 90, 20);
+  const flavorTextColor = addKind('flavorText', 50, 40, 90);
+  const flavorPromptColor = addKind('flavorPrompt', 100, 90, 20);
 
   let FLAVOR_TEXT = '';
   let NEED_FLAVOR_UPDATE = false;
@@ -12234,9 +12718,10 @@
   	let monst;
   	let theItem;
   	let standsInTerrain;
-  	let object;
+  	let object = '';
 
     const player = data.player || null;
+    const actor = player;
 
   	monst = null;
   	standsInTerrain = ((cell.highestPriorityTile().mechFlags & TileMech.TM_STAND_IN_TILE) ? true : false);
@@ -12249,14 +12734,14 @@
 
   	if (player && x == player.x && y == player.y) {
   		if (player.status.levitating) {
-  			buf = format("you are hovering above %s.", cell.tileFlavor());
+  			buf = apply("you are hovering above $flavor$.", { actor: player, flavor: cell.tileFlavor() });
   		}
       else {
   			// if (theItem) {
   			// 	buf = ITEM.getFlavor(theItem);
   			// }
         // else {
-          buf = 'you see yourself.';
+          buf = apply('you see yourself.', {actor});
         // }
   		}
       return buf;
@@ -12308,9 +12793,9 @@
   			} else {
   				object = tiles[cell.memory.tile].getFlavor();
   			}
-  			buf = format("you remember seeing %s here.", object);
+  			buf = apply("you remember seeing $object$ here.", { actor, object });
   		} else if (cell.flags & Cell.MAGIC_MAPPED) { // magic mapped
-  			buf = format("you expect %s to be here.", tiles[cell.memory.tile].getFlavor());
+  			buf = apply("you expect $text$ to be here.", { actor, text: tiles[cell.memory.tile].getFlavor() });
   		}
   		return buf;
   	}
@@ -12354,12 +12839,145 @@
     }
     let ground = cell.groundTile.getFlavor();
 
-    buf = format("you %s %s%s%s%s.", (map.isVisible(x, y) ? "see" : "sense"), object, surface, liquid, ground);
+    buf = apply("you $action$ $text$.", { actor, action: (map.isVisible(x, y) ? "see" : "sense"), text: object + surface + liquid + ground });
 
     return buf;
   }
 
   flavor.getFlavorText = getFlavorText;
+
+  class Column {
+    constructor(name, field, format, empty) {
+      this.name = name || null;
+      this.field = field || null;
+      this.format = format || '%s';
+      this.empty = empty || '-';
+    }
+
+    plotData(buffer, x, y, data, index, color) {
+      if (!data) {
+        buffer.plotText(x, y, color, this.empty);
+        return length(this.empty);
+      }
+
+      let text$1;
+      if (typeof this.field === 'function') {
+        text$1 = this.field(data, index, color, this);
+      }
+      else {
+        const field = data[this.field];
+        text$1 = format(this.format, field);
+      }
+      buffer.plotText(x, y, color, text$1);
+      return length(text$1);
+    }
+
+    plotHeader(buffer, x, y) {
+      if (!this.name) return 0;
+
+      buffer.plotText(x, y, this.name);
+      return length(this.name);
+    }
+  }
+
+  types.Column = Column;
+
+
+  class Table {
+    constructor(opts={}) {
+      if (Array.isArray(opts)) {
+        opts = { columns: opts };
+      }
+
+      this.columns = opts.columns || [];
+      this.letters = opts.letters || false;
+      if (opts.letters) {
+        this.columns.unshift(new Column(null, (data, index) => {
+          const letter = String.fromCharCode(97 + index);
+          return letter + ')';
+        }));
+      }
+      this.color = from(opts.color || colors.white);
+      this.selectedColor = from(opts.selectedColor || colors.teal);
+      this.disabledColor = from(opts.disabledColor || colors.black);
+      this.selected = (opts.selected >= 0) ? opts.selected : -1;
+      this.maxWidth = 0;
+    }
+
+    column(...args) {
+      this.columns.push(new types.Column(...args));
+      return this;
+    }
+
+    plot(buffer, x0, y0, data) {
+      if (Array.isArray(data)) {
+        return this.plotArray(buffer, x0, y0, data);
+      }
+      return this.plotChain(buffer, x0, y0, data);
+    }
+
+    plotChain(buffer, x0, y0, data) {
+      return this._plot(buffer, x0, y0, (current) => {
+        return current ? current.next : data;
+      });
+    }
+
+    plotArray(buffer, x0, y0, data) {
+      let index = -1;
+      return this._plot(buffer, x0, y0, () => {
+        ++index;
+        if (index < data.length) {
+          return data[index];
+        }
+        index = -1;
+        return null;
+      });
+    }
+
+    _plot(buffer, x0, y0, nextFn) {
+      this.maxWidth = 0;
+      const headers = this.columns.some( (c) => c.name );
+
+      let x = x0;
+      let y = y0;
+      for(let column of this.columns) {
+        let maxWidth = 0;
+        y = y0;
+        if (headers) {
+          maxWidth = Math.max(maxWidth, column.plotHeader(buffer, x, y++));
+        }
+
+        let count = 0;
+        let current = nextFn();
+        do {
+          let color = (count == this.selected) ? this.selectedColor : this.color;
+          if (current.disabled) {
+            color = color.clone().mix(this.disabledColor, 50);
+          }
+          maxWidth = Math.max(maxWidth, column.plotData(buffer, x, y, current, count, color));
+          ++y;
+          current = nextFn(current);
+          ++count;
+        }
+        while(current);
+
+        x += (maxWidth + 1);
+      }
+
+      this.maxWidth = x - x0;
+      return y;
+    }
+
+  }
+
+  types.Table = Table;
+
+
+  function make$5(...args) {
+    return new types.Table(...args);
+  }
+
+  make.table = make$5;
 
   ui.debug = NOOP;
 
@@ -12412,9 +13030,10 @@
       div: 'canvas',
       io: true,
       followPlayer: false,
+      loop: true,
     });
 
-    if (!ui.canvas) {
+    if (!ui.canvas && (opts.canvas !== false)) {
       ui.canvas = new types.Canvas(opts.width, opts.height, opts.div, opts);
 
       if (opts.io && typeof document !== 'undefined') {
@@ -12422,16 +13041,22 @@
         ui.canvas.element.onmousemove = ui.onmousemove;
       	document.onkeydown = ui.onkeydown;
       }
+
+      // TODO - init sidebar, messages, flavor, menu
+      UI_BUFFER = UI_BUFFER || ui.canvas.allocBuffer();
+      UI_BASE = UI_BASE || ui.canvas.allocBuffer();
+      // UI_OVERLAY = UI_OVERLAY || ui.canvas.allocBuffer();
+      UI_BASE.nullify();
+      // UI_OVERLAY.nullify();
+
+      ui.blackOutDisplay();
     }
 
-    // TODO - init sidebar, messages, flavor, menu
-    UI_BUFFER = UI_BUFFER || ui.canvas.allocBuffer();
-    UI_BASE = UI_BASE || ui.canvas.allocBuffer();
-    UI_OVERLAY = UI_OVERLAY || ui.canvas.allocBuffer();
-    UI_BASE.nullify();
-    UI_OVERLAY.nullify();
-
     IN_DIALOG = false;
+
+    if (opts.sidebar === true) {
+      opts.sidebar = 20;
+    }
 
   	let viewX = 0;
   	let viewY = 0;
@@ -12440,68 +13065,60 @@
 
   	let flavorLine = -1;
 
-    if (opts.wideMessages) {
-      if (opts.messages) {
-        viewH -= Math.abs(opts.messages);
-      }
-      if (opts.flavor) {
-        viewH -= 1;
-      }
+    if (opts.messages) {
+      viewH -= Math.abs(opts.messages);
+    }
+    if (opts.flavor) {
+      viewH -= 1;
     }
 
     if (opts.sidebar) {
-      if (opts.sidebar === true) {
-        opts.sidebar = 20;
-      }
+      const sideH = (opts.wideMessages ? viewH : opts.height);
+      let sideY = (opts.wideMessages && opts.messages > 0) ? opts.height - viewH : 0;
+
       if (opts.sidebar < 0) { // right side
         viewW += opts.sidebar;  // subtract
-        sidebar.setup({ x: viewW, y: 0, width: -opts.sidebar, height: viewH });
+        sidebar.setup({ x: viewW, y: sideY, width: -opts.sidebar, height: sideH });
       }
       else {  // left side
         viewW -= opts.sidebar;
         viewX = opts.sidebar;
-        sidebar.setup({ x: 0, y: 0, width: opts.sidebar, height: viewH });
+        sidebar.setup({ x: 0, y: sideY, width: opts.sidebar, height: sideH });
       }
     }
 
     const msgW = (opts.wideMessages ? opts.width : viewW);
+    const msgX = (opts.wideMessages ? 0 : viewX);
 
   	if (opts.messages) {
   		if (opts.messages < 0) {	// on bottom of screen
-  			message.setup({x: 0, y: ui.canvas.height + opts.messages, width: msgW, height: -opts.messages, archive: ui.canvas.height });
-        if (!opts.wideMessages) {
-          viewH += opts.messages;	// subtract off message height
-        }
+  			message.setup({x: msgX, y: opts.height + opts.messages, width: msgW, height: -opts.messages, archive: opts.height });
   			if (opts.flavor) {
-  				if (!opts.wideMessages) viewH -= 1;
-  				flavorLine = ui.canvas.height + opts.messages - 1;
+  				flavorLine = opts.height + opts.messages - 1;
   			}
   		}
   		else {	// on top of screen
-  			message.setup({x: 0, y: 0, width: msgW, height: opts.messages, archive: ui.canvas.height });
+  			message.setup({x: msgX, y: 0, width: msgW, height: opts.messages, archive: opts.height });
   			viewY = opts.messages;
-        if (! opts.wideMessages) {
-          viewH -= opts.messages;
-        }
   			if (opts.flavor) {
   				viewY += 1;
-  				if (!opts.wideMessages) viewH -= 1;
   				flavorLine = opts.messages;
   			}
   		}
   	}
 
   	if (opts.flavor) {
-  		flavor.setup({ x: viewX, y: flavorLine, w: msgW, h: 1 });
+  		flavor.setup({ x: msgX, y: flavorLine, w: msgW, h: 1 });
       SHOW_FLAVOR = true;
   	}
 
   	viewport.setup({ x: viewX, y: viewY, w: viewW, h: viewH, followPlayer: opts.followPlayer });
   	SHOW_CURSOR = opts.cursor;
 
-    ui.blackOutDisplay();
-  	RUNNING = true;
-  	uiLoop();
+    if (opts.loop) {
+      RUNNING = true;
+    	uiLoop();
+    }
 
     return ui.canvas;
   }
@@ -12733,24 +13350,26 @@
 
   // FUNCS
 
-  async function prompt(...args) {
-  	const msg = format(...args);
+  async function prompt(text$1, args) {
+    if (args) {
+      text$1 = apply(text$1, args);
+    }
 
   	if (SHOW_FLAVOR) {
-  		flavor.showPrompt(msg);
+  		flavor.showPrompt(text$1);
   	}
   	else {
-  		console.log(msg);
+  		console.log(text$1);
   	}
   }
 
   ui.prompt = prompt;
 
 
-  async function fadeTo(color$1, duration=1000, src) {
+  async function fadeTo(color, duration=1000, src) {
 
     src = src || UI_BUFFER;
-    color$1 = GW.color.from(color$1);
+    color = GW.color.from(color);
 
     const buffer = ui.canvas.allocBuffer();
 
@@ -12767,8 +13386,8 @@
 
       buffer.copy(src);
       buffer.forEach( (c, x, y) => {
-        color.applyMix(c.fg, color$1, pct);
-        color.applyMix(c.bg, color$1, pct);
+        c.fg.mix(color, pct);
+        c.bg.mix(color, pct);
       });
       ui.canvas.overlay(buffer);
       ui.canvas.draw();
@@ -12781,12 +13400,12 @@
   ui.fadeTo = fadeTo;
 
 
-  async function messageBox(duration, text$1, ...args) {
+  async function alert(duration, text$1, args) {
 
     const buffer = ui.startDialog();
 
-  	if (args.length) {
-  		text$1 = format(text$1, ...args);
+  	if (args) {
+  		text$1 = apply(text$1, args);
   	}
 
     const len = text$1.length;
@@ -12801,34 +13420,41 @@
   	ui.finishDialog();
   }
 
-  ui.messageBox = messageBox;
+  ui.alert = alert;
 
 
-  async function confirm(opts, ...args) {
+  async function confirm(opts, prompt, args) {
 
     let text$1;
     if (typeof opts === 'string') {
-      args.shift(opts);
+      args = prompt;
+      prompt = opts;
       opts = {};
     }
-    if (args.length > 1) {
-      text$1 = format(...args);
-    }
-    else {
-      text$1 = args[0];
+    if (prompt) {
+      prompt = GW.messages[prompt] || prompt;
+      text$1 = apply(prompt, args);
     }
 
+    setDefaults(opts, {
+      allowCancel: true,
+      bg: 'black',
+    });
+
     const buffer = ui.startDialog();
+    buffer.fade('black', 50);
 
   	const btnOK = 'OK=Enter';
   	const btnCancel = 'Cancel=Escape';
     const len = Math.max(text$1.length, btnOK.length + 4 + btnCancel.length);
     const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
     const y = Math.floor(ui.canvas.height / 2) - 1;
-    buffer.fillRect(x, y, len + 4, 5, ' ', 'black', 'black');
+    buffer.fillRect(x, y, len + 4, 5, ' ', 'black', opts.bg);
   	buffer.plotText(x + 2, y + 1, text$1);
-  	buffer.plotText(x + 2, y + 3, btnOK, 'white');
-  	buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, 'white');
+  	buffer.plotText(x + 2, y + 3, btnOK);
+    if (opts.allowCancel) {
+      buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, 'white');
+    }
   	ui.draw();
 
   	let result;
@@ -12839,15 +13465,19 @@
   				result = true;
   			},
   			escape() {
-  				result = false;
+          if (opts.allowCancel) {
+            result = false;
+          }
   			},
   			mousemove() {
   				let isOK = ev.x < x + btnOK.length + 2;
   				let isCancel = ev.x > x + len + 4 - btnCancel.length - 4;
   				if (ev.x < x || ev.x > x + len + 4) { isOK = false; isCancel = false; }
   				if (ev.y != y + 3 ) { isOK = false; isCancel = false; }
-  				buffer.plotText(x + 2, y + 3, btnOK, isOK ? 'blue' : 'white');
-  				buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, isCancel ? 'blue' : 'white');
+  				buffer.plotText(x + 2, y + 3, isOK ? GW.colors.teal : GW.colors.white, btnOK);
+          if (opts.allowCancel) {
+            buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, isCancel ? GW.colors.teal : GW.colors.white, btnCancel);
+          }
   				ui.draw();
   			},
   			click() {
@@ -12885,7 +13515,7 @@
   	let selected = 0;
 
   	function draw() {
-  		ui.clearDialog();
+  		ui.resetDialog();
   		buf.plotLine(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, prompt, GW.colors.orange);
   		if (selected >= 0) {
   			const choice = choices[selected];
@@ -12934,31 +13564,146 @@
 
   ui.chooseTarget = chooseTarget;
 
+
+  async function inputNumberBox(opts, prompt, args) {
+
+    let text$1;
+    if (typeof opts === 'number') {
+      opts = { max: opts };
+    }
+    else if (typeof opts === 'string') {
+      args = prompt;
+      prompt = opts;
+      opts = {};
+    }
+    if (prompt) {
+      prompt = GW.messages[prompt] || prompt;
+      text$1 = apply(prompt, args);
+    }
+
+    setDefaults(opts, {
+      allowCancel: true,
+      min: 1,
+      max: 99,
+      number: true,
+      bg: 'black',
+    });
+
+    const buffer = ui.startDialog();
+    buffer.fade('black', 50);
+
+  	const btnOK = 'OK=Enter';
+  	const btnCancel = 'Cancel=Escape';
+    const len = Math.max(text$1.length, btnOK.length + 4 + btnCancel.length);
+    const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
+    const y = Math.floor(ui.canvas.height / 2) - 1;
+    buffer.fillRect(x, y, len + 4, 6, ' ', 'black', opts.bg);
+  	buffer.plotText(x + 2, y + 1, text$1);
+    buffer.fillRect(x + 2, y + 2, len - 4, 1, ' ', 'gray', 'gray');
+  	buffer.plotText(x + 2, y + 4, btnOK);
+    if (opts.allowCancel) {
+      buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 4, btnCancel);
+    }
+  	ui.draw();
+
+    const value = await ui.getInputAt(x + 2, y + 2, len - 4, opts);
+
+  	ui.finishDialog();
+  	return Number.parseInt(value);
+  }
+
+  ui.inputNumberBox = inputNumberBox;
+
+
+  // assumes you are in a dialog and give the buffer for that dialog
+  async function getInputAt(x, y, maxLength, opts={})
+  {
+    let defaultEntry = opts.default || '';
+    let numbersOnly = opts.number || opts.numbers || opts.numbersOnly || false;
+
+  	const textEntryBounds = (numbersOnly ? ['0', '9'] : [' ', '~']);
+
+    const buffer = GW.ui.startDialog();
+  	maxLength = Math.min(maxLength, buffer.width - x);
+
+  	let inputText = defaultEntry;
+  	let charNum = GW.text.length(inputText);
+
+    let ev;
+  	do {
+      GW.ui.draw();
+
+  		ev = await GW.io.nextKeyPress(-1);
+  		if ( (ev.key == 'Delete' || ev.key == 'Backspace') && charNum > 0) {
+  			buffer.plotChar(x + charNum - 1, y, ' ', 'white');
+  			charNum--;
+  			inputText = splice(inputText, charNum, 1);
+  		} else if (ev.key.length > 1) ; else if (ev.key >= textEntryBounds[0]
+  				   && ev.key <= textEntryBounds[1]) // allow only permitted input
+  		{
+  			if (charNum < maxLength) {
+          if (numbersOnly) {
+            const value = Number.parseInt(inputText + ev.key);
+            if (opts.min !== undefined && value < opts.min) {
+              continue;
+            }
+            if (opts.max !== undefined && value > opts.max) {
+              continue;
+            }
+          }
+          inputText += ev.key;
+    			buffer.plotChar(x + charNum, y, ev.key, 'white');
+  				charNum++;
+  			}
+  		}
+
+  		if (ev.key == 'Escape') {
+        GW.ui.finishDialog();
+  			return '';
+  		}
+
+  	} while ((!inputText.length) || ev.key != 'Enter');
+
+    GW.ui.finishDialog();
+    GW.ui.draw(); // reverts to old display
+  	return inputText;
+  }
+
+  ui.getInputAt = getInputAt;
+
+
   // DIALOG
+
+  const UI_LAYERS = [];
 
   function startDialog() {
     IN_DIALOG = true;
-    ui.canvas.copyBuffer(UI_BASE);
-  	ui.canvas.copyBuffer(UI_OVERLAY);
-  	UI_OVERLAY.forEach( (c) => c.opacity = 0 );
-    // UI_OVERLAY.nullify();
+    const base = UI_OVERLAY || null;
+    UI_LAYERS.push(base);
+    UI_OVERLAY = ui.canvas.allocBuffer();
+    UI_OVERLAY.forEach( (c) => c.opacity = 0 );
     return UI_OVERLAY;
   }
 
   ui.startDialog = startDialog;
 
-  function clearDialog() {
+  function resetDialog() {
   	if (IN_DIALOG) {
-  		UI_OVERLAY.copy(UI_BASE);
+      const base = UI_LAYERS[UI_LAYERS.length - 1] || UI_BUFFER;
+  		UI_OVERLAY.copy(base);
   	}
   }
 
-  ui.clearDialog = clearDialog;
+  ui.resetDialog = resetDialog;
 
   function finishDialog() {
-    IN_DIALOG = false;
-    ui.canvas.overlay(UI_BASE);
-    UI_OVERLAY.nullify();
+    if (!IN_DIALOG) return;
+
+    ui.canvas.freeBuffer(UI_OVERLAY);
+    UI_OVERLAY = UI_LAYERS.pop();
+    ui.canvas.overlay(UI_OVERLAY || UI_BUFFER);
+
+    IN_DIALOG = (UI_LAYERS.length > 0);
   }
 
   ui.finishDialog = finishDialog;
@@ -12994,8 +13739,8 @@
     if (pct > 1) pct /= 100;
     pct = clamp(pct, 0, 1);
 
-  	barColor = color.make(barColor);
-    textColor = color.make(textColor);
+  	barColor = make$1(barColor);
+    textColor = make$1(textColor);
     const darkenedBarColor = barColor.clone().mix(colors.black, 75);
 
     barText = center(barText, width);
@@ -13190,12 +13935,16 @@
 
   actions.moveDir = moveDir;
 
+  message.addKind('BASH_NO', '$you$ cannot bash $item$.');
+  message.addKind('BASH_ITEM', '$you$ $bash$ $the.item$ [-$damage$].');
+  message.addKind('BASH_DESTROYED', '$the.item$ $is$ destroyed.');
+
   async function bashItem(actor, item, ctx) {
 
     const map = ctx.map || data.map;
 
     if (!item.hasActionFlag(Action.A_BASH)) {
-      if (!ctx.quiet) message.add('%s cannot bash %s.', actor.getName(), item.getName());
+      if (!ctx.quiet) message.add('BASH_NO', { actor, item });
       return false;
     }
 
@@ -13207,7 +13956,7 @@
     else if (actor) {
       const damage = actor.kind.calcBashDamage(actor, item, ctx);
       if (item.kind.applyDamage(item, damage, actor, ctx)) {
-        message.forPlayer(actor, '%s %s %s [-%d].', actor.getName(), actor.getVerb('bash'), item.getName('the'), damage);
+        if (actor.isPlayer()) message.add('BASH_ITEM', { actor, item, damage });
         await fx.flashSprite(map, item.x, item.y, 'hit', 100, 1);
       }
     }
@@ -13217,7 +13966,7 @@
 
     if (item.isDestroyed()) {
       map.removeItem(item);
-      if (actor.isPlayer()) message.add('%s is destroyed.', item.getName('the'));
+      if (actor.isPlayer()) message.add('BASH_DESTROYED', { item });
       if (item.kind.corpse) {
         await spawn(item.kind.corpse, { map, x: item.x, y: item.y });
       }
@@ -13231,11 +13980,14 @@
 
   actions.bashItem = bashItem;
 
+  message.addKind('PICKUP_NO', '$you$ cannot pickup $the.item$.');
+  message.addKind('PICKUP_ITEM', '$you$ $pickup$ $the.item$.');
+
   async function pickup(actor, item, ctx) {
 
     if (!actor.hasActionFlag(Action.A_PICKUP)) return false;
     if (item.hasActionFlag(Action.A_NO_PICKUP)) {
-      message.add('%s cannot pickup %s.', actor.getName({article: 'the', color: true }), item.getName({ article: 'the', color: true }));
+      message.add('PICKUP_NO', { actor, item });
       return false;
     }
 
@@ -13272,7 +14024,7 @@
       await actions.use(actor, item, ctx);
     }
     else if (!ctx.quiet) {
-      message.add('%s pickup %s.', actor.getName({article: 'the', color: true }), item.getName('the'));
+      message.add('PICKUP_ITEM', { actor, item });
     }
 
     actor.endTurn();
@@ -13340,6 +14092,10 @@
     ctx.damage = actor.calcDamageTo(target, info, ctx);
     await applyDamage(actor, target, info, ctx);
 
+    if (target.isPlayer() && target.isDead()) {
+      await Game.gameOver(false, 'Killed by $attacker$.', { actor });
+    }
+
     actor.endTurn();
     return true;
   }
@@ -13382,10 +14138,10 @@
     }
 
     damage = target.kind.applyDamage(target, damage, actor, ctx);
-    message.addCombat('%s %s %s for %F%d%F damage', actor.getName(), actor.getVerb(verb), target.getName('the'), 'red', damage, null);
+    message.addCombat('$you$ $verb$ $the.target$ for #red#$damage$## damage', { actor, verb, target, damage });
 
     if (target.isDead()) {
-      message.addCombat('%s %s', target.isInanimate() ? 'destroying' : 'killing', target.getPronoun('it'));
+      message.addCombat('$action$ $it.target$', { action: target.isInanimate() ? 'destroying' : 'killing', target });
     }
 
     const ctx2 = { map: map, x: target.x, y: target.y, volume: damage };
@@ -13401,7 +14157,7 @@
         await spawn(target.kind.corpse, ctx2);
       }
       if (target.isPlayer()) {
-        await gameOver$1(false, 'Killed by %s.', actor.getName(true));
+        await gameOver(false, 'Killed by $actor$.', { actor });
       }
     }
 
@@ -13518,7 +14274,7 @@
     }
 
     actor.grabbed = item;
-    message.add('%s grab %s.', actor.getName(), actor.grabbed.getName('a'));
+    message.add('$you$ $grab$ $a.item$.', { actor, item: actor.grabbed });
     await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
     actor.endTurn();
     return true;
@@ -13530,7 +14286,7 @@
   async function release(actor, item, ctx={}) {
     if (!actor.grabbed) return false;
 
-    message.add('%s let go of %s.', actor.getName(), actor.grabbed.getName('a'));
+    message.add('$you$ $let$ go of $a.item$.', { actor, item: actor.grabbed });
     await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
     actor.grabbed = null;
     actor.endTurn();
@@ -13570,6 +14326,8 @@
 
   actions.push = push$1;
 
+  message.addKind('USE_NOTHING', 'Nothing happens.');
+
   async function use(actor, item, ctx) {
 
     let success;
@@ -13578,7 +14336,7 @@
       if (!success) return false;
     }
     else {
-      message.add('Nothing happens.');
+      message.add('USE_NOTHING', { actor, item });
       return false;
     }
 
@@ -13605,12 +14363,21 @@
 
   actions.use = use;
 
+  message.addKind('EQUIP_NO', '$the.item$ $do$ not seem to be equippable.');
+  message.addKind('EQUIP_FAILED', '$you$ failed to equip $the.item$.');
+  message.addKind('EQUIP_SWAP', '$you$ $swap$ your $other$ for $your.actor$ $item$.');
+  message.addKind('EQUIP_SWAP_FLOOR', '$you$ $swap$ your $other$ for $a.item$.');
+  message.addKind('EQUIP_ITEM', '$you$ $equip$ $your $item$.');
+  message.addKind('EQUIP_ITEM_FLOOR', '$you$ $equip$ $a.item$.');
+  message.addKind('EQUIP_ALREADY', 'already equipped.');
+
+
   async function equip(actor, item, ctx={}) {
     if (!item) return false;
 
     const slot = item.kind.slot;
     if (!slot) {
-      message.add('%s does not seem to be equippable.', item.getName({ color: true, article: 'the' }));
+      message.add('EQUIP_NO', { actor, item });
       return false;
     }
 
@@ -13619,7 +14386,7 @@
     const other = actor.slots[slot];
     if (other) {
       if (other === item) {
-        message.add('already equipped.');
+        message.add('EQUIP_ALREADY', { actor, item });
         return false;
       }
 
@@ -13633,20 +14400,17 @@
     success = actor.equip(item);
     if (!success) {
       const article = chainIncludes(actor.pack, item) ? 'your' : true;
-      message.add('%s failed to equip %s.', actor.getName({article: 'the', color: true }), item.getName({ article, color: true }));
+      message.add('EQUIP_FAILED', { actor, item });
       // TODO - Re-equip other?
       return false;
     }
 
     if (!ctx.quiet) {
-      const article = config.inventory ? 'your' : 'a';
-      if (other) {
-        message.add('%s swap %s for %s.', actor.getName({article: 'the', color: true }), other.getName({ article: 'your', color: true }), item.getName({ article: article, color: true }));
+      let id = (other) ? 'EQUIP_SWAP' : 'EQUIP_ITEM';
+      if (!config.inventory) {
+        id += '_FLOOR';
       }
-      else {
-        // TODO - Custom verb? item.kind.equipVerb -or- Custom message? item.kind.equipMessage
-        message.add('%s equip %s.', actor.getName({article: 'the', color: true }), item.getName({ article, color: true }));
-      }
+      message.add(id, { actor, other, item });
     }
 
     if (actor.kind.calcEquipmentBonuses) {
@@ -13659,6 +14423,10 @@
   actions.equip = equip;
 
 
+  message.addKind('UNEQUIP_NO', '$the.item$ does not seem to be equippable.');
+  message.addKind('UNEQUIP_NOT_EQUIPPED', '$the.item$ does not seem to be equipped.');
+  message.addKind('UNEQUIP_FAIL', '$you$ cannot remove $your$ $item$.');
+  message.addKind('UNEQUIP_ITEM', '$you$ $remove$ $your$ $item$.');
 
   async function unequip(actor, item, ctx={}) {
     if (!item) return false;
@@ -13671,11 +14439,11 @@
     else {
       slot = item.kind.slot;
       if (!slot) {
-        message.add('%s does not seem to be equippable.', item.getName({ color: true, article: true }));
+        message.add('UNEQUIP_NO', { item });
         return false;
       }
       if (actor.slots[slot] !== item) {
-        message.add('%s does not seem to be equipped.', item.getName({ color: true, article: 'the' }));
+        message.add('UNEQUIP_NOT_EQUIPPED', { item });
         return false;
       }
     }
@@ -13686,7 +14454,7 @@
 
     if (actor.slots[slot]) {
       // failed to unequip
-      message.add('%s cannot remove your %s.', actor.getName({article: 'the', color: true }), actor.slots[slot].getName({article: false, color: true }));
+      message.add('UNEQUIP_FAIL', { actor, item: actor.slots[slot] });
       return false;
     }
 
@@ -13697,7 +14465,7 @@
 
     if (item && !ctx.quiet) {
       // TODO - Custom verb? item.kind.equipVerb -or- Custom message? item.kind.equipMessage
-      message.add('%s remove your %s.', actor.getName({article: 'the', color: true }), item.getName({ article: false, color: true }));
+      message.add('UNEQUIP_ITEM', { actor, item });
     }
 
     if (actor.kind.calcEquipmentBonuses) {
@@ -13900,9 +14668,11 @@
   exports.actions = actions;
   exports.actor = actor;
   exports.actorKinds = actorKinds;
+  exports.addListener = addListener;
   exports.ai = ai;
   exports.canvas = canvas;
   exports.cell = cell;
+  exports.clearEvent = clearEvent;
   exports.color = color;
   exports.colors = colors;
   exports.combat = combat$1;
@@ -13914,6 +14684,7 @@
   exports.digger = digger;
   exports.diggers = diggers;
   exports.dungeon = dungeon;
+  exports.emit = emit;
   exports.flag = flag;
   exports.flags = flags;
   exports.flavor = flavor;
@@ -13924,7 +14695,7 @@
   exports.grid = GRID$1;
   exports.install = install;
   exports.io = io;
-  exports.item = item;
+  exports.item = item$1;
   exports.itemKinds = itemKinds;
   exports.light = light;
   exports.lights = lights;
@@ -13932,9 +14703,15 @@
   exports.map = map$1;
   exports.maps = maps;
   exports.message = message;
+  exports.messages = messages;
+  exports.off = off;
+  exports.on = on;
+  exports.once = once;
   exports.path = PATH;
   exports.player = player;
   exports.random = random;
+  exports.removeAllListeners = removeAllListeners;
+  exports.removeListener = removeListener;
   exports.scheduler = scheduler;
   exports.sidebar = sidebar;
   exports.sprite = sprite;

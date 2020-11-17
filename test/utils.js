@@ -19,7 +19,7 @@ function extractBufferText(buffer, x, y, width) {
     const ch = buffer[i][y].ch;
     text += ch;
   }
-  return text.trim();
+  return text;
 }
 
 function countTile(map, tile) {
@@ -31,7 +31,6 @@ function countTile(map, tile) {
   });
   return count;
 }
-
 
 module.exports = {
   always,

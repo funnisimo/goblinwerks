@@ -1,5 +1,5 @@
 
-import { color as COLOR, colors as COLORS } from './color.js';
+import * as Color from './color.js';
 import * as Flags from './flags.js';
 import * as Utils from './utils.js';
 import { random } from './random.js';
@@ -8,7 +8,7 @@ import * as Frequency from './frequency.js';
 import * as Text from './text.js';
 import { visibility as VISIBILITY } from './visibility.js';
 import { actions as Actions } from './actions/index.js';
-import { types, make, data as DATA, config as CONFIG, ui as UI, def, ai as AI } from './gw.js';
+import { types, make, data as DATA, config as CONFIG, ui as UI, def, ai as AI, colors as COLORS } from './gw.js';
 
 export var actor = {};
 export var actorKinds = {};
@@ -51,7 +51,7 @@ class ActorKind {
     else {
       this.consoleColor = opts.consoleColor || true;
       if (typeof this.consoleColor === 'string') {
-        this.consoleColor = COLOR.from(this.consoleColor);
+        this.consoleColor = Color.from(this.consoleColor);
       }
     }
 
@@ -164,6 +164,9 @@ class ActorKind {
     if (typeof opts === 'string') { opts = { article: opts }; }
 
     let result = actor.name || this.name;
+    if (!opts.formal && actor.isPlayer()) {
+      result = 'you';
+    }
     if (opts.color || (this.consoleColor && (opts.color !== false))) {
       let color = this.sprite.fg;
       if (this.consoleColor instanceof types.Color) {
@@ -172,15 +175,22 @@ class ActorKind {
       if (opts.color instanceof types.Color) {
         color = opts.color;
       }
-      result = Text.format('%F%s%F', color, result, null);
+      else if (typeof opts.color === 'string') {
+        color = Color.from(opts.color);
+      }
+      if (color) {
+        result = Text.apply('#color#$result$##', { color, result });
+      }
     }
 
     if (opts.article && (this.article !== false)) {
-      let article = (opts.article === true) ? this.article : opts.article;
-      if (article == 'a' && Text.isVowel(Text.firstChar(result))) {
-        article = 'an';
+      if (opts.formal || !actor.isPlayer()) {
+        let article = (opts.article === true) ? this.article : opts.article;
+        if (article == 'a' && Text.isVowel(Text.firstChar(result))) {
+          article = 'an';
+        }
+        result = article + ' ' + result;
       }
-      result = article + ' ' + result;
     }
     return result;
   }
@@ -221,6 +231,7 @@ export class Actor {
     this.kind = kind || {};
     this.turnTime = 0;
 		this.status = {};
+    this.name = opts.name || null;
 
     this.pack = null;
     this.slots = {};
@@ -260,9 +271,20 @@ export class Actor {
 
     this.id = ++ACTOR_COUNT;
 
-    if (this.kind.make) {
-      this.kind.make(this, opts);
+    if (opts.female) {
+      this.flags &= ~Flags.Actor.AF_MALE;
+      this.flags |= Flags.Actor.AF_FEMALE;
     }
+    else if (opts.male) {
+      this.flags &= ~Flags.Actor.AF_FEMALE;
+      this.flags |= Flags.Actor.AF_MALE;
+    }
+    else if (this.hasAllFlags(Flags.Actor.AF_MALE | Flags.Actor.AF_FEMALE)) {
+      const remove = random.chance(50) ? Flags.Actor.AF_MALE : Flags.Actor.AF_FEMALE;
+      this.flags &= ~remove;
+    }
+
+    this.kind.make(this, opts);
     if (this.kind.calcEquipmentBonuses) {
       this.kind.calcEquipmentBonuses(this);
     }
@@ -274,6 +296,18 @@ export class Actor {
   isDead() { return this.current.health <= 0; }
   isInanimate() { return this.kind.flags & Flags.ActorKind.AK_INANIMATE; }
   isInvulnerable() { return this.kind.flags & Flags.ActorKind.AK_INVULNERABLE; }
+
+  isFemale() { return this.flags & Flags.Actor.AF_FEMALE; }
+  isMale() { return this.flags & Flags.Actor.AF_MALE; }
+
+  hasAllFlags(flags) {
+    return (this.flags & flags) === flags;
+  }
+
+  hasActionFlag(flag) {
+    if (this.isPlayer()) return true; // Players can do everything
+    return this.kind.actionFlags & flag;
+  }
 
 
   async bumpBy(actor, ctx) {
@@ -357,11 +391,6 @@ export class Actor {
     });
   }
 
-  hasActionFlag(flag) {
-    if (this.isPlayer()) return true; // Players can do everything
-    return this.kind.actionFlags & flag;
-  }
-
   changed(v) {
     if (v) {
       this.flags |= Flags.Actor.AF_CHANGED;
@@ -391,7 +420,7 @@ export class Actor {
 
   getVerb(verb) {
     if (this.isPlayer()) return verb;
-    return Text.toSingular(verb);
+    return Text.toSingularVerb(verb);
   }
 
   getPronoun(pn) {
@@ -425,12 +454,16 @@ export class Actor {
     return Math.floor(100 * (current - prior)/max);
   }
 
+  initStat(stat, value) {
+    this.max[stat] = this.current[stat] = this.prior[stat] = value;
+  }
+
   // INVENTORY
 
   addToPack(item) {
     let quantityLeft = (item.quantity || 1);
     // Stacking?
-    if (item.kind.flags & Flags.ItemKind.IK_STACKABLE) {
+    if (item.isStackable()) {
       let current = this.pack;
       while(current && quantityLeft) {
         if (current.kind === item.kind) {
@@ -461,6 +494,24 @@ export class Actor {
 
   eachPack(fn) {
     Utils.eachChain(this.pack, fn);
+  }
+
+  itemWillFitInPack(item, quantity) {
+    if (!this.pack) return true;
+    const maxSize = GW.config.PACK_MAX_ITEMS || 26;
+
+    const count = Utils.chainLength(this.pack);
+    if (count < maxSize) return true;
+
+    if (!item.isStackable()) return false;
+    let willStack = false;
+    Utils.eachChain(this.pack, (packItem) => {
+      if (item.willStackInto(packItem, quantity)) {
+        willStack = true;
+      }
+    });
+
+    return willStack;
   }
 
   // EQUIPMENT
@@ -497,7 +548,7 @@ export class Actor {
 types.Actor = Actor;
 
 
-export function makeActor(kind) {
+export function makeActor(kind, opts) {
   if (typeof kind === 'string') {
     kind = actorKinds[kind];
   }
@@ -506,9 +557,9 @@ export function makeActor(kind) {
     if (kind.type) {
       type = kind.type;
     }
-    kind = new types[type](kind);
+    kind = new types[type](kind, opts);
   }
-  return new types.Actor(kind);
+  return new types.Actor(kind, opts);
 }
 
 make.actor = makeActor;
@@ -527,11 +578,13 @@ function endActorTurn(theActor, turnTime=1) {
   theActor.flags |= Flags.Actor.AF_TURN_ENDED;
   theActor.turnTime = Math.floor(theActor.kind.speed * turnTime);
 
-  for(let stat in theActor.regen) {
-    const turns = theActor.regen[stat];
-    if (turns > 0) {
-      const amt = 1/turns;
-      theActor.adjustStat(stat, amt);
+  if (!theActor.isDead()) {
+    for(let stat in theActor.regen) {
+      const turns = theActor.regen[stat];
+      if (turns > 0) {
+        const amt = 1/turns;
+        theActor.adjustStat(stat, amt);
+      }
     }
   }
 

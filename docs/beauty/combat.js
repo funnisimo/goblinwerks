@@ -8,7 +8,7 @@ const AMOUNTS = ["slightly", "moderately", "severely", "critically"].reverse();
 async function doAttack(attacker, defender, power, isMagic, ctx) {
 	if (isMagic) { // check mana
 		if (!attacker.current.mana) {
-			GW.message.addCombat("%s %s not have enough mana to attack with magic.", attacker.getName(), attacker.getVerb('do'));
+			GW.message.addCombat("$attacker$ $do$ not have enough mana to attack with magic.", { attacker });
 			return;
 		}
     else if (attacker.current.mana < power) {
@@ -24,10 +24,10 @@ async function doAttack(attacker, defender, power, isMagic, ctx) {
 
   let msg;
   if (isMagic) {
-    ctx.msg = GW.text.format('%s %s a spell at %s for %F%d%F damage', attacker.getName(), attacker.getVerb('cast'), defender.getName('the'), 'red', Math.round(damage), null);
+    ctx.msg = GW.text.apply('$the.attacker$ $cast$ a spell at $the.defender$ for #red#$damage$## damage', { attacker, defender, damage: Math.round(damage) });
   }
   else {
-    ctx.msg = GW.text.format('%s %s %s for %F%d%F damage', attacker.getName(), attacker.getVerb('hit'), defender.getName('the'), 'red', Math.round(damage), null);
+    ctx.msg = GW.text.apply('$the.attacker$ $hit$ $the.defender$ for #red#$damage$## damage', { attacker, defender, damage: Math.round(damage) });
   }
 
   await GW.combat.applyDamage(attacker, defender, { damage, msg }, ctx);
@@ -221,13 +221,15 @@ function drawOpponent(buffer, x, y, width, opponent) {
 
 }
 
+GW.message.addKind('COMBAT_START', '$you$ $attack$ $a.target$.');
+
 async function combat(actor, target, ctx) {
   const map = ctx.map || GW.data.map;
   const actors = actor.isPlayer() ? [target, actor] : [actor, target];
 
-  console.log('CUSTOM ATTACK!', actor.getName({ color: false }), target.getName({ color: false }));
+  // console.log('CUSTOM ATTACK!', actor.getName({ color: false }), target.getName({ color: false }));
 
-  GW.message.add('%s %s %s', actor.getName(), actor.getVerb('attack'), target.getName('a'));
+  GW.message.add('COMBAT_START', { actor, target });
 
   const buffer = GW.ui.startDialog();
 
@@ -339,7 +341,7 @@ async function combat(actor, target, ctx) {
   GW.ui.draw();
 
   if (actors[1].isDead()) { // player
-    await GW.game.gameOver(false, 'Killed by %s.', actors[0].getName(true));
+    await GW.game.gameOver(false, 'Killed by $attacker$.', { attacker: actors[0] });
   }
 
   actor.endTurn();

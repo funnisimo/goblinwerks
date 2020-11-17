@@ -1,5 +1,5 @@
 
-import { color as COLOR } from './color.js';
+import * as Color from './color.js';
 import * as Text from './text.js';
 import { random } from './random.js';
 import * as Grid from './grid.js';
@@ -48,14 +48,25 @@ class ItemKind {
     else {
       this.consoleColor = opts.consoleColor || true;
       if (typeof this.consoleColor === 'string') {
-        this.consoleColor = COLOR.from(this.consoleColor);
+        this.consoleColor = Color.from(this.consoleColor);
       }
     }
+
+    this.maxStack = opts.maxStack || ((this.flags & Flags.ItemKind.IK_STACKABLE) ? 99 : 1);
   }
 
   forbiddenCellFlags(item) { return Flags.Cell.HAS_ITEM; }
   forbiddenTileFlags(item) { return Flags.Tile.T_OBSTRUCTS_ITEMS; }
   forbiddenTileMechFlags(item) { return 0; }
+
+  isStackable() { return this.flags & Flags.ItemKind.IK_STACKABLE; }
+  willStackInto(item, other, quantity) {
+    quantity = quantity || item.quantity;
+    if (other.kind !== item.kind) return false;
+    if (!this.isStackable()) return false;
+    // Compare enchants, etc...
+    return (other.quantity + quantity <= this.maxStack);
+  }
 
   async applyDamage(item, damage, actor, ctx) {
 		if (item.stats.health > 0) {
@@ -69,12 +80,17 @@ class ItemKind {
 		return 0;
 	}
 
+  getVerb(verb) {
+    if (this.quantity > 1) return Text.toPluralVerb(verb);
+    return Text.toSingularVerb(verb);
+  }
+
   getName(item, opts={}) {
     if (opts === true) { opts = { article: true }; }
     if (opts === false) { opts = {}; }
     if (typeof opts === 'string') { opts = { article: opts }; }
 
-    let result = item.name || this.name;
+    let result = Text.toPluralNoun(item.name || this.name, item.quantity > 1);
     if (opts.color || (this.consoleColor && (opts.color !== false))) {
       let color = this.sprite.fg;
       if (this.consoleColor instanceof GW.types.Color) {
@@ -83,7 +99,12 @@ class ItemKind {
       if (opts.color instanceof GW.types.Color) {
         color = opts.color;
       }
-      result = Text.format('%F%s%F', color, result, null);
+      else if (typeof color === 'string') {
+        color = Color.from(color);
+      }
+      if (color) {
+        result = Text.apply('#color#$result$##', { color, result });
+      }
     }
     else if (opts.color === false) {
       result = Text.removeColors(result); // In case item has built in color
@@ -151,6 +172,23 @@ class Item {
 	hasActionFlag(flag) {
 		return (this.kind.actionFlags & flag) > 0;
 	}
+
+  isStackable() {
+    return this.kind.flags & Flags.ItemKind.IK_STACKABLE;
+  }
+  willStackInto(other, quantity) {
+    return this.kind.willStackInto(this, other, quantity);
+  }
+  inventoryCount() {
+    return (this.kind.flags & Flags.ItemKind.IK_STACK_AS_ONE) ? 1 : this.quantity;
+  }
+
+  split(quantity=1) {
+    if (quantity >= this.quantity) return null;
+    const newItem = GW.make.item(this.kind, { quantity, flags: this.flags, stats: this.stats });
+    this.quantity -= quantity;
+    return newItem;
+  }
 
   async bumpBy(actor, ctx={}) {
     ctx.quiet = true;

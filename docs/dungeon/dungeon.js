@@ -141,6 +141,9 @@ async function showHelp() {
 	GW.ui.finishDialog();
 }
 
+GW.message.addKind('LEVEL_START', '#teal#At start of dungeon.');
+GW.message.addKind('LEVEL_ASCEND', '$you$ $ascend$ to level $level$.');
+GW.message.addKind('LEVEL_DESCEND', '$you$ $descend$ to level $level$.');
 
 async function forceStairs(ev) {
 	const isUp = (ev.key == '<');
@@ -148,14 +151,14 @@ async function forceStairs(ev) {
 	const mapId = GW.data.map.id + (isUp ? 1 : -1);
 
 	if (isUp && GW.data.map.id == 0) {
-		GW.message.add(GW.colors.teal, 'At start of dungeon.');
+		GW.message.add('LEVEL_START');
 		return false;
 	}
 	else if (isUp) {
-		GW.message.add('You ascend to level %d.', Math.abs(mapId));
+		GW.message.add('LEVEL_ASCEND', { actor: PLAYER , level: Math.abs(mapId) });
 	}
 	else {
-		GW.message.add('You descend to level %d.', Math.abs(mapId));
+		GW.message.add('LEVEL_DESCEND', { actor: PLAYER, level: Math.abs(mapId) });
 	}
 
 	const newMap = await GW.game.getMap(mapId);
@@ -167,6 +170,8 @@ async function forceStairs(ev) {
   return true;
 }
 
+GW.message.addKind('WELCOME', '#yellow#Welcome to the Dungeon!\n#purple#Somewhere at the bottom of this labrynth is a portal that will take you back to your home town.  Find it or perish!\n##Press <?> for help.');
+
 // start the environment
 function start() {
 	const canvas = GW.ui.start({ width: 80, height: 36, div: 'game', messages: -5, cursor: true, flavor: true });
@@ -176,7 +181,7 @@ function start() {
 		'?': showHelp
 	});
 
-	GW.message.add('%FWelcome to the Dungeon!\n%FSomewhere at the bottom of this labrynth is a portal that will take you back to your home town.  Find it or perish!\n%FPress <?> for help.', 'yellow', 'purple', null);
+	GW.message.add('WELCOME');
 	GW.game.start({ player: PLAYER, buildMap: designNewLevel, fov: true });
 }
 

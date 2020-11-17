@@ -3,9 +3,9 @@ import { io as IO } from './io.js';
 import * as Flags from './flags.js';
 import * as Utils from './utils.js';
 import { sprite as SPRITE } from './sprite.js';
-import { color as COLOR, colors as COLORS } from './color.js';
+import * as Color from './color.js';
 import * as Text from './text.js';
-import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, make, sidebar as SIDEBAR, config as CONFIG } from './gw.js';
+import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, make, sidebar as SIDEBAR, config as CONFIG, colors as COLORS } from './gw.js';
 
 ui.debug = Utils.NOOP;
 
@@ -60,9 +60,10 @@ export function start(opts={}) {
     div: 'canvas',
     io: true,
     followPlayer: false,
+    loop: true,
   });
 
-  if (!ui.canvas) {
+  if (!ui.canvas && (opts.canvas !== false)) {
     ui.canvas = new types.Canvas(opts.width, opts.height, opts.div, opts);
 
     if (opts.io && typeof document !== 'undefined') {
@@ -70,17 +71,23 @@ export function start(opts={}) {
       ui.canvas.element.onmousemove = ui.onmousemove;
     	document.onkeydown = ui.onkeydown;
     }
-  }
 
-  // TODO - init sidebar, messages, flavor, menu
-  UI_BUFFER = UI_BUFFER || ui.canvas.allocBuffer();
-  UI_BASE = UI_BASE || ui.canvas.allocBuffer();
-  UI_OVERLAY = UI_OVERLAY || ui.canvas.allocBuffer();
-  UI_BASE.nullify();
-  UI_OVERLAY.nullify();
+    // TODO - init sidebar, messages, flavor, menu
+    UI_BUFFER = UI_BUFFER || ui.canvas.allocBuffer();
+    UI_BASE = UI_BASE || ui.canvas.allocBuffer();
+    // UI_OVERLAY = UI_OVERLAY || ui.canvas.allocBuffer();
+    UI_BASE.nullify();
+    // UI_OVERLAY.nullify();
+
+    ui.blackOutDisplay();
+  }
 
   IN_DIALOG = false;
   REDRAW_UI = false;
+
+  if (opts.sidebar === true) {
+    opts.sidebar = 20;
+  }
 
 	let viewX = 0;
 	let viewY = 0;
@@ -89,68 +96,60 @@ export function start(opts={}) {
 
 	let flavorLine = -1;
 
-  if (opts.wideMessages) {
-    if (opts.messages) {
-      viewH -= Math.abs(opts.messages);
-    }
-    if (opts.flavor) {
-      viewH -= 1;
-    }
+  if (opts.messages) {
+    viewH -= Math.abs(opts.messages);
+  }
+  if (opts.flavor) {
+    viewH -= 1;
   }
 
   if (opts.sidebar) {
-    if (opts.sidebar === true) {
-      opts.sidebar = 20;
-    }
+    const sideH = (opts.wideMessages ? viewH : opts.height);
+    let sideY = (opts.wideMessages && opts.messages > 0) ? opts.height - viewH : 0;
+
     if (opts.sidebar < 0) { // right side
       viewW += opts.sidebar;  // subtract
-      SIDEBAR.setup({ x: viewW, y: 0, width: -opts.sidebar, height: viewH });
+      SIDEBAR.setup({ x: viewW, y: sideY, width: -opts.sidebar, height: sideH });
     }
     else {  // left side
       viewW -= opts.sidebar;
       viewX = opts.sidebar;
-      SIDEBAR.setup({ x: 0, y: 0, width: opts.sidebar, height: viewH });
+      SIDEBAR.setup({ x: 0, y: sideY, width: opts.sidebar, height: sideH });
     }
   }
 
   const msgW = (opts.wideMessages ? opts.width : viewW);
+  const msgX = (opts.wideMessages ? 0 : viewX);
 
 	if (opts.messages) {
 		if (opts.messages < 0) {	// on bottom of screen
-			MSG.setup({x: 0, y: ui.canvas.height + opts.messages, width: msgW, height: -opts.messages, archive: ui.canvas.height });
-      if (!opts.wideMessages) {
-        viewH += opts.messages;	// subtract off message height
-      }
+			MSG.setup({x: msgX, y: opts.height + opts.messages, width: msgW, height: -opts.messages, archive: opts.height });
 			if (opts.flavor) {
-				if (!opts.wideMessages) viewH -= 1;
-				flavorLine = ui.canvas.height + opts.messages - 1;
+				flavorLine = opts.height + opts.messages - 1;
 			}
 		}
 		else {	// on top of screen
-			MSG.setup({x: 0, y: 0, width: msgW, height: opts.messages, archive: ui.canvas.height });
+			MSG.setup({x: msgX, y: 0, width: msgW, height: opts.messages, archive: opts.height });
 			viewY = opts.messages;
-      if (! opts.wideMessages) {
-        viewH -= opts.messages;
-      }
 			if (opts.flavor) {
 				viewY += 1;
-				if (!opts.wideMessages) viewH -= 1;
 				flavorLine = opts.messages;
 			}
 		}
 	}
 
 	if (opts.flavor) {
-		FLAVOR.setup({ x: viewX, y: flavorLine, w: msgW, h: 1 });
+		FLAVOR.setup({ x: msgX, y: flavorLine, w: msgW, h: 1 });
     SHOW_FLAVOR = true;
 	}
 
 	VIEWPORT.setup({ x: viewX, y: viewY, w: viewW, h: viewH, followPlayer: opts.followPlayer });
 	SHOW_CURSOR = opts.cursor;
 
-  ui.blackOutDisplay();
-	RUNNING = true;
-	uiLoop();
+  if (opts.loop) {
+    RUNNING = true;
+  	uiLoop();
+  }
 
   return ui.canvas;
 }
@@ -382,14 +381,16 @@ ui.clearCursor = clearCursor;
 
 // FUNCS
 
-export async function prompt(...args) {
-	const msg = Text.format(...args);
+export async function prompt(text, args) {
+  if (args) {
+    text = Text.apply(text, args);
+  }
 
 	if (SHOW_FLAVOR) {
-		FLAVOR.showPrompt(msg);
+		FLAVOR.showPrompt(text);
 	}
 	else {
-		console.log(msg);
+		console.log(text);
 	}
 }
 
@@ -416,8 +417,8 @@ export async function fadeTo(color, duration=1000, src) {
 
     buffer.copy(src);
     buffer.forEach( (c, x, y) => {
-      COLOR.applyMix(c.fg, color, pct);
-      COLOR.applyMix(c.bg, color, pct);
+      c.fg.mix(color, pct);
+      c.bg.mix(color, pct);
     });
     ui.canvas.overlay(buffer);
     ui.canvas.draw();
@@ -430,12 +431,12 @@ export async function fadeTo(color, duration=1000, src) {
 ui.fadeTo = fadeTo;
 
 
-export async function messageBox(duration, text, ...args) {
+export async function alert(duration, text, args) {
 
   const buffer = ui.startDialog();
 
-	if (args.length) {
-		text = Text.format(text, ...args);
+	if (args) {
+		text = Text.apply(text, args);
 	}
 
   const len = text.length;
@@ -450,34 +451,41 @@ export async function messageBox(duration, text, ...args) {
 	ui.finishDialog();
 }
 
-ui.messageBox = messageBox;
+ui.alert = alert;
 
 
-export async function confirm(opts, ...args) {
+export async function confirm(opts, prompt, args) {
 
   let text;
   if (typeof opts === 'string') {
-    args.shift(opts);
+    args = prompt;
+    prompt = opts;
     opts = {};
   }
-  if (args.length > 1) {
-    text = Text.format(...args);
-  }
-  else {
-    text = args[0];
+  if (prompt) {
+    prompt = GW.messages[prompt] || prompt;
+    text = Text.apply(prompt, args);
   }
 
+  Utils.setDefaults(opts, {
+    allowCancel: true,
+    bg: 'black',
+  });
+
   const buffer = ui.startDialog();
+  buffer.fade('black', 50);
 
 	const btnOK = 'OK=Enter';
 	const btnCancel = 'Cancel=Escape';
   const len = Math.max(text.length, btnOK.length + 4 + btnCancel.length);
   const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
   const y = Math.floor(ui.canvas.height / 2) - 1;
-  buffer.fillRect(x, y, len + 4, 5, ' ', 'black', 'black');
+  buffer.fillRect(x, y, len + 4, 5, ' ', 'black', opts.bg);
 	buffer.plotText(x + 2, y + 1, text);
-	buffer.plotText(x + 2, y + 3, btnOK, 'white');
-	buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, 'white');
+	buffer.plotText(x + 2, y + 3, btnOK);
+  if (opts.allowCancel) {
+    buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, 'white');
+  }
 	ui.draw();
 
 	let result;
@@ -488,15 +496,19 @@ export async function confirm(opts, ...args) {
 				result = true;
 			},
 			escape() {
-				result = false;
+        if (opts.allowCancel) {
+          result = false;
+        }
 			},
 			mousemove() {
 				let isOK = ev.x < x + btnOK.length + 2;
 				let isCancel = ev.x > x + len + 4 - btnCancel.length - 4;
 				if (ev.x < x || ev.x > x + len + 4) { isOK = false; isCancel = false; }
 				if (ev.y != y + 3 ) { isOK = false; isCancel = false; }
-				buffer.plotText(x + 2, y + 3, btnOK, isOK ? 'blue' : 'white');
-				buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, isCancel ? 'blue' : 'white');
+				buffer.plotText(x + 2, y + 3, isOK ? GW.colors.teal : GW.colors.white, btnOK);
+        if (opts.allowCancel) {
+          buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, isCancel ? GW.colors.teal : GW.colors.white, btnCancel);
+        }
 				ui.draw();
 			},
 			click() {
@@ -535,7 +547,7 @@ async function chooseTarget(choices, prompt, opts={}) {
 	let selected = 0;
 
 	function draw() {
-		ui.clearDialog();
+		ui.resetDialog();
 		buf.plotLine(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, prompt, GW.colors.orange);
 		if (selected >= 0) {
 			const choice = choices[selected];
@@ -584,31 +596,148 @@ async function chooseTarget(choices, prompt, opts={}) {
 
 ui.chooseTarget = chooseTarget;
 
+
+export async function inputNumberBox(opts, prompt, args) {
+
+  let text;
+  if (typeof opts === 'number') {
+    opts = { max: opts };
+  }
+  else if (typeof opts === 'string') {
+    args = prompt;
+    prompt = opts;
+    opts = {};
+  }
+  if (prompt) {
+    prompt = GW.messages[prompt] || prompt;
+    text = Text.apply(prompt, args);
+  }
+
+  Utils.setDefaults(opts, {
+    allowCancel: true,
+    min: 1,
+    max: 99,
+    number: true,
+    bg: 'black',
+  });
+
+  const buffer = ui.startDialog();
+  buffer.fade('black', 50);
+
+	const btnOK = 'OK=Enter';
+	const btnCancel = 'Cancel=Escape';
+  const len = Math.max(text.length, btnOK.length + 4 + btnCancel.length);
+  const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
+  const y = Math.floor(ui.canvas.height / 2) - 1;
+  buffer.fillRect(x, y, len + 4, 6, ' ', 'black', opts.bg);
+	buffer.plotText(x + 2, y + 1, text);
+  buffer.fillRect(x + 2, y + 2, len - 4, 1, ' ', 'gray', 'gray');
+	buffer.plotText(x + 2, y + 4, btnOK);
+  if (opts.allowCancel) {
+    buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 4, btnCancel);
+  }
+	ui.draw();
+
+  const value = await ui.getInputAt(x + 2, y + 2, len - 4, opts);
+
+	ui.finishDialog();
+	return Number.parseInt(value);
+}
+
+ui.inputNumberBox = inputNumberBox;
+
+
+// assumes you are in a dialog and give the buffer for that dialog
+async function getInputAt(x, y, maxLength, opts={})
+{
+  let defaultEntry = opts.default || '';
+  let numbersOnly = opts.number || opts.numbers || opts.numbersOnly || false;
+
+	const textEntryBounds = (numbersOnly ? ['0', '9'] : [' ', '~']);
+
+  const buffer = GW.ui.startDialog();
+	maxLength = Math.min(maxLength, buffer.width - x);
+
+	let inputText = defaultEntry;
+	let charNum = GW.text.length(inputText);
+
+  let ev;
+	do {
+    GW.ui.draw();
+
+		ev = await GW.io.nextKeyPress(-1);
+		if ( (ev.key == 'Delete' || ev.key == 'Backspace') && charNum > 0) {
+			buffer.plotChar(x + charNum - 1, y, ' ', 'white');
+			charNum--;
+			inputText = Text.splice(inputText, charNum, 1);
+		} else if (ev.key.length > 1) {
+			// ignore other special keys...
+		} else if (ev.key >= textEntryBounds[0]
+				   && ev.key <= textEntryBounds[1]) // allow only permitted input
+		{
+			if (charNum < maxLength) {
+        if (numbersOnly) {
+          const value = Number.parseInt(inputText + ev.key);
+          if (opts.min !== undefined && value < opts.min) {
+            continue;
+          }
+          if (opts.max !== undefined && value > opts.max) {
+            continue;
+          }
+        }
+        inputText += ev.key;
+  			buffer.plotChar(x + charNum, y, ev.key, 'white');
+				charNum++;
+			}
+		}
+
+		if (ev.key == 'Escape') {
+      GW.ui.finishDialog();
+			return '';
+		}
+
+	} while ((!inputText.length) || ev.key != 'Enter');
+
+  GW.ui.finishDialog();
+  GW.ui.draw(); // reverts to old display
+	return inputText;
+}
+
+ui.getInputAt = getInputAt;
+
+
 // DIALOG
+
+const UI_LAYERS = [];
 
 function startDialog() {
   IN_DIALOG = true;
-  ui.canvas.copyBuffer(UI_BASE);
-	ui.canvas.copyBuffer(UI_OVERLAY);
-	UI_OVERLAY.forEach( (c) => c.opacity = 0 );
-  // UI_OVERLAY.nullify();
+  const base = UI_OVERLAY || null;
+  UI_LAYERS.push(base);
+  UI_OVERLAY = ui.canvas.allocBuffer();
+  UI_OVERLAY.forEach( (c) => c.opacity = 0 );
   return UI_OVERLAY;
 }
 
 ui.startDialog = startDialog;
 
-function clearDialog() {
+function resetDialog() {
 	if (IN_DIALOG) {
-		UI_OVERLAY.copy(UI_BASE);
+    const base = UI_LAYERS[UI_LAYERS.length - 1] || UI_BUFFER;
+		UI_OVERLAY.copy(base);
 	}
 }
 
-ui.clearDialog = clearDialog;
+ui.resetDialog = resetDialog;
 
 function finishDialog() {
-  IN_DIALOG = false;
-  ui.canvas.overlay(UI_BASE);
-  UI_OVERLAY.nullify();
+  if (!IN_DIALOG) return;
+
+  ui.canvas.freeBuffer(UI_OVERLAY);
+  UI_OVERLAY = UI_LAYERS.pop();
+  ui.canvas.overlay(UI_OVERLAY || UI_BUFFER);
+
+  IN_DIALOG = (UI_LAYERS.length > 0);
 }
 
 ui.finishDialog = finishDialog;
@@ -646,8 +775,8 @@ export function plotProgressBar(buf, x, y, width, barText, textColor, pct, barCo
   if (pct > 1) pct /= 100;
   pct = Utils.clamp(pct, 0, 1);
 
-	barColor = COLOR.make(barColor);
-  textColor = COLOR.make(textColor);
+	barColor = Color.make(barColor);
+  textColor = Color.make(textColor);
   const darkenedBarColor = barColor.clone().mix(COLORS.black, 75);
 
   barText = Text.center(barText, width);

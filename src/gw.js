@@ -3,6 +3,8 @@
 export var def = {};
 export var types = {};
 
+export var colors = {};
+
 export var make = {};
 export var install = {};
 
@@ -24,6 +26,8 @@ export var flags = {};
 
 export var tiles = {};
 export var tileEvents = {};
+
+export var messages = {};
 
 export var config = {
   fx: {},

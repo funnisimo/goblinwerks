@@ -1,9 +1,10 @@
 
-import { color as COLOR } from './color.js';
+import * as Color from './color.js';
 import { random } from './random.js';
 import { grid as GRID } from './grid.js';
 import * as Flags from './flags.js';
 import * as Utils from './utils.js';
+import * as Events from './events.js';
 import * as GW from './gw.js';
 
 
@@ -36,10 +37,10 @@ export class TileEvent {
 
 		this.message = opts.message || null;
 	  this.lightFlare = opts.flare || 0;
-		this.flashColor = opts.flash ? COLOR.from(opts.flash) : null;
+		this.flashColor = opts.flash ? Color.from(opts.flash) : null;
 		// this.effectRadius = radius || 0;
 		this.messageDisplayed = false;
-		this.eventName = opts.event || null;	// name of the event to emit when activated
+		this.eventName = opts.event || opts.emit || null;	// name of the event to emit when activated
 		this.id = opts.id || null;
 	}
 
@@ -234,6 +235,11 @@ export async function spawn(feat, ctx) {
 		}
 	}
 
+  if (feat.eventName) {
+		await Events.emit(feat.eventName, ctx);
+    didSomething = true;
+	}
+
 	if (GW.data.gameHasEnded) {
 		GRID.free(spawnMap);
 		return didSomething;
@@ -279,10 +285,6 @@ export async function spawn(feat, ctx) {
     //     }
     // }
   }
-
-	// if (didSomething && feat.flags & Flags.TileEvent.DFF_EMIT_EVENT && feat.eventName) {
-	// 	await GAME.emit(feat.eventName, x, y);
-	// }
 
 	if (didSomething) {
     spawnMap.forEach( (v, i, j) => {

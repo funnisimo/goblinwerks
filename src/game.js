@@ -1,8 +1,8 @@
 
 
-import { colors as COLORS } from './color.js';
 import * as Flags from './flags.js';
 import * as Utils from './utils.js';
+import * as Events from './events.js';
 import * as Light from './light.js';
 import { map as MAP } from './map.js';
 import { io as IO } from './io.js';
@@ -13,7 +13,7 @@ import * as Text from './text.js';
 import { sprite as SPRITE } from './sprite.js';
 import { visibility as VISIBILITY } from './visibility.js';
 
-import { viewport as VIEWPORT, data as DATA, maps as MAPS, types, fx as FX, ui as UI, message as MSG, make, config as CONFIG, flavor as FLAVOR } from './gw.js';
+import { viewport as VIEWPORT, data as DATA, maps as MAPS, types, fx as FX, ui as UI, message as MSG, make, config as CONFIG, flavor as FLAVOR, colors as COLORS } from './gw.js';
 
 const GAME_DEBUG = Utils.NOOP;
 
@@ -31,6 +31,8 @@ export async function start(opts={}) {
   DATA.gameHasEnded = false;
 
   GW.utils.clearObject(MAPS);
+
+  await Events.emit('GAME_START', opts);
 
   if (opts.width) {
     CONFIG.width = opts.width;
@@ -63,6 +65,7 @@ export async function start(opts={}) {
 
   await startMap(map, opts.start);
   queuePlayer();
+
 
   return loop();
 }
@@ -102,6 +105,8 @@ export async function startMap(map, loc='start') {
   scheduler.clear();
 
   if (DATA.map && DATA.player) {
+    await Events.emit('STOP_MAP', DATA.map);
+
     DATA.map.removeActor(DATA.player);
   }
 
@@ -166,6 +171,9 @@ export async function startMap(map, loc='start') {
   if (map.config.tick) {
     scheduler.push( updateEnvironment, map.config.tick );
   }
+
+  await Events.emit('START_MAP', map);
+
 }
 
 
@@ -258,20 +266,22 @@ export async function updateEnvironment() {
 
 SPRITE.install('hilite', COLORS.white);
 
-export async function gameOver(isWin, ...args) {
-  const msg = Text.format(...args);
+export async function gameOver(isWin, msg, args) {
+  if (args) {
+    msg = Text.apply(msg, args);
+  }
 
   FLAVOR.clear();
   MSG.add(msg);
   if (isWin) {
     DATA.isWin = true;
-    MSG.add(COLORS.yellow, 'WINNER!');
+    MSG.add('#yellow#WINNER!');
   }
   else {
     DATA.isWin = false;
-    MSG.add(COLORS.red, 'GAME OVER');
+    MSG.add('#red#GAME OVER');
   }
-  MSG.add(COLORS.white, 'Press <Enter> to continue.');
+  MSG.add('Press <Enter> to continue.');
   UI.updateNow();
   await FX.flashSprite(DATA.map, DATA.player.x, DATA.player.y, 'hilite', 500, 3);
   DATA.gameHasEnded = true;
@@ -288,12 +298,12 @@ export async function useStairs(x, y) {
   if (cell.hasTileFlag(Flags.Tile.T_UP_STAIRS)) {
     start = 'down';
     mapId = map.id + 1;
-    MSG.add('you ascend.');
+    MSG.add('$you$ $ascend$.', { actor: player });
   }
   else if (cell.hasTileFlag(Flags.Tile.T_DOWN_STAIRS)) {
     start = 'up';
     mapId = map.id - 1;
-    MSG.add('you descend.');
+    MSG.add('$you$ $descend$.', { actor: player });
   }
   else if (cell.hasTileFlag(Flags.Tile.T_PORTAL)) {
     start = cell.data.portalLocation;

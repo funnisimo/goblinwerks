@@ -37,6 +37,10 @@ export const Actor = installFlag('actor', {
   AF_DYING        : Fl(1),
   AF_TURN_ENDED   : Fl(2),
 
+  AF_MALE         : Fl(3),
+  AF_FEMALE       : Fl(4),
+  AF_YOU          : Fl(5),  // Use 'you' as the actor name in messages
+
   AF_DEBUG        : Fl(30),
 });
 
@@ -292,13 +296,12 @@ export const ItemKind = installFlag('itemKind', {
 	IK_KIND_AUTO_ID       	: Fl(17),	// the item type will become known when the item is picked up.
 	IK_PLAYER_AVOIDS				: Fl(18),	// explore and travel will try to avoid picking the item up
 
-	IK_NAME_PLURAL					: Fl(20), // Replace with name conventions?  'gold coin~'
+	IK_NAME_PLURAL					: Fl(20), // TODO - Replace with name conventions?  'gold coin~'
 
 	IK_STACKABLE						: Fl(21),
-	// IK_STACK_SMALL					: Fl(22),
-	// IK_STACK_LARGE					: Fl(23),
-	// IK_SLOW_RECHARGE				: Fl(24),
+  IK_STACK_AS_ONE         : Fl(22),
 
+	// IK_SLOW_RECHARGE				: Fl(24),
 	IK_CAN_BE_SWAPPED      	: Fl(25),
 	// IK_CAN_BE_RUNIC					: Fl(26),
 	IK_CAN_BE_DETECTED		  : Fl(27),

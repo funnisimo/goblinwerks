@@ -103,7 +103,7 @@ export async function dispatchEvent(ev, km) {
 		command = km.dir;
 	}
 	else if (ev.type === KEYPRESS) {
-		command = km[ev.key] || km[ev.code];
+		command = km[ev.key] || km[ev.code] || km.keypress;
 	}
 	else if (km[ev.type]) {
 		command = km[ev.type];
@@ -361,7 +361,6 @@ export async function tickMs(ms=1) {
 io.tickMs = tickMs;
 
 
-// TODO - io.tickMs(ms)
 
 export async function nextKeyPress(ms, match) {
   if (ms === undefined) ms = -1;
@@ -399,3 +398,16 @@ export function waitForAck() {
 }
 
 io.waitForAck = waitForAck;
+
+
+export async function loop(handler) {
+  let running = true;
+  while(running) {
+    const ev = await io.nextEvent();
+    if (await io.dispatchEvent(ev, handler)) {
+      running = false;
+    }
+  }
+}
+
+io.loop = loop;

@@ -1,7 +1,5 @@
 
-import { colors as COLORS } from './color.js';
 import { cosmetic } from './random.js';
-
 import { types, make, ui as UI } from './gw.js';
 
 

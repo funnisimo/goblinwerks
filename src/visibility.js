@@ -32,14 +32,14 @@ function promoteCellVisibility(cell, i, j, map) {
         if (cell.item) {
             const theItem = cell.item;
             if (theItem.hasKindFlag(Flags.ItemKind.IK_INTERRUPT_EXPLORATION_WHEN_SEEN)) {
-                MSG.add(COLORS.itemMessageColor, 'you see %s.', theItem.name());
+                MSG.add('$you$ $see$ #itemMessageColor#$item$##.', { item, actor: GW.data.player });
             }
         }
         if (!(cell.flags & Flags.Cell.MAGIC_MAPPED)
             && cell.hasTileMechFlag(Flags.TileMech.TM_INTERRUPT_EXPLORATION_WHEN_SEEN))
 				{
             const tile = cell.tileWithMechFlag(Flags.TileMech.TM_INTERRUPT_EXPLORATION_WHEN_SEEN);
-            GW.ui.message(GW.colors.backgroundMessageColor, 'you see %s.', tile.name);
+            MSG.add('$you$ $see$ #backgroundMessageColor#$item$##.', { actor: GW.data.player, item: tile.name });
         }
     }
     cell.markRevealed();

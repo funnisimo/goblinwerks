@@ -10,7 +10,7 @@ async function grab(e) {
   const map = DATA.map;
 
   if (actor.grabbed) {
-    MSG.add('%s let go of %s.', actor.getName(), actor.grabbed.getName('a'));
+    MSG.add('$you$ $let$ go of $a.item$.', { actor, item: actor.grabbed });
     await FX.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
     actor.grabbed = null;
     actor.endTurn();

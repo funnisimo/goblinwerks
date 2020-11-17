@@ -2,10 +2,10 @@
 import { random } from './random.js';
 import * as Flags from './flags.js';
 import * as Utils from './utils.js';
-import { colors as COLORS, color as COLOR } from './color.js';
+import * as Color from './color.js';
 import * as TileEvent from './tileEvent.js';
 
-import { types, make, def, config as CONFIG, data as DATA, flag as FLAG, tiles as TILES } from './gw.js';
+import { types, make, def, config as CONFIG, data as DATA, flag as FLAG, tiles as TILES, colors as COLORS } from './gw.js';
 
 export var cell = {};
 
@@ -13,7 +13,7 @@ const TileLayer = def.layer;
 
 cell.debug = Utils.NOOP;
 
-COLOR.addKind('cursorColor', 25, 100, 150);
+Color.addKind('cursorColor', 25, 100, 150);
 CONFIG.cursorPathIntensity = 50;
 
 
@@ -124,8 +124,8 @@ class Cell {
   }
 
   // TODO - Use functions in LIGHT to check these on cell.light directly???
-  hasVisibleLight() { return COLOR.intensity(this.light) > def.INTENSITY_DARK; }  // TODO
-  isDark() { return COLOR.intensity(this.light) <= def.INTENSITY_DARK; }  // TODO
+  hasVisibleLight() { return Color.intensity(this.light) > def.INTENSITY_DARK; }  // TODO
+  isDark() { return Color.intensity(this.light) <= def.INTENSITY_DARK; }  // TODO
   lightChanged() { return this.flags & Flags.Cell.LIGHT_CHANGED; }  // TODO
 
   tile(layer=0) {
@@ -595,7 +595,7 @@ export function getAppearance(cell, dest) {
   memory.bg.applyMultiplier(cell.light);
   memory.bake();
   if (needDistinctness) {
-    COLOR.separate(memory.fg, memory.bg);
+    Color.separate(memory.fg, memory.bg);
   }
   dest.plot(memory);
   return true;

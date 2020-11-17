@@ -14,13 +14,10 @@ GW.config.ITEM_BONUS_PER_DANGER = 5;
 
 class BeautyItem extends GW.types.ItemKind {
 	constructor(opts={}) {
-    GW.utils.setDefaults(opts, {
-      stats: {},
-    });
-    GW.utils.setDefaults(opts.stats, {
-      defense: 0,
-      attack: 0,
-      combatBonus: 0,
+    GW.utils.kindDefaults(opts, {
+      'stats.defense': 0,
+      'stats.attack': 0,
+      'stats.combatBonus': 0,
     });
 		super(opts);
   }
@@ -47,7 +44,7 @@ class BeautyItem extends GW.types.ItemKind {
 			item.stats.combatBonus = this.suffixes[combat];
 
       item.sprite = this.sprite.clone();
-			GW.color.applyMix(item.sprite.fg, GW.config.COMBAT_COLORS[item.stats.combatBonus], 50);
+			item.sprite.fg.mix(GW.config.COMBAT_COLORS[item.stats.combatBonus], 50);
     }
 
     if (name != this.name) {
@@ -164,6 +161,10 @@ GW.item.addKind('SHIELD', new BeautyItem({
 
 GW.color.addKind('health', '#e00');
 
+GW.message.addKind('HEAL_NO_NEED', '$you$ $are$ at full #health#health##.');
+GW.message.addKind('HEAL_PARTIAL', 'Some of $your$ #health#health## is refilled.');
+GW.message.addKind('HEAL_FULL',    '$your$ #health#health## is completely refilled.');
+
 GW.item.addKind('POTION_HEALTH', {
   name: 'health potion',
   ch: '!', fg: 'health',
@@ -172,15 +173,15 @@ GW.item.addKind('POTION_HEALTH', {
   use(item, actor, ctx={}) {
     if (!actor.isPlayer()) return false;
     if (actor.current.health >= actor.max.health) {
-      GW.message.add('You do not need to recharge your %Fhealth%F.', 'health', null);
+      GW.message.add('HEAL_NO_NEED', { actor, item });
       return false;
     }
     else {
       if (actor.current.health + item.stats.strength < actor.max.health) {
-        GW.message.add('Some of your %Fhealth%F is refilled.', 'health', null);
+        GW.message.add('HEAL_PARTIAL', { actor, item });
       }
       else {
-        GW.message.add('Your %Fhealth%F is completely refilled.', 'health', null);
+        GW.message.add('HEAL_FULL', { actor });
       }
       actor.adjustStat('health', item.stats.strength);
     }
@@ -190,6 +191,10 @@ GW.item.addKind('POTION_HEALTH', {
 
 GW.color.addKind('mana', '#84a');
 
+GW.message.addKind('MANA_NO_NEED', '$you$ $do$ not need to recharge $your$ #mana#mana##.');
+GW.message.addKind('MANA_PARTIAL', 'Some of $your$ #mana#mana## is refilled.');
+GW.message.addKind('MANA_FULL',    '$your$ #mana#mana## is completely refilled.');
+
 GW.item.addKind('POTION_MANA', {
   name: 'mana potion',
   ch: '!', fg: 'mana',
@@ -198,15 +203,15 @@ GW.item.addKind('POTION_MANA', {
   use(item, actor, ctx={}) {
     if (!actor.isPlayer()) return false;
     if (actor.current.mana >= actor.max.mana) {
-      GW.message.add('You do not need to recharge your %Fmana%F.', 'mana', null);
+      GW.message.add('MANA_NO_NEED', { actor, item });
       return false;
     }
     else {
       if (actor.current.mana + item.stats.strength < actor.max.mana) {
-        GW.message.add('Some of your %Fmana%F is refilled.', 'mana', null);
+        GW.message.add('MANA_PARTIAL', { actor, item });
       }
       else {
-        GW.message.add('Your %Fmana%F is completely refilled.', 'mana', null);
+        GW.message.add('MANA_FULL', { actor, item });
       }
       actor.adjustStat('mana', item.stats.strength);
     }
@@ -214,6 +219,7 @@ GW.item.addKind('POTION_MANA', {
   }
 });
 
+GW.message.addKind('LUTEFISK', '$you$ $eat$ $the.item$ and $start.actor$ to feel weird.');
 
 GW.item.addKind('LUTEFISK', {
   name: 'lutefisk',
@@ -222,13 +228,14 @@ GW.item.addKind('LUTEFISK', {
   frequency: 25,
   use(item, actor, ctx={}) {
     if (!actor.isPlayer()) return false;
-    GW.message.add('You eat %s and start to feel weird.', item.getName('the'));
+    GW.message.add('MSG_LUTEFISK', { actor, item });
     actor.adjustStat('health', actor.max.health);
     actor.adjustStat('mana', -actor.max.mana);
     return true;
   }
 });
 
+GW.message.addKind('GOLD_PICKUP', '$you$ $find$ $a.item$.');
 
 GW.item.addKind('GOLD', {
   name: 'gold coin', article: 'a',
@@ -237,7 +244,7 @@ GW.item.addKind('GOLD', {
   frequency: 100,
   use(item, actor, ctx={}) {
     actor.current.gold = 1 + (actor.current.gold || 0);
-    GW.message.add('You found %s.', item.getName({ article: true, color: true }));
+    GW.message.add('GOLD_PICKUP', { actor, item });
     // item.destroy();
     return true;
   }

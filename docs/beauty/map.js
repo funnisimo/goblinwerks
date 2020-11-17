@@ -1,22 +1,27 @@
 
 // CELLS
 
+GW.message.addKind('THORN_DAMAGE', '#red#Ouch!##  You injure yourself on a #green#thorn##!');
+GW.message.addKind('THORN_KILL', 'Killed by brambles.');
+
 GW.tile.addKind('BRAMBLES', {
   name:"dense brambles", article: 'some',
   ch:"%", fg:"#483",
   events: {
     async playerEnter(x, y, ctx={}) {
       const player = ctx.actor || GW.data.player;
-      await player.kind.applyDamage(player, 1, null, ctx);
-      GW.message.add(GW.colors.red, 'Ouch!  %FYou injure yourself on a %Fthorn%F!', null, 'green', null);
+      const damage = await player.kind.applyDamage(player, 1, null, ctx);
+      GW.message.add('THORN_DAMAGE', { actor: player, damage });
       await GW.fx.hit(ctx.map, player);
       if (player.isDead()) {
-        await GW.game.gameOver(false, 'Killed by brambles.');
+        await GW.game.gameOver(false, 'THORN_KILL');
       }
       return true;
     }
   }
 });
+
+GW.message.addKind('EXIT_MSG', '#red#You cannot leave until you find the princess.');
 
 GW.tile.addKind('PORTAL', {
   name: 'tower exit', article: 'the',
@@ -24,7 +29,7 @@ GW.tile.addKind('PORTAL', {
   flags: 'T_OBSTRUCTS_ITEMS | T_OBSTRUCTS_SURFACE_EFFECTS | T_PORTAL | T_SACRED | TM_STAND_IN_TILE | TM_LIST_IN_SIDEBAR | TM_VISUALLY_DISTINCT | TM_BRIGHT_MEMORY | TM_INTERRUPT_EXPLORATION_WHEN_SEEN | TM_INVERT_WHEN_HIGHLIGHTED',
   events: {
     playerEnter(x, y, ctx={}) {
-      GW.message.add(GW.colors.red, 'You cannot leave until you find the princess.');
+      GW.message.add('EXIT_MSG');
       return true;
     }
   }
@@ -298,22 +303,18 @@ function decorateBrambles(map, level) {
 	}
 }
 
+GW.message.addKind('WELCOME_LAST', "#gold#Congratulations!##\nWelcome to the last floor!\nYou managed to reach the princess and finish the game.\nFurthermore, you were able to accumulate a total of #gold#$gold$## gold coins!\nThe game is over now, but you are free to look around.\nPress <shift+r> to restart the game.");
+
+GW.message.addKind('WELCOME_LAST_NO_GOLD', "#gold#Congratulations!##\nWelcome to the last floor!\nYou managed to reach the princess and finish the game.\nThe game is over now, but you are free to look around.\nPress <shift+r> to restart the game.");
+
 function welcomeLast() {
-  let msg = [];
-
-  msg.push(["%FCongratulations!", 'gold']);
-  msg.push("Welcome to the last floor!");
-  msg.push("You managed to reach the princess and finish the game.");
-
   let gold = GW.data.player.current.gold || 0;
   if (gold) {
-    msg.push(['Furthermore, you were able to accumulate a total of %F%d gold coins%F!', 'gold', gold, null]);
+    GW.message.add('WELCOME_LAST', { actor: PLAYER, gold });
   }
-
-  msg.push("The game is over now, but you are free to look around.");
-  msg.push("Press <shift+r> to restart the game.");
-
-  GW.message.addLines(msg);
+  else {
+    GW.message.add('WELCOME_LAST_NO_GOLD', { actor: PLAYER });
+  }
 }
 
 
@@ -356,11 +357,10 @@ function decorateLast(map, level) {
 	}
 }
 
+GW.message.addKind('WELCOME_FIRST', "A truly beautiful day for a heroic action!\nThis tower is surrounded by plains and trees.\nThere might even be a #pink#princess## sleeping on the last floor.\nApparently the only way to get to her is to advance through all tower levels.\nTo move around, use the #gold#arrow keys##.");
+
 function welcomeFirst() {
-  GW.message.addLines([
-    "A truly beautiful day for a heroic action!\nThis tower is surrounded by plains and trees.\nThere might even be a princess sleeping on the last floor.\nApparently the only way to get to her is to advance through all tower levels.",
-	  ["To move around, use the %Farrow keys%F.", 'gold', null],
-  ]);
+  GW.message.add('WELCOME_FIRST');
 }
 
 function decorateFirst(map, level) {

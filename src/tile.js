@@ -1,10 +1,9 @@
 
-import { colors as COLORS } from './color.js';
 import * as Game from './game.js';
 import * as Text from './text.js';
 import * as Flags from './flags.js';
 import * as Utils from './utils.js';
-import { types, def, make, data as DATA, flag as FLAG, tiles } from './gw.js';
+import { types, def, make, data as DATA, flag as FLAG, tiles, colors as COLORS } from './gw.js';
 
 export var tile = {};
 
@@ -93,10 +92,10 @@ export class Tile {
       if (opts.color instanceof types.Color) {
         color = opts.color;
       }
-      result = Text.format('%F%s%F', color, this.name, null);
+      result = Text.apply('#color#$name$##', { color, name: this.name });
     }
 
-    if (opts.article) {
+    if (opts.article && this.article) {
       let article = (opts.article === true) ? this.article : opts.article;
       result = article + ' ' + result;
     }
@@ -115,7 +114,7 @@ export class Tile {
     if (this.flags & Flags.Tile.T_LAVA && actor) {
       if (!cell.hasTileFlag(Flags.Tile.T_BRIDGE) && !actor.status.levitating) {
         actor.kind.kill(actor);
-        await Game.gameOver(false, COLORS.red, 'you fall into lava and perish.');
+        await Game.gameOver(false, '#red#you fall into lava and perish.');
         return true;
       }
     }

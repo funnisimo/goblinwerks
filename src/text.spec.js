@@ -78,6 +78,81 @@ describe('Message', () => {
       expect(msg.length).toEqual(16);
     });
 
+    test('can justify and pad strings', () => {
+      expect(GW.text.format('%10s', 'taco')).toEqual( '      taco');
+      expect(GW.text.format('%-10s', 'taco')).toEqual('taco      ');
+    });
+
+  });
+
+  describe('apply', () => {
+
+    let actor;
+    let item;
+
+    beforeEach( () => {
+      actor = {
+        getName: jest.fn().mockReturnValue('you'),
+        getVerb: jest.fn().mockImplementation( (v) => v ),
+        getPronoun: jest.fn().mockImplementation( (v) => v ),
+      };
+      item = {
+        getName: jest.fn().mockImplementation( (article) => {
+          if (article) return article + ' taco';
+          return 'taco';
+        }),
+      };
+    });
+
+    test('can substitute colors', () => {
+      const e = GW.text.format('%Fyou%F %Fare%F %Fbeautiful%F.', 'red', null, 'green', null, 'blue', null);
+      const a = GW.text.apply('#red#you## #green#are## #blue#beautiful##.');
+      expect(a).toEqual(e);
+    });
+
+    test('can pass in the color', () => {
+      const t = GW.text.apply('#red#$title$##', { title: 'taco', red: 'blue' });
+      expect(t).toEqual(GW.text.format('%Ftaco%F', 'blue', null));
+    });
+
+    test('can pass in a color object', () => {
+      const t = GW.text.apply('#color#$title$##', { title: 'taco', color: GW.colors.blue });
+      expect(t).toEqual(GW.text.format('%Ftaco%F', 'blue', null));
+    });
+
+    test('can format simple templates', () => {
+
+      const t = GW.text.apply('$you$ $eat$ $the.item$.', { actor, item });
+      expect(t).toEqual('you eat the taco.');
+
+      expect(actor.getName).toHaveBeenCalledWith('the');
+      expect(actor.getVerb).toHaveBeenCalledWith('eat');
+      expect(item.getName).toHaveBeenCalledWith('the');
+    });
+
+    test('can do numbers', () => {
+      const t = GW.text.apply('$you$ $do$ $damage$ damage.', { actor, damage: 4 });
+      expect(t).toEqual('you do 4 damage.');
+    });
+
+    test('verb can be special', () => {
+      const t = GW.text.apply('$you$ $verb$ for $damage$ damage.', { actor, damage: 4, verb: 'hit' });
+      expect(t).toEqual('you hit for 4 damage.');
+      expect(actor.getVerb).toHaveBeenCalledWith('hit');
+    });
+
+    test('can do pronouns', () => {
+      const t = GW.text.apply('$you$ $verb$ $your$ $item$.', { actor, damage: 4, verb: 'eat', item });
+      expect(t).toEqual('you eat your taco.');
+      expect(actor.getPronoun).toHaveBeenCalledWith('your');
+      expect(item.getName).toHaveBeenCalledWith(false);
+    });
+
+    test('color with substitutions', () => {
+      const t = GW.text.apply('$you$ $verb$ for #red#$damage$## damage.', { actor, damage: 4, verb: 'hit' });
+      expect(t).toEqual(GW.text.format('you hit for %F4%F damage.', 'red', null));
+    });
+
   });
 
   describe('splitIntoLines', () => {
@@ -124,6 +199,8 @@ describe('Message', () => {
       expect(text.charCodeAt(12)).toEqual(0);
       const lines = GW.text.splitIntoLines(text, 40, 9);
       expect(lines.length).toEqual(2);
+      // console.log(lines);
+
       expect(lines[1].charCodeAt(0)).toEqual(GW.def.COLOR_ESCAPE);
       expect(lines[1].charCodeAt(1)).toEqual(100);
       expect(lines[1].charCodeAt(2)).toEqual(0);
@@ -136,6 +213,20 @@ describe('Message', () => {
       const lines = GW.text.splitIntoLines(text, 40, 9);
       expect(lines.length).toEqual(2);
       expect(lines[1]).toEqual(GW.text.format('<3%F+#%F>', 'red', null));
+    });
+
+    test('push/pop colors', () => {
+      const raw = '#yellow#Welcome to Town!\n#dark_purple#Visit our shops to equip yourself for a journey into the #green#Dungeons of Moria##.  Once you are prepared, enter the dungeon and seek the #dark_red#Balrog##.  Destroy him to free us all!\n#white#Press <?> for help.';
+      const text = GW.text.apply(raw);
+      const lines = GW.text.splitIntoLines(text, 80);
+      // console.log(lines);
+      expect(lines.length).toEqual(5);
+      const purple = GW.text.encodeColor('dark_purple');
+      expect(lines[1].substring(4,8)).toEqual(purple);
+      expect(lines[2].substring(0,4)).toEqual(purple);
+      expect(lines[3].substring(0,4)).toEqual(purple);
+      expect(lines[4].substring(0,4)).toEqual(purple);
+      expect(lines[4].substring(4,8)).toEqual(GW.text.encodeColor('white'));
     });
 
   });
@@ -163,6 +254,23 @@ describe('Message', () => {
       expect(a).not.toEqual('eat tacos today!');
       expect(GW.text.removeColors(a)).toEqual('eat tacos today!');
     });
+  });
+
+  describe('toPluralNoun', () => {
+    test('will remove marker', () => {
+      expect(GW.text.toPluralNoun('bowl~ of mush', false)).toEqual('bowl of mush');
+    });
+
+    test('will add appropriate plural', () => {
+      expect(GW.text.toPluralNoun('bowl~ of mush')).toEqual('bowls of mush');
+      expect(GW.text.toPluralNoun('glass~ of wine')).toEqual('glasses of wine');
+    });
+
+    test('works without the ~', () => {
+      expect(GW.text.toPluralNoun('sword')).toEqual('swords');
+      expect(GW.text.toPluralNoun('strawberry')).toEqual('strawberries');
+    });
+
   });
 
 });
