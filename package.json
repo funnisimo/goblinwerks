@@ -17,6 +17,7 @@
     "babel-jest": "^26.5.2",
     "jest": "^26.4.2",
     "jest-extended": "^0.11.5",
+    "jsdoc": "^3.6.6",
     "rollup": "^2.26.7"
   },
   "scripts": {
@@ -25,7 +26,8 @@
     "test": "jest",
     "pretest": "npm run build",
     "test-debug": "npm run build && node --inspect-brk node_modules/.bin/jest --runInBand",
-    "coverage": "jest --coverage=true"
+    "coverage": "jest --coverage=true",
+    "doc": "jsdoc -d docs/docs src/**/*.js"
   },
   "files": [
     "dist"
