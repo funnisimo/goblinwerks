@@ -3931,7 +3931,7 @@
         this.buffer.forEach( (cell, i, j) => {
           if (cell.fg.dances || cell.bg.dances) {
             this.dances = true;
-            if (cosmetic.value() < 0.002) {
+            if (cosmetic.value() < 0.0005) {
               cell.needsUpdate = true;
             }
           }
@@ -11916,10 +11916,13 @@
   message.showArchive = showArchive;
 
   let VIEWPORT = null;
+  let VIEW_OFFSET_X = 0;
+  let VIEW_OFFSET_Y = 0;
 
   function setup$1(opts={}) {
     VIEWPORT = viewport.bounds = new types.Bounds(opts.x, opts.y, opts.w, opts.h);
     config.followPlayer = opts.followPlayer || false;
+    config.autoCenter = opts.autoCenter || false;
   }
 
   viewport.setup = setup$1;
@@ -11938,20 +11941,44 @@
     map = map || data.map;
     if (!map) return;
     if (!map.flags & Map.MAP_CHANGED) return;
-
-    let offsetX = 0;
-    let offsetY = 0;
     if (config.followPlayer && data.player && data.player.x >= 0) {
-      offsetX = data.player.x - VIEWPORT.centerX();
-      offsetY = data.player.y - VIEWPORT.centerY();
+      VIEW_OFFSET_X = data.player.x - VIEWPORT.centerX();
+      VIEW_OFFSET_Y = data.player.y - VIEWPORT.centerY();
+    }
+    else if (config.autoCenter && data.player && data.player.x >= 0) {
+      const left = VIEW_OFFSET_X;
+      const right = VIEW_OFFSET_X + VIEWPORT.width;
+      const top = VIEW_OFFSET_Y;
+      const bottom = VIEW_OFFSET_Y + VIEWPORT.height;
+
+      const edgeX = Math.floor(VIEWPORT.width/5);
+      const edgeY = Math.floor(VIEWPORT.height/5);
+
+      const minX = 0;
+      const maxX = map.width - VIEWPORT.width;
+      if (left + edgeX > data.player.x) {
+        VIEW_OFFSET_X = clamp(data.player.x - VIEWPORT.centerX(), minX, maxX);
+      }
+      else if (right - edgeX < data.player.x) {
+        VIEW_OFFSET_X = clamp(data.player.x - VIEWPORT.centerX(), minX, maxX);
+      }
+
+      const minY = 0;
+      const maxY = map.height - VIEWPORT.height;
+      if (top + edgeY > data.player.y) {
+        VIEW_OFFSET_Y = clamp(data.player.y - VIEWPORT.centerY(), minY, maxY);
+      }
+      else if (bottom - edgeY < data.player.y) {
+        VIEW_OFFSET_Y = clamp(data.player.y - VIEWPORT.centerY(), minY, maxY);
+      }
     }
 
     for(let x = 0; x < VIEWPORT.width; ++x) {
       for(let y = 0; y < VIEWPORT.height; ++y) {
 
         const buf = buffer[x + VIEWPORT.x][y + VIEWPORT.y];
-        const mapX = x + offsetX;
-        const mapY = y + offsetY;
+        const mapX = x + VIEW_OFFSET_X;
+        const mapY = y + VIEW_OFFSET_Y;
         if (map.hasXY(mapX, mapY)) {
           map$1.getCellAppearance(map, mapX, mapY, buf);
           map.clearCellFlags(mapX, mapY, Cell.NEEDS_REDRAW | Cell.CELL_CHANGED);
@@ -13111,6 +13138,7 @@
       io: true,
       followPlayer: false,
       loop: true,
+      autoCenter: false,
     });
 
     if (!ui.canvas && (opts.canvas !== false)) {
@@ -13192,7 +13220,7 @@
       SHOW_FLAVOR = true;
   	}
 
-  	viewport.setup({ x: viewX, y: viewY, w: viewW, h: viewH, followPlayer: opts.followPlayer });
+  	viewport.setup({ x: viewX, y: viewY, w: viewW, h: viewH, followPlayer: opts.followPlayer, autoCenter: opts.autoCenter });
   	SHOW_CURSOR = opts.cursor;
 
     if (opts.loop) {

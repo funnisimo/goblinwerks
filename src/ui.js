@@ -61,6 +61,7 @@ export function start(opts={}) {
     io: true,
     followPlayer: false,
     loop: true,
+    autoCenter: false,
   });
 
   if (!ui.canvas && (opts.canvas !== false)) {
@@ -143,7 +144,7 @@ export function start(opts={}) {
     SHOW_FLAVOR = true;
 	}
 
-	VIEWPORT.setup({ x: viewX, y: viewY, w: viewW, h: viewH, followPlayer: opts.followPlayer });
+	VIEWPORT.setup({ x: viewX, y: viewY, w: viewW, h: viewH, followPlayer: opts.followPlayer, autoCenter: opts.autoCenter });
 	SHOW_CURSOR = opts.cursor;
 
   if (opts.loop) {

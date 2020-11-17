@@ -12,10 +12,15 @@ function makePlayer() {
   });
 }
 
+GW.tiles.FLOOR.sprite.ch = '~';
+GW.tiles.FLOOR.sprite.bg = GW.make.color(0,0,40,0,0,10,20,true);
+
+GW.tiles.WALL.sprite.bg = GW.make.color(0,20,0,0,0,20,10,false);
+GW.tiles.WALL.sprite.fg = GW.make.color('dark_brown');
 
 
 function makeMap(id=0) {
-	const map = GW.make.map(GW.viewport.bounds.width, GW.viewport.bounds.height, { id, tile: 'FLOOR', boundary: 'WALL' });
+	const map = GW.make.map(64, 64, { id, tile: 'FLOOR', boundary: 'WALL' });
 
   // TODO - Design your map
 
@@ -46,7 +51,7 @@ GW.message.addKind('WELCOME', '#yellow#Welcome to Spice Trader!\n##Press <?> for
 // start the environment
 async function start() {
 
-	const canvas = GW.ui.start({ width: 100, height: 38, div: 'game', messages: -5, sidebar: -20, cursor: true, flavor: true });
+	const canvas = GW.ui.start({ width: 96, height: 38, div: 'game', messages: -5, sidebar: -32, cursor: true, flavor: true, wideMessages: true, autoCenter: true });
 	GW.io.setKeymap({
 		dir: 'movePlayer', space: 'rest',
 		'?': showHelp,
@@ -55,7 +60,7 @@ async function start() {
   PLAYER = makePlayer();
 	MAP = makeMap();
 	GW.message.add('WELCOME', { actor: PLAYER });
-	GW.game.start({ player: PLAYER, map: MAP });
+	GW.game.start({ player: PLAYER, map: MAP, fov: true });
 }
 
 window.onload = start;
