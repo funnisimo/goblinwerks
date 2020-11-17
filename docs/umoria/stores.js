@@ -62,8 +62,46 @@ class Store {
 
   itemCost(item) {
     const base = item.stats.cost || 1;
-    const qty = item.quantity || 1;
-    return base * qty;
+    return base;
+  }
+
+  itemSellInfo(item, actor) {
+    let price = this.itemCost(item);
+
+    // check `item.cost` in case it is cursed, check `price` in case it is damaged
+    // don't let the item get into the store inventory
+    if (price < 1) {
+        return 0;
+    }
+
+    const owner = this.owner;
+    // const basePrice = price;
+    //
+    // price = Math.round(price * race_gold_adjustments[owner.race][PLAYER.misc.race_id] / 100);
+    // if (price < 1) {
+    //     price = 1;
+    // }
+
+    price = Math.floor(price * actor.kind.chrBonus(actor) / 100);
+
+    let max_price = Math.round(price * owner.maxInflate / 100);
+    let min_price = Math.round(price * owner.minInflate / 100);
+
+    if (min_price > max_price) {
+        min_price = max_price;
+    }
+
+    price = max_price;
+
+    // const buf = STRING();
+    // itemName(item, buf, false, false, NULL);
+    // GW.debug.log('Store Sell Price', buf, 'base = ', basePrice, 'min = ', min_price, 'max = ', max_price, 'price = ', price);
+
+    return {
+      price,
+      max: max_price,
+      min: min_price,
+    };
   }
 
   update() {
@@ -265,26 +303,190 @@ const STORE_SORRY = [  // char *[5] = {
 ];
 
 
-GW.message.addKind('STORE_WELCOME', '#green#Welcome to $store$!');
+GW.message.addKind('STORE_WELCOME', '#dark_green#You shopped at $the.store$.');
 
-async function enterStore(id, ctx) {
+async function enterStore(event, ctx) {
   GW.message.add('STORE_WELCOME', { store: this, actor: ctx.actor });
 
+  const buffer = GW.ui.startDialog();
+
   let mode = 0;
-  while(mode >=0) {
+  while(mode >= 0) {
     if (mode == 0) {
-      mode = await showStoreInventory(this, ctx.actor);
+      mode = await showStoreInventory(buffer, this, ctx.actor);
     }
     else if (mode == 1) {
-      mode = await showPlayerInventory(this, ctx.actor);
+      mode = await showPlayerInventory(buffer, this, ctx.actor);
     }
   }
+
+  GW.ui.finishDialog();
+
   return true;
 }
 
 
-async function showStoreInventory(store, actor) {
+async function showStoreInventory(buffer, store, actor) {
 
+  const x = 5;
+
+  const table = GW.make.table({
+    letters: true,  // start row with letter for the row
+    headers: true,  // show a header on top of each column
+    selectedColor: 'teal',
+    disabledColor: 'black',
+    color: 'white',
+    selected: 0,
+  })
+  .column('Qty', 'count', '%3d')
+  .column('Item', 'name', '%-30s')
+  .column(' Each', 'price', '%5d GP');
+
+  const data = [];
+  GW.utils.eachChain(store.items, (item) => {
+    const priceInfo = store.itemSellInfo(item, actor);
+    const disabled = (actor.current.gold < priceInfo.price);
+    data.push({ count: item.quantity, name: item.getName({ color: false, article: false }), price: priceInfo.price, disabled, item });
+  });
+
+
+  let running = true;
+  let result = -1; // done with store
+  let canBuy;
+  while(running) {
+    buffer.blackOut();
+
+    const text = GW.text.apply('#yellow#Welcome to $store$!', { store });
+    const len = GW.text.length(text);
+    const tx = Math.floor((buffer.width - len)/2);
+    buffer.plotText(tx, 1, text);
+
+    // buffer.plotText(x, 3, 'Items For Sale');
+
+    buffer.applyText(x, 33, 'Press #green#<a-z, UP, DOWN>## to see an item');
+    buffer.applyText(x, 34, 'Press #green#<S>## to see your pack (sell), #green#<Escape>## to leave the store.');
+
+    canBuy = false;
+    if (!store.items) {
+      buffer.plotText(x, 4, GW.colors.yellow, 'The store is empty.');
+    }
+    else {
+      table.plot(buffer, x, 4, data);
+
+      const selectedData = data[table.selected];
+      if (selectedData) {
+        // Need to do details
+        const startX = x + table.maxWidth + 5;
+        const width = buffer.width - startX - 5;
+
+        buffer.plotText(startX, 5, 'You have %F%d%F gold.', 'gold', actor.current.gold, null);
+        let nextY = buffer.wrapText(startX, 7, width, selectedData.item.kind.description, [100,100,30]);
+
+        if (selectedData.price > actor.current.gold) {
+          nextY = buffer.wrapText(startX, nextY + 1, width, 'You do not have enough gold to buy this item.', GW.colors.red);
+        }
+        else if (!actor.itemWillFitInPack(selectedData.item)) {
+          nextY = buffer.wrapText(startX, nextY + 1, width, 'You do not have enough room in your pack to buy this item.', GW.colors.red);
+        }
+        else {
+          nextY = buffer.wrapText(startX, nextY + 1, width, GW.text.apply('Press #green#<Enter>## to buy.'));
+          canBuy = true;
+        }
+
+      }
+    }
+
+    GW.ui.draw();
+
+    await GW.io.loop({
+      Escape() {
+        running = false;
+        result = -1;
+        return true;  // stop io.loop
+      },
+      async Enter() {
+        if (!canBuy) return false;
+        // DO A BUY!
+        const item = data[table.selected].item;
+        console.log('BUY!', item.getName('a'));
+        if (await sellItemToPlayer(buffer, store, item, actor)) {
+          running = false;
+          result = 0; // come back to this screen
+        }
+        return true;
+      },
+      dir(ev) {
+        if(ev.dir[1] < 0) {
+          table.selected = (data.length + table.selected - 1) % data.length;
+        }
+        else if (ev.dir[1] > 0) {
+          table.selected = (table.selected + 1) % data.length;
+        }
+        return true;
+      },
+      keypress(ev) {
+        const index = ev.key.charCodeAt(0) - 97;
+        if (index >= 0 && index < data.length) {
+          table.selected = index;
+          return true;
+        }
+        return false;
+      }
+    });
+
+    console.log('loop');
+  }
+
+  return result;
+}
+
+
+GW.message.addKind('STORE_BUY', '$you$ $bought$ $quantity$ $item$ for $cost$ gold.');
+GW.message.addKind('STORE_BUY_THANKS', 'Thank you for purchasing $quantity$ $item$ for $cost$ gold.');
+GW.message.addKind('STORE_PROMPT_QTY', 'Buy how many? (1-$quantity$)');
+GW.message.addKind('STORE_NO_FIT', 'That many will not fit in your pack.');
+
+
+async function sellItemToPlayer(buffer, store, item, actor) {
+
+  const priceInfo = store.itemSellInfo(item, actor);
+
+  let quantity = 1;
+  if (item.quantity > 1 && item.isStackable()) {
+    const canAfford = Math.floor(actor.current.gold/priceInfo.price);
+    quantity = Math.min(item.quantity, canAfford);
+    if (quantity < 1) {
+      return false;
+    }
+  }
+
+  if (quantity > 1) {
+    // Get how many...
+    quantity = await GW.ui.inputNumberBox({ min: 1, max: quantity, bg: 'darker_gray' }, 'STORE_PROMPT_QTY', { quantity, actor, item });
+    if (quantity <= 0 || isNaN(quantity)) return false; // canceled, none
+  }
+
+  // TODO - Make this obsolete by getting # that will fit ahead of time when we figure out canAfford
+  if (!actor.itemWillFitInPack(item, quantity)) {
+    await GW.ui.confirm({ allowCancel: false }, 'STORE_NO_FIT', { actor, item });
+    return false;
+  }
+
+  let packItem = item;
+  if (quantity < item.quantity) {
+    packItem = item.split(quantity);
+  }
+  else {
+    GW.utils.removeFromChain(store, 'items', item);
+  }
+
+  actor.addToPack(packItem);
+  actor.current.gold -= (quantity * priceInfo.price);
+  const ctx = { actor, item: packItem, cost: (quantity * priceInfo.price), quantity };
+  GW.message.add('STORE_BUY', ctx);
+  await GW.ui.confirm({ allowCancel: false, bg: 'darker_gray' }, 'STORE_BUY_THANKS', ctx);
+
+  return true;
 }
 
 

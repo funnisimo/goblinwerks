@@ -1,11 +1,13 @@
 
 import * as Text from './text.js';
 import * as Utils from './utils.js';
-import { types, make, colors as COLORS } from './gw.js';
+import * as Color from './color.js';
+import * as GW from './gw.js';
 
-class Buffer extends types.Grid {
+
+class Buffer extends GW.types.Grid {
   constructor(w, h) {
-    super(w, h, () => new types.Sprite() );
+    super(w, h, () => new GW.types.Sprite() );
     this.needsUpdate = true;
   }
 
@@ -44,6 +46,11 @@ class Buffer extends types.Grid {
     this.needsUpdate = true;
   }
 
+  fade(color, pct) {
+    color = Color.from(color);
+    this.forEach( (s) => s.fade(color, pct) );
+  }
+
   dump(fmt) { super.dump( fmt || ((s) => s.ch) ); }
 
   plot(x, y, sprite) {
@@ -66,8 +73,8 @@ class Buffer extends types.Grid {
       return;
     }
 
-    if (typeof fg === 'string') { fg = COLORS[fg]; }
-    if (typeof bg === 'string') { bg = COLORS[bg]; }
+    if (typeof fg === 'string') { fg = GW.colors[fg]; }
+    if (typeof bg === 'string') { bg = GW.colors[bg]; }
     const destCell = this[x][y];
     destCell.plotChar(ch, fg, bg);
     this.needsUpdate = true;
@@ -82,9 +89,18 @@ class Buffer extends types.Grid {
     });
   }
 
+  applyText(x, y, text, args) {
+    text = Text.apply(text, args);
+    Text.eachChar(text, (ch, color, i) => {
+      this.plotChar(i + x, y, ch, color || GW.colors.white, null);
+    });
+  }
+
+
   plotLine(x, y, w, text, fg, bg) {
-    if (typeof fg === 'string') { fg = COLORS[fg]; }
-    if (typeof bg === 'string') { bg = COLORS[bg]; }
+    if (typeof fg === 'string') { fg = GW.colors[fg]; }
+    if (typeof bg === 'string') { bg = GW.colors[bg]; }
+    fg = fg || GW.colors.white;
     let len = Text.length(text);
     Text.eachChar(text, (ch, color, i) => {
       this.plotChar(i + x, y, ch, color || fg, bg);
@@ -96,8 +112,8 @@ class Buffer extends types.Grid {
 
   wrapText(x, y, width, text, fg, bg, opts={}) {
     if (typeof opts === 'number') { opts = { indent: opts }; }
-    if (typeof fg === 'string') { fg = COLORS[fg]; }
-    if (typeof bg === 'string') { bg = COLORS[bg]; }
+    if (typeof fg === 'string') { fg = GW.colors[fg]; }
+    if (typeof bg === 'string') { bg = GW.colors[bg]; }
     width = Math.min(width, this.width - x);
     if (Text.length(text) <= width) {
       this.plotLine(x, y, width, text, fg, bg);
@@ -108,7 +124,7 @@ class Buffer extends types.Grid {
     const lines = Text.splitIntoLines(text, width, opts.indent);
     lines.forEach( (line, i) => {
       const offset = i ? opts.indent : 0;
-      this.plotLine(x + offset, y + i, width - offset, line, fg || COLORS.white, bg);
+      this.plotLine(x + offset, y + i, width - offset, line, fg || GW.colors.white, bg);
     });
 
     return y + lines.length;
@@ -119,8 +135,8 @@ class Buffer extends types.Grid {
   }
 
   fillRect(x, y, w, h, ch, fg, bg) {
-    if (typeof fg === 'string') { fg = COLORS[fg]; }
-    if (typeof bg === 'string') { bg = COLORS[bg]; }
+    if (typeof fg === 'string') { fg = GW.colors[fg]; }
+    if (typeof bg === 'string') { bg = GW.colors[bg]; }
     this.forRect(x, y, w, h, (destCell, i, j) => {
       destCell.plotChar(ch, fg, bg);
     });
@@ -139,10 +155,10 @@ class Buffer extends types.Grid {
 
 }
 
-types.Buffer = Buffer;
+GW.types.Buffer = Buffer;
 
 function makeBuffer(w, h) {
-  return new types.Buffer(w, h);
+  return new GW.types.Buffer(w, h);
 }
 
-make.buffer = makeBuffer;
+GW.make.buffer = makeBuffer;

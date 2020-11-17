@@ -348,11 +348,13 @@ export function chainIncludes(chain, entry) {
 }
 
 export function eachChain(item, fn) {
+  let index = 0;
   while(item) {
     const next = item.next;
-    fn(item);
+    fn(item, index++);
     item = next;
   }
+  return index; // really count
 }
 
 export function addToChain(obj, name, entry) {

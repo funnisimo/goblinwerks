@@ -78,6 +78,11 @@ describe('Message', () => {
       expect(msg.length).toEqual(16);
     });
 
+    test('can justify and pad strings', () => {
+      expect(GW.text.format('%10s', 'taco')).toEqual( '      taco');
+      expect(GW.text.format('%-10s', 'taco')).toEqual('taco      ');
+    });
+
   });
 
   describe('apply', () => {

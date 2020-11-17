@@ -266,7 +266,7 @@ async function showArchive() {
 			 (reverse ? currentMessageCount >= MSG_BOUNDS.height : currentMessageCount <= totalMessageCount);
 			 currentMessageCount += (reverse ? -1 : 1))
 	  {
-			GW.ui.clearDialog();
+			GW.ui.resetDialog();
 
 			// Print the message archive text to the dbuf.
 			for (j=0; j < currentMessageCount && j < dbuf.height; j++) {

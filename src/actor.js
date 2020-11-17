@@ -184,11 +184,13 @@ class ActorKind {
     }
 
     if (opts.article && (this.article !== false)) {
-      let article = (opts.article === true) ? this.article : opts.article;
-      if (article == 'a' && Text.isVowel(Text.firstChar(result))) {
-        article = 'an';
+      if (opts.formal || !actor.isPlayer()) {
+        let article = (opts.article === true) ? this.article : opts.article;
+        if (article == 'a' && Text.isVowel(Text.firstChar(result))) {
+          article = 'an';
+        }
+        result = article + ' ' + result;
       }
-      result = article + ' ' + result;
     }
     return result;
   }
@@ -461,7 +463,7 @@ export class Actor {
   addToPack(item) {
     let quantityLeft = (item.quantity || 1);
     // Stacking?
-    if (item.kind.flags & Flags.ItemKind.IK_STACKABLE) {
+    if (item.isStackable()) {
       let current = this.pack;
       while(current && quantityLeft) {
         if (current.kind === item.kind) {
@@ -492,6 +494,24 @@ export class Actor {
 
   eachPack(fn) {
     Utils.eachChain(this.pack, fn);
+  }
+
+  itemWillFitInPack(item, quantity) {
+    if (!this.pack) return true;
+    const maxSize = GW.config.PACK_MAX_ITEMS || 26;
+
+    const count = Utils.chainLength(this.pack);
+    if (count < maxSize) return true;
+
+    if (!item.isStackable()) return false;
+    let willStack = false;
+    Utils.eachChain(this.pack, (packItem) => {
+      if (item.willStackInto(packItem, quantity)) {
+        willStack = true;
+      }
+    });
+
+    return willStack;
   }
 
   // EQUIPMENT
@@ -558,11 +578,13 @@ function endActorTurn(theActor, turnTime=1) {
   theActor.flags |= Flags.Actor.AF_TURN_ENDED;
   theActor.turnTime = Math.floor(theActor.kind.speed * turnTime);
 
-  for(let stat in theActor.regen) {
-    const turns = theActor.regen[stat];
-    if (turns > 0) {
-      const amt = 1/turns;
-      theActor.adjustStat(stat, amt);
+  if (!theActor.isDead()) {
+    for(let stat in theActor.regen) {
+      const turns = theActor.regen[stat];
+      if (turns > 0) {
+        const amt = 1/turns;
+        theActor.adjustStat(stat, amt);
+      }
     }
   }
 

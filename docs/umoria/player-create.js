@@ -305,7 +305,7 @@ async function getPlayerName(buffer, player) {
 
   GW.ui.draw();
 
-  const name = await GW.ui.getInputAt(buffer, 25, 5, 13);
+  const name = await GW.ui.getInputAt(25, 5, 13);
 
   if (name && name.length) {
     player.name = name;

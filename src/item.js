@@ -51,11 +51,22 @@ class ItemKind {
         this.consoleColor = Color.from(this.consoleColor);
       }
     }
+
+    this.maxStack = opts.maxStack || ((this.flags & Flags.ItemKind.IK_STACKABLE) ? 99 : 1);
   }
 
   forbiddenCellFlags(item) { return Flags.Cell.HAS_ITEM; }
   forbiddenTileFlags(item) { return Flags.Tile.T_OBSTRUCTS_ITEMS; }
   forbiddenTileMechFlags(item) { return 0; }
+
+  isStackable() { return this.flags & Flags.ItemKind.IK_STACKABLE; }
+  willStackInto(item, other, quantity) {
+    quantity = quantity || item.quantity;
+    if (other.kind !== item.kind) return false;
+    if (!this.isStackable()) return false;
+    // Compare enchants, etc...
+    return (other.quantity + quantity <= this.maxStack);
+  }
 
   async applyDamage(item, damage, actor, ctx) {
 		if (item.stats.health > 0) {
@@ -161,6 +172,20 @@ class Item {
 	hasActionFlag(flag) {
 		return (this.kind.actionFlags & flag) > 0;
 	}
+
+  isStackable() {
+    return this.kind.flags & Flags.ItemKind.IK_STACKABLE;
+  }
+  willStackInto(other, quantity) {
+    return this.kind.willStackInto(this, other, quantity);
+  }
+
+  split(quantity=1) {
+    if (quantity >= this.quantity) return null;
+    const newItem = GW.make.item(this.kind, { quantity, flags: this.flags, stats: this.stats });
+    this.quantity -= quantity;
+    return newItem;
+  }
 
   async bumpBy(actor, ctx={}) {
     ctx.quiet = true;

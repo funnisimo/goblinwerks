@@ -34,6 +34,7 @@ import './message.js';
 import './viewport.js';
 import './sidebar.js';
 import './flavor.js';
+import './table.js';
 import './ui.js';
 export { visibility } from './visibility.js';
 

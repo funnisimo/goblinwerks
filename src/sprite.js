@@ -127,6 +127,13 @@ export class Sprite {
 		this.wasHanging = false;
 	}
 
+  fade(color, pct) {
+    if (this.bg) this.bg.mix(color, pct);
+    if (this.fg) this.fg.mix(color, pct);
+    this.needsUpdate = true;
+    this.opacity = this.opacity || 100;
+  }
+
 	plotChar(ch, fg, bg) {
 		this.wasHanging = this.wasHanging || (ch != null && HANGING_LETTERS.includes(ch));
     this.wasFlying  = this.wasFlying  || (ch != null && FLYING_LETTERS.includes(ch));

@@ -75,9 +75,9 @@ export function start(opts={}) {
     // TODO - init sidebar, messages, flavor, menu
     UI_BUFFER = UI_BUFFER || ui.canvas.allocBuffer();
     UI_BASE = UI_BASE || ui.canvas.allocBuffer();
-    UI_OVERLAY = UI_OVERLAY || ui.canvas.allocBuffer();
+    // UI_OVERLAY = UI_OVERLAY || ui.canvas.allocBuffer();
     UI_BASE.nullify();
-    UI_OVERLAY.nullify();
+    // UI_OVERLAY.nullify();
 
     ui.blackOutDisplay();
   }
@@ -431,7 +431,7 @@ export async function fadeTo(color, duration=1000, src) {
 ui.fadeTo = fadeTo;
 
 
-export async function messageBox(duration, text, args) {
+export async function alert(duration, text, args) {
 
   const buffer = ui.startDialog();
 
@@ -451,7 +451,7 @@ export async function messageBox(duration, text, args) {
 	ui.finishDialog();
 }
 
-ui.messageBox = messageBox;
+ui.alert = alert;
 
 
 export async function confirm(opts, prompt, args) {
@@ -462,21 +462,30 @@ export async function confirm(opts, prompt, args) {
     prompt = opts;
     opts = {};
   }
-  if (prompt && args) {
+  if (prompt) {
+    prompt = GW.messages[prompt] || prompt;
     text = Text.apply(prompt, args);
   }
 
+  Utils.setDefaults(opts, {
+    allowCancel: true,
+    bg: 'black',
+  });
+
   const buffer = ui.startDialog();
+  buffer.fade('black', 50);
 
 	const btnOK = 'OK=Enter';
 	const btnCancel = 'Cancel=Escape';
   const len = Math.max(text.length, btnOK.length + 4 + btnCancel.length);
   const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
   const y = Math.floor(ui.canvas.height / 2) - 1;
-  buffer.fillRect(x, y, len + 4, 5, ' ', 'black', 'black');
+  buffer.fillRect(x, y, len + 4, 5, ' ', 'black', opts.bg);
 	buffer.plotText(x + 2, y + 1, text);
-	buffer.plotText(x + 2, y + 3, btnOK, 'white');
-	buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, 'white');
+	buffer.plotText(x + 2, y + 3, btnOK);
+  if (opts.allowCancel) {
+    buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, 'white');
+  }
 	ui.draw();
 
 	let result;
@@ -487,15 +496,19 @@ export async function confirm(opts, prompt, args) {
 				result = true;
 			},
 			escape() {
-				result = false;
+        if (opts.allowCancel) {
+          result = false;
+        }
 			},
 			mousemove() {
 				let isOK = ev.x < x + btnOK.length + 2;
 				let isCancel = ev.x > x + len + 4 - btnCancel.length - 4;
 				if (ev.x < x || ev.x > x + len + 4) { isOK = false; isCancel = false; }
 				if (ev.y != y + 3 ) { isOK = false; isCancel = false; }
-				buffer.plotText(x + 2, y + 3, btnOK, isOK ? 'blue' : 'white');
-				buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, isCancel ? 'blue' : 'white');
+				buffer.plotText(x + 2, y + 3, isOK ? GW.colors.teal : GW.colors.white, btnOK);
+        if (opts.allowCancel) {
+          buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, isCancel ? GW.colors.teal : GW.colors.white, btnCancel);
+        }
 				ui.draw();
 			},
 			click() {
@@ -534,7 +547,7 @@ async function chooseTarget(choices, prompt, opts={}) {
 	let selected = 0;
 
 	function draw() {
-		ui.clearDialog();
+		ui.resetDialog();
 		buf.plotLine(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, prompt, GW.colors.orange);
 		if (selected >= 0) {
 			const choice = choices[selected];
@@ -584,22 +597,69 @@ async function chooseTarget(choices, prompt, opts={}) {
 ui.chooseTarget = chooseTarget;
 
 
+export async function inputNumberBox(opts, prompt, args) {
+
+  let text;
+  if (typeof opts === 'number') {
+    opts = { max: opts };
+  }
+  else if (typeof opts === 'string') {
+    args = prompt;
+    prompt = opts;
+    opts = {};
+  }
+  if (prompt) {
+    prompt = GW.messages[prompt] || prompt;
+    text = Text.apply(prompt, args);
+  }
+
+  Utils.setDefaults(opts, {
+    allowCancel: true,
+    min: 1,
+    max: 99,
+    number: true,
+    bg: 'black',
+  });
+
+  const buffer = ui.startDialog();
+  buffer.fade('black', 50);
+
+	const btnOK = 'OK=Enter';
+	const btnCancel = 'Cancel=Escape';
+  const len = Math.max(text.length, btnOK.length + 4 + btnCancel.length);
+  const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
+  const y = Math.floor(ui.canvas.height / 2) - 1;
+  buffer.fillRect(x, y, len + 4, 6, ' ', 'black', opts.bg);
+	buffer.plotText(x + 2, y + 1, text);
+  buffer.fillRect(x + 2, y + 2, len - 4, 1, ' ', 'gray', 'gray');
+	buffer.plotText(x + 2, y + 4, btnOK);
+  if (opts.allowCancel) {
+    buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 4, btnCancel);
+  }
+	ui.draw();
+
+  const value = await ui.getInputAt(x + 2, y + 2, len - 4, opts);
+
+	ui.finishDialog();
+	return Number.parseInt(value);
+}
+
+ui.inputNumberBox = inputNumberBox;
+
 
 // assumes you are in a dialog and give the buffer for that dialog
-async function getInputAt(buffer, x, y, maxLength, opts={})
+async function getInputAt(x, y, maxLength, opts={})
 {
   let defaultEntry = opts.default || '';
-  let numbersOnly = opts.number || false;
+  let numbersOnly = opts.number || opts.numbers || opts.numbersOnly || false;
 
 	const textEntryBounds = (numbersOnly ? ['0', '9'] : [' ', '~']);
 
+  const buffer = GW.ui.startDialog();
 	maxLength = Math.min(maxLength, buffer.width - x);
 
 	let inputText = defaultEntry;
 	let charNum = GW.text.length(inputText);
-
-  const backup = GW.ui.canvas.allocBuffer();
-  backup.copy(buffer);
 
   let ev;
 	do {
@@ -607,30 +667,39 @@ async function getInputAt(buffer, x, y, maxLength, opts={})
 
 		ev = await GW.io.nextKeyPress(-1);
 		if ( (ev.key == 'Delete' || ev.key == 'Backspace') && charNum > 0) {
-			buffer.plot(x + charNum - 1, y, backup[x + charNum - 1][y]);
+			buffer.plotChar(x + charNum - 1, y, ' ', 'white');
 			charNum--;
-			inputText.splice(charNum, 1);
+			inputText = Text.splice(inputText, charNum, 1);
 		} else if (ev.key.length > 1) {
 			// ignore other special keys...
 		} else if (ev.key >= textEntryBounds[0]
 				   && ev.key <= textEntryBounds[1]) // allow only permitted input
 		{
-			inputText += ev.key;
-			buffer.plotChar(x + charNum, y, ev.key, 'white');
 			if (charNum < maxLength) {
+        if (numbersOnly) {
+          const value = Number.parseInt(inputText + ev.key);
+          if (opts.min !== undefined && value < opts.min) {
+            continue;
+          }
+          if (opts.max !== undefined && value > opts.max) {
+            continue;
+          }
+        }
+        inputText += ev.key;
+  			buffer.plotChar(x + charNum, y, ev.key, 'white');
 				charNum++;
 			}
 		}
 
 		if (ev.key == 'Escape') {
-      GW.ui.canvas.freeBuffer(backup);
+      GW.ui.finishDialog();
 			return '';
 		}
 
 	} while ((!inputText.length) || ev.key != 'Enter');
 
-  GW.ui.draw();
-	GW.ui.canvas.freeBuffer(backup);
+  GW.ui.finishDialog();
+  GW.ui.draw(); // reverts to old display
 	return inputText;
 }
 
@@ -639,29 +708,36 @@ ui.getInputAt = getInputAt;
 
 // DIALOG
 
+const UI_LAYERS = [];
+
 function startDialog() {
   IN_DIALOG = true;
-  ui.canvas.copyBuffer(UI_BASE);
-	ui.canvas.copyBuffer(UI_OVERLAY);
-	UI_OVERLAY.forEach( (c) => c.opacity = 0 );
-  // UI_OVERLAY.nullify();
+  const base = UI_OVERLAY || null;
+  UI_LAYERS.push(base);
+  UI_OVERLAY = ui.canvas.allocBuffer();
+  UI_OVERLAY.forEach( (c) => c.opacity = 0 );
   return UI_OVERLAY;
 }
 
 ui.startDialog = startDialog;
 
-function clearDialog() {
+function resetDialog() {
 	if (IN_DIALOG) {
-		UI_OVERLAY.copy(UI_BASE);
+    const base = UI_LAYERS[UI_LAYERS.length - 1] || UI_BUFFER;
+		UI_OVERLAY.copy(base);
 	}
 }
 
-ui.clearDialog = clearDialog;
+ui.resetDialog = resetDialog;
 
 function finishDialog() {
-  IN_DIALOG = false;
-  ui.canvas.overlay(UI_BASE);
-  UI_OVERLAY.nullify();
+  if (!IN_DIALOG) return;
+
+  ui.canvas.freeBuffer(UI_OVERLAY);
+  UI_OVERLAY = UI_LAYERS.pop();
+  ui.canvas.overlay(UI_OVERLAY || UI_BUFFER);
+
+  IN_DIALOG = (UI_LAYERS.length > 0);
 }
 
 ui.finishDialog = finishDialog;

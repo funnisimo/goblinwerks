@@ -464,11 +464,13 @@
   }
 
   function eachChain(item, fn) {
+    let index = 0;
     while(item) {
       const next = item.next;
-      fn(item);
+      fn(item, index++);
       item = next;
     }
+    return index; // really count
   }
 
   function addToChain(obj, name, entry) {
@@ -2698,6 +2700,13 @@
   		this.wasHanging = false;
   	}
 
+    fade(color, pct) {
+      if (this.bg) this.bg.mix(color, pct);
+      if (this.fg) this.fg.mix(color, pct);
+      this.needsUpdate = true;
+      this.opacity = this.opacity || 100;
+    }
+
   	plotChar(ch, fg, bg) {
   		this.wasHanging = this.wasHanging || (ch != null && HANGING_LETTERS.includes(ch));
       this.wasFlying  = this.wasFlying  || (ch != null && FLYING_LETTERS.includes(ch));
@@ -3668,6 +3677,11 @@
       this.needsUpdate = true;
     }
 
+    fade(color$1, pct) {
+      color$1 = from(color$1);
+      this.forEach( (s) => s.fade(color$1, pct) );
+    }
+
     dump(fmt) { super.dump( fmt || ((s) => s.ch) ); }
 
     plot(x, y, sprite) {
@@ -3702,13 +3716,22 @@
         text$1 = format(text$1, ...args);
       }
       eachChar(text$1, (ch, color, i) => {
-        this.plotChar(i + x, y, ch, color || GW.colors.white, null);
+        this.plotChar(i + x, y, ch, color || colors.white, null);
       });
     }
+
+    applyText(x, y, text$1, args) {
+      text$1 = apply(text$1, args);
+      eachChar(text$1, (ch, color, i) => {
+        this.plotChar(i + x, y, ch, color || colors.white, null);
+      });
+    }
+
 
     plotLine(x, y, w, text$1, fg, bg) {
       if (typeof fg === 'string') { fg = colors[fg]; }
       if (typeof bg === 'string') { bg = colors[bg]; }
+      fg = fg || colors.white;
       let len = length(text$1);
       eachChar(text$1, (ch, color, i) => {
         this.plotChar(i + x, y, ch, color || fg, bg);
@@ -4142,7 +4165,7 @@
   		command = km.dir;
   	}
   	else if (ev.type === KEYPRESS) {
-  		command = km[ev.key] || km[ev.code];
+  		command = km[ev.key] || km[ev.code] || km.keypress;
   	}
   	else if (km[ev.type]) {
   		command = km[ev.type];
@@ -4400,7 +4423,6 @@
   io.tickMs = tickMs;
 
 
-  // TODO - io.tickMs(ms)
 
   async function nextKeyPress(ms, match) {
     if (ms === undefined) ms = -1;
@@ -4438,6 +4460,19 @@
   }
 
   io.waitForAck = waitForAck;
+
+
+  async function loop(handler) {
+    let running = true;
+    while(running) {
+      const ev = await io.nextEvent();
+      if (await io.dispatchEvent(ev, handler)) {
+        running = false;
+      }
+    }
+  }
+
+  io.loop = loop;
 
   var PATH = {};
 
@@ -8141,11 +8176,13 @@
       }
 
       if (opts.article && (this.article !== false)) {
-        let article = (opts.article === true) ? this.article : opts.article;
-        if (article == 'a' && isVowel(firstChar(result))) {
-          article = 'an';
+        if (opts.formal || !actor.isPlayer()) {
+          let article = (opts.article === true) ? this.article : opts.article;
+          if (article == 'a' && isVowel(firstChar(result))) {
+            article = 'an';
+          }
+          result = article + ' ' + result;
         }
-        result = article + ' ' + result;
       }
       return result;
     }
@@ -8417,7 +8454,7 @@
     addToPack(item) {
       let quantityLeft = (item.quantity || 1);
       // Stacking?
-      if (item.kind.flags & ItemKind.IK_STACKABLE) {
+      if (item.isStackable()) {
         let current = this.pack;
         while(current && quantityLeft) {
           if (current.kind === item.kind) {
@@ -8447,6 +8484,24 @@
 
     eachPack(fn) {
       eachChain(this.pack, fn);
+    }
+
+    itemWillFitInPack(item, quantity) {
+      if (!this.pack) return true;
+      const maxSize = GW.config.PACK_MAX_ITEMS || 26;
+
+      const count = chainLength(this.pack);
+      if (count < maxSize) return true;
+
+      if (!item.isStackable()) return false;
+      let willStack = false;
+      eachChain(this.pack, (packItem) => {
+        if (item.willStackInto(packItem, quantity)) {
+          willStack = true;
+        }
+      });
+
+      return willStack;
     }
 
     // EQUIPMENT
@@ -8513,11 +8568,13 @@
     theActor.flags |= Actor.AF_TURN_ENDED;
     theActor.turnTime = Math.floor(theActor.kind.speed * turnTime);
 
-    for(let stat in theActor.regen) {
-      const turns = theActor.regen[stat];
-      if (turns > 0) {
-        const amt = 1/turns;
-        theActor.adjustStat(stat, amt);
+    if (!theActor.isDead()) {
+      for(let stat in theActor.regen) {
+        const turns = theActor.regen[stat];
+        if (turns > 0) {
+          const amt = 1/turns;
+          theActor.adjustStat(stat, amt);
+        }
       }
     }
 
@@ -8878,7 +8935,7 @@
     queuePlayer();
 
 
-    return loop();
+    return loop$1();
   }
 
 
@@ -8989,7 +9046,7 @@
 
 
 
-  async function loop() {
+  async function loop$1() {
 
     ui.draw();
 
@@ -11128,11 +11185,22 @@
           this.consoleColor = from(this.consoleColor);
         }
       }
+
+      this.maxStack = opts.maxStack || ((this.flags & ItemKind.IK_STACKABLE) ? 99 : 1);
     }
 
     forbiddenCellFlags(item) { return Cell.HAS_ITEM; }
     forbiddenTileFlags(item) { return Tile.T_OBSTRUCTS_ITEMS; }
     forbiddenTileMechFlags(item) { return 0; }
+
+    isStackable() { return this.flags & ItemKind.IK_STACKABLE; }
+    willStackInto(item, other, quantity) {
+      quantity = quantity || item.quantity;
+      if (other.kind !== item.kind) return false;
+      if (!this.isStackable()) return false;
+      // Compare enchants, etc...
+      return (other.quantity + quantity <= this.maxStack);
+    }
 
     async applyDamage(item, damage, actor, ctx) {
   		if (item.stats.health > 0) {
@@ -11238,6 +11306,20 @@
   	hasActionFlag(flag) {
   		return (this.kind.actionFlags & flag) > 0;
   	}
+
+    isStackable() {
+      return this.kind.flags & ItemKind.IK_STACKABLE;
+    }
+    willStackInto(other, quantity) {
+      return this.kind.willStackInto(this, other, quantity);
+    }
+
+    split(quantity=1) {
+      if (quantity >= this.quantity) return null;
+      const newItem = make.item(this.kind, { quantity, flags: this.flags, stats: this.stats });
+      this.quantity -= quantity;
+      return newItem;
+    }
 
     async bumpBy(actor, ctx={}) {
       ctx.quiet = true;
@@ -11697,7 +11779,7 @@
   			 (reverse ? currentMessageCount >= MSG_BOUNDS.height : currentMessageCount <= totalMessageCount);
   			 currentMessageCount += (reverse ? -1 : 1))
   	  {
-  			ui.clearDialog();
+  			ui.resetDialog();
 
   			// Print the message archive text to the dbuf.
   			for (j=0; j < currentMessageCount && j < dbuf.height; j++) {
@@ -12762,6 +12844,139 @@
 
   flavor.getFlavorText = getFlavorText;
 
+  class Column {
+    constructor(name, field, format, empty) {
+      this.name = name || null;
+      this.field = field || null;
+      this.format = format || '%s';
+      this.empty = empty || '-';
+    }
+
+    plotData(buffer, x, y, data, index, color) {
+      if (!data) {
+        buffer.plotText(x, y, color, this.empty);
+        return length(this.empty);
+      }
+
+      let text$1;
+      if (typeof this.field === 'function') {
+        text$1 = this.field(data, index, color, this);
+      }
+      else {
+        const field = data[this.field];
+        text$1 = format(this.format, field);
+      }
+      buffer.plotText(x, y, color, text$1);
+      return length(text$1);
+    }
+
+    plotHeader(buffer, x, y) {
+      if (!this.name) return 0;
+
+      buffer.plotText(x, y, this.name);
+      return length(this.name);
+    }
+  }
+
+  types.Column = Column;
+
+
+  class Table {
+    constructor(opts={}) {
+      if (Array.isArray(opts)) {
+        opts = { columns: opts };
+      }
+
+      this.columns = opts.columns || [];
+      this.letters = opts.letters || false;
+      if (opts.letters) {
+        this.columns.unshift(new Column(null, (data, index) => {
+          const letter = String.fromCharCode(97 + index);
+          return letter + ')';
+        }));
+      }
+      this.color = from(opts.color || colors.white);
+      this.selectedColor = from(opts.selectedColor || colors.teal);
+      this.disabledColor = from(opts.disabledColor || colors.black);
+      this.selected = (opts.selected >= 0) ? opts.selected : -1;
+      this.maxWidth = 0;
+    }
+
+    column(...args) {
+      this.columns.push(new types.Column(...args));
+      return this;
+    }
+
+    plot(buffer, x0, y0, data) {
+      if (Array.isArray(data)) {
+        return this.plotArray(buffer, x0, y0, data);
+      }
+      return this.plotChain(buffer, x0, y0, data);
+    }
+
+    plotChain(buffer, x0, y0, data) {
+      return this._plot(buffer, x0, y0, (current) => {
+        return current ? current.next : data;
+      });
+    }
+
+    plotArray(buffer, x0, y0, data) {
+      let index = -1;
+      return this._plot(buffer, x0, y0, () => {
+        ++index;
+        if (index < data.length) {
+          return data[index];
+        }
+        index = -1;
+        return null;
+      });
+    }
+
+    _plot(buffer, x0, y0, nextFn) {
+      this.maxWidth = 0;
+      const headers = this.columns.some( (c) => c.name );
+
+      let x = x0;
+      let y = y0;
+      for(let column of this.columns) {
+        let maxWidth = 0;
+        y = y0;
+        if (headers) {
+          maxWidth = Math.max(maxWidth, column.plotHeader(buffer, x, y++));
+        }
+
+        let count = 0;
+        let current = nextFn();
+        do {
+          let color = (count == this.selected) ? this.selectedColor : this.color;
+          if (current.disabled) {
+            color = color.clone().mix(this.disabledColor, 50);
+          }
+          maxWidth = Math.max(maxWidth, column.plotData(buffer, x, y, current, count, color));
+          ++y;
+          current = nextFn(current);
+          ++count;
+        }
+        while(current);
+
+        x += (maxWidth + 1);
+      }
+
+      this.maxWidth = x - x0;
+      return y;
+    }
+
+  }
+
+  types.Table = Table;
+
+
+  function make$5(...args) {
+    return new types.Table(...args);
+  }
+
+  make.table = make$5;
+
   ui.debug = NOOP;
 
   let SHOW_FLAVOR = false;
@@ -12828,9 +13043,9 @@
       // TODO - init sidebar, messages, flavor, menu
       UI_BUFFER = UI_BUFFER || ui.canvas.allocBuffer();
       UI_BASE = UI_BASE || ui.canvas.allocBuffer();
-      UI_OVERLAY = UI_OVERLAY || ui.canvas.allocBuffer();
+      // UI_OVERLAY = UI_OVERLAY || ui.canvas.allocBuffer();
       UI_BASE.nullify();
-      UI_OVERLAY.nullify();
+      // UI_OVERLAY.nullify();
 
       ui.blackOutDisplay();
     }
@@ -13183,7 +13398,7 @@
   ui.fadeTo = fadeTo;
 
 
-  async function messageBox(duration, text$1, args) {
+  async function alert(duration, text$1, args) {
 
     const buffer = ui.startDialog();
 
@@ -13203,7 +13418,7 @@
   	ui.finishDialog();
   }
 
-  ui.messageBox = messageBox;
+  ui.alert = alert;
 
 
   async function confirm(opts, prompt, args) {
@@ -13214,21 +13429,30 @@
       prompt = opts;
       opts = {};
     }
-    if (prompt && args) {
+    if (prompt) {
+      prompt = GW.messages[prompt] || prompt;
       text$1 = apply(prompt, args);
     }
 
+    setDefaults(opts, {
+      allowCancel: true,
+      bg: 'black',
+    });
+
     const buffer = ui.startDialog();
+    buffer.fade('black', 50);
 
   	const btnOK = 'OK=Enter';
   	const btnCancel = 'Cancel=Escape';
     const len = Math.max(text$1.length, btnOK.length + 4 + btnCancel.length);
     const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
     const y = Math.floor(ui.canvas.height / 2) - 1;
-    buffer.fillRect(x, y, len + 4, 5, ' ', 'black', 'black');
+    buffer.fillRect(x, y, len + 4, 5, ' ', 'black', opts.bg);
   	buffer.plotText(x + 2, y + 1, text$1);
-  	buffer.plotText(x + 2, y + 3, btnOK, 'white');
-  	buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, 'white');
+  	buffer.plotText(x + 2, y + 3, btnOK);
+    if (opts.allowCancel) {
+      buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, 'white');
+    }
   	ui.draw();
 
   	let result;
@@ -13239,15 +13463,19 @@
   				result = true;
   			},
   			escape() {
-  				result = false;
+          if (opts.allowCancel) {
+            result = false;
+          }
   			},
   			mousemove() {
   				let isOK = ev.x < x + btnOK.length + 2;
   				let isCancel = ev.x > x + len + 4 - btnCancel.length - 4;
   				if (ev.x < x || ev.x > x + len + 4) { isOK = false; isCancel = false; }
   				if (ev.y != y + 3 ) { isOK = false; isCancel = false; }
-  				buffer.plotText(x + 2, y + 3, btnOK, isOK ? 'blue' : 'white');
-  				buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, isCancel ? 'blue' : 'white');
+  				buffer.plotText(x + 2, y + 3, isOK ? GW.colors.teal : GW.colors.white, btnOK);
+          if (opts.allowCancel) {
+            buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, isCancel ? GW.colors.teal : GW.colors.white, btnCancel);
+          }
   				ui.draw();
   			},
   			click() {
@@ -13285,7 +13513,7 @@
   	let selected = 0;
 
   	function draw() {
-  		ui.clearDialog();
+  		ui.resetDialog();
   		buf.plotLine(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, prompt, GW.colors.orange);
   		if (selected >= 0) {
   			const choice = choices[selected];
@@ -13335,22 +13563,69 @@
   ui.chooseTarget = chooseTarget;
 
 
+  async function inputNumberBox(opts, prompt, args) {
+
+    let text$1;
+    if (typeof opts === 'number') {
+      opts = { max: opts };
+    }
+    else if (typeof opts === 'string') {
+      args = prompt;
+      prompt = opts;
+      opts = {};
+    }
+    if (prompt) {
+      prompt = GW.messages[prompt] || prompt;
+      text$1 = apply(prompt, args);
+    }
+
+    setDefaults(opts, {
+      allowCancel: true,
+      min: 1,
+      max: 99,
+      number: true,
+      bg: 'black',
+    });
+
+    const buffer = ui.startDialog();
+    buffer.fade('black', 50);
+
+  	const btnOK = 'OK=Enter';
+  	const btnCancel = 'Cancel=Escape';
+    const len = Math.max(text$1.length, btnOK.length + 4 + btnCancel.length);
+    const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
+    const y = Math.floor(ui.canvas.height / 2) - 1;
+    buffer.fillRect(x, y, len + 4, 6, ' ', 'black', opts.bg);
+  	buffer.plotText(x + 2, y + 1, text$1);
+    buffer.fillRect(x + 2, y + 2, len - 4, 1, ' ', 'gray', 'gray');
+  	buffer.plotText(x + 2, y + 4, btnOK);
+    if (opts.allowCancel) {
+      buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 4, btnCancel);
+    }
+  	ui.draw();
+
+    const value = await ui.getInputAt(x + 2, y + 2, len - 4, opts);
+
+  	ui.finishDialog();
+  	return Number.parseInt(value);
+  }
+
+  ui.inputNumberBox = inputNumberBox;
+
 
   // assumes you are in a dialog and give the buffer for that dialog
-  async function getInputAt(buffer, x, y, maxLength, opts={})
+  async function getInputAt(x, y, maxLength, opts={})
   {
     let defaultEntry = opts.default || '';
-    let numbersOnly = opts.number || false;
+    let numbersOnly = opts.number || opts.numbers || opts.numbersOnly || false;
 
   	const textEntryBounds = (numbersOnly ? ['0', '9'] : [' ', '~']);
 
+    const buffer = GW.ui.startDialog();
   	maxLength = Math.min(maxLength, buffer.width - x);
 
   	let inputText = defaultEntry;
   	let charNum = GW.text.length(inputText);
-
-    const backup = GW.ui.canvas.allocBuffer();
-    backup.copy(buffer);
 
     let ev;
   	do {
@@ -13358,28 +13633,37 @@
 
   		ev = await GW.io.nextKeyPress(-1);
   		if ( (ev.key == 'Delete' || ev.key == 'Backspace') && charNum > 0) {
-  			buffer.plot(x + charNum - 1, y, backup[x + charNum - 1][y]);
+  			buffer.plotChar(x + charNum - 1, y, ' ', 'white');
   			charNum--;
-  			inputText.splice(charNum, 1);
+  			inputText = splice(inputText, charNum, 1);
   		} else if (ev.key.length > 1) ; else if (ev.key >= textEntryBounds[0]
   				   && ev.key <= textEntryBounds[1]) // allow only permitted input
   		{
-  			inputText += ev.key;
-  			buffer.plotChar(x + charNum, y, ev.key, 'white');
   			if (charNum < maxLength) {
+          if (numbersOnly) {
+            const value = Number.parseInt(inputText + ev.key);
+            if (opts.min !== undefined && value < opts.min) {
+              continue;
+            }
+            if (opts.max !== undefined && value > opts.max) {
+              continue;
+            }
+          }
+          inputText += ev.key;
+    			buffer.plotChar(x + charNum, y, ev.key, 'white');
   				charNum++;
   			}
   		}
 
   		if (ev.key == 'Escape') {
-        GW.ui.canvas.freeBuffer(backup);
+        GW.ui.finishDialog();
   			return '';
   		}
 
   	} while ((!inputText.length) || ev.key != 'Enter');
 
-    GW.ui.draw();
-  	GW.ui.canvas.freeBuffer(backup);
+    GW.ui.finishDialog();
+    GW.ui.draw(); // reverts to old display
   	return inputText;
   }
 
@@ -13388,29 +13672,36 @@
 
   // DIALOG
 
+  const UI_LAYERS = [];
+
   function startDialog() {
     IN_DIALOG = true;
-    ui.canvas.copyBuffer(UI_BASE);
-  	ui.canvas.copyBuffer(UI_OVERLAY);
-  	UI_OVERLAY.forEach( (c) => c.opacity = 0 );
-    // UI_OVERLAY.nullify();
+    const base = UI_OVERLAY || null;
+    UI_LAYERS.push(base);
+    UI_OVERLAY = ui.canvas.allocBuffer();
+    UI_OVERLAY.forEach( (c) => c.opacity = 0 );
     return UI_OVERLAY;
   }
 
   ui.startDialog = startDialog;
 
-  function clearDialog() {
+  function resetDialog() {
   	if (IN_DIALOG) {
-  		UI_OVERLAY.copy(UI_BASE);
+      const base = UI_LAYERS[UI_LAYERS.length - 1] || UI_BUFFER;
+  		UI_OVERLAY.copy(base);
   	}
   }
 
-  ui.clearDialog = clearDialog;
+  ui.resetDialog = resetDialog;
 
   function finishDialog() {
-    IN_DIALOG = false;
-    ui.canvas.overlay(UI_BASE);
-    UI_OVERLAY.nullify();
+    if (!IN_DIALOG) return;
+
+    ui.canvas.freeBuffer(UI_OVERLAY);
+    UI_OVERLAY = UI_LAYERS.pop();
+    ui.canvas.overlay(UI_OVERLAY || UI_BUFFER);
+
+    IN_DIALOG = (UI_LAYERS.length > 0);
   }
 
   ui.finishDialog = finishDialog;

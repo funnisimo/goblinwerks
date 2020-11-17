@@ -376,6 +376,13 @@ class HeroKind extends GW.types.ActorKind {
     return 4;
   }
 
+  chrBonus(actor) {
+    const chr = actor.current.chr;
+    // 28 = 80%
+    // 3 = 130%
+    return 100 - (chr - 18) * 2;
+  }
+
   // STAT BONUSES
 
   manaBonus(actor, attr='int') {

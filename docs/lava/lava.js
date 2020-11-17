@@ -18,7 +18,7 @@ GW.message.addKind('FINISH', 'Level: $level$');
 
 async function crossedFinish() {
 	const map = makeMap(MAP.id + 1);
-	await GW.ui.messageBox(1000, '#light_blue#Level $level$.',{ level: map.id });
+	await GW.ui.alert(1000, '#light_blue#Level $level$.',{ level: map.id });
 	GW.message.add('FINISH', { actor: PLAYER, level: map.id });
 	await GW.game.startMap(map, 'start');
 }
@@ -97,7 +97,7 @@ async function jump() {
 				return true;
 			},
 			update(newDir) {
-				GW.ui.clearDialog();
+				GW.ui.resetDialog();
 				buf.plotLine(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, 'Jump: Which direction?', GW.colors.orange);
 				if (newDir) {
 					buf.plot(PLAYER.x + newDir[0]*2, PLAYER.y + newDir[1]*2, jumpHilite);
