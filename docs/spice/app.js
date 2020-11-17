@@ -12,22 +12,6 @@ function makePlayer() {
   });
 }
 
-GW.tiles.FLOOR.sprite.ch = '~';
-GW.tiles.FLOOR.sprite.bg = GW.make.color(0,0,40,0,0,10,20,true);
-
-GW.tiles.WALL.sprite.bg = GW.make.color(0,20,0,0,0,20,10,false);
-GW.tiles.WALL.sprite.fg = GW.make.color('dark_brown');
-
-
-function makeMap(id=0) {
-	const map = GW.make.map(64, 64, { id, tile: 'FLOOR', boundary: 'WALL' });
-
-  // TODO - Design your map
-
-
-	return map;
-}
-
 
 
 async function showHelp() {
