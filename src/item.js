@@ -179,6 +179,9 @@ class Item {
   willStackInto(other, quantity) {
     return this.kind.willStackInto(this, other, quantity);
   }
+  inventoryCount() {
+    return (this.kind.flags & Flags.ItemKind.IK_STACK_AS_ONE) ? 1 : this.quantity;
+  }
 
   split(quantity=1) {
     if (quantity >= this.quantity) return null;

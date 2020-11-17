@@ -638,7 +638,7 @@ export function apply(template, args={}) {
       return encodeColor(color);
     }
     else if (first) {
-      if (first !== 'verb' && args[first]) {
+      if (first !== 'verb' && (args[first] !== undefined)) {
         // TODO - allow formatting e.g. $cost.2f$, $total.4d$
         const obj = args[first];
         if (obj.getName) {
