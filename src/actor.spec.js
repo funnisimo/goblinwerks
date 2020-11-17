@@ -118,13 +118,16 @@ describe('actor', () => {
       const item1 = GW.make.item('THING');
       let r = actor.addToPack(item1);
       const item2 = GW.make.item('THING');
+      expect(item1.willStackInto(item2)).toBeFalsy();
       r = actor.addToPack(item2);
+
+      expect(GW.utils.chainLength(actor.pack)).toEqual(2);
 
       const fn = jest.fn();
       actor.eachPack(fn);
       expect(fn).toHaveBeenCalledTimes(2);
-      expect(fn).toHaveBeenCalledWith(item1);
-      expect(fn).toHaveBeenCalledWith(item2);
+      expect(fn).toHaveBeenCalledWith(item2, 0);
+      expect(fn).toHaveBeenCalledWith(item1, 1);
     });
 
     test('can stack items', () => {

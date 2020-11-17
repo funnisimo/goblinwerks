@@ -114,6 +114,12 @@ class Bounds {
 
 types.Bounds = Bounds;
 
+/**
+ * GW.utils
+ * @module utils
+ */
+
+
 var makeDebug = (typeof debug !== 'undefined') ? debug : (() => (() => {}));
 
 function NOOP()  {}
@@ -123,7 +129,13 @@ function ONE() { return 1; }
 function ZERO() { return 0; }
 function IDENTITY(x) { return x; }
 
-
+/**
+ * clamps a value between min and max (inclusive)
+ * @param v {Number} the value to clamp
+ * @param min {Number} the minimum value
+ * @param max {Number} the maximum value
+ * @returns {Number} the clamped value
+ */
 function clamp(v, min, max) {
   if (v < min) return min;
   if (v > max) return max;
@@ -552,22 +564,29 @@ var utils$1 = /*#__PURE__*/Object.freeze({
 var EVENTS = {};
 
 /**
- * Representation of a single event listener.
- *
- * @param {Function} fn The listener function.
- * @param {*} context The context to invoke the listener with.
- * @param {Boolean} [once=false] Specify if the listener is a one-time listener.
- * @constructor
- * @private
+ * Data for an event listener.
  */
 class Listener {
+  /**
+   * Creates a Listener.
+   * @param {Function} fn The listener function.
+   * @param {Object} [context=null] The context to invoke the listener with.
+   * @param {Boolean} [once=false] Specify if the listener is a one-time listener.
+   */
   constructor(fn, context, once) {
     this.fn = fn;
-    this.context = context;
+    this.context = context || null;
     this.once = once || false;
     this.next = null;
   }
 
+  /**
+   * Compares this Listener to the parameters.
+   * @param {Function} fn - The function
+   * @param {Object} [context] - The context Object.
+   * @param {Boolean} [once] - Whether or not it is a one time handler.
+   * @returns Whether or not this Listener matches the parameters.
+   */
   matches(fn, context, once) {
     return ((this.fn === fn) &&
         ((once === undefined) || (once == this.once)) &&
@@ -595,7 +614,16 @@ function addListener(event, fn, context, once) {
   return listener;
 }
 
-function on(event, fn, context, once) {
+/**
+ * Add a listener for a given event.
+ *
+ * @param {String} event The event name.
+ * @param {Function} fn The listener function.
+ * @param {*} context The context to invoke the listener with.
+ * @param {Boolean} once Specify if the listener is a one-time listener.
+ * @returns {Listener}
+ */
+ function on(event, fn, context, once) {
   return addListener(event, fn, context, once);
 }
 
@@ -614,7 +642,7 @@ function once(event, fn, context) {
 /**
  * Remove the listeners of a given event.
  *
- * @param {(String|Symbol)} event The event name.
+ * @param {String} event The event name.
  * @param {Function} fn Only remove the listeners that match this function.
  * @param {*} context Only remove the listeners that have this context.
  * @param {Boolean} once Only remove one-time listeners.
@@ -634,7 +662,17 @@ function removeListener(event, fn, context, once) {
     }
   });
 }
-function off(event, fn, context, once) {
+/**
+ * Remove the listeners of a given event.
+ *
+ * @param {String} event The event name.
+ * @param {Function} fn Only remove the listeners that match this function.
+ * @param {*} context Only remove the listeners that have this context.
+ * @param {Boolean} once Only remove one-time listeners.
+ * @returns {EventEmitter} `this`.
+ * @public
+ */
+ function off(event, fn, context, once) {
   removeListener(event, fn, context, once);
 }
 
@@ -666,7 +704,8 @@ function removeAllListeners(event) {
 /**
  * Calls each of the listeners registered for a given event.
  *
- * @param {(String|Symbol)} event The event name.
+ * @param {String} event The event name.
+ * @param {...*} args The additional arguments to the event handlers.
  * @returns {Boolean} `true` if the event had listeners, else `false`.
  * @public
  */
@@ -9195,8 +9234,17 @@ var tile = {};
 
 const TileLayer$3 = def.layer;
 
-
+/** Tile Class */
 class Tile$1 {
+  /**
+    * Creates a new Tile object.
+    * @param {Object} [config={}] - The configuration of the Tile
+    * @param {String|Number|String[]} [config.flags=0] - Flags and MechFlags for the tile
+    * @param {String} [config.layer=GROUND] - Name of the layer for this tile
+    * @param {String} [config.ch] - The sprite character
+    * @param {String} [config.fg] - The sprite foreground color
+    * @param {String} [config.bg] - The sprite background color
+    */
   constructor(config={}, base={}) {
     Object.assign(this, {
       flags: 0,
@@ -9239,6 +9287,11 @@ class Tile$1 {
     }
   }
 
+  /**
+   * Returns the flags for the tile after the given event is fired.
+   * @param {String} event - Name of the event to fire.
+   * @returns {Number} The flags from the Tile after the event.
+   */
   successorFlags(event) {
     const e = this.events[event];
     if (!e) return 0;
@@ -9249,6 +9302,13 @@ class Tile$1 {
     // return tiles[tile].flags;
   }
 
+  /**
+   * Returns whether or not this tile as the given flag.
+   * Will return true if any bit in the flag is true, so testing with
+   * multiple flags will return true if any of them is set.
+   * @param {Number} flag - The flag to check
+   * @returns {Boolean} Whether or not the flag is set
+   */
   hasFlag(flag) {
     return (this.flags & flag) > 0;
   }
@@ -9312,7 +9372,19 @@ class Tile$1 {
 
 types.Tile = Tile$1;
 
+/**
+ * GW.tile
+ * @module tile
+ */
 
+
+/**
+ * Adds a new Tile into the GW.tiles collection.
+ * @param {String} id - The identifier for this Tile
+ * @param {Object} [base] - The base tile from which to extend
+ * @param {Object} config - The tile parameters
+ * @returns {Tile} The newly created tile
+ */
 function addTileKind(id, base, config) {
   if (arguments.length == 1) {
     config = args[0];
@@ -9337,6 +9409,14 @@ function addTileKind(id, base, config) {
 
 tile.addKind = addTileKind;
 
+/**
+ * Adds multiple tiles to the GW.tiles collection.
+ * It extracts all the id:opts pairs from the config object and uses
+ * them to call addTileKind.
+ * @param {Object} config - The tiles to add in [id, opts] pairs
+ * @returns {void} Nothing
+ * @see addTileKind
+ */
 function addTileKinds(config={}) {
   Object.entries(config).forEach( ([name, opts]) => {
     tile.addKind(name, opts);

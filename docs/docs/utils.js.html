@@ -1,4 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: utils.js</title>
 
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: utils.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>
 import { def } from './gw.js';
 
 /**
@@ -24,7 +52,7 @@ export function IDENTITY(x) { return x; }
  * @returns {Number} the clamped value
  */
 export function clamp(v, min, max) {
-  if (v < min) return min;
+  if (v &lt; min) return min;
   if (v > max) return max;
   return v;
 }
@@ -49,7 +77,7 @@ export function addXY(dest, src) {
 
 export function equalsXY(dest, src) {
   return (dest.x == x(src))
-  && (dest.y == y(src));
+  &amp;&amp; (dest.y == y(src));
 }
 
 export function lerpXY(a, b, pct) {
@@ -81,7 +109,7 @@ export function calcRadius(x, y) {
 export function dirBetween(x, y, toX, toY) {
 	let diffX = toX - x;
 	let diffY = toY - y;
-	if (diffX && diffY) {
+	if (diffX &amp;&amp; diffY) {
 		const absX = Math.abs(diffX);
 		const absY = Math.abs(diffY);
 		if (absX >= 2 * absY) { diffY = 0; }
@@ -97,7 +125,7 @@ export function dirFromTo(a, b) {
 export function dirIndex(dir) {
   const x = dir.x || dir[0] || 0;
   const y = dir.y || dir[1] || 0;
-  return def.dirs.findIndex( (a) => a[0] == x && a[1] == y );
+  return def.dirs.findIndex( (a) => a[0] == x &amp;&amp; a[1] == y );
 }
 
 export function isOppositeDir(a, b) {
@@ -107,7 +135,7 @@ export function isOppositeDir(a, b) {
 }
 
 export function isSameDir(a, b) {
-  return a[0] == b[0] && a[1] == b[1];
+  return a[0] == b[0] &amp;&amp; a[1] == b[1];
 }
 
 export function dirSpread(dir) {
@@ -133,7 +161,7 @@ export function stepFromTo(a, b, fn) {
   const c = [0, 0];
   const last = [99999, 99999];
 
-  for(let step = 0; step <= steps; ++step) {
+  for(let step = 0; step &lt;= steps; ++step) {
     c[0] = a[0] + Math.floor(diff[0] * step / steps);
     c[1] = a[1] + Math.floor(diff[1] * step / steps);
     if (c[0] != last[0] || c[1] != last[1]) {
@@ -157,7 +185,7 @@ export function extend(obj, name, fn) {
 //   const fns = [];
 //   let fn = obj[name];
 
-//   while(fn && fn.fn) {
+//   while(fn &amp;&amp; fn.fn) {
 //     fns.push(fn.fn);
 //     fn = fn.base;
 //   }
@@ -179,22 +207,22 @@ export function cloneObject(obj) {
 function assignField(dest, src, key) {
   const current = dest[key];
   const updated = src[key];
-  if (current && current.copy && updated) {
+  if (current &amp;&amp; current.copy &amp;&amp; updated) {
     current.copy(updated);
   }
-  else if (current && current.clear && !updated) {
+  else if (current &amp;&amp; current.clear &amp;&amp; !updated) {
     current.clear();
   }
-  else if (current && current.nullify && !updated) {
+  else if (current &amp;&amp; current.nullify &amp;&amp; !updated) {
     current.nullify();
   }
-  else if (updated && updated.clone) {
+  else if (updated &amp;&amp; updated.clone) {
     dest[key] = updated.clone();	// just use same object (shallow copy)
   }
-  else if (updated && Array.isArray(updated)) {
+  else if (updated &amp;&amp; Array.isArray(updated)) {
     dest[key] = updated.slice();
   }
-  else if (current && Array.isArray(current)) {
+  else if (current &amp;&amp; Array.isArray(current)) {
     current.length = 0;
   }
   else {
@@ -353,7 +381,7 @@ export function chainLength(item) {
 }
 
 export function chainIncludes(chain, entry) {
-  while (chain && chain !== entry) {
+  while (chain &amp;&amp; chain !== entry) {
     chain = chain.next;
   }
   return (chain === entry);
@@ -388,7 +416,7 @@ export function removeFromChain(obj, name, entry) {
   else {
     let prev = root;
     let current = prev.next;
-    while(current && current !== entry) {
+    while(current &amp;&amp; current !== entry) {
       prev = current;
       current = prev.next;
     }
@@ -400,3 +428,26 @@ export function removeFromChain(obj, name, entry) {
   }
   return false;
 }
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-tile.html">tile</a></li><li><a href="module-utils.html">utils</a></li></ul><h3>Classes</h3><ul><li><a href="Listener.html">Listener</a></li><li><a href="Tile.html">Tile</a></li></ul><h3>Global</h3><ul><li><a href="global.html#addListener">addListener</a></li><li><a href="global.html#clearEvent">clearEvent</a></li><li><a href="global.html#emit">emit</a></li><li><a href="global.html#off">off</a></li><li><a href="global.html#on">on</a></li><li><a href="global.html#once">once</a></li><li><a href="global.html#removeAllListeners">removeAllListeners</a></li><li><a href="global.html#removeListener">removeListener</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 3.6.6</a> on Tue Nov 17 2020 14:27:29 GMT-0600 (Central Standard Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
