@@ -593,7 +593,7 @@ export function getAppearance(cell, dest) {
 
   memory.fg.applyMultiplier(cell.light);
   memory.bg.applyMultiplier(cell.light);
-  memory.bake();
+  memory.bake(!cell.isAnyKindOfVisible());  // turns off dancing if not visible
   if (needDistinctness) {
     Color.separate(memory.fg, memory.bg);
   }

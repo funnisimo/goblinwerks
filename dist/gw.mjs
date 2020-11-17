@@ -2790,11 +2790,11 @@ class Sprite {
 		return this.ch == other.ch && this.fg.equals(other.fg) && this.bg.equals(other.bg);
 	}
 
-	bake() {
-		if (this.fg && !this.fg.dances) {
+	bake(force) {
+		if (this.fg && (force || !this.fg.dances)) {
 			this.fg.bake();
 		}
-		if (this.bg && !this.bg.dances) {
+		if (this.bg && (force || !this.bg.dances)) {
 			this.bg.bake();
 		}
 	}
@@ -6540,7 +6540,7 @@ function getAppearance(cell, dest) {
 
   memory.fg.applyMultiplier(cell.light);
   memory.bg.applyMultiplier(cell.light);
-  memory.bake();
+  memory.bake(!cell.isAnyKindOfVisible());  // turns off dancing if not visible
   if (needDistinctness) {
     separate(memory.fg, memory.bg);
   }
@@ -7313,8 +7313,6 @@ function getCellAppearance(map, x, y, dest) {
   else if (!cell$1.isAnyKindOfVisible()) {
     dest.bg.mix(colors.black, 30);
     dest.fg.mix(colors.black, 30);
-    // Color.bake(dest.bg);
-    // Color.bake(dest.fg);
   }
 
   let needDistinctness = false;

@@ -781,8 +781,6 @@ export function getCellAppearance(map, x, y, dest) {
   else if (!cell.isAnyKindOfVisible()) {
     dest.bg.mix(COLORS.black, 30);
     dest.fg.mix(COLORS.black, 30);
-    // Color.bake(dest.bg);
-    // Color.bake(dest.fg);
   }
 
   let needDistinctness = false;
