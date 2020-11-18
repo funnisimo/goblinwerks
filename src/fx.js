@@ -1,5 +1,5 @@
 
-import { grid as GRID } from './grid.js';
+import * as Grid from './grid.js';
 import * as Utils from './utils.js';
 import { sprites as SPRITES, installSprite } from './sprite.js';
 import { map as MAP } from './map.js';
@@ -426,7 +426,7 @@ class ExplosionFX extends FX {
     speed = speed || 20;
     super({ speed });
     this.map = map;
-    this.grid = GRID.alloc(map.width, map.height);
+    this.grid = Grid.alloc(map.width, map.height);
     if (fovGrid) {
       this.grid.copy(fovGrid);
     }
@@ -517,7 +517,7 @@ class ExplosionFX extends FX {
   }
 
   stop(result) {
-    this.grid = GRID.free(this.grid);
+    this.grid = Grid.free(this.grid);
     return super.stop(result);
   }
 }

@@ -3,11 +3,11 @@ import * as Color from './color.js';
 import * as Flags from './flags.js';
 import * as Utils from './utils.js';
 import { random } from './random.js';
-import { grid as Grid } from './grid.js';
+import * as Grid from './grid.js';
 import * as Frequency from './frequency.js';
 import * as Text from './text.js';
 import * as Path from './path.js';
-import { visibility as VISIBILITY } from './visibility.js';
+import * as Visibility from './visibility.js';
 import { actions as Actions } from './actions/index.js';
 import { types, make, data as DATA, config as CONFIG, ui as UI, def, ai as AI, colors as COLORS } from './gw.js';
 
@@ -385,10 +385,10 @@ export class Actor {
       let dist = Utils.distanceFromTo(this, other);
       if (dist < 2) return true;  // next to each other
 
-      const grid = GRID.alloc(map.width, map.height);
+      const grid = Grid.alloc(map.width, map.height);
       map.calcFov(grid, this.x, this.y, dist + 1);
       const result = grid[other.x][other.y];
-      GRID.free(grid);
+      Grid.free(grid);
       return result;
     }
   }
@@ -622,7 +622,7 @@ function endActorTurn(theActor, turnTime=1) {
   }
 
   if (theActor.isPlayer()) {
-    VISIBILITY.update(DATA.map, theActor.x, theActor.y);
+    Visibility.update(DATA.map, theActor.x, theActor.y);
     UI.requestUpdate(48);
   }
   else if (theActor.kind.isOrWasVisibleToPlayer(theActor, DATA.map) && theActor.turnTime) {

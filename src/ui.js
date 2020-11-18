@@ -6,7 +6,7 @@ import { sprite as SPRITE } from './sprite.js';
 import * as Color from './color.js';
 import * as Text from './text.js';
 import * as Path from './path.js';
-import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, make, sidebar as SIDEBAR, config as CONFIG, colors as COLORS } from './gw.js';
+import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, make, sidebar as SIDEBAR, config as CONFIG, colors as COLORS, commands as COMMANDS } from './gw.js';
 
 ui.debug = Utils.NOOP;
 
@@ -14,6 +14,8 @@ let SHOW_FLAVOR = false;
 let SHOW_SIDEBAR = false;
 let SHOW_CURSOR = false;
 let SHOW_PATH = false;
+let CLICK_MOVE = false;
+
 
 let UI_BUFFER = null;
 let UI_BASE = null;
@@ -65,6 +67,7 @@ export function start(opts={}) {
     loop: true,
     autoCenter: false,
     showPath: false,
+    clickToMove: false,
   });
 
   if (!ui.canvas && (opts.canvas !== false)) {
@@ -150,6 +153,7 @@ export function start(opts={}) {
 	VIEWPORT.setup({ x: viewX, y: viewY, w: viewW, h: viewH, followPlayer: opts.followPlayer, autoCenter: opts.autoCenter });
 	SHOW_CURSOR = opts.cursor;
   SHOW_PATH = opts.showPath;
+  CLICK_MOVE = opts.clickToMove;
 
   if (opts.loop) {
     RUNNING = true;
@@ -181,8 +185,8 @@ export async function dispatchEvent(ev) {
 			return true;
 		}
     if (VIEWPORT.bounds && VIEWPORT.bounds.containsXY(ev.x, ev.y)) {
-      // let x0 = VIEWPORT.bounds.toInnerX(ev.x);
-      // let y0 = VIEWPORT.bounds.toInnerY(ev.y);
+      ev.mapX = VIEWPORT.bounds.toInnerX(ev.x);
+      ev.mapY = VIEWPORT.bounds.toInnerY(ev.y);
       // if (CONFIG.followPlayer && DATA.player && (DATA.player.x >= 0)) {
       //   const offsetX = DATA.player.x - VIEWPORT.bounds.centerX();
       //   const offsetY = DATA.player.y - VIEWPORT.bounds.centerY();
@@ -191,9 +195,12 @@ export async function dispatchEvent(ev) {
       // }
       // ev.mapX = x0;
       // ev.mapY = y0;
+      return await COMMANDS.travel(ev);
     }
 	}
 	else if (ev.type === def.MOUSEMOVE) {
+    MOUSE.x = ev.x;
+    MOUSE.y = ev.y;
 		if (VIEWPORT.bounds && VIEWPORT.bounds.containsXY(ev.x, ev.y)) {
       let x0 = VIEWPORT.bounds.toInnerX(ev.x);
       let y0 = VIEWPORT.bounds.toInnerY(ev.y);
@@ -216,7 +223,7 @@ export async function dispatchEvent(ev) {
       SIDEBAR.highlightRow(ev.y);
     }
 		else {
-			ui.clearCursor();
+      ui.clearCursor();
       SIDEBAR.focus(-1, -1);
 		}
 		if (FLAVOR.bounds && FLAVOR.bounds.containsXY(ev.x, ev.y)) {
@@ -236,8 +243,18 @@ export async function dispatchEvent(ev) {
         return true;
       }
       else if (ev.key === 'Escape') {
-        SIDEBAR.focus(-1, -1);
-        ui.clearCursor();
+        if (VIEWPORT.bounds.containsXY(MOUSE.x, MOUSE.y)) {
+          const x = VIEWPORT.bounds.toInnerX(MOUSE.x);
+          const y = VIEWPORT.bounds.toInnerY(MOUSE.y);
+          SIDEBAR.focus(x, y);
+          DATA.player.travelDest = null;  // stop traveling
+          ui.setCursor(x, y, true);
+        }
+        else {
+          SIDEBAR.focus(-1, -1);
+          DATA.player.travelDest = null;  // stop traveling
+          ui.clearCursor();
+        }
       }
     }
   }
@@ -330,11 +347,13 @@ var CURSOR = ui.cursor = {
 	y: -1,
 }
 
-function setCursor(x, y) {
+function setCursor(x, y, force) {
   const map = DATA.map;
   if (!map) return false;
 
-  if (CURSOR.x == x && CURSOR.y == y) return false;
+  if (!force) {
+    if (CURSOR.x == x && CURSOR.y == y) return false;
+  }
 
   // ui.debug('set cursor', x, y);
 
@@ -390,6 +409,7 @@ function updatePathToCursor() {
   const map = DATA.map;
 
   if (!SHOW_PATH) return;
+  if (player.travelDest) return;  // do not update path if we are traveling...
 
   map.clearFlags(0, Flags.Cell.IS_IN_PATH);
 
@@ -398,16 +418,30 @@ function updatePathToCursor() {
   const mapToMe = player.updateMapToMe();
   const path = Path.getPath(map, mapToMe, CURSOR.x, CURSOR.y, player);
 
+  ui.updatePath(path);
+}
+
+ui.updatePathToCursor = updatePathToCursor;
+
+
+function updatePath(path) {
+  const player = DATA.player;
+  const map = DATA.map;
+
+  if (!SHOW_PATH) return;
+  map.clearFlags(0, Flags.Cell.IS_IN_PATH);
+
   if (path) {
     for(let pos of path) {
-      map.setCellFlag(pos[0], pos[1], Flags.Cell.IS_IN_PATH);
+      if (pos[0] != player.x || pos[1] != player.y) {
+        map.setCellFlag(pos[0], pos[1], Flags.Cell.IS_IN_PATH);
+      }
     }
   }
 
 }
 
-ui.updatePathToCursor = updatePathToCursor;
-
+ui.updatePath = updatePath;
 
 // FUNCS
 

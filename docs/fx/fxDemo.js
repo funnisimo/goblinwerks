@@ -231,7 +231,7 @@ function makeMap() {
 	MAP.nullify();
 	GW.dungeon.start(MAP);
 
-	MAP.cells.forRect(2, 2, 76, 26, (c) => c.setTile('FLOOR'));
+	MAP.cells.forRect(2, 2, 76, 26, (c,x,y) => MAP.setTile(x, y, 'FLOOR'));
 	// TODO - GW.dungeon.digRoom({ digger: 'HUGE_ROOM', center: true, placeDoor: false });
 
 	let lakeCount = GW.random.number(5);

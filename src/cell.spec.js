@@ -30,12 +30,12 @@ describe('CellMemory', () => {
     delete GW.tiles.BLUE_LIQUID;
   });
 
-  test('setTile(0) - can clear tile', () => {
+  test('_setTile(0) - can clear tile', () => {
     const c = GW.make.cell();
-    c.setTile('FLOOR');
+    c._setTile('FLOOR');
     expect(c.ground).toEqual('FLOOR');
 
-    c.setTile(0);
+    c._setTile(0);
     expect(c.ground).toEqual(0);
   });
 
@@ -59,7 +59,7 @@ describe('CellMemory', () => {
     expect(a.tileFlags).toEqual(2);
   });
 
-  test('setTile', () => {
+  test('_setTile', () => {
     const c = GW.make.cell();
 
     expect(GW.tiles.FLOOR.priority).toBeLessThan(GW.tiles.DOOR.priority);
@@ -68,13 +68,13 @@ describe('CellMemory', () => {
     const wall = 'WALL';
 
     expect(c.ground).toEqual(0);
-    c.setTile(floor);
+    c._setTile(floor);
     expect(c.ground).toEqual(floor);
-    c.setTile(wall);
+    c._setTile(wall);
     expect(c.ground).toEqual(wall);
-    // c.setTile(floor, true); // checks priority
+    // c._setTile(floor, true); // checks priority
     // expect(c.ground).toEqual(wall);  // 2 has better priority
-    c.setTile(floor);
+    c._setTile(floor);
     expect(c.ground).toEqual(floor);  // ignored priority
   });
 
@@ -92,7 +92,7 @@ describe('CellMemory', () => {
   test('can support many layers', () => {
 
     const c = GW.make.cell();
-    c.setTile('FLOOR');
+    c._setTile('FLOOR');
 
     const a = GW.make.sprite('@', 'white', 'blue');
     const b = GW.make.sprite(null, null, 'red');
@@ -114,7 +114,7 @@ describe('CellMemory', () => {
   test.only('layers will blend opacities', () => {
     GW.cosmetic.seed(12345);
     const c = GW.make.cell();
-    c.setTile('FLOOR');
+    c._setTile('FLOOR');
 
     debugger;
 
@@ -152,7 +152,7 @@ describe('CellMemory', () => {
     GW.cosmetic.seed(12345);
     const FLOOR = GW.tiles.TEST_FLOOR.sprite;
     const c = GW.make.cell();
-    c.setTile('TEST_FLOOR');
+    c._setTile('TEST_FLOOR');
 
     const app = GW.make.sprite();
     GW.cell.getAppearance(c, app);
@@ -160,7 +160,7 @@ describe('CellMemory', () => {
     expect(app.bg).toEqualColor([20,20,20,0,0,0,0]);
     expect(app.fg).toEqualColor([80,80,80,0,0,0,0]);
 
-    c.setTile('RED_LIQUID', 100);
+    c._setTile('RED_LIQUID', 100);
     expect(c.liquid).toEqual('RED_LIQUID');
     expect(c.liquidVolume).toEqual(100);
     GW.cell.getAppearance(c, app);
@@ -176,7 +176,7 @@ describe('CellMemory', () => {
     expect(app.bg).toEqualColor([20,20,20,0,0,0,0]);
     expect(app.fg).toEqualColor([80,80,80,0,0,0,0]);
 
-    c.setTile('RED_LIQUID', 50);
+    c._setTile('RED_LIQUID', 50);
     expect(c.liquid).toEqual('RED_LIQUID');
     expect(c.liquidVolume).toEqual(50);
     GW.cell.getAppearance(c, app);
@@ -184,7 +184,7 @@ describe('CellMemory', () => {
     expect(app.bg).toEqualColor([60,10,10,0,0,0,0]);
     expect(app.fg).toEqualColor([80,80,80,0,0,0,0]);
 
-    c.setTile('BLUE_LIQUID', 10);
+    c._setTile('BLUE_LIQUID', 10);
     expect(c.liquid).toEqual('BLUE_LIQUID');
     expect(c.liquidVolume).toEqual(10);
     GW.cell.getAppearance(c, app);
@@ -198,7 +198,7 @@ describe('CellMemory', () => {
     GW.cosmetic.seed(12345);
     const FLOOR = GW.tiles.TEST_FLOOR.sprite;
     const c = GW.make.cell();
-    c.setTile('TEST_FLOOR');
+    c._setTile('TEST_FLOOR');
 
     const app = GW.make.sprite();
     GW.cell.getAppearance(c, app);
@@ -206,19 +206,19 @@ describe('CellMemory', () => {
     expect(app.bg).toEqualColor([20,20,20,0,0,0,0]);
     expect(app.fg).toEqualColor([80,80,80,0,0,0,0]);
 
-    c.setTile('RED_LIQUID', 10);
+    c._setTile('RED_LIQUID', 10);
     expect(c.liquid).toEqual('RED_LIQUID');
     expect(c.liquidVolume).toEqual(10);
 
-    c.setTile('RED_LIQUID', 10);
+    c._setTile('RED_LIQUID', 10);
     expect(c.liquid).toEqual('RED_LIQUID');
     expect(c.liquidVolume).toEqual(20);
 
-    c.setTile('RED_LIQUID', 10);
+    c._setTile('RED_LIQUID', 10);
     expect(c.liquid).toEqual('RED_LIQUID');
     expect(c.liquidVolume).toEqual(30);
 
-    c.setTile('BLUE_LIQUID', 10);
+    c._setTile('BLUE_LIQUID', 10);
     expect(c.liquid).toEqual('BLUE_LIQUID');
     expect(c.liquidVolume).toEqual(10);
 

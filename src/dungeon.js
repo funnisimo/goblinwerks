@@ -1,5 +1,5 @@
 
-import { grid as GRID } from './grid.js';
+import * as Grid from './grid.js';
 import { random } from './random.js';
 import * as Utils from './utils.js';
 import * as Path from './path.js';
@@ -76,7 +76,7 @@ export function digRoom(opts={}) {
     locs = null;
   }
 
-  const grid = GRID.alloc(SITE.width, SITE.height);
+  const grid = Grid.alloc(SITE.width, SITE.height);
 
   let result = false;
   let tries = opts.tries || 10;
@@ -108,7 +108,7 @@ export function digRoom(opts={}) {
 
   }
 
-  GRID.free(grid);
+  Grid.free(grid);
   return result;
 }
 
@@ -152,7 +152,7 @@ function attachRoomToDungeon(roomGrid, doorSites, opts={}) {
       const y = LOCS[i] % SITE.height;
 
       if (!SITE.cell(x, y).isNull()) continue;
-      const dir = GRID.directionOfDoorSite(SITE.cells, x, y, (c) => (c.hasTile(FLOOR) && !c.isLiquid()) );
+      const dir = Grid.directionOfDoorSite(SITE.cells, x, y, (c) => (c.hasTile(FLOOR) && !c.isLiquid()) );
       if (dir != def.NO_DIRECTION) {
         const oppDir = (dir + 2) % 4;
 
@@ -165,7 +165,7 @@ function attachRoomToDungeon(roomGrid, doorSites, opts={}) {
           dungeon.debug("- attachRoom: ", x, y, oppDir);
 
           // Room fits here.
-          GRID.offsetZip(SITE.cells, roomGrid, offsetX, offsetY, (d, s, i, j) => d.setTile(opts.tile || FLOOR) );
+          Grid.offsetZip(SITE.cells, roomGrid, offsetX, offsetY, (d, s, i, j) => SITE.setTile(i, j, opts.tile || FLOOR) );
           if (opts.door || (opts.placeDoor !== false)) {
             SITE.setTile(x, y, opts.door || DOOR); // Door site.
           }
@@ -195,11 +195,11 @@ function attachRoomAtXY(roomGrid, xy, doors, opts={}) {
 
       if (roomGrid[x][y]) continue;
 
-      const dir = GRID.directionOfDoorSite(roomGrid, x, y);
+      const dir = Grid.directionOfDoorSite(roomGrid, x, y);
       if (dir != def.NO_DIRECTION) {
         const d = DIRS[dir];
         if (roomAttachesAt(roomGrid, xy[0] - x, xy[1] - y)) {
-          GRID.offsetZip(SITE.cells, roomGrid, xy[0] - x, xy[1] - y, (d, s, i, j) => d.setTile(opts.tile || FLOOR) );
+          Grid.offsetZip(SITE.cells, roomGrid, xy[0] - x, xy[1] - y, (d, s, i, j) => SITE.setTile(i, j, opts.tile || FLOOR) );
           if (opts.door || (opts.placeDoor !== false)) {
             SITE.setTile(xy[0], xy[1], opts.door || DOOR); // Door site.
           }
@@ -236,7 +236,7 @@ function insertRoomAtXY(x, y, roomGrid, doorSites, opts={}) {
       // Room fits here.
       const offX = x - doorSites[oppDir][0];
       const offY = y - doorSites[oppDir][1];
-      GRID.offsetZip(SITE.cells, roomGrid, offX, offY, (d, s, i, j) => d.setTile(opts.tile || FLOOR) );
+      Grid.offsetZip(SITE.cells, roomGrid, offX, offY, (d, s, i, j) => SITE.setTile(i, j, opts.tile || FLOOR) );
       if (opts.door || (opts.placeDoor !== false)) {
         SITE.setTile(x, y, opts.door || DOOR); // Door site.
       }
@@ -284,12 +284,12 @@ export function digLake(opts={}) {
   maxCount = 1; // opts.count || tries;
   canDisrupt = opts.canDisrupt || false;
 
-  const lakeGrid = GRID.alloc(SITE.width, SITE.height, 0);
+  const lakeGrid = Grid.alloc(SITE.width, SITE.height, 0);
 
   for (; lakeMaxHeight >= lakeMinSize && lakeMaxWidth >= lakeMinSize && count < maxCount; lakeMaxHeight--, lakeMaxWidth -= 2) { // lake generations
 
     lakeGrid.fill(NOTHING);
-    const bounds = GRID.fillBlob(lakeGrid, 5, 4, 4, lakeMaxWidth, lakeMaxHeight, 55, "ffffftttt", "ffffttttt");
+    const bounds = Grid.fillBlob(lakeGrid, 5, 4, 4, lakeMaxWidth, lakeMaxHeight, 55, "ffffftttt", "ffffttttt");
 
     for (k=0; k < tries && count < maxCount; k++) { // placement attempts
         // propose a position for the top-left of the lakeGrid in the dungeon
@@ -314,7 +314,7 @@ export function digLake(opts={}) {
       }
     }
   }
-  GRID.free(lakeGrid);
+  Grid.free(lakeGrid);
   return count;
 
 }
@@ -337,8 +337,8 @@ export function addLoops(minimumPathingDistance, maxConnectionLength) {
     maxConnectionLength = maxConnectionLength || 1; // by default only break walls down
 
     const siteGrid = SITE.cells;
-    const pathGrid = GRID.alloc(SITE.width, SITE.height);
-    const costGrid = GRID.alloc(SITE.width, SITE.height);
+    const pathGrid = Grid.alloc(SITE.width, SITE.height);
+    const costGrid = Grid.alloc(SITE.width, SITE.height);
 
     const dirCoords = [[1, 0], [0, 1]];
 
@@ -431,8 +431,8 @@ export function addLoops(minimumPathingDistance, maxConnectionLength) {
             }
         }
     }
-    GRID.free(pathGrid);
-    GRID.free(costGrid);
+    Grid.free(pathGrid);
+    Grid.free(costGrid);
 }
 
 dungeon.addLoops = addLoops;
@@ -454,8 +454,8 @@ export function addBridges(minimumPathingDistance, maxConnectionLength) {
     maxConnectionLength = maxConnectionLength || 1; // by default only break walls down
 
     const siteGrid = SITE.cells;
-    const pathGrid = GRID.alloc(SITE.width, SITE.height);
-    const costGrid = GRID.alloc(SITE.width, SITE.height);
+    const pathGrid = Grid.alloc(SITE.width, SITE.height);
+    const costGrid = Grid.alloc(SITE.width, SITE.height);
 
     const dirCoords = [[1, 0], [0, 1]];
 
@@ -515,8 +515,8 @@ export function addBridges(minimumPathingDistance, maxConnectionLength) {
             }
         }
     }
-    GRID.free(pathGrid);
-    GRID.free(costGrid);
+    Grid.free(pathGrid);
+    Grid.free(costGrid);
 }
 
 dungeon.addBridges = addBridges;
@@ -597,7 +597,7 @@ function finishWalls(map) {
   map = map || SITE;
   map.forEach( (cell, i, j) => {
     if (cell.isNull()) {
-      cell.setTile(WALL);
+      map.setTile(i, j, WALL);
     }
   });
 }

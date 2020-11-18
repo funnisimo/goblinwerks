@@ -11,7 +11,7 @@ import { player as PLAYER } from './player.js';
 import { scheduler } from './scheduler.js';
 import * as Text from './text.js';
 import { sprite as SPRITE } from './sprite.js';
-import { visibility as VISIBILITY } from './visibility.js';
+import * as Visibility from './visibility.js';
 
 import { viewport as VIEWPORT, data as DATA, maps as MAPS, types, fx as FX, ui as UI, message as MSG, make, config as CONFIG, flavor as FLAVOR, colors as COLORS } from './gw.js';
 
@@ -110,7 +110,7 @@ export async function startMap(map, loc='start') {
     DATA.map.removeActor(DATA.player);
   }
 
-  VISIBILITY.initMap(map);
+  Visibility.initMap(map);
   DATA.map = map;
 
   if (DATA.player) {
@@ -143,11 +143,7 @@ export async function startMap(map, loc='start') {
 
     DATA.map.addActor(startLoc[0], startLoc[1], DATA.player);
 
-    VISIBILITY.update(map, DATA.player.x, DATA.player.y);
-  }
-
-  if (!CONFIG.fov) {
-    VISIBILITY.revealMap(map);
+    Visibility.update(map, DATA.player.x, DATA.player.y);
   }
 
   Light.updateLighting(map);
@@ -172,7 +168,7 @@ export async function startMap(map, loc='start') {
     scheduler.push( updateEnvironment, map.config.tick );
   }
 
-  await Events.emit('START_MAP', map);
+  await Events.emit('MAP_START', map);
 
 }
 
@@ -255,7 +251,7 @@ export async function updateEnvironment() {
   if (!map) return 0;
 
   await map.tick();
-  VISIBILITY.update(map, DATA.player.x, DATA.player.y);
+  Visibility.update(map, DATA.player.x, DATA.player.y);
 
   UI.requestUpdate();
 

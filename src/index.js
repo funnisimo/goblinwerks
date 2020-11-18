@@ -9,7 +9,7 @@ export { random, cosmetic } from './random.js';
 export * as color from './color.js';
 export * as text from './text.js';
 export { sprite, sprites } from './sprite.js';
-export { grid } from './grid.js';
+export * as grid from './grid.js';
 import './buffer.js';
 export { canvas } from './canvas.js';
 export * as frequency from './frequency.js';
@@ -36,7 +36,7 @@ import './sidebar.js';
 import './flavor.js';
 import './table.js';
 import './ui.js';
-export { visibility } from './visibility.js';
+export * as visibility from './visibility.js';
 
 import './actions/moveDir.js';
 import './actions/bash.js';
@@ -51,6 +51,7 @@ import './actions/push.js';
 import './actions/use.js';
 import './actions/equip.js';
 import './actions/talk.js';
+import './actions/travel.js';
 export { actions } from './actions/index.js';
 
 import './ai.js';

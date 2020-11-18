@@ -2,7 +2,7 @@
 import * as Color from './color.js';
 import * as Flags from './flags.js';
 import * as Utils from './utils.js';
-import { grid as GRID } from './grid.js';
+import * as Grid from './grid.js';
 import * as Text from './text.js';
 import { cell as CELL } from './cell.js';
 import { map as MAP } from './map.js';
@@ -65,7 +65,7 @@ function refreshSidebar(map) {
 
 	// Gather sidebar entries
 	const entries = [];
-	const doneCells = GRID.alloc();
+	const doneCells = Grid.alloc();
   let same = true;
 
 	if (DATA.player) {
@@ -150,7 +150,7 @@ function refreshSidebar(map) {
 		}
 	});
 
-	GRID.free(doneCells);
+	Grid.free(doneCells);
 
 	// sort entries
 	sortSidebarItems(entries);

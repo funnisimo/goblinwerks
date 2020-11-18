@@ -1,5 +1,5 @@
 
-import { grid as GRID } from '../grid.js';
+import * as Grid from '../grid.js';
 import * as Path from '../path.js';
 import * as Utils from '../utils.js';
 import { data as DATA, def } from '../gw.js';
@@ -31,14 +31,14 @@ export async function moveToward(actor, x, y, ctx) {
 
   let travelGrid = actor.travelGrid;
   if (!travelGrid) {
-    travelGrid = actor.travelGrid = GRID.alloc(map.width, map.height);
+    travelGrid = actor.travelGrid = Grid.alloc(map.width, map.height);
     travelGrid.x = travelGrid.y = -1;
   }
   if (travelGrid.x != x || travelGrid.y != y) {
-    const costGrid = GRID.alloc(map.width, map.height);
+    const costGrid = Grid.alloc(map.width, map.height);
     actor.fillCostGrid(map, costGrid);
     Path.calculateDistances(travelGrid, x, y, costGrid, true);
-    GRID.free(costGrid);
+    Grid.free(costGrid);
   }
 
   const dir = Path.nextStep(map, travelGrid, actor.x, actor.y, actor, true);

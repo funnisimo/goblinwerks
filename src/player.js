@@ -41,11 +41,16 @@ export async function takeTurn() {
   await startActorTurn(PLAYER);
 
   while(!PLAYER.turnTime) {
-    const ev = await IO.nextEvent(1000);
-    if (!await UI.dispatchEvent(ev)) {
-      await IO.dispatchEvent(ev);
+    const ev = await IO.nextEvent(PLAYER.travelDest ? 0 : 1000);
+    if (!ev) {
+      await GW.actions.travel(PLAYER);
     }
-    await UI.updateIfRequested();
+    else {
+      if (!await UI.dispatchEvent(ev)) {
+        await IO.dispatchEvent(ev);
+      }
+      await UI.updateIfRequested();
+    }
     if (DATA.gameHasEnded) {
       return 0;
     }

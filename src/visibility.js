@@ -1,10 +1,9 @@
 
 
-import { grid as GRID } from './grid.js';
+import * as Grid from './grid.js';
 import * as Flags from './flags.js';
 import { data as DATA, config as CONFIG } from './gw.js';
 
-export var visibility = {};
 
 
 function demoteCellVisibility(cell, i, j, map) {
@@ -14,9 +13,6 @@ function demoteCellVisibility(cell, i, j, map) {
     cell.flags |= Flags.Cell.WAS_VISIBLE;
   }
 }
-
-
-
 
 function promoteCellVisibility(cell, i, j, map) {
 
@@ -80,30 +76,34 @@ function promoteCellVisibility(cell, i, j, map) {
 }
 
 
-function visibilityInitMap(map) {
-  if (!CONFIG.fov) return;
+export function initMap(map) {
+  if (!CONFIG.fov) {
+    map.forEach( (cell) => cell.flags |= Flags.Cell.REVEALED );
+    return;
+  }
 
   map.clearFlags(0, Flags.Cell.IS_WAS_ANY_KIND_OF_VISIBLE);
 }
 
-visibility.initMap = visibilityInitMap;
 
-
-function updateVisibility(map, x, y) {
+export function update(map, x, y) {
   if (!CONFIG.fov) return;
+
+  if (!(map.flags & Flags.Map.MAP_FOV_CHANGED)) return;
+  map.flags &= ~Flags.Map.MAP_FOV_CHANGED;
 
   map.forEach( demoteCellVisibility );
   map.clearFlags(0, Flags.Cell.IN_FOV);
 
   // Calculate player's field of view (distinct from what is visible, as lighting hasn't been done yet).
-  const grid = GRID.alloc(map.width, map.height, 0);
+  const grid = Grid.alloc(map.width, map.height, 0);
   map.calcFov(grid, x, y);
   grid.forEach( (v, i, j) => {
     if (v) {
       map.setCellFlags(i, j, Flags.Cell.IN_FOV);
     }
   });
-  GRID.free(grid);
+  Grid.free(grid);
 
 	map.setCellFlags(x, y, Flags.Cell.IN_FOV | Flags.Cell.VISIBLE);
 
@@ -135,11 +135,3 @@ function updateVisibility(map, x, y) {
 	// }
 
 }
-
-visibility.update = updateVisibility;
-
-function revealMap(map) {
-  map.forEach( (cell) => cell.flags |= Flags.Cell.REVEALED );
-}
-
-visibility.revealMap = revealMap;

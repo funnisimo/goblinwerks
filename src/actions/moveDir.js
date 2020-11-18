@@ -140,6 +140,10 @@ export async function moveDir(actor, dir, opts={}) {
     return false;
   }
 
+  if (actor.isPlayer()) {
+    map.clearCellFlags(actor.x, actor.y, Flags.Cell.IS_IN_PATH);
+  }
+
   if (actor.grabbed && !isPush) {
     map.removeItem(actor.grabbed);
     map.addItem(actor.grabbed.x + dir[0], actor.grabbed.y + dir[1], actor.grabbed);
