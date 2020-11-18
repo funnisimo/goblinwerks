@@ -6,6 +6,7 @@ import { random } from './random.js';
 import { grid as Grid } from './grid.js';
 import * as Frequency from './frequency.js';
 import * as Text from './text.js';
+import * as Path from './path.js';
 import { visibility as VISIBILITY } from './visibility.js';
 import { actions as Actions } from './actions/index.js';
 import { types, make, data as DATA, config as CONFIG, ui as UI, def, ai as AI, colors as COLORS } from './gw.js';
@@ -293,7 +294,7 @@ export class Actor {
   turnEnded() { return this.flags & Flags.Actor.AF_TURN_ENDED; }
 
   isPlayer() { return this === DATA.player; }
-  isDead() { return this.current.health <= 0; }
+  isDead() { return (this.current.health <= 0) || (this.flags & Flags.Actor.AF_DYING); }
   isInanimate() { return this.kind.flags & Flags.ActorKind.AK_INANIMATE; }
   isInvulnerable() { return this.kind.flags & Flags.ActorKind.AK_INVULNERABLE; }
 
@@ -309,6 +310,15 @@ export class Actor {
     return this.kind.actionFlags & flag;
   }
 
+  changed(v) {
+    if (v) {
+      this.flags |= Flags.Actor.AF_CHANGED;
+    }
+    else if (v !== undefined) {
+      this.flags &= ~Flags.Actor.AF_CHANGED;
+    }
+    return (this.flags & Flags.Actor.AF_CHANGED);
+  }
 
   async bumpBy(actor, ctx) {
 
@@ -343,6 +353,21 @@ export class Actor {
     }
     actor.endTurn(this, turnTime);
 	}
+
+  kill() {
+    this.flags |= Flags.Actor.AF_DYING;
+    this.changed(true);
+    if (this.mapToMe) {
+      Grid.free(this.mapToMe);
+      this.mapToMe = null;
+    }
+    if (this.travelGrid) {
+      Grid.free(this.travelGrid);
+      this.travelGrid = null;
+    }
+  }
+
+  // MOVEMENT/VISION
 
   canDirectlySee(other, map) {
     map = map || DATA.map;
@@ -384,6 +409,7 @@ export class Actor {
     const avoidedTileFlags = this.kind.avoidedTileFlags(this);
 
     map.fillCostGrid(grid, (cell, x, y) => {
+      if (this.isPlayer() && !cell.isRevealed()) return def.PDS_OBSTRUCTION;
       if (cell.hasTileFlag(forbiddenTileFlags)) return def.PDS_FORBIDDEN;
       if (cell.hasTileFlag(avoidedTileFlags)) return def.PDS_AVOIDED;
       if (cell.flags & avoidedCellFlags) return def.PDS_AVOIDED;
@@ -391,15 +417,22 @@ export class Actor {
     });
   }
 
-  changed(v) {
-    if (v) {
-      this.flags |= Flags.Actor.AF_CHANGED;
+  updateMapToMe() {
+    const map = DATA.map;
+    let mapToMe = this.mapToMe;
+    if (!mapToMe) {
+      mapToMe = this.mapToMe = Grid.alloc(map.width, map.height);
+      mapToMe.x = mapToMe.y = -1;
     }
-    else if (v !== undefined) {
-      this.flags &= ~Flags.Actor.AF_CHANGED;
+    if (mapToMe.x != this.x || mapToMe.y != this.y) {
+      const costGrid = Grid.alloc(map.width, map.height);
+      this.fillCostGrid(map, costGrid);
+      Path.calculateDistances(mapToMe, this.x, this.y, costGrid, true);
+      Grid.free(costGrid);
     }
-    return (this.flags & Flags.Actor.AF_CHANGED);
+    return mapToMe;
   }
+
 
   // combat helpers
   calcDamageTo(defender, attackInfo, ctx) {

@@ -2,7 +2,7 @@
 import { grid as GRID } from './grid.js';
 import { random } from './random.js';
 import * as Utils from './utils.js';
-import { path as PATH } from './path.js';
+import * as Path from './path.js';
 import * as Flags from './flags.js';
 import { map as MAP } from './map.js';
 import { tile as TILE } from './tile.js';
@@ -408,7 +408,7 @@ export function addLoops(minimumPathingDistance, maxConnectionLength) {
                 }
 
                 if (j < maxConnectionLength) {
-                  PATH.calculateDistances(pathGrid, startX, startY, costGrid, false);
+                  Path.calculateDistances(pathGrid, startX, startY, costGrid, false);
                   // pathGrid.fill(30000);
                   // pathGrid[startX][startY] = 0;
                   // dijkstraScan(pathGrid, costGrid, false);
@@ -489,7 +489,7 @@ export function addBridges(minimumPathingDistance, maxConnectionLength) {
                 }
 
                 if ((!SITE.isNull(newX, newY)) && SITE.canBePassed(newX, newY) && (j < maxConnectionLength)) {
-                  PATH.calculateDistances(pathGrid, newX, newY, costGrid, false);
+                  Path.calculateDistances(pathGrid, newX, newY, costGrid, false);
                   // pathGrid.fill(30000);
                   // pathGrid[newX][newY] = 0;
                   // dijkstraScan(pathGrid, costGrid, false);

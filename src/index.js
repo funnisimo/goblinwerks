@@ -14,7 +14,7 @@ import './buffer.js';
 export { canvas } from './canvas.js';
 export * as frequency from './frequency.js';
 export { io } from './io.js';
-export { path } from './path.js';
+export * as path from './path.js';
 export { digger, diggers } from './digger.js';
 export { dungeon } from './dungeon.js';
 export * as tileEvent from './tileEvent.js';

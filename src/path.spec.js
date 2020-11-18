@@ -31,4 +31,23 @@ describe('GW.path', () => {
     expect(distGrid[4][1]).toFloatEqual(6.4142);  // have to go around stuff
     expect(distGrid[4][9]).toEqual(30000);
   });
+
+
+  test('can calculate a path', () => {
+    const map = GW.make.map(10, 10, { tile: 'FLOOR' });
+    const player = GW.make.player({ name: 'hero' });
+
+    map.addActor(2, 2, player);
+
+    expect(player.mapToMe).not.toBeDefined();
+    player.updateMapToMe();
+    expect(player.mapToMe).toBeDefined();
+    expect(player.mapToMe.x).toEqual(player.x);
+    expect(player.mapToMe.y).toEqual(player.y);
+
+    const path = GW.path.getPath(map, player.mapToMe, 5, 7, player);
+    console.log(path);
+    expect(path.length).toEqual(5);
+
+  });
 });

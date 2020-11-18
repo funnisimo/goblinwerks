@@ -174,6 +174,10 @@ export async function moveDir(actor, dir, opts={}) {
 
   Actions.debug('moveComplete');
 
+  if (actor.isPlayer()) {
+    GW.ui.updatePathToCursor();
+  }
+
   GW.ui.requestUpdate();
   actor.endTurn();
   return true;

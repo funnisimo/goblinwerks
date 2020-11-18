@@ -5,6 +5,7 @@ import * as Utils from './utils.js';
 import { sprite as SPRITE } from './sprite.js';
 import * as Color from './color.js';
 import * as Text from './text.js';
+import * as Path from './path.js';
 import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, make, sidebar as SIDEBAR, config as CONFIG, colors as COLORS } from './gw.js';
 
 ui.debug = Utils.NOOP;
@@ -12,6 +13,7 @@ ui.debug = Utils.NOOP;
 let SHOW_FLAVOR = false;
 let SHOW_SIDEBAR = false;
 let SHOW_CURSOR = false;
+let SHOW_PATH = false;
 
 let UI_BUFFER = null;
 let UI_BASE = null;
@@ -62,6 +64,7 @@ export function start(opts={}) {
     followPlayer: false,
     loop: true,
     autoCenter: false,
+    showPath: false,
   });
 
   if (!ui.canvas && (opts.canvas !== false)) {
@@ -146,6 +149,7 @@ export function start(opts={}) {
 
 	VIEWPORT.setup({ x: viewX, y: viewY, w: viewW, h: viewH, followPlayer: opts.followPlayer, autoCenter: opts.autoCenter });
 	SHOW_CURSOR = opts.cursor;
+  SHOW_PATH = opts.showPath;
 
   if (opts.loop) {
     RUNNING = true;
@@ -201,9 +205,8 @@ export async function dispatchEvent(ev) {
       // }
       // ev.mapX = x0;
       // ev.mapY = y0;
-			if (SHOW_CURSOR) {
-				ui.setCursor(x0, y0);
-			}
+
+			ui.setCursor(x0, y0);
       if (SIDEBAR.bounds) {
         SIDEBAR.focus(x0, y0);
       }
@@ -343,9 +346,12 @@ function setCursor(x, y) {
   CURSOR.y = y;
 
   if (map.hasXY(x, y)) {
-    // if (!DATA.player || DATA.player.x !== x || DATA.player.y !== y ) {
+    if (SHOW_CURSOR) {
       map.setCellFlags(CURSOR.x, CURSOR.y, Flags.Cell.IS_CURSOR | Flags.Cell.NEEDS_REDRAW);
-    // }
+    }
+    if (SHOW_PATH) {
+      ui.updatePathToCursor();
+    }
 
     // if (!GW.player.isMoving()) {
     //   showPathFromPlayerTo(x, y);
@@ -378,6 +384,29 @@ function clearCursor() {
 
 ui.clearCursor = clearCursor;
 
+
+function updatePathToCursor() {
+  const player = DATA.player;
+  const map = DATA.map;
+
+  if (!SHOW_PATH) return;
+
+  map.clearFlags(0, Flags.Cell.IS_IN_PATH);
+
+  if (CURSOR.x == player.x && CURSOR.y == player.y) return;
+
+  const mapToMe = player.updateMapToMe();
+  const path = Path.getPath(map, mapToMe, CURSOR.x, CURSOR.y, player);
+
+  if (path) {
+    for(let pos of path) {
+      map.setCellFlag(pos[0], pos[1], Flags.Cell.IS_IN_PATH);
+    }
+  }
+
+}
+
+ui.updatePathToCursor = updatePathToCursor;
 
 
 // FUNCS

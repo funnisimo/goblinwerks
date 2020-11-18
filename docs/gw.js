@@ -4514,7 +4514,8 @@
 
   io.loop = loop;
 
-  var PATH = {};
+  // var PATH = {};
+  // export { PATH as path };
 
 
   const PDS_FORBIDDEN   = def.PDS_FORBIDDEN   = -1;
@@ -4757,7 +4758,6 @@
   	batchOutput(DIJKSTRA_MAP, distanceMap);
   }
 
-  PATH.dijkstraScan = dijkstraScan;
 
   //
   // function populateGenericCostMap(costMap, map) {
@@ -4838,7 +4838,6 @@
   	distanceMap.y = destinationY;
   }
 
-  PATH.calculateDistances = calculateDistances;
 
   // function pathingDistance(x1, y1, x2, y2, blockingTerrainFlags, actor) {
   // 	let retval;
@@ -4868,73 +4867,127 @@
 
 
 
+  // Returns null if there are no beneficial moves.
+  // If preferDiagonals is true, we will prefer diagonal moves.
+  // Always rolls downhill on the distance map.
+  // If monst is provided, do not return a direction pointing to
+  // a cell that the monster avoids.
+  function nextStep( map, distanceMap, x, y, traveler, useDiagonals) {
+  	let newX, newY, bestScore;
+    let dir, bestDir;
+    let blocker;	// creature *
+    let blocked;
 
-  //
-  // function getClosestValidLocationOnMap(map, x, y) {
-  // 	let i, j, dist, closestDistance, lowestMapScore;
-  // 	let locX = -1;
-  // 	let locY = -1;
-  //
-  // 	closestDistance = 10000;
-  // 	lowestMapScore = 10000;
-  // 	for (i=1; i<map.width-1; i++) {
-  // 		for (j=1; j<map.height-1; j++) {
-  // 			if (map[i][j] >= 0 && map[i][j] < PDS_NO_PATH) {
-  // 				dist = (i - x)*(i - x) + (j - y)*(j - y);
-  // 				//hiliteCell(i, j, &purple, min(dist / 2, 100), false);
-  // 				if (dist < closestDistance
-  // 					|| dist == closestDistance && map[i][j] < lowestMapScore)
-  // 				{
-  // 					locX = i;
-  // 					locY = j;
-  // 					closestDistance = dist;
-  // 					lowestMapScore = map[i][j];
-  // 				}
-  // 			}
-  // 		}
-  // 	}
-  // 	if (locX >= 0) return [locX, locY];
-  // 	return null;
-  // }
-  //
-  //
-  // // Populates path[][] with a list of coordinates starting at origin and traversing down the map. Returns the number of steps in the path.
-  // function getMonsterPathOnMap(distanceMap, originX, originY, monst) {
-  // 	let dir, x, y, steps;
-  //
-  // 	// monst = monst || GW.PLAYER;
-  // 	x = originX;
-  // 	y = originY;
-  // 	steps = 0;
-  //
-  //
-  // 	if (distanceMap[x][y] < 0 || distanceMap[x][y] >= PDS_NO_PATH) {
-  // 		const loc = getClosestValidLocationOnMap(distanceMap, x, y);
-  // 		if (loc) {
-  // 			x = loc[0];
-  // 			y = loc[1];
-  // 		}
-  // 	}
-  //
-  // 	const path = [[x, y]];
-  // 	dir = 0;
-  // 	while (dir != def.NO_DIRECTION) {
-  // 		dir = GW.path.nextStep(distanceMap, x, y, monst, true);
-  // 		if (dir != def.NO_DIRECTION) {
-  // 			x += DIRS[dir][0];
-  // 			y += DIRS[dir][1];
-  // 			// path[steps][0] = x;
-  // 			// path[steps][1] = y;
-  // 			path.push([x,y]);
-  // 			steps++;
-  //       // brogueAssert(coordinatesAreInMap(x, y));
-  // 		}
-  // 	}
-  //
-  // 	return steps ? path : null;
-  // }
+    // brogueAssert(coordinatesAreInMap(x, y));
+
+  	bestScore = 0;
+  	bestDir = def.NO_DIRECTION;
+
+  	for (dir = 0; dir < (useDiagonals ? 8 : 4); ++dir)
+    {
+  		newX = x + def.dirs[dir][0];
+  		newY = y + def.dirs[dir][1];
+
+      if (map.hasXY(newX, newY)) {
+          blocked = false;
+          const cell = map.cell(newX, newY);
+          blocker = cell.actor;
+          if (traveler
+              && traveler.avoidsCell(cell, newX, newY))
+  				{
+              blocked = true;
+          } else if (traveler && blocker
+                     && !traveler.kind.canPass(traveler, blocker))
+  				{
+              blocked = true;
+          }
+          if (!blocked
+  						&& (distanceMap[x][y] - distanceMap[newX][newY]) > bestScore
+              && !map.diagonalBlocked(x, y, newX, newY, traveler.isPlayer())
+              && map.isPassableNow(newX, newY, traveler.isPlayer()))
+  				{
+              bestDir = dir;
+              bestScore = distanceMap[x][y] - distanceMap[newX][newY];
+          }
+      }
+  	}
+  	return def.dirs[bestDir] || null;
+  }
+
+
+
+  function getClosestValidLocationOnMap(distanceMap, x, y) {
+  	let i, j, dist, closestDistance, lowestMapScore;
+  	let locX = -1;
+  	let locY = -1;
+
+  	closestDistance = 10000;
+  	lowestMapScore = 10000;
+  	for (i=1; i<distanceMap.width-1; i++) {
+  		for (j=1; j<distanceMap.height-1; j++) {
+  			if (distanceMap[i][j] >= 0 && distanceMap[i][j] < PDS_NO_PATH) {
+  				dist = (i - x)*(i - x) + (j - y)*(j - y);
+  				if (dist < closestDistance
+  					|| dist == closestDistance && distanceMap[i][j] < lowestMapScore)
+  				{
+  					locX = i;
+  					locY = j;
+  					closestDistance = dist;
+  					lowestMapScore = distanceMap[i][j];
+  				}
+  			}
+  		}
+  	}
+  	if (locX >= 0) return [locX, locY];
+  	return null;
+  }
+
+
+  // Populates path[][] with a list of coordinates starting at origin and traversing down the map. Returns the number of steps in the path.
+  function getPath(map, distanceMap, originX, originY, actor) {
+  	let x, y, steps;
+
+  	// actor = actor || GW.PLAYER;
+  	x = originX;
+  	y = originY;
+  	steps = 0;
+
+  	if (distanceMap[x][y] < 0 || distanceMap[x][y] >= PDS_NO_PATH) {
+  		const loc = getClosestValidLocationOnMap(distanceMap, x, y);
+  		if (loc) {
+  			x = loc[0];
+  			y = loc[1];
+  		}
+  	}
+
+  	const path = [[x, y]];
+    let dir;
+    do {
+  		dir = nextStep(map, distanceMap, x, y, actor, true);
+  		if (dir) {
+  			x += dir[0];
+  			y += dir[1];
+  			// path[steps][0] = x;
+  			// path[steps][1] = y;
+  			path.push([x,y]);
+  			steps++;
+        // brogueAssert(coordinatesAreInMap(x, y));
+  		}
+  	}
+    while (dir);
+
+  	return steps ? path : null;
+  }
   //
   // GW.path.from = getMonsterPathOnMap;
+
+  var path = /*#__PURE__*/Object.freeze({
+    __proto__: null,
+    dijkstraScan: dijkstraScan,
+    calculateDistances: calculateDistances,
+    nextStep: nextStep,
+    getPath: getPath
+  });
 
   var digger = {};
   var diggers = {};
@@ -8323,7 +8376,7 @@
     turnEnded() { return this.flags & Actor.AF_TURN_ENDED; }
 
     isPlayer() { return this === data.player; }
-    isDead() { return this.current.health <= 0; }
+    isDead() { return (this.current.health <= 0) || (this.flags & Actor.AF_DYING); }
     isInanimate() { return this.kind.flags & ActorKind.AK_INANIMATE; }
     isInvulnerable() { return this.kind.flags & ActorKind.AK_INVULNERABLE; }
 
@@ -8339,6 +8392,15 @@
       return this.kind.actionFlags & flag;
     }
 
+    changed(v) {
+      if (v) {
+        this.flags |= Actor.AF_CHANGED;
+      }
+      else if (v !== undefined) {
+        this.flags &= ~Actor.AF_CHANGED;
+      }
+      return (this.flags & Actor.AF_CHANGED);
+    }
 
     async bumpBy(actor, ctx) {
 
@@ -8372,6 +8434,21 @@
       }
       actor.endTurn(this, turnTime);
   	}
+
+    kill() {
+      this.flags |= Actor.AF_DYING;
+      this.changed(true);
+      if (this.mapToMe) {
+        GRID$1.free(this.mapToMe);
+        this.mapToMe = null;
+      }
+      if (this.travelGrid) {
+        GRID$1.free(this.travelGrid);
+        this.travelGrid = null;
+      }
+    }
+
+    // MOVEMENT/VISION
 
     canDirectlySee(other, map) {
       map = map || data.map;
@@ -8413,6 +8490,7 @@
       const avoidedTileFlags = this.kind.avoidedTileFlags(this);
 
       map.fillCostGrid(grid, (cell, x, y) => {
+        if (this.isPlayer() && !cell.isRevealed()) return def.PDS_OBSTRUCTION;
         if (cell.hasTileFlag(forbiddenTileFlags)) return def.PDS_FORBIDDEN;
         if (cell.hasTileFlag(avoidedTileFlags)) return def.PDS_AVOIDED;
         if (cell.flags & avoidedCellFlags) return def.PDS_AVOIDED;
@@ -8420,15 +8498,22 @@
       });
     }
 
-    changed(v) {
-      if (v) {
-        this.flags |= Actor.AF_CHANGED;
+    updateMapToMe() {
+      const map = data.map;
+      let mapToMe = this.mapToMe;
+      if (!mapToMe) {
+        mapToMe = this.mapToMe = GRID$1.alloc(map.width, map.height);
+        mapToMe.x = mapToMe.y = -1;
       }
-      else if (v !== undefined) {
-        this.flags &= ~Actor.AF_CHANGED;
+      if (mapToMe.x != this.x || mapToMe.y != this.y) {
+        const costGrid = GRID$1.alloc(map.width, map.height);
+        this.fillCostGrid(map, costGrid);
+        calculateDistances(mapToMe, this.x, this.y, costGrid, true);
+        GRID$1.free(costGrid);
       }
-      return (this.flags & Actor.AF_CHANGED);
+      return mapToMe;
     }
+
 
     // combat helpers
     calcDamageTo(defender, attackInfo, ctx) {
@@ -9828,7 +9913,7 @@
                   }
 
                   if (j < maxConnectionLength) {
-                    PATH.calculateDistances(pathGrid, startX, startY, costGrid, false);
+                    calculateDistances(pathGrid, startX, startY, costGrid, false);
                     // pathGrid.fill(30000);
                     // pathGrid[startX][startY] = 0;
                     // dijkstraScan(pathGrid, costGrid, false);
@@ -9909,7 +9994,7 @@
                   }
 
                   if ((!SITE.isNull(newX, newY)) && SITE.canBePassed(newX, newY) && (j < maxConnectionLength)) {
-                    PATH.calculateDistances(pathGrid, newX, newY, costGrid, false);
+                    calculateDistances(pathGrid, newX, newY, costGrid, false);
                     // pathGrid.fill(30000);
                     // pathGrid[newX][newY] = 0;
                     // dijkstraScan(pathGrid, costGrid, false);
@@ -13086,6 +13171,7 @@
 
   let SHOW_FLAVOR = false;
   let SHOW_CURSOR = false;
+  let SHOW_PATH = false;
 
   let UI_BUFFER = null;
   let UI_BASE = null;
@@ -13135,6 +13221,7 @@
       followPlayer: false,
       loop: true,
       autoCenter: false,
+      showPath: false,
     });
 
     if (!ui.canvas && (opts.canvas !== false)) {
@@ -13218,6 +13305,7 @@
 
   	viewport.setup({ x: viewX, y: viewY, w: viewW, h: viewH, followPlayer: opts.followPlayer, autoCenter: opts.autoCenter });
   	SHOW_CURSOR = opts.cursor;
+    SHOW_PATH = opts.showPath;
 
     if (opts.loop) {
       RUNNING = true;
@@ -13262,9 +13350,8 @@
         // }
         // ev.mapX = x0;
         // ev.mapY = y0;
-  			if (SHOW_CURSOR) {
-  				ui.setCursor(x0, y0);
-  			}
+
+  			ui.setCursor(x0, y0);
         if (sidebar.bounds) {
           sidebar.focus(x0, y0);
         }
@@ -13404,9 +13491,12 @@
     CURSOR.y = y;
 
     if (map.hasXY(x, y)) {
-      // if (!DATA.player || DATA.player.x !== x || DATA.player.y !== y ) {
+      if (SHOW_CURSOR) {
         map.setCellFlags(CURSOR.x, CURSOR.y, Cell.IS_CURSOR | Cell.NEEDS_REDRAW);
-      // }
+      }
+      if (SHOW_PATH) {
+        ui.updatePathToCursor();
+      }
 
       // if (!GW.player.isMoving()) {
       //   showPathFromPlayerTo(x, y);
@@ -13439,6 +13529,29 @@
 
   ui.clearCursor = clearCursor;
 
+
+  function updatePathToCursor() {
+    const player = data.player;
+    const map = data.map;
+
+    if (!SHOW_PATH) return;
+
+    map.clearFlags(0, Cell.IS_IN_PATH);
+
+    if (CURSOR.x == player.x && CURSOR.y == player.y) return;
+
+    const mapToMe = player.updateMapToMe();
+    const path$1 = getPath(map, mapToMe, CURSOR.x, CURSOR.y, player);
+
+    if (path$1) {
+      for(let pos of path$1) {
+        map.setCellFlag(pos[0], pos[1], Cell.IS_IN_PATH);
+      }
+    }
+
+  }
+
+  ui.updatePathToCursor = updatePathToCursor;
 
 
   // FUNCS
@@ -14021,6 +14134,10 @@
 
     actions.debug('moveComplete');
 
+    if (actor.isPlayer()) {
+      ui.updatePathToCursor();
+    }
+
     ui.requestUpdate();
     actor.endTurn();
     return true;
@@ -14291,7 +14408,7 @@
     if (travelGrid.x != x || travelGrid.y != y) {
       const costGrid = GRID$1.alloc(map.width, map.height);
       actor.fillCostGrid(map, costGrid);
-      PATH.calculateDistances(travelGrid, x, y, costGrid, true);
+      calculateDistances(travelGrid, x, y, costGrid, true);
       GRID$1.free(costGrid);
     }
 
@@ -14302,53 +14419,6 @@
   }
 
 
-
-  // Returns null if there are no beneficial moves.
-  // If preferDiagonals is true, we will prefer diagonal moves.
-  // Always rolls downhill on the distance map.
-  // If monst is provided, do not return a direction pointing to
-  // a cell that the monster avoids.
-  function nextStep( map, distanceMap, x, y, traveler, useDiagonals) {
-  	let newX, newY, bestScore;
-    let dir, bestDir;
-    let blocker;	// creature *
-    let blocked;
-
-    // brogueAssert(coordinatesAreInMap(x, y));
-
-  	bestScore = 0;
-  	bestDir = def.NO_DIRECTION;
-
-  	for (dir = 0; dir < (useDiagonals ? 8 : 4); ++dir)
-    {
-  		newX = x + def.dirs[dir][0];
-  		newY = y + def.dirs[dir][1];
-
-      if (map.hasXY(newX, newY)) {
-          blocked = false;
-          const cell = map.cell(newX, newY);
-          blocker = cell.actor;
-          if (traveler
-              && traveler.avoidsCell(cell, newX, newY))
-  				{
-              blocked = true;
-          } else if (traveler && blocker
-                     && !traveler.kind.canPass(traveler, blocker))
-  				{
-              blocked = true;
-          }
-          if (!blocked
-  						&& (distanceMap[x][y] - distanceMap[newX][newY]) > bestScore
-              && !map.diagonalBlocked(x, y, newX, newY, traveler.isPlayer())
-              && map.isPassableNow(newX, newY, traveler.isPlayer()))
-  				{
-              bestDir = dir;
-              bestScore = distanceMap[x][y] - distanceMap[newX][newY];
-          }
-      }
-  	}
-  	return def.dirs[bestDir] || null;
-  }
 
   actions.moveToward = moveToward;
 
@@ -14800,7 +14870,7 @@
   exports.off = off;
   exports.on = on;
   exports.once = once;
-  exports.path = PATH;
+  exports.path = path;
   exports.player = player;
   exports.random = random;
   exports.removeAllListeners = removeAllListeners;
