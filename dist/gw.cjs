@@ -13244,31 +13244,20 @@ async function dispatchEvent$1(ev) {
 		else if (flavor.bounds && flavor.bounds.containsXY(ev.x, ev.y)) {
 			return true;
 		}
-    if (viewport.bounds && viewport.bounds.containsXY(ev.x, ev.y)) {
-      let x0 = viewport.bounds.toInnerX(ev.x);
-      let y0 = viewport.bounds.toInnerY(ev.y);
-      if (config.followPlayer && data.player && (data.player.x >= 0)) {
-        const offsetX = data.player.x - viewport.bounds.centerX();
-        const offsetY = data.player.y - viewport.bounds.centerY();
-        x0 += offsetX;
-        y0 += offsetY;
-      }
-      ev.mapX = x0;
-      ev.mapY = y0;
-    }
+    if (viewport.bounds && viewport.bounds.containsXY(ev.x, ev.y)) ;
 	}
 	else if (ev.type === def.MOUSEMOVE) {
 		if (viewport.bounds && viewport.bounds.containsXY(ev.x, ev.y)) {
       let x0 = viewport.bounds.toInnerX(ev.x);
       let y0 = viewport.bounds.toInnerY(ev.y);
-      if (config.followPlayer && data.player && (data.player.x >= 0)) {
-        const offsetX = data.player.x - viewport.bounds.centerX();
-        const offsetY = data.player.y - viewport.bounds.centerY();
-        x0 += offsetX;
-        y0 += offsetY;
-      }
-      ev.mapX = x0;
-      ev.mapY = y0;
+      // if (CONFIG.followPlayer && DATA.player && (DATA.player.x >= 0)) {
+      //   const offsetX = DATA.player.x - VIEWPORT.bounds.centerX();
+      //   const offsetY = DATA.player.y - VIEWPORT.bounds.centerY();
+      //   x0 += offsetX;
+      //   y0 += offsetY;
+      // }
+      // ev.mapX = x0;
+      // ev.mapY = y0;
 			if (SHOW_CURSOR) {
 				ui.setCursor(x0, y0);
 			}
