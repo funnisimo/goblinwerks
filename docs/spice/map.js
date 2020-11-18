@@ -19,9 +19,9 @@ function makeMap(id=0) {
 
   map.forEach( (cell, x, y) => {
     const noise = NOISE.noise2D(x/20, y/20) + NOISE.noise2D(x/5, y/5) + NOISE.noise2D(x/10, y/10);
-    if (noise > 1) {
-      console.log(x, y, noise.toFixed(2));
-    }
+    // if (noise > 1) {
+    //   console.log(x, y, noise.toFixed(2));
+    // }
     if (noise > 1.4) {
       map.setTile(x, y, 'WALL');
     }

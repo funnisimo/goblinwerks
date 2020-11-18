@@ -46,22 +46,20 @@ function drawViewport(buffer, map) {
     const edgeX = Math.floor(VIEWPORT.width/5);
     const edgeY = Math.floor(VIEWPORT.height/5);
 
-    const minX = 0;
-    const maxX = map.width - VIEWPORT.width;
-    if (left + edgeX > DATA.player.x) {
-      VIEWPORT.offsetX = Utils.clamp(DATA.player.x - VIEWPORT.centerX(), minX, maxX);
+    const thirdW = Math.floor(VIEWPORT.width / 3);
+    if (left + edgeX >= DATA.player.x) {
+      VIEWPORT.offsetX = Math.max(0, DATA.player.x + thirdW - VIEWPORT.width);
     }
-    else if (right - edgeX < DATA.player.x) {
-      VIEWPORT.offsetX = Utils.clamp(DATA.player.x - VIEWPORT.centerX(), minX, maxX);
+    else if (right - edgeX <= DATA.player.x) {
+      VIEWPORT.offsetX = Math.min(DATA.player.x - thirdW, map.width - VIEWPORT.width);
     }
 
-    const minY = 0;
-    const maxY = map.height - VIEWPORT.height;
-    if (top + edgeY > DATA.player.y) {
-      VIEWPORT.offsetY = Utils.clamp(DATA.player.y - VIEWPORT.centerY(), minY, maxY);
+    const thirdH = Math.floor(VIEWPORT.height/3);
+    if (top + edgeY >= DATA.player.y) {
+      VIEWPORT.offsetY = Math.max(0, DATA.player.y + thirdH - VIEWPORT.height);
     }
-    else if (bottom - edgeY < DATA.player.y) {
-      VIEWPORT.offsetY = Utils.clamp(DATA.player.y - VIEWPORT.centerY(), minY, maxY);
+    else if (bottom - edgeY <= DATA.player.y) {
+      VIEWPORT.offsetY = Math.min(DATA.player.y - thirdH, map.height - VIEWPORT.height);
     }
   }
 
