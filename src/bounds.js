@@ -8,6 +8,8 @@ class Bounds {
     this.y = y || 0;
     this.width = w || 0;
     this.height = h || 0;
+    this.offsetX = 0;
+    this.offsetY = 0;
   }
 
   containsXY(x, y) {
@@ -24,18 +26,18 @@ class Bounds {
   centerX() { return Math.round(this.width / 2) + this.x; }
   centerY() { return Math.round(this.height / 2) + this.y; }
 
-  toInnerX(x) { return x - this.x; }
-  toInnerY(y) { return y - this.y; }
+  toInnerX(x) { return x - this.x + this.offsetX; }
+  toInnerY(y) { return y - this.y + this.offsetY; }
 
   toOuterX(x) {
     let offset = 0;
     if (x < 0) { offset = this.width - 1; }
-    return x + this.x + offset;
+    return x + this.x + offset - this.offsetX;
   }
   toOuterY(y) {
     let offset = 0;
     if (y < 0) { offset = this.height - 1; }
-    return y + this.y + offset;
+    return y + this.y + offset - this.offsetY;
   }
 }
 

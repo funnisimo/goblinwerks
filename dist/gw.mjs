@@ -79,6 +79,8 @@ class Bounds {
     this.y = y || 0;
     this.width = w || 0;
     this.height = h || 0;
+    this.offsetX = 0;
+    this.offsetY = 0;
   }
 
   containsXY(x, y) {
@@ -95,18 +97,18 @@ class Bounds {
   centerX() { return Math.round(this.width / 2) + this.x; }
   centerY() { return Math.round(this.height / 2) + this.y; }
 
-  toInnerX(x) { return x - this.x; }
-  toInnerY(y) { return y - this.y; }
+  toInnerX(x) { return x - this.x + this.offsetX; }
+  toInnerY(y) { return y - this.y + this.offsetY; }
 
   toOuterX(x) {
     let offset = 0;
     if (x < 0) { offset = this.width - 1; }
-    return x + this.x + offset;
+    return x + this.x + offset - this.offsetX;
   }
   toOuterY(y) {
     let offset = 0;
     if (y < 0) { offset = this.height - 1; }
-    return y + this.y + offset;
+    return y + this.y + offset - this.offsetY;
   }
 }
 
@@ -11908,8 +11910,6 @@ async function showArchive() {
 message.showArchive = showArchive;
 
 let VIEWPORT = null;
-let VIEW_OFFSET_X = 0;
-let VIEW_OFFSET_Y = 0;
 
 function setup$1(opts={}) {
   VIEWPORT = viewport.bounds = new types.Bounds(opts.x, opts.y, opts.w, opts.h);
@@ -11934,14 +11934,14 @@ function drawViewport(buffer, map) {
   if (!map) return;
   if (!map.flags & Map.MAP_CHANGED) return;
   if (config.followPlayer && data.player && data.player.x >= 0) {
-    VIEW_OFFSET_X = data.player.x - VIEWPORT.centerX();
-    VIEW_OFFSET_Y = data.player.y - VIEWPORT.centerY();
+    VIEWPORT.offsetX = data.player.x - VIEWPORT.centerX();
+    VIEWPORT.offsetY = data.player.y - VIEWPORT.centerY();
   }
   else if (config.autoCenter && data.player && data.player.x >= 0) {
-    const left = VIEW_OFFSET_X;
-    const right = VIEW_OFFSET_X + VIEWPORT.width;
-    const top = VIEW_OFFSET_Y;
-    const bottom = VIEW_OFFSET_Y + VIEWPORT.height;
+    const left = VIEWPORT.offsetX;
+    const right = VIEWPORT.offsetX + VIEWPORT.width;
+    const top = VIEWPORT.offsetY;
+    const bottom = VIEWPORT.offsetY + VIEWPORT.height;
 
     const edgeX = Math.floor(VIEWPORT.width/5);
     const edgeY = Math.floor(VIEWPORT.height/5);
@@ -11949,19 +11949,19 @@ function drawViewport(buffer, map) {
     const minX = 0;
     const maxX = map.width - VIEWPORT.width;
     if (left + edgeX > data.player.x) {
-      VIEW_OFFSET_X = clamp(data.player.x - VIEWPORT.centerX(), minX, maxX);
+      VIEWPORT.offsetX = clamp(data.player.x - VIEWPORT.centerX(), minX, maxX);
     }
     else if (right - edgeX < data.player.x) {
-      VIEW_OFFSET_X = clamp(data.player.x - VIEWPORT.centerX(), minX, maxX);
+      VIEWPORT.offsetX = clamp(data.player.x - VIEWPORT.centerX(), minX, maxX);
     }
 
     const minY = 0;
     const maxY = map.height - VIEWPORT.height;
     if (top + edgeY > data.player.y) {
-      VIEW_OFFSET_Y = clamp(data.player.y - VIEWPORT.centerY(), minY, maxY);
+      VIEWPORT.offsetY = clamp(data.player.y - VIEWPORT.centerY(), minY, maxY);
     }
     else if (bottom - edgeY < data.player.y) {
-      VIEW_OFFSET_Y = clamp(data.player.y - VIEWPORT.centerY(), minY, maxY);
+      VIEWPORT.offsetY = clamp(data.player.y - VIEWPORT.centerY(), minY, maxY);
     }
   }
 
@@ -11969,8 +11969,8 @@ function drawViewport(buffer, map) {
     for(let y = 0; y < VIEWPORT.height; ++y) {
 
       const buf = buffer[x + VIEWPORT.x][y + VIEWPORT.y];
-      const mapX = x + VIEW_OFFSET_X;
-      const mapY = y + VIEW_OFFSET_Y;
+      const mapX = x + VIEWPORT.offsetX;
+      const mapY = y + VIEWPORT.offsetY;
       if (map.hasXY(mapX, mapY)) {
         map$1.getCellAppearance(map, mapX, mapY, buf);
         map.clearCellFlags(mapX, mapY, Cell.NEEDS_REDRAW | Cell.CELL_CHANGED);
