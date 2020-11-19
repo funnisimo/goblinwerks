@@ -36,7 +36,7 @@ export class Tile {
       dissipate: 2000, // 20% of 10000
     });
     Utils.assignOmitting(['events'], this, base);
-    Utils.assignOmitting(['Extends', 'flags', 'mechFlags', 'sprite', 'events'], this, config);
+    Utils.assignOmitting(['Extends', 'extends', 'flags', 'mechFlags', 'sprite', 'events', 'ch', 'fg', 'bg'], this, config);
     if (this.priority < 0) {
       this.priority = 50;
     }
@@ -163,12 +163,12 @@ types.Tile = Tile;
 export function addTileKind(id, base, config) {
   if (arguments.length == 1) {
     config = args[0];
-    base = config.Extends || {};
+    base = config.Extends || config.extends || {};
     id = config.id || config.name;
   }
   else if (arguments.length == 2) {
     config = base;
-    base = config.Extends || {};
+    base = config.Extends || config.extends || {};
   }
 
   if (typeof base === 'string') {

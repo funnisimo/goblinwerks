@@ -89,13 +89,7 @@ function drawViewport(buffer, map) {
 viewport.draw = drawViewport;
 
 function hasXY(x, y) {
-  let offsetX = 0;
-  let offsetY = 0;
-  if (CONFIG.followPlayer && DATA.player && DATA.player.x >= 0) {
-    offsetX = DATA.player.x - VIEWPORT.centerX();
-    offsetY = DATA.player.y - VIEWPORT.centerY();
-  }
-  return VIEWPORT.containsXY(x - offsetX + VIEWPORT.x, y - offsetY + VIEWPORT.y);
+  return VIEWPORT.containsXY(x - VIEWPORT.offsetX + VIEWPORT.x, y - VIEWPORT.offsetY + VIEWPORT.y);
 }
 
 viewport.hasXY = hasXY;

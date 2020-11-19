@@ -9422,7 +9422,7 @@
         dissipate: 2000, // 20% of 10000
       });
       assignOmitting(['events'], this, base);
-      assignOmitting(['Extends', 'flags', 'mechFlags', 'sprite', 'events'], this, config);
+      assignOmitting(['Extends', 'extends', 'flags', 'mechFlags', 'sprite', 'events', 'ch', 'fg', 'bg'], this, config);
       if (this.priority < 0) {
         this.priority = 50;
       }
@@ -9549,12 +9549,12 @@
   function addTileKind(id, base, config) {
     if (arguments.length == 1) {
       config = args[0];
-      base = config.Extends || {};
+      base = config.Extends || config.extends || {};
       id = config.id || config.name;
     }
     else if (arguments.length == 2) {
       config = base;
-      base = config.Extends || {};
+      base = config.Extends || config.extends || {};
     }
 
     if (typeof base === 'string') {
@@ -12172,13 +12172,7 @@
   viewport.draw = drawViewport;
 
   function hasXY(x, y) {
-    let offsetX = 0;
-    let offsetY = 0;
-    if (config.followPlayer && data.player && data.player.x >= 0) {
-      offsetX = data.player.x - VIEWPORT.centerX();
-      offsetY = data.player.y - VIEWPORT.centerY();
-    }
-    return VIEWPORT.containsXY(x - offsetX + VIEWPORT.x, y - offsetY + VIEWPORT.y);
+    return VIEWPORT.containsXY(x - VIEWPORT.offsetX + VIEWPORT.x, y - VIEWPORT.offsetY + VIEWPORT.y);
   }
 
   viewport.hasXY = hasXY;
@@ -12312,14 +12306,23 @@
 
   	// Get tiles
   	map.forEach( (cell, i, j) => {
-  		if (!(cell.isRevealed(true) || cell.isAnyKindOfVisible()) || !viewport.hasXY(i, j)) return;
+  		if (!(cell.isRevealed(true) || cell.isAnyKindOfVisible())) return;
   		// if (cell.flags & (Flags.Cell.HAS_PLAYER | Flags.Cell.HAS_MONSTER | Flags.Cell.HAS_ITEM)) return;
   		if (doneCells[i][j]) return;
   		doneCells[i][j] = 1;
 
-  		const changed = cell.changed();
   		if (cell.listInSidebar()) {
-  			const priority = (cell.isVisible() ? 1 : (cell.isAnyKindOfVisible() ? 2 : 3));
+        const changed = cell.changed();
+  			let priority = 4;
+        if (cell.isVisible()) {
+          priority = 1;
+        }
+        else if (cell.isAnyKindOfVisible()) {
+          priority = 2;
+        }
+        else if (viewport.hasXY(i, j)) {
+          priority = 3;
+        }
         const dim = !cell.isAnyKindOfVisible();
   			entries.push({ map, x: i, y: j, dist: 0, priority, draw: sidebar$1.addMapCell, entity: cell, changed, dim });
   		}
@@ -13433,7 +13436,7 @@
   		else if (flavor.bounds && flavor.bounds.containsXY(ev.x, ev.y)) {
   			return true;
   		}
-      if (viewport.bounds && viewport.bounds.containsXY(ev.x, ev.y)) {
+      else if (viewport.bounds && viewport.bounds.containsXY(ev.x, ev.y)) {
         ev.mapX = viewport.bounds.toInnerX(ev.x);
         ev.mapY = viewport.bounds.toInnerY(ev.y);
         // if (CONFIG.followPlayer && DATA.player && (DATA.player.x >= 0)) {
@@ -13444,7 +13447,16 @@
         // }
         // ev.mapX = x0;
         // ev.mapY = y0;
-        return await commands$1.travel(ev);
+        if (CLICK_MOVE) {
+          return await commands$1.travel(ev);
+        }
+      }
+      else if (sidebar.bounds && sidebar.bounds.containsXY(ev.x, ev.y)) {
+        if (CLICK_MOVE) {
+          ev.mapX = CURSOR.x;
+          ev.mapY = CURSOR.y;
+          return await commands$1.travel(ev);
+        }
       }
   	}
   	else if (ev.type === def.MOUSEMOVE) {
@@ -13481,7 +13493,17 @@
   		}
   	}
     else if (ev.type === def.KEYPRESS) {
+      if (ev.key === 'Enter' && CLICK_MOVE) {
+        if (PATH_ACTIVE) {
+          ev.mapX = CURSOR.x;
+          ev.mapY = CURSOR.y;
+          return await commands$1.travel(ev);
+        }
+      }
+
       PATH_ACTIVE = false;
+      data.player.travelDest = null;  // stop traveling
+
       if (sidebar.bounds) {
         if (ev.key === 'Tab') {
           PATH_ACTIVE = true;
@@ -13505,11 +13527,11 @@
           }
           else {
             sidebar.focus(-1, -1);
-            data.player.travelDest = null;  // stop traveling
             ui.clearCursor();
           }
         }
       }
+
     }
 
   	return false;

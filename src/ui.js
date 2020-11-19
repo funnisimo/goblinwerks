@@ -185,7 +185,7 @@ export async function dispatchEvent(ev) {
 		else if (FLAVOR.bounds && FLAVOR.bounds.containsXY(ev.x, ev.y)) {
 			return true;
 		}
-    if (VIEWPORT.bounds && VIEWPORT.bounds.containsXY(ev.x, ev.y)) {
+    else if (VIEWPORT.bounds && VIEWPORT.bounds.containsXY(ev.x, ev.y)) {
       ev.mapX = VIEWPORT.bounds.toInnerX(ev.x);
       ev.mapY = VIEWPORT.bounds.toInnerY(ev.y);
       // if (CONFIG.followPlayer && DATA.player && (DATA.player.x >= 0)) {
@@ -196,7 +196,16 @@ export async function dispatchEvent(ev) {
       // }
       // ev.mapX = x0;
       // ev.mapY = y0;
-      return await COMMANDS.travel(ev);
+      if (CLICK_MOVE) {
+        return await COMMANDS.travel(ev);
+      }
+    }
+    else if (SIDEBAR.bounds && SIDEBAR.bounds.containsXY(ev.x, ev.y)) {
+      if (CLICK_MOVE) {
+        ev.mapX = CURSOR.x;
+        ev.mapY = CURSOR.y;
+        return await COMMANDS.travel(ev);
+      }
     }
 	}
 	else if (ev.type === def.MOUSEMOVE) {
@@ -233,7 +242,17 @@ export async function dispatchEvent(ev) {
 		}
 	}
   else if (ev.type === def.KEYPRESS) {
+    if (ev.key === 'Enter' && CLICK_MOVE) {
+      if (PATH_ACTIVE) {
+        ev.mapX = CURSOR.x;
+        ev.mapY = CURSOR.y;
+        return await COMMANDS.travel(ev);
+      }
+    }
+
     PATH_ACTIVE = false;
+    DATA.player.travelDest = null;  // stop traveling
+
     if (SIDEBAR.bounds) {
       if (ev.key === 'Tab') {
         PATH_ACTIVE = true;
@@ -257,11 +276,11 @@ export async function dispatchEvent(ev) {
         }
         else {
           SIDEBAR.focus(-1, -1);
-          DATA.player.travelDest = null;  // stop traveling
           ui.clearCursor();
         }
       }
     }
+
   }
 
 	return false;

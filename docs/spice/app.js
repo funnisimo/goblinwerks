@@ -36,7 +36,7 @@ GW.message.addKind('WELCOME', '#yellow#Welcome to Spice Trader!\n##Press <?> for
 // start the environment
 async function start() {
 
-	const canvas = GW.ui.start({ width: 96, height: 38, div: 'game', messages: -5, sidebar: -32, cursor: true, flavor: true, wideMessages: true, autoCenter: true, showPath: true });
+	const canvas = GW.ui.start({ width: 96, height: 38, div: 'game', messages: -5, sidebar: -32, cursor: true, flavor: true, wideMessages: true, autoCenter: true, showPath: true, clickToMove: true });
 	GW.io.setKeymap({
 		dir: 'movePlayer', space: 'rest',
 		'?': showHelp,

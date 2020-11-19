@@ -137,14 +137,23 @@ function refreshSidebar(map) {
 
 	// Get tiles
 	map.forEach( (cell, i, j) => {
-		if (!(cell.isRevealed(true) || cell.isAnyKindOfVisible()) || !GW.viewport.hasXY(i, j)) return;
+		if (!(cell.isRevealed(true) || cell.isAnyKindOfVisible())) return;
 		// if (cell.flags & (Flags.Cell.HAS_PLAYER | Flags.Cell.HAS_MONSTER | Flags.Cell.HAS_ITEM)) return;
 		if (doneCells[i][j]) return;
 		doneCells[i][j] = 1;
 
-		const changed = cell.changed();
 		if (cell.listInSidebar()) {
-			const priority = (cell.isVisible() ? 1 : (cell.isAnyKindOfVisible() ? 2 : 3));
+      const changed = cell.changed();
+			let priority = 4;
+      if (cell.isVisible()) {
+        priority = 1;
+      }
+      else if (cell.isAnyKindOfVisible()) {
+        priority = 2;
+      }
+      else if (GW.viewport.hasXY(i, j)) {
+        priority = 3;
+      }
       const dim = !cell.isAnyKindOfVisible();
 			entries.push({ map, x: i, y: j, dist: 0, priority, draw: sidebar.addMapCell, entity: cell, changed, dim });
 		}
