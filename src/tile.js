@@ -134,7 +134,7 @@ export class Tile {
 
     if (this.flags & Flags.Tile.T_LAVA && actor) {
       if (!cell.hasTileFlag(Flags.Tile.T_BRIDGE) && !actor.status.levitating) {
-        actor.kind.kill(actor);
+        actor.kill();
         await Game.gameOver(false, '#red#you fall into lava and perish.');
         return true;
       }

@@ -143,7 +143,7 @@ export async function startMap(map, loc='start') {
 
     DATA.map.addActor(startLoc[0], startLoc[1], DATA.player);
 
-    Visibility.update(map, DATA.player.x, DATA.player.y);
+    Visibility.update(map, DATA.player.x, DATA.player.y, DATA.player.current.fov);
   }
 
   Light.updateLighting(map);
@@ -251,7 +251,7 @@ export async function updateEnvironment() {
   if (!map) return 0;
 
   await map.tick();
-  Visibility.update(map, DATA.player.x, DATA.player.y);
+  Visibility.update(map, DATA.player.x, DATA.player.y, DATA.player.current.fov);
 
   UI.requestUpdate();
 

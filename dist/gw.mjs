@@ -8096,7 +8096,7 @@ function initMap(map) {
 }
 
 
-function update$1(map, x, y) {
+function update$1(map, x, y, maxRadius) {
   if (!config.fov) return;
 
   if (!(map.flags & Map.MAP_FOV_CHANGED)) return;
@@ -8107,7 +8107,7 @@ function update$1(map, x, y) {
 
   // Calculate player's field of view (distinct from what is visible, as lighting hasn't been done yet).
   const grid$1 = alloc(map.width, map.height, 0);
-  map.calcFov(grid$1, x, y);
+  map.calcFov(grid$1, x, y, maxRadius);
   grid$1.forEach( (v, i, j) => {
     if (v) {
       map.setCellFlags(i, j, Cell.IN_FOV);
@@ -8501,6 +8501,7 @@ class Actor$1 {
   kill() {
     this.flags |= Actor.AF_DYING;
     this.changed(true);
+    this.kind.kill(this);
     if (this.mapToMe) {
       free(this.mapToMe);
       this.mapToMe = null;
@@ -8529,6 +8530,7 @@ class Actor$1 {
       let dist = distanceFromTo(this, other);
       if (dist < 2) return true;  // next to each other
 
+      // TODO - Make a raycast that can tell if there is clear vision from here to there
       const grid$1 = alloc(map.width, map.height);
       map.calcFov(grid$1, this.x, this.y, dist + 1);
       const result = grid$1[other.x][other.y];
@@ -8765,7 +8767,7 @@ function endActorTurn(theActor, turnTime=1) {
   }
 
   if (theActor.isPlayer()) {
-    update$1(data.map, theActor.x, theActor.y);
+    update$1(data.map, theActor.x, theActor.y, theActor.current.fov);
     ui.requestUpdate(48);
   }
   else if (theActor.kind.isOrWasVisibleToPlayer(theActor, data.map) && theActor.turnTime) {
@@ -9202,7 +9204,7 @@ async function startMap(map, loc='start') {
 
     data.map.addActor(startLoc[0], startLoc[1], data.player);
 
-    update$1(map, data.player.x, data.player.y);
+    update$1(map, data.player.x, data.player.y, data.player.current.fov);
   }
 
   updateLighting(map);
@@ -9301,7 +9303,7 @@ async function updateEnvironment() {
   if (!map) return 0;
 
   await map.tick();
-  update$1(map, data.player.x, data.player.y);
+  update$1(map, data.player.x, data.player.y, data.player.current.fov);
 
   ui.requestUpdate();
 
@@ -9512,7 +9514,7 @@ class Tile$1 {
 
     if (this.flags & Tile.T_LAVA && actor) {
       if (!cell.hasTileFlag(Tile.T_BRIDGE) && !actor.status.levitating) {
-        actor.kind.kill(actor);
+        actor.kill();
         await gameOver(false, '#red#you fall into lava and perish.');
         return true;
       }
@@ -10989,7 +10991,7 @@ async function applyDamage(attacker, defender, attackInfo, ctx) {
     }
   }
   if (defender.isDead()) {
-    defender.kind.kill(defender);
+    defender.kill();
     if (map) {
       map.removeActor(defender);
       if (defender.kind.corpse) {
@@ -13256,6 +13258,7 @@ ui.debug = NOOP;
 let SHOW_FLAVOR = false;
 let SHOW_CURSOR = false;
 let SHOW_PATH = false;
+let PATH_ACTIVE = false;
 let CLICK_MOVE = false;
 
 
@@ -13439,6 +13442,7 @@ async function dispatchEvent$1(ev) {
     }
 	}
 	else if (ev.type === def.MOUSEMOVE) {
+    PATH_ACTIVE = true;
     MOUSE.x = ev.x;
     MOUSE.y = ev.y;
 		if (viewport.bounds && viewport.bounds.containsXY(ev.x, ev.y)) {
@@ -13471,13 +13475,16 @@ async function dispatchEvent$1(ev) {
 		}
 	}
   else if (ev.type === def.KEYPRESS) {
+    PATH_ACTIVE = false;
     if (sidebar.bounds) {
       if (ev.key === 'Tab') {
+        PATH_ACTIVE = true;
         const loc = sidebar.nextTarget();
         ui.setCursor(loc[0], loc[1]);
         return true;
       }
       else if (ev.key === 'TAB') {
+        PATH_ACTIVE = true;
         const loc = sidebar.prevTarget();
         ui.setCursor(loc[0], loc[1]);
         return true;
@@ -13652,6 +13659,8 @@ function updatePathToCursor() {
   if (player.travelDest) return;  // do not update path if we are traveling...
 
   map.clearFlags(0, Cell.IS_IN_PATH);
+
+  if (!PATH_ACTIVE) return;
 
   if (CURSOR.x == player.x && CURSOR.y == player.y) return;
 
@@ -14494,7 +14503,7 @@ async function itemAttack(actor, target, ctx={}) {
     await spawn(target.kind.blood, ctx2);
   }
   if (target.isDead()) {
-    target.kind.kill(target);
+    target.kill();
     map.removeActor(target);
     if (target.kind.corpse) {
       await spawn(target.kind.corpse, ctx2);

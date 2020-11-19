@@ -86,7 +86,7 @@ export function initMap(map) {
 }
 
 
-export function update(map, x, y) {
+export function update(map, x, y, maxRadius) {
   if (!CONFIG.fov) return;
 
   if (!(map.flags & Flags.Map.MAP_FOV_CHANGED)) return;
@@ -97,7 +97,7 @@ export function update(map, x, y) {
 
   // Calculate player's field of view (distinct from what is visible, as lighting hasn't been done yet).
   const grid = Grid.alloc(map.width, map.height, 0);
-  map.calcFov(grid, x, y);
+  map.calcFov(grid, x, y, maxRadius);
   grid.forEach( (v, i, j) => {
     if (v) {
       map.setCellFlags(i, j, Flags.Cell.IN_FOV);

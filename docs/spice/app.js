@@ -9,6 +9,7 @@ function makePlayer() {
   return GW.make.player({
 		sprite: GW.make.sprite('@', 'white'),
 		name: 'you',
+    stats: { fov: 5 },
   });
 }
 

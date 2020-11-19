@@ -36,7 +36,7 @@ export async function applyDamage(attacker, defender, attackInfo, ctx) {
     }
   }
   if (defender.isDead()) {
-    defender.kind.kill(defender);
+    defender.kill();
     if (map) {
       map.removeActor(defender);
       if (defender.kind.corpse) {

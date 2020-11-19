@@ -14,6 +14,7 @@ let SHOW_FLAVOR = false;
 let SHOW_SIDEBAR = false;
 let SHOW_CURSOR = false;
 let SHOW_PATH = false;
+let PATH_ACTIVE = false;
 let CLICK_MOVE = false;
 
 
@@ -199,6 +200,7 @@ export async function dispatchEvent(ev) {
     }
 	}
 	else if (ev.type === def.MOUSEMOVE) {
+    PATH_ACTIVE = true;
     MOUSE.x = ev.x;
     MOUSE.y = ev.y;
 		if (VIEWPORT.bounds && VIEWPORT.bounds.containsXY(ev.x, ev.y)) {
@@ -231,13 +233,16 @@ export async function dispatchEvent(ev) {
 		}
 	}
   else if (ev.type === def.KEYPRESS) {
+    PATH_ACTIVE = false;
     if (SIDEBAR.bounds) {
       if (ev.key === 'Tab') {
+        PATH_ACTIVE = true;
         const loc = SIDEBAR.nextTarget();
         ui.setCursor(loc[0], loc[1]);
         return true;
       }
       else if (ev.key === 'TAB') {
+        PATH_ACTIVE = true;
         const loc = SIDEBAR.prevTarget();
         ui.setCursor(loc[0], loc[1]);
         return true;
@@ -412,6 +417,8 @@ function updatePathToCursor() {
   if (player.travelDest) return;  // do not update path if we are traveling...
 
   map.clearFlags(0, Flags.Cell.IS_IN_PATH);
+
+  if (!PATH_ACTIVE) return;
 
   if (CURSOR.x == player.x && CURSOR.y == player.y) return;
 

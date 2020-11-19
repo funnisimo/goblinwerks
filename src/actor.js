@@ -357,6 +357,7 @@ export class Actor {
   kill() {
     this.flags |= Flags.Actor.AF_DYING;
     this.changed(true);
+    this.kind.kill(this);
     if (this.mapToMe) {
       Grid.free(this.mapToMe);
       this.mapToMe = null;
@@ -385,6 +386,7 @@ export class Actor {
       let dist = Utils.distanceFromTo(this, other);
       if (dist < 2) return true;  // next to each other
 
+      // TODO - Make a raycast that can tell if there is clear vision from here to there
       const grid = Grid.alloc(map.width, map.height);
       map.calcFov(grid, this.x, this.y, dist + 1);
       const result = grid[other.x][other.y];
@@ -622,7 +624,7 @@ function endActorTurn(theActor, turnTime=1) {
   }
 
   if (theActor.isPlayer()) {
-    Visibility.update(DATA.map, theActor.x, theActor.y);
+    Visibility.update(DATA.map, theActor.x, theActor.y, theActor.current.fov);
     UI.requestUpdate(48);
   }
   else if (theActor.kind.isOrWasVisibleToPlayer(theActor, DATA.map) && theActor.turnTime) {
