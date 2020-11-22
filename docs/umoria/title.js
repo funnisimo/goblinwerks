@@ -303,11 +303,6 @@ async function titleMenu(opts) {
 	let i, b, x, y;
 	const buttons = GW.make.buttons();
 
-	let whiteColorEscape  = '';
-	let goldColorEscape   = '';
-	let newGameText       = '';
-	let customNewGameText = '';
-
   let button;
   let text;
 

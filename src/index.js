@@ -35,6 +35,7 @@ import './viewport.js';
 import './sidebar.js';
 import './flavor.js';
 import './table.js';
+import './list.js';
 import './ui.js';
 export * as visibility from './visibility.js';
 

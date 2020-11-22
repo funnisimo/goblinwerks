@@ -435,7 +435,7 @@ async function showStoreInventory(buffer, store, actor) {
     else {
       table.plot(buffer, x, 4, data);
 
-      const selectedData = data[table.selected];
+      const selectedData = data[table.active];
       if (selectedData) {
         // Need to do details
         const startX = x + table.maxWidth + 5;
@@ -460,21 +460,16 @@ async function showStoreInventory(buffer, store, actor) {
 
     GW.ui.draw();
 
-    await GW.io.loop({
+    await table.loop({
       Escape() {
         running = false;
         result = -1;
         return true;  // stop io.loop
       },
-      S() {
-        running = false;
-        result = 1;
-        return true;
-      },
       async Enter() {
         if (!canBuy) return false;
         // DO A BUY!
-        const item = data[table.selected].item;
+        const item = data[table.active].item;
         console.log('BUY!', item.getName('a'));
         if (await sellItemToPlayer(buffer, store, item, actor)) {
           running = false;
@@ -482,26 +477,13 @@ async function showStoreInventory(buffer, store, actor) {
         }
         return true;
       },
-      dir(ev) {
-        if(ev.dir[1] < 0) {
-          table.selected = (data.length + table.selected - 1) % data.length;
-        }
-        else if (ev.dir[1] > 0) {
-          table.selected = (table.selected + 1) % data.length;
-        }
+      S() {
+        running = false;
+        result = 1;
         return true;
       },
-      keypress(ev) {
-        const index = ev.key.charCodeAt(0) - 97;
-        if (index >= 0 && index < data.length) {
-          table.selected = index;
-          return true;
-        }
-        return false;
-      }
     });
 
-    console.log('loop');
   }
 
   return result;
@@ -605,7 +587,7 @@ async function showPlayerInventory(buffer, store, actor) {
     else {
       table.plot(buffer, x, 4, data);
 
-      const selectedData = data[table.selected];
+      const selectedData = data[table.active];
       if (selectedData) {
         // Need to do details
         const startX = x + table.maxWidth + 5;
@@ -644,7 +626,7 @@ async function showPlayerInventory(buffer, store, actor) {
       async Enter() {
         if (!canBuy) return false;
         // DO A BUY!
-        const item = data[table.selected].item;
+        const item = data[table.active].item;
         console.log('SELL!', item.getName('a'));
         if (await buyItemFromPlayer(buffer, store, item, actor)) {
           running = false;
@@ -654,17 +636,17 @@ async function showPlayerInventory(buffer, store, actor) {
       },
       dir(ev) {
         if(ev.dir[1] < 0) {
-          table.selected = (data.length + table.selected - 1) % data.length;
+          table.active = (data.length + table.active - 1) % data.length;
         }
         else if (ev.dir[1] > 0) {
-          table.selected = (table.selected + 1) % data.length;
+          table.active = (table.active + 1) % data.length;
         }
         return true;
       },
       keypress(ev) {
         const index = ev.key.charCodeAt(0) - 97;
         if (index >= 0 && index < data.length) {
-          table.selected = index;
+          table.active = index;
           return true;
         }
         return false;

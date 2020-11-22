@@ -1,8 +1,8 @@
 
-import { types } from './gw.js';
+import * as GW from './gw.js';
 
 
-class Bounds {
+export class Bounds {
   constructor(x, y, w, h) {
     this.x = x || 0;
     this.y = y || 0;
@@ -41,4 +41,10 @@ class Bounds {
   }
 }
 
-types.Bounds = Bounds;
+GW.types.Bounds = Bounds;
+
+export function make(x, y, w, h) {
+  return new GW.types.Bounds(x, y, w, h);
+}
+
+GW.make.bounds = make;

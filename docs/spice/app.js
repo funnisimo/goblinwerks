@@ -9,7 +9,7 @@ function makePlayer() {
   return GW.make.player({
 		sprite: GW.make.sprite('@', 'white'),
 		name: 'you',
-    stats: { fov: 5 },
+    stats: { fov: 5, gold: 100, empty: 10 },
   });
 }
 
@@ -44,6 +44,7 @@ async function start() {
 
   PLAYER = makePlayer();
 	MAP = makeMap();
+  resetPorts();
 	GW.message.add('WELCOME', { actor: PLAYER });
 	GW.game.start({ player: PLAYER, map: MAP, fov: true });
 }

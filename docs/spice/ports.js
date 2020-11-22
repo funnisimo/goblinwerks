@@ -2,16 +2,92 @@
 
 var PORTS = {};
 
+
+class Port {
+  constructor(id, opts={}) {
+    this.name = opts.name;
+    this.tile = id;
+    this.event = 'ENTER_' + id;
+    this.market = {};
+  }
+
+}
+
+function resetPorts() {
+  Object.values(MARKET_PRICES).forEach( (prices) => {
+    GW.random.shuffle(prices);
+  });
+  Object.values(PORTS).forEach( (port, i) => {
+    Object.entries(MARKET_PRICES).forEach( ([id,prices]) => {
+      port.market[id] = prices[i];
+    });
+  });
+}
+
+GW.message.addKind('ENTER_PORT', 'you visit $name$.');
+
+async function enterPort() {
+
+  GW.message.add('ENTER_PORT', this);
+
+  const buffer = GW.ui.startDialog();
+
+  buffer.blackOutRect(0, 0, 64, 38);
+  const welcome = GW.text.apply('#yellow#Welcome to $name$', this);
+  const len = GW.text.length(welcome);
+  let cx = Math.floor((64-len)/2);
+  buffer.plotText(cx, 1, welcome);
+
+  const list = GW.make.list({
+    letters: true,
+    selectedColor: 'teal',
+    disabledColor: 'black',
+    color: 'white',
+    selected: 0,
+    format: '%-30s',
+  });
+
+  const data = [
+    { text: 'Market',   fn: enterMarket },
+    { text: 'Shipyard', fn: null },
+    { text: 'Store',    fn: null },
+    { text: 'Tavern',   fn: null },
+    { text: 'Governor', fn: null },
+    { text: 'Leave',    fn: null },
+  ];
+
+  buffer.plotText(5, 3, 'Where would you like to go?');
+
+  let running = true;
+  while(running) {
+    list.plot(buffer, 5, 5, data);
+    GW.ui.draw();
+
+    await list.loop();
+
+    if (list.cancelled) {
+      // Leaving port
+      running = false;
+    }
+    else if (list.selected >= 0) {
+      console.log('You chose', list.selected);
+      const item = data[list.selected];
+      if (item.fn) {
+        await item.fn(this);
+      }
+    }
+  }
+
+  GW.ui.finishDialog();
+  return true;
+}
+
+
+
 function addPort(id, opts={}) {
 
-  opts.id = id;
-  // const port = makePort(opts);
-  //
+  const port = new Port(id, opts);
 
-  const port = {};
-  port.name = opts.name;
-  port.tile = id;
-  port.event = 'ENTER_' + id;
   GW.tile.addKind(id, {
     name: port.name, article: false,
     ch: '\u2302', fg: 'yellow', bg: 'brown',
@@ -21,7 +97,7 @@ function addPort(id, opts={}) {
     }
   });
 
-  // GW.on(event, enterStore, store);
+  GW.on(port.event, enterPort, port);
   // store.update();
 
   PORTS[id] = port;

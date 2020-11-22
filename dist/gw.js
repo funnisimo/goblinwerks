@@ -120,6 +120,12 @@
 
   types.Bounds = Bounds;
 
+  function make$1(x, y, w, h) {
+    return new types.Bounds(x, y, w, h);
+  }
+
+  make.bounds = make$1;
+
   /**
    * GW.utils
    * @module utils
@@ -1701,7 +1707,7 @@
 
   types.Color = Color;
 
-  function make$1(...args) {
+  function make$2(...args) {
     let hex = args[0];
     if (args.length == 0) { return new types.Color(0,0,0); }
     if (args.length == 1 && hex instanceof types.Color) {
@@ -1737,7 +1743,7 @@
     return null;
   }
 
-  make.color = make$1;
+  make.color = make$2;
 
 
   function addKind(name, ...args) {
@@ -1923,7 +1929,7 @@
   var color = /*#__PURE__*/Object.freeze({
     __proto__: null,
     Color: Color,
-    make: make$1,
+    make: make$2,
     addKind: addKind,
     from: from,
     intensity: intensity,
@@ -2055,7 +2061,7 @@
           components[0] = msg.charCodeAt(i + 1) - COLOR_VALUE_INTERCEPT;
           components[1] = msg.charCodeAt(i + 2) - COLOR_VALUE_INTERCEPT;
           components[2] = msg.charCodeAt(i + 3) - COLOR_VALUE_INTERCEPT;
-          color$1 = make$1(components);
+          color$1 = make$2(components);
           i += 3;
       }
       else if (ch === COLOR_END) {
@@ -3172,11 +3178,11 @@
   types.Grid = Grid;
 
 
-  function make$2(w, h, v) {
+  function make$3(w, h, v) {
   	return new types.Grid(w, h, v);
   }
 
-  make.grid = make$2;
+  make.grid = make$3;
 
 
   // mallocing two-dimensional arrays! dun dun DUN!
@@ -3188,7 +3194,7 @@
 
   	let grid = GRID_CACHE.pop();
     if (!grid) {
-      return make$2(w, h, v);
+      return make$3(w, h, v);
     }
     return resizeAndClearGrid(grid, w, h, v);
   }
@@ -3688,7 +3694,7 @@
     __proto__: null,
     makeArray: makeArray,
     Grid: Grid,
-    make: make$2,
+    make: make$3,
     alloc: alloc,
     free: free,
     dump: dump,
@@ -5489,7 +5495,7 @@
 
 
   // Dungeon features, spawned from Architect.c:
-  function make$3(opts) {
+  function make$4(opts) {
     if (!opts) return null;
     if (typeof opts === 'string') {
       opts = { tile: opts };
@@ -5498,7 +5504,7 @@
   	return te;
   }
 
-  make.tileEvent = make$3;
+  make.tileEvent = make$4;
 
 
   function addKind$1(id, event) {
@@ -6041,7 +6047,7 @@
   var tileEvent$1 = /*#__PURE__*/Object.freeze({
     __proto__: null,
     TileEvent: TileEvent$1,
-    make: make$3,
+    make: make$4,
     addKind: addKind$1,
     resetAllMessages: resetAllMessages,
     spawn: spawn,
@@ -7693,7 +7699,7 @@
 
   def.INTENSITY_DARK = 20; // less than 20% for highest color in rgb
 
-  const LIGHT_COMPONENTS = make$1();
+  const LIGHT_COMPONENTS = make$2();
 
   class Light {
   	constructor(color$1, range, fadeTo, pass) {
@@ -7770,7 +7776,7 @@
   types.Light = Light;
 
 
-  function make$4(color, radius, fadeTo, pass) {
+  function make$5(color, radius, fadeTo, pass) {
 
   	if (arguments.length == 1) {
   		if (color && color.color) {
@@ -7794,7 +7800,7 @@
   	return new types.Light(color, radius, fadeTo, pass);
   }
 
-  make.light = make$4;
+  make.light = make$5;
 
   const LIGHT_SOURCES = lights;
 
@@ -7829,7 +7835,7 @@
   		const cached = LIGHT_SOURCES[args[0]];
   		if (cached) return cached;
   	}
-  	return make$4(...args);
+  	return make$5(...args);
   }
 
 
@@ -8008,7 +8014,7 @@
 
   var light = /*#__PURE__*/Object.freeze({
     __proto__: null,
-    make: make$4,
+    make: make$5,
     addKind: addKind$2,
     addKinds: addKinds,
     from: from$1,
@@ -13149,6 +13155,10 @@
       }
       else {
         const field = data[this.field];
+        if (field === undefined) {
+          buffer.plotText(x, y, color, this.empty);
+          return length(this.empty);
+        }
         text$1 = format(this.format, field);
       }
       buffer.plotText(x, y, color, text$1);
@@ -13174,6 +13184,7 @@
 
       this.columns = opts.columns || [];
       this.letters = opts.letters || false;
+      this.headers = opts.headers || false;
       if (opts.letters) {
         this.columns.unshift(new Column(null, (data, index) => {
           const letter = String.fromCharCode(97 + index);
@@ -13181,31 +13192,38 @@
         }));
       }
       this.color = from(opts.color || colors.white);
-      this.selectedColor = from(opts.selectedColor || colors.teal);
+      this.activeColor = from(opts.selectedColor || colors.teal);
       this.disabledColor = from(opts.disabledColor || colors.black);
-      this.selected = (opts.selected >= 0) ? opts.selected : -1;
-      this.maxWidth = 0;
+      this.active = opts.active || 0;
+      this.bounds = make.bounds();
+      this.selected = -1;
+      this.cancelled = false;
+      this.count = 0;
     }
 
     column(...args) {
-      this.columns.push(new types.Column(...args));
+      const col = new types.Column(...args);
+      if (!col.name) {
+        col.name = String.fromCharCode(97 + this.columns.length);
+      }
+      this.columns.push(col);
       return this;
     }
 
     plot(buffer, x0, y0, data) {
       if (Array.isArray(data)) {
-        return this.plotArray(buffer, x0, y0, data);
+        return this._plotArray(buffer, x0, y0, data);
       }
-      return this.plotChain(buffer, x0, y0, data);
+      return this._plotChain(buffer, x0, y0, data);
     }
 
-    plotChain(buffer, x0, y0, data) {
+    _plotChain(buffer, x0, y0, data) {
       return this._plot(buffer, x0, y0, (current) => {
         return current ? current.next : data;
       });
     }
 
-    plotArray(buffer, x0, y0, data) {
+    _plotArray(buffer, x0, y0, data) {
       let index = -1;
       return this._plot(buffer, x0, y0, () => {
         ++index;
@@ -13218,37 +13236,101 @@
     }
 
     _plot(buffer, x0, y0, nextFn) {
-      this.maxWidth = 0;
-      const headers = this.columns.some( (c) => c.name );
+      this.bounds.x = x0;
+      this.bounds.y = y0;
 
       let x = x0;
       let y = y0;
       for(let column of this.columns) {
         let maxWidth = 0;
         y = y0;
-        if (headers) {
+        if (this.headers) {
           maxWidth = Math.max(maxWidth, column.plotHeader(buffer, x, y++));
         }
 
-        let count = 0;
+        this.count = 0;
         let current = nextFn();
         do {
-          let color = (count == this.selected) ? this.selectedColor : this.color;
+          let color = (this.count == this.active) ? this.activeColor : this.color;
           if (current.disabled) {
             color = color.clone().mix(this.disabledColor, 50);
           }
-          maxWidth = Math.max(maxWidth, column.plotData(buffer, x, y, current, count, color));
+          maxWidth = Math.max(maxWidth, column.plotData(buffer, x, y, current, this.count, color));
           ++y;
           current = nextFn(current);
-          ++count;
+          ++this.count;
         }
         while(current);
 
         x += (maxWidth + 1);
       }
 
-      this.maxWidth = x - x0;
+      this.bounds.width = x - x0;
+      this.bounds.height = y - y0;
       return y;
+    }
+
+    async loop(handler) {
+      while(true) {
+        const ev = await nextEvent();
+        if (await this.dispatchEvent(ev, handler)) {
+          return true;
+        }
+      }
+    }
+
+    async dispatchEvent(ev, handler={}) {
+      this.cancelled = false;
+      this.selected = -1;
+
+      if (await dispatchEvent(ev, handler)) return true;
+
+      return await dispatchEvent(ev, {
+        Escape: () => {
+          this.cancelled = true;
+          return true;
+        },
+        Enter: () => {
+          this.selected = this.active;
+          return true;
+        },
+        mousemove: (ev) => {
+          if (this.bounds.containsXY(ev.x, ev.y)) {
+            const index = ev.y - this.bounds.y - (this.headers ? 1 : 0);
+            if (index >= 0) {
+              this.active = index;
+              return true;
+            }
+          }
+        },
+        click: (ev) => {
+          if (this.bounds.containsXY(ev.x, ev.y)) {
+            const index = ev.y - this.bounds.y - (this.headers ? 1 : 0);
+            if (index >= 0) {
+              this.selected = index;
+              return true;
+            }
+          }
+        },
+        dir: (ev) => {
+          if(ev.dir[1] < 0) {
+            this.active = (this.count + this.active - 1) % this.count;
+          }
+          else if (ev.dir[1] > 0) {
+            this.active = (this.active + 1) % this.count;
+          }
+          return true;
+        },
+        keypress: (ev) => {
+          if (!this.letters) return false;
+          const index = ev.key.charCodeAt(0) - 97;
+          if (index >= 0 && index < this.count) {
+            this.active = index;
+            return true;
+          }
+          return false;
+        }
+      });
     }
 
   }
@@ -13256,11 +13338,30 @@
   types.Table = Table;
 
 
-  function make$5(...args) {
+  function make$6(...args) {
     return new types.Table(...args);
   }
 
-  make.table = make$5;
+  make.table = make$6;
+
+  class List extends types.Table {
+    constructor(opts={}) {
+      super(opts);
+      opts.format = opts.format || '%s';
+      this.column(opts.header,
+        ((data) => format(opts.format, data.text || data)),
+        opts.format, '-'
+      );
+    }
+  }
+
+  types.List = List;
+
+  function make$7(...args) {
+    return new types.List(...args);
+  }
+
+  make.list = make$7;
 
   ui.debug = NOOP;
 
@@ -14111,8 +14212,8 @@
     if (pct > 1) pct /= 100;
     pct = clamp(pct, 0, 1);
 
-  	barColor = make$1(barColor);
-    textColor = make$1(textColor);
+  	barColor = make$2(barColor);
+    textColor = make$2(textColor);
     const darkenedBarColor = barColor.clone().mix(colors.black, 75);
 
     barText = center(barText, width);
