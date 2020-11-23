@@ -111,7 +111,7 @@ describe('Message', () => {
     });
 
     test('can pass in the color', () => {
-      const t = GW.text.apply('#red#$title$##', { title: 'taco', red: 'blue' });
+      const t = GW.text.apply('#c#$title$##', { title: 'taco', c: 'blue' });
       expect(t).toEqual(GW.text.format('%Ftaco%F', 'blue', null));
     });
 

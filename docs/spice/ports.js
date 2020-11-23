@@ -38,6 +38,8 @@ async function enterPort() {
   let cx = Math.floor((64-len)/2);
   buffer.plotText(cx, 1, welcome);
 
+  buffer.plotText(5, 3, 'Where would you like to go?');
+
   const list = GW.make.list({
     letters: true,
     selectedColor: 'teal',
@@ -47,18 +49,17 @@ async function enterPort() {
     format: '%-30s',
   });
 
+  let running = true;
+
   const data = [
     { text: 'Market',   fn: enterMarket },
     { text: 'Shipyard', fn: null },
     { text: 'Store',    fn: null },
     { text: 'Tavern',   fn: null },
     { text: 'Governor', fn: null },
-    { text: 'Leave',    fn: null },
+    { text: 'Leave',    fn: (() => { running = false; }) },
   ];
 
-  buffer.plotText(5, 3, 'Where would you like to go?');
-
-  let running = true;
   while(running) {
     list.plot(buffer, 5, 5, data);
     GW.ui.draw();
@@ -75,6 +76,9 @@ async function enterPort() {
       if (item.fn) {
         await item.fn(this);
       }
+      // else if (list.selected == 5) {
+      //   running = false;
+      // }
     }
   }
 

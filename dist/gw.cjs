@@ -2557,7 +2557,10 @@ function apply(template, args={}) {
       return encodeColor(null);
     }
     else if (color !== undefined) {
-      if (args[color] !== undefined) {
+      if (colors[color]) {
+        color = colors[color];
+      }
+      else if (args[color] !== undefined) {
         color = args[color];
       }
       return encodeColor(color);
@@ -13151,7 +13154,7 @@ class Column {
     }
     else {
       const field = data[this.field];
-      if (field === undefined) {
+      if (!field) {
         buffer.plotText(x, y, color, this.empty);
         return length(this.empty);
       }
@@ -13199,9 +13202,6 @@ class Table {
 
   column(...args) {
     const col = new types.Column(...args);
-    if (!col.name) {
-      col.name = String.fromCharCode(97 + this.columns.length);
-    }
     this.columns.push(col);
     return this;
   }
@@ -13232,15 +13232,19 @@ class Table {
   }
 
   _plot(buffer, x0, y0, nextFn) {
+    if (this.bounds.width) {
+      buffer.blackOutRect(this.bounds.x, this.bounds.y, this.bounds.width, this.bounds.height);
+    }
     this.bounds.x = x0;
     this.bounds.y = y0;
+    const hasHeaders = this.columns.some( (c) => c.name );
 
     let x = x0;
     let y = y0;
     for(let column of this.columns) {
       let maxWidth = 0;
       y = y0;
-      if (this.headers) {
+      if (this.headers && hasHeaders) {
         maxWidth = Math.max(maxWidth, column.plotHeader(buffer, x, y++));
       }
 
