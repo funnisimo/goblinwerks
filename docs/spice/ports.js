@@ -32,13 +32,14 @@ async function enterPort() {
 
   const buffer = GW.ui.startDialog();
 
-  buffer.blackOutRect(0, 0, 64, 38);
+  buffer.fade('black', 50);
+  buffer.blackOutRect(16, 0, 64, 38, 'darkest_gray');
   const welcome = GW.text.apply('#yellow#Welcome to $name$', this);
   const len = GW.text.length(welcome);
-  let cx = Math.floor((64-len)/2);
+  let cx = 16 + Math.floor((64-len)/2);
   buffer.plotText(cx, 1, welcome);
 
-  buffer.plotText(5, 3, 'Where would you like to go?');
+  buffer.plotText(21, 3, 'Where would you like to go?');
 
   const list = GW.make.list({
     letters: true,
@@ -47,6 +48,7 @@ async function enterPort() {
     color: 'white',
     selected: 0,
     format: '%-30s',
+    bg: 'darkest_gray',
   });
 
   let running = true;
@@ -61,7 +63,7 @@ async function enterPort() {
   ];
 
   while(running) {
-    list.plot(buffer, 5, 5, data);
+    list.plot(buffer, 21, 5, data);
     GW.ui.draw();
 
     await list.loop();

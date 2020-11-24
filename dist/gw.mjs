@@ -13196,6 +13196,7 @@ class Table {
     this.selected = -1;
     this.cancelled = false;
     this.count = 0;
+    this.bg = opts.bg;
   }
 
   column(...args) {
@@ -13231,7 +13232,7 @@ class Table {
 
   _plot(buffer, x0, y0, nextFn) {
     if (this.bounds.width) {
-      buffer.blackOutRect(this.bounds.x, this.bounds.y, this.bounds.width, this.bounds.height);
+      buffer.blackOutRect(this.bounds.x, this.bounds.y, this.bounds.width, this.bounds.height, this.bg);
     }
     this.bounds.x = x0;
     this.bounds.y = y0;

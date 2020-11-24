@@ -61,23 +61,24 @@ async function playerSellToMarket(port, player) {
 
   const buffer = GW.ui.startDialog();
 
-  buffer.blackOutRect(0, 0, 64, 38);
+  buffer.blackOutRect(16, 0, 64, 38, 'darkest_gray');
   const welcome = GW.text.apply('#yellow#$port$ Market', { port: port.name });
   const len = GW.text.length(welcome);
-  let cx = Math.floor((64-len)/2);
+  let cx = 16 + Math.floor((64-len)/2);
   buffer.plotText(cx, 1, welcome);
 
-  buffer.applyText(5, 3, 'What would you like to #green#sell## to the market?');
+  buffer.applyText(21, 3, 'What would you like to #green#sell## to the market?');
 
-  buffer.applyText(5, 20, 'Press #green#<a-z, UP, DOWN>## to select a good.');
-  buffer.applyText(5, 21, 'Press #green#<Enter>## to sell 1.');
-  buffer.applyText(5, 22, 'Press #green#<ENTER>## to sell all of the good.');
-  buffer.applyText(5, 23, 'Press #green#<B>## to see buy prices.');
-  buffer.applyText(5, 24, 'Press #green#<Escape>## to leave the market.');
+  buffer.applyText(21, 20, 'Press #green#<a-z, UP, DOWN>## to select a good.');
+  buffer.applyText(21, 21, 'Press #green#<Enter>## to sell 1.');
+  buffer.applyText(21, 22, 'Press #green#<ENTER>## to sell all of the good.');
+  buffer.applyText(21, 23, 'Press #green#<B>## to see buy prices.');
+  buffer.applyText(21, 24, 'Press #green#<Escape>## to leave the market.');
 
   const table = GW.make.table({
     letters: true,
     headers: true,
+    bg: 'darkest_gray',
   })
   .column('Reagent', 'name', '%-15s')
   // .column('Want', 'want', '%4d')
@@ -101,11 +102,11 @@ async function playerSellToMarket(port, player) {
     // buffer.applyText(5, 3, 'What would you like to #green#buy## at the market?');
     // buffer.applyText(5, 33, 'Press #green#<S>## to Sell.');
 
-    buffer.blackOutRect(5, 16, 54, 2);
-    buffer.applyText(5, 16, 'Gold : #gold#$gold$##', { gold: player.current.gold });
-    buffer.applyText(5, 17, 'Space on Ship: #yellow#$empty$##', { empty: player.current.empty });
+    buffer.blackOutRect(21, 16, 54, 2, 'darkest_gray');
+    buffer.applyText(21, 16, 'Gold : #gold#$gold$##', { gold: player.current.gold });
+    buffer.applyText(21, 17, 'Space on Ship: #yellow#$empty$##', { empty: player.current.empty });
 
-    table.plot(buffer, 5, 5, data);
+    table.plot(buffer, 21, 5, data);
     GW.ui.draw();
 
     let sellAll = false;
@@ -165,23 +166,24 @@ async function playerBuyFromMarket(port, player) {
 
   const buffer = GW.ui.startDialog();
 
-  buffer.blackOutRect(0, 0, 64, 38);
+  buffer.blackOutRect(16, 0, 64, 38, 'darkest_gray');
   const welcome = GW.text.apply('#yellow#$port$ Market', { port: port.name });
   const len = GW.text.length(welcome);
-  let cx = Math.floor((64-len)/2);
+  let cx = 16 + Math.floor((64-len)/2);
   buffer.plotText(cx, 1, welcome);
 
-  buffer.applyText(5, 3, 'What would you like to #green#buy## from the market?');
+  buffer.applyText(21, 3, 'What would you like to #green#buy## from the market?');
 
-  buffer.applyText(5, 20, 'Press #green#<a-z, UP, DOWN>## to select a good.');
-  buffer.applyText(5, 21, 'Press #green#<Enter>## to buy a good.');
-  buffer.applyText(5, 22, 'Press #green#<ENTER>## to buy the max of a good.');
-  buffer.applyText(5, 23, 'Press #green#<S>## to see sell prices.');
-  buffer.applyText(5, 24, 'Press #green#<Escape>## to leave the market.');
+  buffer.applyText(21, 20, 'Press #green#<a-z, UP, DOWN>## to select a good.');
+  buffer.applyText(21, 21, 'Press #green#<Enter>## to buy a good.');
+  buffer.applyText(21, 22, 'Press #green#<ENTER>## to buy the max of a good.');
+  buffer.applyText(21, 23, 'Press #green#<S>## to see sell prices.');
+  buffer.applyText(21, 24, 'Press #green#<Escape>## to leave the market.');
 
   const table = GW.make.table({
     letters: true,
     headers: true,
+    bg: 'darkest_gray',
   })
   .column('Reagent', 'name', '%-15s')
   // .column('Want', 'want', '%4d')
@@ -200,11 +202,11 @@ async function playerBuyFromMarket(port, player) {
   let result = 1;
   while(result == 1) {
 
-    buffer.blackOutRect(5, 16, 54, 2);
-    buffer.applyText(5, 16, 'Gold : #gold#$gold$##', { gold: player.current.gold });
-    buffer.applyText(5, 17, 'Space on Ship: #yellow#$empty$##', { empty: player.current.empty });
+    buffer.blackOutRect(21, 16, 54, 2, 'darkest_gray');
+    buffer.applyText(21, 16, 'Gold : #gold#$gold$##', { gold: player.current.gold });
+    buffer.applyText(21, 17, 'Space on Ship: #yellow#$empty$##', { empty: player.current.empty });
 
-    table.plot(buffer, 5, 5, data);
+    table.plot(buffer, 21, 5, data);
     GW.ui.draw();
 
     let buyMax = false;
