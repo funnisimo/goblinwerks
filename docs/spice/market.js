@@ -69,12 +69,6 @@ async function playerSellToMarket(port, player) {
 
   buffer.applyText(21, 3, 'What would you like to #green#sell## to the market?');
 
-  buffer.applyText(21, 20, 'Press #green#<a-z, UP, DOWN>## to select a good.');
-  buffer.applyText(21, 21, 'Press #green#<Enter>## to sell 1.');
-  buffer.applyText(21, 22, 'Press #green#<ENTER>## to sell all of the good.');
-  buffer.applyText(21, 23, 'Press #green#<B>## to see buy prices.');
-  buffer.applyText(21, 24, 'Press #green#<Escape>## to leave the market.');
-
   const table = GW.make.table({
     letters: true,
     headers: true,
@@ -96,6 +90,7 @@ async function playerSellToMarket(port, player) {
     }
   } );
 
+  let y = 0;
   let result = 0;
   while(result == 0) {
 
@@ -105,6 +100,12 @@ async function playerSellToMarket(port, player) {
     buffer.blackOutRect(21, 16, 54, 2, 'darkest_gray');
     buffer.applyText(21, 16, 'Gold : #gold#$gold$##', { gold: player.current.gold });
     buffer.applyText(21, 17, 'Space on Ship: #yellow#$empty$##', { empty: player.current.empty });
+
+    buffer.applyText(21, 20, 'Press #green#<a-z, UP, DOWN>## to select a good.');
+    buffer.applyText(21, 21, 'Press #c#<Enter>## to sell 1.', { c: (y == 21) ? 'teal' : 'green' });
+    buffer.applyText(21, 22, 'Press #c#<ENTER>## to sell all of the good.', { c: (y == 22) ? 'teal' : 'green' });
+    buffer.applyText(21, 23, 'Press #c#<B>## to see buy prices.', { c: (y == 23) ? 'teal' : 'green' });
+    buffer.applyText(21, 24, 'Press #c#<Escape>## to leave the market.', { c: (y == 24) ? 'teal' : 'green' });
 
     table.plot(buffer, 21, 5, data);
     GW.ui.draw();
@@ -122,13 +123,25 @@ async function playerSellToMarket(port, player) {
       },
       mousemove(ev) {
         if (ev.y >= 20 && ev.y <= 24) {
-          console.log('hover', ev.y);
+          y = ev.y;
           return true;
         }
       },
       click(ev) {
         if (ev.y >= 20 && ev.y <= 24) {
-          console.log('click', ev.y);
+          if (ev.y == 21) {
+            table.selected = table.active;
+          }
+          else if (ev.y == 22) {
+            table.selected = table.active;
+            sellAll = true;
+          }
+          else if (ev.y == 23) {
+            result = 1;
+          }
+          else if (ev.y == 24) {
+            table.cancelled = true;
+          }
           return true;
         }
       }
@@ -174,12 +187,6 @@ async function playerBuyFromMarket(port, player) {
 
   buffer.applyText(21, 3, 'What would you like to #green#buy## from the market?');
 
-  buffer.applyText(21, 20, 'Press #green#<a-z, UP, DOWN>## to select a good.');
-  buffer.applyText(21, 21, 'Press #green#<Enter>## to buy a good.');
-  buffer.applyText(21, 22, 'Press #green#<ENTER>## to buy the max of a good.');
-  buffer.applyText(21, 23, 'Press #green#<S>## to see sell prices.');
-  buffer.applyText(21, 24, 'Press #green#<Escape>## to leave the market.');
-
   const table = GW.make.table({
     letters: true,
     headers: true,
@@ -199,12 +206,19 @@ async function playerBuyFromMarket(port, player) {
     }
   });
 
+  let y = 0;
   let result = 1;
   while(result == 1) {
 
     buffer.blackOutRect(21, 16, 54, 2, 'darkest_gray');
     buffer.applyText(21, 16, 'Gold : #gold#$gold$##', { gold: player.current.gold });
     buffer.applyText(21, 17, 'Space on Ship: #yellow#$empty$##', { empty: player.current.empty });
+
+    buffer.applyText(21, 20, 'Press #green#<a-z, UP, DOWN>## to select a good.');
+    buffer.applyText(21, 21, 'Press #c#<Enter>## to buy a good.', { c: (y == 21) ? 'teal' : 'green' });
+    buffer.applyText(21, 22, 'Press #c#<ENTER>## to buy the max of a good.', { c: (y == 22) ? 'teal' : 'green' });
+    buffer.applyText(21, 23, 'Press #c#<S>## to see sell prices.', { c: (y == 23) ? 'teal' : 'green' });
+    buffer.applyText(21, 24, 'Press #c#<Escape>## to leave the market.', { c: (y == 24) ? 'teal' : 'green' });
 
     table.plot(buffer, 21, 5, data);
     GW.ui.draw();
@@ -219,6 +233,30 @@ async function playerBuyFromMarket(port, player) {
         table.selected = table.active;
         buyMax = true;
         return true;
+      },
+      mousemove(ev) {
+        if (ev.y >= 20 && ev.y <= 24) {
+          y = ev.y;
+          return true;
+        }
+      },
+      click(ev) {
+        if (ev.y >= 20 && ev.y <= 24) {
+          if (ev.y == 21) {
+            table.selected = table.active;
+          }
+          else if (ev.y == 22) {
+            table.selected = table.active;
+            sellAll = true;
+          }
+          else if (ev.y == 23) {
+            result = 0;
+          }
+          else if (ev.y == 24) {
+            table.cancelled = true;
+          }
+          return true;
+        }
       }
     });
 
