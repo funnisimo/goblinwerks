@@ -545,12 +545,10 @@ export function format(fmt, ...args) {
     if (p5 == 's') {
       if (p1.includes(' ')) return m;
       r = args.shift() || '';
-      r = r.text || r;	// BrogueString
     }
     else if (p5 == 'c') {
       if (m !== '%c') return m;
       r = (args.shift() || '');
-      r = r.text || r;	// BrogueString
       r = r[0] || '';
     }
     else if (p5 == 'd' || p5 == 'i' || p5 == 'u') {

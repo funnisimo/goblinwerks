@@ -532,7 +532,7 @@ function addProgressBar(y, buf, barText, current, max, color, dim) {
 		max = 1;
 	}
 
-	color = color.clone();
+	color = Color.make(color);
 	if (!(y % 2)) {
 		color.mix(GW.colors.black, 25);
 	}

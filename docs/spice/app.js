@@ -9,7 +9,20 @@ function makePlayer() {
   return GW.make.player({
 		sprite: GW.make.sprite('@', 'white'),
 		name: 'you',
-    stats: { fov: 5, gold: 100, empty: 10 },
+    stats: { fov: 5, gold: 100, empty: 10, hold: 10, hull: 100 },
+    // sidebar(entry, y, dim, highlight, buf)
+    // - Called to add this actor to the sidebar (if not provided, it will use the default)
+    // - Return the new y (after adding any rows)
+    sidebar(entry, y, dim, highlight, buf) {
+      const player = entry.entity;
+    	y = GW.sidebar.addName(entry, y, dim, highlight, buf);
+      y = GW.sidebar.addProgressBar(y, buf, 'Hull', player.current.hull, player.max.hull, 'blueBar', dim);
+      y = GW.sidebar.addText(buf, y, 'Gold: #gold#' + player.current.gold, null, null, { dim, highlight, indent: 8 });
+      const used = player.current.hold - player.current.empty;
+      y = GW.sidebar.addText(buf, y, 'Hold: #green#' + used + '##/' + player.current.hold, null, null, { dim, highlight, indent: 8 });
+
+      return y;
+    },
   });
 }
 

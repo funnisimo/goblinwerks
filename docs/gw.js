@@ -12695,7 +12695,7 @@
 
   // Progress Bars
 
-  function addProgressBar(y, buf, barText, current, max, color, dim) {
+  function addProgressBar(y, buf, barText, current, max, color$1, dim) {
   	if (y >= SIDE_BOUNDS.height - 1) {
   		return SIDE_BOUNDS.height - 1;
   	}
@@ -12708,18 +12708,18 @@
   		max = 1;
   	}
 
-  	color = color.clone();
+  	color$1 = make$2(color$1);
   	if (!(y % 2)) {
-  		color.mix(colors.black, 25);
+  		color$1.mix(colors.black, 25);
   	}
 
     let textColor = colors.white;
     if (dim) {
-  		color.mix(colors.black, 50);
+  		color$1.mix(colors.black, 50);
       textColor = colors.gray;
   	}
 
-    ui.plotProgressBar(buf, SIDE_BOUNDS.x, y, SIDE_BOUNDS.width, barText, textColor, current/max, color);
+    ui.plotProgressBar(buf, SIDE_BOUNDS.x, y, SIDE_BOUNDS.width, barText, textColor, current/max, color$1);
     return y + 1;
   }
 

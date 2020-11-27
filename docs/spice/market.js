@@ -154,7 +154,7 @@ async function playerSellToMarket(port, player) {
     else if (table.selected >= 0) {
       console.log('Selling = ', data[table.selected], sellAll);
       const d = data[table.selected];
-      if (!d.disabled) {
+      if ((!d.disabled) && player.current[d.id]) {
         const qty = sellAll ? player.current[d.id] : 1;
         const price = d.price;
         player.current.gold += qty * price;
@@ -267,7 +267,7 @@ async function playerBuyFromMarket(port, player) {
     else if (table.selected >= 0) {
       console.log('Buying = ', data[table.selected], buyMax);
       const d = data[table.selected];
-      if (!d.disabled) {
+      if ((!d.disabled) && player.current.empty) {
         const price = d.price;
         let qty = 1;
         if (buyMax) {
