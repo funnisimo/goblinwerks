@@ -41,7 +41,7 @@ async function enterTavern(port, player) {
   let running = true;
 
   const data = [
-    { text: 'Buy the house a round!',   fn: showRumor },
+    { text: 'Buy the house a round!',   fn: showRumor, disabled: (player.current.gold < 10) },
     { text: 'Leave',    fn: (() => { running = false; }) },
   ];
 
@@ -79,12 +79,19 @@ function addRumor(rumor) {
 
 async function showRumor(port, player) {
   let rumor;
-  if (RUMORS.length) {
-    if (GW.random.chance(50)) {
-      rumor = RUMORS.shift();
-    }
+
+  if (player.current.gold < 10) {
+    rumor = "You don't have enough gold for that.";
   }
-  rumor = rumor || GW.random.item(COMMON_RUMORS);
+  else {
+    player.current.gold -= 10;
+    if (RUMORS.length) {
+      if (GW.random.chance(50)) {
+        rumor = RUMORS.shift();
+      }
+    }
+    rumor = rumor || GW.random.item(COMMON_RUMORS);
+  }
   await GW.ui.confirm({ allowCancel:false, bg: 'dark_gray' }, rumor);
   return true;
 }
