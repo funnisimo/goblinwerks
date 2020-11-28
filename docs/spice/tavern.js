@@ -11,6 +11,8 @@ const COMMON_RUMORS = [
   "The sea is where I belong."
 ];
 
+const RUMORS = [];
+
 
 async function enterTavern(port, player) {
 
@@ -70,7 +72,19 @@ async function enterTavern(port, player) {
   return true;
 }
 
+function addRumor(rumor) {
+  RUMORS.push(rumor);
+  while (RUMORS.length > 10) RUMORS.shift();
+}
+
 async function showRumor(port, player) {
-  await GW.ui.confirm({ allowCancel:false, bg: 'dark_gray' }, GW.random.item(COMMON_RUMORS));
+  let rumor;
+  if (RUMORS.length) {
+    if (GW.random.chance(50)) {
+      rumor = RUMORS.shift();
+    }
+  }
+  rumor = rumor || GW.random.item(COMMON_RUMORS);
+  await GW.ui.confirm({ allowCancel:false, bg: 'dark_gray' }, rumor);
   return true;
 }

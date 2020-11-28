@@ -1391,7 +1391,10 @@
     }
 
     item(list) {
-    	return list[this.range(0, list.length - 1)];
+      if (!Array.isArray(list)) {
+        list = Object.values(list);
+      }
+      return list[this.range(0, list.length - 1)];
     }
 
     key(obj) {
@@ -2474,12 +2477,10 @@
       if (p5 == 's') {
         if (p1.includes(' ')) return m;
         r = args.shift() || '';
-        r = r.text || r;	// BrogueString
       }
       else if (p5 == 'c') {
         if (m !== '%c') return m;
         r = (args.shift() || '');
-        r = r.text || r;	// BrogueString
         r = r[0] || '';
       }
       else if (p5 == 'd' || p5 == 'i' || p5 == 'u') {
@@ -9178,10 +9179,17 @@
 
   async function startMap(map, loc='start') {
 
-    scheduler.clear();
+    // scheduler.clear();
 
     if (data.map && data.player) {
       await emit('STOP_MAP', data.map);
+
+      eachChain(map.actors, (actor) => {
+        if (actor.schedulerItem) {
+          scheduler.remove(actor.schedulerItem);
+          actor.schedulerItem = null;
+        }
+      });
 
       data.map.removeActor(data.player);
     }
@@ -9241,7 +9249,7 @@
     }
 
     if (map.config.tick) {
-      scheduler.push( updateEnvironment, map.config.tick );
+      map.schedulerItem = scheduler.push( updateEnvironment, map.config.tick );
     }
 
     await emit('MAP_START', map);
@@ -9295,12 +9303,12 @@
 
 
   function queuePlayer() {
-    scheduler.push(player.takeTurn, data.player.kind.speed);
+    data.player.schedulerItem = scheduler.push(player.takeTurn, data.player.kind.speed);
   }
 
 
   function queueActor(actor$1) {
-    scheduler.push(actor.takeTurn.bind(null, actor$1), actor$1.kind.speed);
+    actor$1.schedulerItem = scheduler.push(actor.takeTurn.bind(null, actor$1), actor$1.kind.speed);
   }
 
   function delay(delay, fn) {

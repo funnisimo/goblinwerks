@@ -26,6 +26,31 @@ function resetPorts() {
 
 GW.message.addKind('ENTER_PORT', 'you visit $name$.');
 
+
+function updateMarkets() {
+
+  console.log('updating port markets...');
+
+  // pick a random market to adjust
+  const portA = GW.random.item(PORTS);
+  const portB = GW.random.item(PORTS);
+  if (portA !== portB) {
+    const good = GW.random.key(portA.market);
+    if (portA.market[good] < portB.market[good]) {
+      addRumor(GOODS[good] + ' prices are rising in ' + portA.name + '.');
+    }
+    else if (portA.market[good] > portB.market[good]) {
+      addRumor(GOODS[good] + ' prices are falling in ' + portA.name + '.');
+    }
+    [portA.market[good], portB.market[good]] = [portB.market[good], portA.market[good]];
+  }
+
+  return 10 * 100;
+}
+
+GW.scheduler.push(updateMarkets, 100);
+
+
 async function enterPort() {
 
   GW.message.add('ENTER_PORT', this);
