@@ -58,12 +58,13 @@ export class Scheduler {
   }
 
 	remove(item) {
+    if (!item) return;
 		if (this.next === item) {
 			this.next = item.next;
 			return;
 		}
-		prev = this.next;
-		current = prev.next;
+		let prev = this.next;
+		let current = prev.next;
 		while( current && current !== item ) {
 			prev = current;
 			current = current.next;

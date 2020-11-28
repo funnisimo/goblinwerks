@@ -107,10 +107,13 @@ export async function startMap(map, loc='start') {
   if (DATA.map && DATA.player) {
     await Events.emit('STOP_MAP', DATA.map);
 
-    Utils.eachChain(map.actors, (actor) => {
-      if (actor.schedulerItem) {
-        scheduler.remove(actor.schedulerItem);
-        actor.schedulerItem = null;
+    if (DATA.map._tick) scheduler.remove(DATA.map._tick);
+    DATA.map._tick = null;
+
+    Utils.eachChain(DATA.map.actors, (actor) => {
+      if (actor._tick) {
+        scheduler.remove(actor._tick);
+        actor._tick = null;
       }
     });
 
@@ -172,7 +175,7 @@ export async function startMap(map, loc='start') {
   }
 
   if (map.config.tick) {
-    map.schedulerItem = scheduler.push( updateEnvironment, map.config.tick );
+    map._tick = scheduler.push( updateEnvironment, map.config.tick );
   }
 
   await Events.emit('MAP_START', map);
@@ -228,12 +231,12 @@ async function loop() {
 
 
 export function queuePlayer() {
-  DATA.player.schedulerItem = scheduler.push(PLAYER.takeTurn, DATA.player.kind.speed);
+  DATA.player._tick = scheduler.push(PLAYER.takeTurn, DATA.player.kind.speed);
 }
 
 
 export function queueActor(actor) {
-  actor.schedulerItem = scheduler.push(ACTOR.takeTurn.bind(null, actor), actor.kind.speed);
+  actor._tick = scheduler.push(ACTOR.takeTurn.bind(null, actor), actor.kind.speed);
 }
 
 

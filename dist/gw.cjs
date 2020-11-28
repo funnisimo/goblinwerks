@@ -9069,12 +9069,13 @@ class Scheduler {
   }
 
 	remove(item) {
+    if (!item) return;
 		if (this.next === item) {
 			this.next = item.next;
 			return;
 		}
-		prev = this.next;
-		current = prev.next;
+		let prev = this.next;
+		let current = prev.next;
 		while( current && current !== item ) {
 			prev = current;
 			current = current.next;
@@ -9180,10 +9181,13 @@ async function startMap(map, loc='start') {
   if (data.map && data.player) {
     await emit('STOP_MAP', data.map);
 
-    eachChain(map.actors, (actor) => {
-      if (actor.schedulerItem) {
-        scheduler.remove(actor.schedulerItem);
-        actor.schedulerItem = null;
+    if (data.map._tick) scheduler.remove(data.map._tick);
+    data.map._tick = null;
+
+    eachChain(data.map.actors, (actor) => {
+      if (actor._tick) {
+        scheduler.remove(actor._tick);
+        actor._tick = null;
       }
     });
 
@@ -9245,7 +9249,7 @@ async function startMap(map, loc='start') {
   }
 
   if (map.config.tick) {
-    map.schedulerItem = scheduler.push( updateEnvironment, map.config.tick );
+    map._tick = scheduler.push( updateEnvironment, map.config.tick );
   }
 
   await emit('MAP_START', map);
@@ -9299,12 +9303,12 @@ async function loop$1() {
 
 
 function queuePlayer() {
-  data.player.schedulerItem = scheduler.push(player.takeTurn, data.player.kind.speed);
+  data.player._tick = scheduler.push(player.takeTurn, data.player.kind.speed);
 }
 
 
 function queueActor(actor$1) {
-  actor$1.schedulerItem = scheduler.push(actor.takeTurn.bind(null, actor$1), actor$1.kind.speed);
+  actor$1._tick = scheduler.push(actor.takeTurn.bind(null, actor$1), actor$1.kind.speed);
 }
 
 function delay(delay, fn) {
