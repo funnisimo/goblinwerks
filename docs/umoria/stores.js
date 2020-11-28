@@ -740,7 +740,7 @@ function registerStores() {
   }
 }
 
-GW.on('MAP_START', registerStores);
+registerStores();
 
 
 // Store owners have different characteristics for pricing and haggling
