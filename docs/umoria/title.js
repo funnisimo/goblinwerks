@@ -293,12 +293,13 @@ async function titleMenu(opts) {
 
   const buffer = GW.ui.startDialog();
 
-	const flames = GW.make.grid(buffer.width, buffer.height + MENU_FLAME_ROW_PADDING, () => [0, 0, 0] );
-	const colorSources = GW.make.array(MENU_FLAME_COLOR_SOURCE_COUNT, () => [0, 0, 0, 0] ); 	// red, green, blue, and rand, one for each color source (no more than MENU_FLAME_COLOR_SOURCE_COUNT).
-	const colors = GW.make.grid(buffer.width, buffer.height + MENU_FLAME_ROW_PADDING, null );
-  const colorStorage = GW.make.array(buffer.width, GW.make.color );
-	const mask = GW.make.grid(buffer.width, buffer.height);
-	let controlKeyWasDown = false;
+  const flames = new GW.types.Flames(buffer, {
+    flames: {
+      '*': lavaBackColor,
+    },
+    mask: UMORIA_TITLE,
+    version: UMORIA_VERSION,
+  });
 
 	let i, b, x, y;
 	const buttons = GW.make.buttons();
@@ -332,12 +333,11 @@ async function titleMenu(opts) {
 	}
 
 	buffer.blackOut();
-	initializeMenuFlames(titleMask, colors, colorStorage, colorSources, flames, mask);
 
 	do {
 		// Update the display.
-		updateMenuFlames(colors, colorSources, flames);
-		drawMenuFlames(buffer, flames, mask, versionString);
+		flames.update();
+		flames.draw();
     buffer.fillRect(x-1, y-1, 22, buttons.buttons.length*2+1, ' ', 'black', 'black');
     buttons.draw(buffer);
     GW.ui.draw();

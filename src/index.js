@@ -58,5 +58,6 @@ export { actions } from './actions/index.js';
 import './ai.js';
 import './tiles.js';
 export * as light from './light.js';
+export * as flames from './flames.js';
 
 export * from './gw.js';

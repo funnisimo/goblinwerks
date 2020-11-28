@@ -230,16 +230,7 @@ export function setDefault(obj, field, val) {
   }
 }
 
-export function setDefaults(obj, def) {
-  Object.keys(def).forEach( (key) => {
-    const current = obj[key];
-    if (current === undefined) {
-      obj[key] = def[key];
-    }
-  });
-}
-
-export function kindDefaults(obj, def) {
+export function setDefaults(obj, def, custom=null) {
   let current;
   let dest;
   Object.keys(def).forEach( (key) => {
@@ -267,27 +258,8 @@ export function kindDefaults(obj, def) {
 
     // console.log('def - ', key, current, defValue, obj, dest);
 
-    if (key.search(/[fF]lags$/) >= 0) {
-      if (!current) {
-        current = [];
-      }
-      else if (typeof current == 'string') {
-        current = current.split(/[,|]/).map( (t) => t.trim() );
-      }
-      else if (!Array.isArray(current)) {
-        current = [current];
-      }
-
-      if (typeof defValue === 'string') {
-        defValue = defValue.split(/[,|]/).map( (t) => t.trim() );
-      }
-      else if (!Array.isArray(defValue)) {
-        defValue = [defValue];
-      }
-
-      // console.log('flags', key, defValue, current);
-
-      dest[key] = defValue.concat(current);
+    if (custom && custom(dest, key, current, defValue)) {
+      // do nothing
     }
     else if (current === undefined) {
       if (Array.isArray(defValue)) {
@@ -301,6 +273,37 @@ export function kindDefaults(obj, def) {
       }
     }
   });
+}
+
+export function kindDefaults(obj, def) {
+
+  function custom(dest, key, current, defValue) {
+    if (key.search(/[fF]lags$/) < 0) return false;
+
+    if (!current) {
+      current = [];
+    }
+    else if (typeof current == 'string') {
+      current = current.split(/[,|]/).map( (t) => t.trim() );
+    }
+    else if (!Array.isArray(current)) {
+      current = [current];
+    }
+
+    if (typeof defValue === 'string') {
+      defValue = defValue.split(/[,|]/).map( (t) => t.trim() );
+    }
+    else if (!Array.isArray(defValue)) {
+      defValue = [defValue];
+    }
+
+    // console.log('flags', key, defValue, current);
+
+    dest[key] = defValue.concat(current);
+    return true;
+  }
+
+  return setDefaults(obj, def, custom);
 }
 
 export function clearObject(obj) {
