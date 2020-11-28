@@ -1,7 +1,7 @@
 (function (global, factory) {
   typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
   typeof define === 'function' && define.amd ? define(['exports'], factory) :
-  (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.GW = {}));
+  (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.GW = global.GW || {}));
 }(this, (function (exports) { 'use strict';
 
   var def = {};
@@ -526,7 +526,7 @@
     return false;
   }
 
-  var utils$1 = /*#__PURE__*/Object.freeze({
+  var utils$1 = {
     __proto__: null,
     makeDebug: makeDebug,
     NOOP: NOOP,
@@ -572,7 +572,7 @@
     eachChain: eachChain,
     addToChain: addToChain,
     removeFromChain: removeFromChain
-  });
+  };
 
   var EVENTS = {};
 
@@ -1930,7 +1930,7 @@
   addSpread('silver',      75,   75,   75);
   addSpread('gold',        100,  85,   0);
 
-  var color = /*#__PURE__*/Object.freeze({
+  var color = {
     __proto__: null,
     Color: Color,
     make: make$2,
@@ -1942,7 +1942,7 @@
     normalize: normalize,
     separate: separate,
     addSpread: addSpread
-  });
+  };
 
   ///////////////////////////////////
   // Message String
@@ -2609,7 +2609,7 @@
     return result;
   }
 
-  var text = /*#__PURE__*/Object.freeze({
+  var text = {
     __proto__: null,
     playerPronoun: playerPronoun,
     singularPronoun: singularPronoun,
@@ -2631,7 +2631,7 @@
     splitIntoLines: splitIntoLines,
     format: format,
     apply: apply
-  });
+  };
 
   const TEMP_BG = new types.Color();
 
@@ -3695,7 +3695,7 @@
 
   // Grid.fillBlob = fillBlob;
 
-  var grid = /*#__PURE__*/Object.freeze({
+  var grid = {
     __proto__: null,
     makeArray: makeArray,
     Grid: Grid,
@@ -3719,7 +3719,7 @@
     offsetZip: offsetZip,
     directionOfDoorSite: directionOfDoorSite,
     fillBlob: fillBlob
-  });
+  };
 
   class Buffer extends types.Grid {
     constructor(w, h) {
@@ -4144,11 +4144,11 @@
     return 0;
   }
 
-  var frequency$1 = /*#__PURE__*/Object.freeze({
+  var frequency$1 = {
     __proto__: null,
     frequency: frequency,
     forDanger: forDanger
-  });
+  };
 
   var io = {};
 
@@ -5026,13 +5026,13 @@
   //
   // GW.path.from = getMonsterPathOnMap;
 
-  var path = /*#__PURE__*/Object.freeze({
+  var path = {
     __proto__: null,
     dijkstraScan: dijkstraScan,
     calculateDistances: calculateDistances,
     nextStep: nextStep,
     getPath: getPath
-  });
+  };
 
   var digger = {};
   var diggers = {};
@@ -6049,7 +6049,7 @@
     return didSomething;
   }
 
-  var tileEvent$1 = /*#__PURE__*/Object.freeze({
+  var tileEvent$1 = {
     __proto__: null,
     TileEvent: TileEvent$1,
     make: make$4,
@@ -6061,7 +6061,7 @@
     nullifyCells: nullifyCells,
     evacuateCreatures: evacuateCreatures,
     evacuateItems: evacuateItems
-  });
+  };
 
   var cell = {};
 
@@ -8017,7 +8017,7 @@
   			&& cell.light[2] + 10 < darkColor.blue);
   }
 
-  var light = /*#__PURE__*/Object.freeze({
+  var light = {
     __proto__: null,
     make: make$5,
     addKind: addKind$2,
@@ -8031,7 +8031,7 @@
     restoreGlowLights: restoreGlowLights,
     updateLighting: updateLighting,
     playerInDarkness: playerInDarkness
-  });
+  };
 
   function demoteCellVisibility(cell, i, j, map) {
     cell.flags &= ~Cell.WAS_VISIBLE;
@@ -8163,11 +8163,11 @@
 
   }
 
-  var visibility = /*#__PURE__*/Object.freeze({
+  var visibility = {
     __proto__: null,
     initMap: initMap,
     update: update$1
-  });
+  };
 
   var actions = {};
 
@@ -9398,7 +9398,7 @@
     return true;
   }
 
-  var game = /*#__PURE__*/Object.freeze({
+  var game = {
     __proto__: null,
     start: start,
     get buildMap () { return buildMap; },
@@ -9411,7 +9411,7 @@
     updateEnvironment: updateEnvironment,
     gameOver: gameOver,
     useStairs: useStairs
-  });
+  };
 
   var tile = {};
 
@@ -11039,10 +11039,10 @@
     return ctx.damage;
   }
 
-  var combat$1 = /*#__PURE__*/Object.freeze({
+  var combat$1 = {
     __proto__: null,
     applyDamage: applyDamage
-  });
+  };
 
   async function grab(e) {
     const actor = e.actor || data.player;
@@ -13218,6 +13218,9 @@
       this.bg = opts.bg;
     }
 
+    get width() { return this.bounds.width; }
+    get height() { return this.bounds.height; }
+
     column(...args) {
       const col = new types.Column(...args);
       this.columns.push(col);
@@ -15380,10 +15383,10 @@
 
   types.Flames = Flames;
 
-  var flames = /*#__PURE__*/Object.freeze({
+  var flames = {
     __proto__: null,
     Flames: Flames
-  });
+  };
 
   exports.actions = actions;
   exports.actor = actor;

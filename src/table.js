@@ -73,6 +73,9 @@ export class Table {
     this.bg = opts.bg;
   }
 
+  get width() { return this.bounds.width; }
+  get height() { return this.bounds.height; }
+
   column(...args) {
     const col = new GW.types.Column(...args);
     this.columns.push(col);

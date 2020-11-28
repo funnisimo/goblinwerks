@@ -9,9 +9,11 @@ export default [
 				file: pkg.browser,
 				format: 'umd',
 				esModule: false,
+        freeze: false,
+        extend: true,
 			},  // browser-friendly UMD build
-			{ file: pkg.main, format: 'cjs', esModule: false },	// CommonJS (for Node)
-			{ file: pkg.module, format: 'es' }	// ES module (for bundlers)
+			{ file: pkg.main, format: 'cjs', esModule: false, freeze: false },	// CommonJS (for Node)
+			{ file: pkg.module, format: 'es', freeze: false }	// ES module (for bundlers)
 		]
 	}
 ];

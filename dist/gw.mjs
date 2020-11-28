@@ -520,7 +520,7 @@ function removeFromChain(obj, name, entry) {
   return false;
 }
 
-var utils$1 = /*#__PURE__*/Object.freeze({
+var utils$1 = {
   __proto__: null,
   makeDebug: makeDebug,
   NOOP: NOOP,
@@ -566,7 +566,7 @@ var utils$1 = /*#__PURE__*/Object.freeze({
   eachChain: eachChain,
   addToChain: addToChain,
   removeFromChain: removeFromChain
-});
+};
 
 var EVENTS = {};
 
@@ -1924,7 +1924,7 @@ addSpread('azure', 			0,    50,   100);
 addSpread('silver',      75,   75,   75);
 addSpread('gold',        100,  85,   0);
 
-var color = /*#__PURE__*/Object.freeze({
+var color = {
   __proto__: null,
   Color: Color,
   make: make$2,
@@ -1936,7 +1936,7 @@ var color = /*#__PURE__*/Object.freeze({
   normalize: normalize,
   separate: separate,
   addSpread: addSpread
-});
+};
 
 ///////////////////////////////////
 // Message String
@@ -2603,7 +2603,7 @@ function apply(template, args={}) {
   return result;
 }
 
-var text = /*#__PURE__*/Object.freeze({
+var text = {
   __proto__: null,
   playerPronoun: playerPronoun,
   singularPronoun: singularPronoun,
@@ -2625,7 +2625,7 @@ var text = /*#__PURE__*/Object.freeze({
   splitIntoLines: splitIntoLines,
   format: format,
   apply: apply
-});
+};
 
 const TEMP_BG = new types.Color();
 
@@ -3689,7 +3689,7 @@ function fillBlob(grid,
 
 // Grid.fillBlob = fillBlob;
 
-var grid = /*#__PURE__*/Object.freeze({
+var grid = {
   __proto__: null,
   makeArray: makeArray,
   Grid: Grid,
@@ -3713,7 +3713,7 @@ var grid = /*#__PURE__*/Object.freeze({
   offsetZip: offsetZip,
   directionOfDoorSite: directionOfDoorSite,
   fillBlob: fillBlob
-});
+};
 
 class Buffer extends types.Grid {
   constructor(w, h) {
@@ -4138,11 +4138,11 @@ function forDanger(frequency, danger) {
   return 0;
 }
 
-var frequency$1 = /*#__PURE__*/Object.freeze({
+var frequency$1 = {
   __proto__: null,
   frequency: frequency,
   forDanger: forDanger
-});
+};
 
 var io = {};
 
@@ -5020,13 +5020,13 @@ function getPath(map, distanceMap, originX, originY, actor) {
 //
 // GW.path.from = getMonsterPathOnMap;
 
-var path = /*#__PURE__*/Object.freeze({
+var path = {
   __proto__: null,
   dijkstraScan: dijkstraScan,
   calculateDistances: calculateDistances,
   nextStep: nextStep,
   getPath: getPath
-});
+};
 
 var digger = {};
 var diggers = {};
@@ -6043,7 +6043,7 @@ function evacuateItems(map, blockingMap) {
   return didSomething;
 }
 
-var tileEvent$1 = /*#__PURE__*/Object.freeze({
+var tileEvent$1 = {
   __proto__: null,
   TileEvent: TileEvent$1,
   make: make$4,
@@ -6055,7 +6055,7 @@ var tileEvent$1 = /*#__PURE__*/Object.freeze({
   nullifyCells: nullifyCells,
   evacuateCreatures: evacuateCreatures,
   evacuateItems: evacuateItems
-});
+};
 
 var cell = {};
 
@@ -8011,7 +8011,7 @@ function playerInDarkness(map, PLAYER, darkColor) {
 			&& cell.light[2] + 10 < darkColor.blue);
 }
 
-var light = /*#__PURE__*/Object.freeze({
+var light = {
   __proto__: null,
   make: make$5,
   addKind: addKind$2,
@@ -8025,7 +8025,7 @@ var light = /*#__PURE__*/Object.freeze({
   restoreGlowLights: restoreGlowLights,
   updateLighting: updateLighting,
   playerInDarkness: playerInDarkness
-});
+};
 
 function demoteCellVisibility(cell, i, j, map) {
   cell.flags &= ~Cell.WAS_VISIBLE;
@@ -8157,11 +8157,11 @@ function update$1(map, x, y, maxRadius) {
 
 }
 
-var visibility = /*#__PURE__*/Object.freeze({
+var visibility = {
   __proto__: null,
   initMap: initMap,
   update: update$1
-});
+};
 
 var actions = {};
 
@@ -9392,7 +9392,7 @@ async function useStairs(x, y) {
   return true;
 }
 
-var game = /*#__PURE__*/Object.freeze({
+var game = {
   __proto__: null,
   start: start,
   get buildMap () { return buildMap; },
@@ -9405,7 +9405,7 @@ var game = /*#__PURE__*/Object.freeze({
   updateEnvironment: updateEnvironment,
   gameOver: gameOver,
   useStairs: useStairs
-});
+};
 
 var tile = {};
 
@@ -11033,10 +11033,10 @@ async function applyDamage(attacker, defender, attackInfo, ctx) {
   return ctx.damage;
 }
 
-var combat$1 = /*#__PURE__*/Object.freeze({
+var combat$1 = {
   __proto__: null,
   applyDamage: applyDamage
-});
+};
 
 async function grab(e) {
   const actor = e.actor || data.player;
@@ -13212,6 +13212,9 @@ class Table {
     this.bg = opts.bg;
   }
 
+  get width() { return this.bounds.width; }
+  get height() { return this.bounds.height; }
+
   column(...args) {
     const col = new types.Column(...args);
     this.columns.push(col);
@@ -15374,9 +15377,9 @@ class Flames {
 
 types.Flames = Flames;
 
-var flames = /*#__PURE__*/Object.freeze({
+var flames = {
   __proto__: null,
   Flames: Flames
-});
+};
 
 export { actions, actor, actorKinds, addListener, ai, canvas, cell, clearEvent, color, colors, combat$1 as combat, commands$1 as commands, config, cosmetic, data, def, digger, diggers, dungeon, emit, flag, flags, flames, flavor, fov, frequency$1 as frequency, fx, game, grid, install, io, item$1 as item, itemKinds, light, lights, make, map$1 as map, maps, message, messages, off, on, once, path, player, random, removeAllListeners, removeListener, scheduler, sidebar, sprite, sprites, text, tile, tileEvent$1 as tileEvent, tileEvents$1 as tileEvents, tiles, types, ui, utils$1 as utils, viewport, visibility };

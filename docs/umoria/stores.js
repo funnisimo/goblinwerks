@@ -438,7 +438,7 @@ async function showStoreInventory(buffer, store, actor) {
       const selectedData = data[table.active];
       if (selectedData) {
         // Need to do details
-        const startX = x + table.maxWidth + 5;
+        const startX = x + table.width + 5;
         const width = buffer.width - startX - 5;
 
         buffer.plotText(startX, 5, 'You have %F%d%F gold.', 'gold', actor.current.gold, null);
@@ -590,7 +590,7 @@ async function showPlayerInventory(buffer, store, actor) {
       const selectedData = data[table.active];
       if (selectedData) {
         // Need to do details
-        const startX = x + table.maxWidth + 5;
+        const startX = x + table.width + 5;
         const width = buffer.width - startX - 5;
 
         // buffer.plotText(startX, 5, 'You have %F%d%F gold.', 'gold', actor.current.gold, null);
