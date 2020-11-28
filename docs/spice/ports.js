@@ -57,7 +57,7 @@ async function enterPort() {
     { text: 'Market',   fn: enterMarket },
     { text: 'Shipyard', fn: null },
     { text: 'Store',    fn: null },
-    { text: 'Tavern',   fn: null },
+    { text: 'Tavern',   fn: enterTavern },
     { text: 'Governor', fn: null },
     { text: 'Leave',    fn: (() => { running = false; }) },
   ];
