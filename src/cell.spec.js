@@ -134,7 +134,9 @@ describe('CellMemory', () => {
     GW.cell.getAppearance(c, app);
 
     const ex = GW.make.sprite('@', 'white', [50,0,50]);
-    expect(app).toEqual(ex);
+    expect(app.ch).toEqual(ex.ch);
+    expect(app.fg).toEqualColor(ex.fg);
+    expect(app.bg).toEqualColor(ex.bg);
 
     c.clearFlags(GW.flags.cell.CELL_CHANGED);
     c.removeSprite(a);

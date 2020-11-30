@@ -65,19 +65,19 @@ async function titleMenu(opts) {
   let button;
   let text;
 
-  text = GW.text.format("    %FQ%Fuick start     ", 'gold', null);
+  text = "    ΩgoldΩQ∆uick start     ";
   button = buttons.addButton(text, { hotkey: ['q', 'Q'] });
 
-  text = GW.text.format("      %FN%Few Game      ", 'gold', null);
+  text = "      ΩgoldΩN∆ew Game      ";
   button = buttons.addButton(text, { hotkey: ['n', 'N'] });
 
-  text = GW.text.format(" New Game with %FS%Feed ", 'gold', null);
+  text = " New Game with ΩgoldΩS∆eed ";
   button = buttons.addButton(text, { hotkey: ['s', 'S'] });
 
-  text = GW.text.format("       S%Ft%Fory        ", 'gold', null);
+  text = "       SΩgoldΩt∆ory        ";
   button = buttons.addButton(text, { hotkey: ['t', 'T'] });
 
-  text = GW.text.format("       %FA%Fbout        ", 'gold', null);
+  text = "       ΩgoldΩA∆bout        ";
   button = buttons.addButton(text, { hotkey: ['a', 'A'] });
 
 	x = buffer.width - 1 - 20 - 2;

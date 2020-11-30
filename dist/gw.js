@@ -384,7 +384,10 @@
 
       if (custom && custom(dest, key, current, defValue)) ;
       else if (current === undefined) {
-        if (Array.isArray(defValue)) {
+        if (defValue === null) {
+          dest[key] = null;
+        }
+        else if (Array.isArray(defValue)) {
           dest[key] = defValue.slice();
         }
         else if (typeof defValue === 'object') {
@@ -1577,6 +1580,7 @@
     clone() {
       const other = new Color(...this);
       other.dances = this.dances;
+      other.id = this.id;
       return other;
     }
 
@@ -1585,6 +1589,7 @@
         this[i] = other[i] || 0;
       }
       this.dances = other.dances || false;
+      this.id = other.id;
       return this;
     }
 
@@ -1593,6 +1598,7 @@
         this[i] = 0;
       }
       this.dances = false;
+      this.id = null;
     }
 
     css() {
@@ -1624,6 +1630,7 @@
       this.blue += Math.floor((other.blue * pct) / 100);
       this.blueRand += Math.floor((other.blueRand * pct) / 100);
       this.rand += Math.floor((other.rand * pct) / 100);
+      this.id = null;
       return this;
     }
 
@@ -1641,6 +1648,7 @@
         this[i] = Math.floor((this[i] * weightComplement + other[i] * opacity) / 100);
       }
       this.dances = (this.dances || other.dances);
+      this.id = null;
       return this;
     }
 
@@ -1656,6 +1664,7 @@
         this.blueRand = Math.round(this.blueRand * other.blueRand / 100);
         this.dances = this.dances || other.dances;
       }
+      this.id = null;
       return this;
     }
 
@@ -1667,6 +1676,7 @@
       this.blue         = Math.round(this.blue       * other / 100);
       this.blueRand     = Math.round(this.blueRand   * other / 100);
       this.rand         = Math.round(this.rand       * other / 100);
+      this.id = null;
       return this;
     }
 
@@ -1677,6 +1687,7 @@
       this.green += Math.round(cosmetic.range(0, this.greenRand) + rand);
       this.blue  += Math.round(cosmetic.range(0, this.blueRand) + rand);
       this.redRand = this.greenRand = this.blueRand = this.rand = 0;
+      this.id = null;
       return this;
     }
 
@@ -1687,6 +1698,7 @@
       this.blue =   Math.round(this.blue + (100 - this.blue) * percent / 100);
 
       // leave randoms the same
+      this.id = null;
       return this;
     }
 
@@ -1696,6 +1708,7 @@
       this.blue =   Math.round(this.blue * (100 - percent) / 100);
 
       // leave randoms the same
+      this.id = null;
       return this;
     }
 
@@ -1703,10 +1716,13 @@
       this.red = _randomizeColorByPercent(this.red, randomizePercent);
       this.green = _randomizeColorByPercent(this.green, randomizePercent);
       this.blue = _randomizeColorByPercent(this.blue, randomizePercent);
+      this.id = null;
       return this;
     }
 
-
+    toString() {
+      return this.id || this.css();
+    }
   }
 
   types.Color = Color;
@@ -1759,6 +1775,7 @@
       color = make.color(...args);
     }
   	colors[name] = color;
+    color.id = name;
   	return color;
   }
 
@@ -1944,14 +1961,515 @@
     addSpread: addSpread
   };
 
-  ///////////////////////////////////
-  // Message String
+  var options = {
+      colorStart: 'Ω',
+      colorEnd: '∆',
+      field: '§',
+      defaultFg: null,
+      defaultBg: null,
+  };
+  // const RE_RGB = /^[a-fA-F0-9]*$/;
+  // 
+  // export function parseColor(color:string) {
+  //   if (color.startsWith('#')) {
+  //     color = color.substring(1);
+  //   }
+  //   else if (color.startsWith('0x')) {
+  //     color = color.substring(2);
+  //   }
+  //   if (color.length == 3) {
+  //     if (RE_RGB.test(color)) {
+  //       return Number.parseInt(color, 16);
+  //     }
+  //   }
+  //   if (color.length == 6) {
+  //     if (RE_RGB.test(color)) {
+  //       const v = Number.parseInt(color, 16);
+  //       const r = Math.round( ((v & 0xFF0000) >> 16) / 17);
+  //       const g = Math.round( ((v & 0xFF00) >> 8) / 17);
+  //       const b = Math.round((v & 0xFF) / 17);
+  //       return (r << 8) + (g << 4) + b;
+  //     }
+  //   }
+  //   return 0xFFF;
+  // }
+  var helpers = {
+      eachColor: (() => { }),
+      default: ((name, _, value) => {
+          if (value !== undefined)
+              return `${value}.!!${name}!!`;
+          return `!!${name}!!`;
+      }),
+  };
+  function addHelper(name, fn) {
+      helpers[name] = fn;
+  }
 
-  // color escapes
-  const COLOR_ESCAPE = def.COLOR_ESCAPE =	25;
-  const COLOR_END    = def.COLOR_END    = 26;
-  const COLOR_VALUE_INTERCEPT =	0; // 25;
+  function compile(template) {
+      const F = options.field;
+      const parts = template.split(F);
+      const sections = parts.map((part, i) => {
+          if (i % 2 == 0)
+              return textSegment(part);
+          if (part.length == 0)
+              return textSegment(F);
+          return makeVariable(part);
+      });
+      return function (args = {}) {
+          return sections.map((f) => f(args)).join('');
+      };
+  }
+  function textSegment(value) {
+      return (() => value);
+  }
+  function baseValue(name) {
+      return function (args) {
+          const h = helpers[name];
+          if (h)
+              return h(name, args);
+          const v = args[name];
+          if (v !== undefined)
+              return v;
+          return helpers.default(name, args);
+      };
+  }
+  function fieldValue(name, source) {
+      return function (args) {
+          const obj = source(args);
+          if (!obj)
+              return helpers.default(name, args, obj);
+          const value = obj[name];
+          if (value === undefined)
+              return helpers.default(name, args, obj);
+          return value;
+      };
+  }
+  function helperValue(name, source) {
+      const helper = helpers[name] || helpers.default;
+      if (!source) {
+          return function (args) {
+              return helper(name, args, undefined);
+          };
+      }
+      return function (args) {
+          const base = source(args);
+          return helper(name, args, base);
+      };
+  }
+  function stringFormat(format, source) {
+      const data = /%(-?\d*)s/.exec(format) || [];
+      const length = Number.parseInt(data[1] || '0');
+      return function (args) {
+          let text = '' + source(args);
+          if (length < 0) {
+              text = text.padEnd(-length);
+          }
+          else if (length) {
+              text = text.padStart(length);
+          }
+          return text;
+      };
+  }
+  function intFormat(format, source) {
+      const data = /%([\+-]*)(\d*)d/.exec(format) || [];
+      let length = Number.parseInt(data[2] || '0');
+      const wantSign = data[1].includes('+');
+      const left = data[1].includes('-');
+      return function (args) {
+          const value = Number.parseInt(source(args) || 0);
+          let text = '' + value;
+          if (value > 0 && wantSign) {
+              text = '+' + text;
+          }
+          if (length && left) {
+              return text.padEnd(length);
+          }
+          else if (length) {
+              return text.padStart(length);
+          }
+          return text;
+      };
+  }
+  function floatFormat(format, source) {
+      const data = /%([\+-]*)(\d*)(\.(\d+))?f/.exec(format) || [];
+      let length = Number.parseInt(data[2] || '0');
+      const wantSign = data[1].includes('+');
+      const left = data[1].includes('-');
+      const fixed = Number.parseInt(data[4]) || 0;
+      return function (args) {
+          const value = Number.parseFloat(source(args) || 0);
+          let text;
+          if (fixed) {
+              text = value.toFixed(fixed);
+          }
+          else {
+              text = '' + value;
+          }
+          if (value > 0 && wantSign) {
+              text = '+' + text;
+          }
+          if (length && left) {
+              return text.padEnd(length);
+          }
+          else if (length) {
+              return text.padStart(length);
+          }
+          return text;
+      };
+  }
+  function makeVariable(pattern) {
+      const data = /((\w+) )?(\w+)(\.(\w+))?(%[\+\.\-\d]*[dsf])?/.exec(pattern) || [];
+      const helper = data[2];
+      const base = data[3];
+      const field = data[5];
+      const format = data[6];
+      let result = baseValue(base);
+      if (field && field.length) {
+          result = fieldValue(field, result);
+      }
+      if (helper && helper.length) {
+          result = helperValue(helper, result);
+      }
+      if (format && format.length) {
+          if (format.endsWith('s')) {
+              result = stringFormat(format, result);
+          }
+          else if (format.endsWith('d')) {
+              result = intFormat(format, result);
+          }
+          else if (format.endsWith('f')) {
+              result = floatFormat(format, result);
+          }
+      }
+      return result;
+  }
 
+  function eachChar(text, fn, fg, bg) {
+      if (!text || text.length == 0)
+          return;
+      const colors = [];
+      const colorFn = helpers.eachColor;
+      const ctx = {
+          fg: (fg === undefined) ? options.defaultFg : fg,
+          bg: (bg === undefined) ? options.defaultBg : bg,
+      };
+      const CS = options.colorStart;
+      const CE = options.colorEnd;
+      colorFn({ fg, bg });
+      let n = 0;
+      for (let i = 0; i < text.length; ++i) {
+          const ch = text[i];
+          if (ch == CS) {
+              let j = i + 1;
+              while (j < text.length && text[j] != CS) {
+                  ++j;
+              }
+              if (j == text.length) {
+                  console.warn('Reached end of string while seeking end of color start section.');
+                  console.warn('- text:', text);
+                  console.warn('- start @:', i);
+                  return; // reached end - done (error though)
+              }
+              if (j == i + 1) { // next char
+                  ++i; // fall through
+              }
+              else {
+                  colors.push([ctx.fg, ctx.bg]);
+                  const color = text.substring(i + 1, j);
+                  ([ctx.fg, ctx.bg] = color.split('|'));
+                  colorFn(ctx);
+                  i = j;
+                  continue;
+              }
+          }
+          else if (ch == CE) {
+              if (text[i + 1] == CE) {
+                  ++i;
+              }
+              else {
+                  const c = colors.pop(); // if you pop too many times colors go away
+                  [ctx.fg, ctx.bg] = c || [null, null];
+                  // colorFn(ctx);
+                  continue;
+              }
+          }
+          fn(ch, ctx.fg, ctx.bg, n, i);
+          ++n;
+      }
+  }
+
+  function length(text) {
+      if (!text || text.length == 0)
+          return 0;
+      let len = 0;
+      const CS = options.colorStart;
+      const CE = options.colorEnd;
+      for (let i = 0; i < text.length; ++i) {
+          const ch = text[i];
+          if (ch == CS) {
+              const end = text.indexOf(CS, i + 1);
+              i = end;
+          }
+          else if (ch == CE) ;
+          else {
+              ++len;
+          }
+      }
+      return len;
+  }
+  function advanceChars(text, start, count) {
+      const CS = options.colorStart;
+      const CE = options.colorEnd;
+      let i = start;
+      while (count > 0) {
+          const ch = text[i];
+          if (ch === CS) {
+              ++i;
+              while (text[i] !== CS)
+                  ++i;
+              ++i;
+          }
+          else if (ch === CE) {
+              if (text[i + 1] === CE) {
+                  --count;
+                  ++i;
+              }
+              ++i;
+          }
+          else {
+              --count;
+              ++i;
+          }
+      }
+      return i;
+  }
+  function firstChar(text) {
+      const CS = options.colorStart;
+      const CE = options.colorEnd;
+      let i = 0;
+      while (i < text.length) {
+          const ch = text[i];
+          if (ch === CS) {
+              if (text[i + 1] === CS)
+                  return CS;
+              ++i;
+              while (text[i] !== CS)
+                  ++i;
+              ++i;
+          }
+          else if (ch === CE) {
+              if (text[i + 1] === CE)
+                  return CE;
+              ++i;
+          }
+          else {
+              return ch;
+          }
+      }
+      return null;
+  }
+  function center(text, width, pad = ' ') {
+      const rawLen = text.length;
+      const len = length(text);
+      const padLen = width - len;
+      if (padLen <= 0)
+          return text;
+      const left = Math.floor(padLen / 2);
+      return text.padStart(rawLen + left, pad).padEnd(rawLen + padLen, pad);
+  }
+  function capitalize(text) {
+      const CS = options.colorStart;
+      const CE = options.colorEnd;
+      let i = 0;
+      while (i < text.length) {
+          const ch = text[i];
+          if (ch == CS) {
+              ++i;
+              while (text[i] != CS && i < text.length) {
+                  ++i;
+              }
+              ++i;
+          }
+          else if (ch == CE) {
+              ++i;
+              while (text[i] == CS && i < text.length) {
+                  ++i;
+              }
+          }
+          else {
+              return text.substring(0, i) + ch.toUpperCase() + text.substring(i + 1);
+          }
+      }
+      return text;
+  }
+  function removeColors(text) {
+      const CS = options.colorStart;
+      const CE = options.colorEnd;
+      let out = '';
+      let start = 0;
+      for (let i = 0; i < text.length; ++i) {
+          const k = text[i];
+          if (k === CS) {
+              if (text[i + 1] == CS) {
+                  ++i;
+                  continue;
+              }
+              out += text.substring(start, i);
+              ++i;
+              while (text[i] != CS && i < text.length) {
+                  ++i;
+              }
+              start = i + 1;
+          }
+          else if (k === CE) {
+              if (text[i + 1] == CE) {
+                  ++i;
+                  continue;
+              }
+              out += text.substring(start, i);
+              start = i + 1;
+          }
+      }
+      if (start == 0)
+          return text;
+      out += text.substring(start);
+      return out;
+  }
+
+  function nextBreak(text, start) {
+      const CS = options.colorStart;
+      const CE = options.colorEnd;
+      let i = start;
+      let l = 0;
+      let count = true;
+      while (i < text.length) {
+          const ch = text[i];
+          if (ch == ' ') {
+              while (text[i + 1] == ' ')
+                  ++i;
+              return [i, l];
+          }
+          if (ch == '-') {
+              return [i, l];
+          }
+          if (ch == '\n') {
+              return [i, l];
+          }
+          if (ch == CS) {
+              if (text[i + 1] == CS && count) {
+                  l += 1;
+                  i += 2;
+                  continue;
+              }
+              count = !count;
+              ++i;
+              continue;
+          }
+          else if (ch == CE) {
+              if (text[i + 1] == CE) {
+                  l += 1;
+                  ++i;
+              }
+              i++;
+              continue;
+          }
+          l += (count ? 1 : 0);
+          ++i;
+      }
+      return [i, l];
+  }
+  function splice(text, start, len, add = '') {
+      return text.substring(0, start) + add + text.substring(start + len);
+  }
+  function hyphenate(text, width, start, end, wordWidth, spaceLeftOnLine) {
+      if (wordWidth + 1 > (width * 2)) {
+          throw new Error('Cannot hyphenate - word length > 2 * width');
+      }
+      if ((spaceLeftOnLine < 4) || (spaceLeftOnLine + width < wordWidth)) {
+          text = splice(text, start - 1, 1, '\n');
+          spaceLeftOnLine = width;
+      }
+      if (spaceLeftOnLine + width > wordWidth) {
+          // one hyphen...
+          const hyphenAt = Math.min(Math.floor(wordWidth / 2), spaceLeftOnLine - 1);
+          const w = advanceChars(text, start, hyphenAt);
+          text = splice(text, w, 0, '-\n');
+          return [text, end + 2];
+      }
+      if (width >= wordWidth) {
+          return [text, end];
+      }
+      const hyphenAt = Math.min(wordWidth, width - 1);
+      const w = advanceChars(text, start, hyphenAt);
+      text = splice(text, w, 0, '-\n');
+      return [text, end + 2];
+  }
+  function wordWrap(text, width, indent = 0) {
+      if (!width)
+          throw new Error('Need string and width');
+      if (text.length < width)
+          return text;
+      if (length(text) < width)
+          return text;
+      if (text.indexOf('\n') == -1) {
+          return wrapLine(text, width, indent);
+      }
+      const lines = text.split('\n');
+      const split = lines.map((line, i) => wrapLine(line, width, (i ? indent : 0)));
+      return split.join('\n');
+  }
+  // Returns the number of lines, including the newlines already in the text.
+  // Puts the output in "to" only if we receive a "to" -- can make it null and just get a line count.
+  function wrapLine(text, width, indent = 0) {
+      if (text.length < width)
+          return text;
+      if (length(text) < width)
+          return text;
+      let spaceLeftOnLine = width;
+      width = width - indent;
+      let printString = text;
+      // Now go through and replace spaces with newlines as needed.
+      // console.log('wordWrap - ', text, width, indent);
+      let removeSpace = true;
+      let i = -1;
+      while (i < printString.length) {
+          // wordWidth counts the word width of the next word without color escapes.
+          // w indicates the position of the space or newline or null terminator that terminates the word.
+          let [w, wordWidth] = nextBreak(printString, i + (removeSpace ? 1 : 0));
+          let hyphen = false;
+          if (printString[w] == '-') {
+              w++;
+              wordWidth++;
+              hyphen = true;
+          }
+          // console.log('- w=%d, width=%d, space=%d, word=%s', w, wordWidth, spaceLeftOnLine, printString.substring(i, w));
+          if (wordWidth > width) {
+              ([printString, w] = hyphenate(printString, width, i + 1, w, wordWidth, spaceLeftOnLine));
+          }
+          else if (wordWidth == spaceLeftOnLine) {
+              const nl = (w < printString.length) ? '\n' : '';
+              const remove = hyphen ? 0 : 1;
+              printString = splice(printString, w, remove, nl); // [i] = '\n';
+              w += (1 - remove); // if we change the length we need to advance our pointer
+              spaceLeftOnLine = width;
+          }
+          else if (wordWidth > spaceLeftOnLine) {
+              const remove = removeSpace ? 1 : 0;
+              printString = splice(printString, i, remove, '\n'); // [i] = '\n';
+              w += (1 - remove); // if we change the length we need to advance our pointer
+              const extra = hyphen ? 0 : 1;
+              spaceLeftOnLine = width - wordWidth - extra; // line width minus the width of the word we just wrapped and the space
+              //printf("\n\n%s", printString);
+          }
+          else {
+              const extra = hyphen ? 0 : 1;
+              spaceLeftOnLine -= (wordWidth + extra);
+          }
+          removeSpace = !hyphen;
+          i = w; // Advance to the terminator that follows the word.
+      }
+      return printString;
+  }
 
   const playerPronoun = {
     it: 'you',
@@ -1983,28 +2501,10 @@
   };
 
 
-  function firstChar(text) {
-    let i = 0;
-    while( i < text.length ) {
-      const code = text.charCodeAt(i);
-      if (code === COLOR_ESCAPE) {
-        i += 4;
-      }
-      else if (code === COLOR_END) {
-        i += 1;
-      }
-      else {
-        return text[i];
-      }
-    }
-    return null;
-  }
-
 
   function isVowel(ch) {
     return 'aeiouAEIOU'.includes(ch);
   }
-
 
 
   function toSingularVerb(verb) {
@@ -2045,567 +2545,91 @@
     const word = noun.substring(wordStart, place);
     const newWord = toSingularVerb(word);
 
-    return splice(noun, wordStart, place - wordStart + 1, newWord);
+    return spliceRaw(noun, wordStart, place - wordStart + 1, newWord);
   }
 
 
-  function eachChar(msg, fn) {
-    let color$1 = null;
-    const components = [100, 100, 100];
-    let index = 0;
-    if (!msg || !msg.length) return;
-
-    const colors = [];
-
-    for(let i = 0; i < msg.length; ++i) {
-      const ch = msg.charCodeAt(i);
-      if (ch === COLOR_ESCAPE) {
-          if (color$1) colors.push(color$1);
-
-          components[0] = msg.charCodeAt(i + 1) - COLOR_VALUE_INTERCEPT;
-          components[1] = msg.charCodeAt(i + 2) - COLOR_VALUE_INTERCEPT;
-          components[2] = msg.charCodeAt(i + 3) - COLOR_VALUE_INTERCEPT;
-          color$1 = make$2(components);
-          i += 3;
-      }
-      else if (ch === COLOR_END) {
-        color$1 = colors.pop() || null;
-      }
-      else {
-        fn(msg[i], color$1, index);
-        ++index;
-      }
-    }
-  }
-
-
-  //
-  // function strlen(bstring) {
-  //   if (!bstring) return 0;
-  //   if (typeof bstring === 'string') return bstring.length;
-  //   return bstring.fullLength;
-  // }
-  //
-  // text.strlen = strlen;
-  //
-
-  function length(msg) {
-    let length = 0;
-
-    if (!msg || !msg.length) return 0;
-
-    for(let i = 0; i < msg.length; ++i) {
-      const ch = msg.charCodeAt(i);
-      if (ch === COLOR_ESCAPE) {
-          i += 3;	// skip color parts
-      }
-      else if (ch === COLOR_END) ;
-      else {
-        ++length;
-      }
-    }
-
-    return length;
-  }
-
-
-
-  function splice(msg, begin, length, add='') {
+  function spliceRaw(msg, begin, length, add='') {
     const preText = msg.substring(0, begin);
     const postText = msg.substring(begin + length);
     return preText + add + postText;
   }
 
 
-  // function strcat(bstring, txt) {
-  //   bstring.append(txt);
-  // }
-  //
-  // text.strcat = strcat;
-  //
-  // function strncat(bstring, txt, n) {
-  //   txt = STRING(txt);
-  //   bstring.append(txt.text.substring(0, n));
-  // }
-  //
-  // text.strncat = strncat;
-  //
-  // function strcpy(bstring, txt) {
-  //   bstring.setText(txt);
-  // }
-  //
-  // text.strcpy = strcpy;
-
-  // function eachChar(bstring, callback) {
-  // 	bstring = STRING(bstring);
-  // 	return bstring.eachChar(callback);
-  // }
-
-
-
-  // Returns true if strings have the same text (ignoring colors and case).
-  function matches(str1, str2) {
-    let i, j;
-
-    // str1 = STRING(str1);
-    // str2 = STRING(str2);
-
-    const limit = Math.min( str1.length , str2.length );
-
-    for (i=0, j=0; limit > 0; --limit) {
-
-      // TODO - Handle COLOR_END also
-      while (str1.charCodeAt(i) === COLOR_ESCAPE) {
-        i += 4;
-      }
-      while(str2.charCodeAt(j) === COLOR_ESCAPE) {
-        j += 4;
-      }
-
-      if (str1.charAt(i).toLowerCase() != str2.charAt(j).toLowerCase()) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-
-
-  function center(msg, len) {
-    const textlen = length(msg);
-    const totalPad = (len - textlen);
-    const leftPad = Math.round(totalPad/2);
-    return msg.padStart(leftPad + textlen, ' ').padEnd(len, ' ');
-  }
-
-
-  function capitalize(msg) {
-    if (!msg.length) return;
-
-    let index = 0;
-    let ch = msg.charCodeAt(index);
-    while (ch === COLOR_ESCAPE || ch === COLOR_END) {
-      index += (ch === COLOR_ESCAPE ? 4 : 1);
-      ch = msg.charCodeAt(index);
-    }
-
-    const preText = index ? msg.substring(0, index) : '';
-    msg = preText + msg[index].toUpperCase() + msg.substring(index + 1);
-    return msg;
-  }
-
-
-  // // Gets the length of a string without the color escape sequences, since those aren't displayed.
-  // function strLenWithoutEscapes(text) {
-  //   text = STRING(text);
-  //   return text.textLength;
-  // }
-  //
-  // text.textLength = strLenWithoutEscapes;
-  //
-  // function strcmp(a, b) {
-  //   a = STRING(a);
-  //   b = STRING(b);
-  //
-  //   if (a.text == b.text) return 0;
-  //   return (a.text < b.text) ? -1 : 1;
-  // }
-  //
-  // text.strcmp = strcmp;
-
-
-  // Inserts a four-character color escape sequence into a string at the insertion point.
-  // Does NOT check string lengths, so it could theoretically write over the null terminator.
-  // Returns the new insertion point.
-  function encodeColor(theColor) {
-    if ((!theColor) || theColor == '') {
-      return String.fromCharCode(COLOR_END);
-    }
-
-    const copy = from(theColor);
-    if (!copy) ERROR('Invalid color - [' + theColor + ']');
-    copy.bake();
-    copy.clamp();
-    return String.fromCharCode(COLOR_ESCAPE, copy.red + COLOR_VALUE_INTERCEPT, copy.green + COLOR_VALUE_INTERCEPT, copy.blue + COLOR_VALUE_INTERCEPT);
-  }
-
-  function removeColors(text) {
-    let out = '';
-    let start = 0;
-    for(let i = 0; i < text.length; ++i) {
-      const k = text.charCodeAt(i);
-      if (k === COLOR_ESCAPE) {
-        out += text.substring(start, i);
-        start = i + 4;
-      }
-      else if (k === COLOR_END) {
-        out += text.substring(start, i);
-        start = i + 1;
-      }
-    }
-    if (start == 0) return text;
-    out += text.substring(start);
-    return out;
-  }
-
-
-  //
-  //
-  // // Call this when the i'th character of msg is COLOR_ESCAPE.
-  // // It will return the encoded color, and will advance i past the color escape sequence.
-  // function strDecodeColor(msg, i, /* color */ returnColor) {
-  //
-  //   msg = STRING(msg).text;
-  //
-  //   if (msg.charCodeAt(i) !== COLOR_ESCAPE) {
-  //     printf("\nAsked to decode a color escape that didn't exist!", msg, i);
-  //     returnColor.copy(white);
-  //   } else {
-  //     i++;
-  //     returnColor.copy(black);
-  //     returnColor.red	= (msg.charCodeAt(i++) - COLOR_VALUE_INTERCEPT);
-  //     returnColor.green	= (msg.charCodeAt(i++) - COLOR_VALUE_INTERCEPT);
-  //     returnColor.blue	= (msg.charCodeAt(i++) - COLOR_VALUE_INTERCEPT);
-  //
-  //     returnColor.red	= clamp(returnColor.red, 0, 100);
-  //     returnColor.green	= clamp(returnColor.green, 0, 100);
-  //     returnColor.blue	= clamp(returnColor.blue, 0, 100);
-  //   }
-  //   return i;
-  // }
-  //
-  //
-  // function isVowelish(str) {
-  //   str = STRING(str);
-  //
-  //   if (stringsMatch(str, "uni")) return false;  // Words that start with "uni" aren't treated like vowels; e.g., "a" unicorn.
-  //   if (stringsMatch(str, "eu"))  return false;  // Words that start with "eu" aren't treated like vowels; e.g., "a" eucalpytus staff.
-  //
-  //   let i = 0;
-  //   while( str.charCodeAt(i) == COLOR_ESCAPE ) {
-  //     i += 4;
-  //   }
-  //
-  //   // TODO - Get rid of 'charAt'
-  //   const ch = str.charAt(i).toLowerCase();
-  //   return ['a', 'e', 'i', 'o', 'u'].includes(ch);
-  // }
-  //
-  // text.isVowelish = isVowelish;
-  //
-  //
-  // function arrayToString(array, lastSeperator) {
-  //   lastSeperator = lastSeperator || 'and';
-  //
-  //   let index;
-  //   let out = '';
-  //   for(index in array) {
-  //     if (index > 0 && index == array.length - 1) {
-  //       out += lastSeperator;
-  //     }
-  //     else if (index > 0) {
-  //       out += ', ';
-  //     }
-  //     out += array[index];
-  //   }
-  //   return out;
-  // }
-  //
-  // Utils.arrayToString = arrayToString;
-  //
-
-  // Inserts line breaks into really long words. Optionally adds a hyphen, but doesn't do anything
-  // clever regarding hyphen placement. Plays nicely with color escapes.
-  function hyphenate(msg, width, useHyphens) {
-    let buf = ''; // char[COLS * ROWS * 2] = "";
-    let i, nextChar, wordWidth;
-    //const short maxLength = useHyphens ? width - 1 : width;
-
-    // i iterates over characters in sourceText; m keeps track of the length of buf.
-    wordWidth = 0;
-    for (i=0; msg[i]; ) {
-      if (msg.charCodeAt(i) === COLOR_ESCAPE) {
-        buf += msg.substring(i, i + 4);
-        i += 4;
-      }
-      else if (msg.charCodeAt(i) === COLOR_END) {
-        buf += msg.substring(i, i + 1);
-        i += 1;
-      } else if (msg[i] === ' ' || msg[i] === '\n') {
-        wordWidth = 0;
-        buf += msg[i++];
-      } else {
-        if (!useHyphens && wordWidth >= width) {
-          buf += '\n';
-          wordWidth = 0;
-        } else if (useHyphens && wordWidth >= width - 1) {
-          nextChar = i+1;
-          while (msg[nextChar] === COLOR_ESCAPE || msg[nextChar] === COLOR_END) {
-            nextChar += (msg[nextChar] === COLOR_ESCAPE ? 4 : 1);
-          }
-          if (msg[nextChar] && msg[nextChar] !== ' ' && msg[nextChar] !== '\n') {
-            buf += '-\n';
-            wordWidth = 0;
-          }
-        }
-        buf += msg[i++];
-        wordWidth++;
-      }
-    }
-    return buf;
-  }
-
-
-
   // Returns the number of lines, including the newlines already in the text.
   // Puts the output in "to" only if we receive a "to" -- can make it null and just get a line count.
   function splitIntoLines(sourceText, width, indent=0) {
-    let w, textLength;
-    let spaceLeftOnLine, wordWidth;
 
-    if (!width) ERROR('Need string and width');
-    const firstWidth = width;
-    width = width - indent;
+    const CS = options.colorStart;
+    const output = [];
+    let text = wordWrap(sourceText, width, indent);
 
-    let printString = hyphenate(sourceText, Math.min(width, firstWidth), true); // break up any words that are wider than the width.
-    textLength = printString.length; // do NOT remove escape sequences
-
-    // Now go through and replace spaces with newlines as needed.
-
-    // Fast foward until i points to the first character that is not a color escape.
-    // for (i=0; printString.charCodeAt(i) == COLOR_ESCAPE; i+= 4);
-    spaceLeftOnLine = firstWidth;
-
-    const colors = [];
-
-    let i = -1;
-    let lastColor = '';
-    let lineStart = 0;
-    while (i < textLength) {
-      // wordWidth counts the word width of the next word without color escapes.
-      // w indicates the position of the space or newline or null terminator that terminates the word.
-      wordWidth = 0;
-      for (w = i + 1; w < textLength && printString[w] !== ' ' && printString[w] !== '\n';) {
-        if (printString.charCodeAt(w) === COLOR_ESCAPE) {
-          // colors.push(lastColor);
-          // lastColor = printString.substring(w, w + 4);
-          // nextColor = printString.substring(w, w + 4);
-          // clearColor = false;
-          w += 4;
-        }
-        else if (printString.charCodeAt(w) === COLOR_END) {
-          // clearColor = true;
-          // nextColor = null;
-          // lastColor = colors.pop() || '';
-          w += 1;
-        }
-        else {
-          w++;
-          wordWidth++;
-        }
+    let start = 0;
+    let fg0 = null;
+    let bg0 = null;
+    eachChar(text, (ch, fg, bg, i, n) => {
+      if (ch == '\n') {
+        let color = (fg0 || bg0) ? `${CS}${fg0 ? fg0 : ''}${bg0 ? '|' + bg0 : ''}${CS}` : '';
+        output.push(color + text.substring(start, n));
+        start = n + 1;
+        fg0 = fg;
+        bg0 = bg;
       }
-
-      if (1 + wordWidth > spaceLeftOnLine || printString[i] === '\n') {
-
-        for(let k = lineStart; k <= i; ++k) {
-          if (printString.charCodeAt(k) === COLOR_ESCAPE) {
-            colors.push(lastColor);
-            lastColor = printString.substring(k, k + 4);
-            k += 3;
-          }
-          else if (printString.charCodeAt(k) === COLOR_END) {
-            lastColor = colors.pop() || '';
-          }
-        }
-
-        // console.log('Add line - ', printString.substring(lineStart, i));
-        // console.log(lastColor, colors);
-
-        printString = splice(printString, i, 1, '\n' + lastColor);	// [i] = '\n';
-        w += lastColor.length;
-        textLength += lastColor.length;
-        lineStart = i + lastColor.length;
-        spaceLeftOnLine = width - wordWidth; // line width minus the width of the word we just wrapped
-        //printf("\n\n%s", printString);
-      } else {
-        spaceLeftOnLine -= 1 + wordWidth;
-      }
-
-      // if (nextColor) {
-      //   colors.push(lastColor);
-      //   lastColor = nextColor;
-      //   nextColor = null;
-      // }
-      // if (clearColor) {
-      //   clearColor = false;
-      //   lastColor = colors.pop() || '';
-      // }
-
-      i = w; // Advance to the terminator that follows the word.
-    }
-
-    return printString.split('\n');}
-
-
-
-  function format(fmt, ...args) {
-
-    const RE = /%([\-\+0\ \#]+)?(\d+|\*)?(\.\*|\.\d+)?([hLIw]|l{1,2}|I32|I64)?([cCdiouxXeEfgGaAnpsFBSZ%])/g;
-
-    if (fmt instanceof types.Color) {
-      const buf = encodeColor(fmt) + args.shift();
-      fmt = buf;
-    }
-    if (typeof fmt !== 'string') {
-      fmt = '' + fmt;
-    }
-
-    let result = fmt.replace(RE, (m, p1, p2, p3, p4, p5, offset) => {
-
-      p1 = p1 || '';
-      p2 = p2 || '';
-      p3 = p3 || '';
-
-      let r;
-      let sign = '';
-
-      let pad = Number.parseInt(p2) || 0;
-      const wantSign = p1.includes('+');
-      if (p1.includes(' ')) {
-        sign = ' ';
-      }
-
-      if (p5 == 's') {
-        if (p1.includes(' ')) return m;
-        r = args.shift() || '';
-      }
-      else if (p5 == 'c') {
-        if (m !== '%c') return m;
-        r = (args.shift() || '');
-        r = r[0] || '';
-      }
-      else if (p5 == 'd' || p5 == 'i' || p5 == 'u') {
-        let n = args.shift() || 0;
-        if (n < 0) {
-          sign = '-';
-        }
-        else if (wantSign) {
-          sign = '+';
-        }
-        r = '' + Math.abs(n);
-      }
-      else if (p5 == 'f') {
-        let n = args.shift() || 0;
-        const fixed = p3.substring(1) || 0;
-        if (fixed) {
-          r = Math.abs(n).toFixed(fixed);
-        }
-        else {
-          r = '' + Math.abs(n);
-        }
-
-        if (n < 0) {
-          sign = '-';
-        }
-        else if (wantSign) {
-          sign = '+';
-        }
-      }
-      else if (p5 == 'F') {
-        let color$1 = args.shift() || null;
-        if (color$1 && !(color$1 instanceof types.Color)) {
-          color$1 = from(color$1);
-        }
-        r = encodeColor(color$1);
-      }
-      else if (p5 == '%') {
-        return '%';
-      }
-      else {
-        return m;
-      }
-
-      if (p1.includes('-')) {
-        r = sign + r.padEnd(pad - sign.length, ' ');
-      }
-      else {
-        if (p1.includes('0')) {
-          r = sign + r.padStart(pad - sign.length, '0');
-        }
-        else {
-          r = (sign + r).padStart(pad, ' ');
-        }
-      }
-
-      return r;
     });
 
-    if (args.length) {
-      if (result.length) {
-        result += ' ';
-      }
-      result = result + args.join(' ');
-    }
+    let color = (fg0 || bg0) ? `${CS}${fg0 ? fg0 : ''}${bg0 ? '|' + bg0 : ''}${CS}` : '';
+    output.push(color + text.substring(start));
 
-    return result;
+    return output;
   }
 
+  addHelper('you', (name, args, value) => {
+    const actor = value || args._last || args.actor;
+    args._last = actor;
+    if (!actor || !actor.getName) return name;
+    return actor.getName('the');
+  });
 
+  function nameHelper(name, args, value) {
+    const actor = value || args._last || args.actor;
+    args._last = actor;
+    if (!actor || !actor.getName) return name;
+    return actor.getName(name);
+  }
+
+  addHelper('the', nameHelper);
+  addHelper('a', nameHelper);
+
+  function pronounHelper(name, args, value) {
+    const actor = value || args._last || args.actor;
+    args._last = actor;
+    if (!actor || !actor.getPronoun) return name;
+    return actor.getPronoun(name);
+  }
+
+  addHelper('it', pronounHelper);
+  addHelper('your', pronounHelper);
+
+  // lookup verb
+  addHelper('verb', (name, args, value) => {
+    const actor = value || args._last || args.actor;
+    args._last = actor;
+    if (!args.verb) return '!!args.verb!!';
+    if (!actor || !actor.getVerb) return args.verb;
+    return actor.getVerb(args.verb);
+  });
+
+  // default - verbs
+  addHelper('default', (name, args, value) => {
+    const actor = value || args._last || args.actor;
+    args._last = actor;
+    if (!actor || !actor.getVerb) return name;
+    return actor.getVerb(name);
+  });
 
   function apply(template, args={}) {
-
-    const RE = /#(\w+)#|##(?!#)|\$(\w+)\.?(\w+)?\$/g;
-
-    let source = 'actor';
-    let result = template.replace(RE, (match, color, first, second, offset) => {
-      // console.log(m, p1, p2, p3, p4, offset);
-      if (match === '##') {
-        return encodeColor(null);
-      }
-      else if (color !== undefined) {
-        if (colors[color]) {
-          color = colors[color];
-        }
-        else if (args[color] !== undefined) {
-          color = args[color];
-        }
-        return encodeColor(color);
-      }
-      else if (first) {
-        if (first !== 'verb' && (args[first] !== undefined)) {
-          // TODO - allow formatting e.g. $cost.2f$, $total.4d$
-          const obj = args[first];
-          if (obj.getName) {
-            source = first;
-            return obj.getName(false);  // no article
-          }
-          return '' + obj;
-        }
-
-        if (first == 'you') {
-          first = 'the';
-          second = second || 'actor';
-        }
-        source = second || source;
-        const sourceObj = args[source] || data[source] || {};
-        if (first == 'the') {
-          if (sourceObj.getName) return sourceObj.getName('the');
-        }
-        else if (first == 'a' || first == 'an') {
-          if (sourceObj.getName) return sourceObj.getName('a');
-        }
-        else if (first == 'verb') {
-          first = args.verb || first;
-        }
-        else if (['him', 'her', 'he', 'she', 'it', 'his', 'hers', 'its', 'your'].includes(first) ) {
-          if (sourceObj.getPronoun) return sourceObj.getPronoun(first);
-        }
-
-        if (sourceObj.getVerb) return sourceObj.getVerb(first);
-      }
-      return match;
-    });
-
+    const fn = compile(template);
+    const result = fn(args);
     return result;
   }
 
@@ -2614,23 +2638,21 @@
     playerPronoun: playerPronoun,
     singularPronoun: singularPronoun,
     pluralPronoun: pluralPronoun,
-    firstChar: firstChar,
     isVowel: isVowel,
     toSingularVerb: toSingularVerb,
     toPluralVerb: toPluralVerb,
     toPluralNoun: toPluralNoun,
+    spliceRaw: spliceRaw,
+    splitIntoLines: splitIntoLines,
+    apply: apply,
+    firstChar: firstChar,
     eachChar: eachChar,
     length: length,
-    splice: splice,
-    matches: matches,
     center: center,
     capitalize: capitalize,
-    encodeColor: encodeColor,
     removeColors: removeColors,
-    hyphenate: hyphenate,
-    splitIntoLines: splitIntoLines,
-    format: format,
-    apply: apply
+    wordWrap: wordWrap,
+    compile: compile
   };
 
   const TEMP_BG = new types.Color();
@@ -3796,20 +3818,18 @@
       this.needsUpdate = true;
     }
 
-    plotText(x, y, text$1, ...args) {
-      if (args.length) {
-        text$1 = format(text$1, ...args);
-      }
-      eachChar(text$1, (ch, color, i) => {
-        this.plotChar(i + x, y, ch, color || colors.white, null);
-      });
+    // XXXXXXXXXX
+    plotText(x, y, text$1, fg, bg) {
+      eachChar(text$1, (ch, color, bg, i) => {
+        this.plotChar(i + x, y, ch, color || colors.white, bg);
+      }, fg, bg);
     }
 
-    applyText(x, y, text$1, args) {
+    applyText(x, y, text$1, args={}) {
       text$1 = apply(text$1, args);
-      eachChar(text$1, (ch, color, i) => {
+      eachChar(text$1, (ch, color, bg, i) => {
         this.plotChar(i + x, y, ch, color || colors.white, null);
-      });
+      }, args.fg, args.bg);
     }
 
 
@@ -3818,7 +3838,7 @@
       if (typeof bg === 'string') { bg = colors[bg]; }
       fg = fg || colors.white;
       let len = length(text$1);
-      eachChar(text$1, (ch, color, i) => {
+      eachChar(text$1, (ch, color, bg, i) => {
         this.plotChar(i + x, y, ch, color || fg, bg);
       });
       for(let i = len; i < w; ++i) {
@@ -3826,24 +3846,28 @@
       }
     }
 
-    wrapText(x, y, width, text$1, fg, bg, opts={}) {
+    wrapText(x0, y0, width, text$1, fg, bg, opts={}) {
       if (typeof opts === 'number') { opts = { indent: opts }; }
+      fg = fg || 'white';
       if (typeof fg === 'string') { fg = colors[fg]; }
       if (typeof bg === 'string') { bg = colors[bg]; }
-      width = Math.min(width, this.width - x);
-      if (length(text$1) <= width) {
-        this.plotLine(x, y, width, text$1, fg, bg);
-        return y + 1;
-      }
-      opts.indent = opts.indent || 0;
+      width = Math.min(width, this.width - x0);
+      const indent = opts.indent || 0;
 
-      const lines = splitIntoLines(text$1, width, opts.indent);
-      lines.forEach( (line, i) => {
-        const offset = i ? opts.indent : 0;
-        this.plotLine(x + offset, y + i, width - offset, line, fg || colors.white, bg);
-      });
+      text$1 = wordWrap(text$1, width, indent);
 
-      return y + lines.length;
+      let x = x0;
+      let y = y0;
+      eachChar(text$1, (ch, fg0, bg0) => {
+        if (ch == '\n') {
+          ++y;
+          x = x0 + indent;
+          return;
+        }
+        this.plotChar(x++, y, ch, fg0, bg0);
+      }, fg, bg);
+
+      return ++y;
     }
 
     fill(ch, fg, bg) {
@@ -8055,14 +8079,14 @@
           if (cell.item) {
               const theItem = cell.item;
               if (theItem.hasKindFlag(ItemKind.IK_INTERRUPT_EXPLORATION_WHEN_SEEN)) {
-                  MSG.add('$you$ $see$ #itemMessageColor#$item$##.', { item, actor: GW.data.player });
+                  MSG.add('§you§ §see§ ΩitemMessageColorΩ§item§∆.', { item, actor: GW.data.player });
               }
           }
           if (!(cell.flags & Cell.MAGIC_MAPPED)
               && cell.hasTileMechFlag(TileMech.TM_INTERRUPT_EXPLORATION_WHEN_SEEN))
   				{
               const tile = cell.tileWithMechFlag(TileMech.TM_INTERRUPT_EXPLORATION_WHEN_SEEN);
-              MSG.add('$you$ $see$ #backgroundMessageColor#$item$##.', { actor: GW.data.player, item: tile.name });
+              MSG.add('§you§ §see§ ΩbackgroundMessageColorΩ§item§∆.', { actor: GW.data.player, item: tile.name });
           }
       }
       cell.markRevealed();
@@ -8342,7 +8366,7 @@
           color$1 = from(opts.color);
         }
         if (color$1) {
-          result = apply('#color#$result$##', { color: color$1, result });
+          result = apply('Ω§color§Ω§result§∆', { color: color$1, result });
         }
       }
 
@@ -8738,6 +8762,10 @@
       Object.values(this.slots).filter( (a) => a ).forEach( (o) => fn(o) );
     }
 
+    toString() {
+      return this.getName(false);
+    }
+
   }
 
   types.Actor = Actor$1;
@@ -9074,7 +9102,7 @@
     }
 
   	remove(item) {
-      if (!item) return;
+      if ((!item) || (!this.next)) return;
   		if (this.next === item) {
   			this.next = item.next;
   			return;
@@ -9351,11 +9379,11 @@
     message.add(msg);
     if (isWin) {
       data.isWin = true;
-      message.add('#yellow#WINNER!');
+      message.add('ΩyellowΩWINNER!');
     }
     else {
       data.isWin = false;
-      message.add('#red#GAME OVER');
+      message.add('ΩredΩGAME OVER');
     }
     message.add('Press <Enter> to continue.');
     ui.updateNow();
@@ -9374,12 +9402,12 @@
     if (cell.hasTileFlag(Tile.T_UP_STAIRS)) {
       start = 'down';
       mapId = map.id + 1;
-      message.add('$you$ $ascend$.', { actor: player });
+      message.add('§you§ §ascend§.', { actor: player });
     }
     else if (cell.hasTileFlag(Tile.T_DOWN_STAIRS)) {
       start = 'up';
       mapId = map.id - 1;
-      message.add('$you$ $descend$.', { actor: player });
+      message.add('§you§ §descend§.', { actor: player });
     }
     else if (cell.hasTileFlag(Tile.T_PORTAL)) {
       start = cell.data.portalLocation;
@@ -9521,7 +9549,7 @@
         if (opts.color instanceof types.Color) {
           color = opts.color;
         }
-        result = apply('#color#$name$##', { color, name: this.name });
+        result = apply('Ω§color§Ω§name§∆', { color, name: this.name });
       }
 
       if (opts.article && this.article) {
@@ -11000,7 +11028,7 @@
     if (msg) {
       if (typeof msg !== 'string') {
         let verb = attackInfo.verb || 'hit';
-        message.addCombat('$attacker$ $verb$ $the.defender$ for #red#$damage$## damage', { attacker, verb, defender, damage: Math.round(ctx.damage) });
+        message.addCombat('§attacker§ §verb attacker§ §the defender§ for ΩredΩ§damage§∆ damage', { attacker, verb, defender, damage: Math.round(ctx.damage) });
       }
       else {
         message.addCombat(msg);
@@ -11049,7 +11077,7 @@
     const map = data.map;
 
     if (actor.grabbed) {
-      message.add('$you$ $let$ go of $a.item$.', { actor, item: actor.grabbed });
+      message.add('§you§ §let§ go of §a item§.', { actor, item: actor.grabbed });
       await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
       actor.grabbed = null;
       actor.endTurn();
@@ -11242,7 +11270,7 @@
     const item = actor.slots.ranged;
 
     if (!item) {
-      message.add('$you$ $have$ nothing to #orange#fire##.', { actor });
+      message.add('§you§ §have§ nothing to ΩorangeΩfire∆.', { actor });
       return false;
     }
 
@@ -11515,7 +11543,7 @@
           color$1 = from(color$1);
         }
         if (color$1) {
-          result = apply('#color#$result$##', { color: color$1, result });
+          result = apply('Ω§color§Ω§result§∆', { color: color$1, result });
         }
       }
       else if (opts.color === false) {
@@ -11647,6 +11675,10 @@
   	getFlavor() { return this.kind.flavor || this.kind.getName(this, true); }
     getName(opts={}) {
       return this.kind.getName(this, opts);
+    }
+
+    toString() {
+      return this.getName(false);
     }
   }
 
@@ -11882,6 +11914,7 @@
   message.forPlayer = forPlayer;
 
   function addCombat(msg, args) {
+    msg = messages[msg] || msg;
     msg = apply(msg, args);
     addCombatMessage(msg);
   }
@@ -11918,7 +11951,7 @@
       const localY = isOnTop ? (MSG_BOUNDS.height - i - 1) : i;
       const y = MSG_BOUNDS.toOuterY(localY);
 
-  		eachChar( DISPLAYED[i], (c, color, j) => {
+  		eachChar( DISPLAYED[i], (c, color, bg, j) => {
   			const x = MSG_BOUNDS.toOuterX(j);
 
   			if (color && (messageColor !== color) && CONFIRMED[i]) {
@@ -11982,7 +12015,7 @@
     //                && (text.text[i+1] === '.' || text.text[i+1] === ','))
   	// 		{
   	// 			const replace = text.text[i+1] + '"';
-  	// 			text.splice(i, 2, replace);
+  	// 			text.spliceRaw(i, 2, replace);
     //     }
     // }
 
@@ -12689,7 +12722,7 @@
         }
     }
 
-    buf.plotText(x + 1, y, '%F: ', fg);
+    buf.plotText(x + 1, y, ': ', fg);
   	y = buf.wrapText(x + 3, y, SIDE_BOUNDS.width - 3, monstName, fg, bg);
 
   	return y;
@@ -12761,7 +12794,7 @@
   		if (actor.current.health <= 0) {
   				text = "Dead";
   		// } else if (percent != 0) {
-  		// 		text = Text.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
+  		// 		text = Text.apply("Health (§percent%+d§)", { percent });
   		}
   		y = sidebar$1.addProgressBar(y, buf, text, actor.current.health, actor.max.health, healthBarColor, dim);
   	}
@@ -12792,7 +12825,7 @@
   		if (actor.current.mana <= 0) {
   				text = "None";
   		// } else if (percent != 0) {
-  		// 		text = Text.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
+      // 		text = Text.apply("Mana (§percent%+d§)", { percent });
   		}
   		y = sidebar$1.addProgressBar(y, buf, text, actor.current.mana, actor.max.mana, barColor, dim);
   	}
@@ -12823,7 +12856,7 @@
   		if (actor.current.food <= 0) {
   				text = "None";
   		// } else if (percent != 0) {
-  		// 		text = Text.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
+      // 		text = Text.apply("Nutrition (§percent%+d§)", { percent });
   		}
   		y = sidebar$1.addProgressBar(y, buf, text, actor.current.food, actor.max.food, barColor, dim);
   	}
@@ -13039,7 +13072,7 @@
 
   	if (player && x == player.x && y == player.y) {
   		if (player.status.levitating) {
-  			buf = apply("you are hovering above $flavor$.", { actor: player, flavor: cell.tileFlavor() });
+  			buf = apply("you are hovering above §flavor§.", { actor: player, flavor: cell.tileFlavor() });
   		}
       else {
   			// if (theItem) {
@@ -13098,9 +13131,9 @@
   			} else {
   				object = tiles[cell.memory.tile].getFlavor();
   			}
-  			buf = apply("you remember seeing $object$ here.", { actor, object });
+  			buf = apply("you remember seeing §object§ here.", { actor, object });
   		} else if (cell.flags & Cell.MAGIC_MAPPED) { // magic mapped
-  			buf = apply("you expect $text$ to be here.", { actor, text: tiles[cell.memory.tile].getFlavor() });
+  			buf = apply("you expect §text§ to be here.", { actor, text: tiles[cell.memory.tile].getFlavor() });
   		}
   		return buf;
   	}
@@ -13144,7 +13177,7 @@
     }
     let ground = cell.groundTile.getFlavor();
 
-    buf = apply("you $action$ $text$.", { actor, action: (map.isVisible(x, y) ? "see" : "sense"), text: object + surface + liquid + ground });
+    buf = apply("you §action§ §text§.", { actor, action: (map.isVisible(x, y) ? "see" : "sense"), text: object + surface + liquid + ground });
 
     return buf;
   }
@@ -13152,32 +13185,33 @@
   flavor.getFlavorText = getFlavorText;
 
   class Column {
-    constructor(name, field, format, empty) {
+    constructor(name, field, empty) {
       this.name = name || null;
-      this.field = field || null;
-      this.format = format || '%s';
+      this.template = null;
+      this.custom = null;
+      if (typeof field === 'function') {
+        this.custom = field;
+      }
+      else if (field) {
+        this.template = compile(field);
+      }
       this.empty = empty || '-';
     }
 
     plotData(buffer, x, y, data, index, color) {
       if (!data) {
-        buffer.plotText(x, y, color, this.empty);
+        buffer.plotText(x, y, this.empty, color);
         return length(this.empty);
       }
 
       let text$1;
-      if (typeof this.field === 'function') {
-        text$1 = this.field(data, index, color, this);
+      if (this.custom) {
+        text$1 = this.custom(data, index, color, this);
       }
       else {
-        const field = data[this.field];
-        if (!field) {
-          buffer.plotText(x, y, color, this.empty);
-          return length(this.empty);
-        }
-        text$1 = format(this.format, field);
+        text$1 = this.template(data);
       }
-      buffer.plotText(x, y, color, text$1);
+      buffer.plotText(x, y, text$1, color);
       return length(text$1);
     }
 
@@ -13368,11 +13402,7 @@
   class List extends types.Table {
     constructor(opts={}) {
       super(opts);
-      opts.format = opts.format || '%s';
-      this.column(opts.header,
-        ((data) => format(opts.format, data.text || data)),
-        opts.format, '-'
-      );
+      this.column(opts.header, '§text§');
     }
   }
 
@@ -13968,9 +13998,9 @@
   				let isCancel = ev.x > x + len + 4 - btnCancel.length - 4;
   				if (ev.x < x || ev.x > x + len + 4) { isOK = false; isCancel = false; }
   				if (ev.y != y + 3 ) { isOK = false; isCancel = false; }
-  				buffer.plotText(x + 2, y + 3, isOK ? GW.colors.teal : GW.colors.white, btnOK);
+  				buffer.plotText(x + 2, y + 3, btnOK, isOK ? GW.colors.teal : GW.colors.white);
           if (opts.allowCancel) {
-            buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, isCancel ? GW.colors.teal : GW.colors.white, btnCancel);
+            buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, isCancel ? GW.colors.teal : GW.colors.white);
           }
   				ui.draw();
   			},
@@ -14131,7 +14161,7 @@
   		if ( (ev.key == 'Delete' || ev.key == 'Backspace') && charNum > 0) {
   			buffer.plotChar(x + charNum - 1, y, ' ', 'white');
   			charNum--;
-  			inputText = splice(inputText, charNum, 1);
+  			inputText = spliceRaw(inputText, charNum, 1);
   		} else if (ev.key.length > 1) ; else if (ev.key >= textEntryBounds[0]
   				   && ev.key <= textEntryBounds[1]) // allow only permitted input
   		{
@@ -14437,9 +14467,9 @@
 
   actions.moveDir = moveDir;
 
-  message.addKind('BASH_NO', '$you$ cannot bash $item$.');
-  message.addKind('BASH_ITEM', '$you$ $bash$ $the.item$ [-$damage$].');
-  message.addKind('BASH_DESTROYED', '$the.item$ $is$ destroyed.');
+  message.addKind('BASH_NO', '§you§ cannot bash §item§.');
+  message.addKind('BASH_ITEM', '§you§ §bash§ §the item§ [-§damage§].');
+  message.addKind('BASH_DESTROYED', '§the item§ §is§ destroyed.');
 
   async function bashItem(actor, item, ctx) {
 
@@ -14482,8 +14512,8 @@
 
   actions.bashItem = bashItem;
 
-  message.addKind('PICKUP_NO', '$you$ cannot pickup $the.item$.');
-  message.addKind('PICKUP_ITEM', '$you$ $pickup$ $the.item$.');
+  message.addKind('PICKUP_NO', '§you§ cannot pickup §the item§.');
+  message.addKind('PICKUP_ITEM', '§you§ §pickup§ §the item§.');
 
   async function pickup(actor, item, ctx) {
 
@@ -14595,7 +14625,7 @@
     await applyDamage(actor, target, info, ctx);
 
     if (target.isPlayer() && target.isDead()) {
-      await Game.gameOver(false, 'Killed by $attacker$.', { actor });
+      await Game.gameOver(false, 'Killed by §attacker§.', { actor });
     }
 
     actor.endTurn();
@@ -14640,10 +14670,10 @@
     }
 
     damage = target.kind.applyDamage(target, damage, actor, ctx);
-    message.addCombat('$you$ $verb$ $the.target$ for #red#$damage$## damage', { actor, verb, target, damage });
+    message.addCombat('§you§ §verb§ §the target§ for ΩredΩ§damage§∆ damage', { actor, verb, target, damage });
 
     if (target.isDead()) {
-      message.addCombat('$action$ $it.target$', { action: target.isInanimate() ? 'destroying' : 'killing', target });
+      message.addCombat('§action§ §it target§', { action: target.isInanimate() ? 'destroying' : 'killing', target });
     }
 
     const ctx2 = { map: map, x: target.x, y: target.y, volume: damage };
@@ -14659,7 +14689,7 @@
         await spawn(target.kind.corpse, ctx2);
       }
       if (target.isPlayer()) {
-        await gameOver(false, 'Killed by $actor$.', { actor });
+        await gameOver(false, 'Killed by §actor§.', { actor });
       }
     }
 
@@ -14729,7 +14759,7 @@
     }
 
     actor.grabbed = item;
-    message.add('$you$ $grab$ $a.item$.', { actor, item: actor.grabbed });
+    message.add('§you§ §grab§ §a item§.', { actor, item: actor.grabbed });
     await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
     actor.endTurn();
     return true;
@@ -14741,7 +14771,7 @@
   async function release(actor, item, ctx={}) {
     if (!actor.grabbed) return false;
 
-    message.add('$you$ $let$ go of $a.item$.', { actor, item: actor.grabbed });
+    message.add('§you§ §let§ go of §a item§.', { actor, item: actor.grabbed });
     await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
     actor.grabbed = null;
     actor.endTurn();
@@ -14818,12 +14848,12 @@
 
   actions.use = use;
 
-  message.addKind('EQUIP_NO', '$the.item$ $do$ not seem to be equippable.');
-  message.addKind('EQUIP_FAILED', '$you$ failed to equip $the.item$.');
-  message.addKind('EQUIP_SWAP', '$you$ $swap$ your $other$ for $your.actor$ $item$.');
-  message.addKind('EQUIP_SWAP_FLOOR', '$you$ $swap$ your $other$ for $a.item$.');
-  message.addKind('EQUIP_ITEM', '$you$ $equip$ $your $item$.');
-  message.addKind('EQUIP_ITEM_FLOOR', '$you$ $equip$ $a.item$.');
+  message.addKind('EQUIP_NO', '§the item§ §do§ not seem to be equippable.');
+  message.addKind('EQUIP_FAILED', '§you§ failed to equip §the item§.');
+  message.addKind('EQUIP_SWAP', '§you§ §swap§ your §other§ for §your actor§ §item§.');
+  message.addKind('EQUIP_SWAP_FLOOR', '§you§ §swap§ your §other§ for §a item§.');
+  message.addKind('EQUIP_ITEM', '§you§ §equip§ §your §item§.');
+  message.addKind('EQUIP_ITEM_FLOOR', '§you§ §equip§ §a item§.');
   message.addKind('EQUIP_ALREADY', 'already equipped.');
 
 
@@ -14878,8 +14908,8 @@
   actions.equip = equip;
 
 
-  message.addKind('UNEQUIP_NO', '$the.item$ does not seem to be equippable.');
-  message.addKind('UNEQUIP_NOT_EQUIPPED', '$the.item$ does not seem to be equipped.');
+  message.addKind('UNEQUIP_NO', '$the item$ does not seem to be equippable.');
+  message.addKind('UNEQUIP_NOT_EQUIPPED', '$the item$ does not seem to be equipped.');
   message.addKind('UNEQUIP_FAIL', '$you$ cannot remove $your$ $item$.');
   message.addKind('UNEQUIP_ITEM', '$you$ $remove$ $your$ $item$.');
 

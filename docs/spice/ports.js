@@ -24,7 +24,7 @@ function resetPorts() {
   });
 }
 
-GW.message.addKind('ENTER_PORT', 'you visit $name$.');
+GW.message.addKind('ENTER_PORT', 'you visit §name§.');
 
 
 function updateMarkets() {
@@ -59,7 +59,7 @@ async function enterPort() {
 
   buffer.fade('black', 50);
   buffer.blackOutRect(16, 0, 64, 38, 'darkest_gray');
-  const welcome = GW.text.apply('#yellow#Welcome to $name$', this);
+  const welcome = GW.text.apply('ΩyellowΩWelcome to §name§', this);
   const len = GW.text.length(welcome);
   let cx = 16 + Math.floor((64-len)/2);
   buffer.plotText(cx, 1, welcome);

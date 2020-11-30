@@ -113,7 +113,7 @@ export class Tile {
       if (opts.color instanceof types.Color) {
         color = opts.color;
       }
-      result = Text.apply('#color#$name$##', { color, name: this.name });
+      result = Text.apply('Ω§color§Ω§name§∆', { color, name: this.name });
     }
 
     if (opts.article && this.article) {

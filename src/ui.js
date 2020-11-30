@@ -595,9 +595,9 @@ export async function confirm(opts, prompt, args) {
 				let isCancel = ev.x > x + len + 4 - btnCancel.length - 4;
 				if (ev.x < x || ev.x > x + len + 4) { isOK = false; isCancel = false; }
 				if (ev.y != y + 3 ) { isOK = false; isCancel = false; }
-				buffer.plotText(x + 2, y + 3, isOK ? GW.colors.teal : GW.colors.white, btnOK);
+				buffer.plotText(x + 2, y + 3, btnOK, isOK ? GW.colors.teal : GW.colors.white);
         if (opts.allowCancel) {
-          buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, isCancel ? GW.colors.teal : GW.colors.white, btnCancel);
+          buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, isCancel ? GW.colors.teal : GW.colors.white);
         }
 				ui.draw();
 			},
@@ -759,7 +759,7 @@ async function getInputAt(x, y, maxLength, opts={})
 		if ( (ev.key == 'Delete' || ev.key == 'Backspace') && charNum > 0) {
 			buffer.plotChar(x + charNum - 1, y, ' ', 'white');
 			charNum--;
-			inputText = Text.splice(inputText, charNum, 1);
+			inputText = Text.spliceRaw(inputText, charNum, 1);
 		} else if (ev.key.length > 1) {
 			// ignore other special keys...
 		} else if (ev.key >= textEntryBounds[0]

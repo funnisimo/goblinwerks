@@ -115,10 +115,10 @@ describe('RL.Tile', () => {
     expect(tile.getName('the')).toEqual('the Stone Wall');
     expect(tile.getName(true)).toEqual('a Stone Wall');
 
-    expect(tile.getName({ color: true })).toEqual(GW.text.format('%FStone Wall%F', GW.colors.light_gray, null));
-    expect(tile.getName({ color: true, article: 'a' })).toEqual(GW.text.format('a %FStone Wall%F', GW.colors.light_gray, null));
-    expect(tile.getName({ color: true, article: 'the' })).toEqual(GW.text.format('the %FStone Wall%F', GW.colors.light_gray, null));
-    expect(tile.getName({ color: true, article: true })).toEqual(GW.text.format('a %FStone Wall%F', GW.colors.light_gray, null));
+    expect(tile.getName({ color: true })).toEqual('Ωlight_grayΩStone Wall∆');
+    expect(tile.getName({ color: true, article: 'a' })).toEqual('a Ωlight_grayΩStone Wall∆');
+    expect(tile.getName({ color: true, article: 'the' })).toEqual('the Ωlight_grayΩStone Wall∆');
+    expect(tile.getName({ color: true, article: true })).toEqual('a Ωlight_grayΩStone Wall∆');
 
     expect(tile.getDescription()).toEqual(tile.getName());
   });

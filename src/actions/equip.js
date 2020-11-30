@@ -4,12 +4,12 @@ import * as Utils from '../utils.js';
 import * as GW from '../gw.js';
 
 
-GW.message.addKind('EQUIP_NO', '$the.item$ $do$ not seem to be equippable.');
-GW.message.addKind('EQUIP_FAILED', '$you$ failed to equip $the.item$.');
-GW.message.addKind('EQUIP_SWAP', '$you$ $swap$ your $other$ for $your.actor$ $item$.');
-GW.message.addKind('EQUIP_SWAP_FLOOR', '$you$ $swap$ your $other$ for $a.item$.');
-GW.message.addKind('EQUIP_ITEM', '$you$ $equip$ $your $item$.');
-GW.message.addKind('EQUIP_ITEM_FLOOR', '$you$ $equip$ $a.item$.');
+GW.message.addKind('EQUIP_NO', '§the item§ §do§ not seem to be equippable.');
+GW.message.addKind('EQUIP_FAILED', '§you§ failed to equip §the item§.');
+GW.message.addKind('EQUIP_SWAP', '§you§ §swap§ your §other§ for §your actor§ §item§.');
+GW.message.addKind('EQUIP_SWAP_FLOOR', '§you§ §swap§ your §other§ for §a item§.');
+GW.message.addKind('EQUIP_ITEM', '§you§ §equip§ §your §item§.');
+GW.message.addKind('EQUIP_ITEM_FLOOR', '§you§ §equip§ §a item§.');
 GW.message.addKind('EQUIP_ALREADY', 'already equipped.');
 
 
@@ -64,8 +64,8 @@ export async function equip(actor, item, ctx={}) {
 Actions.equip = equip;
 
 
-GW.message.addKind('UNEQUIP_NO', '$the.item$ does not seem to be equippable.');
-GW.message.addKind('UNEQUIP_NOT_EQUIPPED', '$the.item$ does not seem to be equipped.');
+GW.message.addKind('UNEQUIP_NO', '$the item$ does not seem to be equippable.');
+GW.message.addKind('UNEQUIP_NOT_EQUIPPED', '$the item$ does not seem to be equipped.');
 GW.message.addKind('UNEQUIP_FAIL', '$you$ cannot remove $your$ $item$.');
 GW.message.addKind('UNEQUIP_ITEM', '$you$ $remove$ $your$ $item$.');
 

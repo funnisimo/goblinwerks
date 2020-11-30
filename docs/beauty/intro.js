@@ -228,7 +228,7 @@ function drawFact(buf, y=0) {
   	y = buf.height + y;
   }
 
-	const fact = '%FFun Fact: ' + GW.random.item(FACTS);
+	const fact = 'Fun Fact: ' + GW.random.item(FACTS);
 
 	const x = Math.floor((buf.width - fact.length)/2);
 	buf.plotText(x, y, fact, 'lighter_gray');

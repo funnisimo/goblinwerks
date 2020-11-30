@@ -418,19 +418,19 @@ async function showStoreInventory(buffer, store, actor) {
   while(running) {
     buffer.blackOut();
 
-    const text = GW.text.apply('#yellow#Welcome to $store$!', { store });
+    const text = GW.text.apply('ΩyellowΩWelcome to §store§!', { store });
     const len = GW.text.length(text);
     const tx = Math.floor((buffer.width - len)/2);
     buffer.plotText(tx, 1, text);
 
     // buffer.plotText(x, 3, 'Items For Sale');
 
-    buffer.applyText(x, 33, 'Press #green#<a-z, UP, DOWN>## to see an item');
-    buffer.applyText(x, 34, 'Press #green#<S>## to see your pack (sell), #green#<Escape>## to leave the store.');
+    buffer.applyText(x, 33, 'Press ΩgreenΩ<a-z, UP, DOWN>∆ to see an item');
+    buffer.applyText(x, 34, 'Press ΩgreenΩ<S>∆ to see your pack (sell), ΩgreenΩ<Escape>∆ to leave the store.');
 
     canBuy = false;
     if (!store.items) {
-      buffer.plotText(x, 4, GW.colors.yellow, 'The store is empty.');
+      buffer.plotText(x, 4, 'The store is empty.', GW.colors.yellow);
     }
     else {
       table.plot(buffer, x, 4, data);
@@ -441,7 +441,7 @@ async function showStoreInventory(buffer, store, actor) {
         const startX = x + table.width + 5;
         const width = buffer.width - startX - 5;
 
-        buffer.plotText(startX, 5, 'You have %F%d%F gold.', 'gold', actor.current.gold, null);
+        buffer.plotText(startX, 5, 'You have ΩgoldΩ§gold§∆ gold.', { gold: actor.current.gold });
         let nextY = buffer.wrapText(startX, 7, width, selectedData.item.kind.description, [100,100,30]);
 
         if (selectedData.price > actor.current.gold) {
@@ -451,7 +451,7 @@ async function showStoreInventory(buffer, store, actor) {
           nextY = buffer.wrapText(startX, nextY + 1, width, 'You do not have enough room in your pack to buy this item.', GW.colors.red);
         }
         else {
-          nextY = buffer.wrapText(startX, nextY + 1, width, GW.text.apply('Press #green#<Enter>## to buy.'));
+          nextY = buffer.wrapText(startX, nextY + 1, width, GW.text.apply('Press ΩgreenΩ<Enter>∆ to buy.'));
           canBuy = true;
         }
 
@@ -490,9 +490,9 @@ async function showStoreInventory(buffer, store, actor) {
 }
 
 
-GW.message.addKind('STORE_BUY', '$you$ $bought$ $quantity$ $item$ for $cost$ gold.');
-GW.message.addKind('STORE_BUY_THANKS', 'Thank you for purchasing $quantity$ $item$ for $cost$ gold.');
-GW.message.addKind('STORE_PROMPT_QTY', 'Buy how many? (1-$quantity$)');
+GW.message.addKind('STORE_BUY', '§you§ §bought§ §quantity§ §item§ for §cost§ gold.');
+GW.message.addKind('STORE_BUY_THANKS', 'Thank you for purchasing §quantity§ §item§ for §cost§ gold.');
+GW.message.addKind('STORE_PROMPT_QTY', 'Buy how many? (1-§quantity§)');
 GW.message.addKind('STORE_NO_FIT', 'That many will not fit in your pack.');
 
 
@@ -553,9 +553,9 @@ async function showPlayerInventory(buffer, store, actor) {
     color: 'white',
     selected: 0,
   })
-  .column('Qty', 'count', '%3d')
-  .column('Item', 'name', '%-30s')
-  .column(' Each', 'price', '%5d GP');
+  .column('Qty', '§count%3d§')
+  .column('Item', '§name%-30s§')
+  .column(' Each', '§price%5d§ GP');
 
   const data = [];
   GW.utils.eachChain(actor.pack, (item) => {
@@ -570,19 +570,19 @@ async function showPlayerInventory(buffer, store, actor) {
   while(running) {
     buffer.blackOut();
 
-    const text = GW.text.apply('#yellow#Welcome to $store$!', { store });
+    const text = GW.text.apply('ΩyellowΩWelcome to §store§!', { store });
     const len = GW.text.length(text);
     const tx = Math.floor((buffer.width - len)/2);
     buffer.plotText(tx, 1, text);
 
     // buffer.plotText(x, 3, 'Items For Sale');
 
-    buffer.applyText(x, 33, 'Press #green#<a-z, UP, DOWN>## to see an item');
-    buffer.applyText(x, 34, 'Press #green#<B>## to see store items (buy), #green#<Escape>## to leave the store.');
+    buffer.applyText(x, 33, 'Press ΩgreenΩ<a-z, UP, DOWN>∆ to see an item');
+    buffer.applyText(x, 34, 'Press ΩgreenΩ<B>∆ to see store items (buy), ΩgreenΩ<Escape>∆ to leave the store.');
 
     canBuy = false;
     if (!data.length) {
-      buffer.plotText(x, 4, GW.colors.yellow, 'Your pack is empty.');
+      buffer.plotText(x, 4, 'Your pack is empty.', GW.colors.yellow);
     }
     else {
       table.plot(buffer, x, 4, data);
@@ -593,7 +593,7 @@ async function showPlayerInventory(buffer, store, actor) {
         const startX = x + table.width + 5;
         const width = buffer.width - startX - 5;
 
-        // buffer.plotText(startX, 5, 'You have %F%d%F gold.', 'gold', actor.current.gold, null);
+        // buffer.applyText(startX, 5, 'You have ΩgoldΩ§gold§∆ gold.', { gold: actor.current.gold });
         let nextY = buffer.wrapText(startX, 7, width, selectedData.item.kind.description, [100,100,30]);
 
         if (selectedData.price > store.gold) {
@@ -603,7 +603,7 @@ async function showPlayerInventory(buffer, store, actor) {
           nextY = buffer.wrapText(startX, nextY + 1, width, 'I do not have enough room in the store to buy this item.', GW.colors.red);
         }
         else {
-          nextY = buffer.wrapText(startX, nextY + 1, width, GW.text.apply('Press #green#<Enter>## to sell.'));
+          nextY = buffer.wrapText(startX, nextY + 1, width, GW.text.apply('Press ΩgreenΩ<Enter>∆ to sell.'));
           canBuy = true;
         }
 
@@ -661,9 +661,9 @@ async function showPlayerInventory(buffer, store, actor) {
 
 
 
-GW.message.addKind('STORE_SELL', '$you$ $sold$ $quantity$ $item$ for $cost$ gold.');
-GW.message.addKind('STORE_SELL_THANKS', 'Thank you selling me $quantity$ $item$ for $cost$ gold.');
-GW.message.addKind('STORE_SELL_PROMPT_QTY', 'Sell how many? (1-$quantity$)');
+GW.message.addKind('STORE_SELL', '§you§ §sold§ §quantity§ §item§ for §cost§ gold.');
+GW.message.addKind('STORE_SELL_THANKS', 'Thank you selling me §quantity§ §item§ for §cost§ gold.');
+GW.message.addKind('STORE_SELL_PROMPT_QTY', 'Sell how many? (1-§quantity§)');
 GW.message.addKind('STORE_SELL_NO_FIT', 'That many will not fit in the store.');
 
 

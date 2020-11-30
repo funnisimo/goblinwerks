@@ -14,9 +14,9 @@ describe('GW.table', () => {
       color: 'white',
       selected: 0,
     })
-    .column('', 'count', '%2d')
-    .column('Item', 'name', '%-10s')
-    .column('Each', 'price', '%4d');
+    .column('', '§count%2d§')
+    .column('Item', '§name%-10s§')
+    .column('Each', '§price%4d§');
 
     const buffer = GW.make.buffer(40, 10);
     const data = { count: 1, name: 'taco', price: 2, next: null };
@@ -41,9 +41,9 @@ describe('GW.table', () => {
       color: 'white',
       selected: 0,
     })
-    .column('', 'count', '%2d')
-    .column('Item', 'name', '%-10s')
-    .column('Each', 'price', '%4d');
+    .column('', '§count%2d§')
+    .column('Item', '§name%-10s§')
+    .column('Each', '§price%4d§');
 
     const buffer = GW.make.buffer(40, 10);
     const data = [{ count: 1, name: 'taco', price: 2 }];

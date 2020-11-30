@@ -180,7 +180,7 @@ class ActorKind {
         color = Color.from(opts.color);
       }
       if (color) {
-        result = Text.apply('#color#$result$##', { color, result });
+        result = Text.apply('Ω§color§Ω§result§∆', { color, result });
       }
     }
 
@@ -576,6 +576,10 @@ export class Actor {
 
   eachEquip(fn) {
     Object.values(this.slots).filter( (a) => a ).forEach( (o) => fn(o) );
+  }
+
+  toString() {
+    return this.getName(false);
   }
 
 }

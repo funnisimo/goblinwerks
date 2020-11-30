@@ -87,6 +87,7 @@ function forPlayer(actor, ...args) {
 GW.message.forPlayer = forPlayer;
 
 function addCombat(msg, args) {
+  msg = GW.messages[msg] || msg;
   msg = Text.apply(msg, args);
   addCombatMessage(msg);
 }
@@ -123,7 +124,7 @@ function drawMessages(buffer) {
     const localY = isOnTop ? (MSG_BOUNDS.height - i - 1) : i;
     const y = MSG_BOUNDS.toOuterY(localY);
 
-		Text.eachChar( DISPLAYED[i], (c, color, j) => {
+		Text.eachChar( DISPLAYED[i], (c, color, bg, j) => {
 			const x = MSG_BOUNDS.toOuterX(j);
 
 			if (color && (messageColor !== color) && CONFIRMED[i]) {
@@ -187,7 +188,7 @@ function addMessage(msg) {
   //                && (text.text[i+1] === '.' || text.text[i+1] === ','))
 	// 		{
 	// 			const replace = text.text[i+1] + '"';
-	// 			text.splice(i, 2, replace);
+	// 			text.spliceRaw(i, 2, replace);
   //     }
   // }
 

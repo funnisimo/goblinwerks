@@ -281,11 +281,11 @@ export async function gameOver(isWin, msg, args) {
   MSG.add(msg);
   if (isWin) {
     DATA.isWin = true;
-    MSG.add('#yellow#WINNER!');
+    MSG.add('ΩyellowΩWINNER!');
   }
   else {
     DATA.isWin = false;
-    MSG.add('#red#GAME OVER');
+    MSG.add('ΩredΩGAME OVER');
   }
   MSG.add('Press <Enter> to continue.');
   UI.updateNow();
@@ -304,12 +304,12 @@ export async function useStairs(x, y) {
   if (cell.hasTileFlag(Flags.Tile.T_UP_STAIRS)) {
     start = 'down';
     mapId = map.id + 1;
-    MSG.add('$you$ $ascend$.', { actor: player });
+    MSG.add('§you§ §ascend§.', { actor: player });
   }
   else if (cell.hasTileFlag(Flags.Tile.T_DOWN_STAIRS)) {
     start = 'up';
     mapId = map.id - 1;
-    MSG.add('$you$ $descend$.', { actor: player });
+    MSG.add('§you§ §descend§.', { actor: player });
   }
   else if (cell.hasTileFlag(Flags.Tile.T_PORTAL)) {
     start = cell.data.portalLocation;

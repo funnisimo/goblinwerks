@@ -43,10 +43,10 @@ export async function itemAttack(actor, target, ctx={}) {
   }
 
   damage = target.kind.applyDamage(target, damage, actor, ctx);
-  GW.message.addCombat('$you$ $verb$ $the.target$ for #red#$damage$## damage', { actor, verb, target, damage });
+  GW.message.addCombat('§you§ §verb§ §the target§ for ΩredΩ§damage§∆ damage', { actor, verb, target, damage });
 
   if (target.isDead()) {
-    GW.message.addCombat('$action$ $it.target$', { action: target.isInanimate() ? 'destroying' : 'killing', target });
+    GW.message.addCombat('§action§ §it target§', { action: target.isInanimate() ? 'destroying' : 'killing', target });
   }
 
   const ctx2 = { map: map, x: target.x, y: target.y, volume: damage };
@@ -62,7 +62,7 @@ export async function itemAttack(actor, target, ctx={}) {
       await TileEvent.spawn(target.kind.corpse, ctx2);
     }
     if (target.isPlayer()) {
-      await gameOver(false, 'Killed by $actor$.', { actor });
+      await gameOver(false, 'Killed by §actor§.', { actor });
     }
   }
 

@@ -21,7 +21,7 @@ async function enterTavern(port, player) {
   const buffer = GW.ui.startDialog();
 
   buffer.blackOutRect(16, 0, 64, 38, 'darkest_gray');
-  const welcome = GW.text.apply('#yellow#$port$ Tavern', { port: port.name });
+  const welcome = GW.text.apply('ΩyellowΩ§port§ Tavern', { port: port.name });
   const len = GW.text.length(welcome);
   let cx = 16 + Math.floor((64-len)/2);
   buffer.plotText(cx, 1, welcome);

@@ -20,7 +20,7 @@ async function getPlayerGender(buffer) {
 
 	buffer.blackOut();
 
-	let prompt = GW.text.format("%FSelect your avatar's gender:", 'yellow');
+	let prompt = "ΩyellowΩSelect your avatar's gender:";
 	x = Math.floor((buffer.width - GW.text.length(prompt)) / 2);
 	y = 2;
 	buffer.plotText(x, y, prompt);
@@ -33,8 +33,8 @@ async function getPlayerGender(buffer) {
   while(true) {
 
     y = 4;
-    buffer.plotText(CHAR_KIND_COL, y, '%FA) Male', (highlighted == 0) ? 'teal' : 'white');
-    buffer.plotText(CHAR_ROLE_COL, y, '%FB) Female', (highlighted == 1) ? 'teal' : 'white');
+    buffer.plotText(CHAR_KIND_COL, y, 'A) Male', (highlighted == 0) ? 'teal' : 'white');
+    buffer.plotText(CHAR_ROLE_COL, y, 'B) Female', (highlighted == 1) ? 'teal' : 'white');
 
     const desc = GENDER_DESCRIPTIONS[highlighted]; // getPlayerDescription(highlighted, -1);
     buffer.wrapText(CHAR_INFO_COL, 4, 50, desc);
@@ -79,7 +79,7 @@ async function getPlayerKind(buffer, genderId) {
 
 	buffer.blackOut();
 
-	let prompt = GW.text.format("%FSelect your avatar's kind:", 'yellow');
+	let prompt = "ΩyellowΩSelect your avatar's kind:";
 	x = Math.floor((buffer.width - GW.text.length(prompt)) / 2);
 	y = 2;
 	buffer.plotText(x, y, prompt);
@@ -94,14 +94,14 @@ async function getPlayerKind(buffer, genderId) {
   while(true) {
 
     y = 4;
-    buffer.plotText(CHAR_KIND_COL, y, '%FA) Male', (genderId == 0) ? 'teal' : 'white');
-    buffer.plotText(CHAR_ROLE_COL, y, '%FB) Female', (genderId == 1) ? 'teal' : 'white');
+    buffer.plotText(CHAR_KIND_COL, y, 'A) Male', (genderId == 0) ? 'teal' : 'white');
+    buffer.plotText(CHAR_ROLE_COL, y, 'B) Female', (genderId == 1) ? 'teal' : 'white');
 
     y = 6;
     heroKinds.forEach( (r, i) => {
       char = String.fromCharCode(65 + i);
       const fg = (highlighted === i) ? 'teal' : 'white';
-      buf = GW.text.format("%F%c) %s", fg, char, r.name);
+      buf = `Ω${fg}Ω${char}) ${r.name}`;
       buffer.plotText(CHAR_KIND_COL, y, buf);
       ++y;
     });
@@ -158,7 +158,7 @@ async function getPlayerRole(buffer, kindId, genderId) {
 
 	buffer.blackOut();
 
-	let prompt = GW.text.format("%FSelect your avatar's role:", 'yellow');
+	let prompt = "ΩyellowΩSelect your avatar's role:";
 	x = Math.floor((buffer.width - GW.text.length(prompt)) / 2);
 	y = 2;
 	buffer.plotText(x, y, prompt);
@@ -171,14 +171,14 @@ async function getPlayerRole(buffer, kindId, genderId) {
   while(true) {
 
     y = 4;
-    buffer.plotText(CHAR_KIND_COL, y, '%FA) Male', (genderId == 0) ? 'teal' : 'white');
-    buffer.plotText(CHAR_ROLE_COL, y, '%FB) Female', (genderId == 1) ? 'teal' : 'white');
+    buffer.plotText(CHAR_KIND_COL, y, 'A) Male', (genderId == 0) ? 'teal' : 'white');
+    buffer.plotText(CHAR_ROLE_COL, y, 'B) Female', (genderId == 1) ? 'teal' : 'white');
 
     y = 6;
     heroKinds.forEach( (kind, i) => {
       char = String.fromCharCode(65 + i);
       const fg = (kind.id === kindId) ? 'green' : 'white';
-      buf = GW.text.format("%F%c) %s", fg, char, kind.name);
+      buf = `Ω${fg}Ω${char}) ${kind.name}`;
       buffer.plotText(CHAR_KIND_COL, y, buf);
       ++y;
     });
@@ -187,7 +187,7 @@ async function getPlayerRole(buffer, kindId, genderId) {
 		roles.forEach( (role, i) => {
 			char = String.fromCharCode(65 + i);
       const fg = (highlighted === i) ? 'teal' : 'white';
-      buf = GW.text.format("%F%c) %s", fg, char, role.name);
+      buf = `Ω${fg}Ω${char}) ${role.name}`;
       buffer.plotText(CHAR_ROLE_COL, y, buf);
       ++y;
 		})
@@ -250,7 +250,7 @@ async function rollPlayerStats(buffer, kindId, roleId, genderId) {
 
     const lastY = printCharacter(buffer, player, 3);
 
-    let prompt = GW.text.format("%FReview your character", 'yellow');
+    let prompt = "ΩyellowΩReview your character";
     let x = Math.round((buffer.width - GW.text.length(prompt)) / 2);
     buffer.plotText(x, 2, prompt);
 
@@ -293,7 +293,7 @@ async function getPlayerName(buffer, player) {
   buffer.blackOut();
   const lastY = printCharacter(buffer, player, 3);
 
-  prompt = GW.text.format("%FWhat is your character's name?", 'yellow');
+  prompt = "ΩyellowΩWhat is your character's name?";
   x = Math.round((buffer.width - GW.text.length(prompt)) / 2);
   buffer.plotText(x, 2, prompt);
 

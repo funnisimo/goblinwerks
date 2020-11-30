@@ -86,7 +86,7 @@ describe('FOV', () => {
       let msgs = [];
       if (opts.captureDebug) {
         function capture(...args) {
-          msgs.push(GW.text.format(...args));
+          msgs.push(args.join(', '));
         }
         GW.fov.debug = capture;
       }

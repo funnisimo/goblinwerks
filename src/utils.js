@@ -262,7 +262,10 @@ export function setDefaults(obj, def, custom=null) {
       // do nothing
     }
     else if (current === undefined) {
-      if (Array.isArray(defValue)) {
+      if (defValue === null) {
+        dest[key] = null;
+      }
+      else if (Array.isArray(defValue)) {
         dest[key] = defValue.slice();
       }
       else if (typeof defValue === 'object') {

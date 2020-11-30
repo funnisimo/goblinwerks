@@ -29,7 +29,7 @@ describe('FX', () => {
 
     GW.map.getCellAppearance(m, 2, 2, sprite);
     expect(sprite.ch).toEqual(hit.ch);
-    expect(sprite.fg).toEqual(hit.fg);
+    expect(sprite.fg).toEqualColor(hit.fg);
     expect(sprite.bg.css()).toEqual('#05051a');
 
     GW.fx.tick(101);

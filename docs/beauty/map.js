@@ -1,7 +1,7 @@
 
 // CELLS
 
-GW.message.addKind('THORN_DAMAGE', '#red#Ouch!##  You injure yourself on a #green#thorn##!');
+GW.message.addKind('THORN_DAMAGE', 'ΩredΩOuch!∆  You injure yourself on a ΩgreenΩthorn∆!');
 GW.message.addKind('THORN_KILL', 'Killed by brambles.');
 
 GW.tile.addKind('BRAMBLES', {
@@ -21,7 +21,7 @@ GW.tile.addKind('BRAMBLES', {
   }
 });
 
-GW.message.addKind('EXIT_MSG', '#red#You cannot leave until you find the princess.');
+GW.message.addKind('EXIT_MSG', 'ΩredΩYou cannot leave until you find the princess.');
 
 GW.tile.addKind('PORTAL', {
   name: 'tower exit', article: 'the',
@@ -303,9 +303,9 @@ function decorateBrambles(map, level) {
 	}
 }
 
-GW.message.addKind('WELCOME_LAST', "#gold#Congratulations!##\nWelcome to the last floor!\nYou managed to reach the princess and finish the game.\nFurthermore, you were able to accumulate a total of #gold#$gold$## gold coins!\nThe game is over now, but you are free to look around.\nPress <shift+r> to restart the game.");
+GW.message.addKind('WELCOME_LAST', "ΩgoldΩCongratulations!∆\nWelcome to the last floor!\nYou managed to reach the princess and finish the game.\nFurthermore, you were able to accumulate a total of ΩgoldΩ§gold§∆ gold coins!\nThe game is over now, but you are free to look around.\nPress <shift+r> to restart the game.");
 
-GW.message.addKind('WELCOME_LAST_NO_GOLD', "#gold#Congratulations!##\nWelcome to the last floor!\nYou managed to reach the princess and finish the game.\nThe game is over now, but you are free to look around.\nPress <shift+r> to restart the game.");
+GW.message.addKind('WELCOME_LAST_NO_GOLD', "ΩgoldΩCongratulations!∆\nWelcome to the last floor!\nYou managed to reach the princess and finish the game.\nThe game is over now, but you are free to look around.\nPress <shift+r> to restart the game.");
 
 function welcomeLast() {
   let gold = GW.data.player.current.gold || 0;
@@ -357,7 +357,7 @@ function decorateLast(map, level) {
 	}
 }
 
-GW.message.addKind('WELCOME_FIRST', "A truly beautiful day for a heroic action!\nThis tower is surrounded by plains and trees.\nThere might even be a #pink#princess## sleeping on the last floor.\nApparently the only way to get to her is to advance through all tower levels.\nTo move around, use the #gold#arrow keys##.");
+GW.message.addKind('WELCOME_FIRST', "A truly beautiful day for a heroic action!\nThis tower is surrounded by plains and trees.\nThere might even be a ΩpinkΩprincess∆ sleeping on the last floor.\nApparently the only way to get to her is to advance through all tower levels.\nTo move around, use the ΩgoldΩarrow keys∆.");
 
 function welcomeFirst() {
   GW.message.add('WELCOME_FIRST');

@@ -7,32 +7,33 @@ import * as GW from './gw.js';
 
 
 export class Column {
-  constructor(name, field, format, empty) {
+  constructor(name, field, empty) {
     this.name = name || null;
-    this.field = field || null;
-    this.format = format || '%s';
+    this.template = null;
+    this.custom = null;
+    if (typeof field === 'function') {
+      this.custom = field;
+    }
+    else if (field) {
+      this.template = Text.compile(field);
+    }
     this.empty = empty || '-';
   }
 
   plotData(buffer, x, y, data, index, color) {
     if (!data) {
-      buffer.plotText(x, y, color, this.empty);
+      buffer.plotText(x, y, this.empty, color);
       return Text.length(this.empty);
     }
 
     let text;
-    if (typeof this.field === 'function') {
-      text = this.field(data, index, color, this);
+    if (this.custom) {
+      text = this.custom(data, index, color, this);
     }
     else {
-      const field = data[this.field];
-      if (!field) {
-        buffer.plotText(x, y, color, this.empty);
-        return Text.length(this.empty);
-      }
-      text = Text.format(this.format, field);
+      text = this.template(data);
     }
-    buffer.plotText(x, y, color, text);
+    buffer.plotText(x, y, text, color);
     return Text.length(text);
   }
 

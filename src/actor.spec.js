@@ -38,7 +38,7 @@ describe('actor', () => {
   describe('getName', () => {
     test('can get the name with color', () => {
       expect(actor.getName({ color: true })).toEqual('test');
-      expect(actor.getName({ color: 'blue' })).toEqual(GW.text.format('%Ftest%F', 'blue', null));
+      expect(actor.getName({ color: 'blue' })).toEqual('ΩblueΩtest∆');
     });
   });
 

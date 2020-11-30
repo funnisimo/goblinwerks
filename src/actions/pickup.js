@@ -5,8 +5,8 @@ import { actions as Actions } from './index.js';
 import * as GW from '../gw.js';
 
 
-GW.message.addKind('PICKUP_NO', '$you$ cannot pickup $the.item$.');
-GW.message.addKind('PICKUP_ITEM', '$you$ $pickup$ $the.item$.');
+GW.message.addKind('PICKUP_NO', '§you§ cannot pickup §the item§.');
+GW.message.addKind('PICKUP_ITEM', '§you§ §pickup§ §the item§.');
 
 export async function pickup(actor, item, ctx) {
 

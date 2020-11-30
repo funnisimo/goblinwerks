@@ -5,9 +5,9 @@ import * as GW from '../gw.js';
 import { actions as Actions } from './index.js';
 
 
-GW.message.addKind('BASH_NO', '$you$ cannot bash $item$.');
-GW.message.addKind('BASH_ITEM', '$you$ $bash$ $the.item$ [-$damage$].');
-GW.message.addKind('BASH_DESTROYED', '$the.item$ $is$ destroyed.');
+GW.message.addKind('BASH_NO', '§you§ cannot bash §item§.');
+GW.message.addKind('BASH_ITEM', '§you§ §bash§ §the item§ [-§damage§].');
+GW.message.addKind('BASH_DESTROYED', '§the item§ §is§ destroyed.');
 
 export async function bashItem(actor, item, ctx) {
 

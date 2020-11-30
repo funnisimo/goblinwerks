@@ -103,7 +103,7 @@ class ItemKind {
         color = Color.from(color);
       }
       if (color) {
-        result = Text.apply('#color#$result$##', { color, result });
+        result = Text.apply('Ω§color§Ω§result§∆', { color, result });
       }
     }
     else if (opts.color === false) {
@@ -236,6 +236,10 @@ class Item {
 	getFlavor() { return this.kind.flavor || this.kind.getName(this, true); }
   getName(opts={}) {
     return this.kind.getName(this, opts);
+  }
+
+  toString() {
+    return this.getName(false);
   }
 }
 

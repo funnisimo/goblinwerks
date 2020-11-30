@@ -34,6 +34,7 @@ export class Color extends Array {
   clone() {
     const other = new Color(...this);
     other.dances = this.dances;
+    other.id = this.id;
     return other;
   }
 
@@ -42,6 +43,7 @@ export class Color extends Array {
       this[i] = other[i] || 0;
     }
     this.dances = other.dances || false;
+    this.id = other.id;
     return this;
   }
 
@@ -50,6 +52,7 @@ export class Color extends Array {
       this[i] = 0;
     }
     this.dances = false;
+    this.id = null;
   }
 
   css() {
@@ -81,6 +84,7 @@ export class Color extends Array {
     this.blue += Math.floor((other.blue * pct) / 100);
     this.blueRand += Math.floor((other.blueRand * pct) / 100);
     this.rand += Math.floor((other.rand * pct) / 100);
+    this.id = null;
     return this;
   }
 
@@ -98,6 +102,7 @@ export class Color extends Array {
       this[i] = Math.floor((this[i] * weightComplement + other[i] * opacity) / 100);
     }
     this.dances = (this.dances || other.dances);
+    this.id = null;
     return this;
   }
 
@@ -113,6 +118,7 @@ export class Color extends Array {
       this.blueRand = Math.round(this.blueRand * other.blueRand / 100);
       this.dances = this.dances || other.dances;
     }
+    this.id = null;
     return this;
   }
 
@@ -124,6 +130,7 @@ export class Color extends Array {
     this.blue         = Math.round(this.blue       * other / 100);
     this.blueRand     = Math.round(this.blueRand   * other / 100);
     this.rand         = Math.round(this.rand       * other / 100);
+    this.id = null;
     return this;
   }
 
@@ -134,6 +141,7 @@ export class Color extends Array {
     this.green += Math.round(cosmetic.range(0, this.greenRand) + rand);
     this.blue  += Math.round(cosmetic.range(0, this.blueRand) + rand);
     this.redRand = this.greenRand = this.blueRand = this.rand = 0;
+    this.id = null;
     return this;
   }
 
@@ -145,6 +153,7 @@ export class Color extends Array {
     this.blue =   Math.round(this.blue + (100 - this.blue) * percent / 100);
 
     // leave randoms the same
+    this.id = null;
     return this;
   }
 
@@ -155,6 +164,7 @@ export class Color extends Array {
     this.blue =   Math.round(this.blue * (100 - percent) / 100);
 
     // leave randoms the same
+    this.id = null;
     return this;
   }
 
@@ -162,10 +172,13 @@ export class Color extends Array {
     this.red = _randomizeColorByPercent(this.red, randomizePercent);
     this.green = _randomizeColorByPercent(this.green, randomizePercent);
     this.blue = _randomizeColorByPercent(this.blue, randomizePercent);
+    this.id = null;
     return this;
   }
 
-
+  toString() {
+    return this.id || this.css();
+  }
 }
 
 types.Color = Color;
@@ -218,6 +231,7 @@ export function addKind(name, ...args) {
     color = MAKE.color(...args);
   }
 	colors[name] = color;
+  color.id = name;
 	return color;
 }
 

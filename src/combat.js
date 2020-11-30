@@ -17,7 +17,7 @@ export async function applyDamage(attacker, defender, attackInfo, ctx) {
   if (msg) {
     if (typeof msg !== 'string') {
       let verb = attackInfo.verb || 'hit';
-      GW.message.addCombat('$attacker$ $verb$ $the.defender$ for #red#$damage$## damage', { attacker, verb, defender, damage: Math.round(ctx.damage) });
+      GW.message.addCombat('§attacker§ §verb attacker§ §the defender§ for ΩredΩ§damage§∆ damage', { attacker, verb, defender, damage: Math.round(ctx.damage) });
     }
     else {
       GW.message.addCombat(msg);

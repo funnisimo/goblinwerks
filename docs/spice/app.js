@@ -44,7 +44,7 @@ async function showHelp() {
 }
 
 
-GW.message.addKind('WELCOME', '#yellow#Welcome to Spice Trader!\n##Press <?> for help.');
+GW.message.addKind('WELCOME', 'ΩyellowΩWelcome to Spice Trader!∆\nPress <?> for help.');
 
 // start the environment
 async function start() {

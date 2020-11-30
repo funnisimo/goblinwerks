@@ -23,84 +23,84 @@ function toggleGameTime() {
 	else {
 		text = 'Selected REAL TIME.';
 	}
-	return GW.ui.messageBox(500, text);
+	return GW.ui.alert(500, text);
 }
 
 GW.commands.toggleGameTime = toggleGameTime;
 
 function selectWall() {
 	command = 'toggleWall';
-	return GW.ui.messageBox(500, 'Selected WALL.');
+	return GW.ui.alert(500, 'Selected WALL.');
 }
 
 GW.commands.selectWall = selectWall;
 
 function selectBeam() {
 	command = 'showBeam';
-	return GW.ui.messageBox(500, 'Selected BEAM.');
+	return GW.ui.alert(500, 'Selected BEAM.');
 }
 
 GW.commands.selectBeam = selectBeam;
 
 function selectFlash() {
 	command = 'showFlash';
-	return GW.ui.messageBox(500, 'Selected FLASH.');
+	return GW.ui.alert(500, 'Selected FLASH.');
 }
 
 GW.commands.selectFlash = selectFlash;
 
 function selectBolt() {
 	command = 'showBolt';
-	return GW.ui.messageBox(500, 'Selected BOLT.');
+	return GW.ui.alert(500, 'Selected BOLT.');
 }
 
 GW.commands.selectBolt = selectBolt;
 
 async function selectHit() {
 	command = 'showHit';
-	await GW.ui.messageBox(500, 'Selected HIT.');
+	await GW.ui.alert(500, 'Selected HIT.');
 }
 
 GW.commands.selectHit = selectHit;
 
 async function selectAura() {
 	command = 'showAura';
-	await GW.ui.messageBox(500, 'Selected AURA.');
+	await GW.ui.alert(500, 'Selected AURA.');
 }
 
 GW.commands.selectAura = selectAura;
 
 async function selectExplosion() {
 	command = 'showExplosion';
-	await GW.ui.messageBox(500, 'Selected EXPLOSION.');
+	await GW.ui.alert(500, 'Selected EXPLOSION.');
 }
 
 GW.commands.selectExplosion = selectExplosion;
 
 async function selectExplosionStar() {
 	command = 'showExplosionStar';
-	await GW.ui.messageBox(500, 'Selected STAR.');
+	await GW.ui.alert(500, 'Selected STAR.');
 }
 
 GW.commands.selectExplosionStar = selectExplosionStar;
 
 async function selectExplosionPlus() {
 	command = 'showExplosionPlus';
-	await GW.ui.messageBox(500, 'Selected PLUS.');
+	await GW.ui.alert(500, 'Selected PLUS.');
 }
 
 GW.commands.selectExplosionPlus = selectExplosionPlus;
 
 async function selectExplosionX() {
 	command = 'showExplosionX';
-	await GW.ui.messageBox(500, 'Selected X.');
+	await GW.ui.alert(500, 'Selected X.');
 }
 
 GW.commands.selectExplosionX = selectExplosionX;
 
 async function selectProjectile() {
 	command = 'showProjectile';
-	await GW.ui.messageBox(500, 'Selected PROJECTILE.');
+	await GW.ui.alert(500, 'Selected PROJECTILE.');
 }
 
 GW.commands.selectProjectile = selectProjectile;
@@ -260,7 +260,7 @@ async function showHelp() {
 	const buf = GW.ui.startDialog();
 
 	let y = 2;
-	buf.plotText(20, y++, '%FGoblinWerks FX Example', 'green');
+	buf.plotText(20, y++, 'GoblinWerks FX Example', 'green');
 	y++;
 	y = buf.wrapText(10, y, 60, 'This example allows you to try out some of the special FX in GoblinWerks.', 'white');
 	y++;

@@ -8,7 +8,7 @@ const AMOUNTS = ["slightly", "moderately", "severely", "critically"].reverse();
 async function doAttack(attacker, defender, power, isMagic, ctx) {
 	if (isMagic) { // check mana
 		if (!attacker.current.mana) {
-			GW.message.addCombat("$attacker$ $do$ not have enough mana to attack with magic.", { attacker });
+			GW.message.addCombat("§attacker§ §do§ not have enough mana to attack with magic.", { attacker });
 			return;
 		}
     else if (attacker.current.mana < power) {
@@ -24,10 +24,10 @@ async function doAttack(attacker, defender, power, isMagic, ctx) {
 
   let msg;
   if (isMagic) {
-    ctx.msg = GW.text.apply('$the.attacker$ $cast$ a spell at $the.defender$ for #red#$damage$## damage', { attacker, defender, damage: Math.round(damage) });
+    ctx.msg = GW.text.apply('§the attacker§ §cast§ a spell at §the defender§ for ΩredΩ§damage§∆ damage', { attacker, defender, damage: Math.round(damage) });
   }
   else {
-    ctx.msg = GW.text.apply('$the.attacker$ $hit$ $the.defender$ for #red#$damage$## damage', { attacker, defender, damage: Math.round(damage) });
+    ctx.msg = GW.text.apply('§the attacker§ §hit§ §the defender§ for ΩredΩ§damage§∆ damage', { attacker, defender, damage: Math.round(damage) });
   }
 
   await GW.combat.applyDamage(attacker, defender, { damage, msg }, ctx);
@@ -51,10 +51,10 @@ GW.config.COMBAT_COLORS = [
 
 const COMBAT_BONUS_DISPLAY = [
   '',
-	GW.text.format('+%F#%F', GW.config.COMBAT_COLORS[GW.config.ATTACK_1], null),
-	GW.text.format('+%F#%F', GW.config.COMBAT_COLORS[GW.config.ATTACK_2], null),
-	GW.text.format('+%F#%F', GW.config.COMBAT_COLORS[GW.config.MAGIC_1], null),
-	GW.text.format('+%F#%F', GW.config.COMBAT_COLORS[GW.config.MAGIC_2], null)
+	`+Ω${GW.config.COMBAT_COLORS[GW.config.ATTACK_1]}Ω#∆`,
+	`+Ω${GW.config.COMBAT_COLORS[GW.config.ATTACK_2]}Ω#∆`,
+	`+Ω${GW.config.COMBAT_COLORS[GW.config.MAGIC_1]}Ω#∆`,
+	`+Ω${GW.config.COMBAT_COLORS[GW.config.MAGIC_2]}Ω#∆`,
 ];
 
 
@@ -95,7 +95,7 @@ function drawBoard(buffer, x, y, highlight=true) {
       }
       buffer.plotChar(x + 5 + i*2, y + j, '#', fg, bg);
     }
-    // buffer.plotText(x+5, y + i, '%F# # # # # #', fy == i ? 'light_blue' : 'dark_blue');
+    // buffer.plotText(x+5, y + i, '# # # # # #', fy == i ? 'light_blue' : 'dark_blue');
   }
 
   if (COMBAT_COUNT < 3) {
@@ -104,35 +104,35 @@ function drawBoard(buffer, x, y, highlight=true) {
   }
 
   if (selected == 1) {
-    buffer.plotText(x, y+7,  '%F#%F You - Melee Attack', 'green', 'gold');
+    buffer.plotText(x, y+7,  'ΩgreenΩ#ΩgoldΩ You - Melee Attack');
     GW.flavor.setText('Perform a melee attack.');
   }
   else {
-    buffer.plotText(x, y+7,  '%F#%F You - Melee Attack', 'dark_green', 'gray');
+    buffer.plotText(x, y+7,  'Ωdark_greenΩ#ΩgrayΩ You - Melee Attack');
   }
 
   if (selected == 3) {
-    buffer.plotText(x, y+8,  '%F#%F You - Magic Attack', 'blue', 'gold');
+    buffer.plotText(x, y+8,  'ΩblueΩ#ΩgoldΩ You - Magic Attack');
     GW.flavor.setText('Perform a magic attack.');
   }
   else {
-    buffer.plotText(x, y+8,  '%F#%F You - Magic Attack', 'dark_blue', 'gray');
+    buffer.plotText(x, y+8,  'Ωdark_blueΩ#ΩgrayΩ You - Magic Attack');
   }
 
   if (selected == 2) {
-    buffer.plotText(x, y+10, '%F#%F Enemy - Melee Attack', 'red', 'gold');
+    buffer.plotText(x, y+10, 'ΩredΩ#ΩgoldΩ Enemy - Melee Attack');
     GW.flavor.setText('The enemy performs a melee attack.');
   }
   else {
-    buffer.plotText(x, y+10, '%F#%F Enemy - Melee Attack', 'dark_red', 'gray');
+    buffer.plotText(x, y+10, 'Ωdark_redΩ#ΩgrayΩ Enemy - Melee Attack');
   }
 
   if (selected == 4) {
-    buffer.plotText(x, y+11, '%F#%F Enemy - Magic Attack', 'orange', 'gold');
+    buffer.plotText(x, y+11, 'ΩorangeΩ#ΩgoldΩ Enemy - Magic Attack');
     GW.flavor.setText('The enemy performs a magic attack.');
   }
   else {
-    buffer.plotText(x, y+11, '%F#%F Enemy - Magic Attack', 'dark_orange', 'gray');
+    buffer.plotText(x, y+11, 'Ωdark_orangeΩ#ΩgrayΩ Enemy - Magic Attack');
   }
 
 }
@@ -239,7 +239,7 @@ async function combat(actor, target, ctx) {
   const y = GW.viewport.bounds.y;
 
   buffer.blackOutRect(x, y, width, height, 'darkest_gray');
-  buffer.plotText(x + 36, y + 1, '%FBATTLE OF THORNS', 'yellow');
+  buffer.plotText(x + 36, y + 1, 'BATTLE OF THORNS', 'yellow');
   // buffer.plotText(x + 2, y + 3, 'Press <Enter> to exit');
 
   drawBoard(buffer, x + 34, y + 4);
@@ -247,7 +247,7 @@ async function combat(actor, target, ctx) {
   drawOpponent(buffer, x + 66, y + 4, 20, actor.isPlayer() ? target : actor);
 
   if (!SEEN_INTRO) {
-    const help = GW.text.format("Combat in Sleeping Beauty happens by fighting the %FBattle of Thorns%F. Match sequences of 3 or more colored blocks to perform individual actions. This includes both your attacks as well as your enemy's. The larger the block, the more damage done.\n\nUse the %Farrow keys%F and %FEnter%F to select.\n\nNote: Certain items in your inventory can modify the frequency of colors on the game board.", 'gold', null, 'yellow', null, 'yellow', null);
+    const help = "Combat in Sleeping Beauty happens by fighting the ΩgoldΩBattle of Thorns∆. Match sequences of 3 or more colored blocks to perform individual actions. This includes both your attacks as well as your enemy's. The larger the block, the more damage done.\n\nUse the ΩyellowΩarrow keys∆ and ΩyellowΩEnter∆ to select.\n\nNote: Certain items in your inventory can modify the frequency of colors on the game board.";
 
     let nextY = buffer.wrapText(x + 4, y + 21, width - 8, help);
     SEEN_INTRO = true;
@@ -341,7 +341,7 @@ async function combat(actor, target, ctx) {
   GW.ui.draw();
 
   if (actors[1].isDead()) { // player
-    await GW.game.gameOver(false, 'Killed by $attacker$.', { attacker: actors[0] });
+    await GW.game.gameOver(false, 'Killed by §attacker§.', { attacker: actors[0] });
   }
 
   actor.endTurn();

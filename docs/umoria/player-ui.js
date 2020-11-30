@@ -54,7 +54,7 @@ function printCharacterStats(buffer, actor, yOffset=0) {
       buffer.plotText(x + 15, y + i, c, actor.current[attr]);
 
       if (actor.max[attr] > actor.current[attr]) {
-          buffer.plotText(x + 23, y + i, ' %F[%d]', teal, actor.max[attr]);
+          buffer.plotText(x + 23, y + i, ` [${actor.max[attr]}]`, teal);
       }
     }
 }
@@ -101,7 +101,7 @@ function printStatRating(b, a, x, y, buffer) {
           color = GW.colors.lighter_green;
   }
 
-  buffer.plotText(x, y, color, text);
+  buffer.plotText(x, y, text, color);
 }
 
 function toHeightString(v) {
@@ -114,17 +114,17 @@ function printCharacterVitalStatistics(buffer, actor, yOffset) {
     const x = 39;
     const y = 2 + yOffset;
 
-    buffer.plotText(x, y,     "Age          : %d", actor.data.age);
-    buffer.plotText(x, y + 1, "Height       : %s", toHeightString(actor.data.height));
-    buffer.plotText(x, y + 2, "Weight       : %d lbs", actor.data.weight);
-    buffer.plotText(x, y + 3, "Gender       : %s", actor.isFemale() ? 'Female' : 'Male');
-    buffer.plotText(x, y + 4, "Gold         : %d", actor.current.gold);
+    buffer.plotText(x, y,     "Age          : " + actor.data.age);
+    buffer.plotText(x, y + 1, "Height       : " + toHeightString(actor.data.height));
+    buffer.applyText(x, y + 2,"Weight       : §weight§ lbs", actor.data );
+    buffer.plotText(x, y + 3, "Gender       : " + (actor.isFemale() ? 'Female' : 'Male'));
+    buffer.plotText(x, y + 4, "Gold         : " + actor.current.gold);
 }
 
 function bonusColor(b) {
-  if (b < 0) return GW.colors.red;
-  if (b == 0) return GW.colors.white;
-  return GW.colors.green;
+  if (b < 0) return 'ΩredΩ';
+  if (b == 0) return 'ΩwhiteΩ';
+  return 'ΩgreenΩ';
 }
 
 // Prints the following information on the screen. -JWT-
@@ -135,26 +135,26 @@ function printCharacterLevelExperience(buffer, actor, yOffset) {
     const x2 = 39;
     const x3 = 63;
 
-    buffer.plotText(x1, y,     "+ To Hit    : %F%d", bonusColor(actor.display.toHit),    actor.display.toHit);
-    buffer.plotText(x1, y + 1, "+ To Damage : %F%d", bonusColor(actor.display.toDamage), actor.display.toDamage);
-    buffer.plotText(x1, y + 2, "+ To AC     : %F%d", bonusColor(actor.display.toArmor),  actor.display.toArmor);
-    buffer.plotText(x1, y + 3, "  Total AC  : %d",   actor.display.armor);
+    buffer.plotText(x1, y,     "+ To Hit    : " + bonusColor(actor.display.toHit) +    actor.display.toHit);
+    buffer.plotText(x1, y + 1, "+ To Damage : " + bonusColor(actor.display.toDamage) + actor.display.toDamage);
+    buffer.plotText(x1, y + 2, "+ To AC     : " + bonusColor(actor.display.toArmor) +  actor.display.toArmor);
+    buffer.plotText(x1, y + 3, "  Total AC  : " + actor.display.armor);
 
-    buffer.plotText(x2, y,     "Level       : %d", actor.current.level);
-    buffer.plotText(x2, y + 1, "Experience  : %d", actor.current.xp);
-    buffer.plotText(x2, y + 2, "Max Exp     : %d", actor.max.xp);
+    buffer.plotText(x2, y,     "Level       : " + actor.current.level);
+    buffer.plotText(x2, y + 1, "Experience  : " + actor.current.xp);
+    buffer.plotText(x2, y + 2, "Max Exp     : " + actor.max.xp);
 
     if (actor.current.level >= HERO_MAX_LEVEL) {
       buffer.plotText(x2, y + 3, "Exp to Adv. : *********");
     } else {
       const toAdvance = Math.floor(HERO_XP_TO_ADVANCE[actor.current.level - 1] * actor.data.xpFactor / 100);
-      buffer.plotText(x2, y + 3, "Exp to Adv. : %d", toAdvance);
+      buffer.plotText(x2, y + 3, "Exp to Adv. : " + toAdvance);
     }
 
-    buffer.plotText(x3, y,     "Max Health     : %F%d", 'green', actor.max.health);
-    buffer.plotText(x3, y + 1, "Cur Health     : %d", actor.current.health);
-    buffer.plotText(x3, y + 2, "Max Mana       : %F%d", (actor.max.mana ? 'green' : null), actor.max.mana);
-    buffer.plotText(x3, y + 3, "Cur Mana       : %d", actor.current.mana);
+    buffer.plotText(x3, y,     "Max Health     : ΩgreenΩ" + actor.max.health);
+    buffer.plotText(x3, y + 1, "Cur Health     : " + actor.current.health);
+    buffer.plotText(x3, y + 2, "Max Mana       : " + (actor.max.mana ? 'ΩgreenΩ' : '') + actor.max.mana);
+    buffer.plotText(x3, y + 3, "Cur Mana       : " + actor.current.mana);
 }
 
 // Prints ratings on certain abilities -RAK-
@@ -206,8 +206,8 @@ function printCharacterAbilities(buffer, actor, yOffset) {
     printStatRating(6, xsrh,  x3 + 14, y + 1, buffer);
     buffer.plotText(x3, y + 2, "Infra-Vision:");
     const fg = (actor.abilities.infravision > 0) ? 'green' : 'white';
-    const xinfra = GW.text.format("%F%d feet", fg, actor.abilities.infravision * 10);
-    buffer.plotText(x3 + 14, y + 2, xinfra);
+    const xinfra = GW.text.apply("§v%d§ feet", { v: actor.abilities.infravision * 10 });
+    buffer.plotText(x3 + 14, y + 2, xinfra, fg);
 }
 
 function printCharacterBackground(buffer, actor, yOffset) {
@@ -238,7 +238,7 @@ async function showCharacter(ev) {
 
   const lastY = printCharacter(buffer, PLAYER, 3);
 
-  let prompt = GW.text.format("%FYour character", 'yellow');
+  let prompt = "ΩyellowΩYour character";
   let x = Math.round((buffer.width - GW.text.length(prompt)) / 2);
   buffer.plotText(x, 2, prompt);
 

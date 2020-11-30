@@ -89,9 +89,9 @@ const PLAYER = GW.make.player({
 });
 
 
-GW.message.addKind('PICKUP_BETTER', '$you$ $find$ $a.item$, but $your.actor$ $current$ $is$ better.');
-GW.message.addKind('PICKUP_NO_NEED', '$you$ $find$ $a.item$, but $you$ $do$ not need $it.item$.');
-GW.message.addKind('PICKUP', '$you$ $pickup$ $a.item$.');
+GW.message.addKind('PICKUP_BETTER', '§you§ §find§ §a item§, but §your actor§ §current§ §is§ better.');
+GW.message.addKind('PICKUP_NO_NEED', '§you§ §find§ §a item§, but §you actor§ §do§ not need §it item§.');
+GW.message.addKind('PICKUP', '§you§ §pickup§ §a item§.');
 
 
 // Our item base class
@@ -105,13 +105,13 @@ class EscapeItem extends GW.types.ItemKind {
     let base = super.getName(item, opts);
     if (opts.details) {
       if (this.stats.damage) {
-        base += GW.text.format(' [%d]', this.stats.damage);
+        base += ` [${this.stats.damage}]`;
       }
       if (this.stats.range) {
-        base += GW.text.format(' <%d>', this.stats.range);
+        base += ` <${this.stats.range}>`;
       }
       if (this.stats.heal) {
-        base += GW.text.format(' /+%d HP/', this.stats.heal);
+        base += ` /+${this.stats.heal} HP/`;
       }
     }
     return base;
@@ -418,7 +418,7 @@ GW.item.addKind('BANDAGE', new EscapeItem({
 
 
 async function exitLevel() {
-	await GW.game.gameOver(true, '#teal#You push open the doors and feel the fresh air hit your face.  The relief is palpable, but in the back of your mind you morn for your colleagues who remain inside.');
+	await GW.game.gameOver(true, 'ΩtealΩYou push open the doors and feel the fresh air hit your face.  The relief is palpable, but in the back of your mind you morn for your colleagues who remain inside.');
 }
 
 // Here is your goal, when the player enters call the exitLevel function
@@ -428,7 +428,7 @@ GW.tile.addKind('EXIT', {
 	events: { playerEnter: exitLevel }
 });
 
-GW.message.addKind('BEWARE', '#dark_red#Beware!');
+GW.message.addKind('BEWARE', 'Ωdark_redΩBeware!');
 
 GW.tile.addKind('HELLO_SIGN', {
   name: 'sign',
@@ -594,25 +594,25 @@ async function showHelp() {
 	const buf = GW.ui.startDialog();
 
 	let y = 2;
-	buf.plotText(20, y++, '%FGoblinWerks Escape from ECMA Labs', 'green');
+	buf.plotText(20, y++, 'GoblinWerks Escape from ECMA Labs', 'green');
 	y++;
 	y = buf.wrapText(15, y, 50, 'You are in the basement of a secret laboratory that does experiments with toxic chemicals.  There was an accident and a toxic gas was released that will kill you.  It has already affected most of your colleagues.  You must get out quickly!', 'white');
 	y++;
-	buf.plotText(15, y, '%Fdir   ', 'yellow');
+	buf.plotText(15, y, 'dir   ', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Pressing an arrow key moves the player in that direction.', 'white', null, 2);
-  buf.plotText(15, y, '%Fb', 'yellow');
+  buf.plotText(15, y, 'b', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Bash something.', 'lighter_gray');
-  buf.plotText(15, y, '%Ff', 'yellow');
+  buf.plotText(15, y, 'f', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Fire your ranged weapon at a target.', 'lighter_gray');
-  buf.plotText(15, y, '%Fg', 'yellow');
+  buf.plotText(15, y, 'g', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Grab something.', 'white', null, 2);
-  buf.plotText(15, y, '%Fo', 'yellow');
+  buf.plotText(15, y, 'o', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Open something.', 'lighter_gray');
-  buf.plotText(15, y, '%Fc', 'yellow');
+  buf.plotText(15, y, 'c', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Close something.', 'white', null, 2);
-	buf.plotText(15, y, '%Fspace ', 'yellow');
+	buf.plotText(15, y, 'space ', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Wait a short time.', 'white', null, 2);
-	buf.plotText(15, y, '%F?', 'yellow');
+	buf.plotText(15, y, '?', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Show this screen.', 'lighter_gray');
 
   // this just overwrites the background color on the range
@@ -628,7 +628,7 @@ async function showHelp() {
 	GW.ui.finishDialog();
 }
 
-GW.message.addKind('WELCOME', '#yellow#Escape from ECMA Labs!\n#purple#You are in the basement of a lab where something has gone horribly wrong.\nFind your way to the surface.\n##Press <?> for help.');
+GW.message.addKind('WELCOME', 'ΩyellowΩEscape from ECMA Labs!∆\nΩpurpleΩYou are in the basement of a lab where something has gone horribly wrong.\nFind your way to the surface.∆\nPress <?> for help.');
 
 // start the game
 async function start() {

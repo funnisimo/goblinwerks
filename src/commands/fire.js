@@ -12,7 +12,7 @@ async function fire(e) {
   const item = actor.slots.ranged;
 
   if (!item) {
-    MSG.add('$you$ $have$ nothing to #orange#fire##.', { actor });
+    MSG.add('§you§ §have§ nothing to ΩorangeΩfire∆.', { actor });
     return false;
   }
 

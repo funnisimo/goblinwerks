@@ -500,7 +500,7 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
       }
   }
 
-  buf.plotText(x + 1, y, '%F: ', fg);
+  buf.plotText(x + 1, y, ': ', fg);
 	y = buf.wrapText(x + 3, y, SIDE_BOUNDS.width - 3, monstName, fg, bg);
 
 	return y;
@@ -572,7 +572,7 @@ function addHealthBar(entry, y, dim, highlight, buf) {
 		if (actor.current.health <= 0) {
 				text = "Dead";
 		// } else if (percent != 0) {
-		// 		text = Text.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
+		// 		text = Text.apply("Health (§percent%+d§)", { percent });
 		}
 		y = sidebar.addProgressBar(y, buf, text, actor.current.health, actor.max.health, healthBarColor, dim);
 	}
@@ -603,7 +603,7 @@ function addManaBar(entry, y, dim, highlight, buf) {
 		if (actor.current.mana <= 0) {
 				text = "None";
 		// } else if (percent != 0) {
-		// 		text = Text.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
+    // 		text = Text.apply("Mana (§percent%+d§)", { percent });
 		}
 		y = sidebar.addProgressBar(y, buf, text, actor.current.mana, actor.max.mana, barColor, dim);
 	}
@@ -634,7 +634,7 @@ function addFoodBar(entry, y, dim, highlight, buf) {
 		if (actor.current.food <= 0) {
 				text = "None";
 		// } else if (percent != 0) {
-		// 		text = Text.format("Health (%s%d%%)", percent > 0 ? "+" : "", percent);
+    // 		text = Text.apply("Nutrition (§percent%+d§)", { percent });
 		}
 		y = sidebar.addProgressBar(y, buf, text, actor.current.food, actor.max.food, barColor, dim);
 	}

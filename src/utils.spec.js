@@ -137,6 +137,18 @@ describe('GW.utils', () => {
     expect(UTILS.chainLength(obj.chain)).toEqual(5);
   });
 
+  describe('setDefaults', () => {
+
+    test('null', () => {
+      const dest = {};
+      UTILS.setDefaults(dest, {
+        test: null,
+      });
+
+      expect(dest.test).toBeNull();
+    });
+  });
+
   describe('kindDefaults', () => {
 
     test('sets basic values', () => {

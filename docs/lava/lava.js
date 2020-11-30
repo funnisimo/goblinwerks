@@ -18,7 +18,7 @@ GW.message.addKind('FINISH', 'Level: $level$');
 
 async function crossedFinish() {
 	const map = makeMap(MAP.id + 1);
-	await GW.ui.alert(1000, '#light_blue#Level $level$.',{ level: map.id });
+	await GW.ui.alert(1000, 'Ωlight_blueΩLevel §level§.',{ level: map.id });
 	GW.message.add('FINISH', { actor: PLAYER, level: map.id });
 	await GW.game.startMap(map, 'start');
 }
@@ -170,7 +170,7 @@ GW.tile.addKind('LAVA_ERUPTED', {
 
 
 
-GW.message.addKind('MAP_WELCOME', '#light_blue#Erupt: $erupt$, Crust: $crust$, StartBreak: $start$, Break: $break$');
+GW.message.addKind('MAP_WELCOME', 'Ωlight_blueΩErupt: $erupt$, Crust: §crust§, StartBreak: §start§, Break: §break§');
 
 function makeMap(id=1) {
 	// dig a map
@@ -211,17 +211,17 @@ async function showHelp() {
 	const buf = GW.ui.startDialog();
 
 	let y = 2;
-	buf.plotText(10, y++, '%FGoblinWerks Lava Hop Example', 'green');
+	buf.plotText(10, y++, 'GoblinWerks Lava Hop Example', 'green');
 	y++;
 	y = buf.wrapText(5, y, 40, 'This example is all about crossing the lava field by walking/jumping over the crusted lava.', 'white');
 	y++;
-	buf.plotText(5, y, '%Fdir   ', 'yellow');
+	buf.plotText(5, y, 'dir   ', 'yellow');
 	y = buf.wrapText(11, y, 32, ': Pressing an arrow key moves the player in that direction.', 'white', null, 2);
-	buf.plotText(5, y, '%Fj     ', 'yellow');
+	buf.plotText(5, y, 'j     ', 'yellow');
 	y = buf.wrapText(11, y, 32, ': Jump over one cell in a direction you choose.', 'lighter_gray', null, 2);
-	buf.plotText(5, y, '%Fspace ', 'yellow');
+	buf.plotText(5, y, 'space ', 'yellow');
 	y = buf.wrapText(11, y, 32, ': Wait a short time.', 'white', null, 2);
-	buf.plotText(5, y, '%F?', 'yellow');
+	buf.plotText(5, y, '?', 'yellow');
 	y = buf.wrapText(11, y, 32, ': Show this screen.', 'lighter_gray');
 
 	buf.fillRect(4, 1, 42, y, null, null, 'black' );
@@ -233,7 +233,7 @@ async function showHelp() {
 
 GW.commands.showHelp = showHelp;
 
-GW.message.addKind('WELCOME', '#yellow#Welcome to Lava Hop!\n##Get across the Lava field safely to advance.\nPress <?> for help.');
+GW.message.addKind('WELCOME', 'ΩyellowΩWelcome to Lava Hop!∆\nGet across the Lava field safely to advance.\nPress <?> for help.');
 
 // start the environment
 async function start() {

@@ -91,8 +91,8 @@ function start() {
 	canvas.element.onmousemove = handleMove;
 	document.onkeydown = runSim;
 
-	canvas.buffer.plotText(20, 15, '%FClick to Turn on/off some cells.', [100,50,0]);
-	canvas.buffer.plotText(20, 17, '%FPress any key to run simulation.', [100,50,0]);
+	canvas.buffer.plotText(20, 15, 'Click to Turn on/off some cells.', [100,50,0]);
+	canvas.buffer.plotText(20, 17, 'Press any key to run simulation.', [100,50,0]);
 	data = GW.grid.alloc(canvas.width, canvas.height);
 	// canvas.draw();
 }

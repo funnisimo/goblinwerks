@@ -7,11 +7,7 @@ import * as GW from './gw.js';
 export class List extends GW.types.Table {
   constructor(opts={}) {
     super(opts);
-    opts.format = opts.format || '%s';
-    this.column(opts.header,
-      ((data) => Text.format(opts.format, data.text || data)),
-      opts.format, '-'
-    );
+    this.column(opts.header, '§text§');
   }
 }
 

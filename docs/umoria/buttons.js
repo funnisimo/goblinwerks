@@ -100,7 +100,7 @@ class Button {
   		opacity = Math.floor(100 - ((100 - opacity) * opacity / 100)); // Apply the opacity twice.
   	}
 
-    GW.text.eachChar(this.text, (ch, color, i) => {
+    GW.text.eachChar(this.text, (ch, color, bg, i) => {
       fColor.copy(color || fColorBase);
 
       if (this.flags & ButtonFlags.B_GRADIENT) {

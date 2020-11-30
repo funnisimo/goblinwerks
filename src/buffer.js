@@ -80,20 +80,18 @@ class Buffer extends GW.types.Grid {
     this.needsUpdate = true;
   }
 
-  plotText(x, y, text, ...args) {
-    if (args.length) {
-      text = Text.format(text, ...args);
-    }
-    Text.eachChar(text, (ch, color, i) => {
-      this.plotChar(i + x, y, ch, color || GW.colors.white, null);
-    });
+  // XXXXXXXXXX
+  plotText(x, y, text, fg, bg) {
+    Text.eachChar(text, (ch, color, bg, i) => {
+      this.plotChar(i + x, y, ch, color || GW.colors.white, bg);
+    }, fg, bg);
   }
 
-  applyText(x, y, text, args) {
+  applyText(x, y, text, args={}) {
     text = Text.apply(text, args);
-    Text.eachChar(text, (ch, color, i) => {
+    Text.eachChar(text, (ch, color, bg, i) => {
       this.plotChar(i + x, y, ch, color || GW.colors.white, null);
-    });
+    }, args.fg, args.bg);
   }
 
 
@@ -102,7 +100,7 @@ class Buffer extends GW.types.Grid {
     if (typeof bg === 'string') { bg = GW.colors[bg]; }
     fg = fg || GW.colors.white;
     let len = Text.length(text);
-    Text.eachChar(text, (ch, color, i) => {
+    Text.eachChar(text, (ch, color, bg, i) => {
       this.plotChar(i + x, y, ch, color || fg, bg);
     });
     for(let i = len; i < w; ++i) {
@@ -110,24 +108,28 @@ class Buffer extends GW.types.Grid {
     }
   }
 
-  wrapText(x, y, width, text, fg, bg, opts={}) {
+  wrapText(x0, y0, width, text, fg, bg, opts={}) {
     if (typeof opts === 'number') { opts = { indent: opts }; }
+    fg = fg || 'white';
     if (typeof fg === 'string') { fg = GW.colors[fg]; }
     if (typeof bg === 'string') { bg = GW.colors[bg]; }
-    width = Math.min(width, this.width - x);
-    if (Text.length(text) <= width) {
-      this.plotLine(x, y, width, text, fg, bg);
-      return y + 1;
-    }
-    opts.indent = opts.indent || 0;
+    width = Math.min(width, this.width - x0);
+    const indent = opts.indent || 0;
 
-    const lines = Text.splitIntoLines(text, width, opts.indent);
-    lines.forEach( (line, i) => {
-      const offset = i ? opts.indent : 0;
-      this.plotLine(x + offset, y + i, width - offset, line, fg || GW.colors.white, bg);
-    });
+    text = Text.wordWrap(text, width, indent);
 
-    return y + lines.length;
+    let x = x0;
+    let y = y0;
+    Text.eachChar(text, (ch, fg0, bg0) => {
+      if (ch == '\n') {
+        ++y;
+        x = x0 + indent;
+        return;
+      }
+      this.plotChar(x++, y, ch, fg0, bg0);
+    }, fg, bg);
+
+    return ++y;
   }
 
   fill(ch, fg, bg) {

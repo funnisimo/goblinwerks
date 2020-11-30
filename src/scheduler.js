@@ -58,7 +58,7 @@ export class Scheduler {
   }
 
 	remove(item) {
-    if (!item) return;
+    if ((!item) || (!this.next)) return;
 		if (this.next === item) {
 			this.next = item.next;
 			return;

@@ -28,14 +28,14 @@ function promoteCellVisibility(cell, i, j, map) {
         if (cell.item) {
             const theItem = cell.item;
             if (theItem.hasKindFlag(Flags.ItemKind.IK_INTERRUPT_EXPLORATION_WHEN_SEEN)) {
-                MSG.add('$you$ $see$ #itemMessageColor#$item$##.', { item, actor: GW.data.player });
+                MSG.add('§you§ §see§ ΩitemMessageColorΩ§item§∆.', { item, actor: GW.data.player });
             }
         }
         if (!(cell.flags & Flags.Cell.MAGIC_MAPPED)
             && cell.hasTileMechFlag(Flags.TileMech.TM_INTERRUPT_EXPLORATION_WHEN_SEEN))
 				{
             const tile = cell.tileWithMechFlag(Flags.TileMech.TM_INTERRUPT_EXPLORATION_WHEN_SEEN);
-            MSG.add('$you$ $see$ #backgroundMessageColor#$item$##.', { actor: GW.data.player, item: tile.name });
+            MSG.add('§you§ §see§ ΩbackgroundMessageColorΩ§item§∆.', { actor: GW.data.player, item: tile.name });
         }
     }
     cell.markRevealed();
