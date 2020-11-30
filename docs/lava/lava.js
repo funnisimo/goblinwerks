@@ -60,7 +60,7 @@ async function lavaBreakingTick(x, y, ctx) {
 async function startExplosion() {
 	console.log('set crust');
 	const cell = MAP.cell(25, 15);
-	cell.setTile('LAVA_ERUPTING');
+	map.setTile(25, 15, 'LAVA_ERUPTING');
 	cell.mechFlags |= GW.flags.cellMech.EVENT_FIRED_THIS_TURN;
 	MAP.changed(true);
 	GW.ui.requestUpdate();
@@ -178,10 +178,10 @@ function makeMap(id=1) {
 	MAP.nullify();
 
 	MAP.fill('WALL');
-	MAP.cells.forRect(10, 0, 30, 30, (c) => c.setTile('FLOOR'));
-	MAP.cells.forRect(10, 1, 30, 1, (c) => c.setTile('GOAL') );
+	MAP.cells.forRect(10, 0, 30, 30, (c, x, y) => MAP.setTile(x, y, 'FLOOR'));
+	MAP.cells.forRect(10, 1, 30, 1, (c, x, y) => MAP.setTile(x, y, 'GOAL') );
 	GW.map.addText(MAP, 22, 1, 'FINISH', 'green');
-	MAP.cells.forRect(10, 28, 30, 1, (c) => c.setTile('START') );
+	MAP.cells.forRect(10, 28, 30, 1, (c, x, y) => MAP.setTile(x, y, 'START') );
 	GW.map.addText(MAP, 23, 28, 'START', 'blue');
 
 	// update the difficulty
@@ -197,7 +197,7 @@ function makeMap(id=1) {
 	let height = 3 + Math.floor(id / 2);
 	let top = Math.floor( (30 - height) / 2 ) + 1;
 
-	MAP.cells.forRect(10, top, 30, height, (c) => c.setTile('LAVA_TILE') );
+	MAP.cells.forRect(10, top, 30, height, (c, x, y) => MAP.setTile(x, y, 'LAVA_TILE') );
 
 	MAP.setFlags(0, GW.flags.cell.VISIBLE);
 	MAP.id = id;

@@ -185,7 +185,7 @@ describe('GW.dungeon', () => {
 
   	let roomCount = 0;
 
-  	map.cells.forRect(2, 2, 76, 26, (c) => c.setTile('FLOOR'));
+  	map.cells.forRect(2, 2, 76, 26, (c, x, y) => map.setTile(x, y, 'FLOOR'));
   	let lakeCount = GW.random.number(5);
   	for(let i = 0; i < lakeCount; ++i) {
   		GW.dungeon.digLake();

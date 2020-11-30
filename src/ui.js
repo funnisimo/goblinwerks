@@ -5,13 +5,18 @@ import * as Utils from './utils.js';
 import { sprite as SPRITE } from './sprite.js';
 import * as Color from './color.js';
 import * as Text from './text.js';
-import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, make, sidebar as SIDEBAR, config as CONFIG, colors as COLORS } from './gw.js';
+import * as Path from './path.js';
+import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, make, sidebar as SIDEBAR, config as CONFIG, colors as COLORS, commands as COMMANDS } from './gw.js';
 
 ui.debug = Utils.NOOP;
 
 let SHOW_FLAVOR = false;
 let SHOW_SIDEBAR = false;
 let SHOW_CURSOR = false;
+let SHOW_PATH = false;
+let PATH_ACTIVE = false;
+let CLICK_MOVE = false;
+
 
 let UI_BUFFER = null;
 let UI_BASE = null;
@@ -61,6 +66,9 @@ export function start(opts={}) {
     io: true,
     followPlayer: false,
     loop: true,
+    autoCenter: false,
+    showPath: false,
+    clickToMove: false,
   });
 
   if (!ui.canvas && (opts.canvas !== false)) {
@@ -143,8 +151,10 @@ export function start(opts={}) {
     SHOW_FLAVOR = true;
 	}
 
-	VIEWPORT.setup({ x: viewX, y: viewY, w: viewW, h: viewH, followPlayer: opts.followPlayer });
+	VIEWPORT.setup({ x: viewX, y: viewY, w: viewW, h: viewH, followPlayer: opts.followPlayer, autoCenter: opts.autoCenter });
 	SHOW_CURSOR = opts.cursor;
+  SHOW_PATH = opts.showPath;
+  CLICK_MOVE = opts.clickToMove;
 
   if (opts.loop) {
     RUNNING = true;
@@ -175,34 +185,46 @@ export async function dispatchEvent(ev) {
 		else if (FLAVOR.bounds && FLAVOR.bounds.containsXY(ev.x, ev.y)) {
 			return true;
 		}
-    if (VIEWPORT.bounds && VIEWPORT.bounds.containsXY(ev.x, ev.y)) {
-      let x0 = VIEWPORT.bounds.toInnerX(ev.x);
-      let y0 = VIEWPORT.bounds.toInnerY(ev.y);
-      if (CONFIG.followPlayer && DATA.player && (DATA.player.x >= 0)) {
-        const offsetX = DATA.player.x - VIEWPORT.bounds.centerX();
-        const offsetY = DATA.player.y - VIEWPORT.bounds.centerY();
-        x0 += offsetX;
-        y0 += offsetY;
+    else if (VIEWPORT.bounds && VIEWPORT.bounds.containsXY(ev.x, ev.y)) {
+      ev.mapX = VIEWPORT.bounds.toInnerX(ev.x);
+      ev.mapY = VIEWPORT.bounds.toInnerY(ev.y);
+      // if (CONFIG.followPlayer && DATA.player && (DATA.player.x >= 0)) {
+      //   const offsetX = DATA.player.x - VIEWPORT.bounds.centerX();
+      //   const offsetY = DATA.player.y - VIEWPORT.bounds.centerY();
+      //   x0 += offsetX;
+      //   y0 += offsetY;
+      // }
+      // ev.mapX = x0;
+      // ev.mapY = y0;
+      if (CLICK_MOVE) {
+        return await COMMANDS.travel(ev);
       }
-      ev.mapX = x0;
-      ev.mapY = y0;
+    }
+    else if (SIDEBAR.bounds && SIDEBAR.bounds.containsXY(ev.x, ev.y)) {
+      if (CLICK_MOVE) {
+        ev.mapX = CURSOR.x;
+        ev.mapY = CURSOR.y;
+        return await COMMANDS.travel(ev);
+      }
     }
 	}
 	else if (ev.type === def.MOUSEMOVE) {
+    PATH_ACTIVE = true;
+    MOUSE.x = ev.x;
+    MOUSE.y = ev.y;
 		if (VIEWPORT.bounds && VIEWPORT.bounds.containsXY(ev.x, ev.y)) {
       let x0 = VIEWPORT.bounds.toInnerX(ev.x);
       let y0 = VIEWPORT.bounds.toInnerY(ev.y);
-      if (CONFIG.followPlayer && DATA.player && (DATA.player.x >= 0)) {
-        const offsetX = DATA.player.x - VIEWPORT.bounds.centerX();
-        const offsetY = DATA.player.y - VIEWPORT.bounds.centerY();
-        x0 += offsetX;
-        y0 += offsetY;
-      }
-      ev.mapX = x0;
-      ev.mapY = y0;
-			if (SHOW_CURSOR) {
-				ui.setCursor(x0, y0);
-			}
+      // if (CONFIG.followPlayer && DATA.player && (DATA.player.x >= 0)) {
+      //   const offsetX = DATA.player.x - VIEWPORT.bounds.centerX();
+      //   const offsetY = DATA.player.y - VIEWPORT.bounds.centerY();
+      //   x0 += offsetX;
+      //   y0 += offsetY;
+      // }
+      // ev.mapX = x0;
+      // ev.mapY = y0;
+
+			ui.setCursor(x0, y0);
       if (SIDEBAR.bounds) {
         SIDEBAR.focus(x0, y0);
       }
@@ -212,7 +234,7 @@ export async function dispatchEvent(ev) {
       SIDEBAR.highlightRow(ev.y);
     }
 		else {
-			ui.clearCursor();
+      ui.clearCursor();
       SIDEBAR.focus(-1, -1);
 		}
 		if (FLAVOR.bounds && FLAVOR.bounds.containsXY(ev.x, ev.y)) {
@@ -220,22 +242,45 @@ export async function dispatchEvent(ev) {
 		}
 	}
   else if (ev.type === def.KEYPRESS) {
+    if (ev.key === 'Enter' && CLICK_MOVE) {
+      if (PATH_ACTIVE) {
+        ev.mapX = CURSOR.x;
+        ev.mapY = CURSOR.y;
+        return await COMMANDS.travel(ev);
+      }
+    }
+
+    PATH_ACTIVE = false;
+    DATA.player.travelDest = null;  // stop traveling
+
     if (SIDEBAR.bounds) {
       if (ev.key === 'Tab') {
+        PATH_ACTIVE = true;
         const loc = SIDEBAR.nextTarget();
         ui.setCursor(loc[0], loc[1]);
         return true;
       }
       else if (ev.key === 'TAB') {
+        PATH_ACTIVE = true;
         const loc = SIDEBAR.prevTarget();
         ui.setCursor(loc[0], loc[1]);
         return true;
       }
       else if (ev.key === 'Escape') {
-        SIDEBAR.focus(-1, -1);
-        ui.clearCursor();
+        if (VIEWPORT.bounds.containsXY(MOUSE.x, MOUSE.y)) {
+          const x = VIEWPORT.bounds.toInnerX(MOUSE.x);
+          const y = VIEWPORT.bounds.toInnerY(MOUSE.y);
+          SIDEBAR.focus(x, y);
+          DATA.player.travelDest = null;  // stop traveling
+          ui.setCursor(x, y, true);
+        }
+        else {
+          SIDEBAR.focus(-1, -1);
+          ui.clearCursor();
+        }
       }
     }
+
   }
 
 	return false;
@@ -326,11 +371,13 @@ var CURSOR = ui.cursor = {
 	y: -1,
 }
 
-function setCursor(x, y) {
+function setCursor(x, y, force) {
   const map = DATA.map;
   if (!map) return false;
 
-  if (CURSOR.x == x && CURSOR.y == y) return false;
+  if (!force) {
+    if (CURSOR.x == x && CURSOR.y == y) return false;
+  }
 
   // ui.debug('set cursor', x, y);
 
@@ -342,9 +389,12 @@ function setCursor(x, y) {
   CURSOR.y = y;
 
   if (map.hasXY(x, y)) {
-    // if (!DATA.player || DATA.player.x !== x || DATA.player.y !== y ) {
+    if (SHOW_CURSOR) {
       map.setCellFlags(CURSOR.x, CURSOR.y, Flags.Cell.IS_CURSOR | Flags.Cell.NEEDS_REDRAW);
-    // }
+    }
+    if (SHOW_PATH) {
+      ui.updatePathToCursor();
+    }
 
     // if (!GW.player.isMoving()) {
     //   showPathFromPlayerTo(x, y);
@@ -378,6 +428,46 @@ function clearCursor() {
 ui.clearCursor = clearCursor;
 
 
+function updatePathToCursor() {
+  const player = DATA.player;
+  const map = DATA.map;
+
+  if (!SHOW_PATH) return;
+  if (player.travelDest) return;  // do not update path if we are traveling...
+
+  map.clearFlags(0, Flags.Cell.IS_IN_PATH);
+
+  if (!PATH_ACTIVE) return;
+
+  if (CURSOR.x == player.x && CURSOR.y == player.y) return;
+
+  const mapToMe = player.updateMapToMe();
+  const path = Path.getPath(map, mapToMe, CURSOR.x, CURSOR.y, player);
+
+  ui.updatePath(path);
+}
+
+ui.updatePathToCursor = updatePathToCursor;
+
+
+function updatePath(path) {
+  const player = DATA.player;
+  const map = DATA.map;
+
+  if (!SHOW_PATH) return;
+  map.clearFlags(0, Flags.Cell.IS_IN_PATH);
+
+  if (path) {
+    for(let pos of path) {
+      if (pos[0] != player.x || pos[1] != player.y) {
+        map.setCellFlag(pos[0], pos[1], Flags.Cell.IS_IN_PATH);
+      }
+    }
+  }
+
+}
+
+ui.updatePath = updatePath;
 
 // FUNCS
 

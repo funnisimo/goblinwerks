@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <title>GoblinWerks Spice Trader Example</title>
+  <style>
+    html, body {
+      background-color: black;
+      color: #aaaaaa;
+      font-family: "DejaVuSansMono", "DejaVu Sans Mono", monospace;
+      font-size: 14px;
+    }
+
+    #game {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/simplex-noise@2.4.0/simplex-noise.js" lang="javascript"></script>
+  <script src='../gw.js' lang="javascript"></script>
+  <script src='./tavern.js' lang='javascript'></script>
+  <script src='./market.js' lang='javascript'></script>
+  <script src='./ports.js' lang='javascript'></script>
+  <script src='./map.js' lang='javascript'></script>
+	<script src='./app.js' lang='javascript'></script>
+</head>
+
+<body>
+  <canvas id='game'></canvas>
+</body>
+
+</html>

@@ -185,11 +185,11 @@ export class Sprite {
 		return this.ch == other.ch && this.fg.equals(other.fg) && this.bg.equals(other.bg);
 	}
 
-	bake() {
-		if (this.fg && !this.fg.dances) {
+	bake(force) {
+		if (this.fg && (force || !this.fg.dances)) {
 			this.fg.bake();
 		}
-		if (this.bg && !this.bg.dances) {
+		if (this.bg && (force || !this.bg.dances)) {
 			this.bg.bake();
 		}
 	}

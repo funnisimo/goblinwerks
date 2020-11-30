@@ -13,8 +13,8 @@ var   GRID_CREATE_COUNT = 0;
 const DIRS = def.dirs;
 const CDIRS = def.clockDirs;
 
-var GRID = {};
-export { GRID as grid };
+// var GRID = {};
+// export { GRID as grid };
 
 
 export function makeArray(l, fn) {
@@ -177,7 +177,7 @@ export class Grid extends Array {
 	}
 
 	dump(fmtFn) {
-		gridDumpRect(this, 0, 0, this.width, this.height, fmtFn);
+		dumpRect(this, 0, 0, this.width, this.height, fmtFn);
 	}
 
 	closestMatchingXY(x, y, fn) {
@@ -370,7 +370,7 @@ export function alloc(w, h, v) {
   return resizeAndClearGrid(grid, w, h, v);
 }
 
-GRID.alloc = alloc;
+// Grid.alloc = alloc;
 
 
 export function free(grid) {
@@ -381,7 +381,7 @@ export function free(grid) {
 	}
 }
 
-GRID.free = free;
+// Grid.free = free;
 
 
 function resizeAndClearGrid(grid, width, height, value=0) {
@@ -435,14 +435,14 @@ function resizeAndClearGrid(grid, width, height, value=0) {
 // 		return results;
 // }
 //
-// GRID.mapCellsInCircle = gridMapCellsInCircle;
+// Grid.mapCellsInCircle = gridMapCellsInCircle;
 
 
-export function dumpGrid(grid, fmtFn) {
-	gridDumpRect(grid, 0, 0, grid.width, grid.height, fmtFn);
+export function dump(grid, fmtFn) {
+	dumpRect(grid, 0, 0, grid.width, grid.height, fmtFn);
 }
 
-GRID.dump = dumpGrid;
+// Grid.dump = dump;
 
 
 function _formatGridValue(v) {
@@ -469,7 +469,7 @@ function _formatGridValue(v) {
 	}
 }
 
-export function gridDumpRect(grid, left, top, width, height, fmtFn) {
+export function dumpRect(grid, left, top, width, height, fmtFn) {
 	let i, j;
 
 	fmtFn = fmtFn || _formatGridValue
@@ -496,14 +496,14 @@ export function gridDumpRect(grid, left, top, width, height, fmtFn) {
 	console.log(output.join('\n'));
 }
 
-GRID.dumpRect = gridDumpRect;
+// Grid.dumpRect = dumpRect;
 
 
-export function dumpGridAround(grid, x, y, radius) {
-	gridDumpRect(grid, x - radius, y - radius, 2 * radius, 2 * radius);
+export function dumpAround(grid, x, y, radius) {
+	dumpRect(grid, x - radius, y - radius, 2 * radius, 2 * radius);
 }
 
-GRID.dumpAround = dumpGridAround;
+// Grid.dumpAround = dumpAround;
 
 
 
@@ -519,7 +519,7 @@ export function findAndReplace(grid, findValueMin, findValueMax, fillValue)
 	});
 }
 
-GRID.findAndReplace = findAndReplace;
+// Grid.findAndReplace = findAndReplace;
 
 
 // Flood-fills the grid from (x, y) along cells that are within the eligible range.
@@ -546,14 +546,14 @@ export function floodFillRange(grid, x, y, eligibleValueMin, eligibleValueMax, f
   return fillCount;
 }
 
-GRID.floodFillRange = floodFillRange;
+// Grid.floodFillRange = floodFillRange;
 
 
 export function invert(grid) {
 	grid.update((v, i, j) => !v );
 }
 
-GRID.invert = invert;
+// Grid.invert = invert;
 
 
 export function intersection(onto, a, b) {
@@ -561,7 +561,7 @@ export function intersection(onto, a, b) {
 	onto.update((v, i, j) => a[i][j] && b[i][j] );
 }
 
-GRID.intersection = intersection;
+// Grid.intersection = intersection;
 
 
 export function unite(onto, a, b) {
@@ -569,7 +569,7 @@ export function unite(onto, a, b) {
 	onto.update((v, i, j) => b[i][j] || a[i][j] );
 }
 
-GRID.unite = unite;
+// Grid.unite = unite;
 
 
 
@@ -579,7 +579,7 @@ export function closestLocationWithValue(grid, x, y, value)
 	return grid.closestMatchingXY(x, y, (v) => v == value);
 }
 
-GRID.closestLocationWithValue = closestLocationWithValue;
+// Grid.closestLocationWithValue = closestLocationWithValue;
 
 
 // Takes a grid as a mask of valid locations, chooses one randomly and returns it as (x, y).
@@ -588,7 +588,7 @@ export function randomLocationWithValue(grid, validValue) {
 	return grid.randomMatchingXY( (v, i, j) => v == validValue );
 }
 
-GRID.randomLocationWithValue = randomLocationWithValue;
+// Grid.randomLocationWithValue = randomLocationWithValue;
 
 
 export function getQualifyingLocNear(grid, x, y, deterministic)
@@ -596,7 +596,7 @@ export function getQualifyingLocNear(grid, x, y, deterministic)
 	return grid.matchingXYNear(x, y, (v, i, j) => !!v);
 }
 
-GRID.getQualifyingLocNear = getQualifyingLocNear;
+// Grid.getQualifyingLocNear = getQualifyingLocNear;
 
 export function leastPositiveValue(grid) {
 	let least = Number.MAX_SAFE_INTEGER;
@@ -608,16 +608,16 @@ export function leastPositiveValue(grid) {
 	return least;
 }
 
-GRID.leastPositiveValue = leastPositiveValue;
+// Grid.leastPositiveValue = leastPositiveValue;
 
 // Finds the lowest positive number in a grid, chooses one location with that number randomly and returns it as (x, y).
 // If there are no valid locations, returns (-1, -1).
 export function randomLeastPositiveLocation(grid, deterministic) {
-  const targetValue = GRID.leastPositiveValue(grid);
+  const targetValue = leastPositiveValue(grid);
 	return grid.randomMatchingXY( (v) => v == targetValue );
 }
 
-GRID.randomLeastPositiveLocation = randomLeastPositiveLocation;
+// Grid.randomLeastPositiveLocation = randomLeastPositiveLocation;
 
 // Marks a cell as being a member of blobNumber, then recursively iterates through the rest of the blob
 export function floodFill(grid, x, y, matchValue, fillValue) {
@@ -643,7 +643,7 @@ export function floodFill(grid, x, y, matchValue, fillValue) {
 	return numberOfCells;
 }
 
-GRID.floodFill = floodFill;
+// Grid.floodFill = floodFill;
 
 
 
@@ -658,7 +658,7 @@ export function offsetZip(destGrid, srcGrid, srcToDestX, srcToDestY, value) {
 	});
 }
 
-GRID.offsetZip = offsetZip;
+// Grid.offsetZip = offsetZip;
 
 
 
@@ -692,7 +692,7 @@ export function directionOfDoorSite(grid, x, y, isOpen=1) {
     return solutionDir;
 }
 
-GRID.directionOfDoorSite = directionOfDoorSite;
+// Grid.directionOfDoorSite = directionOfDoorSite;
 
 
 function cellularAutomataRound(grid, birthParameters /* char[9] */, survivalParameters /* char[9] */) {
@@ -864,4 +864,4 @@ export function fillBlob(grid,
 	return { x: topBlobMinX, y: topBlobMinY, width: blobWidth, height: blobHeight };
 }
 
-GRID.fillBlob = fillBlob;
+// Grid.fillBlob = fillBlob;

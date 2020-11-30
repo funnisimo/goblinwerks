@@ -1,7 +1,7 @@
 
 import * as Color from './color.js';
 import { random } from './random.js';
-import { grid as GRID } from './grid.js';
+import * as Grid from './grid.js';
 import * as Flags from './flags.js';
 import * as Utils from './utils.js';
 import * as Events from './events.js';
@@ -159,7 +159,7 @@ export async function spawn(feat, ctx) {
 
 	// tileEvent.debug('- blocking', blocking);
 
-	const spawnMap = GRID.alloc(map.width, map.height);
+	const spawnMap = Grid.alloc(map.width, map.height);
 
 	let didSomething = false;
 	computeSpawnMap(feat, spawnMap, ctx);
@@ -241,7 +241,7 @@ export async function spawn(feat, ctx) {
 	}
 
 	if (GW.data.gameHasEnded) {
-		GRID.free(spawnMap);
+		Grid.free(spawnMap);
 		return didSomething;
 	}
 
@@ -304,7 +304,7 @@ export async function spawn(feat, ctx) {
 
   // tileEvent.debug('- spawn complete : @%d,%d, ok=%s, feat=%s', ctx.x, ctx.y, didSomething, feat.id);
 
-	GRID.free(spawnMap);
+	Grid.free(spawnMap);
 	return didSomething;
 }
 
@@ -497,7 +497,7 @@ export async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
 				{
 					spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
 
-					cell.setTile(tile, volume);
+					map.setTile(i, j, tile, volume);
           // map.redrawCell(cell);
 					// if (volume && cell.gas) {
 					//     cell.volume += (feat.volume || 0);

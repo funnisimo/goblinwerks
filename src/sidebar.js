@@ -2,7 +2,7 @@
 import * as Color from './color.js';
 import * as Flags from './flags.js';
 import * as Utils from './utils.js';
-import { grid as GRID } from './grid.js';
+import * as Grid from './grid.js';
 import * as Text from './text.js';
 import { cell as CELL } from './cell.js';
 import { map as MAP } from './map.js';
@@ -65,7 +65,7 @@ function refreshSidebar(map) {
 
 	// Gather sidebar entries
 	const entries = [];
-	const doneCells = GRID.alloc();
+	const doneCells = Grid.alloc();
   let same = true;
 
 	if (DATA.player) {
@@ -137,20 +137,29 @@ function refreshSidebar(map) {
 
 	// Get tiles
 	map.forEach( (cell, i, j) => {
-		if (!(cell.isRevealed(true) || cell.isAnyKindOfVisible()) || !GW.viewport.hasXY(i, j)) return;
+		if (!(cell.isRevealed(true) || cell.isAnyKindOfVisible())) return;
 		// if (cell.flags & (Flags.Cell.HAS_PLAYER | Flags.Cell.HAS_MONSTER | Flags.Cell.HAS_ITEM)) return;
 		if (doneCells[i][j]) return;
 		doneCells[i][j] = 1;
 
-		const changed = cell.changed();
 		if (cell.listInSidebar()) {
-			const priority = (cell.isVisible() ? 1 : (cell.isAnyKindOfVisible() ? 2 : 3));
+      const changed = cell.changed();
+			let priority = 4;
+      if (cell.isVisible()) {
+        priority = 1;
+      }
+      else if (cell.isAnyKindOfVisible()) {
+        priority = 2;
+      }
+      else if (GW.viewport.hasXY(i, j)) {
+        priority = 3;
+      }
       const dim = !cell.isAnyKindOfVisible();
 			entries.push({ map, x: i, y: j, dist: 0, priority, draw: sidebar.addMapCell, entity: cell, changed, dim });
 		}
 	});
 
-	GRID.free(doneCells);
+	Grid.free(doneCells);
 
 	// sort entries
 	sortSidebarItems(entries);
@@ -523,7 +532,7 @@ function addProgressBar(y, buf, barText, current, max, color, dim) {
 		max = 1;
 	}
 
-	color = color.clone();
+	color = Color.make(color);
 	if (!(y % 2)) {
 		color.mix(GW.colors.black, 25);
 	}

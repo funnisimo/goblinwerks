@@ -115,7 +115,7 @@ class Canvas {
       this.buffer.forEach( (cell, i, j) => {
         if (cell.fg.dances || cell.bg.dances) {
           this.dances = true;
-          if (cosmetic.value() < 0.002) {
+          if (cosmetic.value() < 0.0005) {
             cell.needsUpdate = true;
           }
         }

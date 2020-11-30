@@ -57,7 +57,7 @@ function townBuildStore(map, store, x, y) {
   // const store = STORES[store_id] || null;
 
   const door = map.cell(posX, posY);
-  door.setTile(store.tile);
+  map.setTile(posX, posY, store.tile);
   door.flags |= (GW.flags.cell.IS_IN_AREA_MACHINE | GW.flags.cell.IMPREGNABLE);
 
   map.eachNeighbor(posX, posY, (cell) => {

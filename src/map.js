@@ -1,6 +1,6 @@
 
 import { random } from './random.js';
-import { grid as GRID } from './grid.js';
+import * as Grid from './grid.js';
 import * as Color from './color.js';
 import { cell as CELL } from './cell.js';
 import * as Flags from './flags.js';
@@ -164,11 +164,7 @@ export class Map {
 	tileFlavor(x, y)   { return this.cells[x][y].tileFlavor(); }
 
 	setTile(x, y, tileId, volume=0) {
-		const cell = this.cell(x, y);
-		if (cell.setTile(tileId, volume)) {
-			this.flags &= ~(Flags.Map.MAP_STABLE_GLOW_LIGHTS | Flags.Map.MAP_STABLE_LIGHTS);
-		}
-	  return true;
+		return this.cell(x, y)._setTile(tileId, volume, this);
 	}
 
 	nullifyTileWithFlags(x, y, tileFlags, tileMechFlags=0) {
@@ -446,6 +442,12 @@ export class Map {
       this.flags &= ~(Flags.Map.MAP_STABLE_LIGHTS);
     }
 
+    // If the player moves or an actor that blocks vision and the cell is visible...
+    // -- we need to update the FOV
+    if (theActor.isPlayer() || (cell.isAnyKindOfVisible() && (theActor.kind.flags & Flags.ActorKind.AK_BLOCKS_VISION))) {
+      this.flags |= Flags.Map.MAP_FOV_CHANGED;
+    }
+
 		theActor.x = x;
 		theActor.y = y;
     this.redrawCell(cell);
@@ -495,6 +497,11 @@ export class Map {
       if (actor.light || actor.kind.light) {
         this.flags &= ~(Flags.Map.MAP_STABLE_LIGHTS);
       }
+      // If the player moves or an actor that blocks vision and the cell is visible...
+      // -- we need to update the FOV
+      if (actor.isPlayer() || (cell.isAnyKindOfVisible() && (actor.kind.flags & Flags.ActorKind.AK_BLOCKS_VISION))) {
+        this.flags |= Flags.Map.MAP_FOV_CHANGED;
+      }
 
       this.redrawCell(cell);
       return true;
@@ -509,7 +516,7 @@ export class Map {
 	// 	return this.dormantActors.find( (m) => m.x == x && m.y == y );
 	// }
 	//
-	// addDormant(x, y, theActor) {
+	// addDormant(x, y, actor) {
 	// 	theActor.x = x;
 	// 	theActor.y = y;
 	// 	this.dormant.add(theActor);
@@ -621,7 +628,7 @@ export class Map {
   	let result;
   	let i, j, x, y;
 
-  	const walkableGrid = GRID.alloc(this.width, this.height);
+  	const walkableGrid = Grid.alloc(this.width, this.height);
   	let disrupts = false;
 
   	const gridOffsetX = opts.gridOffsetX || 0;
@@ -656,7 +663,7 @@ export class Map {
   		for(let j = 0; j < walkableGrid.height && !disrupts; ++j) {
   			if (walkableGrid[i][j] == 1) {
   				if (first) {
-  					GRID.floodFill(walkableGrid, i, j, 1, 2);
+  					Grid.floodFill(walkableGrid, i, j, 1, 2);
   					first = false;
   				}
   				else {
@@ -666,7 +673,7 @@ export class Map {
   		}
   	}
 
-  	GRID.free(walkableGrid);
+  	Grid.free(walkableGrid);
   	return disrupts;
   }
 
@@ -781,8 +788,6 @@ export function getCellAppearance(map, x, y, dest) {
   else if (!cell.isAnyKindOfVisible()) {
     dest.bg.mix(COLORS.black, 30);
     dest.fg.mix(COLORS.black, 30);
-    // Color.bake(dest.bg);
-    // Color.bake(dest.fg);
   }
 
   let needDistinctness = false;
@@ -823,7 +828,9 @@ map.addText = addText;
 
 export function updateGas(map) {
 
-  const newVolume = GRID.alloc(map.width, map.height);
+  if (map.flags & Flags.Map.MAP_NO_GAS) return;
+
+  const newVolume = Grid.alloc(map.width, map.height);
 
 	map.forEach( (c, x, y) => {
 		if (c.hasTileFlag(Flags.Tile.T_OBSTRUCTS_GAS)) return;
@@ -843,9 +850,10 @@ export function updateGas(map) {
     });
 
     if (!sum) return;
+
     const newVol = Math.floor(sum / count);
     if (c.gas != gas) {
-      c.setTile(gas, newVol); // volume = 1 to start, will change later
+      c._setTile(gas, newVol, this); // volume = 1 to start, will change later
     }
     newVolume[x][y] += newVol;
 
@@ -859,10 +867,11 @@ export function updateGas(map) {
     // }
 	});
 
-
+  let hasGas = false;
   newVolume.forEach( (v, i, j) => {
     const cell =  map.cell(i, j);
     if (v) {
+      hasGas = true;
       if (cell.gas && cell.gasVolume !== v) {
         cell.gasVolume = v;
         map.redrawCell(cell);
@@ -874,9 +883,15 @@ export function updateGas(map) {
     }
   });
 
+  if (hasGas) {
+    map.flags &= ~Flags.Map.MAP_NO_GAS;
+  }
+  else {
+    map.flags |= Flags.Map.MAP_NO_GAS;
+  }
   map.changed(true);
 
-  GRID.free(newVolume);
+  Grid.free(newVolume);
 }
 
 map.updateGas = updateGas;
@@ -885,7 +900,9 @@ map.updateGas = updateGas;
 
 export function updateLiquid(map) {
 
-  const newVolume = GRID.alloc(map.width, map.height);
+  if (map.flags & Flags.Map.MAP_NO_LIQUID) return;
+
+  const newVolume = Grid.alloc(map.width, map.height);
 
 	map.forEach( (c, x, y) => {
 		if (c.hasTileFlag(Flags.Tile.T_OBSTRUCTS_LIQUID)) return;
@@ -909,7 +926,7 @@ export function updateLiquid(map) {
       if (spread > 5) {
         newVol -= spread;
         if (c.liquid != liquid) {
-          c.setTile(liquid, newVol); // volume = 1 to start, will change later
+          c._setTile(liquid, newVol, this); // volume = 1 to start, will change later
         }
 
         // spread = Math.floor(spread / count);
@@ -930,10 +947,11 @@ export function updateLiquid(map) {
     }
 	});
 
-
+  let hasLiquid = false;
   newVolume.forEach( (v, i, j) => {
     const cell =  map.cell(i, j);
     if (v) {
+      hasLiquid = true;
       if (cell.liquid && cell.liquidVolume !== v) {
         cell.liquidVolume = v;
         map.redrawCell(cell);
@@ -945,9 +963,16 @@ export function updateLiquid(map) {
     }
   });
 
+  if (hasLiquid) {
+    map.flags &= ~Flags.Map.MAP_NO_LIQUID;
+  }
+  else {
+    map.flags |= Flags.Map.MAP_NO_LIQUID;
+  }
+
   map.changed(true);
 
-  GRID.free(newVolume);
+  Grid.free(newVolume);
 }
 
 map.updateLiquid = updateLiquid;

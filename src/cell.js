@@ -342,7 +342,8 @@ class Cell {
     return layer == TileLayer.SURFACE && this.hasTileFlag(Flags.Tile.T_OBSTRUCTS_SURFACE_EFFECTS);
   }
 
-  setTile(tileId=0, volume=0) {
+  _setTile(tileId=0, volume=0, map) {
+    map = map || DATA.map;
     let tile;
     if (tileId === 0) {
       tile = TILES['0'];
@@ -379,12 +380,20 @@ class Cell {
       this.setFlags(0, Flags.CellMech.CAUGHT_FIRE_THIS_TURN);
     }
 
+    const blocksVision = (tile.flags & Flags.Tile.T_OBSTRUCTS_VISION);
+    const oldBlocksVision = (oldTile.flags & Flags.Tile.T_OBSTRUCTS_VISION);
+    if (this.isAnyKindOfVisible() && (blocksVision != oldBlocksVision)) {
+      map.flags |= Flags.Map.MAP_FOV_CHANGED;
+    }
+
     this.layers[tile.layer] = tile.id;
     if (tile.layer == TileLayer.LIQUID) {
       this.liquidVolume = volume + (tileId == oldTileId ? this.liquidVolume : 0);
+      map.flags &= ~Flags.Map.MAP_NO_LIQUID;
     }
     else if (tile.layer == TileLayer.GAS) {
       this.gasVolume = volume + (tileId == oldTileId ? this.vasVolume : 0);
+      map.flags &= ~Flags.Map.MAP_NO_GAS;
     }
 
     if (tile.layer > 0 && this.layers[0] == 0) {
@@ -393,7 +402,10 @@ class Cell {
 
     // this.flags |= (Flags.NEEDS_REDRAW | Flags.CELL_CHANGED);
     this.flags |= (Flags.Cell.CELL_CHANGED);
-    return (oldTile.light !== tile.light);
+    if (oldTile.light !== tile.light) {
+      map.flags &= ~(Flags.Map.MAP_STABLE_GLOW_LIGHTS | Flags.Map.MAP_STABLE_LIGHTS);
+    }
+    return true;
   }
 
   clearLayer(layer) {
@@ -593,7 +605,7 @@ export function getAppearance(cell, dest) {
 
   memory.fg.applyMultiplier(cell.light);
   memory.bg.applyMultiplier(cell.light);
-  memory.bake();
+  memory.bake(!cell.isAnyKindOfVisible());  // turns off dancing if not visible
   if (needDistinctness) {
     Color.separate(memory.fg, memory.bg);
   }

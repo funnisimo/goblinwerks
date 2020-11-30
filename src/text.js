@@ -1,15 +1,15 @@
 
 import * as Utils from './utils.js';
 import * as Color from './color.js';
-import { make, types, def, data as DATA } from './gw.js';
+import * as GW from './gw.js';
 
 
 ///////////////////////////////////
 // Message String
 
 // color escapes
-const COLOR_ESCAPE = def.COLOR_ESCAPE =	25;
-const COLOR_END    = def.COLOR_END    = 26;
+const COLOR_ESCAPE = GW.def.COLOR_ESCAPE =	25;
+const COLOR_END    = GW.def.COLOR_END    = 26;
 const COLOR_VALUE_INTERCEPT =	0; // 25;
 
 
@@ -519,7 +519,7 @@ export function format(fmt, ...args) {
 
   const RE = /%([\-\+0\ \#]+)?(\d+|\*)?(\.\*|\.\d+)?([hLIw]|l{1,2}|I32|I64)?([cCdiouxXeEfgGaAnpsFBSZ%])/g;
 
-  if (fmt instanceof types.Color) {
+  if (fmt instanceof GW.types.Color) {
     const buf = encodeColor(fmt) + args.shift();
     fmt = buf;
   }
@@ -545,12 +545,10 @@ export function format(fmt, ...args) {
     if (p5 == 's') {
       if (p1.includes(' ')) return m;
       r = args.shift() || '';
-      r = r.text || r;	// BrogueString
     }
     else if (p5 == 'c') {
       if (m !== '%c') return m;
       r = (args.shift() || '');
-      r = r.text || r;	// BrogueString
       r = r[0] || '';
     }
     else if (p5 == 'd' || p5 == 'i' || p5 == 'u') {
@@ -582,7 +580,7 @@ export function format(fmt, ...args) {
     }
     else if (p5 == 'F') {
       let color = args.shift() || null;
-      if (color && !(color instanceof types.Color)) {
+      if (color && !(color instanceof GW.types.Color)) {
         color = Color.from(color);
       }
       r = encodeColor(color);
@@ -632,7 +630,10 @@ export function apply(template, args={}) {
       return encodeColor(null);
     }
     else if (color !== undefined) {
-      if (args[color] !== undefined) {
+      if (GW.colors[color]) {
+        color = GW.colors[color];
+      }
+      else if (args[color] !== undefined) {
         color = args[color];
       }
       return encodeColor(color);
@@ -653,7 +654,7 @@ export function apply(template, args={}) {
         second = second || 'actor';
       }
       source = second || source;
-      const sourceObj = args[source] || DATA[source] || {};
+      const sourceObj = args[source] || GW.data[source] || {};
       if (first == 'the') {
         if (sourceObj.getName) return sourceObj.getName('the');
       }

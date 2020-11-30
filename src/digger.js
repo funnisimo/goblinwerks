@@ -1,5 +1,5 @@
 
-import { grid as GRID } from './grid.js';
+import * as Grid from './grid.js';
 import { random } from './random.js';
 import * as Utils from './utils.js';
 import { make, def } from './gw.js';
@@ -81,7 +81,7 @@ export function digCavern(config, grid) {
   let foundFillPoint = false;
   let blobGrid;
 
-  blobGrid = GRID.alloc(grid.width, grid.height, 0);
+  blobGrid = Grid.alloc(grid.width, grid.height, 0);
 
   const minWidth  = Math.floor(0.5 * config.width); // 6
   const maxWidth  = config.width;
@@ -89,15 +89,15 @@ export function digCavern(config, grid) {
   const maxHeight = config.height;
 
   grid.fill(0);
-  const bounds = GRID.fillBlob(blobGrid, 5, minWidth, minHeight, maxWidth, maxHeight, 55, "ffffffttt", "ffffttttt");
+  const bounds = Grid.fillBlob(blobGrid, 5, minWidth, minHeight, maxWidth, maxHeight, 55, "ffffffttt", "ffffttttt");
 
   // Position the new cave in the middle of the grid...
   destX = Math.floor((grid.width - bounds.width) / 2);
   destY = Math.floor((grid.height - bounds.height) / 2);
 
   // ...and copy it to the master grid.
-  GRID.offsetZip(grid, blobGrid, destX - bounds.x, destY - bounds.y, TILE);
-  GRID.free(blobGrid);
+  Grid.offsetZip(grid, blobGrid, destX - bounds.x, destY - bounds.y, TILE);
+  Grid.free(blobGrid);
   return config.id;
 }
 
@@ -318,13 +318,13 @@ export function chooseRandomDoorSites(sourceGrid) {
   let dir;
   let doorSiteFailed;
 
-  const grid = GRID.alloc(sourceGrid.width, sourceGrid.height);
+  const grid = Grid.alloc(sourceGrid.width, sourceGrid.height);
   grid.copy(sourceGrid);
 
   for (i=0; i<grid.width; i++) {
       for (j=0; j<grid.height; j++) {
           if (!grid[i][j]) {
-              dir = GRID.directionOfDoorSite(grid, i, j);
+              dir = Grid.directionOfDoorSite(grid, i, j);
               if (dir != def.NO_DIRECTION) {
                   // Trace a ray 10 spaces outward from the door site to make sure it doesn't intersect the room.
                   // If it does, it's not a valid door site.
@@ -353,7 +353,7 @@ export function chooseRandomDoorSites(sourceGrid) {
       doorSites[dir] = loc.slice();
   }
 
-  GRID.free(grid);
+  Grid.free(grid);
   return doorSites;
 }
 

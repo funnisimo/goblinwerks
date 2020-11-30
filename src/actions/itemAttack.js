@@ -56,7 +56,7 @@ export async function itemAttack(actor, target, ctx={}) {
     await TileEvent.spawn(target.kind.blood, ctx2);
   }
   if (target.isDead()) {
-    target.kind.kill(target);
+    target.kill();
     map.removeActor(target);
     if (target.kind.corpse) {
       await TileEvent.spawn(target.kind.corpse, ctx2);

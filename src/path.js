@@ -3,8 +3,8 @@ import * as Utils from './utils.js';
 import { def, make } from './gw.js';
 
 
-var PATH = {};
-export { PATH as path };
+// var PATH = {};
+// export { PATH as path };
 
 
 const PDS_FORBIDDEN   = def.PDS_FORBIDDEN   = -1;
@@ -261,7 +261,6 @@ export function dijkstraScan(distanceMap, costMap, useDiagonals) {
 	batchOutput(DIJKSTRA_MAP, distanceMap);
 }
 
-PATH.dijkstraScan = dijkstraScan;
 
 //
 // function populateGenericCostMap(costMap, map) {
@@ -342,7 +341,6 @@ export function calculateDistances(distanceMap,
 	distanceMap.y = destinationY;
 }
 
-PATH.calculateDistances = calculateDistances;
 
 // function pathingDistance(x1, y1, x2, y2, blockingTerrainFlags, actor) {
 // 	let retval;
@@ -372,70 +370,116 @@ PATH.calculateDistances = calculateDistances;
 
 
 
+// Returns null if there are no beneficial moves.
+// If preferDiagonals is true, we will prefer diagonal moves.
+// Always rolls downhill on the distance map.
+// If monst is provided, do not return a direction pointing to
+// a cell that the monster avoids.
+export function nextStep( map, distanceMap, x, y, traveler, useDiagonals) {
+	let newX, newY, bestScore;
+  let dir, bestDir;
+  let blocker;	// creature *
+  let blocked;
 
-//
-// function getClosestValidLocationOnMap(map, x, y) {
-// 	let i, j, dist, closestDistance, lowestMapScore;
-// 	let locX = -1;
-// 	let locY = -1;
-//
-// 	closestDistance = 10000;
-// 	lowestMapScore = 10000;
-// 	for (i=1; i<map.width-1; i++) {
-// 		for (j=1; j<map.height-1; j++) {
-// 			if (map[i][j] >= 0 && map[i][j] < PDS_NO_PATH) {
-// 				dist = (i - x)*(i - x) + (j - y)*(j - y);
-// 				//hiliteCell(i, j, &purple, min(dist / 2, 100), false);
-// 				if (dist < closestDistance
-// 					|| dist == closestDistance && map[i][j] < lowestMapScore)
-// 				{
-// 					locX = i;
-// 					locY = j;
-// 					closestDistance = dist;
-// 					lowestMapScore = map[i][j];
-// 				}
-// 			}
-// 		}
-// 	}
-// 	if (locX >= 0) return [locX, locY];
-// 	return null;
-// }
-//
-//
-// // Populates path[][] with a list of coordinates starting at origin and traversing down the map. Returns the number of steps in the path.
-// function getMonsterPathOnMap(distanceMap, originX, originY, monst) {
-// 	let dir, x, y, steps;
-//
-// 	// monst = monst || GW.PLAYER;
-// 	x = originX;
-// 	y = originY;
-// 	steps = 0;
-//
-//
-// 	if (distanceMap[x][y] < 0 || distanceMap[x][y] >= PDS_NO_PATH) {
-// 		const loc = getClosestValidLocationOnMap(distanceMap, x, y);
-// 		if (loc) {
-// 			x = loc[0];
-// 			y = loc[1];
-// 		}
-// 	}
-//
-// 	const path = [[x, y]];
-// 	dir = 0;
-// 	while (dir != def.NO_DIRECTION) {
-// 		dir = GW.path.nextStep(distanceMap, x, y, monst, true);
-// 		if (dir != def.NO_DIRECTION) {
-// 			x += DIRS[dir][0];
-// 			y += DIRS[dir][1];
-// 			// path[steps][0] = x;
-// 			// path[steps][1] = y;
-// 			path.push([x,y]);
-// 			steps++;
-//       // brogueAssert(coordinatesAreInMap(x, y));
-// 		}
-// 	}
-//
-// 	return steps ? path : null;
-// }
+  // brogueAssert(coordinatesAreInMap(x, y));
+
+	bestScore = 0;
+	bestDir = def.NO_DIRECTION;
+
+	for (dir = 0; dir < (useDiagonals ? 8 : 4); ++dir)
+  {
+		newX = x + def.dirs[dir][0];
+		newY = y + def.dirs[dir][1];
+
+    if (map.hasXY(newX, newY)) {
+        blocked = false;
+        const cell = map.cell(newX, newY);
+        blocker = cell.actor;
+        if (traveler
+            && traveler.avoidsCell(cell, newX, newY))
+				{
+            blocked = true;
+        } else if (traveler && blocker
+                   && !traveler.kind.canPass(traveler, blocker))
+				{
+            blocked = true;
+        }
+        if (!blocked
+						&& (distanceMap[x][y] - distanceMap[newX][newY]) > bestScore
+            && !map.diagonalBlocked(x, y, newX, newY, traveler.isPlayer())
+            && map.isPassableNow(newX, newY, traveler.isPlayer()))
+				{
+            bestDir = dir;
+            bestScore = distanceMap[x][y] - distanceMap[newX][newY];
+        }
+    }
+	}
+	return def.dirs[bestDir] || null;
+}
+
+
+
+function getClosestValidLocationOnMap(distanceMap, x, y) {
+	let i, j, dist, closestDistance, lowestMapScore;
+	let locX = -1;
+	let locY = -1;
+
+	closestDistance = 10000;
+	lowestMapScore = 10000;
+	for (i=1; i<distanceMap.width-1; i++) {
+		for (j=1; j<distanceMap.height-1; j++) {
+			if (distanceMap[i][j] >= 0 && distanceMap[i][j] < PDS_NO_PATH) {
+				dist = (i - x)*(i - x) + (j - y)*(j - y);
+				if (dist < closestDistance
+					|| dist == closestDistance && distanceMap[i][j] < lowestMapScore)
+				{
+					locX = i;
+					locY = j;
+					closestDistance = dist;
+					lowestMapScore = distanceMap[i][j];
+				}
+			}
+		}
+	}
+	if (locX >= 0) return [locX, locY];
+	return null;
+}
+
+
+// Populates path[][] with a list of coordinates starting at origin and traversing down the map. Returns the number of steps in the path.
+export function getPath(map, distanceMap, originX, originY, actor) {
+	let x, y, steps;
+
+	// actor = actor || GW.PLAYER;
+	x = originX;
+	y = originY;
+	steps = 0;
+
+	if (distanceMap[x][y] < 0 || distanceMap[x][y] >= PDS_NO_PATH) {
+		const loc = getClosestValidLocationOnMap(distanceMap, x, y);
+		if (loc) {
+			x = loc[0];
+			y = loc[1];
+		}
+	}
+
+	const path = [[x, y]];
+  let dir;
+  do {
+		dir = nextStep(map, distanceMap, x, y, actor, true);
+		if (dir) {
+			x += dir[0];
+			y += dir[1];
+			// path[steps][0] = x;
+			// path[steps][1] = y;
+			path.push([x,y]);
+			steps++;
+      // brogueAssert(coordinatesAreInMap(x, y));
+		}
+	}
+  while (dir);
+
+	return steps ? path : null;
+}
 //
 // GW.path.from = getMonsterPathOnMap;

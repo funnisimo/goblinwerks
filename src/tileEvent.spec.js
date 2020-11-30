@@ -342,8 +342,8 @@ describe('tileEvent', () => {
   test('can clear extra tiles from the cell', async () => {
     const feat = GW.make.tileEvent({ flags: 'DFF_NULLIFY_CELL' });
 
+    map.setTile(5, 5, 'BRIDGE');
     const cell = map.cell(5, 5);
-    cell.setTile('BRIDGE');
     expect(cell.surface).toEqual('BRIDGE');
     expect(cell.ground).toEqual('FLOOR');
 

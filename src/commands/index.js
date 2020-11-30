@@ -11,6 +11,7 @@ import './fire.js';
 import './attack.js';
 import './push.js';
 import './talk.js';
+import './travel.js';
 
 commands.debug = Utils.NOOP;
 

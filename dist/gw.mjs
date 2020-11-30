@@ -79,6 +79,8 @@ class Bounds {
     this.y = y || 0;
     this.width = w || 0;
     this.height = h || 0;
+    this.offsetX = 0;
+    this.offsetY = 0;
   }
 
   containsXY(x, y) {
@@ -95,22 +97,28 @@ class Bounds {
   centerX() { return Math.round(this.width / 2) + this.x; }
   centerY() { return Math.round(this.height / 2) + this.y; }
 
-  toInnerX(x) { return x - this.x; }
-  toInnerY(y) { return y - this.y; }
+  toInnerX(x) { return x - this.x + this.offsetX; }
+  toInnerY(y) { return y - this.y + this.offsetY; }
 
   toOuterX(x) {
     let offset = 0;
     if (x < 0) { offset = this.width - 1; }
-    return x + this.x + offset;
+    return x + this.x + offset - this.offsetX;
   }
   toOuterY(y) {
     let offset = 0;
     if (y < 0) { offset = this.height - 1; }
-    return y + this.y + offset;
+    return y + this.y + offset - this.offsetY;
   }
 }
 
 types.Bounds = Bounds;
+
+function make$1(x, y, w, h) {
+  return new types.Bounds(x, y, w, h);
+}
+
+make.bounds = make$1;
 
 /**
  * GW.utils
@@ -341,16 +349,7 @@ function setDefault(obj, field, val) {
   }
 }
 
-function setDefaults(obj, def) {
-  Object.keys(def).forEach( (key) => {
-    const current = obj[key];
-    if (current === undefined) {
-      obj[key] = def[key];
-    }
-  });
-}
-
-function kindDefaults(obj, def) {
+function setDefaults(obj, def, custom=null) {
   let dest;
   Object.keys(def).forEach( (key) => {
     const origKey = key;
@@ -377,28 +376,7 @@ function kindDefaults(obj, def) {
 
     // console.log('def - ', key, current, defValue, obj, dest);
 
-    if (key.search(/[fF]lags$/) >= 0) {
-      if (!current) {
-        current = [];
-      }
-      else if (typeof current == 'string') {
-        current = current.split(/[,|]/).map( (t) => t.trim() );
-      }
-      else if (!Array.isArray(current)) {
-        current = [current];
-      }
-
-      if (typeof defValue === 'string') {
-        defValue = defValue.split(/[,|]/).map( (t) => t.trim() );
-      }
-      else if (!Array.isArray(defValue)) {
-        defValue = [defValue];
-      }
-
-      // console.log('flags', key, defValue, current);
-
-      dest[key] = defValue.concat(current);
-    }
+    if (custom && custom(dest, key, current, defValue)) ;
     else if (current === undefined) {
       if (Array.isArray(defValue)) {
         dest[key] = defValue.slice();
@@ -411,6 +389,37 @@ function kindDefaults(obj, def) {
       }
     }
   });
+}
+
+function kindDefaults(obj, def) {
+
+  function custom(dest, key, current, defValue) {
+    if (key.search(/[fF]lags$/) < 0) return false;
+
+    if (!current) {
+      current = [];
+    }
+    else if (typeof current == 'string') {
+      current = current.split(/[,|]/).map( (t) => t.trim() );
+    }
+    else if (!Array.isArray(current)) {
+      current = [current];
+    }
+
+    if (typeof defValue === 'string') {
+      defValue = defValue.split(/[,|]/).map( (t) => t.trim() );
+    }
+    else if (!Array.isArray(defValue)) {
+      defValue = [defValue];
+    }
+
+    // console.log('flags', key, defValue, current);
+
+    dest[key] = defValue.concat(current);
+    return true;
+  }
+
+  return setDefaults(obj, def, custom);
 }
 
 function clearObject(obj) {
@@ -511,7 +520,7 @@ function removeFromChain(obj, name, entry) {
   return false;
 }
 
-var utils$1 = /*#__PURE__*/Object.freeze({
+var utils$1 = {
   __proto__: null,
   makeDebug: makeDebug,
   NOOP: NOOP,
@@ -557,7 +566,7 @@ var utils$1 = /*#__PURE__*/Object.freeze({
   eachChain: eachChain,
   addToChain: addToChain,
   removeFromChain: removeFromChain
-});
+};
 
 var EVENTS = {};
 
@@ -1201,12 +1210,19 @@ const Item = installFlag('item', {
 
 const Map = installFlag('map', {
 	MAP_CHANGED: Fl(0),
+
 	MAP_STABLE_GLOW_LIGHTS:  Fl(1),
 	MAP_STABLE_LIGHTS: Fl(2),
+
 	MAP_ALWAYS_LIT:	Fl(3),
   MAP_SAW_WELCOME: Fl(4),
 
-  MAP_DEFAULT: 'MAP_STABLE_LIGHTS, MAP_STABLE_GLOW_LIGHTS',
+  MAP_NO_LIQUID: Fl(5),
+  MAP_NO_GAS: Fl(6),
+
+  MAP_FOV_CHANGED: Fl(7),
+
+  MAP_DEFAULT: 'MAP_STABLE_LIGHTS, MAP_STABLE_GLOW_LIGHTS, MAP_FOV_CHANGED',
 });
 
 // Based on random numbers in umoria
@@ -1370,7 +1386,10 @@ class Random {
   }
 
   item(list) {
-  	return list[this.range(0, list.length - 1)];
+    if (!Array.isArray(list)) {
+      list = Object.values(list);
+    }
+    return list[this.range(0, list.length - 1)];
   }
 
   key(obj) {
@@ -1686,7 +1705,7 @@ class Color extends Array {
 
 types.Color = Color;
 
-function make$1(...args) {
+function make$2(...args) {
   let hex = args[0];
   if (args.length == 0) { return new types.Color(0,0,0); }
   if (args.length == 1 && hex instanceof types.Color) {
@@ -1722,7 +1741,7 @@ function make$1(...args) {
   return null;
 }
 
-make.color = make$1;
+make.color = make$2;
 
 
 function addKind(name, ...args) {
@@ -1905,10 +1924,10 @@ addSpread('azure', 			0,    50,   100);
 addSpread('silver',      75,   75,   75);
 addSpread('gold',        100,  85,   0);
 
-var color = /*#__PURE__*/Object.freeze({
+var color = {
   __proto__: null,
   Color: Color,
-  make: make$1,
+  make: make$2,
   addKind: addKind,
   from: from,
   intensity: intensity,
@@ -1917,7 +1936,7 @@ var color = /*#__PURE__*/Object.freeze({
   normalize: normalize,
   separate: separate,
   addSpread: addSpread
-});
+};
 
 ///////////////////////////////////
 // Message String
@@ -2040,7 +2059,7 @@ function eachChar(msg, fn) {
         components[0] = msg.charCodeAt(i + 1) - COLOR_VALUE_INTERCEPT;
         components[1] = msg.charCodeAt(i + 2) - COLOR_VALUE_INTERCEPT;
         components[2] = msg.charCodeAt(i + 3) - COLOR_VALUE_INTERCEPT;
-        color$1 = make$1(components);
+        color$1 = make$2(components);
         i += 3;
     }
     else if (ch === COLOR_END) {
@@ -2453,12 +2472,10 @@ function format(fmt, ...args) {
     if (p5 == 's') {
       if (p1.includes(' ')) return m;
       r = args.shift() || '';
-      r = r.text || r;	// BrogueString
     }
     else if (p5 == 'c') {
       if (m !== '%c') return m;
       r = (args.shift() || '');
-      r = r.text || r;	// BrogueString
       r = r[0] || '';
     }
     else if (p5 == 'd' || p5 == 'i' || p5 == 'u') {
@@ -2540,7 +2557,10 @@ function apply(template, args={}) {
       return encodeColor(null);
     }
     else if (color !== undefined) {
-      if (args[color] !== undefined) {
+      if (colors[color]) {
+        color = colors[color];
+      }
+      else if (args[color] !== undefined) {
         color = args[color];
       }
       return encodeColor(color);
@@ -2583,7 +2603,7 @@ function apply(template, args={}) {
   return result;
 }
 
-var text = /*#__PURE__*/Object.freeze({
+var text = {
   __proto__: null,
   playerPronoun: playerPronoun,
   singularPronoun: singularPronoun,
@@ -2605,7 +2625,7 @@ var text = /*#__PURE__*/Object.freeze({
   splitIntoLines: splitIntoLines,
   format: format,
   apply: apply
-});
+};
 
 const TEMP_BG = new types.Color();
 
@@ -2790,11 +2810,11 @@ class Sprite {
 		return this.ch == other.ch && this.fg.equals(other.fg) && this.bg.equals(other.bg);
 	}
 
-	bake() {
-		if (this.fg && !this.fg.dances) {
+	bake(force) {
+		if (this.fg && (force || !this.fg.dances)) {
 			this.fg.bake();
 		}
-		if (this.bg && !this.bg.dances) {
+		if (this.bg && (force || !this.bg.dances)) {
 			this.bg.bake();
 		}
 	}
@@ -2830,7 +2850,8 @@ const GRID_CACHE = [];
 const DIRS = def.dirs;
 const CDIRS = def.clockDirs;
 
-var GRID$1 = {};
+// var GRID = {};
+// export { GRID as grid };
 
 
 function makeArray(l, fn) {
@@ -2992,7 +3013,7 @@ class Grid extends Array {
 	}
 
 	dump(fmtFn) {
-		gridDumpRect(this, 0, 0, this.width, this.height, fmtFn);
+		dumpRect(this, 0, 0, this.width, this.height, fmtFn);
 	}
 
 	closestMatchingXY(x, y, fn) {
@@ -3156,11 +3177,11 @@ class Grid extends Array {
 types.Grid = Grid;
 
 
-function make$2(w, h, v) {
+function make$3(w, h, v) {
 	return new types.Grid(w, h, v);
 }
 
-make.grid = make$2;
+make.grid = make$3;
 
 
 // mallocing two-dimensional arrays! dun dun DUN!
@@ -3172,12 +3193,12 @@ function alloc(w, h, v) {
 
 	let grid = GRID_CACHE.pop();
   if (!grid) {
-    return make$2(w, h, v);
+    return make$3(w, h, v);
   }
   return resizeAndClearGrid(grid, w, h, v);
 }
 
-GRID$1.alloc = alloc;
+// Grid.alloc = alloc;
 
 
 function free(grid) {
@@ -3186,7 +3207,7 @@ function free(grid) {
 	}
 }
 
-GRID$1.free = free;
+// Grid.free = free;
 
 
 function resizeAndClearGrid(grid, width, height, value=0) {
@@ -3239,14 +3260,14 @@ function resizeAndClearGrid(grid, width, height, value=0) {
 // 		return results;
 // }
 //
-// GRID.mapCellsInCircle = gridMapCellsInCircle;
+// Grid.mapCellsInCircle = gridMapCellsInCircle;
 
 
-function dumpGrid(grid, fmtFn) {
-	gridDumpRect(grid, 0, 0, grid.width, grid.height, fmtFn);
+function dump(grid, fmtFn) {
+	dumpRect(grid, 0, 0, grid.width, grid.height, fmtFn);
 }
 
-GRID$1.dump = dumpGrid;
+// Grid.dump = dump;
 
 
 function _formatGridValue(v) {
@@ -3273,7 +3294,7 @@ function _formatGridValue(v) {
 	}
 }
 
-function gridDumpRect(grid, left, top, width, height, fmtFn) {
+function dumpRect(grid, left, top, width, height, fmtFn) {
 	let i, j;
 
 	fmtFn = fmtFn || _formatGridValue;
@@ -3300,14 +3321,14 @@ function gridDumpRect(grid, left, top, width, height, fmtFn) {
 	console.log(output.join('\n'));
 }
 
-GRID$1.dumpRect = gridDumpRect;
+// Grid.dumpRect = dumpRect;
 
 
-function dumpGridAround(grid, x, y, radius) {
-	gridDumpRect(grid, x - radius, y - radius, 2 * radius, 2 * radius);
+function dumpAround(grid, x, y, radius) {
+	dumpRect(grid, x - radius, y - radius, 2 * radius, 2 * radius);
 }
 
-GRID$1.dumpAround = dumpGridAround;
+// Grid.dumpAround = dumpAround;
 
 
 
@@ -3323,7 +3344,7 @@ function findAndReplace(grid, findValueMin, findValueMax, fillValue)
 	});
 }
 
-GRID$1.findAndReplace = findAndReplace;
+// Grid.findAndReplace = findAndReplace;
 
 
 // Flood-fills the grid from (x, y) along cells that are within the eligible range.
@@ -3350,14 +3371,14 @@ function floodFillRange(grid, x, y, eligibleValueMin, eligibleValueMax, fillValu
   return fillCount;
 }
 
-GRID$1.floodFillRange = floodFillRange;
+// Grid.floodFillRange = floodFillRange;
 
 
 function invert(grid) {
 	grid.update((v, i, j) => !v );
 }
 
-GRID$1.invert = invert;
+// Grid.invert = invert;
 
 
 function intersection(onto, a, b) {
@@ -3365,7 +3386,7 @@ function intersection(onto, a, b) {
 	onto.update((v, i, j) => a[i][j] && b[i][j] );
 }
 
-GRID$1.intersection = intersection;
+// Grid.intersection = intersection;
 
 
 function unite(onto, a, b) {
@@ -3373,7 +3394,7 @@ function unite(onto, a, b) {
 	onto.update((v, i, j) => b[i][j] || a[i][j] );
 }
 
-GRID$1.unite = unite;
+// Grid.unite = unite;
 
 
 
@@ -3383,7 +3404,7 @@ function closestLocationWithValue(grid, x, y, value)
 	return grid.closestMatchingXY(x, y, (v) => v == value);
 }
 
-GRID$1.closestLocationWithValue = closestLocationWithValue;
+// Grid.closestLocationWithValue = closestLocationWithValue;
 
 
 // Takes a grid as a mask of valid locations, chooses one randomly and returns it as (x, y).
@@ -3392,7 +3413,7 @@ function randomLocationWithValue(grid, validValue) {
 	return grid.randomMatchingXY( (v, i, j) => v == validValue );
 }
 
-GRID$1.randomLocationWithValue = randomLocationWithValue;
+// Grid.randomLocationWithValue = randomLocationWithValue;
 
 
 function getQualifyingLocNear(grid, x, y, deterministic)
@@ -3400,7 +3421,7 @@ function getQualifyingLocNear(grid, x, y, deterministic)
 	return grid.matchingXYNear(x, y, (v, i, j) => !!v);
 }
 
-GRID$1.getQualifyingLocNear = getQualifyingLocNear;
+// Grid.getQualifyingLocNear = getQualifyingLocNear;
 
 function leastPositiveValue(grid) {
 	let least = Number.MAX_SAFE_INTEGER;
@@ -3412,16 +3433,16 @@ function leastPositiveValue(grid) {
 	return least;
 }
 
-GRID$1.leastPositiveValue = leastPositiveValue;
+// Grid.leastPositiveValue = leastPositiveValue;
 
 // Finds the lowest positive number in a grid, chooses one location with that number randomly and returns it as (x, y).
 // If there are no valid locations, returns (-1, -1).
 function randomLeastPositiveLocation(grid, deterministic) {
-  const targetValue = GRID$1.leastPositiveValue(grid);
+  const targetValue = leastPositiveValue(grid);
 	return grid.randomMatchingXY( (v) => v == targetValue );
 }
 
-GRID$1.randomLeastPositiveLocation = randomLeastPositiveLocation;
+// Grid.randomLeastPositiveLocation = randomLeastPositiveLocation;
 
 // Marks a cell as being a member of blobNumber, then recursively iterates through the rest of the blob
 function floodFill(grid, x, y, matchValue, fillValue) {
@@ -3447,7 +3468,7 @@ function floodFill(grid, x, y, matchValue, fillValue) {
 	return numberOfCells;
 }
 
-GRID$1.floodFill = floodFill;
+// Grid.floodFill = floodFill;
 
 
 
@@ -3462,7 +3483,7 @@ function offsetZip(destGrid, srcGrid, srcToDestX, srcToDestY, value) {
 	});
 }
 
-GRID$1.offsetZip = offsetZip;
+// Grid.offsetZip = offsetZip;
 
 
 
@@ -3496,7 +3517,7 @@ function directionOfDoorSite(grid, x, y, isOpen=1) {
     return solutionDir;
 }
 
-GRID$1.directionOfDoorSite = directionOfDoorSite;
+// Grid.directionOfDoorSite = directionOfDoorSite;
 
 
 function cellularAutomataRound(grid, birthParameters /* char[9] */, survivalParameters /* char[9] */) {
@@ -3666,7 +3687,33 @@ function fillBlob(grid,
 	return { x: topBlobMinX, y: topBlobMinY, width: blobWidth, height: blobHeight };
 }
 
-GRID$1.fillBlob = fillBlob;
+// Grid.fillBlob = fillBlob;
+
+var grid = {
+  __proto__: null,
+  makeArray: makeArray,
+  Grid: Grid,
+  make: make$3,
+  alloc: alloc,
+  free: free,
+  dump: dump,
+  dumpRect: dumpRect,
+  dumpAround: dumpAround,
+  findAndReplace: findAndReplace,
+  floodFillRange: floodFillRange,
+  invert: invert,
+  intersection: intersection,
+  unite: unite,
+  closestLocationWithValue: closestLocationWithValue,
+  randomLocationWithValue: randomLocationWithValue,
+  getQualifyingLocNear: getQualifyingLocNear,
+  leastPositiveValue: leastPositiveValue,
+  randomLeastPositiveLocation: randomLeastPositiveLocation,
+  floodFill: floodFill,
+  offsetZip: offsetZip,
+  directionOfDoorSite: directionOfDoorSite,
+  fillBlob: fillBlob
+};
 
 class Buffer extends types.Grid {
   constructor(w, h) {
@@ -3925,7 +3972,7 @@ class Canvas {
       this.buffer.forEach( (cell, i, j) => {
         if (cell.fg.dances || cell.bg.dances) {
           this.dances = true;
-          if (cosmetic.value() < 0.002) {
+          if (cosmetic.value() < 0.0005) {
             cell.needsUpdate = true;
           }
         }
@@ -4091,11 +4138,11 @@ function forDanger(frequency, danger) {
   return 0;
 }
 
-var frequency$1 = /*#__PURE__*/Object.freeze({
+var frequency$1 = {
   __proto__: null,
   frequency: frequency,
   forDanger: forDanger
-});
+};
 
 var io = {};
 
@@ -4506,7 +4553,8 @@ async function loop(handler) {
 
 io.loop = loop;
 
-var PATH = {};
+// var PATH = {};
+// export { PATH as path };
 
 
 const PDS_FORBIDDEN   = def.PDS_FORBIDDEN   = -1;
@@ -4749,7 +4797,6 @@ function dijkstraScan(distanceMap, costMap, useDiagonals) {
 	batchOutput(DIJKSTRA_MAP, distanceMap);
 }
 
-PATH.dijkstraScan = dijkstraScan;
 
 //
 // function populateGenericCostMap(costMap, map) {
@@ -4830,7 +4877,6 @@ function calculateDistances(distanceMap,
 	distanceMap.y = destinationY;
 }
 
-PATH.calculateDistances = calculateDistances;
 
 // function pathingDistance(x1, y1, x2, y2, blockingTerrainFlags, actor) {
 // 	let retval;
@@ -4860,73 +4906,127 @@ PATH.calculateDistances = calculateDistances;
 
 
 
+// Returns null if there are no beneficial moves.
+// If preferDiagonals is true, we will prefer diagonal moves.
+// Always rolls downhill on the distance map.
+// If monst is provided, do not return a direction pointing to
+// a cell that the monster avoids.
+function nextStep( map, distanceMap, x, y, traveler, useDiagonals) {
+	let newX, newY, bestScore;
+  let dir, bestDir;
+  let blocker;	// creature *
+  let blocked;
 
-//
-// function getClosestValidLocationOnMap(map, x, y) {
-// 	let i, j, dist, closestDistance, lowestMapScore;
-// 	let locX = -1;
-// 	let locY = -1;
-//
-// 	closestDistance = 10000;
-// 	lowestMapScore = 10000;
-// 	for (i=1; i<map.width-1; i++) {
-// 		for (j=1; j<map.height-1; j++) {
-// 			if (map[i][j] >= 0 && map[i][j] < PDS_NO_PATH) {
-// 				dist = (i - x)*(i - x) + (j - y)*(j - y);
-// 				//hiliteCell(i, j, &purple, min(dist / 2, 100), false);
-// 				if (dist < closestDistance
-// 					|| dist == closestDistance && map[i][j] < lowestMapScore)
-// 				{
-// 					locX = i;
-// 					locY = j;
-// 					closestDistance = dist;
-// 					lowestMapScore = map[i][j];
-// 				}
-// 			}
-// 		}
-// 	}
-// 	if (locX >= 0) return [locX, locY];
-// 	return null;
-// }
-//
-//
-// // Populates path[][] with a list of coordinates starting at origin and traversing down the map. Returns the number of steps in the path.
-// function getMonsterPathOnMap(distanceMap, originX, originY, monst) {
-// 	let dir, x, y, steps;
-//
-// 	// monst = monst || GW.PLAYER;
-// 	x = originX;
-// 	y = originY;
-// 	steps = 0;
-//
-//
-// 	if (distanceMap[x][y] < 0 || distanceMap[x][y] >= PDS_NO_PATH) {
-// 		const loc = getClosestValidLocationOnMap(distanceMap, x, y);
-// 		if (loc) {
-// 			x = loc[0];
-// 			y = loc[1];
-// 		}
-// 	}
-//
-// 	const path = [[x, y]];
-// 	dir = 0;
-// 	while (dir != def.NO_DIRECTION) {
-// 		dir = GW.path.nextStep(distanceMap, x, y, monst, true);
-// 		if (dir != def.NO_DIRECTION) {
-// 			x += DIRS[dir][0];
-// 			y += DIRS[dir][1];
-// 			// path[steps][0] = x;
-// 			// path[steps][1] = y;
-// 			path.push([x,y]);
-// 			steps++;
-//       // brogueAssert(coordinatesAreInMap(x, y));
-// 		}
-// 	}
-//
-// 	return steps ? path : null;
-// }
+  // brogueAssert(coordinatesAreInMap(x, y));
+
+	bestScore = 0;
+	bestDir = def.NO_DIRECTION;
+
+	for (dir = 0; dir < (useDiagonals ? 8 : 4); ++dir)
+  {
+		newX = x + def.dirs[dir][0];
+		newY = y + def.dirs[dir][1];
+
+    if (map.hasXY(newX, newY)) {
+        blocked = false;
+        const cell = map.cell(newX, newY);
+        blocker = cell.actor;
+        if (traveler
+            && traveler.avoidsCell(cell, newX, newY))
+				{
+            blocked = true;
+        } else if (traveler && blocker
+                   && !traveler.kind.canPass(traveler, blocker))
+				{
+            blocked = true;
+        }
+        if (!blocked
+						&& (distanceMap[x][y] - distanceMap[newX][newY]) > bestScore
+            && !map.diagonalBlocked(x, y, newX, newY, traveler.isPlayer())
+            && map.isPassableNow(newX, newY, traveler.isPlayer()))
+				{
+            bestDir = dir;
+            bestScore = distanceMap[x][y] - distanceMap[newX][newY];
+        }
+    }
+	}
+	return def.dirs[bestDir] || null;
+}
+
+
+
+function getClosestValidLocationOnMap(distanceMap, x, y) {
+	let i, j, dist, closestDistance, lowestMapScore;
+	let locX = -1;
+	let locY = -1;
+
+	closestDistance = 10000;
+	lowestMapScore = 10000;
+	for (i=1; i<distanceMap.width-1; i++) {
+		for (j=1; j<distanceMap.height-1; j++) {
+			if (distanceMap[i][j] >= 0 && distanceMap[i][j] < PDS_NO_PATH) {
+				dist = (i - x)*(i - x) + (j - y)*(j - y);
+				if (dist < closestDistance
+					|| dist == closestDistance && distanceMap[i][j] < lowestMapScore)
+				{
+					locX = i;
+					locY = j;
+					closestDistance = dist;
+					lowestMapScore = distanceMap[i][j];
+				}
+			}
+		}
+	}
+	if (locX >= 0) return [locX, locY];
+	return null;
+}
+
+
+// Populates path[][] with a list of coordinates starting at origin and traversing down the map. Returns the number of steps in the path.
+function getPath(map, distanceMap, originX, originY, actor) {
+	let x, y, steps;
+
+	// actor = actor || GW.PLAYER;
+	x = originX;
+	y = originY;
+	steps = 0;
+
+	if (distanceMap[x][y] < 0 || distanceMap[x][y] >= PDS_NO_PATH) {
+		const loc = getClosestValidLocationOnMap(distanceMap, x, y);
+		if (loc) {
+			x = loc[0];
+			y = loc[1];
+		}
+	}
+
+	const path = [[x, y]];
+  let dir;
+  do {
+		dir = nextStep(map, distanceMap, x, y, actor, true);
+		if (dir) {
+			x += dir[0];
+			y += dir[1];
+			// path[steps][0] = x;
+			// path[steps][1] = y;
+			path.push([x,y]);
+			steps++;
+      // brogueAssert(coordinatesAreInMap(x, y));
+		}
+	}
+  while (dir);
+
+	return steps ? path : null;
+}
 //
 // GW.path.from = getMonsterPathOnMap;
+
+var path = {
+  __proto__: null,
+  dijkstraScan: dijkstraScan,
+  calculateDistances: calculateDistances,
+  nextStep: nextStep,
+  getPath: getPath
+};
 
 var digger = {};
 var diggers = {};
@@ -4995,30 +5095,30 @@ function checkDiggerConfig(config, opts) {
 digger.checkConfig = checkDiggerConfig;
 
 
-function digCavern(config, grid) {
+function digCavern(config, grid$1) {
   config = digger.checkConfig(config, { width: 12, height: 8 });
-  if (!grid) return config;
+  if (!grid$1) return config;
 
   let destX, destY;
   let blobGrid;
 
-  blobGrid = GRID$1.alloc(grid.width, grid.height, 0);
+  blobGrid = alloc(grid$1.width, grid$1.height, 0);
 
   const minWidth  = Math.floor(0.5 * config.width); // 6
   const maxWidth  = config.width;
   const minHeight = Math.floor(0.5 * config.height);  // 4
   const maxHeight = config.height;
 
-  grid.fill(0);
-  const bounds = GRID$1.fillBlob(blobGrid, 5, minWidth, minHeight, maxWidth, maxHeight, 55, "ffffffttt", "ffffttttt");
+  grid$1.fill(0);
+  const bounds = fillBlob(blobGrid, 5, minWidth, minHeight, maxWidth, maxHeight, 55, "ffffffttt", "ffffttttt");
 
   // Position the new cave in the middle of the grid...
-  destX = Math.floor((grid.width - bounds.width) / 2);
-  destY = Math.floor((grid.height - bounds.height) / 2);
+  destX = Math.floor((grid$1.width - bounds.width) / 2);
+  destY = Math.floor((grid$1.height - bounds.height) / 2);
 
   // ...and copy it to the master grid.
-  GRID$1.offsetZip(grid, blobGrid, destX - bounds.x, destY - bounds.y, TILE);
-  GRID$1.free(blobGrid);
+  offsetZip(grid$1, blobGrid, destX - bounds.x, destY - bounds.y, TILE);
+  free(blobGrid);
   return config.id;
 }
 
@@ -5239,28 +5339,28 @@ function chooseRandomDoorSites(sourceGrid) {
   let dir;
   let doorSiteFailed;
 
-  const grid = GRID$1.alloc(sourceGrid.width, sourceGrid.height);
-  grid.copy(sourceGrid);
+  const grid$1 = alloc(sourceGrid.width, sourceGrid.height);
+  grid$1.copy(sourceGrid);
 
-  for (i=0; i<grid.width; i++) {
-      for (j=0; j<grid.height; j++) {
-          if (!grid[i][j]) {
-              dir = GRID$1.directionOfDoorSite(grid, i, j);
+  for (i=0; i<grid$1.width; i++) {
+      for (j=0; j<grid$1.height; j++) {
+          if (!grid$1[i][j]) {
+              dir = directionOfDoorSite(grid$1, i, j);
               if (dir != def.NO_DIRECTION) {
                   // Trace a ray 10 spaces outward from the door site to make sure it doesn't intersect the room.
                   // If it does, it's not a valid door site.
                   newX = i + DIRS$2[dir][0];
                   newY = j + DIRS$2[dir][1];
                   doorSiteFailed = false;
-                  for (k=0; k<10 && grid.hasXY(newX, newY) && !doorSiteFailed; k++) {
-                      if (grid[newX][newY]) {
+                  for (k=0; k<10 && grid$1.hasXY(newX, newY) && !doorSiteFailed; k++) {
+                      if (grid$1[newX][newY]) {
                           doorSiteFailed = true;
                       }
                       newX += DIRS$2[dir][0];
                       newY += DIRS$2[dir][1];
                   }
                   if (!doorSiteFailed) {
-                      grid[i][j] = dir + 10000; // So as not to conflict with other tiles.
+                      grid$1[i][j] = dir + 10000; // So as not to conflict with other tiles.
                   }
               }
           }
@@ -5270,11 +5370,11 @@ function chooseRandomDoorSites(sourceGrid) {
   let doorSites = [];
   // Pick four doors, one in each direction, and store them in doorSites[dir].
   for (dir=0; dir<4; dir++) {
-      const loc = grid.randomMatchingXY(dir + 10000) || [-1, -1];
+      const loc = grid$1.randomMatchingXY(dir + 10000) || [-1, -1];
       doorSites[dir] = loc.slice();
   }
 
-  GRID$1.free(grid);
+  free(grid$1);
   return doorSites;
 }
 
@@ -5394,7 +5494,7 @@ types.TileEvent = TileEvent$1;
 
 
 // Dungeon features, spawned from Architect.c:
-function make$3(opts) {
+function make$4(opts) {
   if (!opts) return null;
   if (typeof opts === 'string') {
     opts = { tile: opts };
@@ -5403,7 +5503,7 @@ function make$3(opts) {
 	return te;
 }
 
-make.tileEvent = make$3;
+make.tileEvent = make$4;
 
 
 function addKind$1(id, event) {
@@ -5502,7 +5602,7 @@ async function spawn(feat, ctx) {
 
 	// tileEvent.debug('- blocking', blocking);
 
-	const spawnMap = GRID$1.alloc(map.width, map.height);
+	const spawnMap = alloc(map.width, map.height);
 
 	let didSomething = false;
 	computeSpawnMap(feat, spawnMap, ctx);
@@ -5572,7 +5672,7 @@ async function spawn(feat, ctx) {
 	}
 
 	if (data.gameHasEnded) {
-		GRID$1.free(spawnMap);
+		free(spawnMap);
 		return didSomething;
 	}
 
@@ -5635,7 +5735,7 @@ async function spawn(feat, ctx) {
 
   // tileEvent.debug('- spawn complete : @%d,%d, ok=%s, feat=%s', ctx.x, ctx.y, didSomething, feat.id);
 
-	GRID$1.free(spawnMap);
+	free(spawnMap);
 	return didSomething;
 }
 
@@ -5822,7 +5922,7 @@ async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
 				{
 					spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
 
-					cell.setTile(tile, volume);
+					map.setTile(i, j, tile, volume);
           // map.redrawCell(cell);
 					// if (volume && cell.gas) {
 					//     cell.volume += (feat.volume || 0);
@@ -5943,10 +6043,10 @@ function evacuateItems(map, blockingMap) {
   return didSomething;
 }
 
-var tileEvent$1 = /*#__PURE__*/Object.freeze({
+var tileEvent$1 = {
   __proto__: null,
   TileEvent: TileEvent$1,
-  make: make$3,
+  make: make$4,
   addKind: addKind$1,
   resetAllMessages: resetAllMessages,
   spawn: spawn,
@@ -5955,7 +6055,7 @@ var tileEvent$1 = /*#__PURE__*/Object.freeze({
   nullifyCells: nullifyCells,
   evacuateCreatures: evacuateCreatures,
   evacuateItems: evacuateItems
-});
+};
 
 var cell = {};
 
@@ -6292,7 +6392,8 @@ class Cell$1 {
     return layer == TileLayer$1.SURFACE && this.hasTileFlag(Tile.T_OBSTRUCTS_SURFACE_EFFECTS);
   }
 
-  setTile(tileId=0, volume=0) {
+  _setTile(tileId=0, volume=0, map) {
+    map = map || data.map;
     let tile;
     if (tileId === 0) {
       tile = tiles['0'];
@@ -6329,12 +6430,20 @@ class Cell$1 {
       this.setFlags(0, CellMech.CAUGHT_FIRE_THIS_TURN);
     }
 
+    const blocksVision = (tile.flags & Tile.T_OBSTRUCTS_VISION);
+    const oldBlocksVision = (oldTile.flags & Tile.T_OBSTRUCTS_VISION);
+    if (this.isAnyKindOfVisible() && (blocksVision != oldBlocksVision)) {
+      map.flags |= Map.MAP_FOV_CHANGED;
+    }
+
     this.layers[tile.layer] = tile.id;
     if (tile.layer == TileLayer$1.LIQUID) {
       this.liquidVolume = volume + (tileId == oldTileId ? this.liquidVolume : 0);
+      map.flags &= ~Map.MAP_NO_LIQUID;
     }
     else if (tile.layer == TileLayer$1.GAS) {
       this.gasVolume = volume + (tileId == oldTileId ? this.vasVolume : 0);
+      map.flags &= ~Map.MAP_NO_GAS;
     }
 
     if (tile.layer > 0 && this.layers[0] == 0) {
@@ -6343,7 +6452,10 @@ class Cell$1 {
 
     // this.flags |= (Flags.NEEDS_REDRAW | Flags.CELL_CHANGED);
     this.flags |= (Cell.CELL_CHANGED);
-    return (oldTile.light !== tile.light);
+    if (oldTile.light !== tile.light) {
+      map.flags &= ~(Map.MAP_STABLE_GLOW_LIGHTS | Map.MAP_STABLE_LIGHTS);
+    }
+    return true;
   }
 
   clearLayer(layer) {
@@ -6540,7 +6652,7 @@ function getAppearance(cell, dest) {
 
   memory.fg.applyMultiplier(cell.light);
   memory.bg.applyMultiplier(cell.light);
-  memory.bake();
+  memory.bake(!cell.isAnyKindOfVisible());  // turns off dancing if not visible
   if (needDistinctness) {
     separate(memory.fg, memory.bg);
   }
@@ -6706,11 +6818,7 @@ class Map$1 {
 	tileFlavor(x, y)   { return this.cells[x][y].tileFlavor(); }
 
 	setTile(x, y, tileId, volume=0) {
-		const cell = this.cell(x, y);
-		if (cell.setTile(tileId, volume)) {
-			this.flags &= ~(Map.MAP_STABLE_GLOW_LIGHTS | Map.MAP_STABLE_LIGHTS);
-		}
-	  return true;
+		return this.cell(x, y)._setTile(tileId, volume, this);
 	}
 
 	nullifyTileWithFlags(x, y, tileFlags, tileMechFlags=0) {
@@ -6984,6 +7092,12 @@ class Map$1 {
       this.flags &= ~(Map.MAP_STABLE_LIGHTS);
     }
 
+    // If the player moves or an actor that blocks vision and the cell is visible...
+    // -- we need to update the FOV
+    if (theActor.isPlayer() || (cell.isAnyKindOfVisible() && (theActor.kind.flags & ActorKind.AK_BLOCKS_VISION))) {
+      this.flags |= Map.MAP_FOV_CHANGED;
+    }
+
 		theActor.x = x;
 		theActor.y = y;
     this.redrawCell(cell);
@@ -7033,6 +7147,11 @@ class Map$1 {
       if (actor.light || actor.kind.light) {
         this.flags &= ~(Map.MAP_STABLE_LIGHTS);
       }
+      // If the player moves or an actor that blocks vision and the cell is visible...
+      // -- we need to update the FOV
+      if (actor.isPlayer() || (cell.isAnyKindOfVisible() && (actor.kind.flags & ActorKind.AK_BLOCKS_VISION))) {
+        this.flags |= Map.MAP_FOV_CHANGED;
+      }
 
       this.redrawCell(cell);
       return true;
@@ -7047,7 +7166,7 @@ class Map$1 {
 	// 	return this.dormantActors.find( (m) => m.x == x && m.y == y );
 	// }
 	//
-	// addDormant(x, y, theActor) {
+	// addDormant(x, y, actor) {
 	// 	theActor.x = x;
 	// 	theActor.y = y;
 	// 	this.dormant.add(theActor);
@@ -7157,7 +7276,7 @@ class Map$1 {
   gridDisruptsPassability(blockingGrid, opts={})
   {
 
-  	const walkableGrid = GRID$1.alloc(this.width, this.height);
+  	const walkableGrid = alloc(this.width, this.height);
   	let disrupts = false;
 
   	const gridOffsetX = opts.gridOffsetX || 0;
@@ -7190,7 +7309,7 @@ class Map$1 {
   		for(let j = 0; j < walkableGrid.height && !disrupts; ++j) {
   			if (walkableGrid[i][j] == 1) {
   				if (first) {
-  					GRID$1.floodFill(walkableGrid, i, j, 1, 2);
+  					floodFill(walkableGrid, i, j, 1, 2);
   					first = false;
   				}
   				else {
@@ -7200,7 +7319,7 @@ class Map$1 {
   		}
   	}
 
-  	GRID$1.free(walkableGrid);
+  	free(walkableGrid);
   	return disrupts;
   }
 
@@ -7313,8 +7432,6 @@ function getCellAppearance(map, x, y, dest) {
   else if (!cell$1.isAnyKindOfVisible()) {
     dest.bg.mix(colors.black, 30);
     dest.fg.mix(colors.black, 30);
-    // Color.bake(dest.bg);
-    // Color.bake(dest.fg);
   }
 
   let needDistinctness = false;
@@ -7355,7 +7472,9 @@ map$1.addText = addText;
 
 function updateGas(map) {
 
-  const newVolume = GRID$1.alloc(map.width, map.height);
+  if (map.flags & Map.MAP_NO_GAS) return;
+
+  const newVolume = alloc(map.width, map.height);
 
 	map.forEach( (c, x, y) => {
 		if (c.hasTileFlag(Tile.T_OBSTRUCTS_GAS)) return;
@@ -7375,9 +7494,10 @@ function updateGas(map) {
     });
 
     if (!sum) return;
+
     const newVol = Math.floor(sum / count);
     if (c.gas != gas) {
-      c.setTile(gas, newVol); // volume = 1 to start, will change later
+      c._setTile(gas, newVol, this); // volume = 1 to start, will change later
     }
     newVolume[x][y] += newVol;
 
@@ -7391,10 +7511,11 @@ function updateGas(map) {
     // }
 	});
 
-
+  let hasGas = false;
   newVolume.forEach( (v, i, j) => {
     const cell =  map.cell(i, j);
     if (v) {
+      hasGas = true;
       if (cell.gas && cell.gasVolume !== v) {
         cell.gasVolume = v;
         map.redrawCell(cell);
@@ -7406,9 +7527,15 @@ function updateGas(map) {
     }
   });
 
+  if (hasGas) {
+    map.flags &= ~Map.MAP_NO_GAS;
+  }
+  else {
+    map.flags |= Map.MAP_NO_GAS;
+  }
   map.changed(true);
 
-  GRID$1.free(newVolume);
+  free(newVolume);
 }
 
 map$1.updateGas = updateGas;
@@ -7417,7 +7544,9 @@ map$1.updateGas = updateGas;
 
 function updateLiquid(map) {
 
-  const newVolume = GRID$1.alloc(map.width, map.height);
+  if (map.flags & Map.MAP_NO_LIQUID) return;
+
+  const newVolume = alloc(map.width, map.height);
 
 	map.forEach( (c, x, y) => {
 		if (c.hasTileFlag(Tile.T_OBSTRUCTS_LIQUID)) return;
@@ -7441,7 +7570,7 @@ function updateLiquid(map) {
       if (spread > 5) {
         newVol -= spread;
         if (c.liquid != liquid) {
-          c.setTile(liquid, newVol); // volume = 1 to start, will change later
+          c._setTile(liquid, newVol, this); // volume = 1 to start, will change later
         }
 
         // spread = Math.floor(spread / count);
@@ -7462,10 +7591,11 @@ function updateLiquid(map) {
     }
 	});
 
-
+  let hasLiquid = false;
   newVolume.forEach( (v, i, j) => {
     const cell =  map.cell(i, j);
     if (v) {
+      hasLiquid = true;
       if (cell.liquid && cell.liquidVolume !== v) {
         cell.liquidVolume = v;
         map.redrawCell(cell);
@@ -7477,9 +7607,16 @@ function updateLiquid(map) {
     }
   });
 
+  if (hasLiquid) {
+    map.flags &= ~Map.MAP_NO_LIQUID;
+  }
+  else {
+    map.flags |= Map.MAP_NO_LIQUID;
+  }
+
   map.changed(true);
 
-  GRID$1.free(newVolume);
+  free(newVolume);
 }
 
 map$1.updateLiquid = updateLiquid;
@@ -7561,7 +7698,7 @@ map$1.getLine = getLine;
 
 def.INTENSITY_DARK = 20; // less than 20% for highest color in rgb
 
-const LIGHT_COMPONENTS = make$1();
+const LIGHT_COMPONENTS = make$2();
 
 class Light {
 	constructor(color$1, range, fadeTo, pass) {
@@ -7601,12 +7738,12 @@ class Light {
   	const dispelShadows = !maintainShadows && (intensity(LIGHT_COMPONENTS) > def.INTENSITY_DARK);
   	const fadeToPercent = this.fadeTo;
 
-    const grid = alloc(map.width, map.height, 0);
-  	map.calcFov(grid, x, y, outerRadius, (this.passThroughActors ? 0 : Cell.HAS_ACTOR), Tile.T_OBSTRUCTS_VISION, !isMinersLight);
+    const grid$1 = alloc(map.width, map.height, 0);
+  	map.calcFov(grid$1, x, y, outerRadius, (this.passThroughActors ? 0 : Cell.HAS_ACTOR), Tile.T_OBSTRUCTS_VISION, !isMinersLight);
 
     let overlappedFieldOfView = false;
 
-    grid.forCircle(x, y, outerRadius, (v, i, j) => {
+    grid$1.forCircle(x, y, outerRadius, (v, i, j) => {
       if (!v) return;
       const cell = map.cell(i, j);
 
@@ -7629,7 +7766,7 @@ class Light {
   		cell.flags &= ~Cell.IS_IN_SHADOW;
   	}
 
-  	free(grid);
+  	free(grid$1);
     return overlappedFieldOfView;
   }
 
@@ -7638,7 +7775,7 @@ class Light {
 types.Light = Light;
 
 
-function make$4(color, radius, fadeTo, pass) {
+function make$5(color, radius, fadeTo, pass) {
 
 	if (arguments.length == 1) {
 		if (color && color.color) {
@@ -7662,7 +7799,7 @@ function make$4(color, radius, fadeTo, pass) {
 	return new types.Light(color, radius, fadeTo, pass);
 }
 
-make.light = make$4;
+make.light = make$5;
 
 const LIGHT_SOURCES = lights;
 
@@ -7697,7 +7834,7 @@ function from$1(...args) {
 		const cached = LIGHT_SOURCES[args[0]];
 		if (cached) return cached;
 	}
-	return make$4(...args);
+	return make$5(...args);
 }
 
 
@@ -7874,9 +8011,9 @@ function playerInDarkness(map, PLAYER, darkColor) {
 			&& cell.light[2] + 10 < darkColor.blue);
 }
 
-var light = /*#__PURE__*/Object.freeze({
+var light = {
   __proto__: null,
-  make: make$4,
+  make: make$5,
   addKind: addKind$2,
   addKinds: addKinds,
   from: from$1,
@@ -7888,10 +8025,7 @@ var light = /*#__PURE__*/Object.freeze({
   restoreGlowLights: restoreGlowLights,
   updateLighting: updateLighting,
   playerInDarkness: playerInDarkness
-});
-
-var visibility = {};
-
+};
 
 function demoteCellVisibility(cell, i, j, map) {
   cell.flags &= ~Cell.WAS_VISIBLE;
@@ -7900,9 +8034,6 @@ function demoteCellVisibility(cell, i, j, map) {
     cell.flags |= Cell.WAS_VISIBLE;
   }
 }
-
-
-
 
 function promoteCellVisibility(cell, i, j, map) {
 
@@ -7966,30 +8097,34 @@ function promoteCellVisibility(cell, i, j, map) {
 }
 
 
-function visibilityInitMap(map) {
-  if (!config.fov) return;
+function initMap(map) {
+  if (!config.fov) {
+    map.forEach( (cell) => cell.flags |= Cell.REVEALED );
+    return;
+  }
 
   map.clearFlags(0, Cell.IS_WAS_ANY_KIND_OF_VISIBLE);
 }
 
-visibility.initMap = visibilityInitMap;
 
-
-function updateVisibility(map, x, y) {
+function update$1(map, x, y, maxRadius) {
   if (!config.fov) return;
+
+  if (!(map.flags & Map.MAP_FOV_CHANGED)) return;
+  map.flags &= ~Map.MAP_FOV_CHANGED;
 
   map.forEach( demoteCellVisibility );
   map.clearFlags(0, Cell.IN_FOV);
 
   // Calculate player's field of view (distinct from what is visible, as lighting hasn't been done yet).
-  const grid = GRID$1.alloc(map.width, map.height, 0);
-  map.calcFov(grid, x, y);
-  grid.forEach( (v, i, j) => {
+  const grid$1 = alloc(map.width, map.height, 0);
+  map.calcFov(grid$1, x, y, maxRadius);
+  grid$1.forEach( (v, i, j) => {
     if (v) {
       map.setCellFlags(i, j, Cell.IN_FOV);
     }
   });
-  GRID$1.free(grid);
+  free(grid$1);
 
 	map.setCellFlags(x, y, Cell.IN_FOV | Cell.VISIBLE);
 
@@ -8022,13 +8157,11 @@ function updateVisibility(map, x, y) {
 
 }
 
-visibility.update = updateVisibility;
-
-function revealMap(map) {
-  map.forEach( (cell) => cell.flags |= Cell.REVEALED );
-}
-
-visibility.revealMap = revealMap;
+var visibility = {
+  __proto__: null,
+  initMap: initMap,
+  update: update$1
+};
 
 var actions = {};
 
@@ -8317,7 +8450,7 @@ class Actor$1 {
   turnEnded() { return this.flags & Actor.AF_TURN_ENDED; }
 
   isPlayer() { return this === data.player; }
-  isDead() { return this.current.health <= 0; }
+  isDead() { return (this.current.health <= 0) || (this.flags & Actor.AF_DYING); }
   isInanimate() { return this.kind.flags & ActorKind.AK_INANIMATE; }
   isInvulnerable() { return this.kind.flags & ActorKind.AK_INVULNERABLE; }
 
@@ -8333,6 +8466,15 @@ class Actor$1 {
     return this.kind.actionFlags & flag;
   }
 
+  changed(v) {
+    if (v) {
+      this.flags |= Actor.AF_CHANGED;
+    }
+    else if (v !== undefined) {
+      this.flags &= ~Actor.AF_CHANGED;
+    }
+    return (this.flags & Actor.AF_CHANGED);
+  }
 
   async bumpBy(actor, ctx) {
 
@@ -8367,6 +8509,22 @@ class Actor$1 {
     actor.endTurn(this, turnTime);
 	}
 
+  kill() {
+    this.flags |= Actor.AF_DYING;
+    this.changed(true);
+    this.kind.kill(this);
+    if (this.mapToMe) {
+      free(this.mapToMe);
+      this.mapToMe = null;
+    }
+    if (this.travelGrid) {
+      free(this.travelGrid);
+      this.travelGrid = null;
+    }
+  }
+
+  // MOVEMENT/VISION
+
   canDirectlySee(other, map) {
     map = map || data.map;
 
@@ -8383,10 +8541,11 @@ class Actor$1 {
       let dist = distanceFromTo(this, other);
       if (dist < 2) return true;  // next to each other
 
-      const grid = GRID.alloc(map.width, map.height);
-      map.calcFov(grid, this.x, this.y, dist + 1);
-      const result = grid[other.x][other.y];
-      GRID.free(grid);
+      // TODO - Make a raycast that can tell if there is clear vision from here to there
+      const grid$1 = alloc(map.width, map.height);
+      map.calcFov(grid$1, this.x, this.y, dist + 1);
+      const result = grid$1[other.x][other.y];
+      free(grid$1);
       return result;
     }
   }
@@ -8407,6 +8566,7 @@ class Actor$1 {
     const avoidedTileFlags = this.kind.avoidedTileFlags(this);
 
     map.fillCostGrid(grid, (cell, x, y) => {
+      if (this.isPlayer() && !cell.isRevealed()) return def.PDS_OBSTRUCTION;
       if (cell.hasTileFlag(forbiddenTileFlags)) return def.PDS_FORBIDDEN;
       if (cell.hasTileFlag(avoidedTileFlags)) return def.PDS_AVOIDED;
       if (cell.flags & avoidedCellFlags) return def.PDS_AVOIDED;
@@ -8414,15 +8574,22 @@ class Actor$1 {
     });
   }
 
-  changed(v) {
-    if (v) {
-      this.flags |= Actor.AF_CHANGED;
+  updateMapToMe() {
+    const map = data.map;
+    let mapToMe = this.mapToMe;
+    if (!mapToMe) {
+      mapToMe = this.mapToMe = alloc(map.width, map.height);
+      mapToMe.x = mapToMe.y = -1;
     }
-    else if (v !== undefined) {
-      this.flags &= ~Actor.AF_CHANGED;
+    if (mapToMe.x != this.x || mapToMe.y != this.y) {
+      const costGrid = alloc(map.width, map.height);
+      this.fillCostGrid(map, costGrid);
+      calculateDistances(mapToMe, this.x, this.y, costGrid, true);
+      free(costGrid);
     }
-    return (this.flags & Actor.AF_CHANGED);
+    return mapToMe;
   }
+
 
   // combat helpers
   calcDamageTo(defender, attackInfo, ctx) {
@@ -8611,7 +8778,7 @@ function endActorTurn(theActor, turnTime=1) {
   }
 
   if (theActor.isPlayer()) {
-    visibility.update(data.map, theActor.x, theActor.y);
+    update$1(data.map, theActor.x, theActor.y, theActor.current.fov);
     ui.requestUpdate(48);
   }
   else if (theActor.kind.isOrWasVisibleToPlayer(theActor, data.map) && theActor.turnTime) {
@@ -8736,7 +8903,7 @@ function generateAndPlace(map, opts={}) {
 
   const kinds = chooseKinds(opts);
 
-  const blocked = GRID$1.alloc(map.width, map.height);
+  const blocked = alloc(map.width, map.height);
   // TODO - allow [x,y] in addition to 'name'
   if (opts.avoid && map.locations[opts.avoid]) {
     const loc = map.locations[opts.avoid];
@@ -8772,7 +8939,7 @@ function generateAndPlace(map, opts={}) {
     }
   }
 
-  GRID$1.free(blocked);
+  free(blocked);
   return placed;
 }
 
@@ -8812,11 +8979,16 @@ async function takeTurn$1() {
   await startActorTurn(PLAYER);
 
   while(!PLAYER.turnTime) {
-    const ev = await io.nextEvent(1000);
-    if (!await ui.dispatchEvent(ev)) {
-      await io.dispatchEvent(ev);
+    const ev = await io.nextEvent(PLAYER.travelDest ? 0 : 1000);
+    if (!ev) {
+      await GW.actions.travel(PLAYER);
     }
-    await ui.updateIfRequested();
+    else {
+      if (!await ui.dispatchEvent(ev)) {
+        await io.dispatchEvent(ev);
+      }
+      await ui.updateIfRequested();
+    }
     if (data.gameHasEnded) {
       return 0;
     }
@@ -8896,12 +9068,13 @@ class Scheduler {
   }
 
 	remove(item) {
+    if (!item) return;
 		if (this.next === item) {
 			this.next = item.next;
 			return;
 		}
-		prev = this.next;
-		current = prev.next;
+		let prev = this.next;
+		let current = prev.next;
 		while( current && current !== item ) {
 			prev = current;
 			current = current.next;
@@ -9002,15 +9175,25 @@ async function getMap(id=0) {
 
 async function startMap(map, loc='start') {
 
-  scheduler.clear();
+  // scheduler.clear();
 
   if (data.map && data.player) {
     await emit('STOP_MAP', data.map);
 
+    if (data.map._tick) scheduler.remove(data.map._tick);
+    data.map._tick = null;
+
+    eachChain(data.map.actors, (actor) => {
+      if (actor._tick) {
+        scheduler.remove(actor._tick);
+        actor._tick = null;
+      }
+    });
+
     data.map.removeActor(data.player);
   }
 
-  visibility.initMap(map);
+  initMap(map);
   data.map = map;
 
   if (data.player) {
@@ -9043,11 +9226,7 @@ async function startMap(map, loc='start') {
 
     data.map.addActor(startLoc[0], startLoc[1], data.player);
 
-    visibility.update(map, data.player.x, data.player.y);
-  }
-
-  if (!config.fov) {
-    visibility.revealMap(map);
+    update$1(map, data.player.x, data.player.y, data.player.current.fov);
   }
 
   updateLighting(map);
@@ -9069,10 +9248,10 @@ async function startMap(map, loc='start') {
   }
 
   if (map.config.tick) {
-    scheduler.push( updateEnvironment, map.config.tick );
+    map._tick = scheduler.push( updateEnvironment, map.config.tick );
   }
 
-  await emit('START_MAP', map);
+  await emit('MAP_START', map);
 
 }
 
@@ -9123,12 +9302,12 @@ async function loop$1() {
 
 
 function queuePlayer() {
-  scheduler.push(player.takeTurn, data.player.kind.speed);
+  data.player._tick = scheduler.push(player.takeTurn, data.player.kind.speed);
 }
 
 
 function queueActor(actor$1) {
-  scheduler.push(actor.takeTurn.bind(null, actor$1), actor$1.kind.speed);
+  actor$1._tick = scheduler.push(actor.takeTurn.bind(null, actor$1), actor$1.kind.speed);
 }
 
 function delay(delay, fn) {
@@ -9146,7 +9325,7 @@ async function updateEnvironment() {
   if (!map) return 0;
 
   await map.tick();
-  visibility.update(map, data.player.x, data.player.y);
+  update$1(map, data.player.x, data.player.y, data.player.current.fov);
 
   ui.requestUpdate();
 
@@ -9213,7 +9392,7 @@ async function useStairs(x, y) {
   return true;
 }
 
-var game = /*#__PURE__*/Object.freeze({
+var game = {
   __proto__: null,
   start: start,
   get buildMap () { return buildMap; },
@@ -9226,7 +9405,7 @@ var game = /*#__PURE__*/Object.freeze({
   updateEnvironment: updateEnvironment,
   gameOver: gameOver,
   useStairs: useStairs
-});
+};
 
 var tile = {};
 
@@ -9259,7 +9438,7 @@ class Tile$1 {
       dissipate: 2000, // 20% of 10000
     });
     assignOmitting(['events'], this, base);
-    assignOmitting(['Extends', 'flags', 'mechFlags', 'sprite', 'events'], this, config);
+    assignOmitting(['Extends', 'extends', 'flags', 'mechFlags', 'sprite', 'events', 'ch', 'fg', 'bg'], this, config);
     if (this.priority < 0) {
       this.priority = 50;
     }
@@ -9357,7 +9536,7 @@ class Tile$1 {
 
     if (this.flags & Tile.T_LAVA && actor) {
       if (!cell.hasTileFlag(Tile.T_BRIDGE) && !actor.status.levitating) {
-        actor.kind.kill(actor);
+        actor.kill();
         await gameOver(false, '#red#you fall into lava and perish.');
         return true;
       }
@@ -9386,12 +9565,12 @@ types.Tile = Tile$1;
 function addTileKind(id, base, config) {
   if (arguments.length == 1) {
     config = args[0];
-    base = config.Extends || {};
+    base = config.Extends || config.extends || {};
     id = config.id || config.name;
   }
   else if (arguments.length == 2) {
     config = base;
-    base = config.Extends || {};
+    base = config.Extends || config.extends || {};
   }
 
   if (typeof base === 'string') {
@@ -9490,39 +9669,39 @@ function digRoom(opts={}) {
     locs = null;
   }
 
-  const grid = GRID$1.alloc(SITE.width, SITE.height);
+  const grid$1 = alloc(SITE.width, SITE.height);
 
   let result = false;
   let tries = opts.tries || 10;
   while(--tries >= 0 && !result) {
-    grid.fill(NOTHING);
+    grid$1.fill(NOTHING);
 
-    const id = digger$1.fn(config, grid);
+    const id = digger$1.fn(config, grid$1);
     dungeon.debug('Dig room:', id);
-    const doors = digger.chooseRandomDoorSites(grid);
+    const doors = digger.chooseRandomDoorSites(grid$1);
     if (random.chance(hallChance)) {
-      digger.attachHallway(grid, doors, SITE.config);
+      digger.attachHallway(grid$1, doors, SITE.config);
     }
 
     if (locs) {
       // try the doors first
-      result = attachRoomAtDoors(grid, doors, locs, opts);
+      result = attachRoomAtDoors(grid$1, doors, locs, opts);
       if (!result) {
         // otherwise try everywhere
         for(let i = 0; i < locs.length && !result; ++i) {
           if (locs[i][0] > 0) {
-            result = attachRoomAtXY(grid, locs[i], doors, opts);
+            result = attachRoomAtXY(grid$1, locs[i], doors, opts);
           }
         }
       }
     }
     else {
-      result = attachRoomToDungeon(grid, doors, opts);
+      result = attachRoomToDungeon(grid$1, doors, opts);
     }
 
   }
 
-  GRID$1.free(grid);
+  free(grid$1);
   return result;
 }
 
@@ -9566,7 +9745,7 @@ function attachRoomToDungeon(roomGrid, doorSites, opts={}) {
       const y = LOCS[i] % SITE.height;
 
       if (!SITE.cell(x, y).isNull()) continue;
-      const dir = GRID$1.directionOfDoorSite(SITE.cells, x, y, (c) => (c.hasTile(FLOOR) && !c.isLiquid()) );
+      const dir = directionOfDoorSite(SITE.cells, x, y, (c) => (c.hasTile(FLOOR) && !c.isLiquid()) );
       if (dir != def.NO_DIRECTION) {
         const oppDir = (dir + 2) % 4;
 
@@ -9579,7 +9758,7 @@ function attachRoomToDungeon(roomGrid, doorSites, opts={}) {
           dungeon.debug("- attachRoom: ", x, y, oppDir);
 
           // Room fits here.
-          GRID$1.offsetZip(SITE.cells, roomGrid, offsetX, offsetY, (d, s, i, j) => d.setTile(opts.tile || FLOOR) );
+          offsetZip(SITE.cells, roomGrid, offsetX, offsetY, (d, s, i, j) => SITE.setTile(i, j, opts.tile || FLOOR) );
           if (opts.door || (opts.placeDoor !== false)) {
             SITE.setTile(x, y, opts.door || DOOR); // Door site.
           }
@@ -9609,11 +9788,11 @@ function attachRoomAtXY(roomGrid, xy, doors, opts={}) {
 
       if (roomGrid[x][y]) continue;
 
-      const dir = GRID$1.directionOfDoorSite(roomGrid, x, y);
+      const dir = directionOfDoorSite(roomGrid, x, y);
       if (dir != def.NO_DIRECTION) {
         const d = DIRS$3[dir];
         if (roomAttachesAt(roomGrid, xy[0] - x, xy[1] - y)) {
-          GRID$1.offsetZip(SITE.cells, roomGrid, xy[0] - x, xy[1] - y, (d, s, i, j) => d.setTile(opts.tile || FLOOR) );
+          offsetZip(SITE.cells, roomGrid, xy[0] - x, xy[1] - y, (d, s, i, j) => SITE.setTile(i, j, opts.tile || FLOOR) );
           if (opts.door || (opts.placeDoor !== false)) {
             SITE.setTile(xy[0], xy[1], opts.door || DOOR); // Door site.
           }
@@ -9650,7 +9829,7 @@ function insertRoomAtXY(x, y, roomGrid, doorSites, opts={}) {
       // Room fits here.
       const offX = x - doorSites[oppDir][0];
       const offY = y - doorSites[oppDir][1];
-      GRID$1.offsetZip(SITE.cells, roomGrid, offX, offY, (d, s, i, j) => d.setTile(opts.tile || FLOOR) );
+      offsetZip(SITE.cells, roomGrid, offX, offY, (d, s, i, j) => SITE.setTile(i, j, opts.tile || FLOOR) );
       if (opts.door || (opts.placeDoor !== false)) {
         SITE.setTile(x, y, opts.door || DOOR); // Door site.
       }
@@ -9698,12 +9877,12 @@ function digLake(opts={}) {
   maxCount = 1; // opts.count || tries;
   canDisrupt = opts.canDisrupt || false;
 
-  const lakeGrid = GRID$1.alloc(SITE.width, SITE.height, 0);
+  const lakeGrid = alloc(SITE.width, SITE.height, 0);
 
   for (; lakeMaxHeight >= lakeMinSize && lakeMaxWidth >= lakeMinSize && count < maxCount; lakeMaxHeight--, lakeMaxWidth -= 2) { // lake generations
 
     lakeGrid.fill(NOTHING);
-    const bounds = GRID$1.fillBlob(lakeGrid, 5, 4, 4, lakeMaxWidth, lakeMaxHeight, 55, "ffffftttt", "ffffttttt");
+    const bounds = fillBlob(lakeGrid, 5, 4, 4, lakeMaxWidth, lakeMaxHeight, 55, "ffffftttt", "ffffttttt");
 
     for (k=0; k < tries && count < maxCount; k++) { // placement attempts
         // propose a position for the top-left of the lakeGrid in the dungeon
@@ -9728,7 +9907,7 @@ function digLake(opts={}) {
       }
     }
   }
-  GRID$1.free(lakeGrid);
+  free(lakeGrid);
   return count;
 
 }
@@ -9751,8 +9930,8 @@ function addLoops(minimumPathingDistance, maxConnectionLength) {
     maxConnectionLength = maxConnectionLength || 1; // by default only break walls down
 
     const siteGrid = SITE.cells;
-    const pathGrid = GRID$1.alloc(SITE.width, SITE.height);
-    const costGrid = GRID$1.alloc(SITE.width, SITE.height);
+    const pathGrid = alloc(SITE.width, SITE.height);
+    const costGrid = alloc(SITE.width, SITE.height);
 
     const dirCoords = [[1, 0], [0, 1]];
 
@@ -9822,7 +10001,7 @@ function addLoops(minimumPathingDistance, maxConnectionLength) {
                 }
 
                 if (j < maxConnectionLength) {
-                  PATH.calculateDistances(pathGrid, startX, startY, costGrid, false);
+                  calculateDistances(pathGrid, startX, startY, costGrid, false);
                   // pathGrid.fill(30000);
                   // pathGrid[startX][startY] = 0;
                   // dijkstraScan(pathGrid, costGrid, false);
@@ -9845,8 +10024,8 @@ function addLoops(minimumPathingDistance, maxConnectionLength) {
             }
         }
     }
-    GRID$1.free(pathGrid);
-    GRID$1.free(costGrid);
+    free(pathGrid);
+    free(costGrid);
 }
 
 dungeon.addLoops = addLoops;
@@ -9868,8 +10047,8 @@ function addBridges(minimumPathingDistance, maxConnectionLength) {
     maxConnectionLength = maxConnectionLength || 1; // by default only break walls down
 
     const siteGrid = SITE.cells;
-    const pathGrid = GRID$1.alloc(SITE.width, SITE.height);
-    const costGrid = GRID$1.alloc(SITE.width, SITE.height);
+    const pathGrid = alloc(SITE.width, SITE.height);
+    const costGrid = alloc(SITE.width, SITE.height);
 
     const dirCoords = [[1, 0], [0, 1]];
 
@@ -9903,7 +10082,7 @@ function addBridges(minimumPathingDistance, maxConnectionLength) {
                 }
 
                 if ((!SITE.isNull(newX, newY)) && SITE.canBePassed(newX, newY) && (j < maxConnectionLength)) {
-                  PATH.calculateDistances(pathGrid, newX, newY, costGrid, false);
+                  calculateDistances(pathGrid, newX, newY, costGrid, false);
                   // pathGrid.fill(30000);
                   // pathGrid[newX][newY] = 0;
                   // dijkstraScan(pathGrid, costGrid, false);
@@ -9929,8 +10108,8 @@ function addBridges(minimumPathingDistance, maxConnectionLength) {
             }
         }
     }
-    GRID$1.free(pathGrid);
-    GRID$1.free(costGrid);
+    free(pathGrid);
+    free(costGrid);
 }
 
 dungeon.addBridges = addBridges;
@@ -10009,7 +10188,7 @@ function finishWalls(map) {
   map = map || SITE;
   map.forEach( (cell, i, j) => {
     if (cell.isNull()) {
-      cell.setTile(WALL);
+      map.setTile(i, j, WALL);
     }
   });
 }
@@ -10569,7 +10748,7 @@ class ExplosionFX extends FX {
     speed = speed || 20;
     super({ speed });
     this.map = map;
-    this.grid = GRID$1.alloc(map.width, map.height);
+    this.grid = alloc(map.width, map.height);
     if (fovGrid) {
       this.grid.copy(fovGrid);
     }
@@ -10660,7 +10839,7 @@ class ExplosionFX extends FX {
   }
 
   stop(result) {
-    this.grid = GRID$1.free(this.grid);
+    this.grid = free(this.grid);
     return super.stop(result);
   }
 }
@@ -10834,7 +11013,7 @@ async function applyDamage(attacker, defender, attackInfo, ctx) {
     }
   }
   if (defender.isDead()) {
-    defender.kind.kill(defender);
+    defender.kill();
     if (map) {
       map.removeActor(defender);
       if (defender.kind.corpse) {
@@ -10854,10 +11033,10 @@ async function applyDamage(attacker, defender, attackInfo, ctx) {
   return ctx.damage;
 }
 
-var combat$1 = /*#__PURE__*/Object.freeze({
+var combat$1 = {
   __proto__: null,
   applyDamage: applyDamage
-});
+};
 
 async function grab(e) {
   const actor = e.actor || data.player;
@@ -11208,6 +11387,26 @@ async function talk(e) {
 }
 
 commands$1.talk = talk;
+
+async function travel(e) {
+  const actor = e.actor || data.player;
+  const newX = e.mapX;
+  const newY = e.mapY;
+  const map = data.map;
+
+  const ctx = { actor, map, x: newX, y: newY };
+  const isPlayer = actor.isPlayer();
+
+  if (!map.hasXY(newX, newY)) return false;
+
+  actor.updateMapToMe();
+  actor.travelDest = [newX,newY];
+
+  let r = await actions.travel(actor, ctx);
+  return r;
+}
+
+commands$1.travel = travel;
 
 commands$1.debug = NOOP;
 
@@ -11914,6 +12113,7 @@ let VIEWPORT = null;
 function setup$1(opts={}) {
   VIEWPORT = viewport.bounds = new types.Bounds(opts.x, opts.y, opts.w, opts.h);
   config.followPlayer = opts.followPlayer || false;
+  config.autoCenter = opts.autoCenter || false;
 }
 
 viewport.setup = setup$1;
@@ -11932,20 +12132,42 @@ function drawViewport(buffer, map) {
   map = map || data.map;
   if (!map) return;
   if (!map.flags & Map.MAP_CHANGED) return;
-
-  let offsetX = 0;
-  let offsetY = 0;
   if (config.followPlayer && data.player && data.player.x >= 0) {
-    offsetX = data.player.x - VIEWPORT.centerX();
-    offsetY = data.player.y - VIEWPORT.centerY();
+    VIEWPORT.offsetX = data.player.x - VIEWPORT.centerX();
+    VIEWPORT.offsetY = data.player.y - VIEWPORT.centerY();
+  }
+  else if (config.autoCenter && data.player && data.player.x >= 0) {
+    const left = VIEWPORT.offsetX;
+    const right = VIEWPORT.offsetX + VIEWPORT.width;
+    const top = VIEWPORT.offsetY;
+    const bottom = VIEWPORT.offsetY + VIEWPORT.height;
+
+    const edgeX = Math.floor(VIEWPORT.width/5);
+    const edgeY = Math.floor(VIEWPORT.height/5);
+
+    const thirdW = Math.floor(VIEWPORT.width / 3);
+    if (left + edgeX >= data.player.x) {
+      VIEWPORT.offsetX = Math.max(0, data.player.x + thirdW - VIEWPORT.width);
+    }
+    else if (right - edgeX <= data.player.x) {
+      VIEWPORT.offsetX = Math.min(data.player.x - thirdW, map.width - VIEWPORT.width);
+    }
+
+    const thirdH = Math.floor(VIEWPORT.height/3);
+    if (top + edgeY >= data.player.y) {
+      VIEWPORT.offsetY = Math.max(0, data.player.y + thirdH - VIEWPORT.height);
+    }
+    else if (bottom - edgeY <= data.player.y) {
+      VIEWPORT.offsetY = Math.min(data.player.y - thirdH, map.height - VIEWPORT.height);
+    }
   }
 
   for(let x = 0; x < VIEWPORT.width; ++x) {
     for(let y = 0; y < VIEWPORT.height; ++y) {
 
       const buf = buffer[x + VIEWPORT.x][y + VIEWPORT.y];
-      const mapX = x + offsetX;
-      const mapY = y + offsetY;
+      const mapX = x + VIEWPORT.offsetX;
+      const mapY = y + VIEWPORT.offsetY;
       if (map.hasXY(mapX, mapY)) {
         map$1.getCellAppearance(map, mapX, mapY, buf);
         map.clearCellFlags(mapX, mapY, Cell.NEEDS_REDRAW | Cell.CELL_CHANGED);
@@ -11966,13 +12188,7 @@ function drawViewport(buffer, map) {
 viewport.draw = drawViewport;
 
 function hasXY(x, y) {
-  let offsetX = 0;
-  let offsetY = 0;
-  if (config.followPlayer && data.player && data.player.x >= 0) {
-    offsetX = data.player.x - VIEWPORT.centerX();
-    offsetY = data.player.y - VIEWPORT.centerY();
-  }
-  return VIEWPORT.containsXY(x - offsetX + VIEWPORT.x, y - offsetY + VIEWPORT.y);
+  return VIEWPORT.containsXY(x - VIEWPORT.offsetX + VIEWPORT.x, y - VIEWPORT.offsetY + VIEWPORT.y);
 }
 
 viewport.hasXY = hasXY;
@@ -12034,7 +12250,7 @@ function refreshSidebar(map) {
 
 	// Gather sidebar entries
 	const entries = [];
-	const doneCells = GRID$1.alloc();
+	const doneCells = alloc();
   let same = true;
 
 	if (DATA.player) {
@@ -12106,20 +12322,29 @@ function refreshSidebar(map) {
 
 	// Get tiles
 	map.forEach( (cell, i, j) => {
-		if (!(cell.isRevealed(true) || cell.isAnyKindOfVisible()) || !viewport.hasXY(i, j)) return;
+		if (!(cell.isRevealed(true) || cell.isAnyKindOfVisible())) return;
 		// if (cell.flags & (Flags.Cell.HAS_PLAYER | Flags.Cell.HAS_MONSTER | Flags.Cell.HAS_ITEM)) return;
 		if (doneCells[i][j]) return;
 		doneCells[i][j] = 1;
 
-		const changed = cell.changed();
 		if (cell.listInSidebar()) {
-			const priority = (cell.isVisible() ? 1 : (cell.isAnyKindOfVisible() ? 2 : 3));
+      const changed = cell.changed();
+			let priority = 4;
+      if (cell.isVisible()) {
+        priority = 1;
+      }
+      else if (cell.isAnyKindOfVisible()) {
+        priority = 2;
+      }
+      else if (viewport.hasXY(i, j)) {
+        priority = 3;
+      }
       const dim = !cell.isAnyKindOfVisible();
 			entries.push({ map, x: i, y: j, dist: 0, priority, draw: sidebar$1.addMapCell, entity: cell, changed, dim });
 		}
 	});
 
-	GRID$1.free(doneCells);
+	free(doneCells);
 
 	// sort entries
 	sortSidebarItems(entries);
@@ -12357,7 +12582,7 @@ sidebar$1.addText = sidebarAddText;
 
 // Draws the smooth gradient that appears on a button when you hover over or depress it.
 // Returns the percentage by which the current tile should be averaged toward a hilite color.
-function smoothHiliteGradient(currentXValue, maxXValue) {
+function smoothHiliteGradient$1(currentXValue, maxXValue) {
     return Math.floor(100 * Math.sin(Math.PI * currentXValue / (maxXValue)));
 }
 
@@ -12396,7 +12621,7 @@ function sidebarAddActor(entry, y, dim, highlight, buf)
 
 	if (highlight) {
 		for (let i=0; i<SIDE_BOUNDS.width; i++) {
-			const highlightStrength = smoothHiliteGradient(i, SIDE_BOUNDS.width-1) / 10;
+			const highlightStrength = smoothHiliteGradient$1(i, SIDE_BOUNDS.width-1) / 10;
 			for (let j=initialY; j < (y == SIDE_BOUNDS.height - 1 ? y : Math.min(y - 1, SIDE_BOUNDS.height - 1)); j++) {
 				buf.highlight(x + i, j, colors.white, highlightStrength);
 			}
@@ -12477,7 +12702,7 @@ sidebar$1.addMutationInfo = addMutationInfo;
 
 // Progress Bars
 
-function addProgressBar(y, buf, barText, current, max, color, dim) {
+function addProgressBar(y, buf, barText, current, max, color$1, dim) {
 	if (y >= SIDE_BOUNDS.height - 1) {
 		return SIDE_BOUNDS.height - 1;
 	}
@@ -12490,18 +12715,18 @@ function addProgressBar(y, buf, barText, current, max, color, dim) {
 		max = 1;
 	}
 
-	color = color.clone();
+	color$1 = make$2(color$1);
 	if (!(y % 2)) {
-		color.mix(colors.black, 25);
+		color$1.mix(colors.black, 25);
 	}
 
   let textColor = colors.white;
   if (dim) {
-		color.mix(colors.black, 50);
+		color$1.mix(colors.black, 50);
     textColor = colors.gray;
 	}
 
-  ui.plotProgressBar(buf, SIDE_BOUNDS.x, y, SIDE_BOUNDS.width, barText, textColor, current/max, color);
+  ui.plotProgressBar(buf, SIDE_BOUNDS.x, y, SIDE_BOUNDS.width, barText, textColor, current/max, color$1);
   return y + 1;
 }
 
@@ -12657,7 +12882,7 @@ function sidebarAddMapCell(entry, y, dim, highlight, buf) {
 
 	if (highlight) {
 		for (i=0; i<SIDE_BOUNDS.width; i++) {
-			const highlightStrength = smoothHiliteGradient(i, SIDE_BOUNDS.width-1) / 10;
+			const highlightStrength = smoothHiliteGradient$1(i, SIDE_BOUNDS.width-1) / 10;
 			for (j=initialY; j < y && j < SIDE_BOUNDS.height - 1; j++) {
 				buf.highlight(x + i, j, colors.white, highlightStrength);
 			}
@@ -12707,7 +12932,7 @@ function sidebarAddItemInfo(entry, y, dim, highlight, buf) {
 
 	if (highlight) {
 		for (i=0; i<SIDE_BOUNDS.width; i++) {
-			const highlightStrength = smoothHiliteGradient(i, SIDE_BOUNDS.width-1) / 10;
+			const highlightStrength = smoothHiliteGradient$1(i, SIDE_BOUNDS.width-1) / 10;
 			for (j=initialY; j < y && j < SIDE_BOUNDS.height - 1; j++) {
 				buf.highlight(x + i, j, colors.white, highlightStrength);
 			}
@@ -12940,6 +13165,10 @@ class Column {
     }
     else {
       const field = data[this.field];
+      if (!field) {
+        buffer.plotText(x, y, color, this.empty);
+        return length(this.empty);
+      }
       text$1 = format(this.format, field);
     }
     buffer.plotText(x, y, color, text$1);
@@ -12965,6 +13194,7 @@ class Table {
 
     this.columns = opts.columns || [];
     this.letters = opts.letters || false;
+    this.headers = opts.headers || false;
     if (opts.letters) {
       this.columns.unshift(new Column(null, (data, index) => {
         const letter = String.fromCharCode(97 + index);
@@ -12972,31 +13202,39 @@ class Table {
       }));
     }
     this.color = from(opts.color || colors.white);
-    this.selectedColor = from(opts.selectedColor || colors.teal);
+    this.activeColor = from(opts.selectedColor || colors.teal);
     this.disabledColor = from(opts.disabledColor || colors.black);
-    this.selected = (opts.selected >= 0) ? opts.selected : -1;
-    this.maxWidth = 0;
+    this.active = opts.active || 0;
+    this.bounds = make.bounds();
+    this.selected = -1;
+    this.cancelled = false;
+    this.count = 0;
+    this.bg = opts.bg;
   }
 
+  get width() { return this.bounds.width; }
+  get height() { return this.bounds.height; }
+
   column(...args) {
-    this.columns.push(new types.Column(...args));
+    const col = new types.Column(...args);
+    this.columns.push(col);
     return this;
   }
 
   plot(buffer, x0, y0, data) {
     if (Array.isArray(data)) {
-      return this.plotArray(buffer, x0, y0, data);
+      return this._plotArray(buffer, x0, y0, data);
     }
-    return this.plotChain(buffer, x0, y0, data);
+    return this._plotChain(buffer, x0, y0, data);
   }
 
-  plotChain(buffer, x0, y0, data) {
+  _plotChain(buffer, x0, y0, data) {
     return this._plot(buffer, x0, y0, (current) => {
       return current ? current.next : data;
     });
   }
 
-  plotArray(buffer, x0, y0, data) {
+  _plotArray(buffer, x0, y0, data) {
     let index = -1;
     return this._plot(buffer, x0, y0, () => {
       ++index;
@@ -13009,37 +13247,105 @@ class Table {
   }
 
   _plot(buffer, x0, y0, nextFn) {
-    this.maxWidth = 0;
-    const headers = this.columns.some( (c) => c.name );
+    if (this.bounds.width) {
+      buffer.blackOutRect(this.bounds.x, this.bounds.y, this.bounds.width, this.bounds.height, this.bg);
+    }
+    this.bounds.x = x0;
+    this.bounds.y = y0;
+    const hasHeaders = this.columns.some( (c) => c.name );
 
     let x = x0;
     let y = y0;
     for(let column of this.columns) {
       let maxWidth = 0;
       y = y0;
-      if (headers) {
+      if (this.headers && hasHeaders) {
         maxWidth = Math.max(maxWidth, column.plotHeader(buffer, x, y++));
       }
 
-      let count = 0;
+      this.count = 0;
       let current = nextFn();
       do {
-        let color = (count == this.selected) ? this.selectedColor : this.color;
+        let color = (this.count == this.active) ? this.activeColor : this.color;
         if (current.disabled) {
           color = color.clone().mix(this.disabledColor, 50);
         }
-        maxWidth = Math.max(maxWidth, column.plotData(buffer, x, y, current, count, color));
+        maxWidth = Math.max(maxWidth, column.plotData(buffer, x, y, current, this.count, color));
         ++y;
         current = nextFn(current);
-        ++count;
+        ++this.count;
       }
       while(current);
 
       x += (maxWidth + 1);
     }
 
-    this.maxWidth = x - x0;
+    this.bounds.width = x - x0;
+    this.bounds.height = y - y0;
     return y;
+  }
+
+  async loop(handler) {
+    while(true) {
+      const ev = await nextEvent();
+      if (await this.dispatchEvent(ev, handler)) {
+        return true;
+      }
+    }
+  }
+
+  async dispatchEvent(ev, handler={}) {
+    this.cancelled = false;
+    this.selected = -1;
+
+    if (await dispatchEvent(ev, handler)) return true;
+
+    return await dispatchEvent(ev, {
+      Escape: () => {
+        this.cancelled = true;
+        return true;
+      },
+      Enter: () => {
+        this.selected = this.active;
+        return true;
+      },
+      mousemove: (ev) => {
+        if (this.bounds.containsXY(ev.x, ev.y)) {
+          const index = ev.y - this.bounds.y - (this.headers ? 1 : 0);
+          if (index >= 0) {
+            this.active = index;
+            return true;
+          }
+        }
+      },
+      click: (ev) => {
+        if (this.bounds.containsXY(ev.x, ev.y)) {
+          const index = ev.y - this.bounds.y - (this.headers ? 1 : 0);
+          if (index >= 0) {
+            this.selected = index;
+            return true;
+          }
+        }
+      },
+      dir: (ev) => {
+        if(ev.dir[1] < 0) {
+          this.active = (this.count + this.active - 1) % this.count;
+        }
+        else if (ev.dir[1] > 0) {
+          this.active = (this.active + 1) % this.count;
+        }
+        return true;
+      },
+      keypress: (ev) => {
+        if (!this.letters) return false;
+        const index = ev.key.charCodeAt(0) - 97;
+        if (index >= 0 && index < this.count) {
+          this.active = index;
+          return true;
+        }
+        return false;
+      }
+    });
   }
 
 }
@@ -13047,16 +13353,39 @@ class Table {
 types.Table = Table;
 
 
-function make$5(...args) {
+function make$6(...args) {
   return new types.Table(...args);
 }
 
-make.table = make$5;
+make.table = make$6;
+
+class List extends types.Table {
+  constructor(opts={}) {
+    super(opts);
+    opts.format = opts.format || '%s';
+    this.column(opts.header,
+      ((data) => format(opts.format, data.text || data)),
+      opts.format, '-'
+    );
+  }
+}
+
+types.List = List;
+
+function make$7(...args) {
+  return new types.List(...args);
+}
+
+make.list = make$7;
 
 ui.debug = NOOP;
 
 let SHOW_FLAVOR = false;
 let SHOW_CURSOR = false;
+let SHOW_PATH = false;
+let PATH_ACTIVE = false;
+let CLICK_MOVE = false;
+
 
 let UI_BUFFER = null;
 let UI_BASE = null;
@@ -13105,6 +13434,9 @@ function start$2(opts={}) {
     io: true,
     followPlayer: false,
     loop: true,
+    autoCenter: false,
+    showPath: false,
+    clickToMove: false,
   });
 
   if (!ui.canvas && (opts.canvas !== false)) {
@@ -13186,8 +13518,10 @@ function start$2(opts={}) {
     SHOW_FLAVOR = true;
 	}
 
-	viewport.setup({ x: viewX, y: viewY, w: viewW, h: viewH, followPlayer: opts.followPlayer });
+	viewport.setup({ x: viewX, y: viewY, w: viewW, h: viewH, followPlayer: opts.followPlayer, autoCenter: opts.autoCenter });
 	SHOW_CURSOR = opts.cursor;
+  SHOW_PATH = opts.showPath;
+  CLICK_MOVE = opts.clickToMove;
 
   if (opts.loop) {
     RUNNING = true;
@@ -13218,34 +13552,46 @@ async function dispatchEvent$1(ev) {
 		else if (flavor.bounds && flavor.bounds.containsXY(ev.x, ev.y)) {
 			return true;
 		}
-    if (viewport.bounds && viewport.bounds.containsXY(ev.x, ev.y)) {
-      let x0 = viewport.bounds.toInnerX(ev.x);
-      let y0 = viewport.bounds.toInnerY(ev.y);
-      if (config.followPlayer && data.player && (data.player.x >= 0)) {
-        const offsetX = data.player.x - viewport.bounds.centerX();
-        const offsetY = data.player.y - viewport.bounds.centerY();
-        x0 += offsetX;
-        y0 += offsetY;
+    else if (viewport.bounds && viewport.bounds.containsXY(ev.x, ev.y)) {
+      ev.mapX = viewport.bounds.toInnerX(ev.x);
+      ev.mapY = viewport.bounds.toInnerY(ev.y);
+      // if (CONFIG.followPlayer && DATA.player && (DATA.player.x >= 0)) {
+      //   const offsetX = DATA.player.x - VIEWPORT.bounds.centerX();
+      //   const offsetY = DATA.player.y - VIEWPORT.bounds.centerY();
+      //   x0 += offsetX;
+      //   y0 += offsetY;
+      // }
+      // ev.mapX = x0;
+      // ev.mapY = y0;
+      if (CLICK_MOVE) {
+        return await commands$1.travel(ev);
       }
-      ev.mapX = x0;
-      ev.mapY = y0;
+    }
+    else if (sidebar.bounds && sidebar.bounds.containsXY(ev.x, ev.y)) {
+      if (CLICK_MOVE) {
+        ev.mapX = CURSOR.x;
+        ev.mapY = CURSOR.y;
+        return await commands$1.travel(ev);
+      }
     }
 	}
 	else if (ev.type === def.MOUSEMOVE) {
+    PATH_ACTIVE = true;
+    MOUSE.x = ev.x;
+    MOUSE.y = ev.y;
 		if (viewport.bounds && viewport.bounds.containsXY(ev.x, ev.y)) {
       let x0 = viewport.bounds.toInnerX(ev.x);
       let y0 = viewport.bounds.toInnerY(ev.y);
-      if (config.followPlayer && data.player && (data.player.x >= 0)) {
-        const offsetX = data.player.x - viewport.bounds.centerX();
-        const offsetY = data.player.y - viewport.bounds.centerY();
-        x0 += offsetX;
-        y0 += offsetY;
-      }
-      ev.mapX = x0;
-      ev.mapY = y0;
-			if (SHOW_CURSOR) {
-				ui.setCursor(x0, y0);
-			}
+      // if (CONFIG.followPlayer && DATA.player && (DATA.player.x >= 0)) {
+      //   const offsetX = DATA.player.x - VIEWPORT.bounds.centerX();
+      //   const offsetY = DATA.player.y - VIEWPORT.bounds.centerY();
+      //   x0 += offsetX;
+      //   y0 += offsetY;
+      // }
+      // ev.mapX = x0;
+      // ev.mapY = y0;
+
+			ui.setCursor(x0, y0);
       if (sidebar.bounds) {
         sidebar.focus(x0, y0);
       }
@@ -13255,7 +13601,7 @@ async function dispatchEvent$1(ev) {
       sidebar.highlightRow(ev.y);
     }
 		else {
-			ui.clearCursor();
+      ui.clearCursor();
       sidebar.focus(-1, -1);
 		}
 		if (flavor.bounds && flavor.bounds.containsXY(ev.x, ev.y)) {
@@ -13263,22 +13609,45 @@ async function dispatchEvent$1(ev) {
 		}
 	}
   else if (ev.type === def.KEYPRESS) {
+    if (ev.key === 'Enter' && CLICK_MOVE) {
+      if (PATH_ACTIVE) {
+        ev.mapX = CURSOR.x;
+        ev.mapY = CURSOR.y;
+        return await commands$1.travel(ev);
+      }
+    }
+
+    PATH_ACTIVE = false;
+    data.player.travelDest = null;  // stop traveling
+
     if (sidebar.bounds) {
       if (ev.key === 'Tab') {
+        PATH_ACTIVE = true;
         const loc = sidebar.nextTarget();
         ui.setCursor(loc[0], loc[1]);
         return true;
       }
       else if (ev.key === 'TAB') {
+        PATH_ACTIVE = true;
         const loc = sidebar.prevTarget();
         ui.setCursor(loc[0], loc[1]);
         return true;
       }
       else if (ev.key === 'Escape') {
-        sidebar.focus(-1, -1);
-        ui.clearCursor();
+        if (viewport.bounds.containsXY(MOUSE.x, MOUSE.y)) {
+          const x = viewport.bounds.toInnerX(MOUSE.x);
+          const y = viewport.bounds.toInnerY(MOUSE.y);
+          sidebar.focus(x, y);
+          data.player.travelDest = null;  // stop traveling
+          ui.setCursor(x, y, true);
+        }
+        else {
+          sidebar.focus(-1, -1);
+          ui.clearCursor();
+        }
       }
     }
+
   }
 
 	return false;
@@ -13369,11 +13738,13 @@ var CURSOR = ui.cursor = {
 	y: -1,
 };
 
-function setCursor(x, y) {
+function setCursor(x, y, force) {
   const map = data.map;
   if (!map) return false;
 
-  if (CURSOR.x == x && CURSOR.y == y) return false;
+  if (!force) {
+    if (CURSOR.x == x && CURSOR.y == y) return false;
+  }
 
   // ui.debug('set cursor', x, y);
 
@@ -13385,9 +13756,12 @@ function setCursor(x, y) {
   CURSOR.y = y;
 
   if (map.hasXY(x, y)) {
-    // if (!DATA.player || DATA.player.x !== x || DATA.player.y !== y ) {
+    if (SHOW_CURSOR) {
       map.setCellFlags(CURSOR.x, CURSOR.y, Cell.IS_CURSOR | Cell.NEEDS_REDRAW);
-    // }
+    }
+    if (SHOW_PATH) {
+      ui.updatePathToCursor();
+    }
 
     // if (!GW.player.isMoving()) {
     //   showPathFromPlayerTo(x, y);
@@ -13421,6 +13795,46 @@ function clearCursor() {
 ui.clearCursor = clearCursor;
 
 
+function updatePathToCursor() {
+  const player = data.player;
+  const map = data.map;
+
+  if (!SHOW_PATH) return;
+  if (player.travelDest) return;  // do not update path if we are traveling...
+
+  map.clearFlags(0, Cell.IS_IN_PATH);
+
+  if (!PATH_ACTIVE) return;
+
+  if (CURSOR.x == player.x && CURSOR.y == player.y) return;
+
+  const mapToMe = player.updateMapToMe();
+  const path$1 = getPath(map, mapToMe, CURSOR.x, CURSOR.y, player);
+
+  ui.updatePath(path$1);
+}
+
+ui.updatePathToCursor = updatePathToCursor;
+
+
+function updatePath(path) {
+  const player = data.player;
+  const map = data.map;
+
+  if (!SHOW_PATH) return;
+  map.clearFlags(0, Cell.IS_IN_PATH);
+
+  if (path) {
+    for(let pos of path) {
+      if (pos[0] != player.x || pos[1] != player.y) {
+        map.setCellFlag(pos[0], pos[1], Cell.IS_IN_PATH);
+      }
+    }
+  }
+
+}
+
+ui.updatePath = updatePath;
 
 // FUNCS
 
@@ -13813,8 +14227,8 @@ function plotProgressBar(buf, x, y, width, barText, textColor, pct, barColor) {
   if (pct > 1) pct /= 100;
   pct = clamp(pct, 0, 1);
 
-	barColor = make$1(barColor);
-  textColor = make$1(textColor);
+	barColor = make$2(barColor);
+  textColor = make$2(textColor);
   const darkenedBarColor = barColor.clone().mix(colors.black, 75);
 
   barText = center(barText, width);
@@ -13968,6 +14382,10 @@ async function moveDir(actor, dir, opts={}) {
     return false;
   }
 
+  if (actor.isPlayer()) {
+    map.clearCellFlags(actor.x, actor.y, Cell.IS_IN_PATH);
+  }
+
   if (actor.grabbed && !isPush) {
     map.removeItem(actor.grabbed);
     map.addItem(actor.grabbed.x + dir[0], actor.grabbed.y + dir[1], actor.grabbed);
@@ -14001,6 +14419,10 @@ async function moveDir(actor, dir, opts={}) {
   }
 
   actions.debug('moveComplete');
+
+  if (actor.isPlayer()) {
+    ui.updatePathToCursor();
+  }
 
   ui.requestUpdate();
   actor.endTurn();
@@ -14225,7 +14647,7 @@ async function itemAttack(actor, target, ctx={}) {
     await spawn(target.kind.blood, ctx2);
   }
   if (target.isDead()) {
-    target.kind.kill(target);
+    target.kill();
     map.removeActor(target);
     if (target.kind.corpse) {
       await spawn(target.kind.corpse, ctx2);
@@ -14266,14 +14688,14 @@ async function moveToward(actor, x, y, ctx) {
 
   let travelGrid = actor.travelGrid;
   if (!travelGrid) {
-    travelGrid = actor.travelGrid = GRID$1.alloc(map.width, map.height);
+    travelGrid = actor.travelGrid = alloc(map.width, map.height);
     travelGrid.x = travelGrid.y = -1;
   }
   if (travelGrid.x != x || travelGrid.y != y) {
-    const costGrid = GRID$1.alloc(map.width, map.height);
+    const costGrid = alloc(map.width, map.height);
     actor.fillCostGrid(map, costGrid);
-    PATH.calculateDistances(travelGrid, x, y, costGrid, true);
-    GRID$1.free(costGrid);
+    calculateDistances(travelGrid, x, y, costGrid, true);
+    free(costGrid);
   }
 
   const dir = nextStep(map, travelGrid, actor.x, actor.y, actor, true);
@@ -14283,53 +14705,6 @@ async function moveToward(actor, x, y, ctx) {
 }
 
 
-
-// Returns null if there are no beneficial moves.
-// If preferDiagonals is true, we will prefer diagonal moves.
-// Always rolls downhill on the distance map.
-// If monst is provided, do not return a direction pointing to
-// a cell that the monster avoids.
-function nextStep( map, distanceMap, x, y, traveler, useDiagonals) {
-	let newX, newY, bestScore;
-  let dir, bestDir;
-  let blocker;	// creature *
-  let blocked;
-
-  // brogueAssert(coordinatesAreInMap(x, y));
-
-	bestScore = 0;
-	bestDir = def.NO_DIRECTION;
-
-	for (dir = 0; dir < (useDiagonals ? 8 : 4); ++dir)
-  {
-		newX = x + def.dirs[dir][0];
-		newY = y + def.dirs[dir][1];
-
-    if (map.hasXY(newX, newY)) {
-        blocked = false;
-        const cell = map.cell(newX, newY);
-        blocker = cell.actor;
-        if (traveler
-            && traveler.avoidsCell(cell, newX, newY))
-				{
-            blocked = true;
-        } else if (traveler && blocker
-                   && !traveler.kind.canPass(traveler, blocker))
-				{
-            blocked = true;
-        }
-        if (!blocked
-						&& (distanceMap[x][y] - distanceMap[newX][newY]) > bestScore
-            && !map.diagonalBlocked(x, y, newX, newY, traveler.isPlayer())
-            && map.isPassableNow(newX, newY, traveler.isPlayer()))
-				{
-            bestDir = dir;
-            bestScore = distanceMap[x][y] - distanceMap[newX][newY];
-        }
-    }
-	}
-	return def.dirs[bestDir] || null;
-}
 
 actions.moveToward = moveToward;
 
@@ -14571,6 +14946,36 @@ async function talk$1(actor, target, ctx={}) {
 
 actions.talk = talk$1;
 
+async function travel$1(actor, ctx={}) {
+
+  const map = ctx.map || data.map;
+
+  if (!actor.travelDest) {
+    return false;
+  }
+  if (actor.travelDest[0] == actor.x && actor.travelDest[1] == actor.y) {
+    actor.travelDest = null;
+    ui.updatePathToCursor();
+    return false;
+  }
+
+  actor.updateMapToMe();
+
+  const path$1 = getPath(map, actor.mapToMe, actor.travelDest[0], actor.travelDest[1], actor);
+  ui.updatePath(path$1);
+  if (!path$1 || path$1.length <= 1) {  // 1 step is just the destination
+    actor.travelDest = null;
+    return false;
+  }
+
+  const dir = dirFromTo(actor, path$1[path$1.length - 2]);
+  return await actions.moveDir(actor, dir, ctx);
+}
+
+
+
+actions.travel = travel$1;
+
 async function idle(actor, ctx) {
   actor.debug('idle');
   actor.endTurn();
@@ -14739,4 +15144,242 @@ addTileKind('LAKE', {
   name: 'deep water', article: 'the'
 });
 
-export { actions, actor, actorKinds, addListener, ai, canvas, cell, clearEvent, color, colors, combat$1 as combat, commands$1 as commands, config, cosmetic, data, def, digger, diggers, dungeon, emit, flag, flags, flavor, fov, frequency$1 as frequency, fx, game, GRID$1 as grid, install, io, item$1 as item, itemKinds, light, lights, make, map$1 as map, maps, message, messages, off, on, once, PATH as path, player, random, removeAllListeners, removeListener, scheduler, sidebar, sprite, sprites, text, tile, tileEvent$1 as tileEvent, tileEvents$1 as tileEvents, tiles, types, ui, utils$1 as utils, viewport, visibility };
+const MENU_FLAME_PRECISION_FACTOR =		10;
+const MENU_FLAME_RISE_SPEED =					50;
+const MENU_FLAME_SPREAD_SPEED =				20;
+const MENU_FLAME_COLOR_DRIFT_SPEED =	500;
+const MENU_FLAME_FADE_SPEED =					20;
+const MENU_FLAME_ROW_PADDING =				2;
+
+const MENU_FLAME_DENOMINATOR =				(100 + MENU_FLAME_RISE_SPEED + MENU_FLAME_SPREAD_SPEED);
+
+const flameSourceColor  = addKind('flameSourceColor', 		20, 7,  7, 0, 60, 40, 40, true);
+const flameSourceColorSecondary = addKind('flameSourceColorSecondary', 7, 	2, 0, 0, 10, 0, 	0, true);
+const flameTitleColor = addKind('flameTitleColor', 		0, 0, 0, 0, 9, 9, 15, true); // *pale blue*;
+
+
+
+const NULL_TITLE = [
+  "#############    ######    ######          ######    ",
+  "      ##       ##     ###   ##  ##       ##     ###  ",
+  "      ##      ##       ###  ##   ###    ##       ### ",
+  "      ##      #    #    ##  ##    ##    #    #    ## ",
+  "      ##     ##   ##     ## ##     ##  ##   ##     ##",
+  "      ##     ##   ###    ## ##      ## ##   ###    ##",
+  "      ##     ##   ####   ## ##       # ##   ####   ##",
+  "      ##     ##   ####   ## ##       # ##   ####   ##",
+  "      ##     ##    ###   ## ##       # ##    ###   ##",
+  "      ##     ###    ##   ## ##      #  ###    ##   ##",
+  "      ##      ##    #    #  ##     ##   ##    #    # ",
+  "      ##      ###       ##  ##    ##    ###       ## ",
+  "      ##       ###     ##   ##   ##      ###     ##  ",
+  "     ####        ######    ######          ######    ",
+];
+
+const NULL_VERSION = '0.0.0';
+
+
+
+class Flames {
+  constructor(buffer, opts={}) {
+    this.buffer = buffer;
+
+    this.mask = make.grid(buffer.width, buffer.height);
+    this.flames = make.grid(buffer.width, buffer.height + MENU_FLAME_ROW_PADDING, () => [0, 0, 0] );
+  	this.colorSources = []; 	// [red, green, blue, rand], one for each color source
+  	this.colors = make.grid(buffer.width, buffer.height + MENU_FLAME_ROW_PADDING, null );
+    this.colorStorage = make.array(buffer.width, () => make.color() );
+
+    setDefaults(opts, {
+      primary: flameSourceColor,
+      secondary: flameSourceColorSecondary,
+      'flames.#': flameTitleColor,
+      version: NULL_VERSION,
+      mask: NULL_TITLE,
+    });
+
+    this._initialize(opts);
+
+    // Simulate the background flames for a while
+  	for (let i=0; i<100; i++) {
+  		this.update();
+  	}
+
+  }
+
+  _initialize(opts={}) {
+
+    this.version = opts.version;
+
+    this.mask.fill(0);
+    this.colors.fill(null);
+    this.flames.forEach( (v, x, y) => {
+      v[0] = v[1] = v[2] = 0;
+    });
+
+    // Put some flame source along the bottom row.
+  	let colorSourceCount = 0;
+    this.colorStorage.forEach( (c, i) => {
+      c.copy(opts.primary);
+      c.mix(opts.secondary, 100 - (smoothHiliteGradient(i, this.colors.width - 1) + 25));
+      this.colors[i][this.colors.height - 1] = c;
+      colorSourceCount++;
+    });
+
+    if (opts.mask) {
+  		const title = opts.mask;
+      const flames = opts.flames;
+
+  		const MENU_TITLE_WIDTH =	title[0].length;
+  		const MENU_TITLE_HEIGHT =	title.length;
+      const x = Math.round((this.buffer.width - MENU_TITLE_WIDTH)/2);
+      const y = Math.round((this.buffer.height - MENU_TITLE_HEIGHT)/2);
+
+  		// Wreathe the title in flames, and mask it in black.
+  		for (let i=0; i<MENU_TITLE_WIDTH; i++) {
+  			for (let j=0; j<MENU_TITLE_HEIGHT; j++) {
+          const char = title[j][i] || ' ';
+  				if (char != ' ') {
+  					const thisCol = x + i; /* + MENU_TITLE_OFFSET_X */
+  					const thisRow = y + j; /* + MENU_TITLE_OFFSET_Y */
+            if (char != '%') {
+              this.colors[thisCol][thisRow] = opts.flames[char] || opts.flames['#'];
+    					colorSourceCount++;
+            }
+  					this.mask[thisCol][thisRow] = (char == '#') ? 100 : 50;
+  				}
+  			}
+  		}
+
+  		// Anti-alias the mask.
+  		// antiAlias(mask); // SWC - I am not sure I like the anti-alias look.
+  	}
+
+    // Seed source color random components.
+    const rnd = cosmetic.range.bind(cosmetic, 0, 1000);
+    for(let i = 0; i < colorSourceCount; ++i) {
+      this.colorSources.push( [rnd(), rnd(), rnd(), rnd()] );
+    }
+
+  }
+
+  update() {
+    let i, j, k, l, x, y;
+  	let tempFlames = make.array(this.flames.width, () => [0,0,0]);
+  	let colorSourceNumber, rand;
+
+  	colorSourceNumber = 0;
+  	for (j=0; j < this.flames.height; j++) {
+
+  		// Make a temp copy of the current row.
+  		for (i=0; i<this.flames.width; i++) {
+  			for (k=0; k<3; k++) {
+  				tempFlames[i][k] = this.flames[i][j][k];
+  			}
+  		}
+
+  		for (i=0; i<this.flames.width; i++) {
+  			// Each cell is the weighted average of the three color values below and itself.
+  			// Weight of itself: 100
+  			// Weight of left and right neighbors: MENU_FLAME_SPREAD_SPEED / 2 each
+  			// Weight of below cell: MENU_FLAME_RISE_SPEED
+  			// Divisor: 100 + MENU_FLAME_SPREAD_SPEED + MENU_FLAME_RISE_SPEED
+
+  			// Itself:
+  			for (k=0; k<3; k++) {
+  				this.flames[i][j][k] = Math.round(100 * this.flames[i][j][k] / MENU_FLAME_DENOMINATOR);
+  			}
+
+  			// Left and right neighbors:
+  			for (l = -1; l <= 1; l += 2) {
+  				x = i + l;
+  				if (x == -1) {
+  					x = this.flames.width - 1;
+  				} else if (x == this.flames.width) {
+  					x = 0;
+  				}
+  				for (k=0; k<3; k++) {
+  					this.flames[i][j][k] += Math.floor(MENU_FLAME_SPREAD_SPEED * tempFlames[x][k] / 2 / MENU_FLAME_DENOMINATOR);
+  				}
+  			}
+
+  			// Below:
+  			y = j + 1;
+  			if (y < this.flames.height) {
+  				for (k=0; k<3; k++) {
+  					this.flames[i][j][k] += Math.floor(MENU_FLAME_RISE_SPEED * this.flames[i][y][k] / MENU_FLAME_DENOMINATOR);
+  				}
+  			}
+
+  			// Fade a little:
+  			for (k=0; k<3; k++) {
+  				this.flames[i][j][k] = Math.floor((1000 - MENU_FLAME_FADE_SPEED) * this.flames[i][j][k] / 1000);
+  			}
+
+  			if (this.colors[i][j]) {
+  				// If it's a color source tile:
+
+  				// First, cause the color to drift a little.
+  				for (k=0; k<4; k++) {
+  					this.colorSources[colorSourceNumber][k] += cosmetic.range(-MENU_FLAME_COLOR_DRIFT_SPEED, MENU_FLAME_COLOR_DRIFT_SPEED);
+  					this.colorSources[colorSourceNumber][k] = clamp(this.colorSources[colorSourceNumber][k], 0, 1000);
+  				}
+
+  				// Then, add the color to this tile's flames.
+  				rand = Math.floor(this.colors[i][j].rand * this.colorSources[colorSourceNumber][0] / 1000);
+  				this.flames[i][j][0] += Math.floor((this.colors[i][j].red	+ (this.colors[i][j].redRand	* this.colorSources[colorSourceNumber][1] / 1000) + rand) * MENU_FLAME_PRECISION_FACTOR);
+  				this.flames[i][j][1] += Math.floor((this.colors[i][j].green	+ (this.colors[i][j].greenRand	* this.colorSources[colorSourceNumber][2] / 1000) + rand) * MENU_FLAME_PRECISION_FACTOR);
+  				this.flames[i][j][2] += Math.floor((this.colors[i][j].blue	+ (this.colors[i][j].blueRand	* this.colorSources[colorSourceNumber][3] / 1000) + rand) * MENU_FLAME_PRECISION_FACTOR);
+
+  				colorSourceNumber++;
+  			}
+  		}
+  	}
+  }
+
+
+
+  draw() {
+  	let i, j;
+    const tempColor = make.color();
+  	const maskColor = colors.black;
+    let dchar;
+
+  	const versionString = this.version;
+    const versionStringLength = length(versionString);
+
+  	for (j=0; j < this.buffer.height; j++) {
+  		for (i=0; i < this.buffer.width; i++) {
+        if (j == this.buffer.height - 1 && i >= this.buffer.width - versionStringLength) {
+            dchar = versionString.charAt(i - (this.mask.width - versionStringLength));
+        } else {
+            dchar = ' ';
+        }
+
+  			if (this.mask[i][j] == 100) {
+  				this.buffer.plotChar(i, j, dchar, colors.gray, maskColor);
+  			} else {
+          const flameColor = this.flames[i][j];
+          tempColor.clear();
+  				tempColor.red	= Math.round(flameColor[0] / MENU_FLAME_PRECISION_FACTOR);
+  				tempColor.green	= Math.round(flameColor[1] / MENU_FLAME_PRECISION_FACTOR);
+  				tempColor.blue	= Math.round(flameColor[2] / MENU_FLAME_PRECISION_FACTOR);
+  				if (this.mask[i][j] > 0) {
+  					tempColor.mix(maskColor, this.mask[i][j]);
+  				}
+  				this.buffer.plotChar(i, j, dchar, colors.gray, tempColor);
+  			}
+  		}
+  	}
+  }
+
+}
+
+types.Flames = Flames;
+
+var flames = {
+  __proto__: null,
+  Flames: Flames
+};
+
+export { actions, actor, actorKinds, addListener, ai, canvas, cell, clearEvent, color, colors, combat$1 as combat, commands$1 as commands, config, cosmetic, data, def, digger, diggers, dungeon, emit, flag, flags, flames, flavor, fov, frequency$1 as frequency, fx, game, grid, install, io, item$1 as item, itemKinds, light, lights, make, map$1 as map, maps, message, messages, off, on, once, path, player, random, removeAllListeners, removeListener, scheduler, sidebar, sprite, sprites, text, tile, tileEvent$1 as tileEvent, tileEvents$1 as tileEvents, tiles, types, ui, utils$1 as utils, viewport, visibility };

@@ -164,7 +164,10 @@ export class Random {
   }
 
   item(list) {
-  	return list[this.range(0, list.length - 1)];
+    if (!Array.isArray(list)) {
+      list = Object.values(list);
+    }
+    return list[this.range(0, list.length - 1)];
   }
 
   key(obj) {
