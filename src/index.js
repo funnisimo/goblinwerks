@@ -37,6 +37,7 @@ import './flavor.js';
 import './table.js';
 import './list.js';
 import './ui.js';
+import './buttons.js';
 export * as visibility from './visibility.js';
 
 import './actions/moveDir.js';

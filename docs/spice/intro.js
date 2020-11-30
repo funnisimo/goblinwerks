@@ -8,29 +8,17 @@ const titleHighlightColor = GW.color.addKind('titleHighlightColor', 40, 20, 20, 
 
 
 
-const UMORIA_TITLE = [
-  " #                       #  ####        ####    ###    ########    ####      ###    ",
-  " #                       #   ##          ##    ## ##    ##   ###    ##      ## ##   ",
-  " #                       #   ###        ###   ##   ##   ##    ##    ##      ## ##   ",
-  " #         %%%%%         #   ####      ####  ##     ##  ##    ##    ##     ##   ##  ",
-  " #       %%     %%       #   ## ##    ## ##  ##     ##  ##    ##    ##     ##   ##  ",
-  " ##    %%    #    %%    ##   ##  ##  ##  ##  ##     ##  ##   ##     ##    ###   ### ",
-  " ## %**      #      **% ##   ##   ####   ##  ##     ##  ## ###      ##    ######### ",
-  " ##    **    #    **    ##   ##    ##    ##  ##     ##  ##  ##      ##    ##     ## ",
-  " ##      **     **      ##   ##          ##  ##     ##  ##   ##     ##    ##     ## ",
-  " ##        *****        ##   ##          ##  ##     ##  ##   ##     ##    ##     ## ",
-  " ##                     ##   ##          ##  ##     ##  ##    ##    ##    ##     ## ",
-  " ###                   ###   ##          ##   ##   ##   ##    ##    ##    ##     ## ",
-  "  ###                 ###    ##          ##    ## ##    ##     ##   ##    ##     ## ",
-  "   ###               ###    ####        ####    ###    ####    ### ####  ####   ####",
-  "     #################                                                              ",
-  "        ##########                                                                  ",
-  "            ##                                                                      ",
-  "            ##                                                                      ",
-  "           ####                                                                     ",
+const SPICE_TITLE = [
+'  #####                            #######                                    ',
+' #     # #####  #  ####  ######       #    #####    ##   #####  ###### #####  ',
+' #       #    # # #    # #            #    #    #  #  #  #    # #      #    # ',
+'  #####  #    # # #      #####        #    #    # #    # #    # #####  #    # ',
+'       # #####  # #      #            #    #####  ###### #    # #      #####  ',
+' #     # #      # #    # #            #    #   #  #    # #    # #      #   #  ',
+'  #####  #      #  ####  ######       #    #    # #    # #####  ###### #    # ',
 ];
 
-const UMORIA_VERSION = '5.7.11';  // Based on this version
+const SPICE_VERSION = '1.0.0';
 
 
 const MainMenuCommands = {
@@ -46,8 +34,8 @@ const MainMenuCommands = {
 
 async function titleMenu(opts) {
 	opts = opts || {};
-	const titleMask = opts.title || UMORIA_TITLE;
-	const versionString = opts.version || UMORIA_VERSION;
+	const titleMask = opts.title || SPICE_TITLE;
+	const versionString = opts.version || SPICE_VERSION;
 
   const buffer = GW.ui.startDialog();
 
@@ -55,8 +43,8 @@ async function titleMenu(opts) {
     flames: {
       '*': lavaBackColor,
     },
-    mask: UMORIA_TITLE,
-    version: UMORIA_VERSION,
+    mask: SPICE_TITLE,
+    version: SPICE_VERSION,
   });
 
 	let i, b, x, y;

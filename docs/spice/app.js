@@ -17,9 +17,9 @@ function makePlayer() {
       const player = entry.entity;
     	y = GW.sidebar.addName(entry, y, dim, highlight, buf);
       y = GW.sidebar.addProgressBar(y, buf, 'Hull', player.current.hull, player.max.hull, 'blueBar', dim);
-      y = GW.sidebar.addText(buf, y, 'Gold: #gold#' + player.current.gold, null, null, { dim, highlight, indent: 8 });
+      y = GW.sidebar.addText(buf, y, 'Gold: ΩgoldΩ' + player.current.gold, null, null, { dim, highlight, indent: 8 });
       const used = player.current.hold - player.current.empty;
-      y = GW.sidebar.addText(buf, y, 'Hold: #green#' + used + '##/' + player.current.hold, null, null, { dim, highlight, indent: 8 });
+      y = GW.sidebar.addText(buf, y, 'Hold: ΩgreenΩ' + used + '∆/' + player.current.hold, null, null, { dim, highlight, indent: 8 });
 
       return y;
     },
@@ -55,6 +55,7 @@ async function start() {
 		'?': showHelp,
 	});
 
+  await titleMenu();
   PLAYER = makePlayer();
 	MAP = makeMap();
   resetPorts();
