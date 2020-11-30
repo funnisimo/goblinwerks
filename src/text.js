@@ -1,8 +1,4 @@
 
-import * as Utils from './utils.js';
-import * as Color from './color.js';
-import * as GW from './gw.js';
-
 import * as TEXT from 'gw-text';
 
 
