@@ -1,9 +1,7 @@
 
 
-* Title Screen
-* Story Screen
-* Help
 * About
+* Help
 
 * Show Long+Lat
   - If you have a sextant

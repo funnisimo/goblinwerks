@@ -69,7 +69,7 @@ async function start() {
       await showStory();
     }
     else if (choice == 3) {
-      // await showAbout();
+      await showAbout();
     }
 
   }
