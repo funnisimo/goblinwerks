@@ -83,7 +83,7 @@ async function enterPort() {
     { text: 'Shipyard', fn: null },
     { text: 'Store',    fn: null },
     { text: 'Tavern',   fn: enterTavern },
-    { text: 'Governor', fn: null },
+    { text: 'Governor', fn: showGovernor },
     { text: 'Leave',    fn: (() => { running = false; }) },
   ];
 

@@ -13248,7 +13248,7 @@ class Table {
     this.color = from(opts.color || colors.white);
     this.activeColor = from(opts.selectedColor || colors.teal);
     this.disabledColor = from(opts.disabledColor || colors.black);
-    this.active = opts.active || 0;
+    this.active = opts.active || -1;
     this.bounds = make.bounds();
     this.selected = -1;
     this.cancelled = false;
@@ -13310,6 +13310,10 @@ class Table {
       this.count = 0;
       let current = nextFn();
       do {
+        if (this.active == -1 && !current.disabled) {
+          this.active = this.count;
+        }
+
         let color = (this.count == this.active) ? this.activeColor : this.color;
         if (current.disabled) {
           color = color.clone().mix(this.disabledColor, 50);
