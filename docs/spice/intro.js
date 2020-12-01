@@ -53,9 +53,6 @@ async function titleMenu(opts) {
   let button;
   let text;
 
-  text = "    ΩgoldΩQ∆uick start     ";
-  button = buttons.addButton(text, { hotkey: ['q', 'Q'] });
-
   text = "      ΩgoldΩN∆ew Game      ";
   button = buttons.addButton(text, { hotkey: ['n', 'N'] });
 

@@ -55,12 +55,25 @@ async function start() {
 		'?': showHelp,
 	});
 
-  await titleMenu();
-  PLAYER = makePlayer();
-	MAP = makeMap();
-  resetPorts();
-	GW.message.add('WELCOME', { actor: PLAYER });
-	GW.game.start({ player: PLAYER, map: MAP, fov: true });
+  let running = true;
+  while(running) {
+    const choice = await titleMenu();
+    if (choice == 0 || choice == 1) {
+      PLAYER = makePlayer();
+      MAP = makeMap();
+      resetPorts();
+      GW.message.add('WELCOME', { actor: PLAYER });
+      GW.game.start({ player: PLAYER, map: MAP, fov: true });
+    }
+    else if (choice == 2) {
+      await showStory();
+    }
+    else if (choice == 3) {
+      // await showAbout();
+    }
+
+  }
+
 }
 
 window.onload = start;
