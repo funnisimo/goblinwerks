@@ -2923,7 +2923,7 @@ class Grid extends Array {
 	eachNeighbor(x, y, fn, only4dirs) {
 		const maxIndex = only4dirs ? 4 : 8;
 		for(let d = 0; d < maxIndex; ++d) {
-			const dir = def.dirs[d];
+			const dir = DIRS[d];
 			const i = x + dir[0];
 			const j = y + dir[1];
 			if (this.hasXY(i, j)) {
