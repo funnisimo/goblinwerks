@@ -66,7 +66,7 @@ export class Table {
     this.color = Color.from(opts.color || GW.colors.white);
     this.activeColor = Color.from(opts.selectedColor || GW.colors.teal);
     this.disabledColor = Color.from(opts.disabledColor || GW.colors.black);
-    this.active = opts.active || 0;
+    this.active = opts.active || -1;
     this.bounds = GW.make.bounds();
     this.selected = -1;
     this.cancelled = false;
@@ -128,6 +128,10 @@ export class Table {
       this.count = 0;
       let current = nextFn();
       do {
+        if (this.active == -1 && !current.disabled) {
+          this.active = this.count;
+        }
+
         let color = (this.count == this.active) ? this.activeColor : this.color;
         if (current.disabled) {
           color = color.clone().mix(this.disabledColor, 50);

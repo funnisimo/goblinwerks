@@ -47,7 +47,6 @@ const NULL_VERSION = '0.0.0';
 
 
 
-
 // // Takes a grid of values, each of which is 0 or 100, and fills in some middle values in the interstices.
 function antiAlias(mask /* char[COLS][ROWS] */) {
 	let i, j, x, y, dir, nbCount;
@@ -113,7 +112,7 @@ export class Flames {
   	let colorSourceCount = 0;
     this.colorStorage.forEach( (c, i) => {
       c.copy(opts.primary);
-      c.mix(opts.secondary, 100 - (smoothHiliteGradient(i, this.colors.width - 1) + 25));
+      c.mix(opts.secondary, 100 - (Utils.smoothHiliteGradient(i, this.colors.width - 1) + 25));
       this.colors[i][this.colors.height - 1] = c;
       colorSourceCount++;
     });

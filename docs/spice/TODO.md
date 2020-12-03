@@ -1,9 +1,15 @@
 
 
-* Title Screen
-* Story Screen
 * Help
-* About
+
+* Governor
+  - Bring gold to gain favor
+  - favor decays over time
+  - Win - (favor > THRESHOLD) -- what is threshold?
+  - THRESHOLD = 10000
+  - decay = 1% every 100 turns?
+  - 1GP = 1 Favor
+
 
 * Show Long+Lat
   - If you have a sextant
@@ -39,6 +45,7 @@
   - Ale
   - Water
   - Maps
+  - Gifts for daughter
 
 * Tavern
   - Buy a rumor
@@ -65,10 +72,6 @@
 
 * Navy ships traveling About
   - Will check your papers?
-
-* Governor
-  - Quests?
-  - Win - Gold for daughter's hand
 
 * Letters from girlfriend/governor?
   - When you get to port you can check them

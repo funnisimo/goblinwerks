@@ -46,8 +46,8 @@ const MainMenuCommands = {
 
 async function titleMenu(opts) {
 	opts = opts || {};
-	const titleMask = opts.title || NULL_TITLE;
-	const versionString = opts.version || NULL_VERSION;
+	const titleMask = opts.title || UMORIA_TITLE;
+	const versionString = opts.version || UMORIA_VERSION;
 
   const buffer = GW.ui.startDialog();
 
@@ -86,8 +86,8 @@ async function titleMenu(opts) {
 		y -= 2;
 		buttons.buttons[i].x = x;
 		buttons.buttons[i].y = y;
-		buttons.buttons[i].color.copy(titleButtonColor);
-		buttons.buttons[i].flags |= ButtonFlags.B_WIDE_CLICK_AREA;
+		buttons.buttons[i].color.copy(GW.colors.titleButtonColor);
+		buttons.buttons[i].flags |= GW.flags.button.B_WIDE_CLICK_AREA;
 	}
 
 	buffer.blackOut();

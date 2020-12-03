@@ -145,6 +145,15 @@ export function stepFromTo(a, b, fn) {
 }
 
 
+// Draws the smooth gradient that appears on a button when you hover over or depress it.
+// Returns the percentage by which the current tile should be averaged toward a hilite color.
+export function smoothHiliteGradient(currentXValue, maxXValue) {
+    return Math.floor(100 * Math.sin(Math.PI * currentXValue / (maxXValue)));
+}
+
+
+
+
 export function extend(obj, name, fn) {
   const base = obj[name] || NOOP;
   const newFn = fn.bind(obj, base.bind(obj));

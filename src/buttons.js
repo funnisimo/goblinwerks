@@ -1,8 +1,14 @@
 
+import * as Color from './color.js';
+import * as Utils from './utils.js';
+import * as Flag from './flag.js';
+import * as Text from './text.js';
+import * as GW from './gw.js';
 
-const interfaceButtonColor = 	GW.color.addKind('interfaceButtonColor', 	18,		15,		38,		0,		0,			0,			0,		false);
-const buttonHoverColor = GW.color.addKind('buttonHoverColor', 			100,	70,		40,		0,		0,			0,			0,		false);
-const titleButtonColor = GW.color.addKind('titleButtonColor', 			23,		15,		30,		0,		0,			0,			0,		false);
+
+const interfaceButtonColor = 	Color.addKind('interfaceButtonColor', 	18,		15,		38,		0,		0,			0,			0,		false);
+const buttonHoverColor = Color.addKind('buttonHoverColor', 			100,	70,		40,		0,		0,			0,			0,		false);
+const titleButtonColor = Color.addKind('titleButtonColor', 			23,		15,		30,		0,		0,			0,			0,		false);
 
 
 const ButtonState = {
@@ -11,13 +17,13 @@ const ButtonState = {
 	BUTTON_PRESSED: 2,
 };
 
-const ButtonFlags = GW.make.flag({
-	B_DRAW					: GW.flag.fl(0),
-	B_ENABLED				: GW.flag.fl(1),
-	B_GRADIENT				: GW.flag.fl(2),
-	B_HOVER_ENABLED			: GW.flag.fl(3),
-	B_WIDE_CLICK_AREA		: GW.flag.fl(4),
-	B_KEYPRESS_HIGHLIGHT	: GW.flag.fl(5),
+const ButtonFlags = Flag.installFlag('button', {
+	B_DRAW					: Flag.Fl(0),
+	B_ENABLED				: Flag.Fl(1),
+	B_GRADIENT				: Flag.Fl(2),
+	B_HOVER_ENABLED			: Flag.Fl(3),
+	B_WIDE_CLICK_AREA		: Flag.Fl(4),
+	B_KEYPRESS_HIGHLIGHT	: Flag.Fl(5),
 });
 
 
@@ -71,7 +77,7 @@ class Button {
 
   	symbolNumber = 0;
 
-  	width = GW.text.length(this.text);
+  	width = Text.length(this.text);
   	bColorBase = this.color.clone();
   	fColorBase = ((this.flags & ButtonFlags.B_ENABLED) ? GW.colors.white : GW.colors.gray).clone();
 
@@ -88,7 +94,7 @@ class Button {
 
   	if (this.state == ButtonState.BUTTON_PRESSED) {
   		bColorMid.mix(GW.colors.black, 75);
-  		if (GW.color.diff(bColorMid, bColorBase) < 50) {
+  		if (Color.diff(bColorMid, bColorBase) < 50) {
   			bColorMid	= bColorBase;
   			bColorMid.mix(buttonHoverColor, 50);
   		}
@@ -100,11 +106,14 @@ class Button {
   		opacity = Math.floor(100 - ((100 - opacity) * opacity / 100)); // Apply the opacity twice.
   	}
 
-    GW.text.eachChar(this.text, (ch, color, bg, i) => {
+    Text.eachChar(this.text, (ch, color, bg, i) => {
+      if (typeof color === 'string') {
+        color = Color.from(color);
+      }
       fColor.copy(color || fColorBase);
 
       if (this.flags & ButtonFlags.B_GRADIENT) {
-        midPercent = smoothHiliteGradient(i, width - 1);
+        midPercent = Utils.smoothHiliteGradient(i, width - 1);
   			bColor.copy(bColorEdge);
   			bColor.mix(bColorMid, midPercent);
   		}
@@ -122,7 +131,7 @@ class Button {
 
   		fColor.bake();
   		bColor.bake();
-  		GW.color.separate(fColor, bColor);
+  		Color.separate(fColor, bColor);
 
   		if (ch === '*') {
   			if (this.symbol[symbolNumber]) {
@@ -207,7 +216,7 @@ class Buttons {
         && (button.flags & ButtonFlags.B_ENABLED)
         && (button.y == y || ((button.flags & ButtonFlags.B_WIDE_CLICK_AREA) && Math.abs(button.y - y) <= 1))
         && x >= button.x
-        && x < button.x + GW.text.length(button.text));
+        && x < button.x + Text.length(button.text));
     });
   }
 
@@ -277,10 +286,3 @@ class Buttons {
 GW.types.Buttons = Buttons;
 
 GW.make.buttons = (() => new Buttons());
-
-
-// Draws the smooth gradient that appears on a button when you hover over or depress it.
-// Returns the percentage by which the current tile should be averaged toward a hilite color.
-function smoothHiliteGradient(currentXValue, maxXValue) {
-    return Math.floor(100 * Math.sin(Math.PI * currentXValue / (maxXValue)));
-}
