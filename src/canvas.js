@@ -35,14 +35,14 @@ function handleResizeEvent() {
   this.pxHeight = rect.height;
   UI.debug('canvas resize', rect);
 
-  this.buffer.forEach((c) => { c.needsUpdate = true; });
+  this._buffer.forEach((c) => { c.needsUpdate = true; });
 }
 
 
 
 class Canvas {
   constructor(w, h, div, opts={}) {
-    this.buffer = make.buffer(w, h);
+    this._buffer = make.buffer(w, h);
     this.dead = [];
     this.displayRatio = 1;
     this.width  = w;
@@ -93,26 +93,26 @@ class Canvas {
   }
 
   hasXY(x, y) {
-    return this.buffer.hasXY(x, y);
+    return this._buffer.hasXY(x, y);
   }
 
   toX(x) {
-    return Math.floor(this.buffer.width * x / this.pxWidth);
+    return Math.floor(this._buffer.width * x / this.pxWidth);
   }
 
   toY(y) {
-    return Math.floor(this.buffer.height * y / this.pxHeight);
+    return Math.floor(this._buffer.height * y / this.pxHeight);
   }
 
   draw() {
-    if ((this.buffer.needsUpdate || this.dances)) {
+    if ((this._buffer.needsUpdate || this.dances)) {
       let i, j;
 
-      this.buffer.needsUpdate = false;
+      this._buffer.needsUpdate = false;
       this.dances = false;
       const _drawCell = canvas.drawCell;
 
-      this.buffer.forEach( (cell, i, j) => {
+      this._buffer.forEach( (cell, i, j) => {
         if (cell.fg.dances || cell.bg.dances) {
           this.dances = true;
           if (cosmetic.value() < 0.0005) {
@@ -121,13 +121,13 @@ class Canvas {
         }
 
         if (cell.needsUpdate) {
-          if (cell.wasHanging && j < this.buffer.height - 1) {
-            this.buffer[i][j + 1].needsUpdate = true;	// redraw the row below any hanging letters that changed
+          if (cell.wasHanging && j < this._buffer.height - 1) {
+            this._buffer[i][j + 1].needsUpdate = true;	// redraw the row below any hanging letters that changed
             cell.wasHanging = false;
           }
           if (cell.wasFlying && j) {
-            this.buffer[i][j - 1].needsUpdate = true;
-            this.buffer.needsUpdate = true;
+            this._buffer[i][j - 1].needsUpdate = true;
+            this._buffer.needsUpdate = true;
             cell.wasFlying = false;
           }
 
@@ -174,10 +174,10 @@ class Canvas {
       buf = this.dead.pop();
     }
     else {
-      buf = new types.Buffer(this.buffer.width, this.buffer.height);
+      buf = new types.Buffer(this._buffer.width, this._buffer.height);
     }
 
-    buf.copy(this.buffer);
+    buf.copy(this._buffer);
     return buf;
   }
 
@@ -186,16 +186,16 @@ class Canvas {
   }
 
   copyBuffer(dest) {
-    dest.copy(this.buffer);
+    dest.copy(this._buffer);
   }
 
   // draws overBuf over the current canvas with per-cell pseudotransparency as specified in overBuf.
   // If previousBuf is not null, it gets filled with the preexisting canvas for reversion purposes.
   overlay( overBuf,  previousBuf) {
     if (previousBuf) {
-      previousBuf.copy(this.buffer);
+      previousBuf.copy(this._buffer);
     }
-    this.overlayRect(overBuf, 0, 0, this.buffer.width, this.buffer.height);
+    this.overlayRect(overBuf, 0, 0, this._buffer.width, this._buffer.height);
   }
 
   // draws overBuf over the current canvas with per-cell pseudotransparency as specified in overBuf.
@@ -207,11 +207,11 @@ class Canvas {
       for (j=y; j<y + h; j++) {
         const src = overBuf[i][j];
         if (src.opacity) {
-          const dest = this.buffer[i][j];
+          const dest = this._buffer[i][j];
           if (!dest.equals(src)) {
             dest.copy(src); // was copy
             dest.needsUpdate = true;
-            this.buffer.needsUpdate = true;
+            this._buffer.needsUpdate = true;
           }
         }
       }

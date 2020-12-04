@@ -115,8 +115,8 @@ async function start() {
 	});
 
   while(true) {
-    GW.ui.canvas.buffer.blackOut();
-    GW.ui.canvas.draw();
+    GW.ui.blackOutDisplay();
+    GW.ui.draw();
     await showIntro();
     PLAYER = resetPlayer();
     await GW.game.start({ player: PLAYER, buildMap: generate, fov: true, inventory: false, combat: combat });

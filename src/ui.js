@@ -73,6 +73,7 @@ export function start(opts={}) {
 
   if (!ui.canvas && (opts.canvas !== false)) {
     ui.canvas = new types.Canvas(opts.width, opts.height, opts.div, opts);
+    ui.buffer = ui.canvas._buffer;
 
     if (opts.io && typeof document !== 'undefined') {
       ui.canvas.element.onmousedown = ui.onmousedown;
@@ -839,7 +840,7 @@ function draw() {
     // ui.canvas.overlay(UI_BASE);
     ui.canvas.overlay(UI_OVERLAY);
   }
-  else if (ui.canvas) {
+  else if (ui.canvas && DATA.map) {
     // const side = GW.sidebar.draw(UI_BUFFER);
     if (VIEWPORT.bounds) VIEWPORT.draw(UI_BUFFER);
 		if (MSG.bounds) MSG.draw(UI_BUFFER);

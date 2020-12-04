@@ -663,14 +663,13 @@ async function start() {
   // start the game
 	const success = await GW.game.start({ player: PLAYER, map, fov: true });
   await GW.ui.fadeTo(GW.colors.black, 1000);
-  canvas.buffer.blackOut();
 
   // did you win?
   if (!success) {
-    canvas.buffer.wrapText(10, 10, 40, 'Thank you for playing.  Please try again soon!', 'white', null);
+    GW.ui.buffer.wrapText(10, 10, 40, 'Thank you for playing.  Please try again soon!', 'white', null);
   }
   else {
-    canvas.buffer.wrapText(10, 10, 40, 'What a great performance.  Please play again soon!', 'white', null);
+    GW.ui.buffer.wrapText(10, 10, 40, 'What a great performance.  Please play again soon!', 'white', null);
   }
   canvas.draw();
 
