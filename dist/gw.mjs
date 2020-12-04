@@ -3923,7 +3923,7 @@ function setFont(canvas, size, name) {
 
 function handleResizeEvent() {
 
-  const rect = this.element.getBoundingClientRect();
+  const rect = this.node.getBoundingClientRect();
   this.pxWidth  = rect.width;
   this.pxHeight = rect.height;
   ui.debug('canvas resize', rect);
@@ -3943,21 +3943,21 @@ class Canvas {
 
     if (typeof document !== 'undefined') {
       let parent = document;
-      this.element = document.getElementById(div);
-      if (this.element && this.element.tagName !== 'CANVAS') {
-        parent = this.element;
-        this.element = null;
+      this.node = document.getElementById(div);
+      if (this.node && this.node.tagName !== 'CANVAS') {
+        parent = this.node;
+        this.node = null;
       }
-      if (!this.element) {
+      if (!this.node) {
         // Need to create canvas
-        this.element = document.createElement('canvas');
-        parent.appendChild(this.element);
+        this.node = document.createElement('canvas');
+        parent.appendChild(this.node);
       }
 
-      this.ctx = this.element.getContext('2d');
+      this.ctx = this.node.getContext('2d');
       this.displayRatio = window.devicePixelRatio || 1;
 
-      const bounds = this.element.getBoundingClientRect();
+      const bounds = this.node.getBoundingClientRect();
       const size = Math.min(Math.floor(bounds.width / this.width), Math.floor(bounds.height / this.height));
 
       this.tileSize = opts.tileSize || size;
@@ -3973,8 +3973,8 @@ class Canvas {
     this.dances = false;
 
     if (typeof window !== 'undefined') {
-      this.element.width = this.width * this.tileSize;
-      this.element.height = this.height * this.tileSize;
+      this.node.width = this.width * this.tileSize;
+      this.node.height = this.height * this.tileSize;
 
       window.addEventListener('resize', handleResizeEvent.bind(this));
       handleResizeEvent.call(this);
@@ -13488,8 +13488,8 @@ function start$2(opts={}) {
     ui.buffer = ui.canvas._buffer;
 
     if (opts.io && typeof document !== 'undefined') {
-      ui.canvas.element.onmousedown = ui.onmousedown;
-      ui.canvas.element.onmousemove = ui.onmousemove;
+      ui.canvas.node.onmousedown = ui.onmousedown;
+      ui.canvas.node.onmousemove = ui.onmousemove;
     	document.onkeydown = ui.onkeydown;
     }
 

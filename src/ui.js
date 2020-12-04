@@ -76,8 +76,8 @@ export function start(opts={}) {
     ui.buffer = ui.canvas._buffer;
 
     if (opts.io && typeof document !== 'undefined') {
-      ui.canvas.element.onmousedown = ui.onmousedown;
-      ui.canvas.element.onmousemove = ui.onmousemove;
+      ui.canvas.node.onmousedown = ui.onmousedown;
+      ui.canvas.node.onmousemove = ui.onmousemove;
     	document.onkeydown = ui.onkeydown;
     }
 
