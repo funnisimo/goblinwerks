@@ -98,18 +98,19 @@ class Buffer {
   // }
 
 
-  plotLine(x, y, w, text, fg, bg) {
-    if (typeof fg === 'string') { fg = GW.colors[fg]; }
-    if (typeof bg === 'string') { bg = GW.colors[bg]; }
-    fg = fg || GW.colors.white;
-    let len = Text.length(text);
-    Text.eachChar(text, (ch, color, _bg, i) => {
-      this.draw(i + x, y, ch, color || fg, _bg || bg);
-    });
-    for(let i = len; i < w; ++i) {
-      this.draw(i + x, y, ' ', bg, bg);
-    }
-  }
+  // plotLine(x, y, w, text, fg, bg) {
+  //   return this.wrapText(x, y, w, text, fg, bg);
+  //   // if (typeof fg === 'string') { fg = GW.colors[fg]; }
+  //   // if (typeof bg === 'string') { bg = GW.colors[bg]; }
+  //   // fg = fg || GW.colors.white;
+  //   // let len = Text.length(text);
+  //   // Text.eachChar(text, (ch, color, _bg, i) => {
+  //   //   this.draw(i + x, y, ch, color || fg, _bg || bg);
+  //   // });
+  //   // for(let i = len; i < w; ++i) {
+  //   //   this.draw(i + x, y, ' ', bg, bg);
+  //   // }
+  // }
 
   wrapText(x0, y0, width, text, fg, bg, opts={}) {
     if (typeof opts === 'number') { opts = { indent: opts }; }
@@ -125,12 +126,19 @@ class Buffer {
     let y = y0;
     Text.eachChar(text, (ch, fg0, bg0) => {
       if (ch == '\n') {
+        while(x < x0 + width) {
+          this.draw(x++, y, ' ', GW.colors.black, bg);
+        }
         ++y;
         x = x0 + indent;
         return;
       }
       this.draw(x++, y, ch, fg0, bg0);
     }, fg, bg);
+
+    while(x < x0 + width) {
+      this.draw(x++, y, ' ', GW.colors.black, bg);
+    }
 
     return ++y;
   }

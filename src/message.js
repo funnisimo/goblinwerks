@@ -274,7 +274,7 @@ async function showArchive() {
 				const pos = (CURRENT_ARCHIVE_POS - currentMessageCount + ARCHIVE_LINES + j) % ARCHIVE_LINES;
         const y = isOnTop ? j : dbuf.height - j - 1;
 
-				dbuf.plotLine(MSG_BOUNDS.toOuterX(0), y, MSG_BOUNDS.width, ARCHIVE[pos], GW.colors.white, GW.colors.black);
+				dbuf.wrapText(MSG_BOUNDS.toOuterX(0), y, MSG_BOUNDS.width, ARCHIVE[pos], GW.colors.white, GW.colors.black);
 			}
 
 			// Set the dbuf opacity, and do a fade from bottom to top to make it clear that the bottom messages are the most recent.
@@ -305,7 +305,7 @@ async function showArchive() {
 		if (!reverse) {
     	if (!GW.data.autoPlayingLevel) {
         const y = isOnTop ? 0 : dbuf.height - 1;
-        dbuf.plotLine(MSG_BOUNDS.toOuterX(-8), y, 8, "--DONE--", GW.colors.black, GW.colors.white);
+        dbuf.wrapText(MSG_BOUNDS.toOuterX(-8), y, 8, "--DONE--", GW.colors.black, GW.colors.white);
       	GW.ui.draw();
       	await IO.waitForAck();
     	}

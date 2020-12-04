@@ -47,7 +47,7 @@ function drawFlavor(buffer) {
     MSG.needsRedraw();
   }
   else {
-    buffer.plotLine(FLAVOR_BOUNDS.x, FLAVOR_BOUNDS.y, FLAVOR_BOUNDS.width, FLAVOR_TEXT, color, COLORS.black);
+    buffer.wrapText(FLAVOR_BOUNDS.x, FLAVOR_BOUNDS.y, FLAVOR_BOUNDS.width, FLAVOR_TEXT, color, COLORS.black);
   }
 }
 

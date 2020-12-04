@@ -639,7 +639,7 @@ async function chooseTarget(choices, prompt, opts={}) {
 
 	function draw() {
 		ui.resetDialog();
-		buf.plotLine(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, prompt, GW.colors.orange);
+		buf.wrapText(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, prompt, GW.colors.orange);
 		if (selected >= 0) {
 			const choice = choices[selected];
 

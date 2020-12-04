@@ -3846,18 +3846,19 @@ class Buffer {
   // }
 
 
-  plotLine(x, y, w, text$1, fg, bg) {
-    if (typeof fg === 'string') { fg = colors[fg]; }
-    if (typeof bg === 'string') { bg = colors[bg]; }
-    fg = fg || colors.white;
-    let len = length(text$1);
-    eachChar(text$1, (ch, color, _bg, i) => {
-      this.draw(i + x, y, ch, color || fg, _bg || bg);
-    });
-    for(let i = len; i < w; ++i) {
-      this.draw(i + x, y, ' ', bg, bg);
-    }
-  }
+  // plotLine(x, y, w, text, fg, bg) {
+  //   return this.wrapText(x, y, w, text, fg, bg);
+  //   // if (typeof fg === 'string') { fg = GW.colors[fg]; }
+  //   // if (typeof bg === 'string') { bg = GW.colors[bg]; }
+  //   // fg = fg || GW.colors.white;
+  //   // let len = Text.length(text);
+  //   // Text.eachChar(text, (ch, color, _bg, i) => {
+  //   //   this.draw(i + x, y, ch, color || fg, _bg || bg);
+  //   // });
+  //   // for(let i = len; i < w; ++i) {
+  //   //   this.draw(i + x, y, ' ', bg, bg);
+  //   // }
+  // }
 
   wrapText(x0, y0, width, text$1, fg, bg, opts={}) {
     if (typeof opts === 'number') { opts = { indent: opts }; }
@@ -3873,12 +3874,19 @@ class Buffer {
     let y = y0;
     eachChar(text$1, (ch, fg0, bg0) => {
       if (ch == '\n') {
+        while(x < x0 + width) {
+          this.draw(x++, y, ' ', colors.black, bg);
+        }
         ++y;
         x = x0 + indent;
         return;
       }
       this.draw(x++, y, ch, fg0, bg0);
     }, fg, bg);
+
+    while(x < x0 + width) {
+      this.draw(x++, y, ' ', colors.black, bg);
+    }
 
     return ++y;
   }
@@ -12113,7 +12121,7 @@ async function showArchive() {
 				const pos = (CURRENT_ARCHIVE_POS - currentMessageCount + ARCHIVE_LINES + j) % ARCHIVE_LINES;
         const y = isOnTop ? j : dbuf.height - j - 1;
 
-				dbuf.plotLine(MSG_BOUNDS.toOuterX(0), y, MSG_BOUNDS.width, ARCHIVE[pos], colors.white, colors.black);
+				dbuf.wrapText(MSG_BOUNDS.toOuterX(0), y, MSG_BOUNDS.width, ARCHIVE[pos], colors.white, colors.black);
 			}
 
 			// Set the dbuf opacity, and do a fade from bottom to top to make it clear that the bottom messages are the most recent.
@@ -12144,7 +12152,7 @@ async function showArchive() {
 		if (!reverse) {
     	if (!data.autoPlayingLevel) {
         const y = isOnTop ? 0 : dbuf.height - 1;
-        dbuf.plotLine(MSG_BOUNDS.toOuterX(-8), y, 8, "--DONE--", colors.black, colors.white);
+        dbuf.wrapText(MSG_BOUNDS.toOuterX(-8), y, 8, "--DONE--", colors.black, colors.white);
       	ui.draw();
       	await io.waitForAck();
     	}
@@ -13039,7 +13047,7 @@ function drawFlavor(buffer) {
     message.needsRedraw();
   }
   else {
-    buffer.plotLine(FLAVOR_BOUNDS.x, FLAVOR_BOUNDS.y, FLAVOR_BOUNDS.width, FLAVOR_TEXT, color, colors.black);
+    buffer.wrapText(FLAVOR_BOUNDS.x, FLAVOR_BOUNDS.y, FLAVOR_BOUNDS.width, FLAVOR_TEXT, color, colors.black);
   }
 }
 
@@ -14058,7 +14066,7 @@ async function chooseTarget(choices, prompt, opts={}) {
 
 	function draw() {
 		ui.resetDialog();
-		buf.plotLine(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, prompt, GW.colors.orange);
+		buf.wrapText(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, prompt, GW.colors.orange);
 		if (selected >= 0) {
 			const choice = choices[selected];
 

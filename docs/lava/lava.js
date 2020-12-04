@@ -14,7 +14,7 @@ const PLAYER = GW.make.player({
 		speed: 120
 });
 
-GW.message.addKind('FINISH', 'Level: $level$');
+GW.message.addKind('FINISH', 'Level: §level§');
 
 async function crossedFinish() {
 	const map = makeMap(MAP.id + 1);
@@ -75,7 +75,7 @@ async function jump() {
 	let waiting = true;
 	let dir = null;
 
-	buf.plotLine(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, 'Jump: Which direction?', GW.colors.orange);
+	buf.wrapText(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, 'Jump: Which direction?', GW.colors.orange);
 
 	GW.ui.draw();
 
@@ -98,7 +98,7 @@ async function jump() {
 			},
 			update(newDir) {
 				GW.ui.resetDialog();
-				buf.plotLine(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, 'Jump: Which direction?', GW.colors.orange);
+				buf.wrapText(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, 'Jump: Which direction?', GW.colors.orange);
 				if (newDir) {
 					buf.drawSprite(PLAYER.x + newDir[0]*2, PLAYER.y + newDir[1]*2, jumpHilite);
 				}
@@ -170,7 +170,7 @@ GW.tile.addKind('LAVA_ERUPTED', {
 
 
 
-GW.message.addKind('MAP_WELCOME', 'Ωlight_blueΩErupt: $erupt$, Crust: §crust§, StartBreak: §start§, Break: §break§');
+GW.message.addKind('MAP_WELCOME', 'Ωlight_blueΩErupt: §erupt§, Crust: §crust§, StartBreak: §start§, Break: §break§');
 
 function makeMap(id=1) {
 	// dig a map
