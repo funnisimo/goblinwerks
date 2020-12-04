@@ -67,7 +67,7 @@ async function playerSellToMarket(port, player) {
   let cx = 16 + Math.floor((64-len)/2);
   buffer.plotText(cx, 1, welcome);
 
-  buffer.applyText(21, 3, 'What would you like to ΩgreenΩsell∆ to the market?');
+  buffer.plotText(21, 3, 'What would you like to ΩgreenΩsell∆ to the market?');
 
   const table = GW.make.table({
     letters: true,
@@ -94,18 +94,19 @@ async function playerSellToMarket(port, player) {
   let result = 0;
   while(result == 0) {
 
-    // buffer.applyText(5, 3, 'What would you like to ΩgreenΩbuy∆ at the market?');
-    // buffer.applyText(5, 33, 'Press ΩgreenΩ<S>∆ to Sell.');
+    // buffer.plotText(5, 3, 'What would you like to ΩgreenΩbuy∆ at the market?');
+    // buffer.plotText(5, 33, 'Press ΩgreenΩ<S>∆ to Sell.');
 
     buffer.blackOutRect(21, 16, 54, 2, 'darkest_gray');
-    buffer.applyText(21, 16, 'Gold : ΩgoldΩ§gold§∆', { gold: player.current.gold });
-    buffer.applyText(21, 17, 'Space on Ship: ΩyellowΩ§empty§∆', { empty: player.current.empty });
+    buffer.plotText(21, 16, `Gold : ΩgoldΩ${player.current.gold}∆`);
+    buffer.plotText(21, 17, `Space on Ship: ΩyellowΩ${player.current.empty}∆`);
 
-    buffer.applyText(21, 20, 'Press ΩgreenΩ<a-z, UP, DOWN>∆ to select a good.');
-    buffer.applyText(21, 21, 'Press Ω§c§Ω<Enter>∆ to sell 1.', { c: (y == 21) ? 'teal' : 'green' });
-    buffer.applyText(21, 22, 'Press Ω§c§Ω<ENTER>∆ to sell all of the good.', { c: (y == 22) ? 'teal' : 'green' });
-    buffer.applyText(21, 23, 'Press Ω§c§Ω<B>∆ to see buy prices.', { c: (y == 23) ? 'teal' : 'green' });
-    buffer.applyText(21, 24, 'Press Ω§c§Ω<Escape>∆ to leave the market.', { c: (y == 24) ? 'teal' : 'green' });
+    const hc = ['green', 'teal'];
+    buffer.plotText(21, 20, 'Press ΩgreenΩ<a-z, UP, DOWN>∆ to select a good.');
+    buffer.plotText(21, 21, `Press Ω${hc[+(y==21)]}Ω<Enter>∆ to sell 1.`);
+    buffer.plotText(21, 22, `Press Ω${hc[+(y==22)]}Ω<ENTER>∆ to sell all of the good.`);
+    buffer.plotText(21, 23, `Press Ω${hc[+(y==23)]}Ω<B>∆ to see buy prices.`);
+    buffer.plotText(21, 24, `Press Ω${hc[+(y==24)]}Ω<Escape>∆ to leave the market.`);
 
     table.draw(buffer, 21, 5, data);
     GW.ui.draw();
@@ -185,7 +186,7 @@ async function playerBuyFromMarket(port, player) {
   let cx = 16 + Math.floor((64-len)/2);
   buffer.plotText(cx, 1, welcome);
 
-  buffer.applyText(21, 3, 'What would you like to ΩgreenΩbuy∆ from the market?');
+  buffer.plotText(21, 3, 'What would you like to ΩgreenΩbuy∆ from the market?');
 
   const table = GW.make.table({
     letters: true,
@@ -211,14 +212,15 @@ async function playerBuyFromMarket(port, player) {
   while(result == 1) {
 
     buffer.blackOutRect(21, 16, 54, 2, 'darkest_gray');
-    buffer.applyText(21, 16, 'Gold : ΩgoldΩ§gold§∆', { gold: player.current.gold });
-    buffer.applyText(21, 17, 'Space on Ship: ΩyellowΩ§empty§∆', { empty: player.current.empty });
+    buffer.plotText(21, 16, `Gold : ΩgoldΩ${player.current.gold}∆`);
+    buffer.plotText(21, 17, `Space on Ship: ΩyellowΩ${player.current.empty}∆`);
 
-    buffer.applyText(21, 20, 'Press ΩgreenΩ<a-z, UP, DOWN>∆ to select a good.');
-    buffer.applyText(21, 21, 'Press Ω§c§Ω<Enter>∆ to buy a good.', { c: (y == 21) ? 'teal' : 'green' });
-    buffer.applyText(21, 22, 'Press Ω§c§Ω<ENTER>∆ to buy the max of a good.', { c: (y == 22) ? 'teal' : 'green' });
-    buffer.applyText(21, 23, 'Press Ω§c§Ω<S>∆ to see sell prices.', { c: (y == 23) ? 'teal' : 'green' });
-    buffer.applyText(21, 24, 'Press Ω§c§Ω<Escape>∆ to leave the market.', { c: (y == 24) ? 'teal' : 'green' });
+    const hc = ['green', 'teal'];
+    buffer.plotText(21, 20, 'Press ΩgreenΩ<a-z, UP, DOWN>∆ to select a good.');
+    buffer.plotText(21, 21, `Press Ω${hc[+(y==21)]}Ω<Enter>∆ to buy a good.`);
+    buffer.plotText(21, 22, `Press Ω${hc[+(y==22)]}Ω<ENTER>∆ to buy max of the good.`);
+    buffer.plotText(21, 23, `Press Ω${hc[+(y==23)]}Ω<S>∆ to see sell prices.`);
+    buffer.plotText(21, 24, `Press Ω${hc[+(y==24)]}Ω<Escape>∆ to leave the market.`);
 
     table.draw(buffer, 21, 5, data);
     GW.ui.draw();

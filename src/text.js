@@ -1,4 +1,5 @@
 
+import * as Color from './color.js';
 import * as TEXT from 'gw-text';
 
 
@@ -164,6 +165,10 @@ export function apply(template, args={}) {
   return result;
 }
 
+TEXT.addHelper('eachColor', (ctx) => {
+  if (ctx.fg) { ctx.fg = Color.from(ctx.fg); }
+  if (ctx.bg) { ctx.bg = Color.from(ctx.bg); }
+});
 
 export {
   firstChar,

@@ -161,9 +161,9 @@ GW.item.addKind('SHIELD', new BeautyItem({
 
 GW.color.addKind('health', '#e00');
 
-GW.message.addKind('HEAL_NO_NEED', '§you§ §are§ at full #health#health##.');
-GW.message.addKind('HEAL_PARTIAL', 'Some of §your§ #health#health## is refilled.');
-GW.message.addKind('HEAL_FULL',    '§your§ #health#health## is completely refilled.');
+GW.message.addKind('HEAL_NO_NEED', '§you§ §are§ at full ΩhealthΩhealth∆.');
+GW.message.addKind('HEAL_PARTIAL', 'Some of §your§ ΩhealthΩhealth∆ is refilled.');
+GW.message.addKind('HEAL_FULL',    '§your§ ΩhealthΩhealth∆ is completely refilled.');
 
 GW.item.addKind('POTION_HEALTH', {
   name: 'health potion',
@@ -191,9 +191,9 @@ GW.item.addKind('POTION_HEALTH', {
 
 GW.color.addKind('mana', '#84a');
 
-GW.message.addKind('MANA_NO_NEED', '§you§ §do§ not need to recharge §your§ #mana#mana##.');
-GW.message.addKind('MANA_PARTIAL', 'Some of §your§ #mana#mana## is refilled.');
-GW.message.addKind('MANA_FULL',    '§your§ #mana#mana## is completely refilled.');
+GW.message.addKind('MANA_NO_NEED', '§you§ §do§ not need to recharge §your§ ΩmanaΩmana∆.');
+GW.message.addKind('MANA_PARTIAL', 'Some of §your§ ΩmanaΩmana∆ is refilled.');
+GW.message.addKind('MANA_FULL',    '§your§ ΩmanaΩmana∆ is completely refilled.');
 
 GW.item.addKind('POTION_MANA', {
   name: 'mana potion',

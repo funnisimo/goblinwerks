@@ -237,11 +237,11 @@ export function addKind(name, ...args) {
 
 
 export function from(arg) {
-  if (typeof arg === 'string') {
-    return colors[arg] || MAKE.color(arg);
-  }
   if (arg instanceof types.Color) {
     return arg;
+  }
+  if (typeof arg === 'string') {
+    return colors[arg] || MAKE.color(arg);
   }
   return MAKE.color(arg);
 }

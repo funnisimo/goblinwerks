@@ -26,7 +26,7 @@ async function enterTavern(port, player) {
   let cx = 16 + Math.floor((64-len)/2);
   buffer.plotText(cx, 1, welcome);
 
-  buffer.applyText(21, 3, 'What can I get you?');
+  buffer.plotText(21, 3, 'What can I get you?');
 
   const list = GW.make.list({
     letters: true,

@@ -1785,11 +1785,11 @@ function addKind(name, ...args) {
 
 
 function from(arg) {
-  if (typeof arg === 'string') {
-    return colors[arg] || make.color(arg);
-  }
   if (arg instanceof types.Color) {
     return arg;
+  }
+  if (typeof arg === 'string') {
+    return colors[arg] || make.color(arg);
   }
   return make.color(arg);
 }
@@ -2636,6 +2636,11 @@ function apply(template, args={}) {
   const result = fn(args);
   return result;
 }
+
+addHelper('eachColor', (ctx) => {
+  if (ctx.fg) { ctx.fg = from(ctx.fg); }
+  if (ctx.bg) { ctx.bg = from(ctx.bg); }
+});
 
 var text = {
   __proto__: null,
@@ -3831,12 +3836,12 @@ class Buffer {
     }, fg, bg);
   }
 
-  applyText(x, y, text$1, args={}) {
-    text$1 = apply(text$1, args);
-    eachChar(text$1, (ch, color, bg, i) => {
-      this.draw(i + x, y, ch, color || colors.white, null);
-    }, args.fg, args.bg);
-  }
+  // applyText(x, y, text, args={}) {
+  //   text = Text.apply(text, args);
+  //   Text.eachChar(text, (ch, color, bg, i) => {
+  //     this.draw(i + x, y, ch, color || GW.colors.white, null);
+  //   }, args.fg, args.bg);
+  // }
 
 
   plotLine(x, y, w, text$1, fg, bg) {

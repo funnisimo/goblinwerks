@@ -90,12 +90,12 @@ class Buffer {
     }, fg, bg);
   }
 
-  applyText(x, y, text, args={}) {
-    text = Text.apply(text, args);
-    Text.eachChar(text, (ch, color, bg, i) => {
-      this.draw(i + x, y, ch, color || GW.colors.white, null);
-    }, args.fg, args.bg);
-  }
+  // applyText(x, y, text, args={}) {
+  //   text = Text.apply(text, args);
+  //   Text.eachChar(text, (ch, color, bg, i) => {
+  //     this.draw(i + x, y, ch, color || GW.colors.white, null);
+  //   }, args.fg, args.bg);
+  // }
 
 
   plotLine(x, y, w, text, fg, bg) {

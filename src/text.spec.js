@@ -187,8 +187,7 @@ describe('Message', () => {
 
     test('push/pop colors', () => {
       const raw = 'ΩyellowΩWelcome to Town!∆\nΩdark_purpleΩVisit our shops to equip yourself for a journey into the ΩgreenΩDungeons of Moria∆.  Once you are prepared, enter the dungeon and seek the Ωdark_redΩ#Balrog∆.  Destroy him to free us all!∆\nΩwhiteΩPress <?> for help.';
-      const text = GW.text.apply(raw);
-      const lines = GW.text.splitIntoLines(text, 80);
+      const lines = GW.text.splitIntoLines(raw, 80);
       // console.log(lines);
       expect(lines.length).toEqual(5);
       const purple = 'Ωdark_purpleΩ';

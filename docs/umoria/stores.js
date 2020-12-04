@@ -425,8 +425,12 @@ async function showStoreInventory(buffer, store, actor) {
 
     // buffer.plotText(x, 3, 'Items For Sale');
 
-    buffer.applyText(x, 33, 'Press ΩgreenΩ<a-z, UP, DOWN>∆ to see an item');
-    buffer.applyText(x, 34, 'Press ΩgreenΩ<S>∆ to see your pack (sell), ΩgreenΩ<Escape>∆ to leave the store.');
+    const hc = ['green', 'teal'];
+    buffer.plotText(x, 32, 'Press ΩgreenΩ<a-z, UP, DOWN>∆ to select a good.');
+    buffer.plotText(x, 33, `Press Ω${hc[+(y==33)]}Ω<Enter>∆ to buy 1.`);
+    buffer.plotText(x, 34, `Press Ω${hc[+(y==34)]}Ω<ENTER>∆ to buy max of the good.`);
+    buffer.plotText(x, 35, `Press Ω${hc[+(y==35)]}Ω<S>∆ to see your pack.`);
+    buffer.plotText(x, 36, `Press Ω${hc[+(y==36)]}Ω<Escape>∆ to leave the store.`);
 
     canBuy = false;
     if (!store.items) {
@@ -441,7 +445,7 @@ async function showStoreInventory(buffer, store, actor) {
         const startX = x + table.width + 5;
         const width = buffer.width - startX - 5;
 
-        buffer.plotText(startX, 5, 'You have ΩgoldΩ§gold§∆ gold.', { gold: actor.current.gold });
+        buffer.plotText(startX, 5, `You have ΩgoldΩ${actor.current.gold}∆ gold.`);
         let nextY = buffer.wrapText(startX, 7, width, selectedData.item.kind.description, [100,100,30]);
 
         if (selectedData.price > actor.current.gold) {
@@ -577,8 +581,12 @@ async function showPlayerInventory(buffer, store, actor) {
 
     // buffer.plotText(x, 3, 'Items For Sale');
 
-    buffer.applyText(x, 33, 'Press ΩgreenΩ<a-z, UP, DOWN>∆ to see an item');
-    buffer.applyText(x, 34, 'Press ΩgreenΩ<B>∆ to see store items (buy), ΩgreenΩ<Escape>∆ to leave the store.');
+    const hc = ['green', 'teal'];
+    buffer.plotText(x, 32, 'Press ΩgreenΩ<a-z, UP, DOWN>∆ to select a good.');
+    buffer.plotText(x, 33, `Press Ω${hc[+(y==33)]}Ω<Enter>∆ to sell 1.`);
+    buffer.plotText(x, 34, `Press Ω${hc[+(y==34)]}Ω<ENTER>∆ to sell all of the good.`);
+    buffer.plotText(x, 35, `Press Ω${hc[+(y==35)]}Ω<B>∆ to see the store inventory.`);
+    buffer.plotText(x, 36, `Press Ω${hc[+(y==36)]}Ω<Escape>∆ to leave the store.`);
 
     canBuy = false;
     if (!data.length) {
@@ -593,7 +601,7 @@ async function showPlayerInventory(buffer, store, actor) {
         const startX = x + table.width + 5;
         const width = buffer.width - startX - 5;
 
-        // buffer.applyText(startX, 5, 'You have ΩgoldΩ§gold§∆ gold.', { gold: actor.current.gold });
+        // buffer.plotText(startX, 5, `You have ΩgoldΩ${actor.current.gold}∆ gold.`);
         let nextY = buffer.wrapText(startX, 7, width, selectedData.item.kind.description, [100,100,30]);
 
         if (selectedData.price > store.gold) {
