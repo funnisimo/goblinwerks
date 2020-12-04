@@ -66,7 +66,7 @@ function drawViewport(buffer, map) {
   for(let x = 0; x < VIEWPORT.width; ++x) {
     for(let y = 0; y < VIEWPORT.height; ++y) {
 
-      const buf = buffer[x + VIEWPORT.x][y + VIEWPORT.y];
+      const buf = buffer._data[x + VIEWPORT.x][y + VIEWPORT.y];
       const mapX = x + VIEWPORT.offsetX;
       const mapY = y + VIEWPORT.offsetY;
       if (map.hasXY(mapX, mapY)) {

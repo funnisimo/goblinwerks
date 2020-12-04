@@ -147,7 +147,7 @@ export class Sprite {
     this.needsUpdate = true;
 	}
 
-	plot(sprite, alpha=100) {
+	drawSprite(sprite, alpha=100) {
     const opacity = Math.floor(sprite.opacity * alpha / 100);
 		if (opacity == 0) return false;
 

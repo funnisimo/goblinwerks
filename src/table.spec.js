@@ -21,14 +21,14 @@ describe('GW.table', () => {
     const buffer = GW.make.buffer(40, 10);
     const data = { count: 1, name: 'taco', price: 2, next: null };
 
-    table.plot(buffer, 0, 0, data);
+    table.draw(buffer, 0, 0, data);
 
     // buffer.dump();
 
     const width = 3 + 3 + 11 + 5 - 1;
     expect(UTILS.extractBufferText(buffer, 0, 0, width)).toEqual('      Item       Each');
     expect(UTILS.extractBufferText(buffer, 0, 1, width)).toEqual('a)  1 taco          2');
-    expect(buffer[0][1].fg).toEqual(GW.colors.teal);
+    expect(buffer._data[0][1].fg).toEqual(GW.colors.teal);
   });
 
 
@@ -48,13 +48,13 @@ describe('GW.table', () => {
     const buffer = GW.make.buffer(40, 10);
     const data = [{ count: 1, name: 'taco', price: 2 }];
 
-    table.plot(buffer, 0, 0, data);
+    table.draw(buffer, 0, 0, data);
 
     // buffer.dump();
 
     const width = 3 + 3 + 11 + 5 - 1;
     expect(UTILS.extractBufferText(buffer, 0, 0, width)).toEqual('      Item       Each');
     expect(UTILS.extractBufferText(buffer, 0, 1, width)).toEqual('a)  1 taco          2');
-    expect(buffer[0][1].fg).toEqual(GW.colors.teal);
+    expect(buffer._data[0][1].fg).toEqual(GW.colors.teal);
   });
 });

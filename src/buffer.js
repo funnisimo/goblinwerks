@@ -2,80 +2,83 @@
 import * as Text from './text.js';
 import * as Utils from './utils.js';
 import * as Color from './color.js';
+import * as Grid from './grid.js';
 import * as GW from './gw.js';
 
 
-class Buffer extends GW.types.Grid {
+class Buffer {
   constructor(w, h) {
-    super(w, h, () => new GW.types.Sprite() );
+    this.width = w;
+    this.height = h;
+    this._data = Grid.alloc(w, h, () => new GW.types.Sprite() );
     this.needsUpdate = true;
   }
 
   copy(other) {
-    this.forEach( (c, i, j) => c.copy(other[i][j]) );
+    this._data.forEach( (c, i, j) => c.copy(other._data[i][j]) );
     this.needsUpdate = true;
   }
 
   nullify() {
-    this.forEach( (c) => c.nullify() );
+    this._data.forEach( (c) => c.nullify() );
     this.needsUpdate = true;
   }
 
   nullifyRect(x, y, w, h) {
-    this.forRect(x, y, w, h, (c) => c.nullify() );
+    this._data.forRect(x, y, w, h, (c) => c.nullify() );
     this.needsUpdate = true;
   }
 
   nullifyCell(x, y) {
-    this[x][y].nullify();
+    this._data[x][y].nullify();
     this.needsUpdate = true;
   }
 
   blackOut(bg) {
-    this.forEach( (c) => c.blackOut(bg) );
+    this._data.forEach( (c) => c.blackOut(bg) );
     this.needsUpdate = true;
   }
 
   blackOutRect(x, y, w, h, bg) {
-    this.forRect(x, y, w, h, (c) => c.blackOut(bg) );
+    this._data.forRect(x, y, w, h, (c) => c.blackOut(bg) );
     this.needsUpdate = true;
   }
 
   blackOutCell(x, y) {
-    this[x][y].blackOut();
+    this._data[x][y].blackOut();
     this.needsUpdate = true;
   }
 
   fade(color, pct) {
     color = Color.from(color);
-    this.forEach( (s) => s.fade(color, pct) );
+    this._data.forEach( (s) => s.fade(color, pct) );
   }
 
   dump(fmt) { super.dump( fmt || ((s) => s.ch) ); }
 
-  plot(x, y, sprite) {
+  drawSprite(x, y, sprite) {
     if (sprite.opacity <= 0) return;
 
-    if (!this.hasXY(x, y)) {
+    if (!this._data.hasXY(x, y)) {
       Utils.WARN('invalid coordinates: ' + x + ', ' + y);
       return false;
     }
-    const destCell = this[x][y];
-    if (destCell.plot(sprite)) {
+    const destCell = this._data[x][y];
+    if (destCell.drawSprite(sprite)) {
       this.needsUpdate = true;
     }
     return this.needsUpdate;
   }
 
   plotChar(x, y, ch, fg, bg) {
-    if (!this.hasXY(x, y)) {
+    if (!this._data.hasXY(x, y)) {
       Utils.WARN('invalid coordinates: ' + x + ', ' + y);
       return;
     }
 
     if (typeof fg === 'string') { fg = GW.colors[fg]; }
     if (typeof bg === 'string') { bg = GW.colors[bg]; }
-    const destCell = this[x][y];
+    const destCell = this._data[x][y];
     destCell.plotChar(ch, fg, bg);
     this.needsUpdate = true;
   }
@@ -100,8 +103,8 @@ class Buffer extends GW.types.Grid {
     if (typeof bg === 'string') { bg = GW.colors[bg]; }
     fg = fg || GW.colors.white;
     let len = Text.length(text);
-    Text.eachChar(text, (ch, color, bg, i) => {
-      this.plotChar(i + x, y, ch, color || fg, bg);
+    Text.eachChar(text, (ch, color, _bg, i) => {
+      this.plotChar(i + x, y, ch, color || fg, _bg || bg);
     });
     for(let i = len; i < w; ++i) {
       this.plotChar(i + x, y, ' ', bg, bg);
@@ -139,7 +142,7 @@ class Buffer extends GW.types.Grid {
   fillRect(x, y, w, h, ch, fg, bg) {
     if (typeof fg === 'string') { fg = GW.colors[fg]; }
     if (typeof bg === 'string') { bg = GW.colors[bg]; }
-    this.forRect(x, y, w, h, (destCell, i, j) => {
+    this._data.forRect(x, y, w, h, (destCell, i, j) => {
       destCell.plotChar(ch, fg, bg);
     });
     this.needsUpdate = true;
@@ -148,7 +151,7 @@ class Buffer extends GW.types.Grid {
   // // Very low-level. Changes displayBuffer directly.
 	highlight(x, y, highlightColor, strength)
 	{
-		const cell = this[x][y];
+		const cell = this._data[x][y];
 		cell.fg.add(highlightColor, strength);
 		cell.bg.add(highlightColor, strength);
 		cell.needsUpdate = true;

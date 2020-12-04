@@ -507,7 +507,7 @@ export async function fadeTo(color, duration=1000, src) {
     pct = Math.floor(100*elapsed/duration);
 
     buffer.copy(src);
-    buffer.forEach( (c, x, y) => {
+    buffer._data.forEach( (c, x, y) => {
       c.fg.mix(color, pct);
       c.bg.mix(color, pct);
     });
@@ -653,7 +653,7 @@ async function chooseTarget(choices, prompt, opts={}) {
       const x = choice.x + VIEWPORT.bounds.x - offsetX;
       const y = choice.y + VIEWPORT.bounds.y - offsetY;
 
-			buf.plot(x, y, TARGET_SPRITE);
+			buf.drawSprite(x, y, TARGET_SPRITE);
 		}
 		ui.draw();
 	}
@@ -806,7 +806,7 @@ function startDialog() {
   const base = UI_OVERLAY || null;
   UI_LAYERS.push(base);
   UI_OVERLAY = ui.canvas.allocBuffer();
-  UI_OVERLAY.forEach( (c) => c.opacity = 0 );
+  UI_OVERLAY._data.forEach( (c) => c.opacity = 0 );
   return UI_OVERLAY;
 }
 

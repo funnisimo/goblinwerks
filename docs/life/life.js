@@ -44,7 +44,7 @@ function handleMove(e) {
 // alive = @, dead = ' '
 function draw() {
 	data.forEach( (v, x, y) => {
-		GW.ui.buffer.plot(x, y, v ? ALIVE : DEAD);
+		GW.ui.buffer.drawSprite(x, y, v ? ALIVE : DEAD);
 	});
 	// canvas.render();
 }

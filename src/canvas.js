@@ -35,7 +35,7 @@ function handleResizeEvent() {
   this.pxHeight = rect.height;
   UI.debug('canvas resize', rect);
 
-  this._buffer.forEach((c) => { c.needsUpdate = true; });
+  this._buffer._data.forEach((c) => { c.needsUpdate = true; });
 }
 
 
@@ -93,7 +93,7 @@ class Canvas {
   }
 
   hasXY(x, y) {
-    return this._buffer.hasXY(x, y);
+    return this._buffer._data.hasXY(x, y);
   }
 
   toX(x) {
@@ -112,7 +112,7 @@ class Canvas {
       this.dances = false;
       const _drawCell = canvas.drawCell;
 
-      this._buffer.forEach( (cell, i, j) => {
+      this._buffer._data.forEach( (cell, i, j) => {
         if (cell.fg.dances || cell.bg.dances) {
           this.dances = true;
           if (cosmetic.value() < 0.0005) {
@@ -122,11 +122,11 @@ class Canvas {
 
         if (cell.needsUpdate) {
           if (cell.wasHanging && j < this._buffer.height - 1) {
-            this._buffer[i][j + 1].needsUpdate = true;	// redraw the row below any hanging letters that changed
+            this._buffer._data[i][j + 1].needsUpdate = true;	// redraw the row below any hanging letters that changed
             cell.wasHanging = false;
           }
           if (cell.wasFlying && j) {
-            this._buffer[i][j - 1].needsUpdate = true;
+            this._buffer._data[i][j - 1].needsUpdate = true;
             this._buffer.needsUpdate = true;
             cell.wasFlying = false;
           }
@@ -205,9 +205,9 @@ class Canvas {
 
     for (i=x; i<x + w; i++) {
       for (j=y; j<y + h; j++) {
-        const src = overBuf[i][j];
+        const src = overBuf._data[i][j];
         if (src.opacity) {
-          const dest = this._buffer[i][j];
+          const dest = this._buffer._data[i][j];
           if (!dest.equals(src)) {
             dest.copy(src); // was copy
             dest.needsUpdate = true;

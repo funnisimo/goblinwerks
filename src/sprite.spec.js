@@ -110,7 +110,7 @@ describe('Sprite', () => {
     expect(t.opacity).toEqual(50);
     s.needsUpdate = false;
 
-    s.plot(t);
+    s.drawSprite(t);
     expect(s.needsUpdate).toBeTruthy();
 
     expect(s.ch).toEqual('$');
@@ -124,7 +124,7 @@ describe('Sprite', () => {
     expect(t.opacity).toEqual(50);
     s.needsUpdate = false;
 
-    s.plot(t, 50);
+    s.drawSprite(t, 50);
     expect(s.needsUpdate).toBeTruthy();
 
     expect(s.ch).toEqual('$');
@@ -137,8 +137,8 @@ describe('Sprite', () => {
     const tile = GW.make.sprite(null, null, 'green'); // bg
     const player = GW.make.sprite('@', 'white', null);
 
-    dest.plot(tile);
-    dest.plot(player);
+    dest.drawSprite(tile);
+    dest.drawSprite(player);
 
     expect(dest.ch).toEqual('@');
     expect(dest.fg.css()).toEqual('#ffffff');
@@ -153,9 +153,9 @@ describe('Sprite', () => {
     const player = GW.make.sprite('@');
     const fx = GW.make.sprite('red', 50);
 
-    dest.plot(tile);
-    dest.plot(player);
-    dest.plot(fx);
+    dest.drawSprite(tile);
+    dest.drawSprite(player);
+    dest.drawSprite(fx);
 
     expect(dest.ch).toEqual('@');
     expect(dest.fg.css()).toEqual('#ffffff');
@@ -170,9 +170,9 @@ describe('Sprite', () => {
     const player = GW.make.sprite('@');
     const fx = GW.make.sprite(null, 'red', 50);
 
-    dest.plot(tile);
-    dest.plot(player);
-    dest.plot(fx);
+    dest.drawSprite(tile);
+    dest.drawSprite(player);
+    dest.drawSprite(fx);
 
     expect(dest.ch).toEqual('@');
     expect(dest.fg.css()).toEqual('#ff8080');  // (white + red) / 2
@@ -206,11 +206,11 @@ describe('Sprite', () => {
     const u = GW.make.sprite('o', 'orange');
 
     expect(s.wasHanging).toBeFalsy();
-    s.plot(t);
+    s.drawSprite(t);
     expect(s.wasHanging).toBeTruthy();
-    s.plot(u);
+    s.drawSprite(u);
     expect(s.wasHanging).toBeTruthy();
-    s.plot(u);
+    s.drawSprite(u);
     expect(s.wasHanging).toBeTruthy();  // Not auto turned off
     s.nullify();
     expect(s.wasHanging).toBeTruthy();  // does not get cleared

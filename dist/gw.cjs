@@ -2161,7 +2161,7 @@ function eachChar(text, fn, fg, bg) {
     };
     const CS = options.colorStart;
     const CE = options.colorEnd;
-    colorFn({ fg, bg });
+    colorFn(ctx);
     let n = 0;
     for (let i = 0; i < text.length; ++i) {
         const ch = text[i];
@@ -2806,7 +2806,7 @@ class Sprite {
     this.needsUpdate = true;
 	}
 
-	plot(sprite, alpha=100) {
+	drawSprite(sprite, alpha=100) {
     const opacity = Math.floor(sprite.opacity * alpha / 100);
 		if (opacity == 0) return false;
 
@@ -3749,77 +3749,79 @@ var grid = {
   fillBlob: fillBlob
 };
 
-class Buffer extends types.Grid {
+class Buffer {
   constructor(w, h) {
-    super(w, h, () => new types.Sprite() );
+    this.width = w;
+    this.height = h;
+    this._data = alloc(w, h, () => new types.Sprite() );
     this.needsUpdate = true;
   }
 
   copy(other) {
-    this.forEach( (c, i, j) => c.copy(other[i][j]) );
+    this._data.forEach( (c, i, j) => c.copy(other._data[i][j]) );
     this.needsUpdate = true;
   }
 
   nullify() {
-    this.forEach( (c) => c.nullify() );
+    this._data.forEach( (c) => c.nullify() );
     this.needsUpdate = true;
   }
 
   nullifyRect(x, y, w, h) {
-    this.forRect(x, y, w, h, (c) => c.nullify() );
+    this._data.forRect(x, y, w, h, (c) => c.nullify() );
     this.needsUpdate = true;
   }
 
   nullifyCell(x, y) {
-    this[x][y].nullify();
+    this._data[x][y].nullify();
     this.needsUpdate = true;
   }
 
   blackOut(bg) {
-    this.forEach( (c) => c.blackOut(bg) );
+    this._data.forEach( (c) => c.blackOut(bg) );
     this.needsUpdate = true;
   }
 
   blackOutRect(x, y, w, h, bg) {
-    this.forRect(x, y, w, h, (c) => c.blackOut(bg) );
+    this._data.forRect(x, y, w, h, (c) => c.blackOut(bg) );
     this.needsUpdate = true;
   }
 
   blackOutCell(x, y) {
-    this[x][y].blackOut();
+    this._data[x][y].blackOut();
     this.needsUpdate = true;
   }
 
   fade(color$1, pct) {
     color$1 = from(color$1);
-    this.forEach( (s) => s.fade(color$1, pct) );
+    this._data.forEach( (s) => s.fade(color$1, pct) );
   }
 
   dump(fmt) { super.dump( fmt || ((s) => s.ch) ); }
 
-  plot(x, y, sprite) {
+  drawSprite(x, y, sprite) {
     if (sprite.opacity <= 0) return;
 
-    if (!this.hasXY(x, y)) {
+    if (!this._data.hasXY(x, y)) {
       WARN('invalid coordinates: ' + x + ', ' + y);
       return false;
     }
-    const destCell = this[x][y];
-    if (destCell.plot(sprite)) {
+    const destCell = this._data[x][y];
+    if (destCell.drawSprite(sprite)) {
       this.needsUpdate = true;
     }
     return this.needsUpdate;
   }
 
   plotChar(x, y, ch, fg, bg) {
-    if (!this.hasXY(x, y)) {
+    if (!this._data.hasXY(x, y)) {
       WARN('invalid coordinates: ' + x + ', ' + y);
       return;
     }
 
     if (typeof fg === 'string') { fg = colors[fg]; }
     if (typeof bg === 'string') { bg = colors[bg]; }
-    const destCell = this[x][y];
+    const destCell = this._data[x][y];
     destCell.plotChar(ch, fg, bg);
     this.needsUpdate = true;
   }
@@ -3844,8 +3846,8 @@ class Buffer extends types.Grid {
     if (typeof bg === 'string') { bg = colors[bg]; }
     fg = fg || colors.white;
     let len = length(text$1);
-    eachChar(text$1, (ch, color, bg, i) => {
-      this.plotChar(i + x, y, ch, color || fg, bg);
+    eachChar(text$1, (ch, color, _bg, i) => {
+      this.plotChar(i + x, y, ch, color || fg, _bg || bg);
     });
     for(let i = len; i < w; ++i) {
       this.plotChar(i + x, y, ' ', bg, bg);
@@ -3883,7 +3885,7 @@ class Buffer extends types.Grid {
   fillRect(x, y, w, h, ch, fg, bg) {
     if (typeof fg === 'string') { fg = colors[fg]; }
     if (typeof bg === 'string') { bg = colors[bg]; }
-    this.forRect(x, y, w, h, (destCell, i, j) => {
+    this._data.forRect(x, y, w, h, (destCell, i, j) => {
       destCell.plotChar(ch, fg, bg);
     });
     this.needsUpdate = true;
@@ -3892,7 +3894,7 @@ class Buffer extends types.Grid {
   // // Very low-level. Changes displayBuffer directly.
 	highlight(x, y, highlightColor, strength)
 	{
-		const cell = this[x][y];
+		const cell = this._data[x][y];
 		cell.fg.add(highlightColor, strength);
 		cell.bg.add(highlightColor, strength);
 		cell.needsUpdate = true;
@@ -3930,7 +3932,7 @@ function handleResizeEvent() {
   this.pxHeight = rect.height;
   ui.debug('canvas resize', rect);
 
-  this._buffer.forEach((c) => { c.needsUpdate = true; });
+  this._buffer._data.forEach((c) => { c.needsUpdate = true; });
 }
 
 
@@ -3988,7 +3990,7 @@ class Canvas {
   }
 
   hasXY(x, y) {
-    return this._buffer.hasXY(x, y);
+    return this._buffer._data.hasXY(x, y);
   }
 
   toX(x) {
@@ -4005,7 +4007,7 @@ class Canvas {
       this._buffer.needsUpdate = false;
       this.dances = false;
 
-      this._buffer.forEach( (cell, i, j) => {
+      this._buffer._data.forEach( (cell, i, j) => {
         if (cell.fg.dances || cell.bg.dances) {
           this.dances = true;
           if (cosmetic.value() < 0.0005) {
@@ -4015,11 +4017,11 @@ class Canvas {
 
         if (cell.needsUpdate) {
           if (cell.wasHanging && j < this._buffer.height - 1) {
-            this._buffer[i][j + 1].needsUpdate = true;	// redraw the row below any hanging letters that changed
+            this._buffer._data[i][j + 1].needsUpdate = true;	// redraw the row below any hanging letters that changed
             cell.wasHanging = false;
           }
           if (cell.wasFlying && j) {
-            this._buffer[i][j - 1].needsUpdate = true;
+            this._buffer._data[i][j - 1].needsUpdate = true;
             this._buffer.needsUpdate = true;
             cell.wasFlying = false;
           }
@@ -4098,9 +4100,9 @@ class Canvas {
 
     for (i=x; i<x + w; i++) {
       for (j=y; j<y + h; j++) {
-        const src = overBuf[i][j];
+        const src = overBuf._data[i][j];
         if (src.opacity) {
-          const dest = this._buffer[i][j];
+          const dest = this._buffer._data[i][j];
           if (!dest.equals(src)) {
             dest.copy(src); // was copy
             dest.needsUpdate = true;
@@ -6674,7 +6676,7 @@ function getAppearance(cell, dest) {
     else if (tile.layer == TileLayer$1.GAS) {
       alpha = clamp(cell.gasVolume || 0, 20, 100);
     }
-    memory.plot(tile.sprite, alpha);
+    memory.drawSprite(tile.sprite, alpha);
     if (tile.mechFlags & TileMech.TM_VISUALLY_DISTINCT) {
       needDistinctness = true;
     }
@@ -6682,7 +6684,7 @@ function getAppearance(cell, dest) {
 
   let current = cell.sprites;
   while(current) {
-    memory.plot(current.sprite);
+    memory.drawSprite(current.sprite);
     current = current.next;
   }
 
@@ -6692,7 +6694,7 @@ function getAppearance(cell, dest) {
   if (needDistinctness) {
     separate(memory.fg, memory.bg);
   }
-  dest.plot(memory);
+  dest.drawSprite(memory);
   return true;
 }
 
@@ -7458,7 +7460,7 @@ function getCellAppearance(map, x, y, dest) {
     cell.getAppearance(cell$1, dest);
   }
   else if (cell$1.isRevealed()) {
-    dest.plot(cell$1.memory.sprite);
+    dest.drawSprite(cell$1.memory.sprite);
   }
 
   if (cell$1.isVisible()) ;
@@ -12116,10 +12118,10 @@ async function showArchive() {
 					const x = MSG_BOUNDS.toOuterX(i);
 
           const y = isOnTop ? j : dbuf.height - j - 1;
-					dbuf[x][y].opacity = INTERFACE_OPACITY;
-					if (dbuf[x][y].char != ' ') {
+					dbuf._data[x][y].opacity = INTERFACE_OPACITY;
+					if (dbuf._data[x][y].char != ' ') {
 						for (k=0; k<3; k++) {
-							dbuf[x][y].fg[k] = dbuf[x][y].fg[k] * fadePercent / 100;
+							dbuf._data[x][y].fg[k] = dbuf._data[x][y].fg[k] * fadePercent / 100;
 						}
 					}
 				}
@@ -12210,7 +12212,7 @@ function drawViewport(buffer, map) {
   for(let x = 0; x < VIEWPORT.width; ++x) {
     for(let y = 0; y < VIEWPORT.height; ++y) {
 
-      const buf = buffer[x + VIEWPORT.x][y + VIEWPORT.y];
+      const buf = buffer._data[x + VIEWPORT.x][y + VIEWPORT.y];
       const mapX = x + VIEWPORT.offsetX;
       const mapY = y + VIEWPORT.offsetY;
       if (map.hasXY(mapX, mapY)) {
@@ -12697,7 +12699,7 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
 
 	// Unhighlight if it's highlighted as part of the path.
 	const cell$1 = map.cell(monst.x, monst.y);
-  const monstApp = buf[x][y];
+  const monstApp = buf._data[x][y];
 	cell.getAppearance(cell$1, monstApp);
 
 	if (dim) {
@@ -12913,7 +12915,7 @@ function sidebarAddMapCell(entry, y, dim, highlight, buf) {
   const x = SIDE_BOUNDS.x;
 	const initialY = y;
 
-  const app = buf[x][y];
+  const app = buf._data[x][y];
 	cell.getAppearance(cell$1, app);
 	if (dim) {
 		app.fg.mix(bg, 50);
@@ -12958,7 +12960,7 @@ function sidebarAddItemInfo(entry, y, dim, highlight, buf) {
 	const initialY = y;
   const x = SIDE_BOUNDS.x;
 
-  const app = buf[x][y];
+  const app = buf._data[x][y];
 	cell.getAppearance(cell$1, app);
 	if (dim) {
 		app.fg.mix(colors.black, 50);
@@ -13204,7 +13206,7 @@ class Column {
     this.empty = empty || '-';
   }
 
-  plotData(buffer, x, y, data, index, color) {
+  draw(buffer, x, y, data, index, color) {
     if (!data) {
       buffer.plotText(x, y, this.empty, color);
       return length(this.empty);
@@ -13221,7 +13223,7 @@ class Column {
     return length(text$1);
   }
 
-  plotHeader(buffer, x, y) {
+  drawHeader(buffer, x, y) {
     if (!this.name) return 0;
 
     buffer.plotText(x, y, this.name);
@@ -13267,22 +13269,22 @@ class Table {
     return this;
   }
 
-  plot(buffer, x0, y0, data) {
+  draw(buffer, x0, y0, data) {
     if (Array.isArray(data)) {
-      return this._plotArray(buffer, x0, y0, data);
+      return this._drawArray(buffer, x0, y0, data);
     }
-    return this._plotChain(buffer, x0, y0, data);
+    return this._drawChain(buffer, x0, y0, data);
   }
 
-  _plotChain(buffer, x0, y0, data) {
-    return this._plot(buffer, x0, y0, (current) => {
+  _drawChain(buffer, x0, y0, data) {
+    return this._draw(buffer, x0, y0, (current) => {
       return current ? current.next : data;
     });
   }
 
-  _plotArray(buffer, x0, y0, data) {
+  _drawArray(buffer, x0, y0, data) {
     let index = -1;
-    return this._plot(buffer, x0, y0, () => {
+    return this._draw(buffer, x0, y0, () => {
       ++index;
       if (index < data.length) {
         return data[index];
@@ -13292,7 +13294,7 @@ class Table {
     });
   }
 
-  _plot(buffer, x0, y0, nextFn) {
+  _draw(buffer, x0, y0, nextFn) {
     if (this.bounds.width) {
       buffer.blackOutRect(this.bounds.x, this.bounds.y, this.bounds.width, this.bounds.height, this.bg);
     }
@@ -13306,7 +13308,7 @@ class Table {
       let maxWidth = 0;
       y = y0;
       if (this.headers && hasHeaders) {
-        maxWidth = Math.max(maxWidth, column.plotHeader(buffer, x, y++));
+        maxWidth = Math.max(maxWidth, column.drawHeader(buffer, x, y++));
       }
 
       this.count = 0;
@@ -13320,7 +13322,7 @@ class Table {
         if (current.disabled) {
           color = color.clone().mix(this.disabledColor, 50);
         }
-        maxWidth = Math.max(maxWidth, column.plotData(buffer, x, y, current, this.count, color));
+        maxWidth = Math.max(maxWidth, column.draw(buffer, x, y, current, this.count, color));
         ++y;
         current = nextFn(current);
         ++this.count;
@@ -13920,7 +13922,7 @@ async function fadeTo(color, duration=1000, src) {
     pct = Math.floor(100*elapsed/duration);
 
     buffer.copy(src);
-    buffer.forEach( (c, x, y) => {
+    buffer._data.forEach( (c, x, y) => {
       c.fg.mix(color, pct);
       c.bg.mix(color, pct);
     });
@@ -14065,7 +14067,7 @@ async function chooseTarget(choices, prompt, opts={}) {
       const x = choice.x + viewport.bounds.x - offsetX;
       const y = choice.y + viewport.bounds.y - offsetY;
 
-			buf.plot(x, y, TARGET_SPRITE);
+			buf.drawSprite(x, y, TARGET_SPRITE);
 		}
 		ui.draw();
 	}
@@ -14216,7 +14218,7 @@ function startDialog() {
   const base = UI_OVERLAY || null;
   UI_LAYERS.push(base);
   UI_OVERLAY = ui.canvas.allocBuffer();
-  UI_OVERLAY.forEach( (c) => c.opacity = 0 );
+  UI_OVERLAY._data.forEach( (c) => c.opacity = 0 );
   return UI_OVERLAY;
 }
 

@@ -776,7 +776,7 @@ export function getCellAppearance(map, x, y, dest) {
     CELL.getAppearance(cell, dest);
   }
   else if (cell.isRevealed()) {
-    dest.plot(cell.memory.sprite);
+    dest.drawSprite(cell.memory.sprite);
   }
 
   if (cell.isVisible()) {

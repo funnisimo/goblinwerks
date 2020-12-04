@@ -469,7 +469,7 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
 
 	// Unhighlight if it's highlighted as part of the path.
 	const cell = map.cell(monst.x, monst.y);
-  const monstApp = buf[x][y];
+  const monstApp = buf._data[x][y];
 	CELL.getAppearance(cell, monstApp);
 
 	if (dim) {
@@ -687,7 +687,7 @@ function sidebarAddMapCell(entry, y, dim, highlight, buf) {
   const x = SIDE_BOUNDS.x;
 	const initialY = y;
 
-  const app = buf[x][y];
+  const app = buf._data[x][y];
 	CELL.getAppearance(cell, app);
 	if (dim) {
 		app.fg.mix(bg, 50);
@@ -735,7 +735,7 @@ function sidebarAddItemInfo(entry, y, dim, highlight, buf) {
 	const initialY = y;
   const x = SIDE_BOUNDS.x;
 
-  const app = buf[x][y];
+  const app = buf._data[x][y];
 	CELL.getAppearance(cell, app);
 	if (dim) {
 		app.fg.mix(GW.colors.black, 50);

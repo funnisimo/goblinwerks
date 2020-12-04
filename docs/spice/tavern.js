@@ -46,7 +46,7 @@ async function enterTavern(port, player) {
   ];
 
   while(running) {
-    list.plot(buffer, 21, 5, data);
+    list.draw(buffer, 21, 5, data);
     GW.ui.draw();
 
     await list.loop();

@@ -100,7 +100,7 @@ async function jump() {
 				GW.ui.resetDialog();
 				buf.plotLine(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, 'Jump: Which direction?', GW.colors.orange);
 				if (newDir) {
-					buf.plot(PLAYER.x + newDir[0]*2, PLAYER.y + newDir[1]*2, jumpHilite);
+					buf.drawSprite(PLAYER.x + newDir[0]*2, PLAYER.y + newDir[1]*2, jumpHilite);
 				}
 				dir = newDir;
 				GW.ui.draw();

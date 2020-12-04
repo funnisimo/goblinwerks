@@ -591,7 +591,7 @@ export function getAppearance(cell, dest) {
     else if (tile.layer == TileLayer.GAS) {
       alpha = Utils.clamp(cell.gasVolume || 0, 20, 100);
     }
-    memory.plot(tile.sprite, alpha);
+    memory.drawSprite(tile.sprite, alpha);
     if (tile.mechFlags & Flags.TileMech.TM_VISUALLY_DISTINCT) {
       needDistinctness = true;
     }
@@ -599,7 +599,7 @@ export function getAppearance(cell, dest) {
 
   let current = cell.sprites;
   while(current) {
-    memory.plot(current.sprite);
+    memory.drawSprite(current.sprite);
     current = current.next;
   }
 
@@ -609,7 +609,7 @@ export function getAppearance(cell, dest) {
   if (needDistinctness) {
     Color.separate(memory.fg, memory.bg);
   }
-  dest.plot(memory);
+  dest.drawSprite(memory);
   return true;
 }
 

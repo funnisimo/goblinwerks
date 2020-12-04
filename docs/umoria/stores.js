@@ -433,7 +433,7 @@ async function showStoreInventory(buffer, store, actor) {
       buffer.plotText(x, 4, 'The store is empty.', GW.colors.yellow);
     }
     else {
-      table.plot(buffer, x, 4, data);
+      table.draw(buffer, x, 4, data);
 
       const selectedData = data[table.active];
       if (selectedData) {
@@ -585,7 +585,7 @@ async function showPlayerInventory(buffer, store, actor) {
       buffer.plotText(x, 4, 'Your pack is empty.', GW.colors.yellow);
     }
     else {
-      table.plot(buffer, x, 4, data);
+      table.draw(buffer, x, 4, data);
 
       const selectedData = data[table.active];
       if (selectedData) {

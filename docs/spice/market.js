@@ -107,7 +107,7 @@ async function playerSellToMarket(port, player) {
     buffer.applyText(21, 23, 'Press Ω§c§Ω<B>∆ to see buy prices.', { c: (y == 23) ? 'teal' : 'green' });
     buffer.applyText(21, 24, 'Press Ω§c§Ω<Escape>∆ to leave the market.', { c: (y == 24) ? 'teal' : 'green' });
 
-    table.plot(buffer, 21, 5, data);
+    table.draw(buffer, 21, 5, data);
     GW.ui.draw();
 
     let sellAll = false;
@@ -220,7 +220,7 @@ async function playerBuyFromMarket(port, player) {
     buffer.applyText(21, 23, 'Press Ω§c§Ω<S>∆ to see sell prices.', { c: (y == 23) ? 'teal' : 'green' });
     buffer.applyText(21, 24, 'Press Ω§c§Ω<Escape>∆ to leave the market.', { c: (y == 24) ? 'teal' : 'green' });
 
-    table.plot(buffer, 21, 5, data);
+    table.draw(buffer, 21, 5, data);
     GW.ui.draw();
 
     let buyMax = false;

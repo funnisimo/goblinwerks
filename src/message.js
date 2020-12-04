@@ -284,10 +284,10 @@ async function showArchive() {
 					const x = MSG_BOUNDS.toOuterX(i);
 
           const y = isOnTop ? j : dbuf.height - j - 1;
-					dbuf[x][y].opacity = INTERFACE_OPACITY;
-					if (dbuf[x][y].char != ' ') {
+					dbuf._data[x][y].opacity = INTERFACE_OPACITY;
+					if (dbuf._data[x][y].char != ' ') {
 						for (k=0; k<3; k++) {
-							dbuf[x][y].fg[k] = dbuf[x][y].fg[k] * fadePercent / 100;
+							dbuf._data[x][y].fg[k] = dbuf._data[x][y].fg[k] * fadePercent / 100;
 						}
 					}
 				}
