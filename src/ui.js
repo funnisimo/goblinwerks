@@ -46,7 +46,7 @@ function uiLoop(t) {
 		IO.pushEvent(ev);
 	}
 
-	ui.canvas.draw();
+	ui.canvas.render();
 }
 
 
@@ -304,7 +304,7 @@ export async function updateNow(t=1) {
   ui.debug('update now - %d', t);
 
 	ui.draw();
-	ui.canvas.draw();
+	ui.canvas.render();
 	if (t) {
 		// const now = performance.now();
 		// ui.debug('UI update - with timeout:', t);
@@ -512,7 +512,7 @@ export async function fadeTo(color, duration=1000, src) {
       c.bg.mix(color, pct);
     });
     ui.canvas.overlay(buffer);
-    ui.canvas.draw();
+    ui.canvas.render();
   }
 
   ui.canvas.freeBuffer(buffer);

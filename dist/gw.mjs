@@ -3997,7 +3997,7 @@ class Canvas {
     return Math.floor(this._buffer.height * y / this.pxHeight);
   }
 
-  draw() {
+  render() {
     if ((this._buffer.needsUpdate || this.dances)) {
 
       this._buffer.needsUpdate = false;
@@ -4022,7 +4022,7 @@ class Canvas {
             cell.wasFlying = false;
           }
 
-          this.drawCell(cell, i, j);
+          this._renderCell(cell, i, j);
           cell.needsUpdate = false;
         }
       });
@@ -4030,7 +4030,7 @@ class Canvas {
     }
   }
 
-  drawCell(cell, x, y) {
+  _renderCell(cell, x, y) {
     const ctx = this.ctx;
     const tileSize = this.tileSize;// * this.displayRatio;
 
@@ -4086,12 +4086,12 @@ class Canvas {
     if (previousBuf) {
       previousBuf.copy(this._buffer);
     }
-    this.overlayRect(overBuf, 0, 0, this._buffer.width, this._buffer.height);
+    this._overlayRect(overBuf, 0, 0, this._buffer.width, this._buffer.height);
   }
 
   // draws overBuf over the current canvas with per-cell pseudotransparency as specified in overBuf.
   // If previousBuf is not null, it gets filled with the preexisting canvas for reversion purposes.
-  overlayRect(overBuf, x, y, w, h) {
+  _overlayRect(overBuf, x, y, w, h) {
     let i, j;
 
     for (i=x; i<x + w; i++) {
@@ -13458,7 +13458,7 @@ function uiLoop(t) {
 		io.pushEvent(ev);
 	}
 
-	ui.canvas.draw();
+	ui.canvas.render();
 }
 
 
@@ -13715,7 +13715,7 @@ async function updateNow(t=1) {
   ui.debug('update now - %d', t);
 
 	ui.draw();
-	ui.canvas.draw();
+	ui.canvas.render();
 	if (t) {
 		// const now = performance.now();
 		// ui.debug('UI update - with timeout:', t);
@@ -13923,7 +13923,7 @@ async function fadeTo(color, duration=1000, src) {
       c.bg.mix(color, pct);
     });
     ui.canvas.overlay(buffer);
-    ui.canvas.draw();
+    ui.canvas.render();
   }
 
   ui.canvas.freeBuffer(buffer);

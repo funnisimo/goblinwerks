@@ -671,7 +671,7 @@ async function start() {
   else {
     GW.ui.buffer.wrapText(10, 10, 40, 'What a great performance.  Please play again soon!', 'white', null);
   }
-  canvas.draw();
+  canvas.render();
 
   GW.ui.stop();
   console.log('DONE');

@@ -46,7 +46,7 @@ function draw() {
 	data.forEach( (v, x, y) => {
 		GW.ui.buffer.plot(x, y, v ? ALIVE : DEAD);
 	});
-	// canvas.draw();
+	// canvas.render();
 }
 
 
@@ -94,7 +94,7 @@ function start() {
 	GW.ui.buffer.plotText(20, 15, 'Click to Turn on/off some cells.', [100,50,0]);
 	GW.ui.buffer.plotText(20, 17, 'Press any key to run simulation.', [100,50,0]);
 	data = GW.grid.alloc(canvas.width, canvas.height);
-	// canvas.draw();
+	// canvas.render();
 }
 
 window.onload = start;

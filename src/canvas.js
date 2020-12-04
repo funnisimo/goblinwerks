@@ -104,7 +104,7 @@ class Canvas {
     return Math.floor(this._buffer.height * y / this.pxHeight);
   }
 
-  draw() {
+  render() {
     if ((this._buffer.needsUpdate || this.dances)) {
       let i, j;
 
@@ -131,7 +131,7 @@ class Canvas {
             cell.wasFlying = false;
           }
 
-          this.drawCell(cell, i, j);
+          this._renderCell(cell, i, j);
           cell.needsUpdate = false;
         }
       });
@@ -139,7 +139,7 @@ class Canvas {
     }
   }
 
-  drawCell(cell, x, y) {
+  _renderCell(cell, x, y) {
     const ctx = this.ctx;
     const tileSize = this.tileSize;// * this.displayRatio;
 
@@ -195,12 +195,12 @@ class Canvas {
     if (previousBuf) {
       previousBuf.copy(this._buffer);
     }
-    this.overlayRect(overBuf, 0, 0, this._buffer.width, this._buffer.height);
+    this._overlayRect(overBuf, 0, 0, this._buffer.width, this._buffer.height);
   }
 
   // draws overBuf over the current canvas with per-cell pseudotransparency as specified in overBuf.
   // If previousBuf is not null, it gets filled with the preexisting canvas for reversion purposes.
-  overlayRect(overBuf, x, y, w, h) {
+  _overlayRect(overBuf, x, y, w, h) {
     let i, j;
 
     for (i=x; i<x + w; i++) {
