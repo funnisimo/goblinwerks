@@ -24,15 +24,15 @@ class Buffer {
     this.needsUpdate = true;
   }
 
-  nullifyRect(x, y, w, h) {
-    this._data.forRect(x, y, w, h, (c) => c.nullify() );
-    this.needsUpdate = true;
-  }
+  // nullifyRect(x, y, w, h) {
+  //   this._data.forRect(x, y, w, h, (c) => c.nullify() );
+  //   this.needsUpdate = true;
+  // }
 
-  nullifyCell(x, y) {
-    this._data[x][y].nullify();
-    this.needsUpdate = true;
-  }
+  // nullifyCell(x, y) {
+  //   this._data[x][y].nullify();
+  //   this.needsUpdate = true;
+  // }
 
   blackOut(bg) {
     this._data.forEach( (c) => c.blackOut(bg) );
@@ -44,17 +44,17 @@ class Buffer {
     this.needsUpdate = true;
   }
 
-  blackOutCell(x, y) {
-    this._data[x][y].blackOut();
-    this.needsUpdate = true;
-  }
+  // blackOutCell(x, y) {
+  //   this._data[x][y].blackOut();
+  //   this.needsUpdate = true;
+  // }
 
   fade(color, pct) {
     color = Color.from(color);
     this._data.forEach( (s) => s.fade(color, pct) );
   }
 
-  dump(fmt) { super.dump( fmt || ((s) => s.ch) ); }
+  dump(fmt) { this._data.dump( fmt || ((s) => s.ch) ); }
 
   drawSprite(x, y, sprite) {
     if (sprite.opacity <= 0) return;
