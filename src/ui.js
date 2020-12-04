@@ -758,7 +758,7 @@ async function getInputAt(x, y, maxLength, opts={})
 
 		ev = await GW.io.nextKeyPress(-1);
 		if ( (ev.key == 'Delete' || ev.key == 'Backspace') && charNum > 0) {
-			buffer.plotChar(x + charNum - 1, y, ' ', 'white');
+			buffer.draw(x + charNum - 1, y, ' ', 'white');
 			charNum--;
 			inputText = Text.spliceRaw(inputText, charNum, 1);
 		} else if (ev.key.length > 1) {
@@ -777,7 +777,7 @@ async function getInputAt(x, y, maxLength, opts={})
           }
         }
         inputText += ev.key;
-  			buffer.plotChar(x + charNum, y, ev.key, 'white');
+  			buffer.draw(x + charNum, y, ev.key, 'white');
 				charNum++;
 			}
 		}
@@ -883,7 +883,7 @@ export function plotProgressBar(buf, x, y, width, barText, textColor, pct, barCo
 		}
 		currentTextColor.copy(textColor);
 		currentTextColor.mix(currentFillColor, 25);
-		buf.plotChar(x + i, y, barText[i], currentTextColor, currentFillColor);
+		buf.draw(x + i, y, barText[i], currentTextColor, currentFillColor);
 	}
 }
 

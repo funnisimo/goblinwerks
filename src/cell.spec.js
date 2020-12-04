@@ -43,11 +43,11 @@ describe('CellMemory', () => {
     const a = new GW.types.CellMemory();
     const b = new GW.types.CellMemory();
 
-    a.sprite.plotChar('a');
+    a.sprite.draw('a');
     a.tileFlags = 1;
     a.cellFlags = 1;
 
-    b.sprite.plotChar('b');
+    b.sprite.draw('b');
     b.tileFlags = 2;
     b.tileFlags = 2;
 

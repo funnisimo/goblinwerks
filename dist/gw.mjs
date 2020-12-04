@@ -2791,7 +2791,7 @@ class Sprite {
     this.opacity = this.opacity || 100;
   }
 
-	plotChar(ch, fg, bg) {
+	draw(ch, fg, bg) {
 		this.wasHanging = this.wasHanging || (ch != null && HANGING_LETTERS.includes(ch));
     this.wasFlying  = this.wasFlying  || (ch != null && FLYING_LETTERS.includes(ch));
 		if (!this.opacity) {
@@ -2809,7 +2809,7 @@ class Sprite {
 		if (opacity == 0) return false;
 
     if (opacity >= 100) {
-      this.plotChar(sprite.ch, sprite.fg, sprite.bg);
+      this.draw(sprite.ch, sprite.fg, sprite.bg);
       return true;
     }
 
@@ -3811,7 +3811,7 @@ class Buffer {
     return this.needsUpdate;
   }
 
-  plotChar(x, y, ch, fg, bg) {
+  draw(x, y, ch, fg, bg) {
     if (!this._data.hasXY(x, y)) {
       WARN('invalid coordinates: ' + x + ', ' + y);
       return;
@@ -3820,21 +3820,21 @@ class Buffer {
     if (typeof fg === 'string') { fg = colors[fg]; }
     if (typeof bg === 'string') { bg = colors[bg]; }
     const destCell = this._data[x][y];
-    destCell.plotChar(ch, fg, bg);
+    destCell.draw(ch, fg, bg);
     this.needsUpdate = true;
   }
 
   // XXXXXXXXXX
   plotText(x, y, text$1, fg, bg) {
     eachChar(text$1, (ch, color, bg, i) => {
-      this.plotChar(i + x, y, ch, color || colors.white, bg);
+      this.draw(i + x, y, ch, color || colors.white, bg);
     }, fg, bg);
   }
 
   applyText(x, y, text$1, args={}) {
     text$1 = apply(text$1, args);
     eachChar(text$1, (ch, color, bg, i) => {
-      this.plotChar(i + x, y, ch, color || colors.white, null);
+      this.draw(i + x, y, ch, color || colors.white, null);
     }, args.fg, args.bg);
   }
 
@@ -3845,10 +3845,10 @@ class Buffer {
     fg = fg || colors.white;
     let len = length(text$1);
     eachChar(text$1, (ch, color, _bg, i) => {
-      this.plotChar(i + x, y, ch, color || fg, _bg || bg);
+      this.draw(i + x, y, ch, color || fg, _bg || bg);
     });
     for(let i = len; i < w; ++i) {
-      this.plotChar(i + x, y, ' ', bg, bg);
+      this.draw(i + x, y, ' ', bg, bg);
     }
   }
 
@@ -3870,7 +3870,7 @@ class Buffer {
         x = x0 + indent;
         return;
       }
-      this.plotChar(x++, y, ch, fg0, bg0);
+      this.draw(x++, y, ch, fg0, bg0);
     }, fg, bg);
 
     return ++y;
@@ -3884,7 +3884,7 @@ class Buffer {
     if (typeof fg === 'string') { fg = colors[fg]; }
     if (typeof bg === 'string') { bg = colors[bg]; }
     this._data.forRect(x, y, w, h, (destCell, i, j) => {
-      destCell.plotChar(ch, fg, bg);
+      destCell.draw(ch, fg, bg);
     });
     this.needsUpdate = true;
   }
@@ -11067,7 +11067,7 @@ async function applyDamage(attacker, defender, attackInfo, ctx) {
     }
 
     if (defender.isDead() && (msg !== false)) {
-      message.addCombat('#red#$action$## $it.defender$', { action: defender.isInanimate() ? 'destroying' : 'killing', defender });
+      message.addCombat('ΩredΩ§action§∆ §it defender§', { action: defender.isInanimate() ? 'destroying' : 'killing', defender });
     }
   }
   return ctx.damage;
@@ -11965,12 +11965,12 @@ function drawMessages(buffer) {
 				color.mix(colors.black, 75 * i / (2*MSG_BOUNDS.height));
 			}
 			messageColor = color || tempColor;
-			buffer.plotChar(x, y, c, messageColor, colors.black);
+			buffer.draw(x, y, c, messageColor, colors.black);
 		});
 
 		for (let j = length(DISPLAYED[i]); j < MSG_BOUNDS.width; j++) {
 			const x = MSG_BOUNDS.toOuterX(j);
-			buffer.plotChar(x, y, ' ', colors.black, colors.black);
+			buffer.draw(x, y, ' ', colors.black, colors.black);
 		}
 	}
 
@@ -12920,7 +12920,7 @@ function sidebarAddMapCell(entry, y, dim, highlight, buf) {
 		app.bg.mix(bg, 50);
 	}
 
-	buf.plotChar(x + 1, y, ":", fg, bg);
+	buf.draw(x + 1, y, ":", fg, bg);
 	let name = cell$1.getName();
 	name = capitalize(name);
   y = buf.wrapText(x + 3, y, SIDE_BOUNDS.width - 3, name, textColor, bg);
@@ -12965,7 +12965,7 @@ function sidebarAddItemInfo(entry, y, dim, highlight, buf) {
 		app.bg.mix(colors.black, 50);
 	}
 
-	buf.plotChar(x + 1, y, ":", fg, colors.black);
+	buf.draw(x + 1, y, ":", fg, colors.black);
 	if (config.playbackOmniscience || !DATA.player.status.hallucinating) {
 		name = theItem.getName({ color: !dim, details: true });
 	} else {
@@ -14170,7 +14170,7 @@ async function getInputAt(x, y, maxLength, opts={})
 
 		ev = await GW.io.nextKeyPress(-1);
 		if ( (ev.key == 'Delete' || ev.key == 'Backspace') && charNum > 0) {
-			buffer.plotChar(x + charNum - 1, y, ' ', 'white');
+			buffer.draw(x + charNum - 1, y, ' ', 'white');
 			charNum--;
 			inputText = spliceRaw(inputText, charNum, 1);
 		} else if (ev.key.length > 1) ; else if (ev.key >= textEntryBounds[0]
@@ -14187,7 +14187,7 @@ async function getInputAt(x, y, maxLength, opts={})
           }
         }
         inputText += ev.key;
-  			buffer.plotChar(x + charNum, y, ev.key, 'white');
+  			buffer.draw(x + charNum, y, ev.key, 'white');
 				charNum++;
 			}
 		}
@@ -14291,7 +14291,7 @@ function plotProgressBar(buf, x, y, width, barText, textColor, pct, barColor) {
 		}
 		currentTextColor.copy(textColor);
 		currentTextColor.mix(currentFillColor, 25);
-		buf.plotChar(x + i, y, barText[i], currentTextColor, currentFillColor);
+		buf.draw(x + i, y, barText[i], currentTextColor, currentFillColor);
 	}
 }
 
@@ -14430,10 +14430,8 @@ class Button {
   			symbolNumber++;
   		}
 
-  		if (buffer.hasXY(this.x + i, this.y)) {
-  			buffer.plotChar(this.x + i, this.y, ch, fColor, bColor);
-        // opacity???
-  		}
+      // opacity?
+			buffer.draw(this.x + i, this.y, ch, fColor, bColor);
 
     });
 
@@ -15199,10 +15197,10 @@ async function equip(actor, item, ctx={}) {
 actions.equip = equip;
 
 
-message.addKind('UNEQUIP_NO', '$the item$ does not seem to be equippable.');
-message.addKind('UNEQUIP_NOT_EQUIPPED', '$the item$ does not seem to be equipped.');
-message.addKind('UNEQUIP_FAIL', '$you$ cannot remove $your$ $item$.');
-message.addKind('UNEQUIP_ITEM', '$you$ $remove$ $your$ $item$.');
+message.addKind('UNEQUIP_NO', '§the item§ does not seem to be equippable.');
+message.addKind('UNEQUIP_NOT_EQUIPPED', '§the item§ does not seem to be equipped.');
+message.addKind('UNEQUIP_FAIL', '§you§ cannot remove §your§ §item§.');
+message.addKind('UNEQUIP_ITEM', '§you§ §remove§ §your§ §item§.');
 
 async function unequip(actor, item, ctx={}) {
   if (!item) return false;
@@ -15684,7 +15682,7 @@ class Flames {
         }
 
   			if (this.mask[i][j] == 100) {
-  				this.buffer.plotChar(i, j, dchar, colors.gray, maskColor);
+  				this.buffer.draw(i, j, dchar, colors.gray, maskColor);
   			} else {
           const flameColor = this.flames[i][j];
           tempColor.clear();
@@ -15694,7 +15692,7 @@ class Flames {
   				if (this.mask[i][j] > 0) {
   					tempColor.mix(maskColor, this.mask[i][j]);
   				}
-  				this.buffer.plotChar(i, j, dchar, colors.gray, tempColor);
+  				this.buffer.draw(i, j, dchar, colors.gray, tempColor);
   			}
   		}
   	}

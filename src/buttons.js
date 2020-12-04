@@ -140,10 +140,8 @@ class Button {
   			symbolNumber++;
   		}
 
-  		if (buffer.hasXY(this.x + i, this.y)) {
-  			buffer.plotChar(this.x + i, this.y, ch, fColor, bColor);
-        // opacity???
-  		}
+      // opacity?
+			buffer.draw(this.x + i, this.y, ch, fColor, bColor);
 
     });
 

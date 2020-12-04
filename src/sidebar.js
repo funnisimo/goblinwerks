@@ -694,7 +694,7 @@ function sidebarAddMapCell(entry, y, dim, highlight, buf) {
 		app.bg.mix(bg, 50);
 	}
 
-	buf.plotChar(x + 1, y, ":", fg, bg);
+	buf.draw(x + 1, y, ":", fg, bg);
 	let name = cell.getName();
 	name = Text.capitalize(name);
   y = buf.wrapText(x + 3, y, SIDE_BOUNDS.width - 3, name, textColor, bg);
@@ -742,7 +742,7 @@ function sidebarAddItemInfo(entry, y, dim, highlight, buf) {
 		app.bg.mix(GW.colors.black, 50);
 	}
 
-	buf.plotChar(x + 1, y, ":", fg, GW.colors.black);
+	buf.draw(x + 1, y, ":", fg, GW.colors.black);
 	if (GW.config.playbackOmniscience || !DATA.player.status.hallucinating) {
 		name = theItem.getName({ color: !dim, details: true });
 	} else {

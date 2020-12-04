@@ -132,12 +132,12 @@ function drawMessages(buffer) {
 				color.mix(GW.colors.black, 75 * i / (2*MSG_BOUNDS.height));
 			}
 			messageColor = color || tempColor;
-			buffer.plotChar(x, y, c, messageColor, GW.colors.black);
+			buffer.draw(x, y, c, messageColor, GW.colors.black);
 		});
 
 		for (let j = Text.length(DISPLAYED[i]); j < MSG_BOUNDS.width; j++) {
 			const x = MSG_BOUNDS.toOuterX(j);
-			buffer.plotChar(x, y, ' ', GW.colors.black, GW.colors.black);
+			buffer.draw(x, y, ' ', GW.colors.black, GW.colors.black);
 		}
 	}
 

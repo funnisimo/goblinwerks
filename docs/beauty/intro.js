@@ -20,7 +20,7 @@ function drawKnight(buf, x=0, y=0) {
 	KNIGHT.forEach( (line, j) => {
   	for(let i = 0; i < line.length; ++i) {
     	const ch = line[i];
-      buf.plotChar(x + i, y + j, ch, color);
+      buf.draw(x + i, y + j, ch, color);
     }
   });
 }
@@ -49,7 +49,7 @@ function drawFlower(buf, x=0, y=0) {
   	for(let i = 0; i < line.length; ++i) {
     	const ch = line[i];
       const color = FLOWER_COLOR[ch] || FLOWER_COLOR.default;
-      buf.plotChar(x + i, y + j, ch, color);
+      buf.draw(x + i, y + j, ch, color);
     }
   });
 }
@@ -59,7 +59,7 @@ function drawGrass(buf, y=0) {
   	y = buf.height + y;
   }
   for(let x = 0; x < buf.width; ++x) {
-  	buf.plotChar(x, y, '^', 'green');
+  	buf.draw(x, y, '^', 'green');
   }
 }
 
@@ -89,7 +89,7 @@ function drawTitle(buf, x=0, y=0) {
 	TITLE.forEach( (line, j) => {
   	for(let i = 0; i < line.length; ++i) {
     	const ch = line[i];
-      buf.plotChar(x + i, y + j, ch, 'gold');
+      buf.draw(x + i, y + j, ch, 'gold');
     }
   });
 
@@ -146,7 +146,7 @@ function drawTower(buf, x=0, y=0, h=0) {
       	bg = TOWER_BG.default;
         fg = TOWER_FG.default;
       }
-      buf.plotChar(x + i, y + j, ch, fg, bg);
+      buf.draw(x + i, y + j, ch, fg, bg);
     }
 	});
 
@@ -184,7 +184,7 @@ function drawTower(buf, x=0, y=0, h=0) {
     	const ch = line[i];
 			fg = TOWER_FG[ch] || TOWER_FG.default;
       bg = TOWER_BG[ch] || TOWER_BG.default;
-      buf.plotChar(x + i, j, ch, fg, bg);
+      buf.draw(x + i, j, ch, fg, bg);
     }
   }
 
@@ -193,7 +193,7 @@ function drawTower(buf, x=0, y=0, h=0) {
     	const ch = line[i];
 			fg = TOWER_FG[ch] || TOWER_FG.default;
       bg = TOWER_BG[ch] || TOWER_BG.default;
-      buf.plotChar(x + i, y + h + j, ch, fg, bg);
+      buf.draw(x + i, y + h + j, ch, fg, bg);
     }
   });
 

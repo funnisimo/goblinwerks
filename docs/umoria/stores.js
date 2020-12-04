@@ -365,7 +365,7 @@ const STORE_SORRY = [  // char *[5] = {
 ];
 
 
-GW.message.addKind('STORE_WELCOME', '#dark_green#You shopped at $the.store$.');
+GW.message.addKind('STORE_WELCOME', 'Ωdark_greenΩYou shopped at §the store§.');
 
 async function enterStore(event, ctx) {
   GW.message.add('STORE_WELCOME', { store: this, actor: ctx.actor });

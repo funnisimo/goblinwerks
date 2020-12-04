@@ -134,7 +134,7 @@ export class Sprite {
     this.opacity = this.opacity || 100;
   }
 
-	plotChar(ch, fg, bg) {
+	draw(ch, fg, bg) {
 		this.wasHanging = this.wasHanging || (ch != null && HANGING_LETTERS.includes(ch));
     this.wasFlying  = this.wasFlying  || (ch != null && FLYING_LETTERS.includes(ch));
 		if (!this.opacity) {
@@ -152,7 +152,7 @@ export class Sprite {
 		if (opacity == 0) return false;
 
     if (opacity >= 100) {
-      this.plotChar(sprite.ch, sprite.fg, sprite.bg);
+      this.draw(sprite.ch, sprite.fg, sprite.bg);
       return true;
     }
 

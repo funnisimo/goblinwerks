@@ -1,8 +1,8 @@
 
 
-GW.message.addKind('FOOD_NOT_HUNGRY', '$you$ $are$ not hungry.');
-GW.message.addKind('FOOD_EAT', '$you$ $verb$ $the.item$');
-GW.message.addKind('FOOD_FULL', '$you$ $are$ full');
+GW.message.addKind('FOOD_NOT_HUNGRY', '§you§ §are§ not hungry.');
+GW.message.addKind('FOOD_EAT', '§you§ §verb§ §the item§');
+GW.message.addKind('FOOD_FULL', '§you§ §are§ full');
 
 
 class Food extends GW.types.ItemKind {

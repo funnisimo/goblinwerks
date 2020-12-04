@@ -184,17 +184,17 @@ describe('Sprite', () => {
   test('will track hanging letter changes in plotChar', () => {
     const s = GW.make.sprite('@', 'red');
     expect(s.wasHanging).toBeFalsy();
-    s.plotChar('|');
+    s.draw('|');
     expect(s.wasHanging).toBeTruthy();
-    s.plotChar('@');
+    s.draw('@');
     expect(s.wasHanging).toBeTruthy();
-    s.plotChar('o');
+    s.draw('o');
     expect(s.wasHanging).toBeTruthy();  // does not get turned off automatically
     s.nullify();
     expect(s.wasHanging).toBeTruthy();  // does not get nullified
 
     s.wasHanging = false;
-    s.plotChar('|');
+    s.draw('|');
     expect(s.wasHanging).toBeTruthy();
     s.nullify();
     expect(s.wasHanging).toBeTruthy();  // gets set

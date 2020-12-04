@@ -248,7 +248,7 @@ export class Flames {
         }
 
   			if (this.mask[i][j] == 100) {
-  				this.buffer.plotChar(i, j, dchar, GW.colors.gray, maskColor);
+  				this.buffer.draw(i, j, dchar, GW.colors.gray, maskColor);
   			} else {
           const flameColor = this.flames[i][j];
           tempColor.clear();
@@ -258,7 +258,7 @@ export class Flames {
   				if (this.mask[i][j] > 0) {
   					tempColor.mix(maskColor, this.mask[i][j]);
   				}
-  				this.buffer.plotChar(i, j, dchar, GW.colors.gray, tempColor);
+  				this.buffer.draw(i, j, dchar, GW.colors.gray, tempColor);
   			}
   		}
   	}

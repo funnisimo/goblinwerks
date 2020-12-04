@@ -161,9 +161,9 @@ GW.item.addKind('SHIELD', new BeautyItem({
 
 GW.color.addKind('health', '#e00');
 
-GW.message.addKind('HEAL_NO_NEED', '$you$ $are$ at full #health#health##.');
-GW.message.addKind('HEAL_PARTIAL', 'Some of $your$ #health#health## is refilled.');
-GW.message.addKind('HEAL_FULL',    '$your$ #health#health## is completely refilled.');
+GW.message.addKind('HEAL_NO_NEED', '§you§ §are§ at full #health#health##.');
+GW.message.addKind('HEAL_PARTIAL', 'Some of §your§ #health#health## is refilled.');
+GW.message.addKind('HEAL_FULL',    '§your§ #health#health## is completely refilled.');
 
 GW.item.addKind('POTION_HEALTH', {
   name: 'health potion',
@@ -191,9 +191,9 @@ GW.item.addKind('POTION_HEALTH', {
 
 GW.color.addKind('mana', '#84a');
 
-GW.message.addKind('MANA_NO_NEED', '$you$ $do$ not need to recharge $your$ #mana#mana##.');
-GW.message.addKind('MANA_PARTIAL', 'Some of $your$ #mana#mana## is refilled.');
-GW.message.addKind('MANA_FULL',    '$your$ #mana#mana## is completely refilled.');
+GW.message.addKind('MANA_NO_NEED', '§you§ §do§ not need to recharge §your§ #mana#mana##.');
+GW.message.addKind('MANA_PARTIAL', 'Some of §your§ #mana#mana## is refilled.');
+GW.message.addKind('MANA_FULL',    '§your§ #mana#mana## is completely refilled.');
 
 GW.item.addKind('POTION_MANA', {
   name: 'mana potion',
@@ -219,7 +219,7 @@ GW.item.addKind('POTION_MANA', {
   }
 });
 
-GW.message.addKind('LUTEFISK', '$you$ $eat$ $the.item$ and $start.actor$ to feel weird.');
+GW.message.addKind('LUTEFISK', '§you§ §eat§ §the item§ and §start actor§ to feel weird.');
 
 GW.item.addKind('LUTEFISK', {
   name: 'lutefisk',
@@ -235,7 +235,7 @@ GW.item.addKind('LUTEFISK', {
   }
 });
 
-GW.message.addKind('GOLD_PICKUP', '$you$ $find$ $a.item$.');
+GW.message.addKind('GOLD_PICKUP', '§you§ §find§ §a item§.');
 
 GW.item.addKind('GOLD', {
   name: 'gold coin', article: 'a',

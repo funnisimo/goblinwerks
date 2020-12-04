@@ -50,7 +50,7 @@ export async function applyDamage(attacker, defender, attackInfo, ctx) {
     }
 
     if (defender.isDead() && (msg !== false)) {
-      GW.message.addCombat('#red#$action$## $it.defender$', { action: defender.isInanimate() ? 'destroying' : 'killing', defender });
+      GW.message.addCombat('ΩredΩ§action§∆ §it defender§', { action: defender.isInanimate() ? 'destroying' : 'killing', defender });
     }
   }
   return ctx.damage;

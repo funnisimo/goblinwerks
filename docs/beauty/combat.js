@@ -93,7 +93,7 @@ function drawBoard(buffer, x, y, highlight=true) {
           fg = GW.colors.white;
         }
       }
-      buffer.plotChar(x + 5 + i*2, y + j, '#', fg, bg);
+      buffer.draw(x + 5 + i*2, y + j, '#', fg, bg);
     }
     // buffer.plotText(x+5, y + i, '# # # # # #', fy == i ? 'light_blue' : 'dark_blue');
   }
@@ -221,7 +221,7 @@ function drawOpponent(buffer, x, y, width, opponent) {
 
 }
 
-GW.message.addKind('COMBAT_START', '$you$ $attack$ $a.target$.');
+GW.message.addKind('COMBAT_START', '§you§ §attack§ §a target§.');
 
 async function combat(actor, target, ctx) {
   const map = ctx.map || GW.data.map;

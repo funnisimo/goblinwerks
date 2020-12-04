@@ -54,7 +54,7 @@ class Monster extends GW.types.ActorKind {
 
 };
 
-GW.message.addKind('TALK_NOTHING', '$the.talker$ $say$ nothing.');
+GW.message.addKind('TALK_NOTHING', '§the talker§ §say§ nothing.');
 
 
 GW.actor.addKind('RAT', new Monster({
@@ -229,7 +229,7 @@ class Hero extends Monster {
   }
 }
 
-GW.message.addKind('TALK_TEXT', '$talker$ $say$, "$text$"');
+GW.message.addKind('TALK_TEXT', '§talker§ §say§, "§text§"');
 
 
 GW.actor.addKind('HERO', new Hero({

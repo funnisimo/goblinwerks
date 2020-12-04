@@ -31,9 +31,9 @@ async function showHelp() {
 	GW.ui.finishDialog();
 }
 
-GW.message.addKind('LEVEL_START', '#teal#At start of dungeon.');
-GW.message.addKind('LEVEL_ASCEND', '$you$ $ascend$ to level $level$.');
-GW.message.addKind('LEVEL_DESCEND', '$you$ $descend$ to level $level$.');
+GW.message.addKind('LEVEL_START', 'ΩtealΩAt start of dungeon.');
+GW.message.addKind('LEVEL_ASCEND', '§you§ §ascend§ to level §level§.');
+GW.message.addKind('LEVEL_DESCEND', '§you§ §descend§ to level §level§.');
 
 async function forceStairs(ev) {
 	const isUp = (ev.key == '<');

@@ -70,7 +70,7 @@ class Buffer {
     return this.needsUpdate;
   }
 
-  plotChar(x, y, ch, fg, bg) {
+  draw(x, y, ch, fg, bg) {
     if (!this._data.hasXY(x, y)) {
       Utils.WARN('invalid coordinates: ' + x + ', ' + y);
       return;
@@ -79,21 +79,21 @@ class Buffer {
     if (typeof fg === 'string') { fg = GW.colors[fg]; }
     if (typeof bg === 'string') { bg = GW.colors[bg]; }
     const destCell = this._data[x][y];
-    destCell.plotChar(ch, fg, bg);
+    destCell.draw(ch, fg, bg);
     this.needsUpdate = true;
   }
 
   // XXXXXXXXXX
   plotText(x, y, text, fg, bg) {
     Text.eachChar(text, (ch, color, bg, i) => {
-      this.plotChar(i + x, y, ch, color || GW.colors.white, bg);
+      this.draw(i + x, y, ch, color || GW.colors.white, bg);
     }, fg, bg);
   }
 
   applyText(x, y, text, args={}) {
     text = Text.apply(text, args);
     Text.eachChar(text, (ch, color, bg, i) => {
-      this.plotChar(i + x, y, ch, color || GW.colors.white, null);
+      this.draw(i + x, y, ch, color || GW.colors.white, null);
     }, args.fg, args.bg);
   }
 
@@ -104,10 +104,10 @@ class Buffer {
     fg = fg || GW.colors.white;
     let len = Text.length(text);
     Text.eachChar(text, (ch, color, _bg, i) => {
-      this.plotChar(i + x, y, ch, color || fg, _bg || bg);
+      this.draw(i + x, y, ch, color || fg, _bg || bg);
     });
     for(let i = len; i < w; ++i) {
-      this.plotChar(i + x, y, ' ', bg, bg);
+      this.draw(i + x, y, ' ', bg, bg);
     }
   }
 
@@ -129,7 +129,7 @@ class Buffer {
         x = x0 + indent;
         return;
       }
-      this.plotChar(x++, y, ch, fg0, bg0);
+      this.draw(x++, y, ch, fg0, bg0);
     }, fg, bg);
 
     return ++y;
@@ -143,7 +143,7 @@ class Buffer {
     if (typeof fg === 'string') { fg = GW.colors[fg]; }
     if (typeof bg === 'string') { bg = GW.colors[bg]; }
     this._data.forRect(x, y, w, h, (destCell, i, j) => {
-      destCell.plotChar(ch, fg, bg);
+      destCell.draw(ch, fg, bg);
     });
     this.needsUpdate = true;
   }

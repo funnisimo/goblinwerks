@@ -64,10 +64,10 @@ export async function equip(actor, item, ctx={}) {
 Actions.equip = equip;
 
 
-GW.message.addKind('UNEQUIP_NO', '$the item$ does not seem to be equippable.');
-GW.message.addKind('UNEQUIP_NOT_EQUIPPED', '$the item$ does not seem to be equipped.');
-GW.message.addKind('UNEQUIP_FAIL', '$you$ cannot remove $your$ $item$.');
-GW.message.addKind('UNEQUIP_ITEM', '$you$ $remove$ $your$ $item$.');
+GW.message.addKind('UNEQUIP_NO', '§the item§ does not seem to be equippable.');
+GW.message.addKind('UNEQUIP_NOT_EQUIPPED', '§the item§ does not seem to be equipped.');
+GW.message.addKind('UNEQUIP_FAIL', '§you§ cannot remove §your§ §item§.');
+GW.message.addKind('UNEQUIP_ITEM', '§you§ §remove§ §your§ §item§.');
 
 export async function unequip(actor, item, ctx={}) {
   if (!item) return false;
