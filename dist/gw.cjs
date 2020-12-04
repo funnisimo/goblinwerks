@@ -3832,7 +3832,7 @@ class Buffer {
   }
 
   // XXXXXXXXXX
-  plotText(x, y, text$1, fg, bg) {
+  drawText(x, y, text$1, fg, bg) {
     eachChar(text$1, (ch, color, bg, i) => {
       this.draw(i + x, y, ch, color || colors.white, bg);
     }, fg, bg);
@@ -12668,7 +12668,7 @@ function sidebarAddActor(entry, y, dim, highlight, buf)
 
   const x = SIDE_BOUNDS.x;
 	if (y < SIDE_BOUNDS.height - 1) {
-		buf.plotText(x, y++, "                    ");
+		buf.drawText(x, y++, "                    ");
 	}
 
 	if (highlight) {
@@ -12700,7 +12700,7 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
   const x = SIDE_BOUNDS.x;
   const monstForeColor = dim ? fg : monst.kind.sprite.fg;
 
-	// buf.plotText(0, y, "                    ", fg, bg); // Start with a blank line
+	// buf.drawText(0, y, "                    ", fg, bg); // Start with a blank line
 
 	// Unhighlight if it's highlighted as part of the path.
 	const cell$1 = map.cell(monst.x, monst.y);
@@ -12735,7 +12735,7 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
       }
   }
 
-  buf.plotText(x + 1, y, ': ', fg);
+  buf.drawText(x + 1, y, ': ', fg);
 	y = buf.wrapText(x + 3, y, SIDE_BOUNDS.width - 3, monstName, fg, bg);
 
 	return y;
@@ -13213,7 +13213,7 @@ class Column {
 
   draw(buffer, x, y, data, index, color) {
     if (!data) {
-      buffer.plotText(x, y, this.empty, color);
+      buffer.drawText(x, y, this.empty, color);
       return length(this.empty);
     }
 
@@ -13224,14 +13224,14 @@ class Column {
     else {
       text$1 = this.template(data);
     }
-    buffer.plotText(x, y, text$1, color);
+    buffer.drawText(x, y, text$1, color);
     return length(text$1);
   }
 
   drawHeader(buffer, x, y) {
     if (!this.name) return 0;
 
-    buffer.plotText(x, y, this.name);
+    buffer.drawText(x, y, this.name);
     return length(this.name);
   }
 }
@@ -13954,7 +13954,7 @@ async function alert(duration, text$1, args) {
   const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
   const y = Math.floor(ui.canvas.height / 2) - 1;
   buffer.fillRect(x, y, len + 4, 3, ' ', 'black', 'black');
-	buffer.plotText(x + 2, y + 1, text$1);
+	buffer.drawText(x + 2, y + 1, text$1);
 	ui.draw();
 
 	await io.pause(duration || 30 * 1000);
@@ -13992,10 +13992,10 @@ async function confirm(opts, prompt, args) {
   const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
   const y = Math.floor(ui.canvas.height / 2) - 1;
   buffer.fillRect(x, y, len + 4, 5, ' ', 'black', opts.bg);
-	buffer.plotText(x + 2, y + 1, text$1);
-	buffer.plotText(x + 2, y + 3, btnOK);
+	buffer.drawText(x + 2, y + 1, text$1);
+	buffer.drawText(x + 2, y + 3, btnOK);
   if (opts.allowCancel) {
-    buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, 'white');
+    buffer.drawText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, 'white');
   }
 	ui.draw();
 
@@ -14016,9 +14016,9 @@ async function confirm(opts, prompt, args) {
 				let isCancel = ev.x > x + len + 4 - btnCancel.length - 4;
 				if (ev.x < x || ev.x > x + len + 4) { isOK = false; isCancel = false; }
 				if (ev.y != y + 3 ) { isOK = false; isCancel = false; }
-				buffer.plotText(x + 2, y + 3, btnOK, isOK ? GW.colors.teal : GW.colors.white);
+				buffer.drawText(x + 2, y + 3, btnOK, isOK ? GW.colors.teal : GW.colors.white);
         if (opts.allowCancel) {
-          buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, isCancel ? GW.colors.teal : GW.colors.white);
+          buffer.drawText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, isCancel ? GW.colors.teal : GW.colors.white);
         }
 				ui.draw();
 			},
@@ -14140,11 +14140,11 @@ async function inputNumberBox(opts, prompt, args) {
   const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
   const y = Math.floor(ui.canvas.height / 2) - 1;
   buffer.fillRect(x, y, len + 4, 6, ' ', 'black', opts.bg);
-	buffer.plotText(x + 2, y + 1, text$1);
+	buffer.drawText(x + 2, y + 1, text$1);
   buffer.fillRect(x + 2, y + 2, len - 4, 1, ' ', 'gray', 'gray');
-	buffer.plotText(x + 2, y + 4, btnOK);
+	buffer.drawText(x + 2, y + 4, btnOK);
   if (opts.allowCancel) {
-    buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 4, btnCancel);
+    buffer.drawText(x + len + 4 - btnCancel.length - 2, y + 4, btnCancel);
   }
 	ui.draw();
 

@@ -41,7 +41,7 @@ async function showHelp() {
   buf.blackOut();
 
 	let y = 2;
-	buf.plotText(10, y++, 'HELP');
+	buf.drawText(10, y++, 'HELP');
 	y++;
 	y = buf.wrapText(5, y, 40, 'This is where you add your help information.');
 

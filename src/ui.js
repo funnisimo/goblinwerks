@@ -534,7 +534,7 @@ export async function alert(duration, text, args) {
   const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
   const y = Math.floor(ui.canvas.height / 2) - 1;
   buffer.fillRect(x, y, len + 4, 3, ' ', 'black', 'black');
-	buffer.plotText(x + 2, y + 1, text);
+	buffer.drawText(x + 2, y + 1, text);
 	ui.draw();
 
 	await IO.pause(duration || 30 * 1000);
@@ -572,10 +572,10 @@ export async function confirm(opts, prompt, args) {
   const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
   const y = Math.floor(ui.canvas.height / 2) - 1;
   buffer.fillRect(x, y, len + 4, 5, ' ', 'black', opts.bg);
-	buffer.plotText(x + 2, y + 1, text);
-	buffer.plotText(x + 2, y + 3, btnOK);
+	buffer.drawText(x + 2, y + 1, text);
+	buffer.drawText(x + 2, y + 3, btnOK);
   if (opts.allowCancel) {
-    buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, 'white');
+    buffer.drawText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, 'white');
   }
 	ui.draw();
 
@@ -596,9 +596,9 @@ export async function confirm(opts, prompt, args) {
 				let isCancel = ev.x > x + len + 4 - btnCancel.length - 4;
 				if (ev.x < x || ev.x > x + len + 4) { isOK = false; isCancel = false; }
 				if (ev.y != y + 3 ) { isOK = false; isCancel = false; }
-				buffer.plotText(x + 2, y + 3, btnOK, isOK ? GW.colors.teal : GW.colors.white);
+				buffer.drawText(x + 2, y + 3, btnOK, isOK ? GW.colors.teal : GW.colors.white);
         if (opts.allowCancel) {
-          buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, isCancel ? GW.colors.teal : GW.colors.white);
+          buffer.drawText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, isCancel ? GW.colors.teal : GW.colors.white);
         }
 				ui.draw();
 			},
@@ -721,11 +721,11 @@ export async function inputNumberBox(opts, prompt, args) {
   const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
   const y = Math.floor(ui.canvas.height / 2) - 1;
   buffer.fillRect(x, y, len + 4, 6, ' ', 'black', opts.bg);
-	buffer.plotText(x + 2, y + 1, text);
+	buffer.drawText(x + 2, y + 1, text);
   buffer.fillRect(x + 2, y + 2, len - 4, 1, ' ', 'gray', 'gray');
-	buffer.plotText(x + 2, y + 4, btnOK);
+	buffer.drawText(x + 2, y + 4, btnOK);
   if (opts.allowCancel) {
-    buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 4, btnCancel);
+    buffer.drawText(x + len + 4 - btnCancel.length - 2, y + 4, btnCancel);
   }
 	ui.draw();
 

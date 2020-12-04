@@ -8,7 +8,7 @@ async function showStory() {
   buffer.blackOut();
 
   let text = GW.text.center('ΩgreenΩStory', buffer.width);
-  buffer.plotText(0, 2, text);
+  buffer.drawText(0, 2, text);
 
   let y = 5;
   let x = 5;
@@ -25,7 +25,7 @@ async function showStory() {
   y = buffer.wrapText(x, y + 1, width, "When you arrived in the harbor with her and her boat, you were greeted by a crowd.  The Governor stepped forward to comfort her.  Then he thanked you for helping her.", 'white');
 
   text = GW.text.center('Press ΩgreenΩ[Space/Enter]∆ to continue, ΩgreenΩ[Escape]∆ to cancel.', buffer.width);
-  buffer.plotText(0, y + 1, text);
+  buffer.drawText(0, y + 1, text);
 
   GW.ui.draw();
   let ev = await GW.io.nextKeyPress(-1, (e) => ['Escape', 'Enter', ' '].includes(e.key) );
@@ -37,7 +37,7 @@ async function showStory() {
   buffer.blackOut();
 
   text = GW.text.center('ΩgreenΩStory', buffer.width);
-  buffer.plotText(0, 2, text);
+  buffer.drawText(0, 2, text);
 
   y = 5;
   y = buffer.wrapText(x, y, width, "Weeks later, you grew tired of being content with waves and smiles from her as you brought in the catch.  You had to act.  So you gathered your courage and made an appointment with the Governor.  You went in and asked him if you could visit with his daughter... ", 'white');
@@ -49,7 +49,7 @@ async function showStory() {
   y = buffer.wrapText(x, y + 1, width, "He paused, looked you over, and continued, 'But, she has spoken well of you and might even have a bit of a fancy for her savior.  And I am a man who rose to this position from a humble background as well.  So I will make a deal with you...'", 'white');
 
   text = GW.text.center('Press ΩgreenΩ[Space/Enter]∆ to continue, ΩgreenΩ[Escape]∆ to cancel.', buffer.width);
-  buffer.plotText(0, y + 1, text);
+  buffer.drawText(0, y + 1, text);
 
   GW.ui.draw();
   ev = await GW.io.nextKeyPress(-1, (e) => ['Escape', 'Enter', ' '].includes(e.key) );
@@ -61,7 +61,7 @@ async function showStory() {
   buffer.blackOut();
 
   text = GW.text.center('ΩgreenΩStory', buffer.width);
-  buffer.plotText(0, 2, text);
+  buffer.drawText(0, 2, text);
 
   y = 5;
   y = buffer.wrapText(x, y, width, "'I have been charged with bringing peace and prosperity to this region.  That generally means increasing tax revenue and gathering more goods that are wanted in the Mainland.  Right now, you can help with both of these by improving the spice trade.'", 'white');
@@ -75,7 +75,7 @@ async function showStory() {
   y = buffer.wrapText(x, y + 1, width, "'Isn't this exciting?  Come in a fisherman, come out a Spice Trader.  With a chance to gain a beautiful wife.  What could be better?  Now go!  Or one of the other suitors for her heart will beat you!'", 'white');
 
   text = GW.text.center('Press ΩgreenΩ[Any key]∆ to continue.', buffer.width);
-  buffer.plotText(0, y + 1, text);
+  buffer.drawText(0, y + 1, text);
 
   GW.ui.draw();
   await GW.io.nextKeyPress(-1);

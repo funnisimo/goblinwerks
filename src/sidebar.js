@@ -433,7 +433,7 @@ function sidebarAddActor(entry, y, dim, highlight, buf)
 
   const x = SIDE_BOUNDS.x;
 	if (y < SIDE_BOUNDS.height - 1) {
-		buf.plotText(x, y++, "                    ");
+		buf.drawText(x, y++, "                    ");
 	}
 
 	if (highlight) {
@@ -465,7 +465,7 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
   const x = SIDE_BOUNDS.x;
   const monstForeColor = dim ? fg : monst.kind.sprite.fg;
 
-	// buf.plotText(0, y, "                    ", fg, bg); // Start with a blank line
+	// buf.drawText(0, y, "                    ", fg, bg); // Start with a blank line
 
 	// Unhighlight if it's highlighted as part of the path.
 	const cell = map.cell(monst.x, monst.y);
@@ -500,7 +500,7 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
       }
   }
 
-  buf.plotText(x + 1, y, ': ', fg);
+  buf.drawText(x + 1, y, ': ', fg);
 	y = buf.wrapText(x + 3, y, SIDE_BOUNDS.width - 3, monstName, fg, bg);
 
 	return y;

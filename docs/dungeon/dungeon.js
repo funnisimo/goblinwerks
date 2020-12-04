@@ -123,15 +123,15 @@ async function showHelp() {
 	const buf = GW.ui.startDialog();
 
 	let y = 2;
-	buf.plotText(20, y++, 'ΩgreenΩGoblinWerks Dungeon Dig Example');
+	buf.drawText(20, y++, 'ΩgreenΩGoblinWerks Dungeon Dig Example');
 	y++;
 	y = buf.wrapText(15, y, 50, 'Explore the caves.');
 	y++;
-	buf.plotText(15, y, 'ΩyellowΩdir   ');
+	buf.drawText(15, y, 'ΩyellowΩdir   ');
 	y = buf.wrapText(21, y, 42, ': Pressing an arrow key moves the player in that direction.', 'white', null, 2);
-	buf.plotText(15, y, 'ΩyellowΩspace ');
+	buf.drawText(15, y, 'ΩyellowΩspace ');
 	y = buf.wrapText(21, y, 42, ': Wait a short time.', 'white', null, 2);
-	buf.plotText(15, y, 'ΩyellowΩ?');
+	buf.drawText(15, y, 'ΩyellowΩ?');
 	y = buf.wrapText(21, y, 42, ': Show this screen.', 'lighter_gray');
 
 	buf.fillRect(14, 1, 52, y, null, null, 'black' );

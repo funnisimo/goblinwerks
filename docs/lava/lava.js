@@ -211,17 +211,17 @@ async function showHelp() {
 	const buf = GW.ui.startDialog();
 
 	let y = 2;
-	buf.plotText(10, y++, 'GoblinWerks Lava Hop Example', 'green');
+	buf.drawText(10, y++, 'GoblinWerks Lava Hop Example', 'green');
 	y++;
 	y = buf.wrapText(5, y, 40, 'This example is all about crossing the lava field by walking/jumping over the crusted lava.', 'white');
 	y++;
-	buf.plotText(5, y, 'dir   ', 'yellow');
+	buf.drawText(5, y, 'dir   ', 'yellow');
 	y = buf.wrapText(11, y, 32, ': Pressing an arrow key moves the player in that direction.', 'white', null, 2);
-	buf.plotText(5, y, 'j     ', 'yellow');
+	buf.drawText(5, y, 'j     ', 'yellow');
 	y = buf.wrapText(11, y, 32, ': Jump over one cell in a direction you choose.', 'lighter_gray', null, 2);
-	buf.plotText(5, y, 'space ', 'yellow');
+	buf.drawText(5, y, 'space ', 'yellow');
 	y = buf.wrapText(11, y, 32, ': Wait a short time.', 'white', null, 2);
-	buf.plotText(5, y, '?', 'yellow');
+	buf.drawText(5, y, '?', 'yellow');
 	y = buf.wrapText(11, y, 32, ': Show this screen.', 'lighter_gray');
 
 	buf.fillRect(4, 1, 42, y, null, null, 'black' );

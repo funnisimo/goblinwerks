@@ -421,20 +421,20 @@ async function showStoreInventory(buffer, store, actor) {
     const text = GW.text.apply('ΩyellowΩWelcome to §store§!', { store });
     const len = GW.text.length(text);
     const tx = Math.floor((buffer.width - len)/2);
-    buffer.plotText(tx, 1, text);
+    buffer.drawText(tx, 1, text);
 
-    // buffer.plotText(x, 3, 'Items For Sale');
+    // buffer.drawText(x, 3, 'Items For Sale');
 
     const hc = ['green', 'teal'];
-    buffer.plotText(x, 32, 'Press ΩgreenΩ<a-z, UP, DOWN>∆ to select a good.');
-    buffer.plotText(x, 33, `Press Ω${hc[+(y==33)]}Ω<Enter>∆ to buy 1.`);
-    buffer.plotText(x, 34, `Press Ω${hc[+(y==34)]}Ω<ENTER>∆ to buy max of the good.`);
-    buffer.plotText(x, 35, `Press Ω${hc[+(y==35)]}Ω<S>∆ to see your pack.`);
-    buffer.plotText(x, 36, `Press Ω${hc[+(y==36)]}Ω<Escape>∆ to leave the store.`);
+    buffer.drawText(x, 32, 'Press ΩgreenΩ<a-z, UP, DOWN>∆ to select a good.');
+    buffer.drawText(x, 33, `Press Ω${hc[+(y==33)]}Ω<Enter>∆ to buy 1.`);
+    buffer.drawText(x, 34, `Press Ω${hc[+(y==34)]}Ω<ENTER>∆ to buy max of the good.`);
+    buffer.drawText(x, 35, `Press Ω${hc[+(y==35)]}Ω<S>∆ to see your pack.`);
+    buffer.drawText(x, 36, `Press Ω${hc[+(y==36)]}Ω<Escape>∆ to leave the store.`);
 
     canBuy = false;
     if (!store.items) {
-      buffer.plotText(x, 4, 'The store is empty.', GW.colors.yellow);
+      buffer.drawText(x, 4, 'The store is empty.', GW.colors.yellow);
     }
     else {
       table.draw(buffer, x, 4, data);
@@ -445,7 +445,7 @@ async function showStoreInventory(buffer, store, actor) {
         const startX = x + table.width + 5;
         const width = buffer.width - startX - 5;
 
-        buffer.plotText(startX, 5, `You have ΩgoldΩ${actor.current.gold}∆ gold.`);
+        buffer.drawText(startX, 5, `You have ΩgoldΩ${actor.current.gold}∆ gold.`);
         let nextY = buffer.wrapText(startX, 7, width, selectedData.item.kind.description, [100,100,30]);
 
         if (selectedData.price > actor.current.gold) {
@@ -577,20 +577,20 @@ async function showPlayerInventory(buffer, store, actor) {
     const text = GW.text.apply('ΩyellowΩWelcome to §store§!', { store });
     const len = GW.text.length(text);
     const tx = Math.floor((buffer.width - len)/2);
-    buffer.plotText(tx, 1, text);
+    buffer.drawText(tx, 1, text);
 
-    // buffer.plotText(x, 3, 'Items For Sale');
+    // buffer.drawText(x, 3, 'Items For Sale');
 
     const hc = ['green', 'teal'];
-    buffer.plotText(x, 32, 'Press ΩgreenΩ<a-z, UP, DOWN>∆ to select a good.');
-    buffer.plotText(x, 33, `Press Ω${hc[+(y==33)]}Ω<Enter>∆ to sell 1.`);
-    buffer.plotText(x, 34, `Press Ω${hc[+(y==34)]}Ω<ENTER>∆ to sell all of the good.`);
-    buffer.plotText(x, 35, `Press Ω${hc[+(y==35)]}Ω<B>∆ to see the store inventory.`);
-    buffer.plotText(x, 36, `Press Ω${hc[+(y==36)]}Ω<Escape>∆ to leave the store.`);
+    buffer.drawText(x, 32, 'Press ΩgreenΩ<a-z, UP, DOWN>∆ to select a good.');
+    buffer.drawText(x, 33, `Press Ω${hc[+(y==33)]}Ω<Enter>∆ to sell 1.`);
+    buffer.drawText(x, 34, `Press Ω${hc[+(y==34)]}Ω<ENTER>∆ to sell all of the good.`);
+    buffer.drawText(x, 35, `Press Ω${hc[+(y==35)]}Ω<B>∆ to see the store inventory.`);
+    buffer.drawText(x, 36, `Press Ω${hc[+(y==36)]}Ω<Escape>∆ to leave the store.`);
 
     canBuy = false;
     if (!data.length) {
-      buffer.plotText(x, 4, 'Your pack is empty.', GW.colors.yellow);
+      buffer.drawText(x, 4, 'Your pack is empty.', GW.colors.yellow);
     }
     else {
       table.draw(buffer, x, 4, data);
@@ -601,7 +601,7 @@ async function showPlayerInventory(buffer, store, actor) {
         const startX = x + table.width + 5;
         const width = buffer.width - startX - 5;
 
-        // buffer.plotText(startX, 5, `You have ΩgoldΩ${actor.current.gold}∆ gold.`);
+        // buffer.drawText(startX, 5, `You have ΩgoldΩ${actor.current.gold}∆ gold.`);
         let nextY = buffer.wrapText(startX, 7, width, selectedData.item.kind.description, [100,100,30]);
 
         if (selectedData.price > store.gold) {

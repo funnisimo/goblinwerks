@@ -22,7 +22,7 @@ export class Column {
 
   draw(buffer, x, y, data, index, color) {
     if (!data) {
-      buffer.plotText(x, y, this.empty, color);
+      buffer.drawText(x, y, this.empty, color);
       return Text.length(this.empty);
     }
 
@@ -33,14 +33,14 @@ export class Column {
     else {
       text = this.template(data);
     }
-    buffer.plotText(x, y, text, color);
+    buffer.drawText(x, y, text, color);
     return Text.length(text);
   }
 
   drawHeader(buffer, x, y) {
     if (!this.name) return 0;
 
-    buffer.plotText(x, y, this.name);
+    buffer.drawText(x, y, this.name);
     return Text.length(this.name);
   }
 }

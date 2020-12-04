@@ -84,7 +84,7 @@ class Buffer {
   }
 
   // XXXXXXXXXX
-  plotText(x, y, text, fg, bg) {
+  drawText(x, y, text, fg, bg) {
     Text.eachChar(text, (ch, color, bg, i) => {
       this.draw(i + x, y, ch, color || GW.colors.white, bg);
     }, fg, bg);

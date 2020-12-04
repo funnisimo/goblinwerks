@@ -95,7 +95,7 @@ function drawBoard(buffer, x, y, highlight=true) {
       }
       buffer.draw(x + 5 + i*2, y + j, '#', fg, bg);
     }
-    // buffer.plotText(x+5, y + i, '# # # # # #', fy == i ? 'light_blue' : 'dark_blue');
+    // buffer.drawText(x+5, y + i, '# # # # # #', fy == i ? 'light_blue' : 'dark_blue');
   }
 
   if (COMBAT_COUNT < 3) {
@@ -104,35 +104,35 @@ function drawBoard(buffer, x, y, highlight=true) {
   }
 
   if (selected == 1) {
-    buffer.plotText(x, y+7,  'ΩgreenΩ#ΩgoldΩ You - Melee Attack');
+    buffer.drawText(x, y+7,  'ΩgreenΩ#ΩgoldΩ You - Melee Attack');
     GW.flavor.setText('Perform a melee attack.');
   }
   else {
-    buffer.plotText(x, y+7,  'Ωdark_greenΩ#ΩgrayΩ You - Melee Attack');
+    buffer.drawText(x, y+7,  'Ωdark_greenΩ#ΩgrayΩ You - Melee Attack');
   }
 
   if (selected == 3) {
-    buffer.plotText(x, y+8,  'ΩblueΩ#ΩgoldΩ You - Magic Attack');
+    buffer.drawText(x, y+8,  'ΩblueΩ#ΩgoldΩ You - Magic Attack');
     GW.flavor.setText('Perform a magic attack.');
   }
   else {
-    buffer.plotText(x, y+8,  'Ωdark_blueΩ#ΩgrayΩ You - Magic Attack');
+    buffer.drawText(x, y+8,  'Ωdark_blueΩ#ΩgrayΩ You - Magic Attack');
   }
 
   if (selected == 2) {
-    buffer.plotText(x, y+10, 'ΩredΩ#ΩgoldΩ Enemy - Melee Attack');
+    buffer.drawText(x, y+10, 'ΩredΩ#ΩgoldΩ Enemy - Melee Attack');
     GW.flavor.setText('The enemy performs a melee attack.');
   }
   else {
-    buffer.plotText(x, y+10, 'Ωdark_redΩ#ΩgrayΩ Enemy - Melee Attack');
+    buffer.drawText(x, y+10, 'Ωdark_redΩ#ΩgrayΩ Enemy - Melee Attack');
   }
 
   if (selected == 4) {
-    buffer.plotText(x, y+11, 'ΩorangeΩ#ΩgoldΩ Enemy - Magic Attack');
+    buffer.drawText(x, y+11, 'ΩorangeΩ#ΩgoldΩ Enemy - Magic Attack');
     GW.flavor.setText('The enemy performs a magic attack.');
   }
   else {
-    buffer.plotText(x, y+11, 'Ωdark_orangeΩ#ΩgrayΩ Enemy - Magic Attack');
+    buffer.drawText(x, y+11, 'Ωdark_orangeΩ#ΩgrayΩ Enemy - Magic Attack');
   }
 
 }
@@ -196,18 +196,18 @@ async function updateBoard(buffer, x, y) {
 function drawPlayer(buffer, x, y, width) {
   const player = GW.data.player;
 
-  buffer.plotText(x, y, GW.text.capitalize(player.getName()));
+  buffer.drawText(x, y, GW.text.capitalize(player.getName()));
   GW.ui.plotProgressBar(buffer, x, y + 1, width, 'Health', 'white', player.current.health / player.max.health, 'redBar');
   GW.ui.plotProgressBar(buffer, x, y + 2, width, 'Mana', 'white', player.current.mana / player.max.mana, 'blueBar');
-  buffer.plotText(x, y + 4, 'Damage : ' + player.current.attack);
-  buffer.plotText(x, y + 5, 'Defense: ' + player.current.defense);
-  buffer.plotText(x, y + 6, 'Bonus  : ');
+  buffer.drawText(x, y + 4, 'Damage : ' + player.current.attack);
+  buffer.drawText(x, y + 5, 'Defense: ' + player.current.defense);
+  buffer.drawText(x, y + 6, 'Bonus  : ');
 
 }
 
 
 function drawOpponent(buffer, x, y, width, opponent) {
-  buffer.plotText(x, y, GW.text.capitalize(opponent.getName()));
+  buffer.drawText(x, y, GW.text.capitalize(opponent.getName()));
 
   const healthText = (opponent.current.health) ? 'Health' : 'Dead';
   GW.ui.plotProgressBar(buffer, x, y + 1, width, healthText, 'white', opponent.current.health / opponent.max.health, 'redBar');
@@ -215,9 +215,9 @@ function drawOpponent(buffer, x, y, width, opponent) {
   const manaText = (opponent.current.mana) ? 'Mana' : 'Cannot cast';
   GW.ui.plotProgressBar(buffer, x, y + 2, width, manaText, 'white', opponent.current.mana / opponent.max.mana, 'blueBar');
 
-  buffer.plotText(x, y + 4, 'Damage : ' + opponent.current.attack);
-  buffer.plotText(x, y + 5, 'Defense: ' + opponent.current.defense);
-  buffer.plotText(x, y + 6, 'Danger : ' + opponent.current.danger);
+  buffer.drawText(x, y + 4, 'Damage : ' + opponent.current.attack);
+  buffer.drawText(x, y + 5, 'Defense: ' + opponent.current.defense);
+  buffer.drawText(x, y + 6, 'Danger : ' + opponent.current.danger);
 
 }
 
@@ -239,8 +239,8 @@ async function combat(actor, target, ctx) {
   const y = GW.viewport.bounds.y;
 
   buffer.blackOutRect(x, y, width, height, 'darkest_gray');
-  buffer.plotText(x + 36, y + 1, 'BATTLE OF THORNS', 'yellow');
-  // buffer.plotText(x + 2, y + 3, 'Press <Enter> to exit');
+  buffer.drawText(x + 36, y + 1, 'BATTLE OF THORNS', 'yellow');
+  // buffer.drawText(x + 2, y + 3, 'Press <Enter> to exit');
 
   drawBoard(buffer, x + 34, y + 4);
   drawPlayer(buffer, x + 4, y + 4, 20);
