@@ -80,14 +80,8 @@ expect.extend({
     let pass = false;
     let e = expected;
 
-    if (!Array.isArray(expected)) {
-      e = expected._data || [];  // Color._data
-    }
     if (received) {
       let r = received;
-      if (!Array.isArray(received)) {
-        r = received._data || [];
-      }
 
       pass = (r[0] >= e[0]) && (r[0] <= e[0] + e[3] + e[4]);
       pass = pass && (r[1] >= e[1]) && (r[1] <= e[1] + e[3] + e[5]);

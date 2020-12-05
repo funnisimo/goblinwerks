@@ -1626,16 +1626,14 @@ void main() {
       b = Math.max(0, Math.min(15, Math.round(b / 100 * 15)));
       return (r << 8) + (g << 4) + b;
   }
-  class Color {
-      constructor(r = -1, g = 0, b = 0, rand = 0, redRand = 0, greenRand = 0, blueRand = 0) {
-          this._data = [r, g, b, rand, redRand, greenRand, blueRand];
-      }
+  class Color extends Int16Array {
       static fromArray(vals, base256 = false) {
-          while (vals.length < 3) {
+          while (vals.length < 3)
               vals.push(0);
-          }
           if (base256) {
-              vals = vals.map((v) => Math.round(v * 100 / 255));
+              for (let i = 0; i < 7; ++i) {
+                  vals[i] = Math.round((vals[i] || 0) * 100 / 255);
+              }
           }
           return new this(...vals);
       }
@@ -1658,12 +1656,27 @@ void main() {
       }
       static fromNumber(val, base256 = false) {
           const c = new this();
-          c.fromInt(val, base256);
+          for (let i = 0; i < c.length; ++i) {
+              c[i] = 0;
+          }
+          if (val < 0) {
+              c._r = -1;
+          }
+          else if (base256 || (val > 0xFFF)) {
+              c._r = Math.round(((val & 0xFF0000) >> 16) * 100 / 255);
+              c._g = Math.round(((val & 0xFF00) >> 8) * 100 / 255);
+              c._b = Math.round((val & 0xFF) * 100 / 255);
+          }
+          else {
+              c._r = Math.round(((val & 0xF00) >> 8) * 100 / 15);
+              c._g = Math.round(((val & 0xF0) >> 4) * 100 / 15);
+              c._b = Math.round((val & 0xF) * 100 / 15);
+          }
           return c;
       }
       static make(arg, base256 = false) {
           if ((arg === undefined) || (arg === null))
-              return new this();
+              return new this(-1);
           if (arg instanceof Color) {
               return arg.clone();
           }
@@ -1674,30 +1687,37 @@ void main() {
               return this.fromArray(arg, base256);
           }
           else if (typeof arg === 'number') {
+              if (arg < 0)
+                  return new this(-1);
               return this.fromNumber(arg, base256);
           }
           throw new Error('Failed to make color - unknown argument: ' + JSON.stringify(arg));
       }
-      static from(arg, base256 = false) {
+      static from(...args) {
+          const arg = args[0];
           if (arg instanceof this)
               return arg;
           if (arg < 0)
-              return new this();
-          return this.make(arg, base256);
+              return new this(-1);
+          return this.make(arg, args[1]);
       }
-      get r() { return Math.round(this._data[0] * 2.550001); }
-      get _r() { return this._data[0]; }
-      set _r(v) { this._data[0] = v; }
-      get g() { return Math.round(this._data[1] * 2.550001); }
-      get _g() { return this._data[1]; }
-      set _g(v) { this._data[1] = v; }
-      get b() { return Math.round(this._data[2] * 2.550001); }
-      get _b() { return this._data[2]; }
-      set _b(v) { this._data[2] = v; }
-      get _rand() { return this._data[3]; }
-      get _redRand() { return this._data[4]; }
-      get _greenRand() { return this._data[5]; }
-      get _blueRand() { return this._data[6]; }
+      constructor(r = -1, g = 0, b = 0, rand = 0, redRand = 0, greenRand = 0, blueRand = 0) {
+          super(7);
+          this.set([r, g, b, rand, redRand, greenRand, blueRand]);
+      }
+      get r() { return Math.round(this[0] * 2.550001); }
+      get _r() { return this[0]; }
+      set _r(v) { this[0] = v; }
+      get g() { return Math.round(this[1] * 2.550001); }
+      get _g() { return this[1]; }
+      set _g(v) { this[1] = v; }
+      get b() { return Math.round(this[2] * 2.550001); }
+      get _b() { return this[2]; }
+      set _b(v) { this[2] = v; }
+      get _rand() { return this[3]; }
+      get _redRand() { return this[4]; }
+      get _greenRand() { return this[5]; }
+      get _blueRand() { return this[6]; }
       // luminosity (0-100)
       get l() {
           return Math.round(0.5 * (Math.min(this._r, this._g, this._b) + Math.max(this._r, this._g, this._b)));
@@ -1739,17 +1759,22 @@ void main() {
           if (typeof other === 'string') {
               return (other.length > 4) ? (this.toString(true) == other) : (this.toString() == other);
           }
-          other = Color.from(other);
+          const O = Color.from(other);
           if (this.isNull())
-              return other.isNull();
-          const data = other._data;
-          return this._data.every((v, i) => {
-              return v == (data[i] || 0);
+              return O.isNull();
+          return this.every((v, i) => {
+              return v == (O[i] || 0);
           });
       }
       copy(other) {
-          other = Color.from(other);
-          return this.set(...other._data);
+          if (Array.isArray(other)) {
+              this.set(other);
+          }
+          else {
+              const O = Color.from(other);
+              this.set(O);
+          }
+          return this;
       }
       _changed() {
           return this;
@@ -1760,45 +1785,32 @@ void main() {
           other.copy(this);
           return other;
       }
-      set(_r = 0, _g = 0, _b = 0, _rand = 0, _redRand = 0, _greenRand = 0, _blueRand = 0) {
-          for (let i = 0; i < this._data.length; ++i) {
-              this._data[i] = arguments[i] || 0;
+      assign(_r = -1, _g = 0, _b = 0, _rand = 0, _redRand = 0, _greenRand = 0, _blueRand = 0) {
+          for (let i = 0; i < this.length; ++i) {
+              this[i] = (arguments[i] || 0);
           }
-          return this._changed();
+          return this;
       }
-      setRGB(_r = 0, _g = 0, _b = 0, _rand = 0, _redRand = 0, _greenRand = 0, _blueRand = 0) {
-          const args = [].map.call(arguments, (v) => Math.round((v || 0) / 2.55));
-          return this.set(...args);
+      assignRGB(_r = -1, _g = 0, _b = 0, _rand = 0, _redRand = 0, _greenRand = 0, _blueRand = 0) {
+          for (let i = 0; i < this.length; ++i) {
+              this[i] = Math.round((arguments[i] || 0) / 2.55);
+          }
+          return this;
       }
       nullify() {
-          return this.set(-1, 0, 0);
+          this[0] = -1;
+          return this;
       }
       blackOut() {
-          return this.set(0, 0, 0);
+          for (let i = 0; i < this.length; ++i) {
+              this[i] = 0;
+          }
+          return this;
       }
       toInt(base256 = false) {
           if (this.isNull())
               return -1;
           return toColorInt(this._r, this._g, this._b, base256);
-      }
-      fromInt(val, base256 = false) {
-          for (let i = 0; i < this._data.length; ++i) {
-              this._data[i] = 0;
-          }
-          if (val < 0) {
-              this._r = -1;
-          }
-          else if (base256 || (val > 0xFFF)) {
-              this._r = Math.round(((val & 0xFF0000) >> 16) * 100 / 255);
-              this._g = Math.round(((val & 0xFF00) >> 8) * 100 / 255);
-              this._b = Math.round((val & 0xFF) * 100 / 255);
-          }
-          else {
-              this._r = Math.round(((val & 0xF00) >> 8) * 100 / 15);
-              this._g = Math.round(((val & 0xF0) >> 4) * 100 / 15);
-              this._b = Math.round((val & 0xF) * 100 / 15);
-          }
-          return this._changed();
       }
       clamp() {
           if (this.isNull())
@@ -1809,17 +1821,16 @@ void main() {
           return this._changed();
       }
       mix(other, percent) {
-          other = Color.from(other);
-          if (other.isNull())
+          const O = Color.from(other);
+          if (O.isNull())
               return this;
           if (this.isNull()) {
               this.blackOut();
           }
-          const data = other._data;
           percent = Math.min(100, Math.max(0, percent));
           const keepPct = 100 - percent;
-          for (let i = 0; i < this._data.length; ++i) {
-              this._data[i] = Math.round(((this._data[i] * keepPct) + (data[i] * percent)) / 100);
+          for (let i = 0; i < this.length; ++i) {
+              this[i] = Math.round(((this[i] * keepPct) + (O[i] * percent)) / 100);
           }
           return this._changed();
       }
@@ -1832,7 +1843,7 @@ void main() {
               return;
           const keepPct = 100 - percent;
           for (let i = 0; i < 3; ++i) {
-              this._data[i] = Math.round(((this._data[i] * keepPct) + (100 * percent)) / 100);
+              this[i] = Math.round(((this[i] * keepPct) + (100 * percent)) / 100);
           }
           return this._changed();
       }
@@ -1845,14 +1856,14 @@ void main() {
               return;
           const keepPct = 100 - percent;
           for (let i = 0; i < 3; ++i) {
-              this._data[i] = Math.round(((this._data[i] * keepPct) + (0 * percent)) / 100);
+              this[i] = Math.round(((this[i] * keepPct) + (0 * percent)) / 100);
           }
           return this._changed();
       }
       bake() {
           if (this.isNull())
               return this;
-          const d = this._data;
+          const d = this;
           if (d[3] + d[4] + d[5] + d[6]) {
               const rand = this._rand ? Math.floor(options.random() * this._rand) : 0;
               const redRand = this._redRand ? Math.floor(options.random() * this._redRand) : 0;
@@ -1861,8 +1872,8 @@ void main() {
               this._r += (rand + redRand);
               this._g += (rand + greenRand);
               this._b += (rand + blueRand);
-              for (let i = 3; i < this._data.length; ++i) {
-                  this._data[i] = 0;
+              for (let i = 3; i < this.length; ++i) {
+                  this[i] = 0;
               }
               return this._changed();
           }
@@ -1870,15 +1881,14 @@ void main() {
       }
       // Adds a color to this one
       add(other, percent = 100) {
-          other = Color.from(other);
-          if (other.isNull())
+          const O = Color.from(other);
+          if (O.isNull())
               return this;
           if (this.isNull()) {
               this.blackOut();
           }
-          const data = other._data;
-          for (let i = 0; i < this._data.length; ++i) {
-              this._data[i] += Math.round(data[i] * percent / 100);
+          for (let i = 0; i < this.length; ++i) {
+              this[i] += Math.round(O[i] * percent / 100);
           }
           return this._changed();
       }
@@ -1886,8 +1896,8 @@ void main() {
           if (this.isNull() || percent == 100)
               return this;
           percent = Math.max(0, percent);
-          for (let i = 0; i < this._data.length; ++i) {
-              this._data[i] = Math.round(this._data[i] * percent / 100);
+          for (let i = 0; i < this.length; ++i) {
+              this[i] = Math.round(this[i] * percent / 100);
           }
           return this._changed();
       }
@@ -1896,14 +1906,13 @@ void main() {
               return this;
           let data = other;
           if (!Array.isArray(other)) {
-              other = Color.from(other);
               if (other.isNull())
                   return this;
-              data = other._data;
+              data = other;
           }
-          const len = Math.max(3, Math.min(this._data.length, data.length));
+          const len = Math.max(3, Math.min(this.length, data.length));
           for (let i = 0; i < len; ++i) {
-              this._data[i] = Math.round(this._data[i] * (data[i] || 0) / 100);
+              this[i] = Math.round(this[i] * (data[i] || 0) / 100);
           }
           return this._changed();
       }
@@ -1920,7 +1929,7 @@ void main() {
           return this._changed();
       }
       css(base256 = false) {
-          const d = this._data;
+          const d = this;
           let v = 0;
           if (d[3] + d[4] + d[5] + d[6]) {
               const rand = this._rand ? Math.floor(options.random() * this._rand) : 0;
@@ -2171,10 +2180,10 @@ void main() {
       return this;
     }
 
-    fromInt(val, base256) {
-      this.dances = false;
-      return super.fromInt(val, base256);
-    }
+    // fromInt(val, base256) {
+    //   this.dances = false;
+    //   return super.fromInt(val, base256);
+    // }
 
     mix(other, pct) {
       this.dances = this.dances || other.dances;
@@ -6005,7 +6014,7 @@ void main() {
 
         lightMultiplier = Math.floor(100 - (100 - fadeToPercent) * (distanceBetween(x, y, i, j) / radius));
         for (k=0; k<3; k++) {
-          cell.light[k] += Math.floor(LIGHT_COMPONENTS._data[k] * lightMultiplier / 100);
+          cell.light[k] += Math.floor(LIGHT_COMPONENTS[k] * lightMultiplier / 100);
         }
         if (dispelShadows) {
           cell.flags &= ~Cell.IS_IN_SHADOW;
@@ -6032,7 +6041,7 @@ void main() {
 
 
   function intensity(color) {
-    const data = color.color ? (color.color._data) : (color._data || color);
+    const data = color.color || color;
     return Math.max(data[0], data[1], data[2]);
   }
 
@@ -6160,7 +6169,7 @@ void main() {
 
   function zeroOutLights(map) {
   	let k;
-    const light = map.ambientLight ? map.ambientLight._data : [0,0,0];
+    const light = map.ambientLight ? map.ambientLight : [0,0,0];
     map.eachCell( (cell, i, j) => {
       for (k=0; k<3; k++) {
         cell.light[k] = light[k];

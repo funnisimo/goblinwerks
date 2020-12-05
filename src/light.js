@@ -60,7 +60,7 @@ class Light {
 
       lightMultiplier = Math.floor(100 - (100 - fadeToPercent) * (Utils.distanceBetween(x, y, i, j) / radius));
       for (k=0; k<3; k++) {
-        cell.light[k] += Math.floor(LIGHT_COMPONENTS._data[k] * lightMultiplier / 100);
+        cell.light[k] += Math.floor(LIGHT_COMPONENTS[k] * lightMultiplier / 100);
       }
       if (dispelShadows) {
         cell.flags &= ~Flags.Cell.IS_IN_SHADOW;
@@ -87,7 +87,7 @@ GW.types.Light = Light;
 
 
 export function intensity(color) {
-  const data = color.color ? (color.color._data) : (color._data || color);
+  const data = color.color || color;
   return Math.max(data[0], data[1], data[2]);
 }
 
@@ -215,7 +215,7 @@ export function recordOldLights(map) {
 
 export function zeroOutLights(map) {
 	let k;
-  const light = map.ambientLight ? map.ambientLight._data : [0,0,0];
+  const light = map.ambientLight ? map.ambientLight : [0,0,0];
   map.eachCell( (cell, i, j) => {
     for (k=0; k<3; k++) {
       cell.light[k] = light[k];

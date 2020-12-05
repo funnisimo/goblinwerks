@@ -8,17 +8,17 @@ describe('Sprite', () => {
 
     const a = GW.make.sprite();
     expect(a.ch).toEqual(' ');
-    expect(a.fg.toString(true)).toEqual('#ffffff');
-    expect(a.bg.toString(true)).toEqual('#000000');
+    expect(a.fg.toString(true)).toEqual('white');
+    expect(a.bg.toString(true)).toEqual('black');
     expect(a.opacity).toEqual(100);
     expect(a.needsUpdate).toBeTruthy();
 
     const b = GW.make.sprite('@', 'green', 'blue', 50);
     expect(b.ch).toEqual('@');
     expect(b.fg).not.toBe(GW.colors.green); // cannot be a reference bc we change it on a plot
-    expect(b.fg.toString(true)).toEqual('#00ff00');
+    expect(b.fg.toString(true)).toEqual('green');
     expect(b.bg).not.toBe(GW.colors.blue);
-    expect(b.bg.toString(true)).toEqual('#0000ff');
+    expect(b.bg.toString(true)).toEqual('blue');
     expect(b.opacity).toEqual(50);
     expect(b.needsUpdate).toBeTruthy();
 
@@ -31,7 +31,7 @@ describe('Sprite', () => {
     const e = GW.make.sprite(null, null, 'green', 50);
     expect(e.ch).toBeNull();
     expect(e.fg).toBeNull();
-    expect(e.bg.toString(true)).toEqual('#00ff00');
+    expect(e.bg.toString(true)).toEqual('green');
     expect(e.opacity).toEqual(50);
 
     const f = GW.make.sprite('@', null, null, 50);
@@ -147,8 +147,8 @@ describe('Sprite', () => {
     dest.drawSprite(player);
 
     expect(dest.ch).toEqual('@');
-    expect(dest.fg.toString(true)).toEqual('#ffffff');
-    expect(dest.bg.toString(true)).toEqual('#00ff00');
+    expect(dest.fg.toString(true)).toEqual('white');
+    expect(dest.bg.toString(true)).toEqual('green');
     expect(dest.opacity).toEqual(100);
     expect(dest.needsUpdate).toBeTruthy();
   });
@@ -164,7 +164,7 @@ describe('Sprite', () => {
     dest.drawSprite(fx);
 
     expect(dest.ch).toEqual('@');
-    expect(dest.fg.toString(true)).toEqual('#ffffff');
+    expect(dest.fg.toString(true)).toEqual('white');
     expect(dest.bg.toString(true)).toEqual('#808000');
     expect(dest.opacity).toEqual(100);
     expect(dest.needsUpdate).toBeTruthy();
@@ -182,7 +182,7 @@ describe('Sprite', () => {
 
     expect(dest.ch).toEqual('@');
     expect(dest.fg.toString(true)).toEqual('#ff8080');  // (white + red) / 2
-    expect(dest.bg.toString(true)).toEqual('#00ff00');
+    expect(dest.bg.toString(true)).toEqual('green');
     expect(dest.opacity).toEqual(100);
     expect(dest.needsUpdate).toBeTruthy();
   });

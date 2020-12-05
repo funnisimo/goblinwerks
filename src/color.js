@@ -201,10 +201,10 @@ export class Color extends CanvasColor {
     return this;
   }
 
-  fromInt(val, base256) {
-    this.dances = false;
-    return super.fromInt(val, base256);
-  }
+  // fromInt(val, base256) {
+  //   this.dances = false;
+  //   return super.fromInt(val, base256);
+  // }
 
   mix(other, pct) {
     this.dances = this.dances || other.dances;

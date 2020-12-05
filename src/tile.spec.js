@@ -115,10 +115,10 @@ describe('Tile', () => {
     expect(tile.getName('the')).toEqual('the Stone Wall');
     expect(tile.getName(true)).toEqual('a Stone Wall');
 
-    expect(tile.getName({ color: true })).toEqual('Ω#999ΩStone Wall∆');
-    expect(tile.getName({ color: true, article: 'a' })).toEqual('a Ω#999ΩStone Wall∆');
-    expect(tile.getName({ color: true, article: 'the' })).toEqual('the Ω#999ΩStone Wall∆');
-    expect(tile.getName({ color: true, article: true })).toEqual('a Ω#999ΩStone Wall∆');
+    expect(tile.getName({ color: true })).toEqual('Ωlight_grayΩStone Wall∆');
+    expect(tile.getName({ color: true, article: 'a' })).toEqual('a Ωlight_grayΩStone Wall∆');
+    expect(tile.getName({ color: true, article: 'the' })).toEqual('the Ωlight_grayΩStone Wall∆');
+    expect(tile.getName({ color: true, article: true })).toEqual('a Ωlight_grayΩStone Wall∆');
 
     expect(tile.getDescription()).toEqual(tile.getName());
   });
