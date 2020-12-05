@@ -400,7 +400,7 @@
           dest[key] = defValue.slice();
         }
         else if (typeof defValue === 'object') {
-          dest[key] = Object.assign({}, defValue);
+          dest[key] = defValue; // Object.assign({}, defValue); -- this breaks assigning a Color object as a default...
         }
         else {
           dest[key] = defValue;
@@ -1559,218 +1559,652 @@
 
   make.range = makeRange;
 
+  // Based on: https://github.com/ondras/fastiles/blob/master/ts/shaders.ts (v2.1.0)
+  const VS = `
+#version 300 es
+in uvec2 position;
+in uvec2 uv;
+in uint style;
+out vec2 fsUv;
+flat out uint fsStyle;
+uniform highp uvec2 tileSize;
+uniform uvec2 viewportSize;
+void main() {
+	ivec2 positionPx = ivec2(position * tileSize);
+	vec2 positionNdc = (vec2(positionPx * 2) / vec2(viewportSize))-1.0;
+	positionNdc.y *= -1.0;
+	gl_Position = vec4(positionNdc, 0.0, 1.0);
+	fsUv = vec2(uv);
+	fsStyle = style;
+}`.trim();
+  const FS = `
+#version 300 es
+precision highp float;
+in vec2 fsUv;
+flat in uint fsStyle;
+out vec4 fragColor;
+uniform sampler2D font;
+uniform highp uvec2 tileSize;
+void main() {
+	uvec2 fontTiles = uvec2(textureSize(font, 0)) / tileSize;
+
+	uint glyph = (fsStyle & uint(0xFF000000)) >> 24;
+	uint glyphX = (glyph & uint(0xF));
+	uint glyphY = (glyph >> 4);
+	uvec2 fontPosition = uvec2(glyphX, glyphY);
+
+	uvec2 fontPx = (tileSize * fontPosition) + uvec2(vec2(tileSize) * fsUv);
+	vec3 texel = texelFetch(font, ivec2(fontPx), 0).rgb;
+
+	float s = 15.0;
+	uint fr = (fsStyle & uint(0xF00)) >> 8;
+	uint fg = (fsStyle & uint(0x0F0)) >> 4;
+	uint fb = (fsStyle & uint(0x00F)) >> 0;
+	vec3 fgRgb = vec3(fr, fg, fb) / s;
+  
+	uint br = (fsStyle & uint(0xF00000)) >> 20;
+	uint bg = (fsStyle & uint(0x0F0000)) >> 16;
+	uint bb = (fsStyle & uint(0x00F000)) >> 12;
+	vec3 bgRgb = vec3(br, bg, bb) / s;
+  
+	fragColor = vec4(mix(bgRgb, fgRgb, texel), 1.0);
+}`.trim();
+
+  var options = {
+      random: Math.random.bind(Math),
+  };
+
+  function toColorInt(r = 0, g = 0, b = 0, base256 = false) {
+      if (base256) {
+          r = Math.max(0, Math.min(255, Math.round(r * 2.550001)));
+          g = Math.max(0, Math.min(255, Math.round(g * 2.550001)));
+          b = Math.max(0, Math.min(255, Math.round(b * 2.550001)));
+          return (r << 16) + (g << 8) + b;
+      }
+      r = Math.max(0, Math.min(15, Math.round(r / 100 * 15)));
+      g = Math.max(0, Math.min(15, Math.round(g / 100 * 15)));
+      b = Math.max(0, Math.min(15, Math.round(b / 100 * 15)));
+      return (r << 8) + (g << 4) + b;
+  }
+  class Color {
+      constructor(r = -1, g = 0, b = 0, rand = 0, redRand = 0, greenRand = 0, blueRand = 0) {
+          this._data = [r, g, b, rand, redRand, greenRand, blueRand];
+      }
+      static fromArray(vals, base256 = false) {
+          while (vals.length < 3) {
+              vals.push(0);
+          }
+          if (base256) {
+              vals = vals.map((v) => Math.round(v * 100 / 255));
+          }
+          return new this(...vals);
+      }
+      static fromString(css) {
+          if (!css.startsWith('#'))
+              throw new Error('Color strings must be of form "#abc" or "#abcdef" - received: [' + css + ']');
+          const c = Number.parseInt(css.substring(1), 16);
+          let r, g, b;
+          if (css.length == 4) {
+              r = Math.round((c >> 8) / 15 * 100);
+              g = Math.round(((c & 0xF0) >> 4) / 15 * 100);
+              b = Math.round((c & 0xF) / 15 * 100);
+          }
+          else {
+              r = Math.round((c >> 16) / 255 * 100);
+              g = Math.round(((c & 0xFF00) >> 8) / 255 * 100);
+              b = Math.round((c & 0xFF) / 255 * 100);
+          }
+          return new this(r, g, b);
+      }
+      static fromNumber(val, base256 = false) {
+          const c = new this();
+          c.fromInt(val, base256);
+          return c;
+      }
+      static make(arg, base256 = false) {
+          if ((arg === undefined) || (arg === null))
+              return new this();
+          if (arg instanceof Color) {
+              return arg.clone();
+          }
+          if (typeof arg === 'string') {
+              return this.fromString(arg);
+          }
+          else if (Array.isArray(arg)) {
+              return this.fromArray(arg, base256);
+          }
+          else if (typeof arg === 'number') {
+              return this.fromNumber(arg, base256);
+          }
+          throw new Error('Failed to make color - unknown argument: ' + JSON.stringify(arg));
+      }
+      static from(arg, base256 = false) {
+          if (arg instanceof this)
+              return arg;
+          if (arg < 0)
+              return new this();
+          return this.make(arg, base256);
+      }
+      get r() { return Math.round(this._data[0] * 2.550001); }
+      get _r() { return this._data[0]; }
+      set _r(v) { this._data[0] = v; }
+      get g() { return Math.round(this._data[1] * 2.550001); }
+      get _g() { return this._data[1]; }
+      set _g(v) { this._data[1] = v; }
+      get b() { return Math.round(this._data[2] * 2.550001); }
+      get _b() { return this._data[2]; }
+      set _b(v) { this._data[2] = v; }
+      get _rand() { return this._data[3]; }
+      get _redRand() { return this._data[4]; }
+      get _greenRand() { return this._data[5]; }
+      get _blueRand() { return this._data[6]; }
+      // luminosity (0-100)
+      get l() {
+          return Math.round(0.5 * (Math.min(this._r, this._g, this._b) + Math.max(this._r, this._g, this._b)));
+      }
+      // saturation (0-100)
+      get s() {
+          if (this.l >= 100)
+              return 0;
+          return Math.round((Math.max(this._r, this._g, this._b) - Math.min(this._r, this._g, this._b)) * (100 - Math.abs(this.l * 2 - 100)) / 100);
+      }
+      // hue (0-360)
+      get h() {
+          let H = 0;
+          let R = this.r;
+          let G = this.g;
+          let B = this.b;
+          if (R >= G && G >= B) {
+              H = 60 * ((G - B) / (R - B));
+          }
+          else if (G > R && R >= B) {
+              H = 60 * (2 - (R - B) / (G - B));
+          }
+          else if (G >= B && B > R) {
+              H = 60 * (2 + (B - R) / (G - R));
+          }
+          else if (B > G && G > R) {
+              H = 60 * (4 - (G - R) / (B - R));
+          }
+          else if (B > R && R >= G) {
+              H = 60 * (4 + (R - G) / (B - G));
+          }
+          else {
+              H = 60 * (6 - (B - G) / (R - G));
+          }
+          return Math.round(H);
+      }
+      isNull() { return this._r < 0; }
+      equals(other) {
+          if (typeof other === 'string') {
+              return (other.length > 4) ? (this.toString(true) == other) : (this.toString() == other);
+          }
+          other = Color.from(other);
+          if (this.isNull())
+              return other.isNull();
+          const data = other._data;
+          return this._data.every((v, i) => {
+              return v == (data[i] || 0);
+          });
+      }
+      copy(other) {
+          other = Color.from(other);
+          return this.set(...other._data);
+      }
+      _changed() {
+          return this;
+      }
+      clone() {
+          // @ts-ignore
+          const other = new this.constructor();
+          other.copy(this);
+          return other;
+      }
+      set(_r = 0, _g = 0, _b = 0, _rand = 0, _redRand = 0, _greenRand = 0, _blueRand = 0) {
+          for (let i = 0; i < this._data.length; ++i) {
+              this._data[i] = arguments[i] || 0;
+          }
+          return this._changed();
+      }
+      setRGB(_r = 0, _g = 0, _b = 0, _rand = 0, _redRand = 0, _greenRand = 0, _blueRand = 0) {
+          const args = [].map.call(arguments, (v) => Math.round((v || 0) / 2.55));
+          return this.set(...args);
+      }
+      nullify() {
+          return this.set(-1, 0, 0);
+      }
+      blackOut() {
+          return this.set(0, 0, 0);
+      }
+      toInt(base256 = false) {
+          if (this.isNull())
+              return -1;
+          return toColorInt(this._r, this._g, this._b, base256);
+      }
+      fromInt(val, base256 = false) {
+          for (let i = 0; i < this._data.length; ++i) {
+              this._data[i] = 0;
+          }
+          if (val < 0) {
+              this._r = -1;
+          }
+          else if (base256 || (val > 0xFFF)) {
+              this._r = Math.round(((val & 0xFF0000) >> 16) * 100 / 255);
+              this._g = Math.round(((val & 0xFF00) >> 8) * 100 / 255);
+              this._b = Math.round((val & 0xFF) * 100 / 255);
+          }
+          else {
+              this._r = Math.round(((val & 0xF00) >> 8) * 100 / 15);
+              this._g = Math.round(((val & 0xF0) >> 4) * 100 / 15);
+              this._b = Math.round((val & 0xF) * 100 / 15);
+          }
+          return this._changed();
+      }
+      clamp() {
+          if (this.isNull())
+              return this;
+          this._r = Math.min(100, Math.max(0, this._r));
+          this._g = Math.min(100, Math.max(0, this._g));
+          this._b = Math.min(100, Math.max(0, this._b));
+          return this._changed();
+      }
+      mix(other, percent) {
+          other = Color.from(other);
+          if (other.isNull())
+              return this;
+          if (this.isNull()) {
+              this.blackOut();
+          }
+          const data = other._data;
+          percent = Math.min(100, Math.max(0, percent));
+          const keepPct = 100 - percent;
+          for (let i = 0; i < this._data.length; ++i) {
+              this._data[i] = Math.round(((this._data[i] * keepPct) + (data[i] * percent)) / 100);
+          }
+          return this._changed();
+      }
+      // Only adjusts r,g,b
+      lighten(percent) {
+          if (this.isNull())
+              return this;
+          percent = Math.min(100, Math.max(0, percent));
+          if (percent <= 0)
+              return;
+          const keepPct = 100 - percent;
+          for (let i = 0; i < 3; ++i) {
+              this._data[i] = Math.round(((this._data[i] * keepPct) + (100 * percent)) / 100);
+          }
+          return this._changed();
+      }
+      // Only adjusts r,g,b
+      darken(percent) {
+          if (this.isNull())
+              return this;
+          percent = Math.min(100, Math.max(0, percent));
+          if (percent <= 0)
+              return;
+          const keepPct = 100 - percent;
+          for (let i = 0; i < 3; ++i) {
+              this._data[i] = Math.round(((this._data[i] * keepPct) + (0 * percent)) / 100);
+          }
+          return this._changed();
+      }
+      bake() {
+          if (this.isNull())
+              return this;
+          const d = this._data;
+          if (d[3] + d[4] + d[5] + d[6]) {
+              const rand = this._rand ? Math.floor(options.random() * this._rand) : 0;
+              const redRand = this._redRand ? Math.floor(options.random() * this._redRand) : 0;
+              const greenRand = this._greenRand ? Math.floor(options.random() * this._greenRand) : 0;
+              const blueRand = this._blueRand ? Math.floor(options.random() * this._blueRand) : 0;
+              this._r += (rand + redRand);
+              this._g += (rand + greenRand);
+              this._b += (rand + blueRand);
+              for (let i = 3; i < this._data.length; ++i) {
+                  this._data[i] = 0;
+              }
+              return this._changed();
+          }
+          return this;
+      }
+      // Adds a color to this one
+      add(other, percent = 100) {
+          other = Color.from(other);
+          if (other.isNull())
+              return this;
+          if (this.isNull()) {
+              this.blackOut();
+          }
+          const data = other._data;
+          for (let i = 0; i < this._data.length; ++i) {
+              this._data[i] += Math.round(data[i] * percent / 100);
+          }
+          return this._changed();
+      }
+      scale(percent) {
+          if (this.isNull() || percent == 100)
+              return this;
+          percent = Math.max(0, percent);
+          for (let i = 0; i < this._data.length; ++i) {
+              this._data[i] = Math.round(this._data[i] * percent / 100);
+          }
+          return this._changed();
+      }
+      multiply(other) {
+          if (this.isNull())
+              return this;
+          let data = other;
+          if (!Array.isArray(other)) {
+              other = Color.from(other);
+              if (other.isNull())
+                  return this;
+              data = other._data;
+          }
+          const len = Math.max(3, Math.min(this._data.length, data.length));
+          for (let i = 0; i < len; ++i) {
+              this._data[i] = Math.round(this._data[i] * (data[i] || 0) / 100);
+          }
+          return this._changed();
+      }
+      // scales rgb down to a max of 100
+      normalize() {
+          if (this.isNull())
+              return this;
+          const max = Math.max(this._r, this._g, this._b);
+          if (max <= 100)
+              return this;
+          this._r = Math.round(100 * this._r / max);
+          this._g = Math.round(100 * this._g / max);
+          this._b = Math.round(100 * this._b / max);
+          return this._changed();
+      }
+      css(base256 = false) {
+          const d = this._data;
+          let v = 0;
+          if (d[3] + d[4] + d[5] + d[6]) {
+              const rand = this._rand ? Math.floor(options.random() * this._rand) : 0;
+              const redRand = this._redRand ? Math.floor(options.random() * this._redRand) : 0;
+              const greenRand = this._greenRand ? Math.floor(options.random() * this._greenRand) : 0;
+              const blueRand = this._blueRand ? Math.floor(options.random() * this._blueRand) : 0;
+              const red = (this._r + rand + redRand);
+              const green = (this._g + rand + greenRand);
+              const blue = (this._b + rand + blueRand);
+              v = toColorInt(red, green, blue, base256);
+          }
+          else {
+              v = this.toInt(base256);
+          }
+          return '#' + v.toString(16).padStart(base256 ? 6 : 3, '0');
+      }
+      toString(base256 = false) {
+          if (this.isNull())
+              return 'null color';
+          return '#' + this.toInt(base256).toString(16).padStart(base256 ? 6 : 3, '0');
+      }
+      // adjusts the luminosity of 2 colors to ensure there is enough separation between them
+      static separate(a, b) {
+          if (a.isNull() || b.isNull())
+              return;
+          const A = a.clone().clamp();
+          const B = b.clone().clamp();
+          // console.log('separate');
+          // console.log('- a=%s, h=%d, s=%d, l=%d', A.toString(), A.h, A.s, A.l);
+          // console.log('- b=%s, h=%d, s=%d, l=%d', B.toString(), B.h, B.s, B.l);
+          let hDiff = Math.abs(A.h - B.h);
+          if (hDiff > 180) {
+              hDiff = 360 - hDiff;
+          }
+          if (hDiff > 45)
+              return; // colors are far enough apart in hue to be distinct
+          const dist = 40;
+          if (Math.abs(A.l - B.l) >= dist)
+              return;
+          // Get them sorted by saturation ( we will darken the more saturated color and lighten the other)
+          const [lo, hi] = [A, B].sort((a, b) => a.s - b.s);
+          // console.log('- lo=%s, hi=%s', lo.toString(), hi.toString());
+          while ((hi.l - lo.l) < dist) {
+              hi.mix(WHITE, 5);
+              lo.mix(BLACK, 5);
+          }
+          a.copy(A);
+          b.copy(B);
+          // console.log('=>', a.toString(), b.toString());
+      }
+  }
+  const BLACK = new Color(0, 0, 0);
+  const WHITE = new Color(100, 100, 100);
+
   // export var color = {};
 
 
-  class Color extends Array {
+  // export class Color extends Array {
+  //   constructor(...args) {
+  //     if (args.length == 1 && Array.isArray(args[0])) { args = args[0]; }
+  //     while(args.length < 7) args.push(0);
+  //     super(...args.slice(0,7));
+  //     this.dances = (args.length > 7 && !!args[7]);
+  //   }
+  //
+  //   get red() 	{ return this[0]; }
+  //   set red(v)  { this[0] = v; }
+  //   get green()  { return this[1]; }
+  //   set green(v) { this[1] = v; }
+  //   get blue() 	{ return this[2]; }
+  //   set blue(v) { this[2] = v; }
+  //
+  //   get rand() 	{ return this[3]; }
+  //   set rand(v)  { this[3] = v; }
+  //
+  //   get redRand() 	{ return this[4]; }
+  //   set redRand(v)  { this[4] = v; }
+  //   get greenRand()  { return this[5]; }
+  //   set greenRand(v) { this[5] = v; }
+  //   get blueRand() 	{ return this[6]; }
+  //   set blueRand(v) { this[6] = v; }
+  //
+  //   clone() {
+  //     const other = new Color(...this);
+  //     other.dances = this.dances;
+  //     other.id = this.id;
+  //     return other;
+  //   }
+  //
+  //   copy(other) {
+  //     for(let i = 0; i < 7; ++i) {
+  //       this[i] = other[i] || 0;
+  //     }
+  //     this.dances = other.dances || false;
+  //     this.id = other.id;
+  //     return this;
+  //   }
+  //
+  //   clear() {
+  //     for(let i = 0; i < 7; ++i) {
+  //       this[i] = 0;
+  //     }
+  //     this.dances = false;
+  //     this.id = null;
+  //   }
+  //
+  //   css() {
+  //     const rand = cosmetic.value() * (this.rand || 0);
+  //     const red = toRGB(this.red + rand, this.redRand);
+  //     const green = toRGB(this.green + rand, this.greenRand);
+  //     const blue = toRGB(this.blue + rand, this.blueRand);
+  //     return `#${toCSS(red)}${toCSS(green)}${toCSS(blue)}`;
+  //   }
+  //
+  //   equals(other) {
+  //     if (!other) return false;
+  //     return this.every( (v, i) => v === other[i] ) && this.dances === other.dances;
+  //   }
+  //
+  //   clamp() {
+  //     this.red		= Utils.clamp(this.red, 0, 100);
+  //     this.green	= Utils.clamp(this.green, 0, 100);
+  //     this.blue		= Utils.clamp(this.blue, 0, 100);
+  //   }
+  //
+  //   add(other, pct=100) {
+  //     other = from(other);
+  //
+  //     this.red += Math.floor((other.red * pct) / 100);
+  //     this.redRand += Math.floor((other.redRand * pct) / 100);
+  //     this.green += Math.floor((other.green * pct) / 100);
+  //     this.greenRand += Math.floor((other.greenRand * pct) / 100);
+  //     this.blue += Math.floor((other.blue * pct) / 100);
+  //     this.blueRand += Math.floor((other.blueRand * pct) / 100);
+  //     this.rand += Math.floor((other.rand * pct) / 100);
+  //     this.id = null;
+  //     return this;
+  //   }
+  //
+  //   mix(other, opacity=100) {
+  //     other = from(other);
+  //
+  //     if (opacity <= 0) return this;
+  //     if (opacity >= 100) {
+  //       this.copy(other);
+  //       return this;
+  //     }
+  //
+  //     const weightComplement = 100 - opacity;
+  //     for(let i = 0; i < this.length; ++i) {
+  //       this[i] = Math.floor((this[i] * weightComplement + other[i] * opacity) / 100);
+  //     }
+  //     this.dances = (this.dances || other.dances);
+  //     this.id = null;
+  //     return this;
+  //   }
+  //
+  //   multiply(other) {
+  //     this.red = Math.round(this.red * other[0] / 100);
+  //     this.green = Math.round(this.green * other[1] / 100);
+  //     this.blue = Math.round(this.blue * other[2] / 100);
+  //
+  //     if (other instanceof Color) {
+  //       this.rand = Math.round(this.rand * other.rand / 100);
+  //       this.redRand = Math.round(this.redRand * other.redRand / 100);
+  //       this.greenRand = Math.round(this.greenRand * other.greenRand / 100);
+  //       this.blueRand = Math.round(this.blueRand * other.blueRand / 100);
+  //       this.dances = this.dances || other.dances;
+  //     }
+  //     this.id = null;
+  //     return this;
+  //   }
+  //
+  //   applyScalar(other) {
+  //     this.red          = Math.round(this.red        * other / 100);
+  //     this.redRand      = Math.round(this.redRand    * other / 100);
+  //     this.green        = Math.round(this.green      * other / 100);
+  //     this.greenRand    = Math.round(this.greenRand  * other / 100);
+  //     this.blue         = Math.round(this.blue       * other / 100);
+  //     this.blueRand     = Math.round(this.blueRand   * other / 100);
+  //     this.rand         = Math.round(this.rand       * other / 100);
+  //     this.id = null;
+  //     return this;
+  //   }
+  //
+  //   bake() {
+  //     let rand;
+  //     rand = cosmetic.range(0, this.rand);
+  //     this.red   += Math.round(cosmetic.range(0, this.redRand) + rand);
+  //     this.green += Math.round(cosmetic.range(0, this.greenRand) + rand);
+  //     this.blue  += Math.round(cosmetic.range(0, this.blueRand) + rand);
+  //     this.redRand = this.greenRand = this.blueRand = this.rand = 0;
+  //     this.id = null;
+  //     return this;
+  //   }
+  //
+  //
+  //   lighten(percent) {
+  //     Utils.clamp(percent, 0, 100);
+  //     this.red =    Math.round(this.red + (100 - this.red) * percent / 100);
+  //     this.green =  Math.round(this.green + (100 - this.green) * percent / 100);
+  //     this.blue =   Math.round(this.blue + (100 - this.blue) * percent / 100);
+  //
+  //     // leave randoms the same
+  //     this.id = null;
+  //     return this;
+  //   }
+  //
+  //   darken(percent) {
+  //     Utils.clamp(percent, 0, 100);
+  //     this.red =    Math.round(this.red * (100 - percent) / 100);
+  //     this.green =  Math.round(this.green * (100 - percent) / 100);
+  //     this.blue =   Math.round(this.blue * (100 - percent) / 100);
+  //
+  //     // leave randoms the same
+  //     this.id = null;
+  //     return this;
+  //   }
+  //
+  //   randomize(randomizePercent) {
+  //     this.red = _randomizeColorByPercent(this.red, randomizePercent);
+  //     this.green = _randomizeColorByPercent(this.green, randomizePercent);
+  //     this.blue = _randomizeColorByPercent(this.blue, randomizePercent);
+  //     this.id = null;
+  //     return this;
+  //   }
+  //
+  //   toString() {
+  //     return this.id || this.toString(true);
+  //   }
+  // }
+
+  class Color$1 extends Color {
     constructor(...args) {
-      if (args.length == 1 && Array.isArray(args[0])) { args = args[0]; }
-      while(args.length < 7) args.push(0);
-      super(...args.slice(0,7));
-      this.dances = (args.length > 7 && !!args[7]);
-    }
-
-    get red() 	{ return this[0]; }
-    set red(v)  { this[0] = v; }
-    get green()  { return this[1]; }
-    set green(v) { this[1] = v; }
-    get blue() 	{ return this[2]; }
-    set blue(v) { this[2] = v; }
-
-    get rand() 	{ return this[3]; }
-    set rand(v)  { this[3] = v; }
-
-    get redRand() 	{ return this[4]; }
-    set redRand(v)  { this[4] = v; }
-    get greenRand()  { return this[5]; }
-    set greenRand(v) { this[5] = v; }
-    get blueRand() 	{ return this[6]; }
-    set blueRand(v) { this[6] = v; }
-
-    clone() {
-      const other = new Color(...this);
-      other.dances = this.dances;
-      other.id = this.id;
-      return other;
+      super(...args);
+      this.id = null;
+      this.dances = !!args[7];
     }
 
     copy(other) {
-      for(let i = 0; i < 7; ++i) {
-        this[i] = other[i] || 0;
-      }
-      this.dances = other.dances || false;
+      this.dances = other.dances;
       this.id = other.id;
+      return super.copy(other);
+    }
+
+    _changed() {
+      this.id = null;
       return this;
     }
 
-    clear() {
-      for(let i = 0; i < 7; ++i) {
-        this[i] = 0;
-      }
+    fromInt(val, base256) {
       this.dances = false;
-      this.id = null;
+      return super.fromInt(val, base256);
     }
 
-    css() {
-      const rand = cosmetic.value() * (this.rand || 0);
-      const red = toRGB(this.red + rand, this.redRand);
-      const green = toRGB(this.green + rand, this.greenRand);
-      const blue = toRGB(this.blue + rand, this.blueRand);
-      return `#${toCSS(red)}${toCSS(green)}${toCSS(blue)}`;
+    mix(other, pct) {
+      this.dances = this.dances || other.dances;
+      return super.mix(other, pct);
     }
 
-    equals(other) {
-      if (!other) return false;
-      return this.every( (v, i) => v === other[i] ) && this.dances === other.dances;
+    add(other, pct) {
+      this.dances = this.dances || other.dances;
+      return super.add(other, pct);
     }
 
-    clamp() {
-      this.red		= clamp(this.red, 0, 100);
-      this.green	= clamp(this.green, 0, 100);
-      this.blue		= clamp(this.blue, 0, 100);
-    }
-
-    add(other, pct=100) {
-      other = from(other);
-
-      this.red += Math.floor((other.red * pct) / 100);
-      this.redRand += Math.floor((other.redRand * pct) / 100);
-      this.green += Math.floor((other.green * pct) / 100);
-      this.greenRand += Math.floor((other.greenRand * pct) / 100);
-      this.blue += Math.floor((other.blue * pct) / 100);
-      this.blueRand += Math.floor((other.blueRand * pct) / 100);
-      this.rand += Math.floor((other.rand * pct) / 100);
-      this.id = null;
-      return this;
-    }
-
-    mix(other, opacity=100) {
-      other = from(other);
-
-      if (opacity <= 0) return this;
-      if (opacity >= 100) {
-        this.copy(other);
-        return this;
-      }
-
-      const weightComplement = 100 - opacity;
-      for(let i = 0; i < this.length; ++i) {
-        this[i] = Math.floor((this[i] * weightComplement + other[i] * opacity) / 100);
-      }
-      this.dances = (this.dances || other.dances);
-      this.id = null;
-      return this;
-    }
-
-    applyMultiplier(other) {
-      this.red = Math.round(this.red * other[0] / 100);
-      this.green = Math.round(this.green * other[1] / 100);
-      this.blue = Math.round(this.blue * other[2] / 100);
-
-      if (other instanceof Color) {
-        this.rand = Math.round(this.rand * other.rand / 100);
-        this.redRand = Math.round(this.redRand * other.redRand / 100);
-        this.greenRand = Math.round(this.greenRand * other.greenRand / 100);
-        this.blueRand = Math.round(this.blueRand * other.blueRand / 100);
-        this.dances = this.dances || other.dances;
-      }
-      this.id = null;
-      return this;
-    }
-
-    applyScalar(other) {
-      this.red          = Math.round(this.red        * other / 100);
-      this.redRand      = Math.round(this.redRand    * other / 100);
-      this.green        = Math.round(this.green      * other / 100);
-      this.greenRand    = Math.round(this.greenRand  * other / 100);
-      this.blue         = Math.round(this.blue       * other / 100);
-      this.blueRand     = Math.round(this.blueRand   * other / 100);
-      this.rand         = Math.round(this.rand       * other / 100);
-      this.id = null;
-      return this;
-    }
-
-    bake() {
-      let rand;
-      rand = cosmetic.range(0, this.rand);
-      this.red   += Math.round(cosmetic.range(0, this.redRand) + rand);
-      this.green += Math.round(cosmetic.range(0, this.greenRand) + rand);
-      this.blue  += Math.round(cosmetic.range(0, this.blueRand) + rand);
-      this.redRand = this.greenRand = this.blueRand = this.rand = 0;
-      this.id = null;
-      return this;
-    }
-
-
-    lighten(percent) {
-      this.red =    Math.round(this.red + (100 - this.red) * percent / 100);
-      this.green =  Math.round(this.green + (100 - this.green) * percent / 100);
-      this.blue =   Math.round(this.blue + (100 - this.blue) * percent / 100);
-
-      // leave randoms the same
-      this.id = null;
-      return this;
-    }
-
-    darken(percent) {
-      this.red =    Math.round(this.red * (100 - percent) / 100);
-      this.green =  Math.round(this.green * (100 - percent) / 100);
-      this.blue =   Math.round(this.blue * (100 - percent) / 100);
-
-      // leave randoms the same
-      this.id = null;
-      return this;
-    }
-
-    randomize(randomizePercent) {
-      this.red = _randomizeColorByPercent(this.red, randomizePercent);
-      this.green = _randomizeColorByPercent(this.green, randomizePercent);
-      this.blue = _randomizeColorByPercent(this.blue, randomizePercent);
-      this.id = null;
-      return this;
-    }
-
-    toString() {
-      return this.id || this.css();
+    toString(...args) {
+      if (this.id) return this.id;
+      return super.toString(...args);
     }
   }
 
-  types.Color = Color;
+
+  const separate = Color$1.separate.bind(Color$1);
+
+  types.Color = Color$1;
+
 
   function make$2(...args) {
-    let hex = args[0];
-    if (args.length == 0) { return new types.Color(0,0,0); }
-    if (args.length == 1 && hex instanceof types.Color) {
-      return hex.clone();
-    }
-    else if (Array.isArray(hex)) {
-      return new types.Color(...hex);
-    }
-    else if (args.length >= 3) {
-      return new types.Color(...args);
-    }
-    if (typeof hex === 'string') {
-      let color = colors[hex] || null;
+    if (args.length == 0) return new Color$1(0,0,0);
+    if (args.length == 1 && typeof args[0] === 'string') {
+      const color = colors[args[0]];
       if (color) return color.clone();
-
-      if (!hex.startsWith('#')) return null;
-      if (hex.length === 4) {
-        const r = hex.charAt(1);
-        const g = hex.charAt(2);
-        const b = hex.charAt(3);
-        hex = `#${r}${r}${g}${g}${b}${b}`;
-      }
-      hex = Number.parseInt(hex.substring(1), 16);
     }
-
-    if (typeof hex === 'number') {
-      const r = Math.floor( ((hex & 0xFF0000) >> 16) / 2.55 );
-      const g = Math.floor( ((hex & 0x00FF00) >> 8)  / 2.55 );
-      const b = Math.floor( (hex & 0x0000FF) / 2.55 );
-      return new types.Color(r,g,b);
-    }
-
-    return null;
+    return Color$1.make(...args);
   }
 
   make.color = make$2;
@@ -1778,8 +2212,11 @@
 
   function addKind(name, ...args) {
     let color;
-    if (args.length == 1 && args[0] instanceof types.Color) {
+    if (args.length == 1 && args[0] instanceof Color$1) {
       color = args[0];
+    }
+    else if (args.length > 1 && typeof args[1] === 'number'){
+      color = make.color(args);
     }
     else {
       color = make.color(...args);
@@ -1791,46 +2228,45 @@
 
 
   function from(arg) {
-    if (arg instanceof types.Color) {
-      return arg;
-    }
     if (typeof arg === 'string') {
-      return colors[arg] || make.color(arg);
+      const color = colors[arg];
+      if (color) return color;
     }
     return make.color(arg);
   }
 
 
-
-  function toRGB(v, vr) {
-    return clamp(Math.round(2.551 * (v + cosmetic.value() * vr) ), 0, 255);
-  }
-
-  const V_TO_CSS = [];
-  for(let i = 0; i < 256; ++i) {
-    V_TO_CSS[i] = i.toString(16).padStart(2, '0');
-  }
-
-  function toCSS(v) {
-    return V_TO_CSS[Math.floor(v)];
-  }
+  //
+  // function toRGB(v, vr) {
+  //   return Utils.clamp(Math.round(2.551 * (v + cosmetic.value() * vr) ), 0, 255);
+  // }
+  //
+  // const V_TO_CSS = [];
+  // for(let i = 0; i < 256; ++i) {
+  //   V_TO_CSS[i] = i.toString(16).padStart(2, '0');
+  // }
+  //
+  // function toCSS(v) {
+  //   return V_TO_CSS[Math.floor(v)];
+  // }
 
   // export function css(color) {
-  //     return color.css();
+  //     return color.toString(true);
   // }
   //
   // color.css = css;
 
 
-  function intensity(color) {
-    return Math.max(color[0], color[1], color[2]);
-  }
+  // export function intensity(color) {
+  //   return Math.max(color._r, color._g, color._b);
+  // }
 
+  //
+  //
+  // function _randomizeColorByPercent(input, percent) {
+  //   return (cosmetic.range( Math.floor(input * (100 - percent) / 100), Math.floor(input * (100 + percent) / 100)));
+  // }
 
-
-  function _randomizeColorByPercent(input, percent) {
-    return (cosmetic.range( Math.floor(input * (100 - percent) / 100), Math.floor(input * (100 + percent) / 100)));
-  }
 
 
   function swap(color1, color2) {
@@ -1839,75 +2275,72 @@
       color2.copy(tempColor);
   }
 
-
-  const MIN_COLOR_DIFF =			600;
-
   // weighted sum of the squares of the component differences. Weights are according to color perception.
   function diff(f, b)		 {
-    return ((f.red - b.red) * (f.red - b.red) * 0.2126
-      + (f.green - b.green) * (f.green - b.green) * 0.7152
-      + (f.blue - b.blue) * (f.blue - b.blue) * 0.0722);
+    return ((f._r - b._r) * (f._r - b._r) * 0.2126
+      + (f._g - b._g) * (f._g - b._g) * 0.7152
+      + (f._b - b._b) * (f._b - b._b) * 0.0722);
   }
 
+  //
+  // export function normalize(baseColor, aggregateMultiplier, colorTranslation) {
+  //
+  //     baseColor.red += colorTranslation;
+  //     baseColor.green += colorTranslation;
+  //     baseColor.blue += colorTranslation;
+  //     const vectorLength =  baseColor.red + baseColor.green + baseColor.blue;
+  //
+  //     if (vectorLength != 0) {
+  //         baseColor.red =    Math.round(baseColor.red * 300    / vectorLength * aggregateMultiplier / 100);
+  //         baseColor.green =  Math.round(baseColor.green * 300  / vectorLength * aggregateMultiplier / 100);
+  //         baseColor.blue =   Math.round(baseColor.blue * 300   / vectorLength * aggregateMultiplier / 100);
+  //     }
+  //     baseColor.redRand = 0;
+  //     baseColor.greenRand = 0;
+  //     baseColor.blueRand = 0;
+  //     baseColor.rand = 0;
+  // }
 
-  function normalize(baseColor, aggregateMultiplier, colorTranslation) {
 
-      baseColor.red += colorTranslation;
-      baseColor.green += colorTranslation;
-      baseColor.blue += colorTranslation;
-      const vectorLength =  baseColor.red + baseColor.green + baseColor.blue;
-
-      if (vectorLength != 0) {
-          baseColor.red =    Math.round(baseColor.red * 300    / vectorLength * aggregateMultiplier / 100);
-          baseColor.green =  Math.round(baseColor.green * 300  / vectorLength * aggregateMultiplier / 100);
-          baseColor.blue =   Math.round(baseColor.blue * 300   / vectorLength * aggregateMultiplier / 100);
-      }
-      baseColor.redRand = 0;
-      baseColor.greenRand = 0;
-      baseColor.blueRand = 0;
-      baseColor.rand = 0;
-  }
-
-
-
-  // if forecolor is too similar to back, darken or lighten it and return true.
-  // Assumes colors have already been baked (no random components).
-  function separate(/* color */ fore, /* color */ back) {
-    let f, b, modifier = null;
-    let failsafe;
-    let madeChange;
-
-    f = fore.clone();
-    b = back.clone();
-
-    f.red			= clamp(f.red, 0, 100);
-    f.green		= clamp(f.green, 0, 100);
-    f.blue		= clamp(f.blue, 0, 100);
-    b.red			= clamp(b.red, 0, 100);
-    b.green		= clamp(b.green, 0, 100);
-    b.blue		= clamp(b.blue, 0, 100);
-
-    if (f.red + f.blue + f.green > 50 * 3) {
-      modifier = colors.black;
-    } else {
-      modifier = colors.white;
-    }
-
-    madeChange = false;
-    failsafe = 10;
-
-    while(diff(f, b) < MIN_COLOR_DIFF && --failsafe) {
-      f.mix(modifier, 20);
-      madeChange = true;
-    }
-
-    if (madeChange) {
-      fore.copy(f);
-      return true;
-    } else {
-      return false;
-    }
-  }
+  //
+  // // if forecolor is too similar to back, darken or lighten it and return true.
+  // // Assumes colors have already been baked (no random components).
+  // export function separate(/* color */ fore, /* color */ back) {
+  //   let f, b, modifier = null;
+  //   let failsafe;
+  //   let madeChange;
+  //
+  //   f = fore.clone();
+  //   b = back.clone();
+  //
+  //   f.red			= Utils.clamp(f.red, 0, 100);
+  //   f.green		= Utils.clamp(f.green, 0, 100);
+  //   f.blue		= Utils.clamp(f.blue, 0, 100);
+  //   b.red			= Utils.clamp(b.red, 0, 100);
+  //   b.green		= Utils.clamp(b.green, 0, 100);
+  //   b.blue		= Utils.clamp(b.blue, 0, 100);
+  //
+  //   if (f.red + f.blue + f.green > 50 * 3) {
+  //     modifier = colors.black;
+  //   } else {
+  //     modifier = colors.white;
+  //   }
+  //
+  //   madeChange = false;
+  //   failsafe = 10;
+  //
+  //   while(diff(f, b) < MIN_COLOR_DIFF && --failsafe) {
+  //     f.mix(modifier, 20);
+  //     madeChange = true;
+  //   }
+  //
+  //   if (madeChange) {
+  //     fore.copy(f);
+  //     return true;
+  //   } else {
+  //     return false;
+  //   }
+  // }
 
 
 
@@ -1959,19 +2392,17 @@
 
   var color = {
     __proto__: null,
-    Color: Color,
+    Color: Color$1,
+    separate: separate,
     make: make$2,
     addKind: addKind,
     from: from,
-    intensity: intensity,
     swap: swap,
     diff: diff,
-    normalize: normalize,
-    separate: separate,
     addSpread: addSpread
   };
 
-  var options = {
+  var options$1 = {
       colorStart: 'Ω',
       colorEnd: '∆',
       field: '§',
@@ -2016,7 +2447,7 @@
   }
 
   function compile(template) {
-      const F = options.field;
+      const F = options$1.field;
       const parts = template.split(F);
       const sections = parts.map((part, i) => {
           if (i % 2 == 0)
@@ -2160,11 +2591,11 @@
       const colors = [];
       const colorFn = helpers.eachColor;
       const ctx = {
-          fg: (fg === undefined) ? options.defaultFg : fg,
-          bg: (bg === undefined) ? options.defaultBg : bg,
+          fg: (fg === undefined) ? options$1.defaultFg : fg,
+          bg: (bg === undefined) ? options$1.defaultBg : bg,
       };
-      const CS = options.colorStart;
-      const CE = options.colorEnd;
+      const CS = options$1.colorStart;
+      const CE = options$1.colorEnd;
       colorFn(ctx);
       let n = 0;
       for (let i = 0; i < text.length; ++i) {
@@ -2212,8 +2643,8 @@
       if (!text || text.length == 0)
           return 0;
       let len = 0;
-      const CS = options.colorStart;
-      const CE = options.colorEnd;
+      const CS = options$1.colorStart;
+      const CE = options$1.colorEnd;
       for (let i = 0; i < text.length; ++i) {
           const ch = text[i];
           if (ch == CS) {
@@ -2228,8 +2659,8 @@
       return len;
   }
   function advanceChars(text, start, count) {
-      const CS = options.colorStart;
-      const CE = options.colorEnd;
+      const CS = options$1.colorStart;
+      const CE = options$1.colorEnd;
       let i = start;
       while (count > 0) {
           const ch = text[i];
@@ -2254,8 +2685,8 @@
       return i;
   }
   function firstChar(text) {
-      const CS = options.colorStart;
-      const CE = options.colorEnd;
+      const CS = options$1.colorStart;
+      const CE = options$1.colorEnd;
       let i = 0;
       while (i < text.length) {
           const ch = text[i];
@@ -2288,8 +2719,8 @@
       return text.padStart(rawLen + left, pad).padEnd(rawLen + padLen, pad);
   }
   function capitalize(text) {
-      const CS = options.colorStart;
-      const CE = options.colorEnd;
+      const CS = options$1.colorStart;
+      const CE = options$1.colorEnd;
       let i = 0;
       while (i < text.length) {
           const ch = text[i];
@@ -2313,8 +2744,8 @@
       return text;
   }
   function removeColors(text) {
-      const CS = options.colorStart;
-      const CE = options.colorEnd;
+      const CS = options$1.colorStart;
+      const CE = options$1.colorEnd;
       let out = '';
       let start = 0;
       for (let i = 0; i < text.length; ++i) {
@@ -2347,8 +2778,8 @@
   }
 
   function nextBreak(text, start) {
-      const CS = options.colorStart;
-      const CE = options.colorEnd;
+      const CS = options$1.colorStart;
+      const CE = options$1.colorEnd;
       let i = start;
       let l = 0;
       let count = true;
@@ -2570,7 +3001,7 @@
   // Puts the output in "to" only if we receive a "to" -- can make it null and just get a line count.
   function splitIntoLines(sourceText, width, indent=0) {
 
-    const CS = options.colorStart;
+    const CS = options$1.colorStart;
     const output = [];
     let text = wordWrap(sourceText, width, indent);
 
@@ -2733,7 +3164,7 @@
           this.fg = null;
         }
         else if (this.fg && this.bg) { this.fg.copy(other.fg); }
-    		else if (this.fg) { this.fg.clear(); }
+    		else if (this.fg) { this.fg.blackOut(); }
     		else { this.fg = other.fg.clone(); }
       }
 
@@ -2745,7 +3176,7 @@
           this.bg = null;
         }
         else if (this.bg && other.bg) { this.bg.copy(other.bg); }
-    		else if (this.bg) { this.bg.clear(); }
+    		else if (this.bg) { this.bg.blackOut(); }
     		else { this.bg = other.bg.clone(); }
       }
 
@@ -2763,6 +3194,24 @@
   		return other;
   	}
 
+    equals(other) {
+      if (this.ch != other.ch) return false;
+      if (this.fg) {
+        if (!this.fg.equals(other.fg)) return false;
+      }
+      else if (other.fg) {
+        return false;
+      }
+      if (this.bg) {
+        if (!this.bg.equals(other.bg)) return false;
+      }
+      else if (other.bg) {
+        return false;
+      }
+
+      return true;
+    }
+
   	nullify() {
   		if (HANGING_LETTERS.includes(this.ch)) {
   			this.wasHanging = true;
@@ -2771,8 +3220,8 @@
   			this.wasFlying = true;
   		}
   		this.ch = ' ';
-  		if (this.fg) this.fg.clear();
-  		if (this.bg) this.bg.clear();
+  		if (this.fg) this.fg.blackOut();
+  		if (this.bg) this.bg.blackOut();
   		this.opacity = 0;
   		// this.needsUpdate = false;
   	}
@@ -2847,10 +3296,6 @@
   		this.opacity = Math.max(this.opacity, opacity);
   		this.needsUpdate = true;
   		return true;
-  	}
-
-  	equals(other) {
-  		return this.ch == other.ch && this.fg.equals(other.fg) && this.bg.equals(other.bg);
   	}
 
   	bake(force) {
@@ -5508,6 +5953,343 @@
 
   digger.attachHallway = attachHallway;
 
+  def.INTENSITY_DARK = 20; // less than 20% for highest color in rgb
+
+  const LIGHT_COMPONENTS = make$2();
+
+  class Light {
+  	constructor(color$1, range, fadeTo, pass) {
+  		this.color = from(color$1) || null;	/* color */
+  		this.radius = make.range(range || 1);
+  		this.fadeTo = Number.parseInt(fadeTo) || 0;
+  		this.passThroughActors = (pass && (pass !== 'false')) ? true : false; // generally no, but miner light does
+  	}
+
+  	copy(other) {
+  		this.color = other.color;
+  		this.radius.copy(other.radius);
+  		this.fadeTo = other.fadeTo;
+  		this.passThroughActors = other.passThroughActors;
+  	}
+
+    // Returns true if any part of the light hit cells that are in the player's field of view.
+    paint( map, x, y, maintainShadows=false, isMinersLight=false) {
+
+    	if (!map) return;
+
+    	let k;
+    	// let colorComponents = [0,0,0];
+      let lightMultiplier;
+
+    	let radius = this.radius.value();
+    	let outerRadius = Math.ceil(radius);
+
+    	// calcLightComponents(colorComponents, this);
+      LIGHT_COMPONENTS.copy(this.color).bake();
+
+      // console.log('paint', LIGHT_COMPONENTS.toString(true), x, y, outerRadius);
+
+    	// the miner's light does not dispel IS_IN_SHADOW,
+    	// so the player can be in shadow despite casting his own light.
+    	const dispelShadows = !maintainShadows && (intensity(LIGHT_COMPONENTS) > def.INTENSITY_DARK);
+    	const fadeToPercent = this.fadeTo;
+
+      const grid$1 = alloc(map.width, map.height, 0);
+    	map.calcFov(grid$1, x, y, outerRadius, (this.passThroughActors ? 0 : Cell.HAS_ACTOR), Tile.T_OBSTRUCTS_VISION, !isMinersLight);
+
+      let overlappedFieldOfView = false;
+
+      grid$1.forCircle(x, y, outerRadius, (v, i, j) => {
+        if (!v) return;
+        const cell = map.cell(i, j);
+
+        lightMultiplier = Math.floor(100 - (100 - fadeToPercent) * (distanceBetween(x, y, i, j) / radius));
+        for (k=0; k<3; k++) {
+          cell.light[k] += Math.floor(LIGHT_COMPONENTS._data[k] * lightMultiplier / 100);
+        }
+        if (dispelShadows) {
+          cell.flags &= ~Cell.IS_IN_SHADOW;
+        }
+        if (cell.flags & (Cell.IN_FOV | Cell.ANY_KIND_OF_VISIBLE)) {
+            overlappedFieldOfView = true;
+        }
+
+        // console.log(i, j, lightMultiplier, cell.light);
+      });
+
+    	if (dispelShadows) {
+        const cell = map.cell(x, y);
+    		cell.flags &= ~Cell.IS_IN_SHADOW;
+    	}
+
+    	free(grid$1);
+      return overlappedFieldOfView;
+    }
+
+  }
+
+  types.Light = Light;
+
+
+  function intensity(color) {
+    const data = color.color ? (color.color._data) : (color._data || color);
+    return Math.max(data[0], data[1], data[2]);
+  }
+
+
+  function make$4(color, radius, fadeTo, pass) {
+
+  	if (arguments.length == 1) {
+  		if (color && color.color) {
+  			pass = color.passThroughActors;
+  			fadeTo = color.fadeTo;
+  			radius = color.radius;
+  			color = color.color;
+  		}
+  		else if (typeof color === 'string') {
+  			([color, radius, fadeTo, pass] = color.split(/[,|]/).map( (t) => t.trim() ));
+  		}
+  		else if (Array.isArray(color)) {
+  			([color, radius, fadeTo, pass] = color);
+  		}
+  	}
+  	else {
+  		([color, radius, fadeTo, pass] = arguments);
+  	}
+
+  	radius = radius || 0;
+  	return new types.Light(color, radius, fadeTo, pass);
+  }
+
+  make.light = make$4;
+
+  const LIGHT_SOURCES = lights;
+
+
+  // TODO - USE STRINGS FOR LIGHT SOURCE IDS???
+  //      - addLightKind(id, source) { LIIGHT_SOURCES[id] = source; }
+  //      - LIGHT_SOURCES = {};
+  function addKind$1(id, ...args) {
+  	let source = args[0];
+  	if (source && !(source instanceof types.Light)) {
+  		source = make.light(...args);
+  	}
+  	LIGHT_SOURCES[id] = source;
+  	if (source) source.id = id;
+  	return source;
+  }
+
+
+
+  function addKinds(config) {
+  	const entries = Object.entries(config);
+  	entries.forEach( ([name,info]) => {
+  		addKind$1(name, info);
+  	});
+  }
+
+
+
+
+  function from$1(...args) {
+  	if (args.length == 1 && typeof args[0] === 'string' ) {
+  		const cached = LIGHT_SOURCES[args[0]];
+  		if (cached) return cached;
+  	}
+  	return make$4(...args);
+  }
+
+
+
+  // export function calcLightComponents(colorComponents, theLight) {
+  // 	const randComponent = cosmetic.range(0, theLight.color.rand);
+  // 	colorComponents[0] = randComponent + theLight.color.red + cosmetic.range(0, theLight.color.redRand);
+  // 	colorComponents[1] = randComponent + theLight.color.green + cosmetic.range(0, theLight.color.greenRand);
+  // 	colorComponents[2] = randComponent + theLight.color.blue + cosmetic.range(0, theLight.color.blueRand);
+  // }
+
+
+
+
+  function updateDisplayDetail(map) {
+
+    map.eachCell( (cell, i, j) => {
+      // clear light flags
+      cell.flags &= ~(Cell.CELL_LIT | Cell.CELL_DARK);
+
+      if (cell.light.some( (v, i) => v !== cell.oldLight[i])) {
+        cell.flags |= Cell.LIGHT_CHANGED;
+      }
+
+      if (cell.isDark())
+      {
+        cell.flags |= Cell.CELL_DARK;
+      } else if (!(cell.flags & Cell.IS_IN_SHADOW)) {
+        cell.flags |= Cell.CELL_LIT;
+      }
+    });
+  }
+
+  function backUpLighting(map, lights) {
+  	let k;
+    map.eachCell( (cell, i, j) => {
+      for (k=0; k<3; k++) {
+        lights[i][j][k] = cell.light[k];
+      }
+    });
+  }
+
+  function restoreLighting(map, lights) {
+  	let k;
+    map.eachCell( (cell, i, j) => {
+      for (k=0; k<3; k++) {
+        cell.light[k] = lights[i][j][k];
+      }
+    });
+  }
+
+  function recordOldLights(map) {
+    let k;
+    map.eachCell( (cell) => {
+      for (k=0; k<3; k++) {
+  			cell.oldLight[k] = cell.light[k];
+  			cell.flags &= ~(Cell.LIGHT_CHANGED);
+  		}
+    });
+  }
+
+  function zeroOutLights(map) {
+  	let k;
+    const light = map.ambientLight ? map.ambientLight._data : [0,0,0];
+    map.eachCell( (cell, i, j) => {
+      for (k=0; k<3; k++) {
+        cell.light[k] = light[k];
+      }
+      cell.flags |= Cell.IS_IN_SHADOW;
+    });
+  }
+
+  function recordGlowLights(map) {
+    let k;
+    map.eachCell( (cell) => {
+      for (k=0; k<3; k++) {
+  			cell.glowLight[k] = cell.light[k];
+  		}
+    });
+  }
+
+  function restoreGlowLights(map) {
+  	let k;
+    map.eachCell( (cell) => {
+      for (k=0; k<3; k++) {
+        cell.light[k] = cell.glowLight[k];
+      }
+    });
+  }
+
+
+  function updateLighting(map) {
+
+  	// Copy Light over oldLight
+    recordOldLights(map);
+
+    if (map.flags & Map.MAP_STABLE_LIGHTS) return false;
+
+    // and then zero out Light.
+  	zeroOutLights(map);
+
+  	if (map.flags & Map.MAP_STABLE_GLOW_LIGHTS) {
+  		restoreGlowLights(map);
+  	}
+  	else {
+  		// GW.debug.log('painting glow lights.');
+  		// Paint all glowing tiles.
+      map.eachLight( (id, x, y) => {
+        const light = LIGHT_SOURCES[id];
+        if (light) {
+          light.paint(map, x, y);
+        }
+      });
+
+  		recordGlowLights(map);
+  		map.flags |= Map.MAP_STABLE_GLOW_LIGHTS;
+  	}
+
+  	// Cycle through monsters and paint their lights:
+    eachChain(map.actors, (actor) => {
+      if (actor.kind.light) {
+  			actor.kind.light.paint(map, actor.x, actor.y);
+  		}
+      // if (monst.mutationIndex >= 0 && mutationCatalog[monst.mutationIndex].light != LIGHT_SOURCES['NO_LIGHT']) {
+      //     paint(map, mutationCatalog[monst.mutationIndex].light, actor.x, actor.y, false, false);
+      // }
+  		// if (actor.isBurning()) { // monst.status.burning && !(actor.kind.flags & Flags.Actor.AF_FIERY)) {
+  		// 	paint(map, LIGHT_SOURCES.BURNING_CREATURE, actor.x, actor.y, false, false);
+  		// }
+  		// if (actor.isTelepathicallyRevealed()) {
+  		// 	paint(map, LIGHT_SOURCES['TELEPATHY_LIGHT'], actor.x, actor.y, false, true);
+  		// }
+    });
+
+  	// Also paint telepathy lights for dormant monsters.
+    // for (monst of map.dormantMonsters) {
+    //     if (monsterTelepathicallyRevealed(monst)) {
+    //         paint(map, LIGHT_SOURCES['TELEPATHY_LIGHT'], monst.xLoc, monst.yLoc, false, true);
+    //     }
+    // }
+
+  	updateDisplayDetail(map);
+
+  	// Miner's light:
+    const PLAYER = data.player;
+    if (PLAYER) {
+      const MINERS_LIGHT = LIGHT_SOURCES.MINERS_LIGHT;
+      if (MINERS_LIGHT && MINERS_LIGHT.radius) {
+        MINERS_LIGHT.paint(map, PLAYER.x, PLAYER.y, true, true);
+      }
+    }
+
+    map.flags |= Map.MAP_STABLE_LIGHTS;
+
+    // if (PLAYER.status.invisible) {
+    //     PLAYER.info.foreColor = playerInvisibleColor;
+  	// } else if (playerInDarkness()) {
+  	// 	PLAYER.info.foreColor = playerInDarknessColor;
+  	// } else if (pmap[PLAYER.xLoc][PLAYER.yLoc].flags & IS_IN_SHADOW) {
+  	// 	PLAYER.info.foreColor = playerInShadowColor;
+  	// } else {
+  	// 	PLAYER.info.foreColor = playerInLightColor;
+  	// }
+
+    return true;
+  }
+
+
+  // TODO - Move and make more generic
+  function playerInDarkness(map, PLAYER, darkColor) {
+    const cell = map.cell(PLAYER.x, PLAYER.y);
+  	return (cell.light[0] + 10 < darkColor.red
+  			&& cell.light[1] + 10 < darkColor.green
+  			&& cell.light[2] + 10 < darkColor.blue);
+  }
+
+  var light = {
+    __proto__: null,
+    intensity: intensity,
+    make: make$4,
+    addKind: addKind$1,
+    addKinds: addKinds,
+    from: from$1,
+    backUpLighting: backUpLighting,
+    restoreLighting: restoreLighting,
+    recordOldLights: recordOldLights,
+    zeroOutLights: zeroOutLights,
+    recordGlowLights: recordGlowLights,
+    restoreGlowLights: restoreGlowLights,
+    updateLighting: updateLighting,
+    playerInDarkness: playerInDarkness
+  };
+
   const TileLayer = def.layer;
 
 
@@ -5549,7 +6331,7 @@
 
 
   // Dungeon features, spawned from Architect.c:
-  function make$4(opts) {
+  function make$5(opts) {
     if (!opts) return null;
     if (typeof opts === 'string') {
       opts = { tile: opts };
@@ -5558,10 +6340,10 @@
   	return te;
   }
 
-  make.tileEvent = make$4;
+  make.tileEvent = make$5;
 
 
-  function addKind$1(id, event) {
+  function addKind$2(id, event) {
   	if (arguments.length > 2 || !(event instanceof types.TileEvent)) {
   		event = make.tileEvent(...[].slice.call(arguments, 1));
   	}
@@ -5571,7 +6353,7 @@
   }
 
 
-  addKind$1('DF_NONE');
+  addKind$2('DF_NONE');
 
 
 
@@ -6101,8 +6883,8 @@
   var tileEvent$1 = {
     __proto__: null,
     TileEvent: TileEvent$1,
-    make: make$4,
-    addKind: addKind$1,
+    make: make$5,
+    addKind: addKind$2,
     resetAllMessages: resetAllMessages,
     spawn: spawn,
     computeSpawnMap: computeSpawnMap,
@@ -6487,18 +7269,18 @@
 
       const blocksVision = (tile.flags & Tile.T_OBSTRUCTS_VISION);
       const oldBlocksVision = (oldTile.flags & Tile.T_OBSTRUCTS_VISION);
-      if (this.isAnyKindOfVisible() && (blocksVision != oldBlocksVision)) {
+      if (map && this.isAnyKindOfVisible() && (blocksVision != oldBlocksVision)) {
         map.flags |= Map.MAP_FOV_CHANGED;
       }
 
       this.layers[tile.layer] = tile.id;
       if (tile.layer == TileLayer$1.LIQUID) {
         this.liquidVolume = volume + (tileId == oldTileId ? this.liquidVolume : 0);
-        map.flags &= ~Map.MAP_NO_LIQUID;
+        if (map) map.flags &= ~Map.MAP_NO_LIQUID;
       }
       else if (tile.layer == TileLayer$1.GAS) {
         this.gasVolume = volume + (tileId == oldTileId ? this.vasVolume : 0);
-        map.flags &= ~Map.MAP_NO_GAS;
+        if (map) map.flags &= ~Map.MAP_NO_GAS;
       }
 
       if (tile.layer > 0 && this.layers[0] == 0) {
@@ -6507,7 +7289,7 @@
 
       // this.flags |= (Flags.NEEDS_REDRAW | Flags.CELL_CHANGED);
       this.flags |= (Cell.CELL_CHANGED);
-      if (oldTile.light !== tile.light) {
+      if (map && (oldTile.light !== tile.light)) {
         map.flags &= ~(Map.MAP_STABLE_GLOW_LIGHTS | Map.MAP_STABLE_LIGHTS);
       }
       return true;
@@ -6705,8 +7487,8 @@
       current = current.next;
     }
 
-    memory.fg.applyMultiplier(cell.light);
-    memory.bg.applyMultiplier(cell.light);
+    memory.fg.multiply(cell.light);
+    memory.bg.multiply(cell.light);
     memory.bake(!cell.isAnyKindOfVisible());  // turns off dancing if not visible
     if (needDistinctness) {
       separate(memory.fg, memory.bg);
@@ -7751,337 +8533,6 @@
 
   map$1.getLine = getLine;
 
-  def.INTENSITY_DARK = 20; // less than 20% for highest color in rgb
-
-  const LIGHT_COMPONENTS = make$2();
-
-  class Light {
-  	constructor(color$1, range, fadeTo, pass) {
-  		this.color = from(color$1) || null;	/* color */
-  		this.radius = make.range(range || 1);
-  		this.fadeTo = Number.parseInt(fadeTo) || 0;
-  		this.passThroughActors = (pass && (pass !== 'false')) ? true : false; // generally no, but miner light does
-  	}
-
-  	copy(other) {
-  		this.color = other.color;
-  		this.radius.copy(other.radius);
-  		this.fadeTo = other.fadeTo;
-  		this.passThroughActors = other.passThroughActors;
-  	}
-
-
-    // Returns true if any part of the light hit cells that are in the player's field of view.
-    paint( map, x, y, maintainShadows=false, isMinersLight=false) {
-
-    	if (!map) return;
-
-    	let k;
-    	// let colorComponents = [0,0,0];
-      let lightMultiplier;
-
-    	let radius = this.radius.value();
-    	let outerRadius = Math.ceil(radius);
-
-    	// calcLightComponents(colorComponents, this);
-      LIGHT_COMPONENTS.copy(this.color).bake();
-
-      // console.log('paint', LIGHT_COMPONENTS.css(), x, y, outerRadius);
-
-    	// the miner's light does not dispel IS_IN_SHADOW,
-    	// so the player can be in shadow despite casting his own light.
-    	const dispelShadows = !maintainShadows && (intensity(LIGHT_COMPONENTS) > def.INTENSITY_DARK);
-    	const fadeToPercent = this.fadeTo;
-
-      const grid$1 = alloc(map.width, map.height, 0);
-    	map.calcFov(grid$1, x, y, outerRadius, (this.passThroughActors ? 0 : Cell.HAS_ACTOR), Tile.T_OBSTRUCTS_VISION, !isMinersLight);
-
-      let overlappedFieldOfView = false;
-
-      grid$1.forCircle(x, y, outerRadius, (v, i, j) => {
-        if (!v) return;
-        const cell = map.cell(i, j);
-
-        lightMultiplier = Math.floor(100 - (100 - fadeToPercent) * (distanceBetween(x, y, i, j) / radius));
-        for (k=0; k<3; k++) {
-          cell.light[k] += Math.floor(LIGHT_COMPONENTS[k] * lightMultiplier / 100);
-        }
-        if (dispelShadows) {
-          cell.flags &= ~Cell.IS_IN_SHADOW;
-        }
-        if (cell.flags & (Cell.IN_FOV | Cell.ANY_KIND_OF_VISIBLE)) {
-            overlappedFieldOfView = true;
-        }
-
-        // console.log(i, j, lightMultiplier, cell.light);
-      });
-
-    	if (dispelShadows) {
-        const cell = map.cell(x, y);
-    		cell.flags &= ~Cell.IS_IN_SHADOW;
-    	}
-
-    	free(grid$1);
-      return overlappedFieldOfView;
-    }
-
-  }
-
-  types.Light = Light;
-
-
-  function make$5(color, radius, fadeTo, pass) {
-
-  	if (arguments.length == 1) {
-  		if (color && color.color) {
-  			pass = color.passThroughActors;
-  			fadeTo = color.fadeTo;
-  			radius = color.radius;
-  			color = color.color;
-  		}
-  		else if (typeof color === 'string') {
-  			([color, radius, fadeTo, pass] = color.split(/[,|]/).map( (t) => t.trim() ));
-  		}
-  		else if (Array.isArray(color)) {
-  			([color, radius, fadeTo, pass] = color);
-  		}
-  	}
-  	else {
-  		([color, radius, fadeTo, pass] = arguments);
-  	}
-
-  	radius = radius || 0;
-  	return new types.Light(color, radius, fadeTo, pass);
-  }
-
-  make.light = make$5;
-
-  const LIGHT_SOURCES = lights;
-
-
-  // TODO - USE STRINGS FOR LIGHT SOURCE IDS???
-  //      - addLightKind(id, source) { LIIGHT_SOURCES[id] = source; }
-  //      - LIGHT_SOURCES = {};
-  function addKind$2(id, ...args) {
-  	let source = args[0];
-  	if (source && !(source instanceof types.Light)) {
-  		source = make.light(...args);
-  	}
-  	LIGHT_SOURCES[id] = source;
-  	if (source) source.id = id;
-  	return source;
-  }
-
-
-
-  function addKinds(config) {
-  	const entries = Object.entries(config);
-  	entries.forEach( ([name,info]) => {
-  		addKind$2(name, info);
-  	});
-  }
-
-
-
-
-  function from$1(...args) {
-  	if (args.length == 1 && typeof args[0] === 'string' ) {
-  		const cached = LIGHT_SOURCES[args[0]];
-  		if (cached) return cached;
-  	}
-  	return make$5(...args);
-  }
-
-
-
-  // export function calcLightComponents(colorComponents, theLight) {
-  // 	const randComponent = cosmetic.range(0, theLight.color.rand);
-  // 	colorComponents[0] = randComponent + theLight.color.red + cosmetic.range(0, theLight.color.redRand);
-  // 	colorComponents[1] = randComponent + theLight.color.green + cosmetic.range(0, theLight.color.greenRand);
-  // 	colorComponents[2] = randComponent + theLight.color.blue + cosmetic.range(0, theLight.color.blueRand);
-  // }
-
-
-
-
-  function updateDisplayDetail(map) {
-
-    map.eachCell( (cell, i, j) => {
-      // clear light flags
-      cell.flags &= ~(Cell.CELL_LIT | Cell.CELL_DARK);
-
-      if (cell.light.some( (v, i) => v !== cell.oldLight[i])) {
-        cell.flags |= Cell.LIGHT_CHANGED;
-      }
-
-      if (cell.isDark())
-      {
-        cell.flags |= Cell.CELL_DARK;
-      } else if (!(cell.flags & Cell.IS_IN_SHADOW)) {
-        cell.flags |= Cell.CELL_LIT;
-      }
-    });
-  }
-
-  function backUpLighting(map, lights) {
-  	let k;
-    map.eachCell( (cell, i, j) => {
-      for (k=0; k<3; k++) {
-        lights[i][j][k] = cell.light[k];
-      }
-    });
-  }
-
-  function restoreLighting(map, lights) {
-  	let k;
-    map.eachCell( (cell, i, j) => {
-      for (k=0; k<3; k++) {
-        cell.light[k] = lights[i][j][k];
-      }
-    });
-  }
-
-  function recordOldLights(map) {
-    let k;
-    map.eachCell( (cell) => {
-      for (k=0; k<3; k++) {
-  			cell.oldLight[k] = cell.light[k];
-  			cell.flags &= ~(Cell.LIGHT_CHANGED);
-  		}
-    });
-  }
-
-  function zeroOutLights(map) {
-  	let k;
-    const light = map.ambientLight || [0,0,0];
-    map.eachCell( (cell, i, j) => {
-      for (k=0; k<3; k++) {
-        cell.light[k] = light[k];
-      }
-      cell.flags |= Cell.IS_IN_SHADOW;
-    });
-  }
-
-  function recordGlowLights(map) {
-    let k;
-    map.eachCell( (cell) => {
-      for (k=0; k<3; k++) {
-  			cell.glowLight[k] = cell.light[k];
-  		}
-    });
-  }
-
-  function restoreGlowLights(map) {
-  	let k;
-    map.eachCell( (cell) => {
-      for (k=0; k<3; k++) {
-        cell.light[k] = cell.glowLight[k];
-      }
-    });
-  }
-
-
-  function updateLighting(map) {
-
-  	// Copy Light over oldLight
-    recordOldLights(map);
-
-    if (map.flags & Map.MAP_STABLE_LIGHTS) return false;
-
-    // and then zero out Light.
-  	zeroOutLights(map);
-
-  	if (map.flags & Map.MAP_STABLE_GLOW_LIGHTS) {
-  		restoreGlowLights(map);
-  	}
-  	else {
-  		// GW.debug.log('painting glow lights.');
-  		// Paint all glowing tiles.
-      map.eachLight( (id, x, y) => {
-        const light = LIGHT_SOURCES[id];
-        if (light) {
-          light.paint(map, x, y);
-        }
-      });
-
-  		recordGlowLights(map);
-  		map.flags |= Map.MAP_STABLE_GLOW_LIGHTS;
-  	}
-
-  	// Cycle through monsters and paint their lights:
-    eachChain(map.actors, (actor) => {
-      if (actor.kind.light) {
-  			actor.kind.light.paint(map, actor.x, actor.y);
-  		}
-      // if (monst.mutationIndex >= 0 && mutationCatalog[monst.mutationIndex].light != LIGHT_SOURCES['NO_LIGHT']) {
-      //     paint(map, mutationCatalog[monst.mutationIndex].light, actor.x, actor.y, false, false);
-      // }
-  		// if (actor.isBurning()) { // monst.status.burning && !(actor.kind.flags & Flags.Actor.AF_FIERY)) {
-  		// 	paint(map, LIGHT_SOURCES.BURNING_CREATURE, actor.x, actor.y, false, false);
-  		// }
-  		// if (actor.isTelepathicallyRevealed()) {
-  		// 	paint(map, LIGHT_SOURCES['TELEPATHY_LIGHT'], actor.x, actor.y, false, true);
-  		// }
-    });
-
-  	// Also paint telepathy lights for dormant monsters.
-    // for (monst of map.dormantMonsters) {
-    //     if (monsterTelepathicallyRevealed(monst)) {
-    //         paint(map, LIGHT_SOURCES['TELEPATHY_LIGHT'], monst.xLoc, monst.yLoc, false, true);
-    //     }
-    // }
-
-  	updateDisplayDetail(map);
-
-  	// Miner's light:
-    const PLAYER = data.player;
-    if (PLAYER) {
-      const MINERS_LIGHT = LIGHT_SOURCES.MINERS_LIGHT;
-      if (MINERS_LIGHT && MINERS_LIGHT.radius) {
-        MINERS_LIGHT.paint(map, PLAYER.x, PLAYER.y, true, true);
-      }
-    }
-
-    map.flags |= Map.MAP_STABLE_LIGHTS;
-
-    // if (PLAYER.status.invisible) {
-    //     PLAYER.info.foreColor = playerInvisibleColor;
-  	// } else if (playerInDarkness()) {
-  	// 	PLAYER.info.foreColor = playerInDarknessColor;
-  	// } else if (pmap[PLAYER.xLoc][PLAYER.yLoc].flags & IS_IN_SHADOW) {
-  	// 	PLAYER.info.foreColor = playerInShadowColor;
-  	// } else {
-  	// 	PLAYER.info.foreColor = playerInLightColor;
-  	// }
-
-    return true;
-  }
-
-
-  // TODO - Move and make more generic
-  function playerInDarkness(map, PLAYER, darkColor) {
-    const cell = map.cell(PLAYER.x, PLAYER.y);
-  	return (cell.light[0] + 10 < darkColor.red
-  			&& cell.light[1] + 10 < darkColor.green
-  			&& cell.light[2] + 10 < darkColor.blue);
-  }
-
-  var light = {
-    __proto__: null,
-    make: make$5,
-    addKind: addKind$2,
-    addKinds: addKinds,
-    from: from$1,
-    backUpLighting: backUpLighting,
-    restoreLighting: restoreLighting,
-    recordOldLights: recordOldLights,
-    zeroOutLights: zeroOutLights,
-    recordGlowLights: recordGlowLights,
-    restoreGlowLights: restoreGlowLights,
-    updateLighting: updateLighting,
-    playerInDarkness: playerInDarkness
-  };
-
   function demoteCellVisibility(cell, i, j, map) {
     cell.flags &= ~Cell.WAS_VISIBLE;
     if (cell.flags & Cell.VISIBLE) {
@@ -8380,15 +8831,16 @@
         result = 'you';
       }
       if (opts.color || (this.consoleColor && (opts.color !== false))) {
-        let color$1 = this.sprite.fg;
-        if (this.consoleColor instanceof types.Color) {
+        let color$1 = opts.color;
+        if (typeof color$1 === 'boolean') {
           color$1 = this.consoleColor;
+          if (typeof color$1 === 'boolean') {
+            color$1 = this.sprite.fg;
+          }
         }
-        if (opts.color instanceof types.Color) {
-          color$1 = opts.color;
-        }
-        else if (typeof opts.color === 'string') {
-          color$1 = from(opts.color);
+        if (color$1 && typeof opts.color !== 'string') {
+          color$1 = from(color$1);
+          color$1 = color$1.toString();
         }
         if (color$1) {
           result = apply('Ω§color§Ω§result§∆', { color: color$1, result });
@@ -12922,7 +13374,7 @@
     const cell$1 = entry.entity;
     const textColor = colors.flavorText.clone();
     if (dim) {
-        textColor.applyScalar(50);
+        textColor.scale(50);
     }
 
   	if (y >= SIDE_BOUNDS.height - 1) {
@@ -15670,10 +16122,10 @@
     				}
 
     				// Then, add the color to this tile's flames.
-    				rand = Math.floor(this.colors[i][j].rand * this.colorSources[colorSourceNumber][0] / 1000);
-    				this.flames[i][j][0] += Math.floor((this.colors[i][j].red	+ (this.colors[i][j].redRand	* this.colorSources[colorSourceNumber][1] / 1000) + rand) * MENU_FLAME_PRECISION_FACTOR);
-    				this.flames[i][j][1] += Math.floor((this.colors[i][j].green	+ (this.colors[i][j].greenRand	* this.colorSources[colorSourceNumber][2] / 1000) + rand) * MENU_FLAME_PRECISION_FACTOR);
-    				this.flames[i][j][2] += Math.floor((this.colors[i][j].blue	+ (this.colors[i][j].blueRand	* this.colorSources[colorSourceNumber][3] / 1000) + rand) * MENU_FLAME_PRECISION_FACTOR);
+    				rand = Math.floor(this.colors[i][j]._rand * this.colorSources[colorSourceNumber][0] / 1000);
+    				this.flames[i][j][0] += Math.floor((this.colors[i][j]._r	+ (this.colors[i][j]._redRand	* this.colorSources[colorSourceNumber][1] / 1000) + rand) * MENU_FLAME_PRECISION_FACTOR);
+    				this.flames[i][j][1] += Math.floor((this.colors[i][j]._g	+ (this.colors[i][j]._greenRand	* this.colorSources[colorSourceNumber][2] / 1000) + rand) * MENU_FLAME_PRECISION_FACTOR);
+    				this.flames[i][j][2] += Math.floor((this.colors[i][j]._b	+ (this.colors[i][j]._blueRand	* this.colorSources[colorSourceNumber][3] / 1000) + rand) * MENU_FLAME_PRECISION_FACTOR);
 
     				colorSourceNumber++;
     			}
@@ -15704,10 +16156,10 @@
     				this.buffer.draw(i, j, dchar, colors.gray, maskColor);
     			} else {
             const flameColor = this.flames[i][j];
-            tempColor.clear();
-    				tempColor.red	= Math.round(flameColor[0] / MENU_FLAME_PRECISION_FACTOR);
-    				tempColor.green	= Math.round(flameColor[1] / MENU_FLAME_PRECISION_FACTOR);
-    				tempColor.blue	= Math.round(flameColor[2] / MENU_FLAME_PRECISION_FACTOR);
+            tempColor.blackOut();
+    				tempColor._r	= Math.round(flameColor[0] / MENU_FLAME_PRECISION_FACTOR);
+    				tempColor._g	= Math.round(flameColor[1] / MENU_FLAME_PRECISION_FACTOR);
+    				tempColor._b	= Math.round(flameColor[2] / MENU_FLAME_PRECISION_FACTOR);
     				if (this.mask[i][j] > 0) {
     					tempColor.mix(maskColor, this.mask[i][j]);
     				}

@@ -8,30 +8,30 @@ describe('Sprite', () => {
 
     const a = GW.make.sprite();
     expect(a.ch).toEqual(' ');
-    expect(a.fg.css()).toEqual('#ffffff');
-    expect(a.bg.css()).toEqual('#000000');
+    expect(a.fg.toString(true)).toEqual('#ffffff');
+    expect(a.bg.toString(true)).toEqual('#000000');
     expect(a.opacity).toEqual(100);
     expect(a.needsUpdate).toBeTruthy();
 
     const b = GW.make.sprite('@', 'green', 'blue', 50);
     expect(b.ch).toEqual('@');
     expect(b.fg).not.toBe(GW.colors.green); // cannot be a reference bc we change it on a plot
-    expect(b.fg.css()).toEqual('#00ff00');
+    expect(b.fg.toString(true)).toEqual('#00ff00');
     expect(b.bg).not.toBe(GW.colors.blue);
-    expect(b.bg.css()).toEqual('#0000ff');
+    expect(b.bg.toString(true)).toEqual('#0000ff');
     expect(b.opacity).toEqual(50);
     expect(b.needsUpdate).toBeTruthy();
 
     const d = GW.make.sprite('@', [100,0,0], null, 50);
     expect(d.ch).toEqual('@');
-    expect(d.fg.css()).toEqual('#ff0000');
+    expect(d.fg.toString(true)).toEqual('#ff0000');
     expect(d.bg).toBeNull();
     expect(d.opacity).toEqual(50);
 
     const e = GW.make.sprite(null, null, 'green', 50);
     expect(e.ch).toBeNull();
     expect(e.fg).toBeNull();
-    expect(e.bg.css()).toEqual('#00ff00');
+    expect(e.bg.toString(true)).toEqual('#00ff00');
     expect(e.opacity).toEqual(50);
 
     const f = GW.make.sprite('@', null, null, 50);
@@ -114,8 +114,8 @@ describe('Sprite', () => {
     expect(s.needsUpdate).toBeTruthy();
 
     expect(s.ch).toEqual('$');
-    expect(s.fg.css()).toEqual('#808000');  // mixes fgs
-    expect(s.bg.css()).toEqual('#40bf80');  // mixes bgs
+    expect(s.fg.toString(true)).toEqual('#808000');  // mixes fgs
+    expect(s.bg.toString(true)).toEqual('#40bf80');  // mixes bgs
   });
 
   test('plot with alpha', () => {
@@ -124,12 +124,18 @@ describe('Sprite', () => {
     expect(t.opacity).toEqual(50);
     s.needsUpdate = false;
 
+    expect(s.fg.toString(true)).toEqual('#ff0000');
+    expect(s.bg.toString(true)).toEqual('#808080');
+
+    expect(t.fg.toString(true)).toEqual('#00ff00');
+    expect(t.bg.toString(true)).toEqual('#00ff80');
+
     s.drawSprite(t, 50);
     expect(s.needsUpdate).toBeTruthy();
 
     expect(s.ch).toEqual('$');
-    expect(s.fg.css()).toEqual('#bf4000');  // mixes 50% of t fg
-    expect(s.bg.css()).toEqual('#5e9e80');  // mixes 50% of t bg
+    expect(s.fg.toString(true)).toEqual('#bf4000');  // mixes 50% of t fg
+    expect(s.bg.toString(true)).toEqual('#61a180');  // mixes 50% of t bg
   });
 
   test('plotting w/o fg/bg', () => {
@@ -141,8 +147,8 @@ describe('Sprite', () => {
     dest.drawSprite(player);
 
     expect(dest.ch).toEqual('@');
-    expect(dest.fg.css()).toEqual('#ffffff');
-    expect(dest.bg.css()).toEqual('#00ff00');
+    expect(dest.fg.toString(true)).toEqual('#ffffff');
+    expect(dest.bg.toString(true)).toEqual('#00ff00');
     expect(dest.opacity).toEqual(100);
     expect(dest.needsUpdate).toBeTruthy();
   });
@@ -158,8 +164,8 @@ describe('Sprite', () => {
     dest.drawSprite(fx);
 
     expect(dest.ch).toEqual('@');
-    expect(dest.fg.css()).toEqual('#ffffff');
-    expect(dest.bg.css()).toEqual('#808000');
+    expect(dest.fg.toString(true)).toEqual('#ffffff');
+    expect(dest.bg.toString(true)).toEqual('#808000');
     expect(dest.opacity).toEqual(100);
     expect(dest.needsUpdate).toBeTruthy();
   });
@@ -175,8 +181,8 @@ describe('Sprite', () => {
     dest.drawSprite(fx);
 
     expect(dest.ch).toEqual('@');
-    expect(dest.fg.css()).toEqual('#ff8080');  // (white + red) / 2
-    expect(dest.bg.css()).toEqual('#00ff00');
+    expect(dest.fg.toString(true)).toEqual('#ff8080');  // (white + red) / 2
+    expect(dest.bg.toString(true)).toEqual('#00ff00');
     expect(dest.opacity).toEqual(100);
     expect(dest.needsUpdate).toBeTruthy();
   });

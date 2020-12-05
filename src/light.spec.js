@@ -163,34 +163,34 @@ describe('light', () => {
         flags: 'T_OBSTRUCTS_EVERYTHING'
       });
 
-      map.ambientLight = GW.make.color(0x202020);
+      map.ambientLight = GW.make.color(0x202020, true);
       expect(map.flags & GW.flags.map.MAP_STABLE_LIGHTS).toBeTruthy();
       expect(map.flags & GW.flags.map.MAP_STABLE_GLOW_LIGHTS).toBeTruthy();
       map.setTile(10, 10, 'WALL_TORCH');
 
-      expect(map.ambientLight.css()).toEqual('#1f1f1f');
+      expect(map.ambientLight.toString(true)).toEqual('#212121');
       expect(map.flags & GW.flags.map.MAP_STABLE_LIGHTS).toBeFalsy();
       expect(map.flags & GW.flags.map.MAP_STABLE_GLOW_LIGHTS).toBeFalsy();
 
       GW.light.updateLighting(map);
 
       cell = map.cell(1, 1);
-      expect(cell.light).toEqual([12,12,12]); // ambient only
+      expect(cell.light).toEqual([13,13,13]); // ambient only
 
       cell = map.cell(10, 10);
-      expect(cell.light).toEqual([112,112,12]); // ambient + 100% light
+      expect(cell.light).toEqual([113,113,13]); // ambient + 100% light
 
       cell = map.cell(9, 10);
-      expect(cell.light).toEqual([95,95,12]); // ambient + 87% light
+      expect(cell.light).toEqual([96,96,13]); // ambient + 87% light
 
       cell = map.cell(8, 10);
-      expect(cell.light).toEqual([78,78,12]); // ambient + 64% light
+      expect(cell.light).toEqual([79,79,13]); // ambient + 64% light
 
       cell = map.cell(7, 10);
-      expect(cell.light).toEqual([62,62,12]); // ambient + 50% light
+      expect(cell.light).toEqual([63,63,13]); // ambient + 50% light
 
       cell = map.cell(6, 10);
-      expect(cell.light).toEqual([12,12,12]); // ambient + 0% light
+      expect(cell.light).toEqual([13,13,13]); // ambient + 0% light
 
     });
 
@@ -200,7 +200,7 @@ describe('light', () => {
       expect(map.flags & GW.flags.map.MAP_STABLE_LIGHTS).toBeTruthy();
       expect(map.flags & GW.flags.map.MAP_STABLE_GLOW_LIGHTS).toBeTruthy();
 
-      map.ambientLight = GW.make.color(0x202020);
+      map.ambientLight = GW.make.color(0x202020, true);
       map.addLight(10, 10, 'TORCH');
       expect(map.flags & GW.flags.map.MAP_STABLE_LIGHTS).toBeFalsy();
       expect(map.flags & GW.flags.map.MAP_STABLE_GLOW_LIGHTS).toBeFalsy();
@@ -208,22 +208,22 @@ describe('light', () => {
       GW.light.updateLighting(map);
 
       cell = map.cell(1, 1);
-      expect(cell.light).toEqual([12,12,12]); // ambient only
+      expect(cell.light).toEqual([13,13,13]); // ambient only
 
       cell = map.cell(10, 10);
-      expect(cell.light).toEqual([112,112,12]); // ambient + 100% light
+      expect(cell.light).toEqual([113,113,13]); // ambient + 100% light
 
       cell = map.cell(9, 10);
-      expect(cell.light).toEqual([95,95,12]); // ambient + 87% light
+      expect(cell.light).toEqual([96,96,13]); // ambient + 87% light
 
       cell = map.cell(8, 10);
-      expect(cell.light).toEqual([78,78,12]); // ambient + 64% light
+      expect(cell.light).toEqual([79,79,13]); // ambient + 64% light
 
       cell = map.cell(7, 10);
-      expect(cell.light).toEqual([62,62,12]); // ambient + 50% light
+      expect(cell.light).toEqual([63,63,13]); // ambient + 50% light
 
       cell = map.cell(6, 10);
-      expect(cell.light).toEqual([12,12,12]); // ambient + 0% light
+      expect(cell.light).toEqual([13,13,13]); // ambient + 0% light
 
     });
 

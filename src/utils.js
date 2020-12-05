@@ -278,7 +278,7 @@ export function setDefaults(obj, def, custom=null) {
         dest[key] = defValue.slice();
       }
       else if (typeof defValue === 'object') {
-        dest[key] = Object.assign({}, defValue);
+        dest[key] = defValue; // Object.assign({}, defValue); -- this breaks assigning a Color object as a default...
       }
       else {
         dest[key] = defValue;

@@ -169,15 +169,16 @@ class ActorKind {
       result = 'you';
     }
     if (opts.color || (this.consoleColor && (opts.color !== false))) {
-      let color = this.sprite.fg;
-      if (this.consoleColor instanceof types.Color) {
-        color = this.consoleColor;
+      let color = opts.color;
+      if (typeof color === 'boolean') {
+        color = this.consoleColor
+        if (typeof color === 'boolean') {
+          color = this.sprite.fg;
+        }
       }
-      if (opts.color instanceof types.Color) {
-        color = opts.color;
-      }
-      else if (typeof opts.color === 'string') {
-        color = Color.from(opts.color);
+      if (color && typeof opts.color !== 'string') {
+        color = Color.from(color);
+        color = color.toString();
       }
       if (color) {
         result = Text.apply('Ω§color§Ω§result§∆', { color, result });

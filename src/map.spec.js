@@ -36,15 +36,15 @@ describe('Map', () => {
     const sprite = GW.make.sprite();
     GW.map.getCellAppearance(map, 2, 2, sprite);
     expect(sprite.ch).toEqual(GW.tiles.FLOOR.sprite.ch);
-    expect(GW.color.diff(sprite.bg, GW.tiles.FLOOR.sprite.bg)).toBeLessThan(5);
-    expect(GW.color.diff(sprite.fg, GW.tiles.FLOOR.sprite.fg)).toBeLessThan(40);
+    expect(sprite.fg).toBakeFrom(GW.tiles.FLOOR.sprite.fg);
+    expect(sprite.bg).toBakeFrom(GW.tiles.FLOOR.sprite.bg);
 
     map.setTile(2, 2, 'DOOR');  // can use tile name too (slower)
 
     GW.map.getCellAppearance(map, 2, 2, sprite);
     expect(sprite.ch).toEqual(GW.tiles.DOOR.sprite.ch);
-    expect(GW.color.diff(sprite.bg, GW.tiles.DOOR.sprite.bg)).toBeLessThan(5);
-    expect(GW.color.diff(sprite.fg, GW.tiles.DOOR.sprite.fg)).toBeLessThan(5);
+    expect(sprite.fg).toBakeFrom(GW.tiles.DOOR.sprite.fg);
+    expect(sprite.bg).toBakeFrom(GW.tiles.DOOR.sprite.bg);
 
   });
 

@@ -65,7 +65,7 @@ export class Sprite {
         this.fg = null;
       }
       else if (this.fg && this.bg) { this.fg.copy(other.fg); }
-  		else if (this.fg) { this.fg.clear(); }
+  		else if (this.fg) { this.fg.blackOut(); }
   		else { this.fg = other.fg.clone(); }
     }
 
@@ -77,7 +77,7 @@ export class Sprite {
         this.bg = null;
       }
       else if (this.bg && other.bg) { this.bg.copy(other.bg); }
-  		else if (this.bg) { this.bg.clear(); }
+  		else if (this.bg) { this.bg.blackOut(); }
   		else { this.bg = other.bg.clone(); }
     }
 
@@ -95,6 +95,24 @@ export class Sprite {
 		return other;
 	}
 
+  equals(other) {
+    if (this.ch != other.ch) return false;
+    if (this.fg) {
+      if (!this.fg.equals(other.fg)) return false;
+    }
+    else if (other.fg) {
+      return false;
+    }
+    if (this.bg) {
+      if (!this.bg.equals(other.bg)) return false;
+    }
+    else if (other.bg) {
+      return false;
+    }
+
+    return true;
+  }
+
 	nullify() {
 		if (HANGING_LETTERS.includes(this.ch)) {
 			this.wasHanging = true;
@@ -103,8 +121,8 @@ export class Sprite {
 			this.wasFlying = true;
 		}
 		this.ch = ' ';
-		if (this.fg) this.fg.clear();
-		if (this.bg) this.bg.clear();
+		if (this.fg) this.fg.blackOut();
+		if (this.bg) this.bg.blackOut();
 		this.opacity = 0;
 		// this.needsUpdate = false;
 	}
@@ -179,10 +197,6 @@ export class Sprite {
 		this.opacity = Math.max(this.opacity, opacity);
 		this.needsUpdate = true;
 		return true;
-	}
-
-	equals(other) {
-		return this.ch == other.ch && this.fg.equals(other.fg) && this.bg.equals(other.bg);
 	}
 
 	bake(force) {

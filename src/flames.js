@@ -217,10 +217,10 @@ export class Flames {
   				}
 
   				// Then, add the color to this tile's flames.
-  				rand = Math.floor(this.colors[i][j].rand * this.colorSources[colorSourceNumber][0] / 1000);
-  				this.flames[i][j][0] += Math.floor((this.colors[i][j].red	+ (this.colors[i][j].redRand	* this.colorSources[colorSourceNumber][1] / 1000) + rand) * MENU_FLAME_PRECISION_FACTOR);
-  				this.flames[i][j][1] += Math.floor((this.colors[i][j].green	+ (this.colors[i][j].greenRand	* this.colorSources[colorSourceNumber][2] / 1000) + rand) * MENU_FLAME_PRECISION_FACTOR);
-  				this.flames[i][j][2] += Math.floor((this.colors[i][j].blue	+ (this.colors[i][j].blueRand	* this.colorSources[colorSourceNumber][3] / 1000) + rand) * MENU_FLAME_PRECISION_FACTOR);
+  				rand = Math.floor(this.colors[i][j]._rand * this.colorSources[colorSourceNumber][0] / 1000);
+  				this.flames[i][j][0] += Math.floor((this.colors[i][j]._r	+ (this.colors[i][j]._redRand	* this.colorSources[colorSourceNumber][1] / 1000) + rand) * MENU_FLAME_PRECISION_FACTOR);
+  				this.flames[i][j][1] += Math.floor((this.colors[i][j]._g	+ (this.colors[i][j]._greenRand	* this.colorSources[colorSourceNumber][2] / 1000) + rand) * MENU_FLAME_PRECISION_FACTOR);
+  				this.flames[i][j][2] += Math.floor((this.colors[i][j]._b	+ (this.colors[i][j]._blueRand	* this.colorSources[colorSourceNumber][3] / 1000) + rand) * MENU_FLAME_PRECISION_FACTOR);
 
   				colorSourceNumber++;
   			}
@@ -251,10 +251,10 @@ export class Flames {
   				this.buffer.draw(i, j, dchar, GW.colors.gray, maskColor);
   			} else {
           const flameColor = this.flames[i][j];
-          tempColor.clear();
-  				tempColor.red	= Math.round(flameColor[0] / MENU_FLAME_PRECISION_FACTOR);
-  				tempColor.green	= Math.round(flameColor[1] / MENU_FLAME_PRECISION_FACTOR);
-  				tempColor.blue	= Math.round(flameColor[2] / MENU_FLAME_PRECISION_FACTOR);
+          tempColor.blackOut();
+  				tempColor._r	= Math.round(flameColor[0] / MENU_FLAME_PRECISION_FACTOR);
+  				tempColor._g	= Math.round(flameColor[1] / MENU_FLAME_PRECISION_FACTOR);
+  				tempColor._b	= Math.round(flameColor[2] / MENU_FLAME_PRECISION_FACTOR);
   				if (this.mask[i][j] > 0) {
   					tempColor.mix(maskColor, this.mask[i][j]);
   				}

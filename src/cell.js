@@ -3,6 +3,7 @@ import { random } from './random.js';
 import * as Flags from './flags.js';
 import * as Utils from './utils.js';
 import * as Color from './color.js';
+import * as Light from './light.js';
 import * as TileEvent from './tileEvent.js';
 
 import { types, make, def, config as CONFIG, data as DATA, flag as FLAG, tiles as TILES, colors as COLORS } from './gw.js';
@@ -124,8 +125,8 @@ class Cell {
   }
 
   // TODO - Use functions in LIGHT to check these on cell.light directly???
-  hasVisibleLight() { return Color.intensity(this.light) > def.INTENSITY_DARK; }  // TODO
-  isDark() { return Color.intensity(this.light) <= def.INTENSITY_DARK; }  // TODO
+  hasVisibleLight() { return Light.intensity(this.light) > def.INTENSITY_DARK; }  // TODO
+  isDark() { return Light.intensity(this.light) <= def.INTENSITY_DARK; }  // TODO
   lightChanged() { return this.flags & Flags.Cell.LIGHT_CHANGED; }  // TODO
 
   tile(layer=0) {
@@ -382,18 +383,18 @@ class Cell {
 
     const blocksVision = (tile.flags & Flags.Tile.T_OBSTRUCTS_VISION);
     const oldBlocksVision = (oldTile.flags & Flags.Tile.T_OBSTRUCTS_VISION);
-    if (this.isAnyKindOfVisible() && (blocksVision != oldBlocksVision)) {
+    if (map && this.isAnyKindOfVisible() && (blocksVision != oldBlocksVision)) {
       map.flags |= Flags.Map.MAP_FOV_CHANGED;
     }
 
     this.layers[tile.layer] = tile.id;
     if (tile.layer == TileLayer.LIQUID) {
       this.liquidVolume = volume + (tileId == oldTileId ? this.liquidVolume : 0);
-      map.flags &= ~Flags.Map.MAP_NO_LIQUID;
+      if (map) map.flags &= ~Flags.Map.MAP_NO_LIQUID;
     }
     else if (tile.layer == TileLayer.GAS) {
       this.gasVolume = volume + (tileId == oldTileId ? this.vasVolume : 0);
-      map.flags &= ~Flags.Map.MAP_NO_GAS;
+      if (map) map.flags &= ~Flags.Map.MAP_NO_GAS;
     }
 
     if (tile.layer > 0 && this.layers[0] == 0) {
@@ -402,7 +403,7 @@ class Cell {
 
     // this.flags |= (Flags.NEEDS_REDRAW | Flags.CELL_CHANGED);
     this.flags |= (Flags.Cell.CELL_CHANGED);
-    if (oldTile.light !== tile.light) {
+    if (map && (oldTile.light !== tile.light)) {
       map.flags &= ~(Flags.Map.MAP_STABLE_GLOW_LIGHTS | Flags.Map.MAP_STABLE_LIGHTS);
     }
     return true;
@@ -603,8 +604,8 @@ export function getAppearance(cell, dest) {
     current = current.next;
   }
 
-  memory.fg.applyMultiplier(cell.light);
-  memory.bg.applyMultiplier(cell.light);
+  memory.fg.multiply(cell.light);
+  memory.bg.multiply(cell.light);
   memory.bake(!cell.isAnyKindOfVisible());  // turns off dancing if not visible
   if (needDistinctness) {
     Color.separate(memory.fg, memory.bg);

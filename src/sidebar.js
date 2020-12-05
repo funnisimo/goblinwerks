@@ -677,7 +677,7 @@ function sidebarAddMapCell(entry, y, dim, highlight, buf) {
   const cell = entry.entity;
   const textColor = GW.colors.flavorText.clone();
   if (dim) {
-      textColor.applyScalar(50);
+      textColor.scale(50);
   }
 
 	if (y >= SIDE_BOUNDS.height - 1) {
