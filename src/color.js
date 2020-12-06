@@ -3,7 +3,14 @@ import { cosmetic } from './random.js';
 import * as Utils from './utils.js';
 import { types, make as MAKE, colors } from './gw.js';
 
-import { Color as CanvasColor } from 'gw-canvas';
+import { Color as CanvasColor, configure as canvasConfigure } from 'gw-canvas';
+
+
+canvasConfigure({
+  colorLookup(name) {
+    return colors[name] || null
+  },
+});
 
 // export var color = {};
 
@@ -233,6 +240,9 @@ export function make(...args) {
   if (args.length == 1 && typeof args[0] === 'string') {
     const color = colors[args[0]];
     if (color) return color.clone();
+  }
+  if (args.length >= 3) {
+    return Color.make(args);
   }
   return Color.make(...args);
 }

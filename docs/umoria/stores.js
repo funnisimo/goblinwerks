@@ -400,9 +400,9 @@ async function showStoreInventory(buffer, store, actor) {
     color: 'white',
     selected: 0,
   })
-  .column('Qty', 'count', '%3d')
-  .column('Item', 'name', '%-30s')
-  .column(' Each', 'price', '%5d GP');
+  .column('Qty', '§count%3d§')
+  .column('Item', '§name%-30s§')
+  .column(' Each', '§price%5d§ GP');
 
   const data = [];
   GW.utils.eachChain(store.items, (item) => {
@@ -412,6 +412,7 @@ async function showStoreInventory(buffer, store, actor) {
   });
 
 
+  let y = 0;
   let running = true;
   let result = -1; // done with store
   let canBuy;

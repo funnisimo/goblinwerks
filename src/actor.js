@@ -178,7 +178,7 @@ class ActorKind {
       }
       if (color && typeof opts.color !== 'string') {
         color = Color.from(color);
-        color = color.toString();
+        color = color.isNull() ? null : color.toString();
       }
       if (color) {
         result = Text.apply('Ω§color§Ω§result§∆', { color, result });

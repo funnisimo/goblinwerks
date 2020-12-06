@@ -34,4 +34,9 @@ describe('GW.color', () => {
     expect(GW.colors.dark_red.toInt(true)).toEqual(0xBF0000);
   });
 
+  test('make', () => {
+    const c = GW.make.color(50, 50, 50);
+    expect(c.toString()).toEqual('#888');
+  });
+
 });

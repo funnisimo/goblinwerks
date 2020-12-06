@@ -21,7 +21,7 @@ CONFIG.cursorPathIntensity = 50;
 
 class CellMemory {
   constructor() {
-    this.sprite = make.sprite();
+    this.sprite = new types.Sprite();
     this.nullify();
   }
 

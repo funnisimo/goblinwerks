@@ -13,7 +13,7 @@ describe('FX', () => {
     const cell = m.cell(2, 2);
     expect(cell.sprites).toBeNull();
 
-    const sprite = GW.make.sprite();
+    const sprite = new GW.types.Sprite();
     GW.map.getCellAppearance(m, 2, 2, sprite);
     expect(sprite.ch).toEqual(FLOOR.sprite.ch);
     expect(sprite.fg).toBakeFrom(FLOOR.sprite.fg);

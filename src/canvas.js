@@ -143,17 +143,19 @@ class Canvas {
     const ctx = this.ctx;
     const tileSize = this.tileSize;// * this.displayRatio;
 
-    const backCss = cell.bg.css();
-    ctx.fillStyle = backCss;
+    if (cell.bg && !cell.bg.isNull()) {
+      const backCss = cell.bg.css();
+      ctx.fillStyle = backCss;
 
-    ctx.fillRect(
-      x * tileSize,
-      y * tileSize,
-      tileSize,
-      tileSize
-    );
+      ctx.fillRect(
+        x * tileSize,
+        y * tileSize,
+        tileSize,
+        tileSize
+      );
+    }
 
-    if (cell.ch && cell.ch !== ' ') {
+    if (cell.ch && cell.ch !== ' ' && cell.fg && !cell.fg.isNull()) {
       const foreCss = cell.fg.css();
       ctx.fillStyle = foreCss;
 

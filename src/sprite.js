@@ -1,4 +1,5 @@
 
+import { Mixer } from 'gw-canvas';
 import * as Color from './color.js';
 import { types, make } from './gw.js';
 
@@ -10,90 +11,26 @@ export var sprite = {};
 const HANGING_LETTERS = ['y', 'p', 'g', 'j', 'q', '[', ']', '(', ')', '{', '}', '|'];
 const FLYING_LETTERS = ["'", '"', '$', 'f', '[', ']', '|'];
 
-export class Sprite {
-	constructor(ch, fg, bg, opacity) {
-		const args = Array.prototype.filter.call(arguments, (v) => v !== undefined );
-
-		let argCount = args.length;
-		const opIndex = args.findIndex( (v) => typeof v === 'number' );
-		if (opIndex >= 0) {
-			--argCount;
-			opacity = args[opIndex];
-		}
-		if (argCount == 0) {
-			ch = ' ';
-			fg = 'white';
-			bg = 'black';
-		}
-		else if (argCount == 1) {
-			if (typeof args[0] === 'string' && args[0].length == 1) {
-				ch = args[0];
-				fg = 'white';
-				bg = null;
-			}
-			else {
-				ch = null;
-				fg = null;
-				bg = args[0];
-			}
-		}
-		else if (argCount == 2) {
-			ch = args[0];
-			fg = args[1];
-			bg = null;
-		}
-
-		this.ch = ch !== null ? (ch || ' ') : null;
-		this.fg = fg !== null ? make.color(fg || 'white') : null;
-		this.bg = bg !== null ? make.color(bg || 'black') : null;
-		this.opacity = opacity || 100;
-		this.needsUpdate = true;
-		this.wasHanging = false;
-    this.wasFlying = false;
+export class Sprite extends Mixer {
+	constructor(ch=' ', fg=null, bg=null, opacity) {
+    super();
+    this.draw(ch, fg, bg);
+    this.needsUpdate = true;
+    this.opacity = opacity || 100;
 	}
 
-	copy(other) {
-    if (other.ch !== undefined) {
-      this.ch = other.ch;
-    }
+  _changed() {
+    this.needsUpdate = true;
+    this.opacity = (this.fg.isNull() && this.bg.isNull()) ? 0 : 100;
+    return this;
+  }
 
-    if (other.fg !== undefined) {
-      if (typeof other.fg === 'string') {
-        this.fg = make.color(other.fg);
-      }
-      else if (other.fg === null) {
-        this.fg = null;
-      }
-      else if (this.fg && this.bg) { this.fg.copy(other.fg); }
-  		else if (this.fg) { this.fg.blackOut(); }
-  		else { this.fg = other.fg.clone(); }
-    }
-
-    if (other.bg !== undefined) {
-      if (typeof other.bg === 'string') {
-        this.bg = make.color(other.bg);
-      }
-      else if (other.bg === null) {
-        this.bg = null;
-      }
-      else if (this.bg && other.bg) { this.bg.copy(other.bg); }
-  		else if (this.bg) { this.bg.blackOut(); }
-  		else { this.bg = other.bg.clone(); }
-    }
-
-		this.opacity = other.opacity || this.opacity;
-		this.needsUpdate = other.needsUpdate || this.needsUpdate;
-		this.wasHanging = other.wasHanging || this.wasHanging;
-    this.wasFlying  = other.wasFlying  || this.wasFlying;
-	}
-
-	clone() {
-		const other = new types.Sprite(this.ch, this.fg, this.bg, this.opacity);
-		other.wasHanging = this.wasHanging;
-    other.wasFlying  = this.wasFlying;
-		other.needsUpdate = this.needsUpdate;
-		return other;
-	}
+  copy(other) {
+    other.ch = other.ch || ' ';
+    super.copy(other);
+    this.opacity = other.opacity || 100;
+    return this;
+  }
 
   equals(other) {
     if (this.ch != other.ch) return false;
@@ -113,115 +50,99 @@ export class Sprite {
     return true;
   }
 
-	nullify() {
-		if (HANGING_LETTERS.includes(this.ch)) {
-			this.wasHanging = true;
-		}
-    if (FLYING_LETTERS.includes(this.ch)) {
-			this.wasFlying = true;
-		}
-		this.ch = ' ';
-		if (this.fg) this.fg.blackOut();
-		if (this.bg) this.bg.blackOut();
-		this.opacity = 0;
-		// this.needsUpdate = false;
-	}
-
-	blackOut(bg) {
-		this.nullify();
-    if (bg) {
-      if (typeof bg === 'string') {
-        bg = Color.from(bg);
-      }
-      if (this.bg) {
-        this.bg.copy(bg);
-      }
-      else {
-        this.bg = bg.clone();
-      }
-    }
-		this.opacity = 100;
-		this.needsUpdate = true;
-		this.wasHanging = false;
-	}
-
   fade(color, pct) {
     if (this.bg) this.bg.mix(color, pct);
     if (this.fg) this.fg.mix(color, pct);
     this.needsUpdate = true;
     this.opacity = this.opacity || 100;
+    return this;
   }
 
-	draw(ch, fg, bg) {
-		this.wasHanging = this.wasHanging || (ch != null && HANGING_LETTERS.includes(ch));
-    this.wasFlying  = this.wasFlying  || (ch != null && FLYING_LETTERS.includes(ch));
-		if (!this.opacity) {
-			this.ch = ' ';
-		}
-    if (ch) { this.ch = ch; }
-		if (fg) { this.fg.copy(fg); }
-    if (bg) { this.bg.copy(bg); }
-    this.opacity = 100;
-    this.needsUpdate = true;
-	}
-
-	drawSprite(sprite, alpha=100) {
-    const opacity = Math.floor(sprite.opacity * alpha / 100);
-		if (opacity == 0) return false;
-
-    if (opacity >= 100) {
-      this.draw(sprite.ch, sprite.fg, sprite.bg);
-      return true;
-    }
-
-		this.wasHanging = this.wasHanging || (sprite.ch != null && HANGING_LETTERS.includes(sprite.ch));
-    this.wasFlying  = this.wasFlying  || (sprite.ch != null && FLYING_LETTERS.includes(sprite.ch));
-
-    // ch and fore color:
-    if (sprite.ch && sprite.ch != ' ') { // Blank cells in the overbuf take the ch from the screen.
-      this.ch = sprite.ch;
-    }
-
-		if (sprite.fg && sprite.ch != ' ') {
-			this.fg.mix(sprite.fg, opacity);
-		}
-
-		if (sprite.bg) {
-			this.bg.mix(sprite.bg, opacity);
-		}
-
-    if (this.ch != ' ' && this.fg.equals(this.bg))
-    {
-      this.ch = ' ';
-    }
-		this.opacity = Math.max(this.opacity, opacity);
-		this.needsUpdate = true;
-		return true;
-	}
-
-	bake(force) {
-		if (this.fg && (force || !this.fg.dances)) {
-			this.fg.bake();
-		}
-		if (this.bg && (force || !this.bg.dances)) {
-			this.bg.bake();
-		}
-	}
+	// draw(ch, fg, bg) {
+	// 	this.wasHanging = this.wasHanging || (ch != null && HANGING_LETTERS.includes(ch));
+  //   this.wasFlying  = this.wasFlying  || (ch != null && FLYING_LETTERS.includes(ch));
+	// 	if (!this.opacity) {
+	// 		this.ch = ' ';
+	// 	}
+  //   if (ch) { this.ch = ch; }
+	// 	if (fg) { this.fg.copy(fg); }
+  //   if (bg) { this.bg.copy(bg); }
+  //   this.opacity = 100;
+  //   this.needsUpdate = true;
+	// }
+  //
+	// drawSprite(sprite, alpha=100) {
+  //   const opacity = Math.floor(sprite.opacity * alpha / 100);
+	// 	if (opacity == 0) return false;
+  //
+  //   if (opacity >= 100) {
+  //     this.draw(sprite.ch, sprite.fg, sprite.bg);
+  //     return true;
+  //   }
+  //
+	// 	this.wasHanging = this.wasHanging || (sprite.ch != null && HANGING_LETTERS.includes(sprite.ch));
+  //   this.wasFlying  = this.wasFlying  || (sprite.ch != null && FLYING_LETTERS.includes(sprite.ch));
+  //
+  //   // ch and fore color:
+  //   if (sprite.ch && sprite.ch != ' ') { // Blank cells in the overbuf take the ch from the screen.
+  //     this.ch = sprite.ch;
+  //   }
+  //
+	// 	if (sprite.fg && sprite.ch != ' ') {
+	// 		this.fg.mix(sprite.fg, opacity);
+	// 	}
+  //
+	// 	if (sprite.bg) {
+	// 		this.bg.mix(sprite.bg, opacity);
+	// 	}
+  //
+  //   if (this.ch != ' ' && this.fg.equals(this.bg))
+  //   {
+  //     this.ch = ' ';
+  //   }
+	// 	this.opacity = Math.max(this.opacity, opacity);
+	// 	this.needsUpdate = true;
+	// 	return true;
+	// }
+  //
+	// bake(force) {
+	// 	if (this.fg && (force || !this.fg.dances)) {
+	// 		this.fg.bake();
+	// 	}
+	// 	if (this.bg && (force || !this.bg.dances)) {
+	// 		this.bg.bake();
+	// 	}
+	// }
 }
 
 types.Sprite = Sprite;
 
 export function makeSprite(ch, fg, bg, opacity) {
-  if (arguments.length == 1 && Array.isArray(arguments[0]) && arguments[0].length) {
-    [ch, fg, bg, opacity] = arguments[0];
+  if (ch && Array.isArray(ch)) {
+    [ch, fg, bg, opacity] = ch;
   }
-	else if (arguments.length == 1 && typeof arguments[0] === 'object' && ch) {
-		opacity = ch.opacity || null;
-		bg = ch.bg || null;
-		fg = ch.fg || null;
-		ch = ch.ch || null;
-	}
-  return new Sprite(ch, fg, bg, opacity);
+  if (ch && typeof ch === 'object') {
+    if (ch.fg) { ch.fg = Color.from(ch.fg); }
+    if (ch.bg) { ch.bg = Color.from(ch.bg); }
+    return ch;
+  }
+  if (typeof fg === 'number') {
+    opacity = fg;
+    fg = undefined;
+  }
+  if (typeof bg === 'number') {
+    opacity = bg;
+    bg = undefined;
+  }
+  if (!fg && ch && ch.length > 1) {
+    bg = ch;
+    ch = undefined;
+  }
+
+  if (fg) fg = Color.from(fg);
+  if (bg) bg = Color.from(bg);
+
+  return { ch, fg, bg, opacity };
 }
 
 make.sprite = makeSprite;

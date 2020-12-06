@@ -60,7 +60,7 @@ async function forceStairs(ev) {
   return true;
 }
 
-GW.message.addKind('WELCOME', '#yellow#Welcome to Town!\n#dark_purple#Visit our shops to equip yourself for a journey into the #green#Dungeons of Moria##.  Once you are prepared, enter the dungeon and seek the #dark_red#Balrog##.  Destroy him to free us all!\n##Press <?> for help.');
+GW.message.addKind('WELCOME', 'ΩyellowΩWelcome to Town!∆\nΩdark_purpleΩVisit our shops to equip yourself for a journey into the ΩgreenΩDungeons of Moria∆.  Once you are prepared, enter the dungeon and seek the Ωdark_redΩBalrog∆.  Destroy him to free us all!∆\nPress <?> for help.');
 
 // start the environment
 async function start() {

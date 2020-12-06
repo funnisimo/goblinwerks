@@ -33,7 +33,7 @@ describe('Map', () => {
 
     map.setTile(2, 2, 'FLOOR');
 
-    const sprite = GW.make.sprite();
+    const sprite = new GW.types.Sprite();
     GW.map.getCellAppearance(map, 2, 2, sprite);
     expect(sprite.ch).toEqual(GW.tiles.FLOOR.sprite.ch);
     expect(sprite.fg).toBakeFrom(GW.tiles.FLOOR.sprite.fg);

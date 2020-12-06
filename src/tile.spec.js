@@ -23,7 +23,7 @@ describe('tiles', () => {
   describe('BRIDGE', () => {
     test('has see through bg', () => {
       const tile = GW.tiles.BRIDGE;
-      expect(tile.sprite.bg).toBeNull();
+      expect(tile.sprite.bg).toBeUndefined();
     });
   });
 
@@ -171,7 +171,7 @@ describe('Tile', () => {
     expect(glassWall.flags & GW.flags.tile.T_OBSTRUCTS_PASSABILITY).toBeTruthy();
     expect(glassWall.getName()).toEqual('Glass Wall');
     expect(glassWall.sprite).not.toBe(wall.sprite);
-    expect(glassWall.sprite).toEqual({ ch: '+', fg: GW.colors.teal, bg: null });
+    expect(glassWall.sprite).toEqual({ ch: '+', fg: GW.colors.teal });
   });
 
   test('can add multiple from an object', () => {
@@ -237,7 +237,7 @@ describe('Tile', () => {
       name: 'Custom Wall'
     });
 
-    expect(custom.sprite).toEqual({ ch: '+', fg: GW.colors.white, bg: null });
+    expect(custom.sprite).toEqual({ ch: '+', fg: GW.colors.white });
     expect(custom.name).toEqual('Custom Wall');
   });
 

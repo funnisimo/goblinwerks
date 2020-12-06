@@ -318,6 +318,17 @@ export function kindDefaults(obj, def) {
   return setDefaults(obj, def, custom);
 }
 
+export function pick(obj, ...fields) {
+  const data = {};
+  fields.forEach( (f) => {
+    const v = obj[f];
+    if (v !== undefined) {
+      data[f] = v;
+    }
+  });
+  return data;
+}
+
 export function clearObject(obj) {
   Object.keys(obj).forEach( (key) => obj[key] = undefined );
 }

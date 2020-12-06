@@ -51,9 +51,9 @@ function printCharacterStats(buffer, actor, yOffset=0) {
       const attr = keys[i];
       buffer.drawText(x, y + i, stat_headers[attr]);
       const c = statColor(actor.current[attr]);
-      buffer.drawText(x + 15, y + i, c, actor.current[attr]);
+      buffer.drawText(x + 15, y + i, actor.current[attr], c);
 
-      if (actor.max[attr] > actor.current[attr]) {
+      if (actor.max[attr] !== actor.current[attr]) {
           buffer.drawText(x + 23, y + i, ` [${actor.max[attr]}]`, teal);
       }
     }

@@ -104,7 +104,7 @@ describe('CellMemory', () => {
     expect(c.sprites.sprite).toBe(a);
     expect(c.sprites.next.sprite).toBe(b);
 
-    const app = GW.make.sprite();
+    const app = new GW.types.Sprite();
     GW.cell.getAppearance(c, app);
 
     const ex = GW.make.sprite('@', 'white', 'red');
@@ -128,7 +128,7 @@ describe('CellMemory', () => {
     expect(c.sprites.sprite).toBe(a);
     expect(c.sprites.next.sprite).toBe(b);
 
-    const app = GW.make.sprite();
+    const app = new GW.types.Sprite();
     GW.cell.getAppearance(c, app);
 
     const ex = GW.make.sprite('@', 'white', [50,0,50]);
@@ -154,7 +154,7 @@ describe('CellMemory', () => {
     const c = GW.make.cell();
     c._setTile('TEST_FLOOR');
 
-    const app = GW.make.sprite();
+    const app = new GW.types.Sprite();
     GW.cell.getAppearance(c, app);
     expect(app.ch).toEqual(FLOOR.ch);
     expect(app.bg).toEqual([20,20,20,0,0,0,0]);
@@ -200,7 +200,7 @@ describe('CellMemory', () => {
     const c = GW.make.cell();
     c._setTile('TEST_FLOOR');
 
-    const app = GW.make.sprite();
+    const app = new GW.types.Sprite();
     GW.cell.getAppearance(c, app);
     expect(app.ch).toEqual(FLOOR.ch);
     expect(app.bg).toEqual([20,20,20,0,0,0,0]);
