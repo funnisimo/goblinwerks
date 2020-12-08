@@ -4,12 +4,13 @@
 import { io as IO } from './io.js';
 import * as Flags from './flags.js';
 import * as Utils from './utils.js';
-import { sprite as SPRITE } from './sprite.js';
+import * as SPRITE from './sprite.js';
 import * as Color from './color.js';
 import * as Text from './text.js';
 import * as Path from './path.js';
 import { Buffer } from './buffer.js';
-import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, make, sidebar as SIDEBAR, config as CONFIG, colors as COLORS, commands as COMMANDS } from './gw.js';
+import * as FX from './fx.js';
+import { data as DATA, types, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, make, sidebar as SIDEBAR, config as CONFIG, colors as COLORS, commands as COMMANDS } from './gw.js';
 
 
 ui.debug = Utils.NOOP;

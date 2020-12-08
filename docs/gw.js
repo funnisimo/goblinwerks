@@ -8,6 +8,7 @@
   var types = {};
 
   var colors = {};
+  var sprites = {};
 
   var make = {};
   var install = {};
@@ -18,7 +19,6 @@
   var flavor = {};
   var sidebar = {};
 
-  var fx = {};
   var commands$1 = {};
   var ai = {};
 
@@ -2590,183 +2590,6 @@ void main() {
     },
   });
 
-  // export var color = {};
-
-
-  // export class Color extends Array {
-  //   constructor(...args) {
-  //     if (args.length == 1 && Array.isArray(args[0])) { args = args[0]; }
-  //     while(args.length < 7) args.push(0);
-  //     super(...args.slice(0,7));
-  //     this.dances = (args.length > 7 && !!args[7]);
-  //   }
-  //
-  //   get red() 	{ return this[0]; }
-  //   set red(v)  { this[0] = v; }
-  //   get green()  { return this[1]; }
-  //   set green(v) { this[1] = v; }
-  //   get blue() 	{ return this[2]; }
-  //   set blue(v) { this[2] = v; }
-  //
-  //   get rand() 	{ return this[3]; }
-  //   set rand(v)  { this[3] = v; }
-  //
-  //   get redRand() 	{ return this[4]; }
-  //   set redRand(v)  { this[4] = v; }
-  //   get greenRand()  { return this[5]; }
-  //   set greenRand(v) { this[5] = v; }
-  //   get blueRand() 	{ return this[6]; }
-  //   set blueRand(v) { this[6] = v; }
-  //
-  //   clone() {
-  //     const other = new Color(...this);
-  //     other.dances = this.dances;
-  //     other.id = this.id;
-  //     return other;
-  //   }
-  //
-  //   copy(other) {
-  //     for(let i = 0; i < 7; ++i) {
-  //       this[i] = other[i] || 0;
-  //     }
-  //     this.dances = other.dances || false;
-  //     this.id = other.id;
-  //     return this;
-  //   }
-  //
-  //   clear() {
-  //     for(let i = 0; i < 7; ++i) {
-  //       this[i] = 0;
-  //     }
-  //     this.dances = false;
-  //     this.id = null;
-  //   }
-  //
-  //   css() {
-  //     const rand = cosmetic.value() * (this.rand || 0);
-  //     const red = toRGB(this.red + rand, this.redRand);
-  //     const green = toRGB(this.green + rand, this.greenRand);
-  //     const blue = toRGB(this.blue + rand, this.blueRand);
-  //     return `#${toCSS(red)}${toCSS(green)}${toCSS(blue)}`;
-  //   }
-  //
-  //   equals(other) {
-  //     if (!other) return false;
-  //     return this.every( (v, i) => v === other[i] ) && this.dances === other.dances;
-  //   }
-  //
-  //   clamp() {
-  //     this.red		= Utils.clamp(this.red, 0, 100);
-  //     this.green	= Utils.clamp(this.green, 0, 100);
-  //     this.blue		= Utils.clamp(this.blue, 0, 100);
-  //   }
-  //
-  //   add(other, pct=100) {
-  //     other = from(other);
-  //
-  //     this.red += Math.floor((other.red * pct) / 100);
-  //     this.redRand += Math.floor((other.redRand * pct) / 100);
-  //     this.green += Math.floor((other.green * pct) / 100);
-  //     this.greenRand += Math.floor((other.greenRand * pct) / 100);
-  //     this.blue += Math.floor((other.blue * pct) / 100);
-  //     this.blueRand += Math.floor((other.blueRand * pct) / 100);
-  //     this.rand += Math.floor((other.rand * pct) / 100);
-  //     this.id = null;
-  //     return this;
-  //   }
-  //
-  //   mix(other, opacity=100) {
-  //     other = from(other);
-  //
-  //     if (opacity <= 0) return this;
-  //     if (opacity >= 100) {
-  //       this.copy(other);
-  //       return this;
-  //     }
-  //
-  //     const weightComplement = 100 - opacity;
-  //     for(let i = 0; i < this.length; ++i) {
-  //       this[i] = Math.floor((this[i] * weightComplement + other[i] * opacity) / 100);
-  //     }
-  //     this.dances = (this.dances || other.dances);
-  //     this.id = null;
-  //     return this;
-  //   }
-  //
-  //   multiply(other) {
-  //     this.red = Math.round(this.red * other[0] / 100);
-  //     this.green = Math.round(this.green * other[1] / 100);
-  //     this.blue = Math.round(this.blue * other[2] / 100);
-  //
-  //     if (other instanceof Color) {
-  //       this.rand = Math.round(this.rand * other.rand / 100);
-  //       this.redRand = Math.round(this.redRand * other.redRand / 100);
-  //       this.greenRand = Math.round(this.greenRand * other.greenRand / 100);
-  //       this.blueRand = Math.round(this.blueRand * other.blueRand / 100);
-  //       this.dances = this.dances || other.dances;
-  //     }
-  //     this.id = null;
-  //     return this;
-  //   }
-  //
-  //   applyScalar(other) {
-  //     this.red          = Math.round(this.red        * other / 100);
-  //     this.redRand      = Math.round(this.redRand    * other / 100);
-  //     this.green        = Math.round(this.green      * other / 100);
-  //     this.greenRand    = Math.round(this.greenRand  * other / 100);
-  //     this.blue         = Math.round(this.blue       * other / 100);
-  //     this.blueRand     = Math.round(this.blueRand   * other / 100);
-  //     this.rand         = Math.round(this.rand       * other / 100);
-  //     this.id = null;
-  //     return this;
-  //   }
-  //
-  //   bake() {
-  //     let rand;
-  //     rand = cosmetic.range(0, this.rand);
-  //     this.red   += Math.round(cosmetic.range(0, this.redRand) + rand);
-  //     this.green += Math.round(cosmetic.range(0, this.greenRand) + rand);
-  //     this.blue  += Math.round(cosmetic.range(0, this.blueRand) + rand);
-  //     this.redRand = this.greenRand = this.blueRand = this.rand = 0;
-  //     this.id = null;
-  //     return this;
-  //   }
-  //
-  //
-  //   lighten(percent) {
-  //     Utils.clamp(percent, 0, 100);
-  //     this.red =    Math.round(this.red + (100 - this.red) * percent / 100);
-  //     this.green =  Math.round(this.green + (100 - this.green) * percent / 100);
-  //     this.blue =   Math.round(this.blue + (100 - this.blue) * percent / 100);
-  //
-  //     // leave randoms the same
-  //     this.id = null;
-  //     return this;
-  //   }
-  //
-  //   darken(percent) {
-  //     Utils.clamp(percent, 0, 100);
-  //     this.red =    Math.round(this.red * (100 - percent) / 100);
-  //     this.green =  Math.round(this.green * (100 - percent) / 100);
-  //     this.blue =   Math.round(this.blue * (100 - percent) / 100);
-  //
-  //     // leave randoms the same
-  //     this.id = null;
-  //     return this;
-  //   }
-  //
-  //   randomize(randomizePercent) {
-  //     this.red = _randomizeColorByPercent(this.red, randomizePercent);
-  //     this.green = _randomizeColorByPercent(this.green, randomizePercent);
-  //     this.blue = _randomizeColorByPercent(this.blue, randomizePercent);
-  //     this.id = null;
-  //     return this;
-  //   }
-  //
-  //   toString() {
-  //     return this.id || this.toString(true);
-  //   }
-  // }
 
   class Color$1 extends Color {
     constructor(...args) {
@@ -2855,39 +2678,6 @@ void main() {
   }
 
 
-  //
-  // function toRGB(v, vr) {
-  //   return Utils.clamp(Math.round(2.551 * (v + cosmetic.value() * vr) ), 0, 255);
-  // }
-  //
-  // const V_TO_CSS = [];
-  // for(let i = 0; i < 256; ++i) {
-  //   V_TO_CSS[i] = i.toString(16).padStart(2, '0');
-  // }
-  //
-  // function toCSS(v) {
-  //   return V_TO_CSS[Math.floor(v)];
-  // }
-
-  // export function css(color) {
-  //     return color.toString(true);
-  // }
-  //
-  // color.css = css;
-
-
-  // export function intensity(color) {
-  //   return Math.max(color._r, color._g, color._b);
-  // }
-
-  //
-  //
-  // function _randomizeColorByPercent(input, percent) {
-  //   return (cosmetic.range( Math.floor(input * (100 - percent) / 100), Math.floor(input * (100 + percent) / 100)));
-  // }
-
-
-
   function swap(color1, color2) {
       const tempColor = color1.clone();
       color1.copy(color2);
@@ -2900,66 +2690,6 @@ void main() {
       + (f._g - b._g) * (f._g - b._g) * 0.7152
       + (f._b - b._b) * (f._b - b._b) * 0.0722);
   }
-
-  //
-  // export function normalize(baseColor, aggregateMultiplier, colorTranslation) {
-  //
-  //     baseColor.red += colorTranslation;
-  //     baseColor.green += colorTranslation;
-  //     baseColor.blue += colorTranslation;
-  //     const vectorLength =  baseColor.red + baseColor.green + baseColor.blue;
-  //
-  //     if (vectorLength != 0) {
-  //         baseColor.red =    Math.round(baseColor.red * 300    / vectorLength * aggregateMultiplier / 100);
-  //         baseColor.green =  Math.round(baseColor.green * 300  / vectorLength * aggregateMultiplier / 100);
-  //         baseColor.blue =   Math.round(baseColor.blue * 300   / vectorLength * aggregateMultiplier / 100);
-  //     }
-  //     baseColor.redRand = 0;
-  //     baseColor.greenRand = 0;
-  //     baseColor.blueRand = 0;
-  //     baseColor.rand = 0;
-  // }
-
-
-  //
-  // // if forecolor is too similar to back, darken or lighten it and return true.
-  // // Assumes colors have already been baked (no random components).
-  // export function separate(/* color */ fore, /* color */ back) {
-  //   let f, b, modifier = null;
-  //   let failsafe;
-  //   let madeChange;
-  //
-  //   f = fore.clone();
-  //   b = back.clone();
-  //
-  //   f.red			= Utils.clamp(f.red, 0, 100);
-  //   f.green		= Utils.clamp(f.green, 0, 100);
-  //   f.blue		= Utils.clamp(f.blue, 0, 100);
-  //   b.red			= Utils.clamp(b.red, 0, 100);
-  //   b.green		= Utils.clamp(b.green, 0, 100);
-  //   b.blue		= Utils.clamp(b.blue, 0, 100);
-  //
-  //   if (f.red + f.blue + f.green > 50 * 3) {
-  //     modifier = colors.black;
-  //   } else {
-  //     modifier = colors.white;
-  //   }
-  //
-  //   madeChange = false;
-  //   failsafe = 10;
-  //
-  //   while(diff(f, b) < MIN_COLOR_DIFF && --failsafe) {
-  //     f.mix(modifier, 20);
-  //     madeChange = true;
-  //   }
-  //
-  //   if (madeChange) {
-  //     fore.copy(f);
-  //     return true;
-  //   } else {
-  //     return false;
-  //   }
-  // }
 
 
 
@@ -3725,9 +3455,6 @@ void main() {
 
   const TEMP_BG = new types.Color();
 
-  var sprites = {};
-  var sprite = {};
-
   class Sprite extends Mixer {
   	constructor(ch=' ', fg=null, bg=null, opacity) {
       super();
@@ -3775,61 +3502,6 @@ void main() {
       return this;
     }
 
-  	// draw(ch, fg, bg) {
-  	// 	this.wasHanging = this.wasHanging || (ch != null && HANGING_LETTERS.includes(ch));
-    //   this.wasFlying  = this.wasFlying  || (ch != null && FLYING_LETTERS.includes(ch));
-  	// 	if (!this.opacity) {
-  	// 		this.ch = ' ';
-  	// 	}
-    //   if (ch) { this.ch = ch; }
-  	// 	if (fg) { this.fg.copy(fg); }
-    //   if (bg) { this.bg.copy(bg); }
-    //   this.opacity = 100;
-    //   this.needsUpdate = true;
-  	// }
-    //
-  	// drawSprite(sprite, alpha=100) {
-    //   const opacity = Math.floor(sprite.opacity * alpha / 100);
-  	// 	if (opacity == 0) return false;
-    //
-    //   if (opacity >= 100) {
-    //     this.draw(sprite.ch, sprite.fg, sprite.bg);
-    //     return true;
-    //   }
-    //
-  	// 	this.wasHanging = this.wasHanging || (sprite.ch != null && HANGING_LETTERS.includes(sprite.ch));
-    //   this.wasFlying  = this.wasFlying  || (sprite.ch != null && FLYING_LETTERS.includes(sprite.ch));
-    //
-    //   // ch and fore color:
-    //   if (sprite.ch && sprite.ch != ' ') { // Blank cells in the overbuf take the ch from the screen.
-    //     this.ch = sprite.ch;
-    //   }
-    //
-  	// 	if (sprite.fg && sprite.ch != ' ') {
-  	// 		this.fg.mix(sprite.fg, opacity);
-  	// 	}
-    //
-  	// 	if (sprite.bg) {
-  	// 		this.bg.mix(sprite.bg, opacity);
-  	// 	}
-    //
-    //   if (this.ch != ' ' && this.fg.equals(this.bg))
-    //   {
-    //     this.ch = ' ';
-    //   }
-  	// 	this.opacity = Math.max(this.opacity, opacity);
-  	// 	this.needsUpdate = true;
-  	// 	return true;
-  	// }
-    //
-  	// bake(force) {
-  	// 	if (this.fg && (force || !this.fg.dances)) {
-  	// 		this.fg.bake();
-  	// 	}
-  	// 	if (this.bg && (force || !this.bg.dances)) {
-  	// 		this.bg.bake();
-  	// 	}
-  	// }
   }
 
   types.Sprite = Sprite;
@@ -3870,13 +3542,18 @@ void main() {
 
   make.sprite = makeSprite;
 
-  function installSprite(name, ch, fg, bg, opacity) {
+  function install$1(name, ch, fg, bg, opacity) {
   	const sprite = make.sprite(ch, fg, bg, opacity);
   	sprites[name] = sprite;
   	return sprite;
   }
 
-  sprite.install = installSprite;
+  var sprite = {
+    __proto__: null,
+    Sprite: Sprite,
+    makeSprite: makeSprite,
+    install: install$1
+  };
 
   const GRID_CACHE = [];
 
@@ -4868,15 +4545,14 @@ void main() {
   types.DataBuffer = DataBuffer;
   types.Buffer = Buffer;
 
-  // function makeBuffer(w, h) {
-  //   return new GW.types.Buffer(w, h);
-  // }
-  //
-  // GW.make.buffer = makeBuffer;
-
   const DEFAULT_FONT = 'monospace';
 
   types.Canvas = Canvas;
+
+  configure({
+    random: cosmetic.value.bind(cosmetic),
+  });
+
 
   function makeGlyphs(opts={}) {
     if (typeof opts === 'string') {
@@ -4917,226 +4593,6 @@ void main() {
   }
 
   make.canvas = makeCanvas;
-
-  // export var canvas = {};
-  //
-  //
-  //
-  // function setFont(canvas, size, name) {
-  //   canvas.font = name || DEFAULT_FONT;
-  //   canvas.ctx.font = (size) + 'px ' + canvas.font;
-  //   canvas.ctx.textAlign = 'center';
-  //   canvas.ctx.textBaseline = 'middle';
-  // }
-  //
-  //
-  // function fillBg(canvas, css) {
-  //     canvas.ctx.fillStyle = css || '#000';
-  //     canvas.ctx.fillRect(
-  //         0,
-  //         0,
-  //         canvas.width,
-  //         canvas.height
-  //     );
-  // }
-  //
-  //
-  // function handleResizeEvent() {
-  //
-  //   const rect = this.node.getBoundingClientRect();
-  //   this.pxWidth  = rect.width;
-  //   this.pxHeight = rect.height;
-  //   UI.debug('canvas resize', rect);
-  //
-  //   this._buffer._data.forEach((c) => { c.needsUpdate = true; });
-  // }
-
-  //
-  //
-  // class Canvas {
-  //   constructor(w, h, div, opts={}) {
-  //     this._buffer = make.buffer(w, h);
-  //     this.dead = [];
-  //     this.displayRatio = 1;
-  //     this.width  = w;
-  //     this.height = h;
-  //
-  //     if (typeof document !== 'undefined') {
-  //       let parent = document;
-  //       this.node = document.getElementById(div);
-  //       if (this.node && this.node.tagName !== 'CANVAS') {
-  //         parent = this.node;
-  //         this.node = null;
-  //       }
-  //       if (!this.node) {
-  //         // Need to create canvas
-  //         this.node = document.createElement('canvas');
-  //         parent.appendChild(this.node);
-  //       }
-  //
-  //       this.ctx = this.node.getContext('2d');
-  //       this.displayRatio = window.devicePixelRatio || 1;
-  //
-  //       const bounds = this.node.getBoundingClientRect();
-  //       const size = Math.min(Math.floor(bounds.width / this.width), Math.floor(bounds.height / this.height));
-  //
-  //       this.tileSize = opts.tileSize || size;
-  //       this.pxWidth  = bounds.width;
-  //       this.pxHeight = bounds.height;
-  //     }
-  //     else {
-  //       this.tileSize = opts.tileSize || 16;
-  //       this.pxWidth  = this.tileSize * this.width  * this.displayRatio;
-  //       this.pxHeight = this.tileSize * this.height * this.displayRatio;
-  //     }
-  //
-  //     this.dances = false;
-  //
-  //     if (typeof window !== 'undefined') {
-  //       this.node.width = this.width * this.tileSize;
-  //       this.node.height = this.height * this.tileSize;
-  //
-  //       window.addEventListener('resize', handleResizeEvent.bind(this));
-  //       handleResizeEvent.call(this);
-  //
-  //       this.font = opts.font;
-  //       setFont(this, this.tileSize, this.font);
-  //     }
-  //
-  //   }
-  //
-  //   hasXY(x, y) {
-  //     return this._buffer._data.hasXY(x, y);
-  //   }
-  //
-  //   toX(x) {
-  //     return Math.floor(this._buffer.width * x / this.pxWidth);
-  //   }
-  //
-  //   toY(y) {
-  //     return Math.floor(this._buffer.height * y / this.pxHeight);
-  //   }
-  //
-  //   render() {
-  //     if ((this._buffer.needsUpdate || this.dances)) {
-  //       let i, j;
-  //
-  //       this._buffer.needsUpdate = false;
-  //       this.dances = false;
-  //       const _drawCell = canvas.drawCell;
-  //
-  //       this._buffer._data.forEach( (cell, i, j) => {
-  //         if (cell.fg.dances || cell.bg.dances) {
-  //           this.dances = true;
-  //           if (cosmetic.value() < 0.0005) {
-  //             cell.needsUpdate = true;
-  //           }
-  //         }
-  //
-  //         if (cell.needsUpdate) {
-  //           if (cell.wasHanging && j < this._buffer.height - 1) {
-  //             this._buffer._data[i][j + 1].needsUpdate = true;	// redraw the row below any hanging letters that changed
-  //             cell.wasHanging = false;
-  //           }
-  //           if (cell.wasFlying && j) {
-  //             this._buffer._data[i][j - 1].needsUpdate = true;
-  //             this._buffer.needsUpdate = true;
-  //             cell.wasFlying = false;
-  //           }
-  //
-  //           this._renderCell(cell, i, j);
-  //           cell.needsUpdate = false;
-  //         }
-  //       });
-  //
-  //     }
-  //   }
-  //
-  //   _renderCell(cell, x, y) {
-  //     const ctx = this.ctx;
-  //     const tileSize = this.tileSize;// * this.displayRatio;
-  //
-  //     if (cell.bg && !cell.bg.isNull()) {
-  //       const backCss = cell.bg.css();
-  //       ctx.fillStyle = backCss;
-  //
-  //       ctx.fillRect(
-  //         x * tileSize,
-  //         y * tileSize,
-  //         tileSize,
-  //         tileSize
-  //       );
-  //     }
-  //
-  //     if (cell.ch && cell.ch !== ' ' && cell.fg && !cell.fg.isNull()) {
-  //       const foreCss = cell.fg.css();
-  //       ctx.fillStyle = foreCss;
-  //
-  //       const textX = x * tileSize + Math.floor(tileSize * 0.5);
-  //       const textY = y * tileSize + Math.floor(tileSize * 0.5);
-  //
-  //       ctx.fillText(
-  //         cell.ch,
-  //         textX,
-  //         textY
-  //       );
-  //     }
-  //   }
-  //
-  //   allocBuffer() {
-  //     let buf;
-  //     if (this.dead.length) {
-  //       buf = this.dead.pop();
-  //     }
-  //     else {
-  //       buf = new types.Buffer(this._buffer.width, this._buffer.height);
-  //     }
-  //
-  //     buf.copy(this._buffer);
-  //     return buf;
-  //   }
-  //
-  //   freeBuffer(...bufs) {
-  //     bufs.forEach( (buf) => this.dead.push(buf) );
-  //   }
-  //
-  //   copyBuffer(dest) {
-  //     dest.copy(this._buffer);
-  //   }
-  //
-  //   // draws overBuf over the current canvas with per-cell pseudotransparency as specified in overBuf.
-  //   // If previousBuf is not null, it gets filled with the preexisting canvas for reversion purposes.
-  //   overlay( overBuf,  previousBuf) {
-  //     if (previousBuf) {
-  //       previousBuf.copy(this._buffer);
-  //     }
-  //     this._overlayRect(overBuf, 0, 0, this._buffer.width, this._buffer.height);
-  //   }
-  //
-  //   // draws overBuf over the current canvas with per-cell pseudotransparency as specified in overBuf.
-  //   // If previousBuf is not null, it gets filled with the preexisting canvas for reversion purposes.
-  //   _overlayRect(overBuf, x, y, w, h) {
-  //     let i, j;
-  //
-  //     for (i=x; i<x + w; i++) {
-  //       for (j=y; j<y + h; j++) {
-  //         const src = overBuf._data[i][j];
-  //         if (src.opacity) {
-  //           const dest = this._buffer._data[i][j];
-  //           if (!dest.equals(src)) {
-  //             dest.copy(src); // was copy
-  //             dest.needsUpdate = true;
-  //             this._buffer.needsUpdate = true;
-  //           }
-  //         }
-  //       }
-  //     }
-  //
-  //   }
-  //
-  // }
-  //
-  // types.Canvas = Canvas;
 
   var canvas = {
     __proto__: null,
@@ -10190,6 +9646,544 @@ void main() {
 
   const scheduler = new Scheduler();
 
+  let ANIMATIONS = [];
+
+  function busy$1() {
+    return ANIMATIONS.some( (a) => a );
+  }
+
+
+  async function playAll() {
+    while(busy$1()) {
+      const dt = await io.nextTick();
+      ANIMATIONS.forEach( (a) => a && a.tick(dt) );
+      ANIMATIONS = ANIMATIONS.filter( (a) => a && !a.done );
+    }
+  }
+
+
+  function tick(dt) {
+    if (!ANIMATIONS.length) return false;
+
+    ANIMATIONS.forEach( (a) => a && a.tick(dt) );
+    ANIMATIONS = ANIMATIONS.filter( (a) => a && !a.done );
+    // if (ANIMATIONS.length == 0) {
+    //   IO.resumeEvents();
+    // }
+    return true;
+  }
+
+  async function playRealTime(animation) {
+    animation.playFx = playRealTime;
+
+    // IO.pauseEvents();
+    animation.start();
+    ANIMATIONS.push(animation);
+    return new Promise( (resolve) => animation.callback = resolve );
+  }
+
+
+  async function playGameTime(anim) {
+    anim.playFx = playGameTime;
+
+    anim.start();
+    scheduler.push(() => {
+      anim.step();
+      ui.requestUpdate(1);
+      return anim.done ? 0 : anim.speed;
+    },  anim.speed);
+
+    return new Promise( (resolve) => anim.callback = resolve );
+  }
+
+
+  class FX {
+    constructor(opts={}) {
+      this.tilNextTurn = opts.speed || opts.duration || 1000;
+      this.speed = opts.speed || opts.duration || 1000;
+      this.callback = NOOP;
+      this.done = false;
+    }
+
+    tick(dt) {
+      if (this.done) return;
+      this.tilNextTurn -= dt;
+      while (this.tilNextTurn < 0 && !this.done) {
+        this.step();
+        this.tilNextTurn += this.speed;
+      }
+    }
+
+    step() {
+      this.stop();
+    }
+
+    start() {}
+
+    stop(result) {
+      if (this.done) return;
+      this.done = true;
+      this.callback(result);
+    }
+
+  }
+
+  types.FX = FX;
+
+
+  class SpriteFX extends FX {
+    constructor(map, sprite, x, y, opts={}) {
+      const count = opts.blink || 1;
+      const duration = opts.duration || 1000;
+      opts.speed = opts.speed || (duration / (2*count-1));
+      super(opts);
+      if (typeof sprite === 'string') {
+        sprite = sprites[sprite];
+      }
+      this.map = map;
+      this.sprite = sprite;
+      this.x = x || 0;
+      this.y = y || 0;
+      this.stepCount = 2*count - 1;
+    }
+
+    start() {
+      this.map.addFx(this.x, this.y, this);
+      return super.start();
+    }
+
+    step() {
+      --this.stepCount;
+      if (this.stepCount <= 0) return this.stop();
+      if (this.stepCount % 2 == 0) {
+        this.map.removeFx(this);
+      }
+      else {
+        this.map.addFx(this.x, this.y, this);
+      }
+    }
+
+    stop(result) {
+      this.map.removeFx(this);
+      return super.stop(result);
+    }
+
+    moveDir(dx, dy) {
+      return this.moveTo(this.x + dx, this.y + dy);
+    }
+
+    moveTo(x, y) {
+      this.map.moveFx(x, y, this);
+      return true;
+    }
+
+  }
+
+
+
+  async function flashSprite(map, x, y, sprite, duration=100, count=1) {
+    const anim = new SpriteFX(map, sprite, x, y, { duration, blink: count });
+    return playRealTime(anim);
+  }
+
+
+  install$1('bump', 'white', 50);
+
+
+  async function hit(map, target, sprite, duration) {
+    sprite = sprite || config.fx.hitSprite || 'hit';
+    duration = duration || config.fx.hitFlashTime || 200;
+    await flashSprite(map, target.x, target.y, sprite, duration, 1);
+  }
+
+  install$1('hit', 'red', 50);
+
+  async function miss(map, target, sprite, duration) {
+    sprite = sprite || config.fx.missSprite || 'miss';
+    duration = duration || config.fx.missFlashTime || 200;
+    await flashSprite(map, target.x, target.y, sprite, duration, 1);
+  }
+
+  install$1('miss', 'green', 50);
+
+
+  class MovingSpriteFX extends SpriteFX {
+    constructor(map, source, target, sprite, speed, stepFn) {
+      super(map, sprite, source.x, source.y, { speed });
+      this.target = target;
+      this.path = map$1.getLine(this.map, source.x, source.y, this.target.x, this.target.y);
+      this.stepFn = stepFn || TRUE;
+    }
+
+    step() {
+      if (this.x == this.target.x && this.y == this.target.y) return this.stop(this);
+      if (!this.path.find( (loc) => loc[0] == this.target.x && loc[1] == this.target.y)) {
+        this.path = map$1.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
+      }
+      const next = this.path.shift();
+      const r = this.stepFn(next[0], next[1]);
+      if (r < 0) {
+        return this.stop(this);
+      }
+      else if (r) {
+        return this.moveTo(next[0], next[1]);
+      }
+      else {
+        this.moveTo(next[0], next[1]);
+        this.target.x = this.x;
+        this.target.y = this.y;
+      }
+    }
+  }
+
+  types.MovingSpriteFX = MovingSpriteFX;
+
+
+  async function bolt(map, source, target, sprite, opts={}) {
+    if (typeof sprite === 'string') {
+      sprite = SPRITES[sprite];
+    }
+    opts.speed = opts.speed || 3;
+    opts.stepFn = opts.stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
+    opts.playFn = playGameTime;
+    if (opts.realTime || (!opts.gameTime)) {
+      opts.speed *= 16;
+      opts.playFn = playRealTime;
+    }
+
+    const anim = new MovingSpriteFX(map, source, target, sprite, opts.speed, opts.stepFn);
+    return opts.playFn(anim);
+  }
+
+
+  async function projectile(map, source, target, sprite, opts) {
+    if (sprite.ch.length == 4) {
+      const dir = dirFromTo(source, target);
+      let index = 0;
+      if (dir[0] && dir[1]) {
+        index = 2;
+        if (dir[0] != dir[1]) { // remember up is -y
+          index = 3;
+        }
+      }
+      else if (dir[0]) {
+        index = 1;
+      }
+      const ch = sprite.ch[index];
+      sprite = make.sprite(ch, sprite.fg, sprite.bg);
+    }
+    else if (sprite.ch.length !== 1) {
+      ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
+    }
+
+    return bolt(map, source, target, sprite, opts);
+  }
+
+
+
+  //
+  // RUT.Animations.projectileToTarget = function projectileTo(map, from, target, callback, opts) {
+  //   if (typeof callback != 'function' && opts === undefined) {
+  //     opts = callback;
+  //     callback = RUT.NOOP;
+  //   }
+  //   if (opts === true) opts = {};
+  //   if (opts === false) return;
+  //   opts = opts || {};
+  //   if (typeof opts === 'string') opts = { sprite: opts };
+  //
+  //   Object.defaults(opts, RUT.Config.Animations.projectile);
+  //   // if (!RUT.FOV.isVisible(shooter) && !RUT.FOV.isVisible(to)) { return Promise.resolve(); }
+  //   const sprite = opts.sprite;
+  //   let anim = new RUT.Animations.XYAnimation(map, sprite, from, () => target.xy, callback, opts.speed);
+  //   anim.start(); // .then( () => target.xy );
+  //   return anim;
+  // }
+  //
+
+  // export class DirAnimation extends FX {
+  //   constructor(sprite, from, dir, callback, opts={}) {
+  //     const speed = opts.speed || 10;
+  //     super(callback, { sprite, speed });
+  //     this.from = from;
+  //     this.dir = dir;
+  //     this.stopCell = opts.stopCell;
+  //     this.stopTile = opts.stopTile;
+  //     this.stepFn = opts.stepFn || TRUE;
+  //     this.range = opts.range || 99;
+  //   }
+  //
+  //   start() {
+  //     return super.start(this.from.x, this.from.y);
+  //   }
+  //
+  //   step() {
+  //     let dist = distanceFromTo(this.from, this.xy);
+  //     if (dist >= this.range) {
+  //       return this.stop(this.xy);
+  //     }
+  //
+  //     const newXy = this.xy.plus(this.dir);
+  //
+  //     const cell = DATA.map.cell(newXy.x, newXy.y);
+  //     if (!cell) {
+  //       return this.stop(this.xy);
+  //     }
+  //     else if (this.stopCell && RUT.Cell.hasAllFlags(cell, this.stopCell)) {
+  //       return this.stop(this.xy);
+  //     }
+  //     else if (this.stopTile && RUT.Cell.hasTileFlag(cell, this.stopTile)) {
+  //       return this.stop(this.xy);
+  //     }
+  //
+  //     DATA.map.moveAnimation(this.map, newXy.x, newXy.y, this);
+  //     if (this.stepFn(this.map, this.xy.x, this.xy.y)) {
+  //       return this.stop(this.xy);
+  //     }
+  //   }
+  // }
+
+  //
+  // RUT.Animations.projectileDir = function projectileTo(map, xy, dir, callback, opts) {
+  //   if (typeof callback != 'function' && opts === undefined) {
+  //     opts = callback;
+  //     callback = RUT.NOOP;
+  //   }
+  //   if (opts === true) opts = {};
+  //   if (opts === false) return;
+  //   opts = opts || {};
+  //   if (typeof opts === 'string') opts = { sprite: opts };
+  //   if (opts.sprite === true) opts.sprite = RUT.Config.Animations.projectile.sprite;
+  //
+  //   Object.defaults(opts, RUT.Config.Animations.projectile);
+  //   let anim = new RUT.Animations.DirAnimation(map, opts.sprite, xy, dir, callback, opts);
+  //   anim.start(); // .then( () => anim.xy );
+  //   return anim;
+  // }
+  //
+
+  class BeamFX extends FX {
+    constructor(map, from, target, sprite, speed, fade, stepFn) {
+      speed = speed || 20;
+      super({ speed });
+      this.map = map;
+      this.x = from.x;
+      this.y = from.y;
+      this.target = target;
+      this.sprite = sprite;
+      this.fade = fade || speed;
+      this.path = map$1.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
+      this.stepFn = stepFn || TRUE;
+    }
+
+    step() {
+      // if (this.x == this.target.x && this.y == this.target.y) return this.stop(this);
+      // if (!this.path.find( (loc) => loc[0] == this.target.x && loc[1] == this.target.y)) {
+      //   this.path = MAP.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
+      // }
+      if (this.path.length == 0) { return this.stop(this); }
+      const next = this.path.shift();
+      const r = this.stepFn(next[0], next[1]);
+      if (r < 0) {
+        return this.stop(this);
+      }
+      else if (r) {
+        return this.moveTo(next[0], next[1]);
+      }
+      else {
+        this.moveTo(next[0], next[1]);
+        this.target.x = this.x;
+        this.target.y = this.y;
+      }
+    }
+
+    moveTo(x, y) {
+      if (!this.map.hasXY(x, y)) {
+        // fx.debug('BEAM - invalid x,y', x, y);
+        return;
+      }
+      this.x = x;
+      this.y = y;
+      // fx.flashSprite(this.map, x, y, this.sprite, this.fade);
+
+      const anim = new SpriteFX(this.map, this.sprite, x, y, { duration: this.fade });
+      this.playFx(anim);
+    }
+
+  }
+
+
+  function beam(map, from, to, sprite, opts={}) {
+    opts.fade = opts.fade || 5;
+    opts.speed = opts.speed || 1;
+    opts.stepFn = opts.stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
+    opts.playFn = playGameTime;
+    if (opts.realTime || (!opts.gameTime)) {
+      opts.speed *= 8;
+      opts.fade *= 8;
+      opts.playFn = playRealTime;
+    }
+
+    const animation = new BeamFX(map, from, to, sprite, opts.speed, opts.fade, opts.stepFn);
+    return opts.playFn(animation);
+  }
+
+
+
+
+  class ExplosionFX extends FX {
+    // TODO - take opts instead of individual params (do opts setup here)
+    constructor(map, fovGrid, x, y, radius, sprite, speed, fade, shape, center, stepFn) {
+      speed = speed || 20;
+      super({ speed });
+      this.map = map;
+      this.grid = alloc(map.width, map.height);
+      if (fovGrid) {
+        this.grid.copy(fovGrid);
+      }
+      else {
+        this.grid.fill(1);
+      }
+      this.x = x;
+      this.y = y;
+      this.radius = 0;
+      this.maxRadius = radius;
+      this.sprite = sprite;
+      this.fade = fade || 100;
+      this.shape = shape || 'o';
+      this.center = (center === undefined) ? true : center;
+      this.stepFn = stepFn || TRUE;
+      this.count = 0;
+    }
+
+    start() {
+      if (this.center) {
+        this.visit(this.x, this.y);
+      }
+      else {
+        this.step();
+      }
+    }
+
+    step() {
+      if (this.radius >= this.maxRadius) return false;
+
+      this.radius = Math.min(this.radius + 1, this.maxRadius);
+
+      let done = true;
+      let x = Math.max(0, Math.floor(this.x - this.maxRadius));
+      const maxX = Math.min(this.grid.width - 1, Math.ceil(this.x + this.maxRadius));
+      let minY = Math.max(0, Math.floor(this.y - this.maxRadius));
+      const maxY = Math.min(this.grid.height - 1, Math.ceil(this.y + this.maxRadius));
+      let col;
+      let dist;
+
+      for(; x <= maxX; ++x) {
+        col = this.grid[x];
+        for(let y = minY; y <= maxY; ++y) {
+          if (col[y] != 1) continue;  // not in FOV
+          dist = distanceBetween(this.x, this.y, x, y);
+          if (dist <= this.radius) {
+            this.visit(x, y);
+          }
+          else if (dist <= this.maxRadius) {
+            done = false;
+          }
+        }
+      }
+      ui.requestUpdate(48);
+
+      // fx.debug('returning...', done);
+      if (done && (this.count == 0)) {
+        return this.stop(this); // xy of explosion is callback value
+      }
+      return false;
+    }
+
+    visit(x, y) {
+      if (this.isInShape(x, y) && this.stepFn(x, y)) {
+        this.count += 1;
+        const anim = new SpriteFX(this.map, this.sprite, x, y, { duration: this.fade });
+        this.playFx(anim).then( () => {
+          --this.count;
+          if (this.count == 0) {
+            this.stop(this);
+          }
+        });
+        // flashSprite(this.map, x, y, this.sprite, this.fade);
+      }
+      this.grid[x][y] = 2;
+    }
+
+    isInShape(x, y) {
+      const sx = Math.abs(x - this.x);
+      const sy = Math.abs(y - this.y);
+      if (sx == 0 && sy == 0 && !this.center) return false;
+      switch(this.shape) {
+        case '+': return sx == 0 || sy == 0;
+        case 'x': return sx == sy;
+        case '*': return (sx == 0 || sy == 0 || sx == sy);
+        default: return true;
+      }
+    }
+
+    stop(result) {
+      this.grid = free(this.grid);
+      return super.stop(result);
+    }
+  }
+
+  function checkExplosionOpts(opts) {
+    opts.speed = opts.speed || 5;
+    opts.fade = opts.fade || 10;
+    opts.playFn = playGameTime;
+    opts.shape = opts.shape || 'o';
+    if (opts.center === undefined) { opts.center = true; }
+
+    if (opts.realTime || (!opts.gameTime)) {
+      opts.speed = opts.speed * 8;
+      opts.fade = opts.fade * 8;
+      opts.playFn = playRealTime;
+    }
+  }
+
+  function explosion(map, x, y, radius, sprite, opts={}) {
+    checkExplosionOpts(opts);
+    opts.stepFn = opts.stepFn || ((x, y) => !map.isObstruction(x, y));
+    const animation = new ExplosionFX(map, null, x, y, radius, sprite, opts.speed, opts.fade, opts.shape, opts.center, opts.stepFn);
+    map.calcFov(animation.grid, x, y, radius);
+    return opts.playFn(animation);
+  }
+
+
+  function explosionFor(map, grid, x, y, radius, sprite, opts={}) {
+    checkExplosionOpts(opts);
+    opts.stepFn = opts.stepFn || ((x, y) => !map.isObstruction(x, y));
+    const animation = new ExplosionFX(map, grid, x, y, radius, sprite, opts.speed, opts.fade, opts.shape, opts.center, opts.stepFn);
+    return opts.playFn(animation);
+  }
+
+  var fx = {
+    __proto__: null,
+    busy: busy$1,
+    playAll: playAll,
+    tick: tick,
+    playRealTime: playRealTime,
+    playGameTime: playGameTime,
+    FX: FX,
+    SpriteFX: SpriteFX,
+    flashSprite: flashSprite,
+    hit: hit,
+    miss: miss,
+    MovingSpriteFX: MovingSpriteFX,
+    bolt: bolt,
+    projectile: projectile,
+    BeamFX: BeamFX,
+    beam: beam,
+    explosion: explosion,
+    explosionFor: explosionFor
+  };
+
   const GAME_DEBUG = NOOP;
 
   data.time = 0;
@@ -10436,7 +10430,7 @@ void main() {
 
 
 
-  sprite.install('hilite', colors.white);
+  install$1('hilite', colors.white);
 
   async function gameOver(isWin, msg, args) {
     if (args) {
@@ -10455,7 +10449,7 @@ void main() {
     }
     message.add('Press <Enter> to continue.');
     ui.updateNow();
-    await fx.flashSprite(data.map, data.player.x, data.player.y, 'hilite', 500, 3);
+    await flashSprite(data.map, data.player.x, data.player.y, 'hilite', 500, 3);
     data.gameHasEnded = true;
   }
 
@@ -11439,546 +11433,6 @@ void main() {
 
   dungeon.addStairs = addStairs;
 
-  fx.debug = NOOP;
-
-  let ANIMATIONS = [];
-
-  function busy$1() {
-    return ANIMATIONS.some( (a) => a );
-  }
-
-  fx.busy = busy$1;
-
-
-  async function playAll() {
-    while(fx.busy()) {
-      const dt = await io.nextTick();
-      ANIMATIONS.forEach( (a) => a && a.tick(dt) );
-      ANIMATIONS = ANIMATIONS.filter( (a) => a && !a.done );
-    }
-  }
-
-  fx.playAll = playAll;
-
-
-  function tick(dt) {
-    if (!ANIMATIONS.length) return false;
-
-    ANIMATIONS.forEach( (a) => a && a.tick(dt) );
-    ANIMATIONS = ANIMATIONS.filter( (a) => a && !a.done );
-    // if (ANIMATIONS.length == 0) {
-    //   IO.resumeEvents();
-    // }
-    return true;
-  }
-
-  fx.tick = tick;
-
-  async function playRealTime(animation) {
-    animation.playFx = fx.playRealTime;
-
-    // IO.pauseEvents();
-    animation.start();
-    ANIMATIONS.push(animation);
-    return new Promise( (resolve) => animation.callback = resolve );
-  }
-
-  fx.playRealTime = playRealTime;
-
-  async function playGameTime(anim) {
-    anim.playFx = fx.playGameTime;
-
-    anim.start();
-    scheduler.push(() => {
-      anim.step();
-      ui.requestUpdate(1);
-      return anim.done ? 0 : anim.speed;
-    },  anim.speed);
-
-    return new Promise( (resolve) => anim.callback = resolve );
-  }
-
-  fx.playGameTime = playGameTime;
-
-
-  class FX {
-    constructor(opts={}) {
-      this.tilNextTurn = opts.speed || opts.duration || 1000;
-      this.speed = opts.speed || opts.duration || 1000;
-      this.callback = NOOP;
-      this.done = false;
-    }
-
-    tick(dt) {
-      if (this.done) return;
-      this.tilNextTurn -= dt;
-      while (this.tilNextTurn < 0 && !this.done) {
-        this.step();
-        this.tilNextTurn += this.speed;
-      }
-    }
-
-    step() {
-      this.stop();
-    }
-
-    start() {}
-
-    stop(result) {
-      if (this.done) return;
-      this.done = true;
-      this.callback(result);
-    }
-
-  }
-
-  types.FX = FX;
-
-
-  class SpriteFX extends FX {
-    constructor(map, sprite, x, y, opts={}) {
-      const count = opts.blink || 1;
-      const duration = opts.duration || 1000;
-      opts.speed = opts.speed || (duration / (2*count-1));
-      super(opts);
-      if (typeof sprite === 'string') {
-        sprite = sprites[sprite];
-      }
-      this.map = map;
-      this.sprite = sprite;
-      this.x = x || 0;
-      this.y = y || 0;
-      this.stepCount = 2*count - 1;
-    }
-
-    start() {
-      this.map.addFx(this.x, this.y, this);
-      return super.start();
-    }
-
-    step() {
-      --this.stepCount;
-      if (this.stepCount <= 0) return this.stop();
-      if (this.stepCount % 2 == 0) {
-        this.map.removeFx(this);
-      }
-      else {
-        this.map.addFx(this.x, this.y, this);
-      }
-    }
-
-    stop(result) {
-      this.map.removeFx(this);
-      return super.stop(result);
-    }
-
-    moveDir(dx, dy) {
-      return this.moveTo(this.x + dx, this.y + dy);
-    }
-
-    moveTo(x, y) {
-      this.map.moveFx(x, y, this);
-      return true;
-    }
-
-  }
-
-
-
-  async function flashSprite(map, x, y, sprite, duration=100, count=1) {
-    const anim = new SpriteFX(map, sprite, x, y, { duration, blink: count });
-    return fx.playRealTime(anim);
-  }
-
-  fx.flashSprite = flashSprite;
-
-  installSprite('bump', 'white', 50);
-
-
-  async function hit(map, target, sprite, duration) {
-    sprite = sprite || config.fx.hitSprite || 'hit';
-    duration = duration || config.fx.hitFlashTime || 200;
-    await fx.flashSprite(map, target.x, target.y, sprite, duration, 1);
-  }
-
-  fx.hit = hit;
-
-  installSprite('hit', 'red', 50);
-
-  async function miss(map, target, sprite, duration) {
-    sprite = sprite || config.fx.missSprite || 'miss';
-    duration = duration || config.fx.missFlashTime || 200;
-    await fx.flashSprite(map, target.x, target.y, sprite, duration, 1);
-  }
-
-  fx.miss = miss;
-
-  installSprite('miss', 'green', 50);
-
-
-  class MovingSpriteFX extends SpriteFX {
-    constructor(map, source, target, sprite, speed, stepFn) {
-      super(map, sprite, source.x, source.y, { speed });
-      this.target = target;
-      this.path = map$1.getLine(this.map, source.x, source.y, this.target.x, this.target.y);
-      this.stepFn = stepFn || TRUE;
-    }
-
-    step() {
-      if (this.x == this.target.x && this.y == this.target.y) return this.stop(this);
-      if (!this.path.find( (loc) => loc[0] == this.target.x && loc[1] == this.target.y)) {
-        this.path = map$1.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
-      }
-      const next = this.path.shift();
-      const r = this.stepFn(next[0], next[1]);
-      if (r < 0) {
-        return this.stop(this);
-      }
-      else if (r) {
-        return this.moveTo(next[0], next[1]);
-      }
-      else {
-        this.moveTo(next[0], next[1]);
-        this.target.x = this.x;
-        this.target.y = this.y;
-      }
-    }
-  }
-
-  types.MovingSpriteFX = MovingSpriteFX;
-
-
-  async function bolt(map, source, target, sprite, opts={}) {
-    if (typeof sprite === 'string') {
-      sprite = sprites[sprite];
-    }
-    opts.speed = opts.speed || 3;
-    opts.stepFn = opts.stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
-    opts.playFn = fx.playGameTime;
-    if (opts.realTime || (!opts.gameTime)) {
-      opts.speed *= 16;
-      opts.playFn = fx.playRealTime;
-    }
-
-    const anim = new MovingSpriteFX(map, source, target, sprite, opts.speed, opts.stepFn);
-    return opts.playFn(anim);
-  }
-
-  fx.bolt = bolt;
-
-  async function projectile(map, source, target, sprite, opts) {
-    if (sprite.ch.length == 4) {
-      const dir = dirFromTo(source, target);
-      let index = 0;
-      if (dir[0] && dir[1]) {
-        index = 2;
-        if (dir[0] != dir[1]) { // remember up is -y
-          index = 3;
-        }
-      }
-      else if (dir[0]) {
-        index = 1;
-      }
-      const ch = sprite.ch[index];
-      sprite = GW.make.sprite(ch, sprite.fg, sprite.bg);
-    }
-    else if (sprite.ch.length !== 1) {
-      ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
-    }
-
-    return fx.bolt(map, source, target, sprite, opts);
-  }
-
-  fx.projectile = projectile;
-
-
-  //
-  // RUT.Animations.projectileToTarget = function projectileTo(map, from, target, callback, opts) {
-  //   if (typeof callback != 'function' && opts === undefined) {
-  //     opts = callback;
-  //     callback = RUT.NOOP;
-  //   }
-  //   if (opts === true) opts = {};
-  //   if (opts === false) return;
-  //   opts = opts || {};
-  //   if (typeof opts === 'string') opts = { sprite: opts };
-  //
-  //   Object.defaults(opts, RUT.Config.Animations.projectile);
-  //   // if (!RUT.FOV.isVisible(shooter) && !RUT.FOV.isVisible(to)) { return Promise.resolve(); }
-  //   const sprite = opts.sprite;
-  //   let anim = new RUT.Animations.XYAnimation(map, sprite, from, () => target.xy, callback, opts.speed);
-  //   anim.start(); // .then( () => target.xy );
-  //   return anim;
-  // }
-  //
-
-  // export class DirAnimation extends FX {
-  //   constructor(sprite, from, dir, callback, opts={}) {
-  //     const speed = opts.speed || 10;
-  //     super(callback, { sprite, speed });
-  //     this.from = from;
-  //     this.dir = dir;
-  //     this.stopCell = opts.stopCell;
-  //     this.stopTile = opts.stopTile;
-  //     this.stepFn = opts.stepFn || TRUE;
-  //     this.range = opts.range || 99;
-  //   }
-  //
-  //   start() {
-  //     return super.start(this.from.x, this.from.y);
-  //   }
-  //
-  //   step() {
-  //     let dist = distanceFromTo(this.from, this.xy);
-  //     if (dist >= this.range) {
-  //       return this.stop(this.xy);
-  //     }
-  //
-  //     const newXy = this.xy.plus(this.dir);
-  //
-  //     const cell = DATA.map.cell(newXy.x, newXy.y);
-  //     if (!cell) {
-  //       return this.stop(this.xy);
-  //     }
-  //     else if (this.stopCell && RUT.Cell.hasAllFlags(cell, this.stopCell)) {
-  //       return this.stop(this.xy);
-  //     }
-  //     else if (this.stopTile && RUT.Cell.hasTileFlag(cell, this.stopTile)) {
-  //       return this.stop(this.xy);
-  //     }
-  //
-  //     DATA.map.moveAnimation(this.map, newXy.x, newXy.y, this);
-  //     if (this.stepFn(this.map, this.xy.x, this.xy.y)) {
-  //       return this.stop(this.xy);
-  //     }
-  //   }
-  // }
-
-  //
-  // RUT.Animations.projectileDir = function projectileTo(map, xy, dir, callback, opts) {
-  //   if (typeof callback != 'function' && opts === undefined) {
-  //     opts = callback;
-  //     callback = RUT.NOOP;
-  //   }
-  //   if (opts === true) opts = {};
-  //   if (opts === false) return;
-  //   opts = opts || {};
-  //   if (typeof opts === 'string') opts = { sprite: opts };
-  //   if (opts.sprite === true) opts.sprite = RUT.Config.Animations.projectile.sprite;
-  //
-  //   Object.defaults(opts, RUT.Config.Animations.projectile);
-  //   let anim = new RUT.Animations.DirAnimation(map, opts.sprite, xy, dir, callback, opts);
-  //   anim.start(); // .then( () => anim.xy );
-  //   return anim;
-  // }
-  //
-
-  class BeamFX extends FX {
-    constructor(map, from, target, sprite, speed, fade, stepFn) {
-      speed = speed || 20;
-      super({ speed });
-      this.map = map;
-      this.x = from.x;
-      this.y = from.y;
-      this.target = target;
-      this.sprite = sprite;
-      this.fade = fade || speed;
-      this.path = map$1.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
-      this.stepFn = stepFn || TRUE;
-    }
-
-    step() {
-      // if (this.x == this.target.x && this.y == this.target.y) return this.stop(this);
-      // if (!this.path.find( (loc) => loc[0] == this.target.x && loc[1] == this.target.y)) {
-      //   this.path = MAP.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
-      // }
-      if (this.path.length == 0) { return this.stop(this); }
-      const next = this.path.shift();
-      const r = this.stepFn(next[0], next[1]);
-      if (r < 0) {
-        return this.stop(this);
-      }
-      else if (r) {
-        return this.moveTo(next[0], next[1]);
-      }
-      else {
-        this.moveTo(next[0], next[1]);
-        this.target.x = this.x;
-        this.target.y = this.y;
-      }
-    }
-
-    moveTo(x, y) {
-      if (!this.map.hasXY(x, y)) {
-        fx.debug('BEAM - invalid x,y', x, y);
-        return;
-      }
-      this.x = x;
-      this.y = y;
-      // fx.flashSprite(this.map, x, y, this.sprite, this.fade);
-
-      const anim = new SpriteFX(this.map, this.sprite, x, y, { duration: this.fade });
-      this.playFx(anim);
-    }
-
-  }
-
-  types.BeamFX = BeamFX;
-
-  function beam(map, from, to, sprite, opts={}) {
-    opts.fade = opts.fade || 5;
-    opts.speed = opts.speed || 1;
-    opts.stepFn = opts.stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
-    opts.playFn = fx.playGameTime;
-    if (opts.realTime || (!opts.gameTime)) {
-      opts.speed *= 8;
-      opts.fade *= 8;
-      opts.playFn = fx.playRealTime;
-    }
-
-    const animation = new BeamFX(map, from, to, sprite, opts.speed, opts.fade, opts.stepFn);
-    return opts.playFn(animation);
-  }
-
-  fx.beam = beam;
-
-
-
-  class ExplosionFX extends FX {
-    // TODO - take opts instead of individual params (do opts setup here)
-    constructor(map, fovGrid, x, y, radius, sprite, speed, fade, shape, center, stepFn) {
-      speed = speed || 20;
-      super({ speed });
-      this.map = map;
-      this.grid = alloc(map.width, map.height);
-      if (fovGrid) {
-        this.grid.copy(fovGrid);
-      }
-      else {
-        this.grid.fill(1);
-      }
-      this.x = x;
-      this.y = y;
-      this.radius = 0;
-      this.maxRadius = radius;
-      this.sprite = sprite;
-      this.fade = fade || 100;
-      this.shape = shape || 'o';
-      this.center = (center === undefined) ? true : center;
-      this.stepFn = stepFn || TRUE;
-      this.count = 0;
-    }
-
-    start() {
-      if (this.center) {
-        this.visit(this.x, this.y);
-      }
-      else {
-        this.step();
-      }
-    }
-
-    step() {
-      if (this.radius >= this.maxRadius) return false;
-
-      this.radius = Math.min(this.radius + 1, this.maxRadius);
-
-      let done = true;
-      let x = Math.max(0, Math.floor(this.x - this.maxRadius));
-      const maxX = Math.min(this.grid.width - 1, Math.ceil(this.x + this.maxRadius));
-      let minY = Math.max(0, Math.floor(this.y - this.maxRadius));
-      const maxY = Math.min(this.grid.height - 1, Math.ceil(this.y + this.maxRadius));
-      let col;
-      let dist;
-
-      for(; x <= maxX; ++x) {
-        col = this.grid[x];
-        for(let y = minY; y <= maxY; ++y) {
-          if (col[y] != 1) continue;  // not in FOV
-          dist = distanceBetween(this.x, this.y, x, y);
-          if (dist <= this.radius) {
-            this.visit(x, y);
-          }
-          else if (dist <= this.maxRadius) {
-            done = false;
-          }
-        }
-      }
-      ui.requestUpdate(48);
-
-      // fx.debug('returning...', done);
-      if (done && (this.count == 0)) {
-        return this.stop(this); // xy of explosion is callback value
-      }
-      return false;
-    }
-
-    visit(x, y) {
-      if (this.isInShape(x, y) && this.stepFn(x, y)) {
-        this.count += 1;
-        const anim = new SpriteFX(this.map, this.sprite, x, y, { duration: this.fade });
-        this.playFx(anim).then( () => {
-          --this.count;
-          if (this.count == 0) {
-            this.stop(this);
-          }
-        });
-        // fx.flashSprite(this.map, x, y, this.sprite, this.fade);
-      }
-      this.grid[x][y] = 2;
-    }
-
-    isInShape(x, y) {
-      const sx = Math.abs(x - this.x);
-      const sy = Math.abs(y - this.y);
-      if (sx == 0 && sy == 0 && !this.center) return false;
-      switch(this.shape) {
-        case '+': return sx == 0 || sy == 0;
-        case 'x': return sx == sy;
-        case '*': return (sx == 0 || sy == 0 || sx == sy);
-        default: return true;
-      }
-    }
-
-    stop(result) {
-      this.grid = free(this.grid);
-      return super.stop(result);
-    }
-  }
-
-  function checkExplosionOpts(opts) {
-    opts.speed = opts.speed || 5;
-    opts.fade = opts.fade || 10;
-    opts.playFn = fx.playGameTime;
-    opts.shape = opts.shape || 'o';
-    if (opts.center === undefined) { opts.center = true; }
-
-    if (opts.realTime || (!opts.gameTime)) {
-      opts.speed = opts.speed * 8;
-      opts.fade = opts.fade * 8;
-      opts.playFn = fx.playRealTime;
-    }
-  }
-
-  function explosion(map, x, y, radius, sprite, opts={}) {
-    checkExplosionOpts(opts);
-    opts.stepFn = opts.stepFn || ((x, y) => !map.isObstruction(x, y));
-    const animation = new ExplosionFX(map, null, x, y, radius, sprite, opts.speed, opts.fade, opts.shape, opts.center, opts.stepFn);
-    map.calcFov(animation.grid, x, y, radius);
-    return opts.playFn(animation);
-  }
-
-  fx.explosion = explosion;
-
-  function explosionFor(map, grid, x, y, radius, sprite, opts={}) {
-    checkExplosionOpts(opts);
-    opts.stepFn = opts.stepFn || ((x, y) => !map.isObstruction(x, y));
-    const animation = new ExplosionFX(map, grid, x, y, radius, sprite, opts.speed, opts.fade, opts.shape, opts.center, opts.stepFn);
-    return opts.playFn(animation);
-  }
-
-  fx.explosionFor = explosionFor;
-
   var fov = {};
 
   fov.debug = NOOP;
@@ -12106,9 +11560,9 @@ void main() {
     const ctx2 = { map, x: defender.x, y: defender.y, volume: ctx.damage };
 
     if (map) {
-      let hit = firstOpt('fx', attackInfo, ctx, false);
-      if (hit) {
-        await fx.hit(map, defender);
+      let hit$1 = firstOpt('fx', attackInfo, ctx, false);
+      if (hit$1) {
+        await hit(map, defender);
       }
       if (defender.kind.blood) {
         await spawn(defender.kind.blood, ctx2);
@@ -12146,7 +11600,7 @@ void main() {
 
     if (actor.grabbed) {
       message.add('§you§ §let§ go of §a item§.', { actor, item: actor.grabbed });
-      await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+      await flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
       actor.grabbed = null;
       actor.endTurn();
       return true;
@@ -14525,7 +13979,7 @@ void main() {
   	const dt = Math.floor(t - time);
   	time = t;
 
-  	if ((!IN_DIALOG) && fx.tick(dt)) {
+  	if ((!IN_DIALOG) && tick(dt)) {
   		ui.draw();
   	}
   	else {
@@ -15117,7 +14571,7 @@ void main() {
   ui.blackOutDisplay = blackOutDisplay;
 
 
-  const TARGET_SPRITE = sprite.install('target', 'green', 50);
+  const TARGET_SPRITE = install$1('target', 'green', 50);
 
   async function chooseTarget(choices, prompt, opts={}) {
   	console.log('choose Target');
@@ -15727,7 +15181,7 @@ void main() {
       if (isPlayer) {
         message.forPlayer(actor, 'Blocked!');
         // TURN ENDED (1/2 turn)?
-        await fx.flashSprite(map, newX, newY, 'hit', 50, 1);
+        await flashSprite(map, newX, newY, 'hit', 50, 1);
       }
       return false;
     }
@@ -15735,7 +15189,7 @@ void main() {
       if (isPlayer)  {
         message.forPlayer(actor, 'Blocked!');
         // TURN ENDED (1/2 turn)?
-        await fx.flashSprite(map, newX, newY, 'hit', 50, 1);
+        await flashSprite(map, newX, newY, 'hit', 50, 1);
       }
       return false;
     }
@@ -15778,7 +15232,7 @@ void main() {
 
       if (blocked) {
         message.forPlayer(actor, '%s let go of %s.', actor.getName(), actor.grabbed.getName('a'));
-        await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+        await flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
         actor.grabbed = null;
       }
     }
@@ -15860,7 +15314,7 @@ void main() {
       const damage = actor.kind.calcBashDamage(actor, item, ctx);
       if (item.kind.applyDamage(item, damage, actor, ctx)) {
         if (actor.isPlayer()) message.add('BASH_ITEM', { actor, item, damage });
-        await fx.flashSprite(map, item.x, item.y, 'hit', 100, 1);
+        await flashSprite(map, item.x, item.y, 'hit', 100, 1);
       }
     }
     else {
@@ -16033,7 +15487,7 @@ void main() {
     }
 
     if (item.kind.projectile) {
-      await fx.projectile(map, actor, target, item.kind.projectile);
+      await projectile(map, actor, target, item.kind.projectile);
     }
 
     if (typeof damage === 'function') {
@@ -16049,7 +15503,7 @@ void main() {
 
     const ctx2 = { map: map, x: target.x, y: target.y, volume: damage };
 
-    await fx.hit(data.map, target);
+    await hit(data.map, target);
     if (target.kind.blood) {
       await spawn(target.kind.blood, ctx2);
     }
@@ -16131,7 +15585,7 @@ void main() {
 
     actor.grabbed = item;
     message.add('§you§ §grab§ §a item§.', { actor, item: actor.grabbed });
-    await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+    await flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
     actor.endTurn();
     return true;
   }
@@ -16143,7 +15597,7 @@ void main() {
     if (!actor.grabbed) return false;
 
     message.add('§you§ §let§ go of §a item§.', { actor, item: actor.grabbed });
-    await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+    await flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
     actor.grabbed = null;
     actor.endTurn();
     return true;

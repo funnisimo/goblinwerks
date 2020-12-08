@@ -3,6 +3,7 @@ import * as Flags from '../flags.js';
 import * as Utils from '../utils.js';
 import * as TileEvent from '../tileEvent.js';
 import { gameOver } from '../game.js';
+import * as FX from '../fx.js';
 import * as GW from '../gw.js';
 import { actions as Actions } from './index.js';
 
@@ -35,7 +36,7 @@ export async function itemAttack(actor, target, ctx={}) {
   }
 
   if (item.kind.projectile) {
-    await GW.fx.projectile(map, actor, target, item.kind.projectile);
+    await FX.projectile(map, actor, target, item.kind.projectile);
   }
 
   if (typeof damage === 'function') {
@@ -51,7 +52,7 @@ export async function itemAttack(actor, target, ctx={}) {
 
   const ctx2 = { map: map, x: target.x, y: target.y, volume: damage };
 
-  await GW.fx.hit(GW.data.map, target);
+  await FX.hit(GW.data.map, target);
   if (target.kind.blood) {
     await TileEvent.spawn(target.kind.blood, ctx2);
   }

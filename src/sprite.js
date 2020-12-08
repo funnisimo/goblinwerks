@@ -1,15 +1,9 @@
 
 import { Mixer } from 'gw-canvas';
 import * as Color from './color.js';
-import { types, make, ui } from './gw.js';
+import * as GW from './gw.js';
 
-const TEMP_BG = new types.Color();
-
-export var sprites = {};
-export var sprite = {};
-
-const HANGING_LETTERS = ['y', 'p', 'g', 'j', 'q', '[', ']', '(', ')', '{', '}', '|'];
-const FLYING_LETTERS = ["'", '"', '$', 'f', '[', ']', '|'];
+const TEMP_BG = new GW.types.Color();
 
 export class Sprite extends Mixer {
 	constructor(ch=' ', fg=null, bg=null, opacity) {
@@ -58,64 +52,9 @@ export class Sprite extends Mixer {
     return this;
   }
 
-	// draw(ch, fg, bg) {
-	// 	this.wasHanging = this.wasHanging || (ch != null && HANGING_LETTERS.includes(ch));
-  //   this.wasFlying  = this.wasFlying  || (ch != null && FLYING_LETTERS.includes(ch));
-	// 	if (!this.opacity) {
-	// 		this.ch = ' ';
-	// 	}
-  //   if (ch) { this.ch = ch; }
-	// 	if (fg) { this.fg.copy(fg); }
-  //   if (bg) { this.bg.copy(bg); }
-  //   this.opacity = 100;
-  //   this.needsUpdate = true;
-	// }
-  //
-	// drawSprite(sprite, alpha=100) {
-  //   const opacity = Math.floor(sprite.opacity * alpha / 100);
-	// 	if (opacity == 0) return false;
-  //
-  //   if (opacity >= 100) {
-  //     this.draw(sprite.ch, sprite.fg, sprite.bg);
-  //     return true;
-  //   }
-  //
-	// 	this.wasHanging = this.wasHanging || (sprite.ch != null && HANGING_LETTERS.includes(sprite.ch));
-  //   this.wasFlying  = this.wasFlying  || (sprite.ch != null && FLYING_LETTERS.includes(sprite.ch));
-  //
-  //   // ch and fore color:
-  //   if (sprite.ch && sprite.ch != ' ') { // Blank cells in the overbuf take the ch from the screen.
-  //     this.ch = sprite.ch;
-  //   }
-  //
-	// 	if (sprite.fg && sprite.ch != ' ') {
-	// 		this.fg.mix(sprite.fg, opacity);
-	// 	}
-  //
-	// 	if (sprite.bg) {
-	// 		this.bg.mix(sprite.bg, opacity);
-	// 	}
-  //
-  //   if (this.ch != ' ' && this.fg.equals(this.bg))
-  //   {
-  //     this.ch = ' ';
-  //   }
-	// 	this.opacity = Math.max(this.opacity, opacity);
-	// 	this.needsUpdate = true;
-	// 	return true;
-	// }
-  //
-	// bake(force) {
-	// 	if (this.fg && (force || !this.fg.dances)) {
-	// 		this.fg.bake();
-	// 	}
-	// 	if (this.bg && (force || !this.bg.dances)) {
-	// 		this.bg.bake();
-	// 	}
-	// }
 }
 
-types.Sprite = Sprite;
+GW.types.Sprite = Sprite;
 
 export function makeSprite(ch, fg, bg, opacity) {
   if (ch && ch instanceof Color.Color) {
@@ -151,12 +90,10 @@ export function makeSprite(ch, fg, bg, opacity) {
   return { ch, fg, bg, opacity };
 }
 
-make.sprite = makeSprite;
+GW.make.sprite = makeSprite;
 
-export function installSprite(name, ch, fg, bg, opacity) {
-	const sprite = make.sprite(ch, fg, bg, opacity);
-	sprites[name] = sprite;
+export function install(name, ch, fg, bg, opacity) {
+	const sprite = GW.make.sprite(ch, fg, bg, opacity);
+	GW.sprites[name] = sprite;
 	return sprite;
 }
-
-sprite.install = installSprite;
