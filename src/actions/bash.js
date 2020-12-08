@@ -1,6 +1,7 @@
 
 import * as Flags from '../flags.js';
 import * as TileEvent from '../tileEvent.js';
+import * as FX from '../fx.js';
 import * as GW from '../gw.js';
 import { actions as Actions } from './index.js';
 
@@ -27,7 +28,7 @@ export async function bashItem(actor, item, ctx) {
     const damage = actor.kind.calcBashDamage(actor, item, ctx);
     if (item.kind.applyDamage(item, damage, actor, ctx)) {
       if (actor.isPlayer()) GW.message.add('BASH_ITEM', { actor, item, damage });
-      await GW.fx.flashSprite(map, item.x, item.y, 'hit', 100, 1);
+      await FX.flashSprite(map, item.x, item.y, 'hit', 100, 1);
     }
   }
   else {

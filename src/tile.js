@@ -26,7 +26,7 @@ export class Tile {
       mechFlags: 0,
       layer: 0,
       priority: -1,
-      sprite: make.sprite(),
+      sprite: {},
       events: {},
       light: null,  // id of light for this tile
       flavor: null,
@@ -135,7 +135,7 @@ export class Tile {
     if (this.flags & Flags.Tile.T_LAVA && actor) {
       if (!cell.hasTileFlag(Flags.Tile.T_BRIDGE) && !actor.status.levitating) {
         actor.kill();
-        await Game.gameOver(false, '#red#you fall into lava and perish.');
+        await Game.gameOver(false, 'ΩredΩyou fall into lava and perish.');
         return true;
       }
     }

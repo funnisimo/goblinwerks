@@ -38,6 +38,18 @@
     - Crows Nest
     - ???
 
+* Types of Ship
+  - Galleon: 400
+  - Frigate: 200
+  - Barque: 100
+  - Brig: 60
+  - Schooner: 40
+  - Tartem: 30
+  - Ketch: 20
+  - Sloop: 15
+  - Lugger: 10
+
+
 * Store
   - Spyglass
   - Sextant

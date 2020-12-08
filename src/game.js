@@ -10,10 +10,11 @@ import { actor as ACTOR } from './actor.js';
 import { player as PLAYER } from './player.js';
 import { scheduler } from './scheduler.js';
 import * as Text from './text.js';
-import { sprite as SPRITE } from './sprite.js';
+import * as Sprite from './sprite.js';
 import * as Visibility from './visibility.js';
+import * as FX from './fx.js';
 
-import { viewport as VIEWPORT, data as DATA, maps as MAPS, types, fx as FX, ui as UI, message as MSG, make, config as CONFIG, flavor as FLAVOR, colors as COLORS } from './gw.js';
+import { viewport as VIEWPORT, data as DATA, maps as MAPS, types, ui as UI, message as MSG, make, config as CONFIG, flavor as FLAVOR, colors as COLORS } from './gw.js';
 
 const GAME_DEBUG = Utils.NOOP;
 
@@ -270,7 +271,7 @@ export async function updateEnvironment() {
 
 
 
-SPRITE.install('hilite', COLORS.white);
+Sprite.install('hilite', COLORS.white);
 
 export async function gameOver(isWin, msg, args) {
   if (args) {
@@ -291,7 +292,6 @@ export async function gameOver(isWin, msg, args) {
   UI.updateNow();
   await FX.flashSprite(DATA.map, DATA.player.x, DATA.player.y, 'hilite', 500, 3);
   DATA.gameHasEnded = true;
-
 }
 
 

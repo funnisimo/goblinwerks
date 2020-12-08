@@ -1,4 +1,6 @@
 
+const diff = require('jest-diff').default;
+
 expect.extend({
   toBeInRange(received, lo, hi) {
     if (typeof lo !== 'number') {
@@ -67,35 +69,92 @@ expect.extend({
       message: () => `Expected ${received} to equal ${expected}`,
     });
   },
-  toEqualColor(received, ...expected) {
-    if (expected.length == 1 && Array.isArray(expected[0])) {
-      expected = expected[0];
-    }
-    if (!Array.isArray(expected)) {
-      throw new Error('expected must be an array.');
-    }
-    if (!Array.isArray(received)) {
-      throw new Error('value must be a color object.');
+
+  toBakeFrom(received, expected) {
+    const options = {
+      comment: 'toBakeFrom',
+      isNot: this.isNot,
+      promise: this.promise,
+    };
+
+    let pass = false;
+    let e = expected;
+
+    if (received) {
+      let r = received;
+
+      pass = (r[0] >= e[0]) && (r[0] <= e[0] + e[3] + e[4]);
+      pass = pass && (r[1] >= e[1]) && (r[1] <= e[1] + e[3] + e[5]);
+      pass = pass && (r[2] >= e[2]) && (r[2] <= e[2] + e[3] + e[6]);
     }
 
-    while( expected.length < received.length ) {
-      expected.push(0);
-    }
+    const message = pass
+      ? () =>
+          this.utils.matcherHint('toBakeFrom', undefined, undefined, options) +
+          '\n\n' +
+          `Expected: not ${this.utils.printExpected(expected)}\n` +
+          `Received: ${this.utils.printReceived(received)}`
+      : () => {
+          const diffString = diff(expected, received, {
+            expand: this.expand,
+          });
+          return (
+            this.utils.matcherHint('toBakeFrom', undefined, undefined, options) +
+            '\n\n' +
+            (diffString && diffString.includes('- Expect')
+              ? `Difference:\n\n${diffString}`
+              : `Expected: ${this.utils.printExpected(expected)}\n` +
+                `Received: ${this.utils.printReceived(received)}`)
+          );
+        };
 
-    let success = (expected.length == received.length);
-    for( let i = 0; i < expected.length && success; ++i) {
-      if (expected[i] != received[i]) {
-        success = false;
-      }
-    }
-
-    return success ? ({
-      pass: true,
-      message: () => `Expected ${received} not to equal ${expected}`,
-    }) : ({
-      pass: false,
-      message: () => `Expected ${received} to equal ${expected}`,
-    });
+    return {actual: received, message, pass};
   },
+
+  toEqual(received, expected) {
+      const options = {
+        comment: 'toEqual',
+        isNot: this.isNot,
+        promise: this.promise,
+      };
+
+      let matchType = 'equals';
+      let pass = false;
+      if (received && received.equals) {
+        pass = received.equals(expected);
+        // console.log('received.equals', pass, received.toString(true), expected.toString(true));
+      }
+      else if (expected && expected.equals) {
+        pass = expected.equals(received);
+        // console.log('expected.equals', pass, received.toString(true), expected.toString(true));
+      }
+      else {
+        matchType = 'deep equals';
+        pass = this.equals(received, expected);
+        // console.log('this.equals', pass, received.toString(true), expected.toString(true));
+      }
+
+      const message = pass
+        ? () =>
+            this.utils.matcherHint(matchType, undefined, undefined, options) +
+            '\n\n' +
+            `Expected: not ${this.utils.printExpected(expected)}\n` +
+            `Received: ${this.utils.printReceived(received)}`
+        : () => {
+            const diffString = diff(expected, received, {
+              expand: this.expand,
+            });
+            return (
+              this.utils.matcherHint(matchType, undefined, undefined, options) +
+              '\n\n' +
+              (diffString && diffString.includes('- Expect')
+                ? `Difference:\n\n${diffString}`
+                : `Expected: ${this.utils.printExpected(expected)}\n` +
+                  `Received: ${this.utils.printReceived(received)}`)
+            );
+          };
+
+      return {actual: received, message, pass};
+    },
 
 });

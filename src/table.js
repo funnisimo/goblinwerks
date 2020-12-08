@@ -20,9 +20,9 @@ export class Column {
     this.empty = empty || '-';
   }
 
-  plotData(buffer, x, y, data, index, color) {
+  draw(buffer, x, y, data, index, color) {
     if (!data) {
-      buffer.plotText(x, y, this.empty, color);
+      buffer.drawText(x, y, this.empty, color);
       return Text.length(this.empty);
     }
 
@@ -33,14 +33,14 @@ export class Column {
     else {
       text = this.template(data);
     }
-    buffer.plotText(x, y, text, color);
+    buffer.drawText(x, y, text, color);
     return Text.length(text);
   }
 
-  plotHeader(buffer, x, y) {
+  drawHeader(buffer, x, y) {
     if (!this.name) return 0;
 
-    buffer.plotText(x, y, this.name);
+    buffer.drawText(x, y, this.name);
     return Text.length(this.name);
   }
 }
@@ -83,22 +83,22 @@ export class Table {
     return this;
   }
 
-  plot(buffer, x0, y0, data) {
+  draw(buffer, x0, y0, data) {
     if (Array.isArray(data)) {
-      return this._plotArray(buffer, x0, y0, data);
+      return this._drawArray(buffer, x0, y0, data);
     }
-    return this._plotChain(buffer, x0, y0, data);
+    return this._drawChain(buffer, x0, y0, data);
   }
 
-  _plotChain(buffer, x0, y0, data) {
-    return this._plot(buffer, x0, y0, (current) => {
+  _drawChain(buffer, x0, y0, data) {
+    return this._draw(buffer, x0, y0, (current) => {
       return current ? current.next : data;
     });
   }
 
-  _plotArray(buffer, x0, y0, data) {
+  _drawArray(buffer, x0, y0, data) {
     let index = -1;
-    return this._plot(buffer, x0, y0, () => {
+    return this._draw(buffer, x0, y0, () => {
       ++index;
       if (index < data.length) {
         return data[index];
@@ -108,7 +108,7 @@ export class Table {
     });
   }
 
-  _plot(buffer, x0, y0, nextFn) {
+  _draw(buffer, x0, y0, nextFn) {
     if (this.bounds.width) {
       buffer.blackOutRect(this.bounds.x, this.bounds.y, this.bounds.width, this.bounds.height, this.bg);
     }
@@ -122,7 +122,7 @@ export class Table {
       let maxWidth = 0;
       y = y0;
       if (this.headers && hasHeaders) {
-        maxWidth = Math.max(maxWidth, column.plotHeader(buffer, x, y++));
+        maxWidth = Math.max(maxWidth, column.drawHeader(buffer, x, y++));
       }
 
       this.count = 0;
@@ -136,7 +136,7 @@ export class Table {
         if (current.disabled) {
           color = color.clone().mix(this.disabledColor, 50);
         }
-        maxWidth = Math.max(maxWidth, column.plotData(buffer, x, y, current, this.count, color));
+        maxWidth = Math.max(maxWidth, column.draw(buffer, x, y, current, this.count, color));
         ++y;
         current = nextFn(current);
         ++this.count;

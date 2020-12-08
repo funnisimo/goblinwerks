@@ -4,6 +4,7 @@ export var def = {};
 export var types = {};
 
 export var colors = {};
+export var sprites = {};
 
 export var make = {};
 export var install = {};
@@ -14,7 +15,6 @@ export var viewport = {};
 export var flavor = {};
 export var sidebar = {};
 
-export var fx = {};
 export var commands = {};
 export var ai = {};
 

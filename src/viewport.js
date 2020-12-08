@@ -3,6 +3,7 @@
 import * as Utils from './utils.js';
 import * as Flags from './flags.js';
 import { map as MAP } from './map.js';
+import { Sprite } from './sprite.js';
 import { viewport, types, data as DATA, ui as UI, config as CONFIG } from './gw.js';
 
 
@@ -63,19 +64,19 @@ function drawViewport(buffer, map) {
     }
   }
 
+  const buf = new Sprite()
   for(let x = 0; x < VIEWPORT.width; ++x) {
     for(let y = 0; y < VIEWPORT.height; ++y) {
 
-      const buf = buffer[x + VIEWPORT.x][y + VIEWPORT.y];
+      buf.blackOut();
       const mapX = x + VIEWPORT.offsetX;
       const mapY = y + VIEWPORT.offsetY;
       if (map.hasXY(mapX, mapY)) {
         MAP.getCellAppearance(map, mapX, mapY, buf);
         map.clearCellFlags(mapX, mapY, Flags.Cell.NEEDS_REDRAW | Flags.Cell.CELL_CHANGED);
       }
-      else {
-        buf.blackOut();
-      }
+
+      buffer.drawSprite(x + VIEWPORT.x, y + VIEWPORT.y, buf);
 
       if (VIEW_FILTER) {
         VIEW_FILTER(buf, mapX, mapY, map);

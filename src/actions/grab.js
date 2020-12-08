@@ -1,5 +1,6 @@
 
-import { message as MSG, fx as FX, data as DATA } from '../gw.js';
+import * as FX from '../fx.js';
+import { message as MSG, data as DATA } from '../gw.js';
 import { actions as Actions } from './index.js';
 
 

@@ -4,6 +4,7 @@ import * as Flags from './flags.js';
 import * as Utils from './utils.js';
 import * as Grid from './grid.js';
 import * as Text from './text.js';
+import { Sprite } from './sprite.js';
 import { cell as CELL } from './cell.js';
 import { map as MAP } from './map.js';
 import * as GW from './gw.js';
@@ -433,7 +434,7 @@ function sidebarAddActor(entry, y, dim, highlight, buf)
 
   const x = SIDE_BOUNDS.x;
 	if (y < SIDE_BOUNDS.height - 1) {
-		buf.plotText(x, y++, "                    ");
+		buf.drawText(x, y++, "                    ");
 	}
 
 	if (highlight) {
@@ -465,11 +466,11 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
   const x = SIDE_BOUNDS.x;
   const monstForeColor = dim ? fg : monst.kind.sprite.fg;
 
-	// buf.plotText(0, y, "                    ", fg, bg); // Start with a blank line
+	// buf.drawText(0, y, "                    ", fg, bg); // Start with a blank line
 
 	// Unhighlight if it's highlighted as part of the path.
 	const cell = map.cell(monst.x, monst.y);
-  const monstApp = buf[x][y];
+  const monstApp = new Sprite();
 	CELL.getAppearance(cell, monstApp);
 
 	if (dim) {
@@ -500,7 +501,8 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
       }
   }
 
-  buf.plotText(x + 1, y, ': ', fg);
+  buf.drawSprite(x, y, monstApp);
+  buf.drawText(x + 1, y, ': ', fg);
 	y = buf.wrapText(x + 3, y, SIDE_BOUNDS.width - 3, monstName, fg, bg);
 
 	return y;
@@ -677,7 +679,7 @@ function sidebarAddMapCell(entry, y, dim, highlight, buf) {
   const cell = entry.entity;
   const textColor = GW.colors.flavorText.clone();
   if (dim) {
-      textColor.applyScalar(50);
+      textColor.scale(50);
   }
 
 	if (y >= SIDE_BOUNDS.height - 1) {
@@ -687,14 +689,15 @@ function sidebarAddMapCell(entry, y, dim, highlight, buf) {
   const x = SIDE_BOUNDS.x;
 	const initialY = y;
 
-  const app = buf[x][y];
+  const app = new Sprite();
 	CELL.getAppearance(cell, app);
 	if (dim) {
 		app.fg.mix(bg, 50);
 		app.bg.mix(bg, 50);
 	}
 
-	buf.plotChar(x + 1, y, ":", fg, bg);
+  buf.drawSprite(x, y, app);
+	buf.draw(x + 1, y, ":", fg, bg);
 	let name = cell.getName();
 	name = Text.capitalize(name);
   y = buf.wrapText(x + 3, y, SIDE_BOUNDS.width - 3, name, textColor, bg);
@@ -735,14 +738,15 @@ function sidebarAddItemInfo(entry, y, dim, highlight, buf) {
 	const initialY = y;
   const x = SIDE_BOUNDS.x;
 
-  const app = buf[x][y];
+  const app = new Sprite();
 	CELL.getAppearance(cell, app);
 	if (dim) {
 		app.fg.mix(GW.colors.black, 50);
 		app.bg.mix(GW.colors.black, 50);
 	}
 
-	buf.plotChar(x + 1, y, ":", fg, GW.colors.black);
+  buf.drawSprite(x, y, app);
+	buf.draw(x + 1, y, ":", fg, GW.colors.black);
 	if (GW.config.playbackOmniscience || !DATA.player.status.hallucinating) {
 		name = theItem.getName({ color: !dim, details: true });
 	} else {

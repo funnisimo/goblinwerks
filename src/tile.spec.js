@@ -23,7 +23,7 @@ describe('tiles', () => {
   describe('BRIDGE', () => {
     test('has see through bg', () => {
       const tile = GW.tiles.BRIDGE;
-      expect(tile.sprite.bg).toBeNull();
+      expect(tile.sprite.bg).toBeUndefined();
     });
   });
 
@@ -89,7 +89,7 @@ describe('tiles', () => {
 
 
 
-describe('RL.Tile', () => {
+describe('Tile', () => {
 
   test('can be created from an object', () => {
     const tile = GW.tile.addKind('WALL', {
@@ -104,7 +104,7 @@ describe('RL.Tile', () => {
 
     expect(tile.flags).toEqual(GW.flags.tile.T_OBSTRUCTS_EVERYTHING);
     expect(tile.mechFlags).toEqual(0);
-    expect(tile.sprite).toMatchObject({ ch: '#', fg: GW.colors.light_gray, bg: GW.colors.dark_gray });
+    expect(tile.sprite).toEqual({ ch: '#', fg: GW.colors.light_gray, bg: GW.colors.dark_gray });
     expect(tile.layer).toEqual(GW.def.GROUND);
     expect(tile.events).toEqual({});
     expect(tile.priority).toEqual(90);
@@ -171,7 +171,7 @@ describe('RL.Tile', () => {
     expect(glassWall.flags & GW.flags.tile.T_OBSTRUCTS_PASSABILITY).toBeTruthy();
     expect(glassWall.getName()).toEqual('Glass Wall');
     expect(glassWall.sprite).not.toBe(wall.sprite);
-    expect(glassWall.sprite).toMatchObject({ ch: '+', fg: GW.colors.teal, bg: null });
+    expect(glassWall.sprite).toEqual({ ch: '+', fg: GW.colors.teal });
   });
 
   test('can add multiple from an object', () => {
@@ -237,7 +237,7 @@ describe('RL.Tile', () => {
       name: 'Custom Wall'
     });
 
-    expect(custom.sprite).toMatchObject({ ch: '+', fg: GW.colors.white, bg: null });
+    expect(custom.sprite).toEqual({ ch: '+', fg: GW.colors.white });
     expect(custom.name).toEqual('Custom Wall');
   });
 

@@ -4,6 +4,7 @@ import * as Utils from '../utils.js';
 import * as Actor from '../actor.js';
 import * as Item from '../item.js';
 import * as Game from '../game.js';
+import * as FX from '../fx.js';
 import * as GW from '../gw.js'
 import { actions as Actions } from './index.js';
 
@@ -78,7 +79,7 @@ export async function moveDir(actor, dir, opts={}) {
     if (isPlayer) {
       GW.message.forPlayer(actor, 'Blocked!');
       // TURN ENDED (1/2 turn)?
-      await GW.fx.flashSprite(map, newX, newY, 'hit', 50, 1);
+      await FX.flashSprite(map, newX, newY, 'hit', 50, 1);
     }
     return false;
   }
@@ -86,7 +87,7 @@ export async function moveDir(actor, dir, opts={}) {
     if (isPlayer)  {
       GW.message.forPlayer(actor, 'Blocked!');
       // TURN ENDED (1/2 turn)?
-      await GW.fx.flashSprite(map, newX, newY, 'hit', 50, 1);
+      await FX.flashSprite(map, newX, newY, 'hit', 50, 1);
     }
     return false;
   }
@@ -94,7 +95,7 @@ export async function moveDir(actor, dir, opts={}) {
   // CHECK SOME SANITY MOVES
   if (cell.hasTileFlag(Flags.Tile.T_LAVA) && !cell.hasTileFlag(Flags.Tile.T_BRIDGE)) {
     if (!isPlayer) return false;
-    if (!await UI.confirm('That is certain death!  Proceed anyway?')) {
+    if (!await GW.ui.confirm('That is certain death!  Proceed anyway?')) {
       return false;
     }
   }
@@ -129,7 +130,7 @@ export async function moveDir(actor, dir, opts={}) {
 
     if (blocked) {
       GW.message.forPlayer(actor, '%s let go of %s.', actor.getName(), actor.grabbed.getName('a'));
-      await GW.fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+      await FX.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
       actor.grabbed = null;
     }
   }

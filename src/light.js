@@ -27,7 +27,6 @@ class Light {
 		this.passThroughActors = other.passThroughActors;
 	}
 
-
   // Returns true if any part of the light hit cells that are in the player's field of view.
   paint( map, x, y, maintainShadows=false, isMinersLight=false) {
 
@@ -43,11 +42,11 @@ class Light {
   	// calcLightComponents(colorComponents, this);
     LIGHT_COMPONENTS.copy(this.color).bake();
 
-    // console.log('paint', LIGHT_COMPONENTS.css(), x, y, outerRadius);
+    // console.log('paint', LIGHT_COMPONENTS.toString(true), x, y, outerRadius);
 
   	// the miner's light does not dispel IS_IN_SHADOW,
   	// so the player can be in shadow despite casting his own light.
-  	const dispelShadows = !maintainShadows && (Color.intensity(LIGHT_COMPONENTS) > GW.def.INTENSITY_DARK);
+  	const dispelShadows = !maintainShadows && (intensity(LIGHT_COMPONENTS) > GW.def.INTENSITY_DARK);
   	const fadeToPercent = this.fadeTo;
 
     const grid = Grid.alloc(map.width, map.height, 0);
@@ -85,6 +84,12 @@ class Light {
 }
 
 GW.types.Light = Light;
+
+
+export function intensity(color) {
+  const data = color.color || color;
+  return Math.max(data[0], data[1], data[2]);
+}
 
 
 export function make(color, radius, fadeTo, pass) {
@@ -210,7 +215,7 @@ export function recordOldLights(map) {
 
 export function zeroOutLights(map) {
 	let k;
-  const light = map.ambientLight || [0,0,0];
+  const light = map.ambientLight ? map.ambientLight : [0,0,0];
   map.eachCell( (cell, i, j) => {
     for (k=0; k<3; k++) {
       cell.light[k] = light[k];

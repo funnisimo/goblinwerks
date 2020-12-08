@@ -13,15 +13,15 @@ async function showHelp() {
 	const buf = GW.ui.startDialog();
 
 	let y = 2;
-	buf.plotText(20, y++, 'GoblinWerks Dungeon Dig Example', 'green');
+	buf.drawText(20, y++, 'GoblinWerks Dungeon Dig Example', 'green');
 	y++;
 	y = buf.wrapText(15, y, 50, 'Explore the caves.');
 	y++;
-	buf.plotText(15, y, 'dir   ', 'yellow');
+	buf.drawText(15, y, 'dir   ', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Pressing an arrow key moves the player in that direction.', 'white', null, 2);
-	buf.plotText(15, y, 'space ', 'yellow');
+	buf.drawText(15, y, 'space ', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Wait a short time.', 'white', null, 2);
-	buf.plotText(15, y, '?', 'yellow');
+	buf.drawText(15, y, '?', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Show this screen.', 'lighter_gray');
 
 	buf.fillRect(14, 1, 52, y, null, null, 'black' );
@@ -31,9 +31,9 @@ async function showHelp() {
 	GW.ui.finishDialog();
 }
 
-GW.message.addKind('LEVEL_START', '#teal#At start of dungeon.');
-GW.message.addKind('LEVEL_ASCEND', '$you$ $ascend$ to level $level$.');
-GW.message.addKind('LEVEL_DESCEND', '$you$ $descend$ to level $level$.');
+GW.message.addKind('LEVEL_START', 'ΩtealΩAt start of dungeon.');
+GW.message.addKind('LEVEL_ASCEND', '§you§ §ascend§ to level §level§.');
+GW.message.addKind('LEVEL_DESCEND', '§you§ §descend§ to level §level§.');
 
 async function forceStairs(ev) {
 	const isUp = (ev.key == '<');
@@ -60,7 +60,7 @@ async function forceStairs(ev) {
   return true;
 }
 
-GW.message.addKind('WELCOME', '#yellow#Welcome to Town!\n#dark_purple#Visit our shops to equip yourself for a journey into the #green#Dungeons of Moria##.  Once you are prepared, enter the dungeon and seek the #dark_red#Balrog##.  Destroy him to free us all!\n##Press <?> for help.');
+GW.message.addKind('WELCOME', 'ΩyellowΩWelcome to Town!∆\nΩdark_purpleΩVisit our shops to equip yourself for a journey into the ΩgreenΩDungeons of Moria∆.  Once you are prepared, enter the dungeon and seek the Ωdark_redΩBalrog∆.  Destroy him to free us all!∆\nPress <?> for help.');
 
 // start the environment
 async function start() {

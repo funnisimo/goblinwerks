@@ -14,7 +14,7 @@ const PLAYER = GW.make.player({
 		speed: 120
 });
 
-GW.message.addKind('FINISH', 'Level: $level$');
+GW.message.addKind('FINISH', 'Level: §level§');
 
 async function crossedFinish() {
 	const map = makeMap(MAP.id + 1);
@@ -75,7 +75,7 @@ async function jump() {
 	let waiting = true;
 	let dir = null;
 
-	buf.plotLine(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, 'Jump: Which direction?', GW.colors.orange);
+	buf.wrapText(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, 'Jump: Which direction?', GW.colors.orange);
 
 	GW.ui.draw();
 
@@ -98,9 +98,9 @@ async function jump() {
 			},
 			update(newDir) {
 				GW.ui.resetDialog();
-				buf.plotLine(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, 'Jump: Which direction?', GW.colors.orange);
+				buf.wrapText(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, 'Jump: Which direction?', GW.colors.orange);
 				if (newDir) {
-					buf.plot(PLAYER.x + newDir[0]*2, PLAYER.y + newDir[1]*2, jumpHilite);
+					buf.drawSprite(PLAYER.x + newDir[0]*2, PLAYER.y + newDir[1]*2, jumpHilite);
 				}
 				dir = newDir;
 				GW.ui.draw();
@@ -170,7 +170,7 @@ GW.tile.addKind('LAVA_ERUPTED', {
 
 
 
-GW.message.addKind('MAP_WELCOME', 'Ωlight_blueΩErupt: $erupt$, Crust: §crust§, StartBreak: §start§, Break: §break§');
+GW.message.addKind('MAP_WELCOME', 'Ωlight_blueΩErupt: §erupt§, Crust: §crust§, StartBreak: §start§, Break: §break§');
 
 function makeMap(id=1) {
 	// dig a map
@@ -211,17 +211,17 @@ async function showHelp() {
 	const buf = GW.ui.startDialog();
 
 	let y = 2;
-	buf.plotText(10, y++, 'GoblinWerks Lava Hop Example', 'green');
+	buf.drawText(10, y++, 'GoblinWerks Lava Hop Example', 'green');
 	y++;
 	y = buf.wrapText(5, y, 40, 'This example is all about crossing the lava field by walking/jumping over the crusted lava.', 'white');
 	y++;
-	buf.plotText(5, y, 'dir   ', 'yellow');
+	buf.drawText(5, y, 'dir   ', 'yellow');
 	y = buf.wrapText(11, y, 32, ': Pressing an arrow key moves the player in that direction.', 'white', null, 2);
-	buf.plotText(5, y, 'j     ', 'yellow');
+	buf.drawText(5, y, 'j     ', 'yellow');
 	y = buf.wrapText(11, y, 32, ': Jump over one cell in a direction you choose.', 'lighter_gray', null, 2);
-	buf.plotText(5, y, 'space ', 'yellow');
+	buf.drawText(5, y, 'space ', 'yellow');
 	y = buf.wrapText(11, y, 32, ': Wait a short time.', 'white', null, 2);
-	buf.plotText(5, y, '?', 'yellow');
+	buf.drawText(5, y, '?', 'yellow');
 	y = buf.wrapText(11, y, 32, ': Show this screen.', 'lighter_gray');
 
 	buf.fillRect(4, 1, 42, y, null, null, 'black' );
@@ -247,7 +247,8 @@ async function start() {
 
 	MAP = makeMap();
 	GW.message.add('WELCOME');
-	GW.game.start({ player: PLAYER, map: MAP });
+	await GW.game.start({ player: PLAYER, map: MAP });
+  console.log('DONE');
 }
 
 window.onload = start;

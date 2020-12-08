@@ -7,7 +7,7 @@ async function showAbout() {
   buffer.blackOut();
 
   let text = GW.text.center('ΩgreenΩAbout', buffer.width);
-  buffer.plotText(0, 2, text);
+  buffer.drawText(0, 2, text);
 
   let y = 5;
   let x = 5;
@@ -18,7 +18,7 @@ async function showAbout() {
 
 
   text = GW.text.center('Press ΩgreenΩ[Any key]∆ to continue.', buffer.width);
-  buffer.plotText(0, y + 1, text);
+  buffer.drawText(0, y + 1, text);
 
   GW.ui.draw();
   await GW.io.nextKeyPress(-1);

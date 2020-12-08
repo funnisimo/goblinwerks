@@ -1,14 +1,12 @@
 
 import * as Grid from './grid.js';
 import * as Utils from './utils.js';
-import { sprites as SPRITES, installSprite } from './sprite.js';
+import * as Sprite from './sprite.js';
 import { map as MAP } from './map.js';
 import { io as IO } from './io.js';
 import { scheduler } from './scheduler.js';
 
-import { data as DATA, types, make, config as CONFIG, fx, ui as UI } from './gw.js';
-
-fx.debug = Utils.NOOP;
+import * as GW from './gw.js';
 
 let ANIMATIONS = [];
 
@@ -16,59 +14,52 @@ export function busy() {
   return ANIMATIONS.some( (a) => a );
 }
 
-fx.busy = busy;
-
 
 export async function playAll() {
-  while(fx.busy()) {
+  while(busy()) {
     const dt = await IO.nextTick();
     ANIMATIONS.forEach( (a) => a && a.tick(dt) );
     ANIMATIONS = ANIMATIONS.filter( (a) => a && !a.done );
   }
 }
 
-fx.playAll = playAll;
-
 
 export function tick(dt) {
   if (!ANIMATIONS.length) return false;
 
-  IO.pauseEvents();
   ANIMATIONS.forEach( (a) => a && a.tick(dt) );
   ANIMATIONS = ANIMATIONS.filter( (a) => a && !a.done );
-  IO.resumeEvents();
-
+  // if (ANIMATIONS.length == 0) {
+  //   IO.resumeEvents();
+  // }
   return true;
 }
-
-fx.tick = tick;
 
 let BUSY = false;
 
 export async function playRealTime(animation) {
-  animation.playFx = fx.playRealTime;
+  animation.playFx = playRealTime;
 
+  // IO.pauseEvents();
   animation.start();
   ANIMATIONS.push(animation);
   return new Promise( (resolve) => animation.callback = resolve );
 }
 
-fx.playRealTime = playRealTime;
 
 export async function playGameTime(anim) {
-  anim.playFx = fx.playGameTime;
+  anim.playFx = playGameTime;
 
   anim.start();
   scheduler.push(() => {
     anim.step();
-    UI.requestUpdate(1);
+    GW.ui.requestUpdate(1);
     return anim.done ? 0 : anim.speed;
   },  anim.speed);
 
   return new Promise( (resolve) => anim.callback = resolve );
 }
 
-fx.playGameTime = playGameTime;
 
 function lerp(from, to, pct) {
 	if (pct > 1) pct = 1;
@@ -108,7 +99,7 @@ export class FX {
 
 }
 
-types.FX = FX;
+GW.types.FX = FX;
 
 
 export class SpriteFX extends FX {
@@ -118,7 +109,7 @@ export class SpriteFX extends FX {
     opts.speed = opts.speed || (duration / (2*count-1));
     super(opts);
     if (typeof sprite === 'string') {
-      sprite = SPRITES[sprite];
+      sprite = GW.sprites[sprite];
     }
     this.map = map;
     this.sprite = sprite;
@@ -163,33 +154,28 @@ export class SpriteFX extends FX {
 
 export async function flashSprite(map, x, y, sprite, duration=100, count=1) {
   const anim = new SpriteFX(map, sprite, x, y, { duration, blink: count });
-  return fx.playRealTime(anim);
+  return playRealTime(anim);
 }
 
-fx.flashSprite = flashSprite;
 
-installSprite('bump', 'white', 50);
+Sprite.install('bump', 'white', 50);
 
 
 export async function hit(map, target, sprite, duration) {
-  sprite = sprite || CONFIG.fx.hitSprite || 'hit';
-  duration = duration || CONFIG.fx.hitFlashTime || 200;
-  await fx.flashSprite(map, target.x, target.y, sprite, duration, 1);
+  sprite = sprite || GW.config.fx.hitSprite || 'hit';
+  duration = duration || GW.config.fx.hitFlashTime || 200;
+  await flashSprite(map, target.x, target.y, sprite, duration, 1);
 }
 
-fx.hit = hit;
-
-installSprite('hit', 'red', 50);
+Sprite.install('hit', 'red', 50);
 
 export async function miss(map, target, sprite, duration) {
-  sprite = sprite || CONFIG.fx.missSprite || 'miss';
-  duration = duration || CONFIG.fx.missFlashTime || 200;
-  await fx.flashSprite(map, target.x, target.y, sprite, duration, 1);
+  sprite = sprite || GW.config.fx.missSprite || 'miss';
+  duration = duration || GW.config.fx.missFlashTime || 200;
+  await flashSprite(map, target.x, target.y, sprite, duration, 1);
 }
 
-fx.miss = miss;
-
-installSprite('miss', 'green', 50);
+Sprite.install('miss', 'green', 50);
 
 
 export class MovingSpriteFX extends SpriteFX {
@@ -221,7 +207,7 @@ export class MovingSpriteFX extends SpriteFX {
   }
 }
 
-types.MovingSpriteFX = MovingSpriteFX;
+GW.types.MovingSpriteFX = MovingSpriteFX;
 
 
 export async function bolt(map, source, target, sprite, opts={}) {
@@ -230,17 +216,16 @@ export async function bolt(map, source, target, sprite, opts={}) {
   }
   opts.speed = opts.speed || 3;
   opts.stepFn = opts.stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
-  opts.playFn = fx.playGameTime;
+  opts.playFn = playGameTime;
   if (opts.realTime || (!opts.gameTime)) {
     opts.speed *= 16;
-    opts.playFn = fx.playRealTime;
+    opts.playFn = playRealTime;
   }
 
   const anim = new MovingSpriteFX(map, source, target, sprite, opts.speed, opts.stepFn);
   return opts.playFn(anim);
 }
 
-fx.bolt = bolt;
 
 export async function projectile(map, source, target, sprite, opts) {
   if (sprite.ch.length == 4) {
@@ -262,10 +247,9 @@ export async function projectile(map, source, target, sprite, opts) {
     Utils.ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
   }
 
-  return fx.bolt(map, source, target, sprite, opts);
+  return bolt(map, source, target, sprite, opts);
 }
 
-fx.projectile = projectile;
 
 
 //
@@ -386,7 +370,7 @@ export class BeamFX extends FX {
 
   moveTo(x, y) {
     if (!this.map.hasXY(x, y)) {
-      fx.debug('BEAM - invalid x,y', x, y);
+      // fx.debug('BEAM - invalid x,y', x, y);
       return;
     }
     this.x = x;
@@ -399,24 +383,22 @@ export class BeamFX extends FX {
 
 }
 
-types.BeamFX = BeamFX;
 
 export function beam(map, from, to, sprite, opts={}) {
   opts.fade = opts.fade || 5;
   opts.speed = opts.speed || 1;
   opts.stepFn = opts.stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
-  opts.playFn = fx.playGameTime;
+  opts.playFn = playGameTime;
   if (opts.realTime || (!opts.gameTime)) {
     opts.speed *= 8;
     opts.fade *= 8;
-    opts.playFn = fx.playRealTime;
+    opts.playFn = playRealTime;
   }
 
   const animation = new BeamFX(map, from, to, sprite, opts.speed, opts.fade, opts.stepFn);
   return opts.playFn(animation);
 }
 
-fx.beam = beam;
 
 
 
@@ -480,7 +462,7 @@ class ExplosionFX extends FX {
         }
       }
     }
-    UI.requestUpdate(48);
+    GW.ui.requestUpdate(48);
 
     // fx.debug('returning...', done);
     if (done && (this.count == 0)) {
@@ -499,7 +481,7 @@ class ExplosionFX extends FX {
           this.stop(this);
         }
       });
-      // fx.flashSprite(this.map, x, y, this.sprite, this.fade);
+      // flashSprite(this.map, x, y, this.sprite, this.fade);
     }
     this.grid[x][y] = 2;
   }
@@ -525,14 +507,14 @@ class ExplosionFX extends FX {
 function checkExplosionOpts(opts) {
   opts.speed = opts.speed || 5;
   opts.fade = opts.fade || 10;
-  opts.playFn = fx.playGameTime;
+  opts.playFn = playGameTime;
   opts.shape = opts.shape || 'o';
   if (opts.center === undefined) { opts.center = true; }
 
   if (opts.realTime || (!opts.gameTime)) {
     opts.speed = opts.speed * 8;
     opts.fade = opts.fade * 8;
-    opts.playFn = fx.playRealTime;
+    opts.playFn = playRealTime;
   }
 }
 
@@ -544,7 +526,6 @@ export function explosion(map, x, y, radius, sprite, opts={}) {
   return opts.playFn(animation);
 }
 
-fx.explosion = explosion;
 
 export function explosionFor(map, grid, x, y, radius, sprite, opts={}) {
   checkExplosionOpts(opts);
@@ -552,5 +533,3 @@ export function explosionFor(map, grid, x, y, radius, sprite, opts={}) {
   const animation = new ExplosionFX(map, grid, x, y, radius, sprite, opts.speed, opts.fade, opts.shape, opts.center, opts.stepFn);
   return opts.playFn(animation);
 }
-
-fx.explosionFor = explosionFor;

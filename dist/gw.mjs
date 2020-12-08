@@ -2,6 +2,7 @@ var def = {};
 var types = {};
 
 var colors = {};
+var sprites = {};
 
 var make = {};
 var install = {};
@@ -12,7 +13,6 @@ var viewport = {};
 var flavor = {};
 var sidebar = {};
 
-var fx = {};
 var commands$1 = {};
 var ai = {};
 
@@ -394,7 +394,7 @@ function setDefaults(obj, def, custom=null) {
         dest[key] = defValue.slice();
       }
       else if (typeof defValue === 'object') {
-        dest[key] = Object.assign({}, defValue);
+        dest[key] = defValue; // Object.assign({}, defValue); -- this breaks assigning a Color object as a default...
       }
       else {
         dest[key] = defValue;
@@ -432,6 +432,17 @@ function kindDefaults(obj, def) {
   }
 
   return setDefaults(obj, def, custom);
+}
+
+function pick(obj, ...fields) {
+  const data = {};
+  fields.forEach( (f) => {
+    const v = obj[f];
+    if (v !== undefined) {
+      data[f] = v;
+    }
+  });
+  return data;
 }
 
 function clearObject(obj) {
@@ -567,6 +578,7 @@ var utils$1 = {
   setDefault: setDefault,
   setDefaults: setDefaults,
   kindDefaults: kindDefaults,
+  pick: pick,
   clearObject: clearObject,
   ERROR: ERROR,
   WARN: WARN,
@@ -1553,277 +1565,1110 @@ function makeRange(config, rng) {
 
 make.range = makeRange;
 
-// export var color = {};
+// Copy of: https://github.com/ondras/fastiles/blob/master/ts/utils.ts (v2.1.0)
+const QUAD = [
+    0, 0, 1, 0, 0, 1,
+    0, 1, 1, 0, 1, 1
+];
+function createProgram(gl, ...sources) {
+    const p = gl.createProgram();
+    [gl.VERTEX_SHADER, gl.FRAGMENT_SHADER].forEach((type, index) => {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, sources[index]);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            throw new Error(gl.getShaderInfoLog(shader));
+        }
+        gl.attachShader(p, shader);
+    });
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+        throw new Error(gl.getProgramInfoLog(p));
+    }
+    return p;
+}
+function createTexture(gl) {
+    let t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    return t;
+}
+function createGeometry(gl, attribs, width, height) {
+    let tileCount = width * height;
+    let positionData = new Uint16Array(tileCount * QUAD.length);
+    let uvData = new Uint8Array(tileCount * QUAD.length);
+    let i = 0;
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            QUAD.forEach(value => {
+                positionData[i] = (i % 2 ? y : x) + value;
+                uvData[i] = value;
+                i++;
+            });
+        }
+    }
+    const position = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, position);
+    gl.vertexAttribIPointer(attribs["position"], 2, gl.UNSIGNED_SHORT, 0, 0);
+    gl.bufferData(gl.ARRAY_BUFFER, positionData, gl.STATIC_DRAW);
+    const uv = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, uv);
+    gl.vertexAttribIPointer(attribs["uv"], 2, gl.UNSIGNED_BYTE, 0, 0);
+    gl.bufferData(gl.ARRAY_BUFFER, uvData, gl.STATIC_DRAW);
+    return { position, uv };
+}
+
+// Based on: https://github.com/ondras/fastiles/blob/master/ts/shaders.ts (v2.1.0)
+const VS = `
+#version 300 es
+in uvec2 position;
+in uvec2 uv;
+in uint style;
+out vec2 fsUv;
+flat out uint fsStyle;
+uniform highp uvec2 tileSize;
+uniform uvec2 viewportSize;
+void main() {
+	ivec2 positionPx = ivec2(position * tileSize);
+	vec2 positionNdc = (vec2(positionPx * 2) / vec2(viewportSize))-1.0;
+	positionNdc.y *= -1.0;
+	gl_Position = vec4(positionNdc, 0.0, 1.0);
+	fsUv = vec2(uv);
+	fsStyle = style;
+}`.trim();
+const FS = `
+#version 300 es
+precision highp float;
+in vec2 fsUv;
+flat in uint fsStyle;
+out vec4 fragColor;
+uniform sampler2D font;
+uniform highp uvec2 tileSize;
+void main() {
+	uvec2 fontTiles = uvec2(textureSize(font, 0)) / tileSize;
+
+	uint glyph = (fsStyle & uint(0xFF000000)) >> 24;
+	uint glyphX = (glyph & uint(0xF));
+	uint glyphY = (glyph >> 4);
+	uvec2 fontPosition = uvec2(glyphX, glyphY);
+
+	uvec2 fontPx = (tileSize * fontPosition) + uvec2(vec2(tileSize) * fsUv);
+	vec3 texel = texelFetch(font, ivec2(fontPx), 0).rgb;
+
+	float s = 15.0;
+	uint fr = (fsStyle & uint(0xF00)) >> 8;
+	uint fg = (fsStyle & uint(0x0F0)) >> 4;
+	uint fb = (fsStyle & uint(0x00F)) >> 0;
+	vec3 fgRgb = vec3(fr, fg, fb) / s;
+  
+	uint br = (fsStyle & uint(0xF00000)) >> 20;
+	uint bg = (fsStyle & uint(0x0F0000)) >> 16;
+	uint bb = (fsStyle & uint(0x00F000)) >> 12;
+	vec3 bgRgb = vec3(br, bg, bb) / s;
+  
+	fragColor = vec4(mix(bgRgb, fgRgb, texel), 1.0);
+}`.trim();
+
+// Based on: https://github.com/ondras/fastiles/blob/master/ts/scene.ts (v2.1.0)
+const VERTICES_PER_TILE = 6;
+class Canvas {
+    constructor(options) {
+        this._data = new Uint32Array();
+        this._buffers = {};
+        this._attribs = {};
+        this._uniforms = {};
+        this._renderRequested = false;
+        this._autoRender = true;
+        this._width = 50;
+        this._height = 25;
+        if (!options.glyphs)
+            throw new Error('You must supply glyphs for the canvas.');
+        this._gl = this._initGL(options.node);
+        this._configure(options);
+    }
+    get node() { return this._gl.canvas; }
+    get width() { return this._width; }
+    get height() { return this._height; }
+    get tileWidth() { return this._glyphs.tileWidth; }
+    get tileHeight() { return this._glyphs.tileHeight; }
+    get pxWidth() { return this.node.clientWidth; }
+    get pxHeight() { return this.node.clientHeight; }
+    get glyphs() { return this._glyphs; }
+    set glyphs(glyphs) {
+        const gl = this._gl;
+        const uniforms = this._uniforms;
+        if (glyphs === this._glyphs && !glyphs.needsUpdate)
+            return;
+        if (glyphs !== this._glyphs) {
+            this._glyphs = glyphs;
+            this.resize(this._width, this._height);
+            gl.uniform2uiv(uniforms["tileSize"], [this.tileWidth, this.tileHeight]);
+        }
+        this._uploadGlyphs();
+    }
+    _configure(options) {
+        this._width = options.width || this._width;
+        this._height = options.height || this._height;
+        this._autoRender = (options.render !== false);
+        this.glyphs = options.glyphs;
+    }
+    resize(width, height) {
+        this._width = width;
+        this._height = height;
+        const node = this.node;
+        node.width = this._width * this.tileWidth;
+        node.height = this._height * this.tileHeight;
+        const gl = this._gl;
+        const uniforms = this._uniforms;
+        gl.viewport(0, 0, node.width, node.height);
+        gl.uniform2ui(uniforms["viewportSize"], node.width, node.height);
+        this._createGeometry();
+        this._createData();
+    }
+    draw(x, y, glyph, fg, bg) {
+        let index = y * this._width + x;
+        index *= VERTICES_PER_TILE;
+        glyph = glyph & 0xFF;
+        bg = bg & 0xFFF;
+        fg = fg & 0xFFF;
+        const style = (glyph << 24) + (bg << 12) + fg;
+        this._data[index + 2] = style;
+        this._data[index + 5] = style;
+        this._requestRender();
+    }
+    copy(buffer) {
+        buffer.data.forEach((style, i) => {
+            const index = i * VERTICES_PER_TILE;
+            this._data[index + 2] = style;
+            this._data[index + 5] = style;
+        });
+        this._requestRender();
+    }
+    copyTo(buffer) {
+        const n = this.width * this.height;
+        const dest = buffer.data;
+        for (let i = 0; i < n; ++i) {
+            const index = i * VERTICES_PER_TILE;
+            dest[i] = this._data[index + 2];
+        }
+    }
+    _initGL(node) {
+        if (typeof node === 'string') {
+            const el = document.getElementById(node);
+            if (!el)
+                throw new Error('Failed to find element with id:' + node);
+            if (!(el instanceof HTMLCanvasElement)) {
+                node = document.createElement('canvas');
+                el.appendChild(node);
+            }
+            else {
+                node = el;
+            }
+        }
+        else if (!node) {
+            node = document.createElement("canvas");
+        }
+        let gl = node.getContext("webgl2");
+        if (!gl) {
+            throw new Error("WebGL 2 not supported");
+        }
+        const p = createProgram(gl, VS, FS);
+        gl.useProgram(p);
+        const attributeCount = gl.getProgramParameter(p, gl.ACTIVE_ATTRIBUTES);
+        for (let i = 0; i < attributeCount; i++) {
+            gl.enableVertexAttribArray(i);
+            let info = gl.getActiveAttrib(p, i);
+            this._attribs[info.name] = i;
+        }
+        const uniformCount = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+        for (let i = 0; i < uniformCount; i++) {
+            let info = gl.getActiveUniform(p, i);
+            this._uniforms[info.name] = gl.getUniformLocation(p, info.name);
+        }
+        gl.uniform1i(this._uniforms["font"], 0);
+        this._texture = createTexture(gl);
+        return gl;
+    }
+    _createGeometry() {
+        const gl = this._gl;
+        this._buffers.position && gl.deleteBuffer(this._buffers.position);
+        this._buffers.uv && gl.deleteBuffer(this._buffers.uv);
+        let buffers = createGeometry(gl, this._attribs, this._width, this._height);
+        Object.assign(this._buffers, buffers);
+    }
+    _createData() {
+        const gl = this._gl;
+        const attribs = this._attribs;
+        const tileCount = this._width * this._height;
+        this._buffers.style && gl.deleteBuffer(this._buffers.style);
+        this._data = new Uint32Array(tileCount * VERTICES_PER_TILE);
+        const style = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, style);
+        gl.vertexAttribIPointer(attribs["style"], 1, gl.UNSIGNED_INT, 0, 0);
+        Object.assign(this._buffers, { style });
+    }
+    _requestRender() {
+        if (this._renderRequested)
+            return;
+        this._renderRequested = true;
+        if (!this._autoRender)
+            return;
+        requestAnimationFrame(() => this.render());
+    }
+    render() {
+        const gl = this._gl;
+        if (this._glyphs.needsUpdate) { // auto keep glyphs up to date
+            this._uploadGlyphs();
+        }
+        else if (!this._renderRequested) {
+            return;
+        }
+        this._renderRequested = false;
+        gl.bindBuffer(gl.ARRAY_BUFFER, this._buffers.style);
+        gl.bufferData(gl.ARRAY_BUFFER, this._data, gl.DYNAMIC_DRAW);
+        gl.drawArrays(gl.TRIANGLES, 0, this._width * this._height * VERTICES_PER_TILE);
+    }
+    _uploadGlyphs() {
+        if (!this._glyphs.needsUpdate)
+            return;
+        const gl = this._gl;
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, this._texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this._glyphs.node);
+        this._requestRender();
+        this._glyphs.needsUpdate = false;
+    }
+    hasXY(x, y) {
+        return x >= 0 && y >= 0 && x < this.width && y < this.height;
+    }
+    toX(x) {
+        return Math.floor(this.width * x / this.node.clientWidth);
+    }
+    toY(y) {
+        return Math.floor(this.height * y / this.node.clientHeight);
+    }
+}
+
+class Glyphs {
+    constructor(opts = {}) {
+        this._tileWidth = 12;
+        this._tileHeight = 16;
+        this.needsUpdate = true;
+        this._map = {};
+        opts.font = opts.font || 'monospace';
+        this._node = document.createElement('canvas');
+        this._ctx = this.node.getContext('2d');
+        this._configure(opts);
+    }
+    static fromImage(src) {
+        if (typeof src === 'string') {
+            if (src.startsWith('data:'))
+                throw new Error('Glyph: You must load a data string into an image element and use that.');
+            const el = document.getElementById(src);
+            if (!el)
+                throw new Error('Glyph: Failed to find image element with id:' + src);
+            src = el;
+        }
+        const glyph = new this({ tileWidth: src.width / 16, tileHeight: src.height / 16 });
+        glyph._ctx.drawImage(src, 0, 0);
+        return glyph;
+    }
+    static fromFont(src) {
+        if (typeof src === 'string') {
+            src = { font: src };
+        }
+        const glyphs = new this(src);
+        const basicOnly = src.basicOnly || src.basic || false;
+        glyphs._initGlyphs(basicOnly);
+        return glyphs;
+    }
+    get node() { return this._node; }
+    get tileWidth() { return this._tileWidth; }
+    get tileHeight() { return this._tileHeight; }
+    get pxWidth() { return this._node.width; }
+    get pxHeight() { return this._node.height; }
+    forChar(ch) {
+        if (ch === null || ch === undefined)
+            return -1;
+        return this._map[ch] || -1;
+    }
+    _configure(opts) {
+        this._tileWidth = opts.tileWidth || this.tileWidth;
+        this._tileHeight = opts.tileHeight || this.tileHeight;
+        this.node.width = 16 * this.tileWidth;
+        this.node.height = 16 * this.tileHeight;
+        this._ctx.fillStyle = 'black';
+        this._ctx.fillRect(0, 0, this.pxWidth, this.pxHeight);
+        const size = opts.fontSize || opts.size || Math.max(this.tileWidth, this.tileHeight);
+        this._ctx.font = '' + size + 'px ' + opts.font;
+        this._ctx.textAlign = 'center';
+        this._ctx.textBaseline = 'middle';
+        this._ctx.fillStyle = 'white';
+    }
+    draw(n, ch) {
+        if (n > 256)
+            throw new Error('Cannot draw more than 256 glyphs.');
+        const x = (n % 16) * this.tileWidth;
+        const y = Math.floor(n / 16) * this.tileHeight;
+        const cx = x + Math.floor(this.tileWidth / 2);
+        const cy = y + Math.floor(this.tileHeight / 2);
+        this._ctx.save();
+        this._ctx.beginPath();
+        this._ctx.rect(x, y, this.tileWidth, this.tileHeight);
+        this._ctx.clip();
+        if (typeof ch === 'function') {
+            ch(this._ctx, x, y, this.tileWidth, this.tileHeight);
+        }
+        else {
+            if (this._map[ch] === undefined)
+                this._map[ch] = n;
+            this._ctx.fillText(ch, cx, cy);
+        }
+        this._ctx.restore();
+        this.needsUpdate = true;
+    }
+    _initGlyphs(basicOnly = false) {
+        for (let i = 32; i < 127; ++i) {
+            this.draw(i, String.fromCharCode(i));
+        }
+        if (!basicOnly) {
+            [' ', '\u263a', '\u263b', '\u2665', '\u2666', '\u2663', '\u2660', '\u263c',
+                '\u2600', '\u2605', '\u2606', '\u2642', '\u2640', '\u266a', '\u266b', '\u2638',
+                '\u25b6', '\u25c0', '\u2195', '\u203c', '\u204b', '\u262f', '\u2318', '\u2616',
+                '\u2191', '\u2193', '\u2192', '\u2190', '\u2126', '\u2194', '\u25b2', '\u25bc',
+            ].forEach((ch, i) => {
+                this.draw(i, ch);
+            });
+            // [
+            // '\u2302',
+            // '\u2b09', '\u272a', '\u2718', '\u2610', '\u2611', '\u25ef', '\u25ce', '\u2690',
+            // '\u2691', '\u2598', '\u2596', '\u259d', '\u2597', '\u2744', '\u272d', '\u2727',
+            // '\u25e3', '\u25e4', '\u25e2', '\u25e5', '\u25a8', '\u25a7', '\u259a', '\u265f',
+            // '\u265c', '\u265e', '\u265d', '\u265b', '\u265a', '\u301c', '\u2694', '\u2692',
+            // '\u25b6', '\u25bc', '\u25c0', '\u25b2', '\u25a4', '\u25a5', '\u25a6', '\u257a',
+            // '\u257b', '\u2578', '\u2579', '\u2581', '\u2594', '\u258f', '\u2595', '\u272d',
+            // '\u2591', '\u2592', '\u2593', '\u2503', '\u252b', '\u2561', '\u2562', '\u2556',
+            // '\u2555', '\u2563', '\u2551', '\u2557', '\u255d', '\u255c', '\u255b', '\u2513',
+            // '\u2517', '\u253b', '\u2533', '\u2523', '\u2501', '\u254b', '\u255e', '\u255f',
+            // '\u255a', '\u2554', '\u2569', '\u2566', '\u2560', '\u2550', '\u256c', '\u2567',
+            // '\u2568', '\u2564', '\u2565', '\u2559', '\u2558', '\u2552', '\u2553', '\u256b',
+            // '\u256a', '\u251b', '\u250f', '\u2588', '\u2585', '\u258c', '\u2590', '\u2580',
+            // '\u03b1', '\u03b2', '\u0393', '\u03c0', '\u03a3', '\u03c3', '\u03bc', '\u03c4',
+            // '\u03a6', '\u03b8', '\u03a9', '\u03b4', '\u221e', '\u03b8', '\u03b5', '\u03b7',
+            // '\u039e', '\u00b1', '\u2265', '\u2264', '\u2234', '\u2237', '\u00f7', '\u2248',
+            // '\u22c4', '\u22c5', '\u2217', '\u27b5', '\u2620', '\u2625', '\u25fc', '\u25fb'
+            // ].forEach( (ch, i) => {
+            //   this.draw(i + 127, ch); 
+            // });
+            ['\u2302',
+                '\u00C7', '\u00FC', '\u00E9', '\u00E2', '\u00E4', '\u00E0', '\u00E5', '\u00E7',
+                '\u00EA', '\u00EB', '\u00E8', '\u00EF', '\u00EE', '\u00EC', '\u00C4', '\u00C5',
+                '\u00C9', '\u00E6', '\u00C6', '\u00F4', '\u00F6', '\u00F2', '\u00FB', '\u00F9',
+                '\u00FF', '\u00D6', '\u00DC', '\u00A2', '\u00A3', '\u00A5', '\u20A7', '\u0192',
+                '\u00E1', '\u00ED', '\u00F3', '\u00FA', '\u00F1', '\u00D1', '\u00AA', '\u00BA',
+                '\u00BF', '\u2310', '\u00AC', '\u00BD', '\u00BC', '\u00A1', '\u00AB', '\u00BB',
+                '\u2591', '\u2592', '\u2593', '\u2502', '\u2524', '\u2561', '\u2562', '\u2556',
+                '\u2555', '\u2563', '\u2551', '\u2557', '\u255D', '\u255C', '\u255B', '\u2510',
+                '\u2514', '\u2534', '\u252C', '\u251C', '\u2500', '\u253C', '\u255E', '\u255F',
+                '\u255A', '\u2554', '\u2569', '\u2566', '\u2560', '\u2550', '\u256C', '\u2567',
+                '\u2568', '\u2564', '\u2565', '\u2559', '\u2558', '\u2552', '\u2553', '\u256B',
+                '\u256A', '\u2518', '\u250C', '\u2588', '\u2584', '\u258C', '\u2590', '\u2580',
+                '\u03B1', '\u00DF', '\u0393', '\u03C0', '\u03A3', '\u03C3', '\u00B5', '\u03C4',
+                '\u03A6', '\u0398', '\u03A9', '\u03B4', '\u221E', '\u03C6', '\u03B5', '\u2229',
+                '\u2261', '\u00B1', '\u2265', '\u2264', '\u2320', '\u2321', '\u00F7', '\u2248',
+                '\u00B0', '\u2219', '\u00B7', '\u221A', '\u207F', '\u00B2', '\u25A0', '\u00A0'
+            ].forEach((ch, i) => {
+                this.draw(i + 127, ch);
+            });
+        }
+    }
+}
+
+var options = {
+    random: Math.random.bind(Math),
+    colorLookup: ((_) => null),
+};
+function configure(opts = {}) {
+    Object.assign(options, opts);
+}
+
+function toColorInt(r = 0, g = 0, b = 0, base256 = false) {
+    if (base256) {
+        r = Math.max(0, Math.min(255, Math.round(r * 2.550001)));
+        g = Math.max(0, Math.min(255, Math.round(g * 2.550001)));
+        b = Math.max(0, Math.min(255, Math.round(b * 2.550001)));
+        return (r << 16) + (g << 8) + b;
+    }
+    r = Math.max(0, Math.min(15, Math.round(r / 100 * 15)));
+    g = Math.max(0, Math.min(15, Math.round(g / 100 * 15)));
+    b = Math.max(0, Math.min(15, Math.round(b / 100 * 15)));
+    return (r << 8) + (g << 4) + b;
+}
+class Color extends Int16Array {
+    static fromArray(vals, base256 = false) {
+        while (vals.length < 3)
+            vals.push(0);
+        if (base256) {
+            for (let i = 0; i < 7; ++i) {
+                vals[i] = Math.round((vals[i] || 0) * 100 / 255);
+            }
+        }
+        return new this(...vals);
+    }
+    static fromCss(css) {
+        if (!css.startsWith('#')) {
+            throw new Error('Color CSS strings must be of form "#abc" or "#abcdef" - received: [' + css + ']');
+        }
+        const c = Number.parseInt(css.substring(1), 16);
+        let r, g, b;
+        if (css.length == 4) {
+            r = Math.round((c >> 8) / 15 * 100);
+            g = Math.round(((c & 0xF0) >> 4) / 15 * 100);
+            b = Math.round((c & 0xF) / 15 * 100);
+        }
+        else {
+            r = Math.round((c >> 16) / 255 * 100);
+            g = Math.round(((c & 0xFF00) >> 8) / 255 * 100);
+            b = Math.round((c & 0xFF) / 255 * 100);
+        }
+        return new this(r, g, b);
+    }
+    static fromNumber(val, base256 = false) {
+        const c = new this();
+        for (let i = 0; i < c.length; ++i) {
+            c[i] = 0;
+        }
+        if (val < 0) {
+            c._r = -1;
+        }
+        else if (base256 || (val > 0xFFF)) {
+            c._r = Math.round(((val & 0xFF0000) >> 16) * 100 / 255);
+            c._g = Math.round(((val & 0xFF00) >> 8) * 100 / 255);
+            c._b = Math.round((val & 0xFF) * 100 / 255);
+        }
+        else {
+            c._r = Math.round(((val & 0xF00) >> 8) * 100 / 15);
+            c._g = Math.round(((val & 0xF0) >> 4) * 100 / 15);
+            c._b = Math.round((val & 0xF) * 100 / 15);
+        }
+        return c;
+    }
+    static make(arg, base256 = false) {
+        if ((arg === undefined) || (arg === null))
+            return new this(-1);
+        if (arg instanceof Color) {
+            return arg.clone();
+        }
+        if (typeof arg === 'string') {
+            const l = options.colorLookup(arg);
+            if (l)
+                return l.clone();
+            return this.fromCss(arg);
+        }
+        else if (Array.isArray(arg)) {
+            return this.fromArray(arg, base256);
+        }
+        else if (typeof arg === 'number') {
+            if (arg < 0)
+                return new this(-1);
+            return this.fromNumber(arg, base256);
+        }
+        throw new Error('Failed to make color - unknown argument: ' + JSON.stringify(arg));
+    }
+    static from(...args) {
+        const arg = args[0];
+        if (arg instanceof Color)
+            return arg;
+        if (arg < 0)
+            return new this(-1);
+        if (typeof arg === 'string') {
+            const l = options.colorLookup(arg);
+            if (l)
+                return l;
+        }
+        return this.make(arg, args[1]);
+    }
+    constructor(r = -1, g = 0, b = 0, rand = 0, redRand = 0, greenRand = 0, blueRand = 0) {
+        super(7);
+        this.set([r, g, b, rand, redRand, greenRand, blueRand]);
+    }
+    get r() { return Math.round(this[0] * 2.550001); }
+    get _r() { return this[0]; }
+    set _r(v) { this[0] = v; }
+    get g() { return Math.round(this[1] * 2.550001); }
+    get _g() { return this[1]; }
+    set _g(v) { this[1] = v; }
+    get b() { return Math.round(this[2] * 2.550001); }
+    get _b() { return this[2]; }
+    set _b(v) { this[2] = v; }
+    get _rand() { return this[3]; }
+    get _redRand() { return this[4]; }
+    get _greenRand() { return this[5]; }
+    get _blueRand() { return this[6]; }
+    // luminosity (0-100)
+    get l() {
+        return Math.round(0.5 * (Math.min(this._r, this._g, this._b) + Math.max(this._r, this._g, this._b)));
+    }
+    // saturation (0-100)
+    get s() {
+        if (this.l >= 100)
+            return 0;
+        return Math.round((Math.max(this._r, this._g, this._b) - Math.min(this._r, this._g, this._b)) * (100 - Math.abs(this.l * 2 - 100)) / 100);
+    }
+    // hue (0-360)
+    get h() {
+        let H = 0;
+        let R = this.r;
+        let G = this.g;
+        let B = this.b;
+        if (R >= G && G >= B) {
+            H = 60 * ((G - B) / (R - B));
+        }
+        else if (G > R && R >= B) {
+            H = 60 * (2 - (R - B) / (G - B));
+        }
+        else if (G >= B && B > R) {
+            H = 60 * (2 + (B - R) / (G - R));
+        }
+        else if (B > G && G > R) {
+            H = 60 * (4 - (G - R) / (B - R));
+        }
+        else if (B > R && R >= G) {
+            H = 60 * (4 + (R - G) / (B - G));
+        }
+        else {
+            H = 60 * (6 - (B - G) / (R - G));
+        }
+        return Math.round(H);
+    }
+    isNull() { return this._r < 0; }
+    equals(other) {
+        if (typeof other === 'string') {
+            return (other.length > 4) ? (this.toString(true) == other) : (this.toString() == other);
+        }
+        else if (typeof other === 'number') {
+            return (this.toInt() == other) || (this.toInt(true) == other);
+        }
+        const O = Color.from(other);
+        if (this.isNull())
+            return O.isNull();
+        return this.every((v, i) => {
+            return v == (O[i] || 0);
+        });
+    }
+    copy(other) {
+        if (Array.isArray(other)) {
+            this.set(other);
+        }
+        else {
+            const O = Color.from(other);
+            this.set(O);
+        }
+        return this;
+    }
+    _changed() {
+        return this;
+    }
+    clone() {
+        // @ts-ignore
+        const other = new this.constructor();
+        other.copy(this);
+        return other;
+    }
+    assign(_r = -1, _g = 0, _b = 0, _rand = 0, _redRand = 0, _greenRand = 0, _blueRand = 0) {
+        for (let i = 0; i < this.length; ++i) {
+            this[i] = (arguments[i] || 0);
+        }
+        return this;
+    }
+    assignRGB(_r = -1, _g = 0, _b = 0, _rand = 0, _redRand = 0, _greenRand = 0, _blueRand = 0) {
+        for (let i = 0; i < this.length; ++i) {
+            this[i] = Math.round((arguments[i] || 0) / 2.55);
+        }
+        return this;
+    }
+    nullify() {
+        this[0] = -1;
+        return this;
+    }
+    blackOut() {
+        for (let i = 0; i < this.length; ++i) {
+            this[i] = 0;
+        }
+        return this;
+    }
+    toInt(base256 = false) {
+        if (this.isNull())
+            return -1;
+        return toColorInt(this._r, this._g, this._b, base256);
+    }
+    clamp() {
+        if (this.isNull())
+            return this;
+        this._r = Math.min(100, Math.max(0, this._r));
+        this._g = Math.min(100, Math.max(0, this._g));
+        this._b = Math.min(100, Math.max(0, this._b));
+        return this._changed();
+    }
+    mix(other, percent) {
+        const O = Color.from(other);
+        if (O.isNull())
+            return this;
+        if (this.isNull()) {
+            this.blackOut();
+        }
+        percent = Math.min(100, Math.max(0, percent));
+        const keepPct = 100 - percent;
+        for (let i = 0; i < this.length; ++i) {
+            this[i] = Math.round(((this[i] * keepPct) + (O[i] * percent)) / 100);
+        }
+        return this._changed();
+    }
+    // Only adjusts r,g,b
+    lighten(percent) {
+        if (this.isNull())
+            return this;
+        percent = Math.min(100, Math.max(0, percent));
+        if (percent <= 0)
+            return;
+        const keepPct = 100 - percent;
+        for (let i = 0; i < 3; ++i) {
+            this[i] = Math.round(((this[i] * keepPct) + (100 * percent)) / 100);
+        }
+        return this._changed();
+    }
+    // Only adjusts r,g,b
+    darken(percent) {
+        if (this.isNull())
+            return this;
+        percent = Math.min(100, Math.max(0, percent));
+        if (percent <= 0)
+            return;
+        const keepPct = 100 - percent;
+        for (let i = 0; i < 3; ++i) {
+            this[i] = Math.round(((this[i] * keepPct) + (0 * percent)) / 100);
+        }
+        return this._changed();
+    }
+    bake() {
+        if (this.isNull())
+            return this;
+        const d = this;
+        if (d[3] + d[4] + d[5] + d[6]) {
+            const rand = this._rand ? Math.floor(options.random() * this._rand) : 0;
+            const redRand = this._redRand ? Math.floor(options.random() * this._redRand) : 0;
+            const greenRand = this._greenRand ? Math.floor(options.random() * this._greenRand) : 0;
+            const blueRand = this._blueRand ? Math.floor(options.random() * this._blueRand) : 0;
+            this._r += (rand + redRand);
+            this._g += (rand + greenRand);
+            this._b += (rand + blueRand);
+            for (let i = 3; i < this.length; ++i) {
+                this[i] = 0;
+            }
+            return this._changed();
+        }
+        return this;
+    }
+    // Adds a color to this one
+    add(other, percent = 100) {
+        const O = Color.from(other);
+        if (O.isNull())
+            return this;
+        if (this.isNull()) {
+            this.blackOut();
+        }
+        for (let i = 0; i < this.length; ++i) {
+            this[i] += Math.round(O[i] * percent / 100);
+        }
+        return this._changed();
+    }
+    scale(percent) {
+        if (this.isNull() || percent == 100)
+            return this;
+        percent = Math.max(0, percent);
+        for (let i = 0; i < this.length; ++i) {
+            this[i] = Math.round(this[i] * percent / 100);
+        }
+        return this._changed();
+    }
+    multiply(other) {
+        if (this.isNull())
+            return this;
+        let data = other;
+        if (!Array.isArray(other)) {
+            if (other.isNull())
+                return this;
+            data = other;
+        }
+        const len = Math.max(3, Math.min(this.length, data.length));
+        for (let i = 0; i < len; ++i) {
+            this[i] = Math.round(this[i] * (data[i] || 0) / 100);
+        }
+        return this._changed();
+    }
+    // scales rgb down to a max of 100
+    normalize() {
+        if (this.isNull())
+            return this;
+        const max = Math.max(this._r, this._g, this._b);
+        if (max <= 100)
+            return this;
+        this._r = Math.round(100 * this._r / max);
+        this._g = Math.round(100 * this._g / max);
+        this._b = Math.round(100 * this._b / max);
+        return this._changed();
+    }
+    css(base256 = false) {
+        const d = this;
+        let v = 0;
+        if (d[3] + d[4] + d[5] + d[6]) {
+            const rand = this._rand ? Math.floor(options.random() * this._rand) : 0;
+            const redRand = this._redRand ? Math.floor(options.random() * this._redRand) : 0;
+            const greenRand = this._greenRand ? Math.floor(options.random() * this._greenRand) : 0;
+            const blueRand = this._blueRand ? Math.floor(options.random() * this._blueRand) : 0;
+            const red = (this._r + rand + redRand);
+            const green = (this._g + rand + greenRand);
+            const blue = (this._b + rand + blueRand);
+            v = toColorInt(red, green, blue, base256);
+        }
+        else {
+            v = this.toInt(base256);
+        }
+        return '#' + v.toString(16).padStart(base256 ? 6 : 3, '0');
+    }
+    toString(base256 = false) {
+        if (this.isNull())
+            return 'null color';
+        return '#' + this.toInt(base256).toString(16).padStart(base256 ? 6 : 3, '0');
+    }
+    // adjusts the luminosity of 2 colors to ensure there is enough separation between them
+    static separate(a, b) {
+        if (a.isNull() || b.isNull())
+            return;
+        const A = a.clone().clamp();
+        const B = b.clone().clamp();
+        // console.log('separate');
+        // console.log('- a=%s, h=%d, s=%d, l=%d', A.toString(), A.h, A.s, A.l);
+        // console.log('- b=%s, h=%d, s=%d, l=%d', B.toString(), B.h, B.s, B.l);
+        let hDiff = Math.abs(A.h - B.h);
+        if (hDiff > 180) {
+            hDiff = 360 - hDiff;
+        }
+        if (hDiff > 45)
+            return; // colors are far enough apart in hue to be distinct
+        const dist = 40;
+        if (Math.abs(A.l - B.l) >= dist)
+            return;
+        // Get them sorted by saturation ( we will darken the more saturated color and lighten the other)
+        const [lo, hi] = [A, B].sort((a, b) => a.s - b.s);
+        // console.log('- lo=%s, hi=%s', lo.toString(), hi.toString());
+        while ((hi.l - lo.l) < dist) {
+            hi.mix(WHITE, 5);
+            lo.mix(BLACK, 5);
+        }
+        a.copy(A);
+        b.copy(B);
+        // console.log('=>', a.toString(), b.toString());
+    }
+}
+const BLACK = new Color(0, 0, 0);
+const WHITE = new Color(100, 100, 100);
+
+class DataBuffer {
+    constructor(width, height) {
+        this._width = width;
+        this._height = height;
+        this._data = new Uint32Array(width * height);
+    }
+    get data() { return this._data; }
+    get width() { return this._width; }
+    get height() { return this._height; }
+    get(x, y) {
+        let index = y * this.width + x;
+        const style = this._data[index] || 0;
+        const glyph = (style >> 24);
+        const bg = (style >> 12) & 0xFFF;
+        const fg = (style & 0xFFF);
+        return { glyph, fg, bg };
+    }
+    _toGlyph(ch) {
+        if (ch === null || ch === undefined)
+            return -1;
+        return ch.charCodeAt(0);
+    }
+    draw(x, y, glyph = -1, fg = -1, bg = -1) {
+        let index = y * this.width + x;
+        const current = this._data[index] || 0;
+        if (typeof glyph !== 'number') {
+            glyph = this._toGlyph(glyph);
+        }
+        if (typeof fg !== 'number') {
+            fg = Color.from(fg).toInt();
+        }
+        if (typeof bg !== 'number') {
+            bg = Color.from(bg).toInt();
+        }
+        glyph = (glyph >= 0) ? (glyph & 0xFF) : (current >> 24);
+        bg = (bg >= 0) ? (bg & 0xFFF) : ((current >> 12) & 0xFFF);
+        fg = (fg >= 0) ? (fg & 0xFFF) : (current & 0xFFF);
+        const style = (glyph << 24) + (bg << 12) + fg;
+        this._data[index] = style;
+        return this;
+    }
+    // This is without opacity - opacity must be done in Mixer
+    drawSprite(x, y, sprite) {
+        const glyph = sprite.ch ? sprite.ch : sprite.glyph;
+        // const fg = sprite.fg ? sprite.fg.toInt() : -1;
+        // const bg = sprite.bg ? sprite.bg.toInt() : -1;
+        return this.draw(x, y, glyph, sprite.fg, sprite.bg);
+    }
+    blackOut(x, y) {
+        if (arguments.length == 0) {
+            return this.fill(0, 0, 0);
+        }
+        return this.draw(x, y, 0, 0, 0);
+    }
+    fill(glyph = 0, fg = 0xFFF, bg = 0) {
+        if (typeof glyph == 'string') {
+            glyph = this._toGlyph(glyph);
+        }
+        glyph = glyph & 0xFF;
+        fg = fg & 0xFFF;
+        bg = bg & 0xFFF;
+        const style = (glyph << 24) + (bg << 12) + fg;
+        this._data.fill(style);
+        return this;
+    }
+    copy(other) {
+        this._data.set(other._data);
+        return this;
+    }
+}
+class Buffer extends DataBuffer {
+    constructor(canvas) {
+        super(canvas.width, canvas.height);
+        this._canvas = canvas;
+        canvas.copyTo(this);
+    }
+    get canvas() { return this._canvas; }
+    _toGlyph(ch) {
+        return this._canvas.glyphs.forChar(ch);
+    }
+    render() {
+        this._canvas.copy(this);
+        return this;
+    }
+    copyFromCanvas() {
+        this._canvas.copyTo(this);
+        return this;
+    }
+}
+
+class Mixer {
+    constructor() {
+        this.ch = -1;
+        this.fg = new Color();
+        this.bg = new Color();
+    }
+    _changed() {
+        return this;
+    }
+    copy(other) {
+        this.ch = other.ch;
+        this.fg.copy(other.fg);
+        this.bg.copy(other.bg);
+        return this._changed();
+    }
+    clone() {
+        const other = new Mixer();
+        other.copy(this);
+        return other;
+    }
+    nullify() {
+        this.ch = -1;
+        this.fg.nullify();
+        this.bg.nullify();
+        return this._changed();
+    }
+    blackOut() {
+        this.ch = 0;
+        this.fg.blackOut();
+        this.bg.blackOut();
+        return this._changed();
+    }
+    draw(ch = -1, fg = -1, bg = -1) {
+        if (ch && (ch !== -1)) {
+            this.ch = ch;
+        }
+        if ((fg !== -1) && (fg !== null)) {
+            fg = Color.from(fg);
+            this.fg.copy(fg);
+        }
+        if ((bg !== -1) && (bg !== null)) {
+            bg = Color.from(bg);
+            this.bg.copy(bg);
+        }
+        return this._changed();
+    }
+    drawSprite(info, opacity) {
+        if (opacity === undefined)
+            opacity = info.opacity;
+        if (opacity === undefined)
+            opacity = 100;
+        if (opacity <= 0)
+            return;
+        if (info.ch)
+            this.ch = info.ch;
+        else if (info.glyph !== undefined)
+            this.ch = info.glyph;
+        if (info.fg)
+            this.fg.mix(info.fg, opacity);
+        if (info.bg)
+            this.bg.mix(info.bg, opacity);
+        return this._changed();
+    }
+    invert() {
+        [this.bg, this.fg] = [this.fg, this.bg];
+        return this._changed();
+    }
+    multiply(color, fg = true, bg = true) {
+        color = Color.from(color);
+        if (fg) {
+            this.fg.multiply(color);
+        }
+        if (bg) {
+            this.bg.multiply(color);
+        }
+        return this._changed();
+    }
+    mix(color, fg = 50, bg = fg) {
+        color = Color.from(color);
+        if (fg > 0) {
+            this.fg.mix(color, fg);
+        }
+        if (bg > 0) {
+            this.bg.mix(color, bg);
+        }
+        return this._changed();
+    }
+    add(color, fg = 100, bg = fg) {
+        color = Color.from(color);
+        if (fg > 0) {
+            this.fg.add(color, fg);
+        }
+        if (bg > 0) {
+            this.bg.add(color, bg);
+        }
+        return this._changed();
+    }
+    separate() {
+        Color.separate(this.fg, this.bg);
+        return this._changed();
+    }
+    bake() {
+        this.fg.bake();
+        this.bg.bake();
+        this._changed();
+        return {
+            ch: this.ch,
+            fg: this.fg.toInt(),
+            bg: this.bg.toInt(),
+        };
+    }
+}
+
+configure({
+  colorLookup(name) {
+    return colors[name] || null
+  },
+});
 
 
-class Color extends Array {
+class Color$1 extends Color {
   constructor(...args) {
-    if (args.length == 1 && Array.isArray(args[0])) { args = args[0]; }
-    while(args.length < 7) args.push(0);
-    super(...args.slice(0,7));
-    this.dances = (args.length > 7 && !!args[7]);
-  }
-
-  get red() 	{ return this[0]; }
-  set red(v)  { this[0] = v; }
-  get green()  { return this[1]; }
-  set green(v) { this[1] = v; }
-  get blue() 	{ return this[2]; }
-  set blue(v) { this[2] = v; }
-
-  get rand() 	{ return this[3]; }
-  set rand(v)  { this[3] = v; }
-
-  get redRand() 	{ return this[4]; }
-  set redRand(v)  { this[4] = v; }
-  get greenRand()  { return this[5]; }
-  set greenRand(v) { this[5] = v; }
-  get blueRand() 	{ return this[6]; }
-  set blueRand(v) { this[6] = v; }
-
-  clone() {
-    const other = new Color(...this);
-    other.dances = this.dances;
-    other.id = this.id;
-    return other;
+    super(...args);
+    this.id = null;
+    this.dances = !!args[7];
   }
 
   copy(other) {
-    for(let i = 0; i < 7; ++i) {
-      this[i] = other[i] || 0;
-    }
-    this.dances = other.dances || false;
+    this.dances = other.dances;
     this.id = other.id;
-    return this;
+    return super.copy(other);
   }
 
-  clear() {
-    for(let i = 0; i < 7; ++i) {
-      this[i] = 0;
-    }
-    this.dances = false;
-    this.id = null;
-  }
-
-  css() {
-    const rand = cosmetic.value() * (this.rand || 0);
-    const red = toRGB(this.red + rand, this.redRand);
-    const green = toRGB(this.green + rand, this.greenRand);
-    const blue = toRGB(this.blue + rand, this.blueRand);
-    return `#${toCSS(red)}${toCSS(green)}${toCSS(blue)}`;
-  }
-
-  equals(other) {
-    if (!other) return false;
-    return this.every( (v, i) => v === other[i] ) && this.dances === other.dances;
-  }
-
-  clamp() {
-    this.red		= clamp(this.red, 0, 100);
-    this.green	= clamp(this.green, 0, 100);
-    this.blue		= clamp(this.blue, 0, 100);
-  }
-
-  add(other, pct=100) {
-    other = from(other);
-
-    this.red += Math.floor((other.red * pct) / 100);
-    this.redRand += Math.floor((other.redRand * pct) / 100);
-    this.green += Math.floor((other.green * pct) / 100);
-    this.greenRand += Math.floor((other.greenRand * pct) / 100);
-    this.blue += Math.floor((other.blue * pct) / 100);
-    this.blueRand += Math.floor((other.blueRand * pct) / 100);
-    this.rand += Math.floor((other.rand * pct) / 100);
+  _changed() {
     this.id = null;
     return this;
   }
 
-  mix(other, opacity=100) {
-    other = from(other);
+  // fromInt(val, base256) {
+  //   this.dances = false;
+  //   return super.fromInt(val, base256);
+  // }
 
-    if (opacity <= 0) return this;
-    if (opacity >= 100) {
-      this.copy(other);
-      return this;
-    }
-
-    const weightComplement = 100 - opacity;
-    for(let i = 0; i < this.length; ++i) {
-      this[i] = Math.floor((this[i] * weightComplement + other[i] * opacity) / 100);
-    }
-    this.dances = (this.dances || other.dances);
-    this.id = null;
-    return this;
+  mix(other, pct) {
+    this.dances = this.dances || other.dances;
+    return super.mix(other, pct);
   }
 
-  applyMultiplier(other) {
-    this.red = Math.round(this.red * other[0] / 100);
-    this.green = Math.round(this.green * other[1] / 100);
-    this.blue = Math.round(this.blue * other[2] / 100);
-
-    if (other instanceof Color) {
-      this.rand = Math.round(this.rand * other.rand / 100);
-      this.redRand = Math.round(this.redRand * other.redRand / 100);
-      this.greenRand = Math.round(this.greenRand * other.greenRand / 100);
-      this.blueRand = Math.round(this.blueRand * other.blueRand / 100);
-      this.dances = this.dances || other.dances;
-    }
-    this.id = null;
-    return this;
+  add(other, pct) {
+    this.dances = this.dances || other.dances;
+    return super.add(other, pct);
   }
 
-  applyScalar(other) {
-    this.red          = Math.round(this.red        * other / 100);
-    this.redRand      = Math.round(this.redRand    * other / 100);
-    this.green        = Math.round(this.green      * other / 100);
-    this.greenRand    = Math.round(this.greenRand  * other / 100);
-    this.blue         = Math.round(this.blue       * other / 100);
-    this.blueRand     = Math.round(this.blueRand   * other / 100);
-    this.rand         = Math.round(this.rand       * other / 100);
-    this.id = null;
-    return this;
-  }
-
-  bake() {
-    let rand;
-    rand = cosmetic.range(0, this.rand);
-    this.red   += Math.round(cosmetic.range(0, this.redRand) + rand);
-    this.green += Math.round(cosmetic.range(0, this.greenRand) + rand);
-    this.blue  += Math.round(cosmetic.range(0, this.blueRand) + rand);
-    this.redRand = this.greenRand = this.blueRand = this.rand = 0;
-    this.id = null;
-    return this;
-  }
-
-
-  lighten(percent) {
-    this.red =    Math.round(this.red + (100 - this.red) * percent / 100);
-    this.green =  Math.round(this.green + (100 - this.green) * percent / 100);
-    this.blue =   Math.round(this.blue + (100 - this.blue) * percent / 100);
-
-    // leave randoms the same
-    this.id = null;
-    return this;
-  }
-
-  darken(percent) {
-    this.red =    Math.round(this.red * (100 - percent) / 100);
-    this.green =  Math.round(this.green * (100 - percent) / 100);
-    this.blue =   Math.round(this.blue * (100 - percent) / 100);
-
-    // leave randoms the same
-    this.id = null;
-    return this;
-  }
-
-  randomize(randomizePercent) {
-    this.red = _randomizeColorByPercent(this.red, randomizePercent);
-    this.green = _randomizeColorByPercent(this.green, randomizePercent);
-    this.blue = _randomizeColorByPercent(this.blue, randomizePercent);
-    this.id = null;
-    return this;
-  }
-
-  toString() {
-    return this.id || this.css();
+  toString(...args) {
+    if (this.id) return this.id;
+    return super.toString(...args);
   }
 }
 
-types.Color = Color;
+
+const separate = Color$1.separate.bind(Color$1);
+
+types.Color = Color$1;
+
 
 function make$2(...args) {
-  let hex = args[0];
-  if (args.length == 0) { return new types.Color(0,0,0); }
-  if (args.length == 1 && hex instanceof types.Color) {
-    return hex.clone();
-  }
-  else if (Array.isArray(hex)) {
-    return new types.Color(...hex);
-  }
-  else if (args.length >= 3) {
-    return new types.Color(...args);
-  }
-  if (typeof hex === 'string') {
-    let color = colors[hex] || null;
+  if (args.length == 0) return new Color$1(0,0,0);
+  if (args.length == 1 && typeof args[0] === 'string') {
+    const color = colors[args[0]];
     if (color) return color.clone();
-
-    if (!hex.startsWith('#')) return null;
-    if (hex.length === 4) {
-      const r = hex.charAt(1);
-      const g = hex.charAt(2);
-      const b = hex.charAt(3);
-      hex = `#${r}${r}${g}${g}${b}${b}`;
-    }
-    hex = Number.parseInt(hex.substring(1), 16);
   }
-
-  if (typeof hex === 'number') {
-    const r = Math.floor( ((hex & 0xFF0000) >> 16) / 2.55 );
-    const g = Math.floor( ((hex & 0x00FF00) >> 8)  / 2.55 );
-    const b = Math.floor( (hex & 0x0000FF) / 2.55 );
-    return new types.Color(r,g,b);
+  if (args.length >= 3) {
+    return Color$1.make(args);
   }
-
-  return null;
+  return Color$1.make(...args);
 }
 
 make.color = make$2;
 
 
+
+
+function from(arg, base256) {
+  if (typeof arg === 'string') {
+    const color = colors[arg];
+    if (color) return color;
+  }
+  if (arg instanceof Color$1) {
+    return arg;
+  }
+  return Color$1.from(arg, base256);
+}
+
 function addKind(name, ...args) {
   let color;
-  if (args.length == 1 && args[0] instanceof types.Color) {
+  if (args.length == 1 && args[0] instanceof Color$1) {
     color = args[0];
   }
   else {
-    color = make.color(...args);
+    color = make$2(...args);
   }
 	colors[name] = color;
   color.id = name;
 	return color;
-}
-
-
-function from(arg) {
-  if (typeof arg === 'string') {
-    return colors[arg] || make.color(arg);
-  }
-  if (arg instanceof types.Color) {
-    return arg;
-  }
-  return make.color(arg);
-}
-
-
-
-function toRGB(v, vr) {
-  return clamp(Math.round(2.551 * (v + cosmetic.value() * vr) ), 0, 255);
-}
-
-const V_TO_CSS = [];
-for(let i = 0; i < 256; ++i) {
-  V_TO_CSS[i] = i.toString(16).padStart(2, '0');
-}
-
-function toCSS(v) {
-  return V_TO_CSS[Math.floor(v)];
-}
-
-// export function css(color) {
-//     return color.css();
-// }
-//
-// color.css = css;
-
-
-function intensity(color) {
-  return Math.max(color[0], color[1], color[2]);
-}
-
-
-
-function _randomizeColorByPercent(input, percent) {
-  return (cosmetic.range( Math.floor(input * (100 - percent) / 100), Math.floor(input * (100 + percent) / 100)));
 }
 
 
@@ -1833,74 +2678,11 @@ function swap(color1, color2) {
     color2.copy(tempColor);
 }
 
-
-const MIN_COLOR_DIFF =			600;
-
 // weighted sum of the squares of the component differences. Weights are according to color perception.
 function diff(f, b)		 {
-  return ((f.red - b.red) * (f.red - b.red) * 0.2126
-    + (f.green - b.green) * (f.green - b.green) * 0.7152
-    + (f.blue - b.blue) * (f.blue - b.blue) * 0.0722);
-}
-
-
-function normalize(baseColor, aggregateMultiplier, colorTranslation) {
-
-    baseColor.red += colorTranslation;
-    baseColor.green += colorTranslation;
-    baseColor.blue += colorTranslation;
-    const vectorLength =  baseColor.red + baseColor.green + baseColor.blue;
-
-    if (vectorLength != 0) {
-        baseColor.red =    Math.round(baseColor.red * 300    / vectorLength * aggregateMultiplier / 100);
-        baseColor.green =  Math.round(baseColor.green * 300  / vectorLength * aggregateMultiplier / 100);
-        baseColor.blue =   Math.round(baseColor.blue * 300   / vectorLength * aggregateMultiplier / 100);
-    }
-    baseColor.redRand = 0;
-    baseColor.greenRand = 0;
-    baseColor.blueRand = 0;
-    baseColor.rand = 0;
-}
-
-
-
-// if forecolor is too similar to back, darken or lighten it and return true.
-// Assumes colors have already been baked (no random components).
-function separate(/* color */ fore, /* color */ back) {
-  let f, b, modifier = null;
-  let failsafe;
-  let madeChange;
-
-  f = fore.clone();
-  b = back.clone();
-
-  f.red			= clamp(f.red, 0, 100);
-  f.green		= clamp(f.green, 0, 100);
-  f.blue		= clamp(f.blue, 0, 100);
-  b.red			= clamp(b.red, 0, 100);
-  b.green		= clamp(b.green, 0, 100);
-  b.blue		= clamp(b.blue, 0, 100);
-
-  if (f.red + f.blue + f.green > 50 * 3) {
-    modifier = colors.black;
-  } else {
-    modifier = colors.white;
-  }
-
-  madeChange = false;
-  failsafe = 10;
-
-  while(diff(f, b) < MIN_COLOR_DIFF && --failsafe) {
-    f.mix(modifier, 20);
-    madeChange = true;
-  }
-
-  if (madeChange) {
-    fore.copy(f);
-    return true;
-  } else {
-    return false;
-  }
+  return ((f._r - b._r) * (f._r - b._r) * 0.2126
+    + (f._g - b._g) * (f._g - b._g) * 0.7152
+    + (f._b - b._b) * (f._b - b._b) * 0.0722);
 }
 
 
@@ -1953,19 +2735,17 @@ addSpread('gold',        100,  85,   0);
 
 var color = {
   __proto__: null,
-  Color: Color,
+  Color: Color$1,
+  separate: separate,
   make: make$2,
-  addKind: addKind,
   from: from,
-  intensity: intensity,
+  addKind: addKind,
   swap: swap,
   diff: diff,
-  normalize: normalize,
-  separate: separate,
   addSpread: addSpread
 };
 
-var options = {
+var options$1 = {
     colorStart: 'Ω',
     colorEnd: '∆',
     field: '§',
@@ -2010,7 +2790,7 @@ function addHelper(name, fn) {
 }
 
 function compile(template) {
-    const F = options.field;
+    const F = options$1.field;
     const parts = template.split(F);
     const sections = parts.map((part, i) => {
         if (i % 2 == 0)
@@ -2149,17 +2929,18 @@ function makeVariable(pattern) {
 }
 
 function eachChar(text, fn, fg, bg) {
+    text = '' + text; // force string
     if (!text || text.length == 0)
         return;
     const colors = [];
     const colorFn = helpers.eachColor;
     const ctx = {
-        fg: (fg === undefined) ? options.defaultFg : fg,
-        bg: (bg === undefined) ? options.defaultBg : bg,
+        fg: (fg === undefined) ? options$1.defaultFg : fg,
+        bg: (bg === undefined) ? options$1.defaultBg : bg,
     };
-    const CS = options.colorStart;
-    const CE = options.colorEnd;
-    colorFn({ fg, bg });
+    const CS = options$1.colorStart;
+    const CE = options$1.colorEnd;
+    colorFn(ctx);
     let n = 0;
     for (let i = 0; i < text.length; ++i) {
         const ch = text[i];
@@ -2180,7 +2961,9 @@ function eachChar(text, fn, fg, bg) {
             else {
                 colors.push([ctx.fg, ctx.bg]);
                 const color = text.substring(i + 1, j);
-                ([ctx.fg, ctx.bg] = color.split('|'));
+                const newColors = color.split('|');
+                ctx.fg = newColors[0] || ctx.fg;
+                ctx.bg = newColors[1] || ctx.bg;
                 colorFn(ctx);
                 i = j;
                 continue;
@@ -2206,8 +2989,8 @@ function length(text) {
     if (!text || text.length == 0)
         return 0;
     let len = 0;
-    const CS = options.colorStart;
-    const CE = options.colorEnd;
+    const CS = options$1.colorStart;
+    const CE = options$1.colorEnd;
     for (let i = 0; i < text.length; ++i) {
         const ch = text[i];
         if (ch == CS) {
@@ -2222,8 +3005,8 @@ function length(text) {
     return len;
 }
 function advanceChars(text, start, count) {
-    const CS = options.colorStart;
-    const CE = options.colorEnd;
+    const CS = options$1.colorStart;
+    const CE = options$1.colorEnd;
     let i = start;
     while (count > 0) {
         const ch = text[i];
@@ -2248,8 +3031,8 @@ function advanceChars(text, start, count) {
     return i;
 }
 function firstChar(text) {
-    const CS = options.colorStart;
-    const CE = options.colorEnd;
+    const CS = options$1.colorStart;
+    const CE = options$1.colorEnd;
     let i = 0;
     while (i < text.length) {
         const ch = text[i];
@@ -2282,8 +3065,8 @@ function center(text, width, pad = ' ') {
     return text.padStart(rawLen + left, pad).padEnd(rawLen + padLen, pad);
 }
 function capitalize(text) {
-    const CS = options.colorStart;
-    const CE = options.colorEnd;
+    const CS = options$1.colorStart;
+    const CE = options$1.colorEnd;
     let i = 0;
     while (i < text.length) {
         const ch = text[i];
@@ -2307,8 +3090,8 @@ function capitalize(text) {
     return text;
 }
 function removeColors(text) {
-    const CS = options.colorStart;
-    const CE = options.colorEnd;
+    const CS = options$1.colorStart;
+    const CE = options$1.colorEnd;
     let out = '';
     let start = 0;
     for (let i = 0; i < text.length; ++i) {
@@ -2341,8 +3124,8 @@ function removeColors(text) {
 }
 
 function nextBreak(text, start) {
-    const CS = options.colorStart;
-    const CE = options.colorEnd;
+    const CS = options$1.colorStart;
+    const CE = options$1.colorEnd;
     let i = start;
     let l = 0;
     let count = true;
@@ -2564,7 +3347,7 @@ function spliceRaw(msg, begin, length, add='') {
 // Puts the output in "to" only if we receive a "to" -- can make it null and just get a line count.
 function splitIntoLines(sourceText, width, indent=0) {
 
-  const CS = options.colorStart;
+  const CS = options$1.colorStart;
   const output = [];
   let text = wordWrap(sourceText, width, indent);
 
@@ -2637,6 +3420,11 @@ function apply(template, args={}) {
   return result;
 }
 
+addHelper('eachColor', (ctx) => {
+  if (ctx.fg) { ctx.fg = from(ctx.fg); }
+  if (ctx.bg) { ctx.bg = from(ctx.bg); }
+});
+
 var text = {
   __proto__: null,
   playerPronoun: playerPronoun,
@@ -2661,221 +3449,105 @@ var text = {
 
 const TEMP_BG = new types.Color();
 
-var sprites = {};
-var sprite = {};
-
-const HANGING_LETTERS = ['y', 'p', 'g', 'j', 'q', '[', ']', '(', ')', '{', '}', '|'];
-const FLYING_LETTERS = ["'", '"', '$', 'f', '[', ']', '|'];
-
-class Sprite {
-	constructor(ch, fg, bg, opacity) {
-		const args = Array.prototype.filter.call(arguments, (v) => v !== undefined );
-
-		let argCount = args.length;
-		const opIndex = args.findIndex( (v) => typeof v === 'number' );
-		if (opIndex >= 0) {
-			--argCount;
-			opacity = args[opIndex];
-		}
-		if (argCount == 0) {
-			ch = ' ';
-			fg = 'white';
-			bg = 'black';
-		}
-		else if (argCount == 1) {
-			if (typeof args[0] === 'string' && args[0].length == 1) {
-				ch = args[0];
-				fg = 'white';
-				bg = null;
-			}
-			else {
-				ch = null;
-				fg = null;
-				bg = args[0];
-			}
-		}
-		else if (argCount == 2) {
-			ch = args[0];
-			fg = args[1];
-			bg = null;
-		}
-
-		this.ch = ch !== null ? (ch || ' ') : null;
-		this.fg = fg !== null ? make.color(fg || 'white') : null;
-		this.bg = bg !== null ? make.color(bg || 'black') : null;
-		this.opacity = opacity || 100;
-		this.needsUpdate = true;
-		this.wasHanging = false;
-    this.wasFlying = false;
+class Sprite extends Mixer {
+	constructor(ch=' ', fg=null, bg=null, opacity) {
+    super();
+    this.draw(ch, fg, bg);
+    this.needsUpdate = true;
+    this.opacity = opacity || 100;
 	}
 
-	copy(other) {
-    if (other.ch !== undefined) {
-      this.ch = other.ch;
+  _changed() {
+    this.needsUpdate = true;
+    this.opacity = (this.fg.isNull() && this.bg.isNull()) ? 0 : 100;
+    return this;
+  }
+
+  copy(other) {
+    other.ch = other.ch || ' ';
+    super.copy(other);
+    this.opacity = other.opacity || 100;
+    return this;
+  }
+
+  equals(other) {
+    if (this.ch != other.ch) return false;
+    if (this.fg) {
+      if (!this.fg.equals(other.fg)) return false;
+    }
+    else if (other.fg) {
+      return false;
+    }
+    if (this.bg) {
+      if (!this.bg.equals(other.bg)) return false;
+    }
+    else if (other.bg) {
+      return false;
     }
 
-    if (other.fg !== undefined) {
-      if (typeof other.fg === 'string') {
-        this.fg = make.color(other.fg);
-      }
-      else if (other.fg === null) {
-        this.fg = null;
-      }
-      else if (this.fg && this.bg) { this.fg.copy(other.fg); }
-  		else if (this.fg) { this.fg.clear(); }
-  		else { this.fg = other.fg.clone(); }
-    }
+    return true;
+  }
 
-    if (other.bg !== undefined) {
-      if (typeof other.bg === 'string') {
-        this.bg = make.color(other.bg);
-      }
-      else if (other.bg === null) {
-        this.bg = null;
-      }
-      else if (this.bg && other.bg) { this.bg.copy(other.bg); }
-  		else if (this.bg) { this.bg.clear(); }
-  		else { this.bg = other.bg.clone(); }
-    }
-
-		this.opacity = other.opacity || this.opacity;
-		this.needsUpdate = other.needsUpdate || this.needsUpdate;
-		this.wasHanging = other.wasHanging || this.wasHanging;
-    this.wasFlying  = other.wasFlying  || this.wasFlying;
-	}
-
-	clone() {
-		const other = new types.Sprite(this.ch, this.fg, this.bg, this.opacity);
-		other.wasHanging = this.wasHanging;
-    other.wasFlying  = this.wasFlying;
-		other.needsUpdate = this.needsUpdate;
-		return other;
-	}
-
-	nullify() {
-		if (HANGING_LETTERS.includes(this.ch)) {
-			this.wasHanging = true;
-		}
-    if (FLYING_LETTERS.includes(this.ch)) {
-			this.wasFlying = true;
-		}
-		this.ch = ' ';
-		if (this.fg) this.fg.clear();
-		if (this.bg) this.bg.clear();
-		this.opacity = 0;
-		// this.needsUpdate = false;
-	}
-
-	blackOut(bg) {
-		this.nullify();
-    if (bg) {
-      if (typeof bg === 'string') {
-        bg = from(bg);
-      }
-      if (this.bg) {
-        this.bg.copy(bg);
-      }
-      else {
-        this.bg = bg.clone();
-      }
-    }
-		this.opacity = 100;
-		this.needsUpdate = true;
-		this.wasHanging = false;
-	}
-
-  fade(color, pct) {
+  mix(color, pct) {
     if (this.bg) this.bg.mix(color, pct);
     if (this.fg) this.fg.mix(color, pct);
     this.needsUpdate = true;
     this.opacity = this.opacity || 100;
+    return this;
   }
 
-	plotChar(ch, fg, bg) {
-		this.wasHanging = this.wasHanging || (ch != null && HANGING_LETTERS.includes(ch));
-    this.wasFlying  = this.wasFlying  || (ch != null && FLYING_LETTERS.includes(ch));
-		if (!this.opacity) {
-			this.ch = ' ';
-		}
-    if (ch) { this.ch = ch; }
-		if (fg) { this.fg.copy(fg); }
-    if (bg) { this.bg.copy(bg); }
-    this.opacity = 100;
-    this.needsUpdate = true;
-	}
-
-	plot(sprite, alpha=100) {
-    const opacity = Math.floor(sprite.opacity * alpha / 100);
-		if (opacity == 0) return false;
-
-    if (opacity >= 100) {
-      this.plotChar(sprite.ch, sprite.fg, sprite.bg);
-      return true;
-    }
-
-		this.wasHanging = this.wasHanging || (sprite.ch != null && HANGING_LETTERS.includes(sprite.ch));
-    this.wasFlying  = this.wasFlying  || (sprite.ch != null && FLYING_LETTERS.includes(sprite.ch));
-
-    // ch and fore color:
-    if (sprite.ch && sprite.ch != ' ') { // Blank cells in the overbuf take the ch from the screen.
-      this.ch = sprite.ch;
-    }
-
-		if (sprite.fg && sprite.ch != ' ') {
-			this.fg.mix(sprite.fg, opacity);
-		}
-
-		if (sprite.bg) {
-			this.bg.mix(sprite.bg, opacity);
-		}
-
-    if (this.ch != ' ' && this.fg.equals(this.bg))
-    {
-      this.ch = ' ';
-    }
-		this.opacity = Math.max(this.opacity, opacity);
-		this.needsUpdate = true;
-		return true;
-	}
-
-	equals(other) {
-		return this.ch == other.ch && this.fg.equals(other.fg) && this.bg.equals(other.bg);
-	}
-
-	bake(force) {
-		if (this.fg && (force || !this.fg.dances)) {
-			this.fg.bake();
-		}
-		if (this.bg && (force || !this.bg.dances)) {
-			this.bg.bake();
-		}
-	}
 }
 
 types.Sprite = Sprite;
 
 function makeSprite(ch, fg, bg, opacity) {
-  if (arguments.length == 1 && Array.isArray(arguments[0]) && arguments[0].length) {
-    [ch, fg, bg, opacity] = arguments[0];
+  if (ch && ch instanceof Color$1) {
+    bg = ch;
+    ch = undefined;
   }
-	else if (arguments.length == 1 && typeof arguments[0] === 'object' && ch) {
-		opacity = ch.opacity || null;
-		bg = ch.bg || null;
-		fg = ch.fg || null;
-		ch = ch.ch || null;
-	}
-  return new Sprite(ch, fg, bg, opacity);
+  else if (ch && Array.isArray(ch)) {
+    [ch, fg, bg, opacity] = ch;
+  }
+  else if (ch && typeof ch === 'object') {
+    if (ch.fg) { ch.fg = from(ch.fg); }
+    if (ch.bg) { ch.bg = from(ch.bg); }
+    return ch;
+  }
+
+  if ((bg === undefined) && ch && ch.length > 1) {
+    bg = ch;
+    ch = undefined;
+  }
+
+  if (typeof fg === 'number') {
+    opacity = fg;
+    fg = undefined;
+  }
+  if (typeof bg === 'number') {
+    opacity = bg;
+    bg = undefined;
+  }
+
+  if (fg) fg = from(fg);
+  if (bg) bg = from(bg);
+
+  return { ch, fg, bg, opacity };
 }
 
 make.sprite = makeSprite;
 
-function installSprite(name, ch, fg, bg, opacity) {
+function install$1(name, ch, fg, bg, opacity) {
 	const sprite = make.sprite(ch, fg, bg, opacity);
 	sprites[name] = sprite;
 	return sprite;
 }
 
-sprite.install = installSprite;
+var sprite = {
+  __proto__: null,
+  Sprite: Sprite,
+  makeSprite: makeSprite,
+  install: install$1
+};
 
 const GRID_CACHE = [];
 
@@ -3747,372 +4419,180 @@ var grid = {
   fillBlob: fillBlob
 };
 
-class Buffer extends types.Grid {
-  constructor(w, h) {
-    super(w, h, () => new types.Sprite() );
-    this.needsUpdate = true;
-  }
+DataBuffer.prototype.drawText = function(x, y, text$1, fg, bg) {
+  eachChar(text$1, (ch, color, bg, i) => {
+    this.draw(i + x, y, ch, color || colors.white, bg);
+  }, fg, bg);
+  return ++y;
+};
 
-  copy(other) {
-    this.forEach( (c, i, j) => c.copy(other[i][j]) );
-    this.needsUpdate = true;
-  }
+DataBuffer.prototype.wrapText = function(x0, y0, width, text$1, fg, bg, opts={}) {
+  if (typeof opts === 'number') { opts = { indent: opts }; }
+  fg = fg || 'white';
+  // if (typeof fg === 'string') { fg = GW.colors[fg]; }
+  // if (typeof bg === 'string') { bg = GW.colors[bg]; }
+  width = Math.min(width, this.width - x0);
+  const indent = opts.indent || 0;
 
-  nullify() {
-    this.forEach( (c) => c.nullify() );
-    this.needsUpdate = true;
-  }
+  text$1 = wordWrap(text$1, width, indent);
 
-  nullifyRect(x, y, w, h) {
-    this.forRect(x, y, w, h, (c) => c.nullify() );
-    this.needsUpdate = true;
-  }
-
-  nullifyCell(x, y) {
-    this[x][y].nullify();
-    this.needsUpdate = true;
-  }
-
-  blackOut(bg) {
-    this.forEach( (c) => c.blackOut(bg) );
-    this.needsUpdate = true;
-  }
-
-  blackOutRect(x, y, w, h, bg) {
-    this.forRect(x, y, w, h, (c) => c.blackOut(bg) );
-    this.needsUpdate = true;
-  }
-
-  blackOutCell(x, y) {
-    this[x][y].blackOut();
-    this.needsUpdate = true;
-  }
-
-  fade(color$1, pct) {
-    color$1 = from(color$1);
-    this.forEach( (s) => s.fade(color$1, pct) );
-  }
-
-  dump(fmt) { super.dump( fmt || ((s) => s.ch) ); }
-
-  plot(x, y, sprite) {
-    if (sprite.opacity <= 0) return;
-
-    if (!this.hasXY(x, y)) {
-      WARN('invalid coordinates: ' + x + ', ' + y);
-      return false;
-    }
-    const destCell = this[x][y];
-    if (destCell.plot(sprite)) {
-      this.needsUpdate = true;
-    }
-    return this.needsUpdate;
-  }
-
-  plotChar(x, y, ch, fg, bg) {
-    if (!this.hasXY(x, y)) {
-      WARN('invalid coordinates: ' + x + ', ' + y);
+  let x = x0;
+  let y = y0;
+  eachChar(text$1, (ch, fg0, bg0) => {
+    if (ch == '\n') {
+      while(x < x0 + width) {
+        this.draw(x++, y, ' ', colors.black, bg0);
+      }
+      ++y;
+      x = x0 + indent;
       return;
     }
+    this.draw(x++, y, ch, fg0, bg0);
+  }, fg, bg);
 
-    if (typeof fg === 'string') { fg = colors[fg]; }
-    if (typeof bg === 'string') { bg = colors[bg]; }
-    const destCell = this[x][y];
-    destCell.plotChar(ch, fg, bg);
-    this.needsUpdate = true;
+  while(x < x0 + width) {
+    this.draw(x++, y, ' ', colors.black, bg);
   }
 
-  // XXXXXXXXXX
-  plotText(x, y, text$1, fg, bg) {
-    eachChar(text$1, (ch, color, bg, i) => {
-      this.plotChar(i + x, y, ch, color || colors.white, bg);
-    }, fg, bg);
-  }
+  return ++y;
+};
 
-  applyText(x, y, text$1, args={}) {
-    text$1 = apply(text$1, args);
-    eachChar(text$1, (ch, color, bg, i) => {
-      this.plotChar(i + x, y, ch, color || colors.white, null);
-    }, args.fg, args.bg);
-  }
-
-
-  plotLine(x, y, w, text$1, fg, bg) {
-    if (typeof fg === 'string') { fg = colors[fg]; }
-    if (typeof bg === 'string') { bg = colors[bg]; }
-    fg = fg || colors.white;
-    let len = length(text$1);
-    eachChar(text$1, (ch, color, bg, i) => {
-      this.plotChar(i + x, y, ch, color || fg, bg);
-    });
-    for(let i = len; i < w; ++i) {
-      this.plotChar(i + x, y, ' ', bg, bg);
+DataBuffer.prototype.fillRect = function(x, y, w, h, ch, fg, bg) {
+  // if (typeof fg === 'string') { fg = GW.colors[fg]; }
+  // if (typeof bg === 'string') { bg = GW.colors[bg]; }
+  for(let i = x; i < x + w; ++i) {
+    for(let j = y; j < y + h; ++j) {
+      this.draw(i, j, ch, fg, bg);
     }
   }
+  return this;
+};
 
-  wrapText(x0, y0, width, text$1, fg, bg, opts={}) {
-    if (typeof opts === 'number') { opts = { indent: opts }; }
-    fg = fg || 'white';
-    if (typeof fg === 'string') { fg = colors[fg]; }
-    if (typeof bg === 'string') { bg = colors[bg]; }
-    width = Math.min(width, this.width - x0);
-    const indent = opts.indent || 0;
+DataBuffer.prototype.blackOutRect = function(x, y, w, h, bg) {
+  bg = bg || 'black';
+  return this.fillRect(x, y, w, h, 0, 0, bg);
+};
 
-    text$1 = wordWrap(text$1, width, indent);
+DataBuffer.prototype.highlight = function(x, y, highlightColor, strength)
+{
+  const mixer = new Sprite();
+	const data = this.get(x, y);
+  mixer.drawSprite(data);
+	mixer.fg.add(highlightColor, strength);
+	mixer.bg.add(highlightColor, strength);
+  this.drawSprite(x, y, mixer);
+  return this;
+};
 
-    let x = x0;
-    let y = y0;
-    eachChar(text$1, (ch, fg0, bg0) => {
-      if (ch == '\n') {
-        ++y;
-        x = x0 + indent;
-        return;
-      }
-      this.plotChar(x++, y, ch, fg0, bg0);
-    }, fg, bg);
+DataBuffer.prototype.mix = function(color, percent) {
 
-    return ++y;
+  const mixer = new Sprite();
+  for(let x = 0; x < this.width; ++x) {
+    for(let y = 0; y < this.height; ++y) {
+      const data = this.get(x, y);
+      mixer.drawSprite(data);
+    	mixer.fg.mix(color, percent);
+    	mixer.bg.mix(color, percent);
+      this.drawSprite(x, y, mixer);
+    }
   }
+  return this;
+};
 
-  fill(ch, fg, bg) {
-    this.fillRect(0, 0, this.width, this.height, ch, fg, bg);
+
+DataBuffer.prototype.dump = function() {
+  const data = [];
+  let header = '    ';
+  for(let x = 0; x < this.width; ++x) {
+    if ((x%10) == 0) header += ' ';
+    header += (x%10);
   }
+  data.push(header);
+  data.push('');
 
-  fillRect(x, y, w, h, ch, fg, bg) {
-    if (typeof fg === 'string') { fg = colors[fg]; }
-    if (typeof bg === 'string') { bg = colors[bg]; }
-    this.forRect(x, y, w, h, (destCell, i, j) => {
-      destCell.plotChar(ch, fg, bg);
-    });
-    this.needsUpdate = true;
+  for(let y = 0; y < this.height; ++y) {
+    let line = `${(''+y).padStart(2)}] `;
+    for(let x = 0; x < this.width; ++x) {
+      if ((x % 10) == 0) line += ' ';
+      const data = this.get(x, y);
+      line += String.fromCharCode(data.glyph || 32);
+    }
+    data.push(line);
   }
+  console.log(data.join('\n'));
+};
 
-  // // Very low-level. Changes displayBuffer directly.
-	highlight(x, y, highlightColor, strength)
-	{
-		const cell = this[x][y];
-		cell.fg.add(highlightColor, strength);
-		cell.bg.add(highlightColor, strength);
-		cell.needsUpdate = true;
-    this.needsUpdate = true;
-	}
+let NEXT_GLYPH = 128;
 
-}
+Buffer.prototype._toGlyph = function(ch) {
+  if (ch === null || ch === undefined) return -1;
 
+  let glyph = this.canvas.glyphs.forChar(ch);
+  if (glyph < 0) {
+    console.log('Register new Glyph', ch, ch.charCodeAt(0), NEXT_GLYPH);
+    glyph = NEXT_GLYPH;
+    this.canvas.glyphs.draw(NEXT_GLYPH++, ch);
+  }
+  return glyph;
+};
+
+types.DataBuffer = DataBuffer;
 types.Buffer = Buffer;
-
-function makeBuffer(w, h) {
-  return new types.Buffer(w, h);
-}
-
-make.buffer = makeBuffer;
 
 const DEFAULT_FONT = 'monospace';
 
-var canvas = {};
-
-
-
-function setFont(canvas, size, name) {
-  canvas.font = name || DEFAULT_FONT;
-  canvas.ctx.font = (size) + 'px ' + canvas.font;
-  canvas.ctx.textAlign = 'center';
-  canvas.ctx.textBaseline = 'middle';
-}
-
-
-function handleResizeEvent() {
-
-  const rect = this.element.getBoundingClientRect();
-  this.pxWidth  = rect.width;
-  this.pxHeight = rect.height;
-  ui.debug('canvas resize', rect);
-
-  this.buffer.forEach((c) => { c.needsUpdate = true; });
-}
-
-
-
-class Canvas {
-  constructor(w, h, div, opts={}) {
-    this.buffer = make.buffer(w, h);
-    this.dead = [];
-    this.displayRatio = 1;
-    this.width  = w;
-    this.height = h;
-
-    if (typeof document !== 'undefined') {
-      let parent = document;
-      this.element = document.getElementById(div);
-      if (this.element && this.element.tagName !== 'CANVAS') {
-        parent = this.element;
-        this.element = null;
-      }
-      if (!this.element) {
-        // Need to create canvas
-        this.element = document.createElement('canvas');
-        parent.appendChild(this.element);
-      }
-
-      this.ctx = this.element.getContext('2d');
-      this.displayRatio = window.devicePixelRatio || 1;
-
-      const bounds = this.element.getBoundingClientRect();
-      const size = Math.min(Math.floor(bounds.width / this.width), Math.floor(bounds.height / this.height));
-
-      this.tileSize = opts.tileSize || size;
-      this.pxWidth  = bounds.width;
-      this.pxHeight = bounds.height;
-    }
-    else {
-      this.tileSize = opts.tileSize || 16;
-      this.pxWidth  = this.tileSize * this.width  * this.displayRatio;
-      this.pxHeight = this.tileSize * this.height * this.displayRatio;
-    }
-
-    this.dances = false;
-
-    if (typeof window !== 'undefined') {
-      this.element.width = this.width * this.tileSize;
-      this.element.height = this.height * this.tileSize;
-
-      window.addEventListener('resize', handleResizeEvent.bind(this));
-      handleResizeEvent.call(this);
-
-      this.font = opts.font;
-      setFont(this, this.tileSize, this.font);
-    }
-
-  }
-
-  hasXY(x, y) {
-    return this.buffer.hasXY(x, y);
-  }
-
-  toX(x) {
-    return Math.floor(this.buffer.width * x / this.pxWidth);
-  }
-
-  toY(y) {
-    return Math.floor(this.buffer.height * y / this.pxHeight);
-  }
-
-  draw() {
-    if ((this.buffer.needsUpdate || this.dances)) {
-
-      this.buffer.needsUpdate = false;
-      this.dances = false;
-
-      this.buffer.forEach( (cell, i, j) => {
-        if (cell.fg.dances || cell.bg.dances) {
-          this.dances = true;
-          if (cosmetic.value() < 0.0005) {
-            cell.needsUpdate = true;
-          }
-        }
-
-        if (cell.needsUpdate) {
-          if (cell.wasHanging && j < this.buffer.height - 1) {
-            this.buffer[i][j + 1].needsUpdate = true;	// redraw the row below any hanging letters that changed
-            cell.wasHanging = false;
-          }
-          if (cell.wasFlying && j) {
-            this.buffer[i][j - 1].needsUpdate = true;
-            this.buffer.needsUpdate = true;
-            cell.wasFlying = false;
-          }
-
-          this.drawCell(cell, i, j);
-          cell.needsUpdate = false;
-        }
-      });
-
-    }
-  }
-
-  drawCell(cell, x, y) {
-    const ctx = this.ctx;
-    const tileSize = this.tileSize;// * this.displayRatio;
-
-    const backCss = cell.bg.css();
-    ctx.fillStyle = backCss;
-
-    ctx.fillRect(
-      x * tileSize,
-      y * tileSize,
-      tileSize,
-      tileSize
-    );
-
-    if (cell.ch && cell.ch !== ' ') {
-      const foreCss = cell.fg.css();
-      ctx.fillStyle = foreCss;
-
-      const textX = x * tileSize + Math.floor(tileSize * 0.5);
-      const textY = y * tileSize + Math.floor(tileSize * 0.5);
-
-      ctx.fillText(
-        cell.ch,
-        textX,
-        textY
-      );
-    }
-  }
-
-  allocBuffer() {
-    let buf;
-    if (this.dead.length) {
-      buf = this.dead.pop();
-    }
-    else {
-      buf = new types.Buffer(this.buffer.width, this.buffer.height);
-    }
-
-    buf.copy(this.buffer);
-    return buf;
-  }
-
-  freeBuffer(...bufs) {
-    bufs.forEach( (buf) => this.dead.push(buf) );
-  }
-
-  copyBuffer(dest) {
-    dest.copy(this.buffer);
-  }
-
-  // draws overBuf over the current canvas with per-cell pseudotransparency as specified in overBuf.
-  // If previousBuf is not null, it gets filled with the preexisting canvas for reversion purposes.
-  overlay( overBuf,  previousBuf) {
-    if (previousBuf) {
-      previousBuf.copy(this.buffer);
-    }
-    this.overlayRect(overBuf, 0, 0, this.buffer.width, this.buffer.height);
-  }
-
-  // draws overBuf over the current canvas with per-cell pseudotransparency as specified in overBuf.
-  // If previousBuf is not null, it gets filled with the preexisting canvas for reversion purposes.
-  overlayRect(overBuf, x, y, w, h) {
-    let i, j;
-
-    for (i=x; i<x + w; i++) {
-      for (j=y; j<y + h; j++) {
-        const src = overBuf[i][j];
-        if (src.opacity) {
-          const dest = this.buffer[i][j];
-          if (!dest.equals(src)) {
-            dest.copy(src); // was copy
-            dest.needsUpdate = true;
-            this.buffer.needsUpdate = true;
-          }
-        }
-      }
-    }
-
-  }
-
-}
-
 types.Canvas = Canvas;
+
+configure({
+  random: cosmetic.value.bind(cosmetic),
+});
+
+
+function makeGlyphs(opts={}) {
+  if (typeof opts === 'string') {
+    opts = { font: opts };
+  }
+  else if (typeof opts === 'number') {
+    opts = { size: opts };
+  }
+  opts.font = opts.font || DEFAULT_FONT;
+  opts.basic = true;
+
+  const glyphs = Glyphs.fromFont(opts);
+
+  [
+    // arrows (4)
+    '\u2190', '\u2191', '\u2192', '\u2193',
+
+    // border drawing (11)
+    '\u2550','\u2551','\u2554','\u2557','\u255A','\u255D','\u2560','\u2563','\u2566','\u2569','\u256C',
+
+    // Floor,  dagger   omega    target 1, target 2, open flag, flag      3 dots    4 dots
+    '\u2219', '\u2020', '\u03A9', '\u25ef', '\u25ce', '\u2690', '\u2691', '\u2234', '\u2237',
+
+  ].forEach( (ch, i) => {
+    glyphs.draw(i + 1, ch);
+  });
+
+  return glyphs;
+}
+
+make.glyphs = makeGlyphs;
+
+
+function makeCanvas(opts={}) {
+  const glyphs = makeGlyphs(opts);
+  opts.glyphs = glyphs;
+  return new Canvas(opts);
+}
+
+make.canvas = makeCanvas;
+
+var canvas = {
+  __proto__: null,
+  Canvas: Canvas,
+  makeGlyphs: makeGlyphs
+};
 
 function frequency(v) {
   if (!v) return 100;
@@ -4186,11 +4666,13 @@ let KEYMAP = {};
 // const KEYMAPS = [];
 const EVENTS$1 = [];
 const DEAD_EVENTS = [];
+const LAST_CLICK = { x: -1, y: -1 };
 
 const KEYPRESS  = def.KEYPRESS  = 'keypress';
 const MOUSEMOVE = def.MOUSEMOVE = 'mousemove';
 const CLICK 		 = def.CLICK 		 = 'click';
 const TICK 		 = def.TICK 		 = 'tick';
+const MOUSEUP   = def.MOUSEUP   = 'mouseup';
 
 const CONTROL_CODES = [
 	'ShiftLeft', 		'ShiftRight',
@@ -4234,10 +4716,15 @@ io.clearEvents = clearEvents;
 
 
 function pushEvent(ev) {
+
+  if (PAUSED) {
+    console.log('PAUSED EVENT', ev.type);
+  }
+
   if (EVENTS$1.length) {
 		const last = EVENTS$1[EVENTS$1.length - 1];
-		if (last.type === MOUSEMOVE) {
-	    if (last.type === ev.type) {
+		if (last.type === ev.type) {
+	    if (last.type === MOUSEMOVE) {
 				last.x = ev.x;
 			  last.y = ev.y;
 				io.recycleEvent(ev);
@@ -4246,22 +4733,36 @@ function pushEvent(ev) {
 		}
   }
 
+  // Keep clicks down to one per cell if holding down mouse button
+  if (ev.type === CLICK) {
+    if (LAST_CLICK.x == ev.x && LAST_CLICK.y == ev.y) {
+      io.recycleEvent(ev);
+      return;
+    }
+    LAST_CLICK.x = ev.x;
+    LAST_CLICK.y = ev.y;
+  }
+  else if (ev.type == MOUSEUP) {
+    LAST_CLICK.x = -1;
+    LAST_CLICK.y = -1;
+    io.recycleEvent(ev);
+    return;
+  }
+
 	if (CURRENT_HANDLER) {
   	CURRENT_HANDLER(ev);
   }
+  else if (ev.type === TICK) {
+    const first = EVENTS$1[0];
+    if (first && first.type === TICK) {
+      first.dt += ev.dt;
+      io.recycleEvent(ev);
+      return;
+    }
+    EVENTS$1.unshift(ev);	// ticks go first
+  }
   else {
-		if (ev.type === TICK) {
-			const first = EVENTS$1[0];
-			if (first && first.type === TICK) {
-				first.dt += ev.dt;
-				io.recycleEvent(ev);
-				return;
-			}
-			EVENTS$1.unshift(ev);	// ticks go first
-		}
-		else {
-			EVENTS$1.push(ev);
-		}
+    EVENTS$1.push(ev);
   }
 }
 
@@ -4424,7 +4925,10 @@ function makeMouseEvent(e, x, y) {
 	ev.altKey = e.altKey;
 	ev.metaKey = e.metaKey;
 
-  ev.type = e.buttons ? CLICK : MOUSEMOVE;
+  ev.type = e.type;
+  if (e.buttons && e.type !== 'mouseup') {
+    ev.type = CLICK;
+  }
   ev.key = null;
   ev.code = null;
   ev.x = x;
@@ -4447,17 +4951,24 @@ let PAUSED = null;
 function pauseEvents() {
 	if (PAUSED) return;
 	PAUSED = CURRENT_HANDLER;
+  CURRENT_HANDLER = null;
 	// io.debug('events paused');
 }
 
 io.pauseEvents = pauseEvents;
 
 function resumeEvents() {
+  if (!PAUSED) return;
+
+  if (CURRENT_HANDLER) {
+    console.warn('overwrite CURRENT HANDLER!');
+  }
+
 	CURRENT_HANDLER = PAUSED;
 	PAUSED = null;
 	// io.debug('resuming events');
 
-	if (EVENTS$1.length && CURRENT_HANDLER) {
+  if (EVENTS$1.length && CURRENT_HANDLER) {
 		const e = EVENTS$1.shift();
 		// io.debug('- processing paused event', e.type);
 		CURRENT_HANDLER(e);
@@ -4490,6 +5001,13 @@ function nextEvent(ms, match) {
 
 	if (ms == 0) return null;
 
+  if (CURRENT_HANDLER) {
+    console.warn('OVERWRITE HANDLER - nextEvent');
+  }
+  else if (EVENTS$1.length) {
+    console.warn('SET HANDLER WITH QUEUED EVENTS - nextEvent');
+  }
+
   CURRENT_HANDLER = ((e) => {
 		if (e.type === MOUSEMOVE) {
 			io.mouse.x = e.x;
@@ -4516,19 +5034,8 @@ io.nextEvent = nextEvent;
 
 async function tickMs(ms=1) {
 	let done;
-	let elapsed = 0;
 
-	CURRENT_HANDLER = ((e) => {
-  	if (e.type !== TICK) {
-			EVENTS$1.push(e);
-    	return;
-    }
-		elapsed += e.dt;
-		if (elapsed >= ms) {
-			CURRENT_HANDLER = null;
-			done(elapsed);
-		}
-  });
+	setTimeout(() => done(), ms);
 
   return new Promise( (resolve) => done = resolve );
 }
@@ -5487,6 +5994,343 @@ function attachHallway(grid, doorSitesArray, opts) {
 
 digger.attachHallway = attachHallway;
 
+def.INTENSITY_DARK = 20; // less than 20% for highest color in rgb
+
+const LIGHT_COMPONENTS = make$2();
+
+class Light {
+	constructor(color$1, range, fadeTo, pass) {
+		this.color = from(color$1) || null;	/* color */
+		this.radius = make.range(range || 1);
+		this.fadeTo = Number.parseInt(fadeTo) || 0;
+		this.passThroughActors = (pass && (pass !== 'false')) ? true : false; // generally no, but miner light does
+	}
+
+	copy(other) {
+		this.color = other.color;
+		this.radius.copy(other.radius);
+		this.fadeTo = other.fadeTo;
+		this.passThroughActors = other.passThroughActors;
+	}
+
+  // Returns true if any part of the light hit cells that are in the player's field of view.
+  paint( map, x, y, maintainShadows=false, isMinersLight=false) {
+
+  	if (!map) return;
+
+  	let k;
+  	// let colorComponents = [0,0,0];
+    let lightMultiplier;
+
+  	let radius = this.radius.value();
+  	let outerRadius = Math.ceil(radius);
+
+  	// calcLightComponents(colorComponents, this);
+    LIGHT_COMPONENTS.copy(this.color).bake();
+
+    // console.log('paint', LIGHT_COMPONENTS.toString(true), x, y, outerRadius);
+
+  	// the miner's light does not dispel IS_IN_SHADOW,
+  	// so the player can be in shadow despite casting his own light.
+  	const dispelShadows = !maintainShadows && (intensity(LIGHT_COMPONENTS) > def.INTENSITY_DARK);
+  	const fadeToPercent = this.fadeTo;
+
+    const grid$1 = alloc(map.width, map.height, 0);
+  	map.calcFov(grid$1, x, y, outerRadius, (this.passThroughActors ? 0 : Cell.HAS_ACTOR), Tile.T_OBSTRUCTS_VISION, !isMinersLight);
+
+    let overlappedFieldOfView = false;
+
+    grid$1.forCircle(x, y, outerRadius, (v, i, j) => {
+      if (!v) return;
+      const cell = map.cell(i, j);
+
+      lightMultiplier = Math.floor(100 - (100 - fadeToPercent) * (distanceBetween(x, y, i, j) / radius));
+      for (k=0; k<3; k++) {
+        cell.light[k] += Math.floor(LIGHT_COMPONENTS[k] * lightMultiplier / 100);
+      }
+      if (dispelShadows) {
+        cell.flags &= ~Cell.IS_IN_SHADOW;
+      }
+      if (cell.flags & (Cell.IN_FOV | Cell.ANY_KIND_OF_VISIBLE)) {
+          overlappedFieldOfView = true;
+      }
+
+      // console.log(i, j, lightMultiplier, cell.light);
+    });
+
+  	if (dispelShadows) {
+      const cell = map.cell(x, y);
+  		cell.flags &= ~Cell.IS_IN_SHADOW;
+  	}
+
+  	free(grid$1);
+    return overlappedFieldOfView;
+  }
+
+}
+
+types.Light = Light;
+
+
+function intensity(color) {
+  const data = color.color || color;
+  return Math.max(data[0], data[1], data[2]);
+}
+
+
+function make$4(color, radius, fadeTo, pass) {
+
+	if (arguments.length == 1) {
+		if (color && color.color) {
+			pass = color.passThroughActors;
+			fadeTo = color.fadeTo;
+			radius = color.radius;
+			color = color.color;
+		}
+		else if (typeof color === 'string') {
+			([color, radius, fadeTo, pass] = color.split(/[,|]/).map( (t) => t.trim() ));
+		}
+		else if (Array.isArray(color)) {
+			([color, radius, fadeTo, pass] = color);
+		}
+	}
+	else {
+		([color, radius, fadeTo, pass] = arguments);
+	}
+
+	radius = radius || 0;
+	return new types.Light(color, radius, fadeTo, pass);
+}
+
+make.light = make$4;
+
+const LIGHT_SOURCES = lights;
+
+
+// TODO - USE STRINGS FOR LIGHT SOURCE IDS???
+//      - addLightKind(id, source) { LIIGHT_SOURCES[id] = source; }
+//      - LIGHT_SOURCES = {};
+function addKind$1(id, ...args) {
+	let source = args[0];
+	if (source && !(source instanceof types.Light)) {
+		source = make.light(...args);
+	}
+	LIGHT_SOURCES[id] = source;
+	if (source) source.id = id;
+	return source;
+}
+
+
+
+function addKinds(config) {
+	const entries = Object.entries(config);
+	entries.forEach( ([name,info]) => {
+		addKind$1(name, info);
+	});
+}
+
+
+
+
+function from$1(...args) {
+	if (args.length == 1 && typeof args[0] === 'string' ) {
+		const cached = LIGHT_SOURCES[args[0]];
+		if (cached) return cached;
+	}
+	return make$4(...args);
+}
+
+
+
+// export function calcLightComponents(colorComponents, theLight) {
+// 	const randComponent = cosmetic.range(0, theLight.color.rand);
+// 	colorComponents[0] = randComponent + theLight.color.red + cosmetic.range(0, theLight.color.redRand);
+// 	colorComponents[1] = randComponent + theLight.color.green + cosmetic.range(0, theLight.color.greenRand);
+// 	colorComponents[2] = randComponent + theLight.color.blue + cosmetic.range(0, theLight.color.blueRand);
+// }
+
+
+
+
+function updateDisplayDetail(map) {
+
+  map.eachCell( (cell, i, j) => {
+    // clear light flags
+    cell.flags &= ~(Cell.CELL_LIT | Cell.CELL_DARK);
+
+    if (cell.light.some( (v, i) => v !== cell.oldLight[i])) {
+      cell.flags |= Cell.LIGHT_CHANGED;
+    }
+
+    if (cell.isDark())
+    {
+      cell.flags |= Cell.CELL_DARK;
+    } else if (!(cell.flags & Cell.IS_IN_SHADOW)) {
+      cell.flags |= Cell.CELL_LIT;
+    }
+  });
+}
+
+function backUpLighting(map, lights) {
+	let k;
+  map.eachCell( (cell, i, j) => {
+    for (k=0; k<3; k++) {
+      lights[i][j][k] = cell.light[k];
+    }
+  });
+}
+
+function restoreLighting(map, lights) {
+	let k;
+  map.eachCell( (cell, i, j) => {
+    for (k=0; k<3; k++) {
+      cell.light[k] = lights[i][j][k];
+    }
+  });
+}
+
+function recordOldLights(map) {
+  let k;
+  map.eachCell( (cell) => {
+    for (k=0; k<3; k++) {
+			cell.oldLight[k] = cell.light[k];
+			cell.flags &= ~(Cell.LIGHT_CHANGED);
+		}
+  });
+}
+
+function zeroOutLights(map) {
+	let k;
+  const light = map.ambientLight ? map.ambientLight : [0,0,0];
+  map.eachCell( (cell, i, j) => {
+    for (k=0; k<3; k++) {
+      cell.light[k] = light[k];
+    }
+    cell.flags |= Cell.IS_IN_SHADOW;
+  });
+}
+
+function recordGlowLights(map) {
+  let k;
+  map.eachCell( (cell) => {
+    for (k=0; k<3; k++) {
+			cell.glowLight[k] = cell.light[k];
+		}
+  });
+}
+
+function restoreGlowLights(map) {
+	let k;
+  map.eachCell( (cell) => {
+    for (k=0; k<3; k++) {
+      cell.light[k] = cell.glowLight[k];
+    }
+  });
+}
+
+
+function updateLighting(map) {
+
+	// Copy Light over oldLight
+  recordOldLights(map);
+
+  if (map.flags & Map.MAP_STABLE_LIGHTS) return false;
+
+  // and then zero out Light.
+	zeroOutLights(map);
+
+	if (map.flags & Map.MAP_STABLE_GLOW_LIGHTS) {
+		restoreGlowLights(map);
+	}
+	else {
+		// GW.debug.log('painting glow lights.');
+		// Paint all glowing tiles.
+    map.eachLight( (id, x, y) => {
+      const light = LIGHT_SOURCES[id];
+      if (light) {
+        light.paint(map, x, y);
+      }
+    });
+
+		recordGlowLights(map);
+		map.flags |= Map.MAP_STABLE_GLOW_LIGHTS;
+	}
+
+	// Cycle through monsters and paint their lights:
+  eachChain(map.actors, (actor) => {
+    if (actor.kind.light) {
+			actor.kind.light.paint(map, actor.x, actor.y);
+		}
+    // if (monst.mutationIndex >= 0 && mutationCatalog[monst.mutationIndex].light != LIGHT_SOURCES['NO_LIGHT']) {
+    //     paint(map, mutationCatalog[monst.mutationIndex].light, actor.x, actor.y, false, false);
+    // }
+		// if (actor.isBurning()) { // monst.status.burning && !(actor.kind.flags & Flags.Actor.AF_FIERY)) {
+		// 	paint(map, LIGHT_SOURCES.BURNING_CREATURE, actor.x, actor.y, false, false);
+		// }
+		// if (actor.isTelepathicallyRevealed()) {
+		// 	paint(map, LIGHT_SOURCES['TELEPATHY_LIGHT'], actor.x, actor.y, false, true);
+		// }
+  });
+
+	// Also paint telepathy lights for dormant monsters.
+  // for (monst of map.dormantMonsters) {
+  //     if (monsterTelepathicallyRevealed(monst)) {
+  //         paint(map, LIGHT_SOURCES['TELEPATHY_LIGHT'], monst.xLoc, monst.yLoc, false, true);
+  //     }
+  // }
+
+	updateDisplayDetail(map);
+
+	// Miner's light:
+  const PLAYER = data.player;
+  if (PLAYER) {
+    const MINERS_LIGHT = LIGHT_SOURCES.MINERS_LIGHT;
+    if (MINERS_LIGHT && MINERS_LIGHT.radius) {
+      MINERS_LIGHT.paint(map, PLAYER.x, PLAYER.y, true, true);
+    }
+  }
+
+  map.flags |= Map.MAP_STABLE_LIGHTS;
+
+  // if (PLAYER.status.invisible) {
+  //     PLAYER.info.foreColor = playerInvisibleColor;
+	// } else if (playerInDarkness()) {
+	// 	PLAYER.info.foreColor = playerInDarknessColor;
+	// } else if (pmap[PLAYER.xLoc][PLAYER.yLoc].flags & IS_IN_SHADOW) {
+	// 	PLAYER.info.foreColor = playerInShadowColor;
+	// } else {
+	// 	PLAYER.info.foreColor = playerInLightColor;
+	// }
+
+  return true;
+}
+
+
+// TODO - Move and make more generic
+function playerInDarkness(map, PLAYER, darkColor) {
+  const cell = map.cell(PLAYER.x, PLAYER.y);
+	return (cell.light[0] + 10 < darkColor.red
+			&& cell.light[1] + 10 < darkColor.green
+			&& cell.light[2] + 10 < darkColor.blue);
+}
+
+var light = {
+  __proto__: null,
+  intensity: intensity,
+  make: make$4,
+  addKind: addKind$1,
+  addKinds: addKinds,
+  from: from$1,
+  backUpLighting: backUpLighting,
+  restoreLighting: restoreLighting,
+  recordOldLights: recordOldLights,
+  zeroOutLights: zeroOutLights,
+  recordGlowLights: recordGlowLights,
+  restoreGlowLights: restoreGlowLights,
+  updateLighting: updateLighting,
+  playerInDarkness: playerInDarkness
+};
+
 const TileLayer = def.layer;
 
 
@@ -5528,7 +6372,7 @@ types.TileEvent = TileEvent$1;
 
 
 // Dungeon features, spawned from Architect.c:
-function make$4(opts) {
+function make$5(opts) {
   if (!opts) return null;
   if (typeof opts === 'string') {
     opts = { tile: opts };
@@ -5537,10 +6381,10 @@ function make$4(opts) {
 	return te;
 }
 
-make.tileEvent = make$4;
+make.tileEvent = make$5;
 
 
-function addKind$1(id, event) {
+function addKind$2(id, event) {
 	if (arguments.length > 2 || !(event instanceof types.TileEvent)) {
 		event = make.tileEvent(...[].slice.call(arguments, 1));
 	}
@@ -5550,7 +6394,7 @@ function addKind$1(id, event) {
 }
 
 
-addKind$1('DF_NONE');
+addKind$2('DF_NONE');
 
 
 
@@ -6080,8 +6924,8 @@ function evacuateItems(map, blockingMap) {
 var tileEvent$1 = {
   __proto__: null,
   TileEvent: TileEvent$1,
-  make: make$4,
-  addKind: addKind$1,
+  make: make$5,
+  addKind: addKind$2,
   resetAllMessages: resetAllMessages,
   spawn: spawn,
   computeSpawnMap: computeSpawnMap,
@@ -6104,7 +6948,7 @@ config.cursorPathIntensity = 50;
 
 class CellMemory {
   constructor() {
-    this.sprite = make.sprite();
+    this.sprite = new types.Sprite();
     this.nullify();
   }
 
@@ -6466,18 +7310,18 @@ class Cell$1 {
 
     const blocksVision = (tile.flags & Tile.T_OBSTRUCTS_VISION);
     const oldBlocksVision = (oldTile.flags & Tile.T_OBSTRUCTS_VISION);
-    if (this.isAnyKindOfVisible() && (blocksVision != oldBlocksVision)) {
+    if (map && this.isAnyKindOfVisible() && (blocksVision != oldBlocksVision)) {
       map.flags |= Map.MAP_FOV_CHANGED;
     }
 
     this.layers[tile.layer] = tile.id;
     if (tile.layer == TileLayer$1.LIQUID) {
       this.liquidVolume = volume + (tileId == oldTileId ? this.liquidVolume : 0);
-      map.flags &= ~Map.MAP_NO_LIQUID;
+      if (map) map.flags &= ~Map.MAP_NO_LIQUID;
     }
     else if (tile.layer == TileLayer$1.GAS) {
       this.gasVolume = volume + (tileId == oldTileId ? this.vasVolume : 0);
-      map.flags &= ~Map.MAP_NO_GAS;
+      if (map) map.flags &= ~Map.MAP_NO_GAS;
     }
 
     if (tile.layer > 0 && this.layers[0] == 0) {
@@ -6486,7 +7330,7 @@ class Cell$1 {
 
     // this.flags |= (Flags.NEEDS_REDRAW | Flags.CELL_CHANGED);
     this.flags |= (Cell.CELL_CHANGED);
-    if (oldTile.light !== tile.light) {
+    if (map && (oldTile.light !== tile.light)) {
       map.flags &= ~(Map.MAP_STABLE_GLOW_LIGHTS | Map.MAP_STABLE_LIGHTS);
     }
     return true;
@@ -6672,7 +7516,7 @@ function getAppearance(cell, dest) {
     else if (tile.layer == TileLayer$1.GAS) {
       alpha = clamp(cell.gasVolume || 0, 20, 100);
     }
-    memory.plot(tile.sprite, alpha);
+    memory.drawSprite(tile.sprite, alpha);
     if (tile.mechFlags & TileMech.TM_VISUALLY_DISTINCT) {
       needDistinctness = true;
     }
@@ -6680,17 +7524,17 @@ function getAppearance(cell, dest) {
 
   let current = cell.sprites;
   while(current) {
-    memory.plot(current.sprite);
+    memory.drawSprite(current.sprite);
     current = current.next;
   }
 
-  memory.fg.applyMultiplier(cell.light);
-  memory.bg.applyMultiplier(cell.light);
+  memory.fg.multiply(cell.light);
+  memory.bg.multiply(cell.light);
   memory.bake(!cell.isAnyKindOfVisible());  // turns off dancing if not visible
   if (needDistinctness) {
     separate(memory.fg, memory.bg);
   }
-  dest.plot(memory);
+  dest.drawSprite(memory);
   return true;
 }
 
@@ -7456,7 +8300,7 @@ function getCellAppearance(map, x, y, dest) {
     cell.getAppearance(cell$1, dest);
   }
   else if (cell$1.isRevealed()) {
-    dest.plot(cell$1.memory.sprite);
+    dest.drawSprite(cell$1.memory.sprite);
   }
 
   if (cell$1.isVisible()) ;
@@ -7475,7 +8319,7 @@ function getCellAppearance(map, x, y, dest) {
       swap(dest.fg, dest.bg);
     } else {
       // if (!GAME.trueColorMode || !dest.needDistinctness) {
-          dest.fg.mix(highlight, config.cursorPathIntensity || 20);
+          // dest.fg.mix(highlight, CONFIG.cursorPathIntensity || 20);
       // }
       dest.bg.mix(highlight, config.cursorPathIntensity || 20);
     }
@@ -7729,337 +8573,6 @@ function getLine(map, fromX, fromY, toX, toY) {
 }
 
 map$1.getLine = getLine;
-
-def.INTENSITY_DARK = 20; // less than 20% for highest color in rgb
-
-const LIGHT_COMPONENTS = make$2();
-
-class Light {
-	constructor(color$1, range, fadeTo, pass) {
-		this.color = from(color$1) || null;	/* color */
-		this.radius = make.range(range || 1);
-		this.fadeTo = Number.parseInt(fadeTo) || 0;
-		this.passThroughActors = (pass && (pass !== 'false')) ? true : false; // generally no, but miner light does
-	}
-
-	copy(other) {
-		this.color = other.color;
-		this.radius.copy(other.radius);
-		this.fadeTo = other.fadeTo;
-		this.passThroughActors = other.passThroughActors;
-	}
-
-
-  // Returns true if any part of the light hit cells that are in the player's field of view.
-  paint( map, x, y, maintainShadows=false, isMinersLight=false) {
-
-  	if (!map) return;
-
-  	let k;
-  	// let colorComponents = [0,0,0];
-    let lightMultiplier;
-
-  	let radius = this.radius.value();
-  	let outerRadius = Math.ceil(radius);
-
-  	// calcLightComponents(colorComponents, this);
-    LIGHT_COMPONENTS.copy(this.color).bake();
-
-    // console.log('paint', LIGHT_COMPONENTS.css(), x, y, outerRadius);
-
-  	// the miner's light does not dispel IS_IN_SHADOW,
-  	// so the player can be in shadow despite casting his own light.
-  	const dispelShadows = !maintainShadows && (intensity(LIGHT_COMPONENTS) > def.INTENSITY_DARK);
-  	const fadeToPercent = this.fadeTo;
-
-    const grid$1 = alloc(map.width, map.height, 0);
-  	map.calcFov(grid$1, x, y, outerRadius, (this.passThroughActors ? 0 : Cell.HAS_ACTOR), Tile.T_OBSTRUCTS_VISION, !isMinersLight);
-
-    let overlappedFieldOfView = false;
-
-    grid$1.forCircle(x, y, outerRadius, (v, i, j) => {
-      if (!v) return;
-      const cell = map.cell(i, j);
-
-      lightMultiplier = Math.floor(100 - (100 - fadeToPercent) * (distanceBetween(x, y, i, j) / radius));
-      for (k=0; k<3; k++) {
-        cell.light[k] += Math.floor(LIGHT_COMPONENTS[k] * lightMultiplier / 100);
-      }
-      if (dispelShadows) {
-        cell.flags &= ~Cell.IS_IN_SHADOW;
-      }
-      if (cell.flags & (Cell.IN_FOV | Cell.ANY_KIND_OF_VISIBLE)) {
-          overlappedFieldOfView = true;
-      }
-
-      // console.log(i, j, lightMultiplier, cell.light);
-    });
-
-  	if (dispelShadows) {
-      const cell = map.cell(x, y);
-  		cell.flags &= ~Cell.IS_IN_SHADOW;
-  	}
-
-  	free(grid$1);
-    return overlappedFieldOfView;
-  }
-
-}
-
-types.Light = Light;
-
-
-function make$5(color, radius, fadeTo, pass) {
-
-	if (arguments.length == 1) {
-		if (color && color.color) {
-			pass = color.passThroughActors;
-			fadeTo = color.fadeTo;
-			radius = color.radius;
-			color = color.color;
-		}
-		else if (typeof color === 'string') {
-			([color, radius, fadeTo, pass] = color.split(/[,|]/).map( (t) => t.trim() ));
-		}
-		else if (Array.isArray(color)) {
-			([color, radius, fadeTo, pass] = color);
-		}
-	}
-	else {
-		([color, radius, fadeTo, pass] = arguments);
-	}
-
-	radius = radius || 0;
-	return new types.Light(color, radius, fadeTo, pass);
-}
-
-make.light = make$5;
-
-const LIGHT_SOURCES = lights;
-
-
-// TODO - USE STRINGS FOR LIGHT SOURCE IDS???
-//      - addLightKind(id, source) { LIIGHT_SOURCES[id] = source; }
-//      - LIGHT_SOURCES = {};
-function addKind$2(id, ...args) {
-	let source = args[0];
-	if (source && !(source instanceof types.Light)) {
-		source = make.light(...args);
-	}
-	LIGHT_SOURCES[id] = source;
-	if (source) source.id = id;
-	return source;
-}
-
-
-
-function addKinds(config) {
-	const entries = Object.entries(config);
-	entries.forEach( ([name,info]) => {
-		addKind$2(name, info);
-	});
-}
-
-
-
-
-function from$1(...args) {
-	if (args.length == 1 && typeof args[0] === 'string' ) {
-		const cached = LIGHT_SOURCES[args[0]];
-		if (cached) return cached;
-	}
-	return make$5(...args);
-}
-
-
-
-// export function calcLightComponents(colorComponents, theLight) {
-// 	const randComponent = cosmetic.range(0, theLight.color.rand);
-// 	colorComponents[0] = randComponent + theLight.color.red + cosmetic.range(0, theLight.color.redRand);
-// 	colorComponents[1] = randComponent + theLight.color.green + cosmetic.range(0, theLight.color.greenRand);
-// 	colorComponents[2] = randComponent + theLight.color.blue + cosmetic.range(0, theLight.color.blueRand);
-// }
-
-
-
-
-function updateDisplayDetail(map) {
-
-  map.eachCell( (cell, i, j) => {
-    // clear light flags
-    cell.flags &= ~(Cell.CELL_LIT | Cell.CELL_DARK);
-
-    if (cell.light.some( (v, i) => v !== cell.oldLight[i])) {
-      cell.flags |= Cell.LIGHT_CHANGED;
-    }
-
-    if (cell.isDark())
-    {
-      cell.flags |= Cell.CELL_DARK;
-    } else if (!(cell.flags & Cell.IS_IN_SHADOW)) {
-      cell.flags |= Cell.CELL_LIT;
-    }
-  });
-}
-
-function backUpLighting(map, lights) {
-	let k;
-  map.eachCell( (cell, i, j) => {
-    for (k=0; k<3; k++) {
-      lights[i][j][k] = cell.light[k];
-    }
-  });
-}
-
-function restoreLighting(map, lights) {
-	let k;
-  map.eachCell( (cell, i, j) => {
-    for (k=0; k<3; k++) {
-      cell.light[k] = lights[i][j][k];
-    }
-  });
-}
-
-function recordOldLights(map) {
-  let k;
-  map.eachCell( (cell) => {
-    for (k=0; k<3; k++) {
-			cell.oldLight[k] = cell.light[k];
-			cell.flags &= ~(Cell.LIGHT_CHANGED);
-		}
-  });
-}
-
-function zeroOutLights(map) {
-	let k;
-  const light = map.ambientLight || [0,0,0];
-  map.eachCell( (cell, i, j) => {
-    for (k=0; k<3; k++) {
-      cell.light[k] = light[k];
-    }
-    cell.flags |= Cell.IS_IN_SHADOW;
-  });
-}
-
-function recordGlowLights(map) {
-  let k;
-  map.eachCell( (cell) => {
-    for (k=0; k<3; k++) {
-			cell.glowLight[k] = cell.light[k];
-		}
-  });
-}
-
-function restoreGlowLights(map) {
-	let k;
-  map.eachCell( (cell) => {
-    for (k=0; k<3; k++) {
-      cell.light[k] = cell.glowLight[k];
-    }
-  });
-}
-
-
-function updateLighting(map) {
-
-	// Copy Light over oldLight
-  recordOldLights(map);
-
-  if (map.flags & Map.MAP_STABLE_LIGHTS) return false;
-
-  // and then zero out Light.
-	zeroOutLights(map);
-
-	if (map.flags & Map.MAP_STABLE_GLOW_LIGHTS) {
-		restoreGlowLights(map);
-	}
-	else {
-		// GW.debug.log('painting glow lights.');
-		// Paint all glowing tiles.
-    map.eachLight( (id, x, y) => {
-      const light = LIGHT_SOURCES[id];
-      if (light) {
-        light.paint(map, x, y);
-      }
-    });
-
-		recordGlowLights(map);
-		map.flags |= Map.MAP_STABLE_GLOW_LIGHTS;
-	}
-
-	// Cycle through monsters and paint their lights:
-  eachChain(map.actors, (actor) => {
-    if (actor.kind.light) {
-			actor.kind.light.paint(map, actor.x, actor.y);
-		}
-    // if (monst.mutationIndex >= 0 && mutationCatalog[monst.mutationIndex].light != LIGHT_SOURCES['NO_LIGHT']) {
-    //     paint(map, mutationCatalog[monst.mutationIndex].light, actor.x, actor.y, false, false);
-    // }
-		// if (actor.isBurning()) { // monst.status.burning && !(actor.kind.flags & Flags.Actor.AF_FIERY)) {
-		// 	paint(map, LIGHT_SOURCES.BURNING_CREATURE, actor.x, actor.y, false, false);
-		// }
-		// if (actor.isTelepathicallyRevealed()) {
-		// 	paint(map, LIGHT_SOURCES['TELEPATHY_LIGHT'], actor.x, actor.y, false, true);
-		// }
-  });
-
-	// Also paint telepathy lights for dormant monsters.
-  // for (monst of map.dormantMonsters) {
-  //     if (monsterTelepathicallyRevealed(monst)) {
-  //         paint(map, LIGHT_SOURCES['TELEPATHY_LIGHT'], monst.xLoc, monst.yLoc, false, true);
-  //     }
-  // }
-
-	updateDisplayDetail(map);
-
-	// Miner's light:
-  const PLAYER = data.player;
-  if (PLAYER) {
-    const MINERS_LIGHT = LIGHT_SOURCES.MINERS_LIGHT;
-    if (MINERS_LIGHT && MINERS_LIGHT.radius) {
-      MINERS_LIGHT.paint(map, PLAYER.x, PLAYER.y, true, true);
-    }
-  }
-
-  map.flags |= Map.MAP_STABLE_LIGHTS;
-
-  // if (PLAYER.status.invisible) {
-  //     PLAYER.info.foreColor = playerInvisibleColor;
-	// } else if (playerInDarkness()) {
-	// 	PLAYER.info.foreColor = playerInDarknessColor;
-	// } else if (pmap[PLAYER.xLoc][PLAYER.yLoc].flags & IS_IN_SHADOW) {
-	// 	PLAYER.info.foreColor = playerInShadowColor;
-	// } else {
-	// 	PLAYER.info.foreColor = playerInLightColor;
-	// }
-
-  return true;
-}
-
-
-// TODO - Move and make more generic
-function playerInDarkness(map, PLAYER, darkColor) {
-  const cell = map.cell(PLAYER.x, PLAYER.y);
-	return (cell.light[0] + 10 < darkColor.red
-			&& cell.light[1] + 10 < darkColor.green
-			&& cell.light[2] + 10 < darkColor.blue);
-}
-
-var light = {
-  __proto__: null,
-  make: make$5,
-  addKind: addKind$2,
-  addKinds: addKinds,
-  from: from$1,
-  backUpLighting: backUpLighting,
-  restoreLighting: restoreLighting,
-  recordOldLights: recordOldLights,
-  zeroOutLights: zeroOutLights,
-  recordGlowLights: recordGlowLights,
-  restoreGlowLights: restoreGlowLights,
-  updateLighting: updateLighting,
-  playerInDarkness: playerInDarkness
-};
 
 function demoteCellVisibility(cell, i, j, map) {
   cell.flags &= ~Cell.WAS_VISIBLE;
@@ -8359,15 +8872,16 @@ class ActorKind$1 {
       result = 'you';
     }
     if (opts.color || (this.consoleColor && (opts.color !== false))) {
-      let color$1 = this.sprite.fg;
-      if (this.consoleColor instanceof types.Color) {
+      let color$1 = opts.color;
+      if (typeof color$1 === 'boolean') {
         color$1 = this.consoleColor;
+        if (typeof color$1 === 'boolean') {
+          color$1 = this.sprite.fg;
+        }
       }
-      if (opts.color instanceof types.Color) {
-        color$1 = opts.color;
-      }
-      else if (typeof opts.color === 'string') {
-        color$1 = from(opts.color);
+      if (color$1 && typeof opts.color !== 'string') {
+        color$1 = from(color$1);
+        color$1 = color$1.isNull() ? null : color$1.toString();
       }
       if (color$1) {
         result = apply('Ω§color§Ω§result§∆', { color: color$1, result });
@@ -9126,6 +9640,544 @@ class Scheduler {
 
 const scheduler = new Scheduler();
 
+let ANIMATIONS = [];
+
+function busy$1() {
+  return ANIMATIONS.some( (a) => a );
+}
+
+
+async function playAll() {
+  while(busy$1()) {
+    const dt = await io.nextTick();
+    ANIMATIONS.forEach( (a) => a && a.tick(dt) );
+    ANIMATIONS = ANIMATIONS.filter( (a) => a && !a.done );
+  }
+}
+
+
+function tick(dt) {
+  if (!ANIMATIONS.length) return false;
+
+  ANIMATIONS.forEach( (a) => a && a.tick(dt) );
+  ANIMATIONS = ANIMATIONS.filter( (a) => a && !a.done );
+  // if (ANIMATIONS.length == 0) {
+  //   IO.resumeEvents();
+  // }
+  return true;
+}
+
+async function playRealTime(animation) {
+  animation.playFx = playRealTime;
+
+  // IO.pauseEvents();
+  animation.start();
+  ANIMATIONS.push(animation);
+  return new Promise( (resolve) => animation.callback = resolve );
+}
+
+
+async function playGameTime(anim) {
+  anim.playFx = playGameTime;
+
+  anim.start();
+  scheduler.push(() => {
+    anim.step();
+    ui.requestUpdate(1);
+    return anim.done ? 0 : anim.speed;
+  },  anim.speed);
+
+  return new Promise( (resolve) => anim.callback = resolve );
+}
+
+
+class FX {
+  constructor(opts={}) {
+    this.tilNextTurn = opts.speed || opts.duration || 1000;
+    this.speed = opts.speed || opts.duration || 1000;
+    this.callback = NOOP;
+    this.done = false;
+  }
+
+  tick(dt) {
+    if (this.done) return;
+    this.tilNextTurn -= dt;
+    while (this.tilNextTurn < 0 && !this.done) {
+      this.step();
+      this.tilNextTurn += this.speed;
+    }
+  }
+
+  step() {
+    this.stop();
+  }
+
+  start() {}
+
+  stop(result) {
+    if (this.done) return;
+    this.done = true;
+    this.callback(result);
+  }
+
+}
+
+types.FX = FX;
+
+
+class SpriteFX extends FX {
+  constructor(map, sprite, x, y, opts={}) {
+    const count = opts.blink || 1;
+    const duration = opts.duration || 1000;
+    opts.speed = opts.speed || (duration / (2*count-1));
+    super(opts);
+    if (typeof sprite === 'string') {
+      sprite = sprites[sprite];
+    }
+    this.map = map;
+    this.sprite = sprite;
+    this.x = x || 0;
+    this.y = y || 0;
+    this.stepCount = 2*count - 1;
+  }
+
+  start() {
+    this.map.addFx(this.x, this.y, this);
+    return super.start();
+  }
+
+  step() {
+    --this.stepCount;
+    if (this.stepCount <= 0) return this.stop();
+    if (this.stepCount % 2 == 0) {
+      this.map.removeFx(this);
+    }
+    else {
+      this.map.addFx(this.x, this.y, this);
+    }
+  }
+
+  stop(result) {
+    this.map.removeFx(this);
+    return super.stop(result);
+  }
+
+  moveDir(dx, dy) {
+    return this.moveTo(this.x + dx, this.y + dy);
+  }
+
+  moveTo(x, y) {
+    this.map.moveFx(x, y, this);
+    return true;
+  }
+
+}
+
+
+
+async function flashSprite(map, x, y, sprite, duration=100, count=1) {
+  const anim = new SpriteFX(map, sprite, x, y, { duration, blink: count });
+  return playRealTime(anim);
+}
+
+
+install$1('bump', 'white', 50);
+
+
+async function hit(map, target, sprite, duration) {
+  sprite = sprite || config.fx.hitSprite || 'hit';
+  duration = duration || config.fx.hitFlashTime || 200;
+  await flashSprite(map, target.x, target.y, sprite, duration, 1);
+}
+
+install$1('hit', 'red', 50);
+
+async function miss(map, target, sprite, duration) {
+  sprite = sprite || config.fx.missSprite || 'miss';
+  duration = duration || config.fx.missFlashTime || 200;
+  await flashSprite(map, target.x, target.y, sprite, duration, 1);
+}
+
+install$1('miss', 'green', 50);
+
+
+class MovingSpriteFX extends SpriteFX {
+  constructor(map, source, target, sprite, speed, stepFn) {
+    super(map, sprite, source.x, source.y, { speed });
+    this.target = target;
+    this.path = map$1.getLine(this.map, source.x, source.y, this.target.x, this.target.y);
+    this.stepFn = stepFn || TRUE;
+  }
+
+  step() {
+    if (this.x == this.target.x && this.y == this.target.y) return this.stop(this);
+    if (!this.path.find( (loc) => loc[0] == this.target.x && loc[1] == this.target.y)) {
+      this.path = map$1.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
+    }
+    const next = this.path.shift();
+    const r = this.stepFn(next[0], next[1]);
+    if (r < 0) {
+      return this.stop(this);
+    }
+    else if (r) {
+      return this.moveTo(next[0], next[1]);
+    }
+    else {
+      this.moveTo(next[0], next[1]);
+      this.target.x = this.x;
+      this.target.y = this.y;
+    }
+  }
+}
+
+types.MovingSpriteFX = MovingSpriteFX;
+
+
+async function bolt(map, source, target, sprite, opts={}) {
+  if (typeof sprite === 'string') {
+    sprite = SPRITES[sprite];
+  }
+  opts.speed = opts.speed || 3;
+  opts.stepFn = opts.stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
+  opts.playFn = playGameTime;
+  if (opts.realTime || (!opts.gameTime)) {
+    opts.speed *= 16;
+    opts.playFn = playRealTime;
+  }
+
+  const anim = new MovingSpriteFX(map, source, target, sprite, opts.speed, opts.stepFn);
+  return opts.playFn(anim);
+}
+
+
+async function projectile(map, source, target, sprite, opts) {
+  if (sprite.ch.length == 4) {
+    const dir = dirFromTo(source, target);
+    let index = 0;
+    if (dir[0] && dir[1]) {
+      index = 2;
+      if (dir[0] != dir[1]) { // remember up is -y
+        index = 3;
+      }
+    }
+    else if (dir[0]) {
+      index = 1;
+    }
+    const ch = sprite.ch[index];
+    sprite = make.sprite(ch, sprite.fg, sprite.bg);
+  }
+  else if (sprite.ch.length !== 1) {
+    ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
+  }
+
+  return bolt(map, source, target, sprite, opts);
+}
+
+
+
+//
+// RUT.Animations.projectileToTarget = function projectileTo(map, from, target, callback, opts) {
+//   if (typeof callback != 'function' && opts === undefined) {
+//     opts = callback;
+//     callback = RUT.NOOP;
+//   }
+//   if (opts === true) opts = {};
+//   if (opts === false) return;
+//   opts = opts || {};
+//   if (typeof opts === 'string') opts = { sprite: opts };
+//
+//   Object.defaults(opts, RUT.Config.Animations.projectile);
+//   // if (!RUT.FOV.isVisible(shooter) && !RUT.FOV.isVisible(to)) { return Promise.resolve(); }
+//   const sprite = opts.sprite;
+//   let anim = new RUT.Animations.XYAnimation(map, sprite, from, () => target.xy, callback, opts.speed);
+//   anim.start(); // .then( () => target.xy );
+//   return anim;
+// }
+//
+
+// export class DirAnimation extends FX {
+//   constructor(sprite, from, dir, callback, opts={}) {
+//     const speed = opts.speed || 10;
+//     super(callback, { sprite, speed });
+//     this.from = from;
+//     this.dir = dir;
+//     this.stopCell = opts.stopCell;
+//     this.stopTile = opts.stopTile;
+//     this.stepFn = opts.stepFn || TRUE;
+//     this.range = opts.range || 99;
+//   }
+//
+//   start() {
+//     return super.start(this.from.x, this.from.y);
+//   }
+//
+//   step() {
+//     let dist = distanceFromTo(this.from, this.xy);
+//     if (dist >= this.range) {
+//       return this.stop(this.xy);
+//     }
+//
+//     const newXy = this.xy.plus(this.dir);
+//
+//     const cell = DATA.map.cell(newXy.x, newXy.y);
+//     if (!cell) {
+//       return this.stop(this.xy);
+//     }
+//     else if (this.stopCell && RUT.Cell.hasAllFlags(cell, this.stopCell)) {
+//       return this.stop(this.xy);
+//     }
+//     else if (this.stopTile && RUT.Cell.hasTileFlag(cell, this.stopTile)) {
+//       return this.stop(this.xy);
+//     }
+//
+//     DATA.map.moveAnimation(this.map, newXy.x, newXy.y, this);
+//     if (this.stepFn(this.map, this.xy.x, this.xy.y)) {
+//       return this.stop(this.xy);
+//     }
+//   }
+// }
+
+//
+// RUT.Animations.projectileDir = function projectileTo(map, xy, dir, callback, opts) {
+//   if (typeof callback != 'function' && opts === undefined) {
+//     opts = callback;
+//     callback = RUT.NOOP;
+//   }
+//   if (opts === true) opts = {};
+//   if (opts === false) return;
+//   opts = opts || {};
+//   if (typeof opts === 'string') opts = { sprite: opts };
+//   if (opts.sprite === true) opts.sprite = RUT.Config.Animations.projectile.sprite;
+//
+//   Object.defaults(opts, RUT.Config.Animations.projectile);
+//   let anim = new RUT.Animations.DirAnimation(map, opts.sprite, xy, dir, callback, opts);
+//   anim.start(); // .then( () => anim.xy );
+//   return anim;
+// }
+//
+
+class BeamFX extends FX {
+  constructor(map, from, target, sprite, speed, fade, stepFn) {
+    speed = speed || 20;
+    super({ speed });
+    this.map = map;
+    this.x = from.x;
+    this.y = from.y;
+    this.target = target;
+    this.sprite = sprite;
+    this.fade = fade || speed;
+    this.path = map$1.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
+    this.stepFn = stepFn || TRUE;
+  }
+
+  step() {
+    // if (this.x == this.target.x && this.y == this.target.y) return this.stop(this);
+    // if (!this.path.find( (loc) => loc[0] == this.target.x && loc[1] == this.target.y)) {
+    //   this.path = MAP.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
+    // }
+    if (this.path.length == 0) { return this.stop(this); }
+    const next = this.path.shift();
+    const r = this.stepFn(next[0], next[1]);
+    if (r < 0) {
+      return this.stop(this);
+    }
+    else if (r) {
+      return this.moveTo(next[0], next[1]);
+    }
+    else {
+      this.moveTo(next[0], next[1]);
+      this.target.x = this.x;
+      this.target.y = this.y;
+    }
+  }
+
+  moveTo(x, y) {
+    if (!this.map.hasXY(x, y)) {
+      // fx.debug('BEAM - invalid x,y', x, y);
+      return;
+    }
+    this.x = x;
+    this.y = y;
+    // fx.flashSprite(this.map, x, y, this.sprite, this.fade);
+
+    const anim = new SpriteFX(this.map, this.sprite, x, y, { duration: this.fade });
+    this.playFx(anim);
+  }
+
+}
+
+
+function beam(map, from, to, sprite, opts={}) {
+  opts.fade = opts.fade || 5;
+  opts.speed = opts.speed || 1;
+  opts.stepFn = opts.stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
+  opts.playFn = playGameTime;
+  if (opts.realTime || (!opts.gameTime)) {
+    opts.speed *= 8;
+    opts.fade *= 8;
+    opts.playFn = playRealTime;
+  }
+
+  const animation = new BeamFX(map, from, to, sprite, opts.speed, opts.fade, opts.stepFn);
+  return opts.playFn(animation);
+}
+
+
+
+
+class ExplosionFX extends FX {
+  // TODO - take opts instead of individual params (do opts setup here)
+  constructor(map, fovGrid, x, y, radius, sprite, speed, fade, shape, center, stepFn) {
+    speed = speed || 20;
+    super({ speed });
+    this.map = map;
+    this.grid = alloc(map.width, map.height);
+    if (fovGrid) {
+      this.grid.copy(fovGrid);
+    }
+    else {
+      this.grid.fill(1);
+    }
+    this.x = x;
+    this.y = y;
+    this.radius = 0;
+    this.maxRadius = radius;
+    this.sprite = sprite;
+    this.fade = fade || 100;
+    this.shape = shape || 'o';
+    this.center = (center === undefined) ? true : center;
+    this.stepFn = stepFn || TRUE;
+    this.count = 0;
+  }
+
+  start() {
+    if (this.center) {
+      this.visit(this.x, this.y);
+    }
+    else {
+      this.step();
+    }
+  }
+
+  step() {
+    if (this.radius >= this.maxRadius) return false;
+
+    this.radius = Math.min(this.radius + 1, this.maxRadius);
+
+    let done = true;
+    let x = Math.max(0, Math.floor(this.x - this.maxRadius));
+    const maxX = Math.min(this.grid.width - 1, Math.ceil(this.x + this.maxRadius));
+    let minY = Math.max(0, Math.floor(this.y - this.maxRadius));
+    const maxY = Math.min(this.grid.height - 1, Math.ceil(this.y + this.maxRadius));
+    let col;
+    let dist;
+
+    for(; x <= maxX; ++x) {
+      col = this.grid[x];
+      for(let y = minY; y <= maxY; ++y) {
+        if (col[y] != 1) continue;  // not in FOV
+        dist = distanceBetween(this.x, this.y, x, y);
+        if (dist <= this.radius) {
+          this.visit(x, y);
+        }
+        else if (dist <= this.maxRadius) {
+          done = false;
+        }
+      }
+    }
+    ui.requestUpdate(48);
+
+    // fx.debug('returning...', done);
+    if (done && (this.count == 0)) {
+      return this.stop(this); // xy of explosion is callback value
+    }
+    return false;
+  }
+
+  visit(x, y) {
+    if (this.isInShape(x, y) && this.stepFn(x, y)) {
+      this.count += 1;
+      const anim = new SpriteFX(this.map, this.sprite, x, y, { duration: this.fade });
+      this.playFx(anim).then( () => {
+        --this.count;
+        if (this.count == 0) {
+          this.stop(this);
+        }
+      });
+      // flashSprite(this.map, x, y, this.sprite, this.fade);
+    }
+    this.grid[x][y] = 2;
+  }
+
+  isInShape(x, y) {
+    const sx = Math.abs(x - this.x);
+    const sy = Math.abs(y - this.y);
+    if (sx == 0 && sy == 0 && !this.center) return false;
+    switch(this.shape) {
+      case '+': return sx == 0 || sy == 0;
+      case 'x': return sx == sy;
+      case '*': return (sx == 0 || sy == 0 || sx == sy);
+      default: return true;
+    }
+  }
+
+  stop(result) {
+    this.grid = free(this.grid);
+    return super.stop(result);
+  }
+}
+
+function checkExplosionOpts(opts) {
+  opts.speed = opts.speed || 5;
+  opts.fade = opts.fade || 10;
+  opts.playFn = playGameTime;
+  opts.shape = opts.shape || 'o';
+  if (opts.center === undefined) { opts.center = true; }
+
+  if (opts.realTime || (!opts.gameTime)) {
+    opts.speed = opts.speed * 8;
+    opts.fade = opts.fade * 8;
+    opts.playFn = playRealTime;
+  }
+}
+
+function explosion(map, x, y, radius, sprite, opts={}) {
+  checkExplosionOpts(opts);
+  opts.stepFn = opts.stepFn || ((x, y) => !map.isObstruction(x, y));
+  const animation = new ExplosionFX(map, null, x, y, radius, sprite, opts.speed, opts.fade, opts.shape, opts.center, opts.stepFn);
+  map.calcFov(animation.grid, x, y, radius);
+  return opts.playFn(animation);
+}
+
+
+function explosionFor(map, grid, x, y, radius, sprite, opts={}) {
+  checkExplosionOpts(opts);
+  opts.stepFn = opts.stepFn || ((x, y) => !map.isObstruction(x, y));
+  const animation = new ExplosionFX(map, grid, x, y, radius, sprite, opts.speed, opts.fade, opts.shape, opts.center, opts.stepFn);
+  return opts.playFn(animation);
+}
+
+var fx = {
+  __proto__: null,
+  busy: busy$1,
+  playAll: playAll,
+  tick: tick,
+  playRealTime: playRealTime,
+  playGameTime: playGameTime,
+  FX: FX,
+  SpriteFX: SpriteFX,
+  flashSprite: flashSprite,
+  hit: hit,
+  miss: miss,
+  MovingSpriteFX: MovingSpriteFX,
+  bolt: bolt,
+  projectile: projectile,
+  BeamFX: BeamFX,
+  beam: beam,
+  explosion: explosion,
+  explosionFor: explosionFor
+};
+
 const GAME_DEBUG = NOOP;
 
 data.time = 0;
@@ -9372,7 +10424,7 @@ async function updateEnvironment() {
 
 
 
-sprite.install('hilite', colors.white);
+install$1('hilite', colors.white);
 
 async function gameOver(isWin, msg, args) {
   if (args) {
@@ -9391,9 +10443,8 @@ async function gameOver(isWin, msg, args) {
   }
   message.add('Press <Enter> to continue.');
   ui.updateNow();
-  await fx.flashSprite(data.map, data.player.x, data.player.y, 'hilite', 500, 3);
+  await flashSprite(data.map, data.player.x, data.player.y, 'hilite', 500, 3);
   data.gameHasEnded = true;
-
 }
 
 
@@ -9466,7 +10517,7 @@ class Tile$1 {
       mechFlags: 0,
       layer: 0,
       priority: -1,
-      sprite: make.sprite(),
+      sprite: {},
       events: {},
       light: null,  // id of light for this tile
       flavor: null,
@@ -9575,7 +10626,7 @@ class Tile$1 {
     if (this.flags & Tile.T_LAVA && actor) {
       if (!cell.hasTileFlag(Tile.T_BRIDGE) && !actor.status.levitating) {
         actor.kill();
-        await gameOver(false, '#red#you fall into lava and perish.');
+        await gameOver(false, 'ΩredΩyou fall into lava and perish.');
         return true;
       }
     }
@@ -10376,545 +11427,6 @@ function addStairs(opts = {}) {
 
 dungeon.addStairs = addStairs;
 
-fx.debug = NOOP;
-
-let ANIMATIONS = [];
-
-function busy$1() {
-  return ANIMATIONS.some( (a) => a );
-}
-
-fx.busy = busy$1;
-
-
-async function playAll() {
-  while(fx.busy()) {
-    const dt = await io.nextTick();
-    ANIMATIONS.forEach( (a) => a && a.tick(dt) );
-    ANIMATIONS = ANIMATIONS.filter( (a) => a && !a.done );
-  }
-}
-
-fx.playAll = playAll;
-
-
-function tick(dt) {
-  if (!ANIMATIONS.length) return false;
-
-  io.pauseEvents();
-  ANIMATIONS.forEach( (a) => a && a.tick(dt) );
-  ANIMATIONS = ANIMATIONS.filter( (a) => a && !a.done );
-  io.resumeEvents();
-
-  return true;
-}
-
-fx.tick = tick;
-
-async function playRealTime(animation) {
-  animation.playFx = fx.playRealTime;
-
-  animation.start();
-  ANIMATIONS.push(animation);
-  return new Promise( (resolve) => animation.callback = resolve );
-}
-
-fx.playRealTime = playRealTime;
-
-async function playGameTime(anim) {
-  anim.playFx = fx.playGameTime;
-
-  anim.start();
-  scheduler.push(() => {
-    anim.step();
-    ui.requestUpdate(1);
-    return anim.done ? 0 : anim.speed;
-  },  anim.speed);
-
-  return new Promise( (resolve) => anim.callback = resolve );
-}
-
-fx.playGameTime = playGameTime;
-
-
-class FX {
-  constructor(opts={}) {
-    this.tilNextTurn = opts.speed || opts.duration || 1000;
-    this.speed = opts.speed || opts.duration || 1000;
-    this.callback = NOOP;
-    this.done = false;
-  }
-
-  tick(dt) {
-    if (this.done) return;
-    this.tilNextTurn -= dt;
-    while (this.tilNextTurn < 0 && !this.done) {
-      this.step();
-      this.tilNextTurn += this.speed;
-    }
-  }
-
-  step() {
-    this.stop();
-  }
-
-  start() {}
-
-  stop(result) {
-    if (this.done) return;
-    this.done = true;
-    this.callback(result);
-  }
-
-}
-
-types.FX = FX;
-
-
-class SpriteFX extends FX {
-  constructor(map, sprite, x, y, opts={}) {
-    const count = opts.blink || 1;
-    const duration = opts.duration || 1000;
-    opts.speed = opts.speed || (duration / (2*count-1));
-    super(opts);
-    if (typeof sprite === 'string') {
-      sprite = sprites[sprite];
-    }
-    this.map = map;
-    this.sprite = sprite;
-    this.x = x || 0;
-    this.y = y || 0;
-    this.stepCount = 2*count - 1;
-  }
-
-  start() {
-    this.map.addFx(this.x, this.y, this);
-    return super.start();
-  }
-
-  step() {
-    --this.stepCount;
-    if (this.stepCount <= 0) return this.stop();
-    if (this.stepCount % 2 == 0) {
-      this.map.removeFx(this);
-    }
-    else {
-      this.map.addFx(this.x, this.y, this);
-    }
-  }
-
-  stop(result) {
-    this.map.removeFx(this);
-    return super.stop(result);
-  }
-
-  moveDir(dx, dy) {
-    return this.moveTo(this.x + dx, this.y + dy);
-  }
-
-  moveTo(x, y) {
-    this.map.moveFx(x, y, this);
-    return true;
-  }
-
-}
-
-
-
-async function flashSprite(map, x, y, sprite, duration=100, count=1) {
-  const anim = new SpriteFX(map, sprite, x, y, { duration, blink: count });
-  return fx.playRealTime(anim);
-}
-
-fx.flashSprite = flashSprite;
-
-installSprite('bump', 'white', 50);
-
-
-async function hit(map, target, sprite, duration) {
-  sprite = sprite || config.fx.hitSprite || 'hit';
-  duration = duration || config.fx.hitFlashTime || 200;
-  await fx.flashSprite(map, target.x, target.y, sprite, duration, 1);
-}
-
-fx.hit = hit;
-
-installSprite('hit', 'red', 50);
-
-async function miss(map, target, sprite, duration) {
-  sprite = sprite || config.fx.missSprite || 'miss';
-  duration = duration || config.fx.missFlashTime || 200;
-  await fx.flashSprite(map, target.x, target.y, sprite, duration, 1);
-}
-
-fx.miss = miss;
-
-installSprite('miss', 'green', 50);
-
-
-class MovingSpriteFX extends SpriteFX {
-  constructor(map, source, target, sprite, speed, stepFn) {
-    super(map, sprite, source.x, source.y, { speed });
-    this.target = target;
-    this.path = map$1.getLine(this.map, source.x, source.y, this.target.x, this.target.y);
-    this.stepFn = stepFn || TRUE;
-  }
-
-  step() {
-    if (this.x == this.target.x && this.y == this.target.y) return this.stop(this);
-    if (!this.path.find( (loc) => loc[0] == this.target.x && loc[1] == this.target.y)) {
-      this.path = map$1.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
-    }
-    const next = this.path.shift();
-    const r = this.stepFn(next[0], next[1]);
-    if (r < 0) {
-      return this.stop(this);
-    }
-    else if (r) {
-      return this.moveTo(next[0], next[1]);
-    }
-    else {
-      this.moveTo(next[0], next[1]);
-      this.target.x = this.x;
-      this.target.y = this.y;
-    }
-  }
-}
-
-types.MovingSpriteFX = MovingSpriteFX;
-
-
-async function bolt(map, source, target, sprite, opts={}) {
-  if (typeof sprite === 'string') {
-    sprite = sprites[sprite];
-  }
-  opts.speed = opts.speed || 3;
-  opts.stepFn = opts.stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
-  opts.playFn = fx.playGameTime;
-  if (opts.realTime || (!opts.gameTime)) {
-    opts.speed *= 16;
-    opts.playFn = fx.playRealTime;
-  }
-
-  const anim = new MovingSpriteFX(map, source, target, sprite, opts.speed, opts.stepFn);
-  return opts.playFn(anim);
-}
-
-fx.bolt = bolt;
-
-async function projectile(map, source, target, sprite, opts) {
-  if (sprite.ch.length == 4) {
-    const dir = dirFromTo(source, target);
-    let index = 0;
-    if (dir[0] && dir[1]) {
-      index = 2;
-      if (dir[0] != dir[1]) { // remember up is -y
-        index = 3;
-      }
-    }
-    else if (dir[0]) {
-      index = 1;
-    }
-    const ch = sprite.ch[index];
-    sprite = GW.make.sprite(ch, sprite.fg, sprite.bg);
-  }
-  else if (sprite.ch.length !== 1) {
-    ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
-  }
-
-  return fx.bolt(map, source, target, sprite, opts);
-}
-
-fx.projectile = projectile;
-
-
-//
-// RUT.Animations.projectileToTarget = function projectileTo(map, from, target, callback, opts) {
-//   if (typeof callback != 'function' && opts === undefined) {
-//     opts = callback;
-//     callback = RUT.NOOP;
-//   }
-//   if (opts === true) opts = {};
-//   if (opts === false) return;
-//   opts = opts || {};
-//   if (typeof opts === 'string') opts = { sprite: opts };
-//
-//   Object.defaults(opts, RUT.Config.Animations.projectile);
-//   // if (!RUT.FOV.isVisible(shooter) && !RUT.FOV.isVisible(to)) { return Promise.resolve(); }
-//   const sprite = opts.sprite;
-//   let anim = new RUT.Animations.XYAnimation(map, sprite, from, () => target.xy, callback, opts.speed);
-//   anim.start(); // .then( () => target.xy );
-//   return anim;
-// }
-//
-
-// export class DirAnimation extends FX {
-//   constructor(sprite, from, dir, callback, opts={}) {
-//     const speed = opts.speed || 10;
-//     super(callback, { sprite, speed });
-//     this.from = from;
-//     this.dir = dir;
-//     this.stopCell = opts.stopCell;
-//     this.stopTile = opts.stopTile;
-//     this.stepFn = opts.stepFn || TRUE;
-//     this.range = opts.range || 99;
-//   }
-//
-//   start() {
-//     return super.start(this.from.x, this.from.y);
-//   }
-//
-//   step() {
-//     let dist = distanceFromTo(this.from, this.xy);
-//     if (dist >= this.range) {
-//       return this.stop(this.xy);
-//     }
-//
-//     const newXy = this.xy.plus(this.dir);
-//
-//     const cell = DATA.map.cell(newXy.x, newXy.y);
-//     if (!cell) {
-//       return this.stop(this.xy);
-//     }
-//     else if (this.stopCell && RUT.Cell.hasAllFlags(cell, this.stopCell)) {
-//       return this.stop(this.xy);
-//     }
-//     else if (this.stopTile && RUT.Cell.hasTileFlag(cell, this.stopTile)) {
-//       return this.stop(this.xy);
-//     }
-//
-//     DATA.map.moveAnimation(this.map, newXy.x, newXy.y, this);
-//     if (this.stepFn(this.map, this.xy.x, this.xy.y)) {
-//       return this.stop(this.xy);
-//     }
-//   }
-// }
-
-//
-// RUT.Animations.projectileDir = function projectileTo(map, xy, dir, callback, opts) {
-//   if (typeof callback != 'function' && opts === undefined) {
-//     opts = callback;
-//     callback = RUT.NOOP;
-//   }
-//   if (opts === true) opts = {};
-//   if (opts === false) return;
-//   opts = opts || {};
-//   if (typeof opts === 'string') opts = { sprite: opts };
-//   if (opts.sprite === true) opts.sprite = RUT.Config.Animations.projectile.sprite;
-//
-//   Object.defaults(opts, RUT.Config.Animations.projectile);
-//   let anim = new RUT.Animations.DirAnimation(map, opts.sprite, xy, dir, callback, opts);
-//   anim.start(); // .then( () => anim.xy );
-//   return anim;
-// }
-//
-
-class BeamFX extends FX {
-  constructor(map, from, target, sprite, speed, fade, stepFn) {
-    speed = speed || 20;
-    super({ speed });
-    this.map = map;
-    this.x = from.x;
-    this.y = from.y;
-    this.target = target;
-    this.sprite = sprite;
-    this.fade = fade || speed;
-    this.path = map$1.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
-    this.stepFn = stepFn || TRUE;
-  }
-
-  step() {
-    // if (this.x == this.target.x && this.y == this.target.y) return this.stop(this);
-    // if (!this.path.find( (loc) => loc[0] == this.target.x && loc[1] == this.target.y)) {
-    //   this.path = MAP.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
-    // }
-    if (this.path.length == 0) { return this.stop(this); }
-    const next = this.path.shift();
-    const r = this.stepFn(next[0], next[1]);
-    if (r < 0) {
-      return this.stop(this);
-    }
-    else if (r) {
-      return this.moveTo(next[0], next[1]);
-    }
-    else {
-      this.moveTo(next[0], next[1]);
-      this.target.x = this.x;
-      this.target.y = this.y;
-    }
-  }
-
-  moveTo(x, y) {
-    if (!this.map.hasXY(x, y)) {
-      fx.debug('BEAM - invalid x,y', x, y);
-      return;
-    }
-    this.x = x;
-    this.y = y;
-    // fx.flashSprite(this.map, x, y, this.sprite, this.fade);
-
-    const anim = new SpriteFX(this.map, this.sprite, x, y, { duration: this.fade });
-    this.playFx(anim);
-  }
-
-}
-
-types.BeamFX = BeamFX;
-
-function beam(map, from, to, sprite, opts={}) {
-  opts.fade = opts.fade || 5;
-  opts.speed = opts.speed || 1;
-  opts.stepFn = opts.stepFn || ((x, y) => map.isObstruction(x, y) ? -1 : 1);
-  opts.playFn = fx.playGameTime;
-  if (opts.realTime || (!opts.gameTime)) {
-    opts.speed *= 8;
-    opts.fade *= 8;
-    opts.playFn = fx.playRealTime;
-  }
-
-  const animation = new BeamFX(map, from, to, sprite, opts.speed, opts.fade, opts.stepFn);
-  return opts.playFn(animation);
-}
-
-fx.beam = beam;
-
-
-
-class ExplosionFX extends FX {
-  // TODO - take opts instead of individual params (do opts setup here)
-  constructor(map, fovGrid, x, y, radius, sprite, speed, fade, shape, center, stepFn) {
-    speed = speed || 20;
-    super({ speed });
-    this.map = map;
-    this.grid = alloc(map.width, map.height);
-    if (fovGrid) {
-      this.grid.copy(fovGrid);
-    }
-    else {
-      this.grid.fill(1);
-    }
-    this.x = x;
-    this.y = y;
-    this.radius = 0;
-    this.maxRadius = radius;
-    this.sprite = sprite;
-    this.fade = fade || 100;
-    this.shape = shape || 'o';
-    this.center = (center === undefined) ? true : center;
-    this.stepFn = stepFn || TRUE;
-    this.count = 0;
-  }
-
-  start() {
-    if (this.center) {
-      this.visit(this.x, this.y);
-    }
-    else {
-      this.step();
-    }
-  }
-
-  step() {
-    if (this.radius >= this.maxRadius) return false;
-
-    this.radius = Math.min(this.radius + 1, this.maxRadius);
-
-    let done = true;
-    let x = Math.max(0, Math.floor(this.x - this.maxRadius));
-    const maxX = Math.min(this.grid.width - 1, Math.ceil(this.x + this.maxRadius));
-    let minY = Math.max(0, Math.floor(this.y - this.maxRadius));
-    const maxY = Math.min(this.grid.height - 1, Math.ceil(this.y + this.maxRadius));
-    let col;
-    let dist;
-
-    for(; x <= maxX; ++x) {
-      col = this.grid[x];
-      for(let y = minY; y <= maxY; ++y) {
-        if (col[y] != 1) continue;  // not in FOV
-        dist = distanceBetween(this.x, this.y, x, y);
-        if (dist <= this.radius) {
-          this.visit(x, y);
-        }
-        else if (dist <= this.maxRadius) {
-          done = false;
-        }
-      }
-    }
-    ui.requestUpdate(48);
-
-    // fx.debug('returning...', done);
-    if (done && (this.count == 0)) {
-      return this.stop(this); // xy of explosion is callback value
-    }
-    return false;
-  }
-
-  visit(x, y) {
-    if (this.isInShape(x, y) && this.stepFn(x, y)) {
-      this.count += 1;
-      const anim = new SpriteFX(this.map, this.sprite, x, y, { duration: this.fade });
-      this.playFx(anim).then( () => {
-        --this.count;
-        if (this.count == 0) {
-          this.stop(this);
-        }
-      });
-      // fx.flashSprite(this.map, x, y, this.sprite, this.fade);
-    }
-    this.grid[x][y] = 2;
-  }
-
-  isInShape(x, y) {
-    const sx = Math.abs(x - this.x);
-    const sy = Math.abs(y - this.y);
-    if (sx == 0 && sy == 0 && !this.center) return false;
-    switch(this.shape) {
-      case '+': return sx == 0 || sy == 0;
-      case 'x': return sx == sy;
-      case '*': return (sx == 0 || sy == 0 || sx == sy);
-      default: return true;
-    }
-  }
-
-  stop(result) {
-    this.grid = free(this.grid);
-    return super.stop(result);
-  }
-}
-
-function checkExplosionOpts(opts) {
-  opts.speed = opts.speed || 5;
-  opts.fade = opts.fade || 10;
-  opts.playFn = fx.playGameTime;
-  opts.shape = opts.shape || 'o';
-  if (opts.center === undefined) { opts.center = true; }
-
-  if (opts.realTime || (!opts.gameTime)) {
-    opts.speed = opts.speed * 8;
-    opts.fade = opts.fade * 8;
-    opts.playFn = fx.playRealTime;
-  }
-}
-
-function explosion(map, x, y, radius, sprite, opts={}) {
-  checkExplosionOpts(opts);
-  opts.stepFn = opts.stepFn || ((x, y) => !map.isObstruction(x, y));
-  const animation = new ExplosionFX(map, null, x, y, radius, sprite, opts.speed, opts.fade, opts.shape, opts.center, opts.stepFn);
-  map.calcFov(animation.grid, x, y, radius);
-  return opts.playFn(animation);
-}
-
-fx.explosion = explosion;
-
-function explosionFor(map, grid, x, y, radius, sprite, opts={}) {
-  checkExplosionOpts(opts);
-  opts.stepFn = opts.stepFn || ((x, y) => !map.isObstruction(x, y));
-  const animation = new ExplosionFX(map, grid, x, y, radius, sprite, opts.speed, opts.fade, opts.shape, opts.center, opts.stepFn);
-  return opts.playFn(animation);
-}
-
-fx.explosionFor = explosionFor;
-
 var fov = {};
 
 fov.debug = NOOP;
@@ -11042,9 +11554,9 @@ async function applyDamage(attacker, defender, attackInfo, ctx) {
   const ctx2 = { map, x: defender.x, y: defender.y, volume: ctx.damage };
 
   if (map) {
-    let hit = firstOpt('fx', attackInfo, ctx, false);
-    if (hit) {
-      await fx.hit(map, defender);
+    let hit$1 = firstOpt('fx', attackInfo, ctx, false);
+    if (hit$1) {
+      await hit(map, defender);
     }
     if (defender.kind.blood) {
       await spawn(defender.kind.blood, ctx2);
@@ -11065,7 +11577,7 @@ async function applyDamage(attacker, defender, attackInfo, ctx) {
     }
 
     if (defender.isDead() && (msg !== false)) {
-      message.addCombat('#red#$action$## $it.defender$', { action: defender.isInanimate() ? 'destroying' : 'killing', defender });
+      message.addCombat('ΩredΩ§action§∆ §it defender§', { action: defender.isInanimate() ? 'destroying' : 'killing', defender });
     }
   }
   return ctx.damage;
@@ -11082,7 +11594,7 @@ async function grab(e) {
 
   if (actor.grabbed) {
     message.add('§you§ §let§ go of §a item§.', { actor, item: actor.grabbed });
-    await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+    await flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
     actor.grabbed = null;
     actor.endTurn();
     return true;
@@ -11963,12 +12475,12 @@ function drawMessages(buffer) {
 				color.mix(colors.black, 75 * i / (2*MSG_BOUNDS.height));
 			}
 			messageColor = color || tempColor;
-			buffer.plotChar(x, y, c, messageColor, colors.black);
+			buffer.draw(x, y, c, messageColor, colors.black);
 		});
 
 		for (let j = length(DISPLAYED[i]); j < MSG_BOUNDS.width; j++) {
 			const x = MSG_BOUNDS.toOuterX(j);
-			buffer.plotChar(x, y, ' ', colors.black, colors.black);
+			buffer.draw(x, y, ' ', colors.black, colors.black);
 		}
 	}
 
@@ -12075,7 +12587,7 @@ message.confirmAll = confirmAll;
 
 
 async function showArchive() {
-	let i, j, k, reverse, fadePercent, totalMessageCount, currentMessageCount;
+	let j, reverse, fadePercent, totalMessageCount, currentMessageCount;
 	let fastForward;
 
   if (!MSG_BOUNDS) return;
@@ -12099,28 +12611,36 @@ async function showArchive() {
 	  {
 			ui.resetDialog();
 
+      // // Set the dbuf opacity, and do a fade from bottom to top to make it clear that the bottom messages are the most recent.
+      // const mixer = new Sprite();
+			// for (j=0; j < currentMessageCount && j < dbuf.height; j++) {
+			// 	fadePercent = 40 * (j + totalMessageCount - currentMessageCount) / totalMessageCount + 60;
+			// 	for (i=0; i<MSG_BOUNDS.width; i++) {
+			// 		const x = MSG_BOUNDS.toOuterX(i);
+      //     const y = isOnTop ? j : dbuf.height - j - 1;
+      //     mixer.blackOut();
+      //     mixer.drawSprite(dbuf.get(x, y));
+      //     mixer.mix(GW.colors.black, fadePercent);
+      //     dbuf.drawSprite(x, y, mixer);
+			// 		// dbuf._data[x][y].opacity = INTERFACE_OPACITY;
+			// 		// if (dbuf._data[x][y].char != ' ') {
+			// 		// 	for (k=0; k<3; k++) {
+			// 		// 		dbuf._data[x][y].fg[k] = dbuf._data[x][y].fg[k] * fadePercent / 100;
+			// 		// 	}
+			// 		// }
+			// 	}
+			// }
+      //
+
 			// Print the message archive text to the dbuf.
 			for (j=0; j < currentMessageCount && j < dbuf.height; j++) {
 				const pos = (CURRENT_ARCHIVE_POS - currentMessageCount + ARCHIVE_LINES + j) % ARCHIVE_LINES;
         const y = isOnTop ? j : dbuf.height - j - 1;
 
-				dbuf.plotLine(MSG_BOUNDS.toOuterX(0), y, MSG_BOUNDS.width, ARCHIVE[pos], colors.white, colors.black);
-			}
+        fadePercent = Math.floor(50 * (currentMessageCount - j) / currentMessageCount);
+        const fg = colors.white.clone().mix(colors.black, fadePercent);
 
-			// Set the dbuf opacity, and do a fade from bottom to top to make it clear that the bottom messages are the most recent.
-			for (j=0; j < currentMessageCount && j < dbuf.height; j++) {
-				fadePercent = 40 * (j + totalMessageCount - currentMessageCount) / totalMessageCount + 60;
-				for (i=0; i<MSG_BOUNDS.width; i++) {
-					const x = MSG_BOUNDS.toOuterX(i);
-
-          const y = isOnTop ? j : dbuf.height - j - 1;
-					dbuf[x][y].opacity = INTERFACE_OPACITY;
-					if (dbuf[x][y].char != ' ') {
-						for (k=0; k<3; k++) {
-							dbuf[x][y].fg[k] = dbuf[x][y].fg[k] * fadePercent / 100;
-						}
-					}
-				}
+				dbuf.wrapText(MSG_BOUNDS.toOuterX(0), y, MSG_BOUNDS.width, ARCHIVE[pos], fg, colors.black);
 			}
 
 			ui.draw();
@@ -12135,7 +12655,7 @@ async function showArchive() {
 		if (!reverse) {
     	if (!data.autoPlayingLevel) {
         const y = isOnTop ? 0 : dbuf.height - 1;
-        dbuf.plotLine(MSG_BOUNDS.toOuterX(-8), y, 8, "--DONE--", colors.black, colors.white);
+        dbuf.wrapText(MSG_BOUNDS.toOuterX(-8), y, 8, "--DONE--", colors.black, colors.white);
       	ui.draw();
       	await io.waitForAck();
     	}
@@ -12205,19 +12725,19 @@ function drawViewport(buffer, map) {
     }
   }
 
+  const buf = new Sprite();
   for(let x = 0; x < VIEWPORT.width; ++x) {
     for(let y = 0; y < VIEWPORT.height; ++y) {
 
-      const buf = buffer[x + VIEWPORT.x][y + VIEWPORT.y];
+      buf.blackOut();
       const mapX = x + VIEWPORT.offsetX;
       const mapY = y + VIEWPORT.offsetY;
       if (map.hasXY(mapX, mapY)) {
         map$1.getCellAppearance(map, mapX, mapY, buf);
         map.clearCellFlags(mapX, mapY, Cell.NEEDS_REDRAW | Cell.CELL_CHANGED);
       }
-      else {
-        buf.blackOut();
-      }
+
+      buffer.drawSprite(x + VIEWPORT.x, y + VIEWPORT.y, buf);
 
       if (VIEW_FILTER) {
         VIEW_FILTER(buf, mapX, mapY, map);
@@ -12659,7 +13179,7 @@ function sidebarAddActor(entry, y, dim, highlight, buf)
 
   const x = SIDE_BOUNDS.x;
 	if (y < SIDE_BOUNDS.height - 1) {
-		buf.plotText(x, y++, "                    ");
+		buf.drawText(x, y++, "                    ");
 	}
 
 	if (highlight) {
@@ -12691,11 +13211,11 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
   const x = SIDE_BOUNDS.x;
   const monstForeColor = dim ? fg : monst.kind.sprite.fg;
 
-	// buf.plotText(0, y, "                    ", fg, bg); // Start with a blank line
+	// buf.drawText(0, y, "                    ", fg, bg); // Start with a blank line
 
 	// Unhighlight if it's highlighted as part of the path.
 	const cell$1 = map.cell(monst.x, monst.y);
-  const monstApp = buf[x][y];
+  const monstApp = new Sprite();
 	cell.getAppearance(cell$1, monstApp);
 
 	if (dim) {
@@ -12726,7 +13246,8 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
       }
   }
 
-  buf.plotText(x + 1, y, ': ', fg);
+  buf.drawSprite(x, y, monstApp);
+  buf.drawText(x + 1, y, ': ', fg);
 	y = buf.wrapText(x + 3, y, SIDE_BOUNDS.width - 3, monstName, fg, bg);
 
 	return y;
@@ -12901,7 +13422,7 @@ function sidebarAddMapCell(entry, y, dim, highlight, buf) {
   const cell$1 = entry.entity;
   const textColor = colors.flavorText.clone();
   if (dim) {
-      textColor.applyScalar(50);
+      textColor.scale(50);
   }
 
 	if (y >= SIDE_BOUNDS.height - 1) {
@@ -12911,14 +13432,15 @@ function sidebarAddMapCell(entry, y, dim, highlight, buf) {
   const x = SIDE_BOUNDS.x;
 	const initialY = y;
 
-  const app = buf[x][y];
+  const app = new Sprite();
 	cell.getAppearance(cell$1, app);
 	if (dim) {
 		app.fg.mix(bg, 50);
 		app.bg.mix(bg, 50);
 	}
 
-	buf.plotChar(x + 1, y, ":", fg, bg);
+  buf.drawSprite(x, y, app);
+	buf.draw(x + 1, y, ":", fg, bg);
 	let name = cell$1.getName();
 	name = capitalize(name);
   y = buf.wrapText(x + 3, y, SIDE_BOUNDS.width - 3, name, textColor, bg);
@@ -12956,14 +13478,15 @@ function sidebarAddItemInfo(entry, y, dim, highlight, buf) {
 	const initialY = y;
   const x = SIDE_BOUNDS.x;
 
-  const app = buf[x][y];
+  const app = new Sprite();
 	cell.getAppearance(cell$1, app);
 	if (dim) {
 		app.fg.mix(colors.black, 50);
 		app.bg.mix(colors.black, 50);
 	}
 
-	buf.plotChar(x + 1, y, ":", fg, colors.black);
+  buf.drawSprite(x, y, app);
+	buf.draw(x + 1, y, ":", fg, colors.black);
 	if (config.playbackOmniscience || !DATA.player.status.hallucinating) {
 		name = theItem.getName({ color: !dim, details: true });
 	} else {
@@ -13030,7 +13553,7 @@ function drawFlavor(buffer) {
     message.needsRedraw();
   }
   else {
-    buffer.plotLine(FLAVOR_BOUNDS.x, FLAVOR_BOUNDS.y, FLAVOR_BOUNDS.width, FLAVOR_TEXT, color, colors.black);
+    buffer.wrapText(FLAVOR_BOUNDS.x, FLAVOR_BOUNDS.y, FLAVOR_BOUNDS.width, FLAVOR_TEXT, color, colors.black);
   }
 }
 
@@ -13202,9 +13725,9 @@ class Column {
     this.empty = empty || '-';
   }
 
-  plotData(buffer, x, y, data, index, color) {
+  draw(buffer, x, y, data, index, color) {
     if (!data) {
-      buffer.plotText(x, y, this.empty, color);
+      buffer.drawText(x, y, this.empty, color);
       return length(this.empty);
     }
 
@@ -13215,14 +13738,14 @@ class Column {
     else {
       text$1 = this.template(data);
     }
-    buffer.plotText(x, y, text$1, color);
+    buffer.drawText(x, y, text$1, color);
     return length(text$1);
   }
 
-  plotHeader(buffer, x, y) {
+  drawHeader(buffer, x, y) {
     if (!this.name) return 0;
 
-    buffer.plotText(x, y, this.name);
+    buffer.drawText(x, y, this.name);
     return length(this.name);
   }
 }
@@ -13265,22 +13788,22 @@ class Table {
     return this;
   }
 
-  plot(buffer, x0, y0, data) {
+  draw(buffer, x0, y0, data) {
     if (Array.isArray(data)) {
-      return this._plotArray(buffer, x0, y0, data);
+      return this._drawArray(buffer, x0, y0, data);
     }
-    return this._plotChain(buffer, x0, y0, data);
+    return this._drawChain(buffer, x0, y0, data);
   }
 
-  _plotChain(buffer, x0, y0, data) {
-    return this._plot(buffer, x0, y0, (current) => {
+  _drawChain(buffer, x0, y0, data) {
+    return this._draw(buffer, x0, y0, (current) => {
       return current ? current.next : data;
     });
   }
 
-  _plotArray(buffer, x0, y0, data) {
+  _drawArray(buffer, x0, y0, data) {
     let index = -1;
-    return this._plot(buffer, x0, y0, () => {
+    return this._draw(buffer, x0, y0, () => {
       ++index;
       if (index < data.length) {
         return data[index];
@@ -13290,7 +13813,7 @@ class Table {
     });
   }
 
-  _plot(buffer, x0, y0, nextFn) {
+  _draw(buffer, x0, y0, nextFn) {
     if (this.bounds.width) {
       buffer.blackOutRect(this.bounds.x, this.bounds.y, this.bounds.width, this.bounds.height, this.bg);
     }
@@ -13304,7 +13827,7 @@ class Table {
       let maxWidth = 0;
       y = y0;
       if (this.headers && hasHeaders) {
-        maxWidth = Math.max(maxWidth, column.plotHeader(buffer, x, y++));
+        maxWidth = Math.max(maxWidth, column.drawHeader(buffer, x, y++));
       }
 
       this.count = 0;
@@ -13318,7 +13841,7 @@ class Table {
         if (current.disabled) {
           color = color.clone().mix(this.disabledColor, 50);
         }
-        maxWidth = Math.max(maxWidth, column.plotData(buffer, x, y, current, this.count, color));
+        maxWidth = Math.max(maxWidth, column.draw(buffer, x, y, current, this.count, color));
         ++y;
         current = nextFn(current);
         ++this.count;
@@ -13438,27 +13961,27 @@ let IN_DIALOG = false;
 
 let time = 0;
 
-let RUNNING = false;
+let LOOP;
 
 function uiLoop(t) {
 	t = t || performance.now();
 
-  if (RUNNING) {
-    requestAnimationFrame(uiLoop);
-  }
+  // if (RUNNING) {
+  //   requestAnimationFrame(uiLoop);
+  // }
 
 	const dt = Math.floor(t - time);
 	time = t;
 
-	if ((!IN_DIALOG) && fx.tick(dt)) {
+	if ((!IN_DIALOG) && tick(dt)) {
 		ui.draw();
 	}
 	else {
 		const ev = io.makeTickEvent(dt);
 		io.pushEvent(ev);
 	}
-
-	ui.canvas.draw();
+  //
+	// ui.canvas.render();
 }
 
 
@@ -13484,19 +14007,21 @@ function start$2(opts={}) {
   });
 
   if (!ui.canvas && (opts.canvas !== false)) {
-    ui.canvas = new types.Canvas(opts.width, opts.height, opts.div, opts);
+    ui.canvas = make.canvas({ width: opts.width, height: opts.height, node: opts.div, font: opts.font, tileWidth: 14, tileHeight: 16 });
+    ui.buffer = new Buffer(ui.canvas);
 
     if (opts.io && typeof document !== 'undefined') {
-      ui.canvas.element.onmousedown = ui.onmousedown;
-      ui.canvas.element.onmousemove = ui.onmousemove;
+      ui.canvas.node.onmousedown = ui.onmousedown;
+      ui.canvas.node.onmousemove = ui.onmousemove;
+      ui.canvas.node.onmouseup = ui.onmouseup;
     	document.onkeydown = ui.onkeydown;
     }
 
     // TODO - init sidebar, messages, flavor, menu
-    UI_BUFFER = UI_BUFFER || ui.canvas.allocBuffer();
-    UI_BASE = UI_BASE || ui.canvas.allocBuffer();
-    // UI_OVERLAY = UI_OVERLAY || ui.canvas.allocBuffer();
-    UI_BASE.nullify();
+    UI_BUFFER = UI_BUFFER || new Buffer(ui.canvas);
+    UI_BASE = UI_BASE || new Buffer(ui.canvas);
+    // UI_OVERLAY = UI_OVERLAY || new Buffer(ui.canvas);
+    // UI_BASE.nullify();
     // UI_OVERLAY.nullify();
 
     ui.blackOutDisplay();
@@ -13568,8 +14093,8 @@ function start$2(opts={}) {
   CLICK_MOVE = opts.clickToMove;
 
   if (opts.loop) {
-    RUNNING = true;
-  	uiLoop();
+    LOOP = setInterval(uiLoop, 16);
+  	// uiLoop();
   }
 
   return ui.canvas;
@@ -13579,7 +14104,9 @@ ui.start = start$2;
 
 
 function stop() {
-	RUNNING = false;
+  if (!LOOP) return;
+  clearInterval(LOOP);
+	LOOP = null;
 }
 
 ui.stop = stop;
@@ -13714,7 +14241,7 @@ async function updateNow(t=1) {
   ui.debug('update now - %d', t);
 
 	ui.draw();
-	ui.canvas.draw();
+	ui.canvas.render();
 	if (t) {
 		// const now = performance.now();
 		// ui.debug('UI update - with timeout:', t);
@@ -13767,6 +14294,15 @@ function onmousedown(e) {
 }
 
 ui.onmousedown = onmousedown;
+
+function onmouseup(e) {
+	const x = ui.canvas.toX(e.clientX);
+	const y = ui.canvas.toY(e.clientY);
+	const ev = io.makeMouseEvent(e, x, y);
+	io.pushEvent(ev);
+}
+
+ui.onmouseup = onmouseup;
 
 
 //////////////////
@@ -13851,6 +14387,7 @@ function updatePathToCursor() {
   if (!PATH_ACTIVE) return;
 
   if (CURSOR.x == player.x && CURSOR.y == player.y) return;
+  if (CURSOR.x < 0 || CURSOR.y < 0) return ui.updatePath();
 
   const mapToMe = player.updateMapToMe();
   const path$1 = getPath(map, mapToMe, CURSOR.x, CURSOR.y, player);
@@ -13898,12 +14435,10 @@ async function prompt(text$1, args) {
 ui.prompt = prompt;
 
 
-async function fadeTo(color, duration=1000, src) {
+async function fadeTo(color, duration=1000) {
 
-  src = src || UI_BUFFER;
   color = GW.color.from(color);
-
-  const buffer = ui.canvas.allocBuffer();
+  const buffer = startDialog();
 
   let pct = 0;
   let elapsed = 0;
@@ -13916,16 +14451,12 @@ async function fadeTo(color, duration=1000, src) {
 
     pct = Math.floor(100*elapsed/duration);
 
-    buffer.copy(src);
-    buffer.forEach( (c, x, y) => {
-      c.fg.mix(color, pct);
-      c.bg.mix(color, pct);
-    });
-    ui.canvas.overlay(buffer);
-    ui.canvas.draw();
+    resetDialog();
+    buffer.mix(color, pct);
+    buffer.render();
   }
 
-  ui.canvas.freeBuffer(buffer);
+  finishDialog();
 
 }
 
@@ -13944,8 +14475,8 @@ async function alert(duration, text$1, args) {
   const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
   const y = Math.floor(ui.canvas.height / 2) - 1;
   buffer.fillRect(x, y, len + 4, 3, ' ', 'black', 'black');
-	buffer.plotText(x + 2, y + 1, text$1);
-	ui.draw();
+	buffer.drawText(x + 2, y + 1, text$1);
+	buffer.render();
 
 	await io.pause(duration || 30 * 1000);
 
@@ -13974,7 +14505,7 @@ async function confirm(opts, prompt, args) {
   });
 
   const buffer = ui.startDialog();
-  buffer.fade('black', 50);
+  buffer.mix('black', 50);
 
 	const btnOK = 'OK=Enter';
 	const btnCancel = 'Cancel=Escape';
@@ -13982,12 +14513,12 @@ async function confirm(opts, prompt, args) {
   const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
   const y = Math.floor(ui.canvas.height / 2) - 1;
   buffer.fillRect(x, y, len + 4, 5, ' ', 'black', opts.bg);
-	buffer.plotText(x + 2, y + 1, text$1);
-	buffer.plotText(x + 2, y + 3, btnOK);
+	buffer.drawText(x + 2, y + 1, text$1);
+	buffer.drawText(x + 2, y + 3, btnOK);
   if (opts.allowCancel) {
-    buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, 'white');
+    buffer.drawText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, 'white');
   }
-	ui.draw();
+	buffer.render();
 
 	let result;
 	while(result === undefined) {
@@ -14006,11 +14537,11 @@ async function confirm(opts, prompt, args) {
 				let isCancel = ev.x > x + len + 4 - btnCancel.length - 4;
 				if (ev.x < x || ev.x > x + len + 4) { isOK = false; isCancel = false; }
 				if (ev.y != y + 3 ) { isOK = false; isCancel = false; }
-				buffer.plotText(x + 2, y + 3, btnOK, isOK ? GW.colors.teal : GW.colors.white);
+				buffer.drawText(x + 2, y + 3, btnOK, isOK ? GW.colors.teal : GW.colors.white);
         if (opts.allowCancel) {
-          buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, isCancel ? GW.colors.teal : GW.colors.white);
+          buffer.drawText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, isCancel ? GW.colors.teal : GW.colors.white);
         }
-				ui.draw();
+				buffer.render();
 			},
 			click() {
 				if (ev.x < x || ev.x > x + len + 4) return;
@@ -14034,7 +14565,7 @@ function blackOutDisplay() {
 ui.blackOutDisplay = blackOutDisplay;
 
 
-const TARGET_SPRITE = sprite.install('target', 'green', 50);
+const TARGET_SPRITE = install$1('target', 'green', 50);
 
 async function chooseTarget(choices, prompt, opts={}) {
 	console.log('choose Target');
@@ -14048,7 +14579,7 @@ async function chooseTarget(choices, prompt, opts={}) {
 
 	function draw() {
 		ui.resetDialog();
-		buf.plotLine(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, prompt, GW.colors.orange);
+		buf.wrapText(GW.flavor.bounds.x, GW.flavor.bounds.y, GW.flavor.bounds.width, prompt, GW.colors.orange);
 		if (selected >= 0) {
 			const choice = choices[selected];
 
@@ -14062,9 +14593,9 @@ async function chooseTarget(choices, prompt, opts={}) {
       const x = choice.x + viewport.bounds.x - offsetX;
       const y = choice.y + viewport.bounds.y - offsetY;
 
-			buf.plot(x, y, TARGET_SPRITE);
+			buf.drawSprite(x, y, TARGET_SPRITE);
 		}
-		ui.draw();
+		buf.render();
 	}
 
 	draw();
@@ -14122,7 +14653,7 @@ async function inputNumberBox(opts, prompt, args) {
   });
 
   const buffer = ui.startDialog();
-  buffer.fade('black', 50);
+  buffer.mix('black', 50);
 
 	const btnOK = 'OK=Enter';
 	const btnCancel = 'Cancel=Escape';
@@ -14130,13 +14661,13 @@ async function inputNumberBox(opts, prompt, args) {
   const x = Math.floor((ui.canvas.width - len - 4) / 2) - 2;
   const y = Math.floor(ui.canvas.height / 2) - 1;
   buffer.fillRect(x, y, len + 4, 6, ' ', 'black', opts.bg);
-	buffer.plotText(x + 2, y + 1, text$1);
+	buffer.drawText(x + 2, y + 1, text$1);
   buffer.fillRect(x + 2, y + 2, len - 4, 1, ' ', 'gray', 'gray');
-	buffer.plotText(x + 2, y + 4, btnOK);
+	buffer.drawText(x + 2, y + 4, btnOK);
   if (opts.allowCancel) {
-    buffer.plotText(x + len + 4 - btnCancel.length - 2, y + 4, btnCancel);
+    buffer.drawText(x + len + 4 - btnCancel.length - 2, y + 4, btnCancel);
   }
-	ui.draw();
+	buffer.render();
 
   const value = await ui.getInputAt(x + 2, y + 2, len - 4, opts);
 
@@ -14163,11 +14694,11 @@ async function getInputAt(x, y, maxLength, opts={})
 
   let ev;
 	do {
-    GW.ui.draw();
+    buffer.render();
 
 		ev = await GW.io.nextKeyPress(-1);
 		if ( (ev.key == 'Delete' || ev.key == 'Backspace') && charNum > 0) {
-			buffer.plotChar(x + charNum - 1, y, ' ', 'white');
+			buffer.draw(x + charNum - 1, y, ' ', 'white');
 			charNum--;
 			inputText = spliceRaw(inputText, charNum, 1);
 		} else if (ev.key.length > 1) ; else if (ev.key >= textEntryBounds[0]
@@ -14184,7 +14715,7 @@ async function getInputAt(x, y, maxLength, opts={})
           }
         }
         inputText += ev.key;
-  			buffer.plotChar(x + charNum, y, ev.key, 'white');
+  			buffer.draw(x + charNum, y, ev.key, 'white');
 				charNum++;
 			}
 		}
@@ -14197,7 +14728,7 @@ async function getInputAt(x, y, maxLength, opts={})
 	} while ((!inputText.length) || ev.key != 'Enter');
 
   GW.ui.finishDialog();
-  GW.ui.draw(); // reverts to old display
+  // GW.ui.draw(); // reverts to old display
 	return inputText;
 }
 
@@ -14207,13 +14738,15 @@ ui.getInputAt = getInputAt;
 // DIALOG
 
 const UI_LAYERS = [];
+const BUFFERS = [];
 
 function startDialog() {
   IN_DIALOG = true;
   const base = UI_OVERLAY || null;
   UI_LAYERS.push(base);
-  UI_OVERLAY = ui.canvas.allocBuffer();
-  UI_OVERLAY.forEach( (c) => c.opacity = 0 );
+  UI_OVERLAY = BUFFERS.pop() || new Buffer(ui.canvas);
+  // UI_OVERLAY._data.forEach( (c) => c.opacity = 0 );
+  UI_OVERLAY.copyFromCanvas();
   return UI_OVERLAY;
 }
 
@@ -14231,9 +14764,9 @@ ui.resetDialog = resetDialog;
 function finishDialog() {
   if (!IN_DIALOG) return;
 
-  ui.canvas.freeBuffer(UI_OVERLAY);
-  UI_OVERLAY = UI_LAYERS.pop();
-  ui.canvas.overlay(UI_OVERLAY || UI_BUFFER);
+  BUFFERS.push(UI_OVERLAY);
+  UI_OVERLAY = UI_LAYERS.pop() || UI_BUFFER;
+  UI_OVERLAY.render();
 
   IN_DIALOG = (UI_LAYERS.length > 0);
 }
@@ -14245,9 +14778,9 @@ ui.finishDialog = finishDialog;
 function draw() {
   if (IN_DIALOG) {
     // ui.canvas.overlay(UI_BASE);
-    ui.canvas.overlay(UI_OVERLAY);
+    UI_OVERLAY.render();
   }
-  else if (ui.canvas) {
+  else if (ui.canvas && data.map) {
     // const side = GW.sidebar.draw(UI_BUFFER);
     if (viewport.bounds) viewport.draw(UI_BUFFER);
 		if (message.bounds) message.draw(UI_BUFFER);
@@ -14255,7 +14788,7 @@ function draw() {
     if (sidebar.bounds) sidebar.draw(UI_BUFFER);
 
     // if (commitCombatMessage() || REDRAW_UI || side || map) {
-    ui.canvas.overlay(UI_BUFFER);
+    UI_BUFFER.render();
 			UPDATE_REQUESTED = 0;
     // }
   }
@@ -14288,7 +14821,7 @@ function plotProgressBar(buf, x, y, width, barText, textColor, pct, barColor) {
 		}
 		currentTextColor.copy(textColor);
 		currentTextColor.mix(currentFillColor, 25);
-		buf.plotChar(x + i, y, barText[i], currentTextColor, currentFillColor);
+		buf.draw(x + i, y, barText[i], currentTextColor, currentFillColor);
 	}
 }
 
@@ -14427,10 +14960,8 @@ class Button {
   			symbolNumber++;
   		}
 
-  		if (buffer.hasXY(this.x + i, this.y)) {
-  			buffer.plotChar(this.x + i, this.y, ch, fColor, bColor);
-        // opacity???
-  		}
+      // opacity?
+			buffer.draw(this.x + i, this.y, ch, fColor, bColor);
 
     });
 
@@ -14644,7 +15175,7 @@ async function moveDir(actor, dir, opts={}) {
     if (isPlayer) {
       message.forPlayer(actor, 'Blocked!');
       // TURN ENDED (1/2 turn)?
-      await fx.flashSprite(map, newX, newY, 'hit', 50, 1);
+      await flashSprite(map, newX, newY, 'hit', 50, 1);
     }
     return false;
   }
@@ -14652,7 +15183,7 @@ async function moveDir(actor, dir, opts={}) {
     if (isPlayer)  {
       message.forPlayer(actor, 'Blocked!');
       // TURN ENDED (1/2 turn)?
-      await fx.flashSprite(map, newX, newY, 'hit', 50, 1);
+      await flashSprite(map, newX, newY, 'hit', 50, 1);
     }
     return false;
   }
@@ -14660,7 +15191,7 @@ async function moveDir(actor, dir, opts={}) {
   // CHECK SOME SANITY MOVES
   if (cell.hasTileFlag(Tile.T_LAVA) && !cell.hasTileFlag(Tile.T_BRIDGE)) {
     if (!isPlayer) return false;
-    if (!await UI.confirm('That is certain death!  Proceed anyway?')) {
+    if (!await ui.confirm('That is certain death!  Proceed anyway?')) {
       return false;
     }
   }
@@ -14695,7 +15226,7 @@ async function moveDir(actor, dir, opts={}) {
 
     if (blocked) {
       message.forPlayer(actor, '%s let go of %s.', actor.getName(), actor.grabbed.getName('a'));
-      await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+      await flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
       actor.grabbed = null;
     }
   }
@@ -14777,7 +15308,7 @@ async function bashItem(actor, item, ctx) {
     const damage = actor.kind.calcBashDamage(actor, item, ctx);
     if (item.kind.applyDamage(item, damage, actor, ctx)) {
       if (actor.isPlayer()) message.add('BASH_ITEM', { actor, item, damage });
-      await fx.flashSprite(map, item.x, item.y, 'hit', 100, 1);
+      await flashSprite(map, item.x, item.y, 'hit', 100, 1);
     }
   }
   else {
@@ -14950,7 +15481,7 @@ async function itemAttack(actor, target, ctx={}) {
   }
 
   if (item.kind.projectile) {
-    await fx.projectile(map, actor, target, item.kind.projectile);
+    await projectile(map, actor, target, item.kind.projectile);
   }
 
   if (typeof damage === 'function') {
@@ -14966,7 +15497,7 @@ async function itemAttack(actor, target, ctx={}) {
 
   const ctx2 = { map: map, x: target.x, y: target.y, volume: damage };
 
-  await fx.hit(data.map, target);
+  await hit(data.map, target);
   if (target.kind.blood) {
     await spawn(target.kind.blood, ctx2);
   }
@@ -15048,7 +15579,7 @@ async function grab$1(actor, item, ctx={}) {
 
   actor.grabbed = item;
   message.add('§you§ §grab§ §a item§.', { actor, item: actor.grabbed });
-  await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+  await flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
   actor.endTurn();
   return true;
 }
@@ -15060,7 +15591,7 @@ async function release(actor, item, ctx={}) {
   if (!actor.grabbed) return false;
 
   message.add('§you§ §let§ go of §a item§.', { actor, item: actor.grabbed });
-  await fx.flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
+  await flashSprite(map, actor.grabbed.x, actor.grabbed.y, 'target', 100, 1);
   actor.grabbed = null;
   actor.endTurn();
   return true;
@@ -15196,10 +15727,10 @@ async function equip(actor, item, ctx={}) {
 actions.equip = equip;
 
 
-message.addKind('UNEQUIP_NO', '$the item$ does not seem to be equippable.');
-message.addKind('UNEQUIP_NOT_EQUIPPED', '$the item$ does not seem to be equipped.');
-message.addKind('UNEQUIP_FAIL', '$you$ cannot remove $your$ $item$.');
-message.addKind('UNEQUIP_ITEM', '$you$ $remove$ $your$ $item$.');
+message.addKind('UNEQUIP_NO', '§the item§ does not seem to be equippable.');
+message.addKind('UNEQUIP_NOT_EQUIPPED', '§the item§ does not seem to be equipped.');
+message.addKind('UNEQUIP_FAIL', '§you§ cannot remove §your§ §item§.');
+message.addKind('UNEQUIP_ITEM', '§you§ §remove§ §your§ §item§.');
 
 async function unequip(actor, item, ctx={}) {
   if (!item) return false;
@@ -15576,7 +16107,7 @@ class Flames {
   		}
 
   		// Anti-alias the mask.
-  		// antiAlias(mask); // SWC - I am not sure I like the anti-alias look.
+  		// antiAlias(this.mask); // SWC - I am not sure I like the anti-alias look.
   	}
 
     // Seed source color random components.
@@ -15650,10 +16181,10 @@ class Flames {
   				}
 
   				// Then, add the color to this tile's flames.
-  				rand = Math.floor(this.colors[i][j].rand * this.colorSources[colorSourceNumber][0] / 1000);
-  				this.flames[i][j][0] += Math.floor((this.colors[i][j].red	+ (this.colors[i][j].redRand	* this.colorSources[colorSourceNumber][1] / 1000) + rand) * MENU_FLAME_PRECISION_FACTOR);
-  				this.flames[i][j][1] += Math.floor((this.colors[i][j].green	+ (this.colors[i][j].greenRand	* this.colorSources[colorSourceNumber][2] / 1000) + rand) * MENU_FLAME_PRECISION_FACTOR);
-  				this.flames[i][j][2] += Math.floor((this.colors[i][j].blue	+ (this.colors[i][j].blueRand	* this.colorSources[colorSourceNumber][3] / 1000) + rand) * MENU_FLAME_PRECISION_FACTOR);
+  				rand = Math.floor(this.colors[i][j]._rand * this.colorSources[colorSourceNumber][0] / 1000);
+  				this.flames[i][j][0] += Math.floor((this.colors[i][j]._r	+ (this.colors[i][j]._redRand	* this.colorSources[colorSourceNumber][1] / 1000) + rand) * MENU_FLAME_PRECISION_FACTOR);
+  				this.flames[i][j][1] += Math.floor((this.colors[i][j]._g	+ (this.colors[i][j]._greenRand	* this.colorSources[colorSourceNumber][2] / 1000) + rand) * MENU_FLAME_PRECISION_FACTOR);
+  				this.flames[i][j][2] += Math.floor((this.colors[i][j]._b	+ (this.colors[i][j]._blueRand	* this.colorSources[colorSourceNumber][3] / 1000) + rand) * MENU_FLAME_PRECISION_FACTOR);
 
   				colorSourceNumber++;
   			}
@@ -15681,17 +16212,17 @@ class Flames {
         }
 
   			if (this.mask[i][j] == 100) {
-  				this.buffer.plotChar(i, j, dchar, colors.gray, maskColor);
+  				this.buffer.draw(i, j, dchar, colors.gray, maskColor);
   			} else {
           const flameColor = this.flames[i][j];
-          tempColor.clear();
-  				tempColor.red	= Math.round(flameColor[0] / MENU_FLAME_PRECISION_FACTOR);
-  				tempColor.green	= Math.round(flameColor[1] / MENU_FLAME_PRECISION_FACTOR);
-  				tempColor.blue	= Math.round(flameColor[2] / MENU_FLAME_PRECISION_FACTOR);
+          tempColor.blackOut();
+  				tempColor._r	= Math.round(flameColor[0] / MENU_FLAME_PRECISION_FACTOR);
+  				tempColor._g	= Math.round(flameColor[1] / MENU_FLAME_PRECISION_FACTOR);
+  				tempColor._b	= Math.round(flameColor[2] / MENU_FLAME_PRECISION_FACTOR);
   				if (this.mask[i][j] > 0) {
   					tempColor.mix(maskColor, this.mask[i][j]);
   				}
-  				this.buffer.plotChar(i, j, dchar, colors.gray, tempColor);
+  				this.buffer.draw(i, j, dchar, colors.gray, tempColor);
   			}
   		}
   	}

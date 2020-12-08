@@ -9,7 +9,7 @@ async function showAbout() {
   let prompt = "ΩyellowΩAbout uMoria∆";
 	let x = Math.floor((buffer.width - GW.text.length(prompt)) / 2);
 	let y = 2;
-	buffer.plotText(x, y, prompt);
+	buffer.drawText(x, y, prompt);
 
   y = buffer.wrapText(5, 4, buffer.width - 10, "The ΩgoldΩDungeons of Moria∆ is a single player dungeon simulation originally written by ΩtealΩRobert Alan Koeneke∆, with v1.0 released in 1983. The game was originally developed in VMS Pascal before being ported to the C language and released as Umoria in 1988. Moria has had many variants over the years, with Angband being the most well known. Moria was also an inspiration for one the most commercially successful action roguelike games, Ωdark_redΩDiablo∆!");
 
@@ -22,7 +22,7 @@ async function showAbout() {
 	prompt = '[Escape] to close.';
 	x = Math.floor((buffer.width - prompt.length) / 2);
 	y = y + 2;
-	buffer.plotText(x, y, prompt);
+	buffer.drawText(x, y, prompt);
 
   GW.ui.draw();
 
@@ -42,16 +42,16 @@ async function showStory() {
   let prompt = "ΩyellowΩThe Dungeons of Moria";
 	let x = Math.floor((buffer.width - GW.text.length(prompt)) / 2);
 	let y = 2;
-	buffer.plotText(x, y, prompt);
+	buffer.drawText(x, y, prompt);
 
   y = buffer.wrapText(5, 4, buffer.width - 10, "The game of Umoria is a single player dungeon simulation. Starting at the town level, you begin your adventure by stocking up on supplies - weapons, armour, and magical devices - from the various stores. After preparing for your adventure, you descend into the Dungeons of Moria where fantastic adventures await!\n\nIf you've prepared well and acquired the right skills and experience - with perhaps a little luck too - you can descend to the deepest levels and attempt to defeat the Balrog.");
 
-  buffer.plotText(5, y + 2, 'Source: http://umoria.org');
+  buffer.drawText(5, y + 2, 'Source: http://umoria.org');
 
 	prompt = '[Escape] to close.';
 	x = Math.floor((buffer.width - prompt.length) / 2);
 	y = 24;
-	buffer.plotText(x, y, prompt);
+	buffer.drawText(x, y, prompt);
 
   GW.ui.draw();
 

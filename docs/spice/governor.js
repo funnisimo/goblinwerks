@@ -12,9 +12,9 @@ async function showGovernor(port, player) {
   const welcome = 'ΩyellowΩGovernor';
   const len = GW.text.length(welcome);
   let cx = 16 + Math.floor((64-len)/2);
-  buffer.plotText(cx, 1, welcome);
+  buffer.drawText(cx, 1, welcome);
 
-  buffer.plotText(21, 3, 'What would you like to do?');
+  buffer.drawText(21, 3, 'What would you like to do?');
 
   const list = GW.make.list({
     letters: true,
@@ -36,7 +36,7 @@ async function showGovernor(port, player) {
   ];
 
   while(running) {
-    list.plot(buffer, 21, 5, data);
+    list.draw(buffer, 21, 5, data);
     GW.ui.draw();
 
     await list.loop();

@@ -43,11 +43,11 @@ describe('CellMemory', () => {
     const a = new GW.types.CellMemory();
     const b = new GW.types.CellMemory();
 
-    a.sprite.plotChar('a');
+    a.sprite.draw('a');
     a.tileFlags = 1;
     a.cellFlags = 1;
 
-    b.sprite.plotChar('b');
+    b.sprite.draw('b');
     b.tileFlags = 2;
     b.tileFlags = 2;
 
@@ -104,19 +104,17 @@ describe('CellMemory', () => {
     expect(c.sprites.sprite).toBe(a);
     expect(c.sprites.next.sprite).toBe(b);
 
-    const app = GW.make.sprite();
+    const app = new GW.types.Sprite();
     GW.cell.getAppearance(c, app);
 
     const ex = GW.make.sprite('@', 'white', 'red');
     expect(app).toEqual(ex);
   });
 
-  test.only('layers will blend opacities', () => {
+  test('layers will blend opacities', () => {
     GW.cosmetic.seed(12345);
     const c = GW.make.cell();
     c._setTile('FLOOR');
-
-    debugger;
 
     const a = GW.make.sprite('@', 'white', 'blue');
     const b = GW.make.sprite(null, null, 'red', 50);
@@ -130,13 +128,13 @@ describe('CellMemory', () => {
     expect(c.sprites.sprite).toBe(a);
     expect(c.sprites.next.sprite).toBe(b);
 
-    const app = GW.make.sprite();
+    const app = new GW.types.Sprite();
     GW.cell.getAppearance(c, app);
 
     const ex = GW.make.sprite('@', 'white', [50,0,50]);
     expect(app.ch).toEqual(ex.ch);
-    expect(app.fg).toEqualColor(ex.fg);
-    expect(app.bg).toEqualColor(ex.bg);
+    expect(app.fg).toEqual(ex.fg);
+    expect(app.bg).toEqual(ex.bg);
 
     c.clearFlags(GW.flags.cell.CELL_CHANGED);
     c.removeSprite(a);
@@ -146,8 +144,8 @@ describe('CellMemory', () => {
     GW.cell.getAppearance(c, app);
     const FLOOR = GW.tiles.FLOOR.sprite;
     expect(app.ch).toEqual(FLOOR.ch);
-    expect(app.bg).toEqualColor([2,2,10,0,0,0,0]);
-    expect(app.fg).toEqualColor([36,36,36,0,0,0,0]);
+    expect(app.fg).toBakeFrom(FLOOR.fg);
+    expect(app.bg).toBakeFrom(FLOOR.bg);
   });
 
   test('will set liquid with volume', () => {
@@ -156,43 +154,43 @@ describe('CellMemory', () => {
     const c = GW.make.cell();
     c._setTile('TEST_FLOOR');
 
-    const app = GW.make.sprite();
+    const app = new GW.types.Sprite();
     GW.cell.getAppearance(c, app);
     expect(app.ch).toEqual(FLOOR.ch);
-    expect(app.bg).toEqualColor([20,20,20,0,0,0,0]);
-    expect(app.fg).toEqualColor([80,80,80,0,0,0,0]);
+    expect(app.bg).toEqual([20,20,20,0,0,0,0]);
+    expect(app.fg).toEqual([80,80,80,0,0,0,0]);
 
     c._setTile('RED_LIQUID', 100);
     expect(c.liquid).toEqual('RED_LIQUID');
     expect(c.liquidVolume).toEqual(100);
     GW.cell.getAppearance(c, app);
     expect(app.ch).toEqual(FLOOR.ch);
-    expect(app.bg).toEqualColor([100,0,0,0,0,0,0]);
-    expect(app.fg).toEqualColor([80,80,80,0,0,0,0]);
+    expect(app.bg).toEqual([100,0,0,0,0,0,0]);
+    expect(app.fg).toEqual([80,80,80,0,0,0,0]);
 
     c.clearLayer('LIQUID');
     expect(c.liquid).toEqual(0);
     expect(c.liquidVolume).toEqual(0);
     GW.cell.getAppearance(c, app);
     expect(app.ch).toEqual(FLOOR.ch);
-    expect(app.bg).toEqualColor([20,20,20,0,0,0,0]);
-    expect(app.fg).toEqualColor([80,80,80,0,0,0,0]);
+    expect(app.bg).toEqual([20,20,20,0,0,0,0]);
+    expect(app.fg).toEqual([80,80,80,0,0,0,0]);
 
     c._setTile('RED_LIQUID', 50);
     expect(c.liquid).toEqual('RED_LIQUID');
     expect(c.liquidVolume).toEqual(50);
     GW.cell.getAppearance(c, app);
     expect(app.ch).toEqual(FLOOR.ch);
-    expect(app.bg).toEqualColor([60,10,10,0,0,0,0]);
-    expect(app.fg).toEqualColor([80,80,80,0,0,0,0]);
+    expect(app.bg).toEqual([60,10,10,0,0,0,0]);
+    expect(app.fg).toEqual([80,80,80,0,0,0,0]);
 
     c._setTile('BLUE_LIQUID', 10);
     expect(c.liquid).toEqual('BLUE_LIQUID');
     expect(c.liquidVolume).toEqual(10);
     GW.cell.getAppearance(c, app);
     expect(app.ch).toEqual(FLOOR.ch);
-    expect(app.bg).toEqualColor([16,16,36,0,0,0,0]);
-    expect(app.fg).toEqualColor([80,80,80,0,0,0,0]);
+    expect(app.bg).toEqual([16,16,36,0,0,0,0]);
+    expect(app.fg).toEqual([80,80,80,0,0,0,0]);
 
   });
 
@@ -202,11 +200,11 @@ describe('CellMemory', () => {
     const c = GW.make.cell();
     c._setTile('TEST_FLOOR');
 
-    const app = GW.make.sprite();
+    const app = new GW.types.Sprite();
     GW.cell.getAppearance(c, app);
     expect(app.ch).toEqual(FLOOR.ch);
-    expect(app.bg).toEqualColor([20,20,20,0,0,0,0]);
-    expect(app.fg).toEqualColor([80,80,80,0,0,0,0]);
+    expect(app.bg).toEqual([20,20,20,0,0,0,0]);
+    expect(app.fg).toEqual([80,80,80,0,0,0,0]);
 
     c._setTile('RED_LIQUID', 10);
     expect(c.liquid).toEqual('RED_LIQUID');

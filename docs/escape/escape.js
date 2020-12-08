@@ -146,6 +146,7 @@ class EscapeItem extends GW.types.ItemKind {
     }
     GW.message.add('PICKUP', { actor, item });
     actor.flags |= GW.flags.actor.AF_CHANGED;
+    ctx.quiet = true;
     return current;
   }
 }
@@ -594,25 +595,25 @@ async function showHelp() {
 	const buf = GW.ui.startDialog();
 
 	let y = 2;
-	buf.plotText(20, y++, 'GoblinWerks Escape from ECMA Labs', 'green');
+	buf.drawText(20, y++, 'GoblinWerks Escape from ECMA Labs', 'green');
 	y++;
 	y = buf.wrapText(15, y, 50, 'You are in the basement of a secret laboratory that does experiments with toxic chemicals.  There was an accident and a toxic gas was released that will kill you.  It has already affected most of your colleagues.  You must get out quickly!', 'white');
 	y++;
-	buf.plotText(15, y, 'dir   ', 'yellow');
+	buf.drawText(15, y, 'dir   ', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Pressing an arrow key moves the player in that direction.', 'white', null, 2);
-  buf.plotText(15, y, 'b', 'yellow');
+  buf.drawText(15, y, 'b', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Bash something.', 'lighter_gray');
-  buf.plotText(15, y, 'f', 'yellow');
+  buf.drawText(15, y, 'f', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Fire your ranged weapon at a target.', 'lighter_gray');
-  buf.plotText(15, y, 'g', 'yellow');
+  buf.drawText(15, y, 'g', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Grab something.', 'white', null, 2);
-  buf.plotText(15, y, 'o', 'yellow');
+  buf.drawText(15, y, 'o', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Open something.', 'lighter_gray');
-  buf.plotText(15, y, 'c', 'yellow');
+  buf.drawText(15, y, 'c', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Close something.', 'white', null, 2);
-	buf.plotText(15, y, 'space ', 'yellow');
+	buf.drawText(15, y, 'space ', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Wait a short time.', 'white', null, 2);
-	buf.plotText(15, y, '?', 'yellow');
+	buf.drawText(15, y, '?', 'yellow');
 	y = buf.wrapText(21, y, 42, ': Show this screen.', 'lighter_gray');
 
   // this just overwrites the background color on the range
@@ -663,16 +664,16 @@ async function start() {
   // start the game
 	const success = await GW.game.start({ player: PLAYER, map, fov: true });
   await GW.ui.fadeTo(GW.colors.black, 1000);
-  canvas.buffer.blackOut();
 
+  GW.ui.buffer.blackOut();
   // did you win?
   if (!success) {
-    canvas.buffer.wrapText(10, 10, 40, 'Thank you for playing.  Please try again soon!', 'white', null);
+    GW.ui.buffer.wrapText(10, 10, 40, 'Thank you for playing.  Please try again soon!', 'white', null);
   }
   else {
-    canvas.buffer.wrapText(10, 10, 40, 'What a great performance.  Please play again soon!', 'white', null);
+    GW.ui.buffer.wrapText(10, 10, 40, 'What a great performance.  Please play again soon!', 'white', null);
   }
-  canvas.draw();
+  GW.ui.buffer.render();
 
   GW.ui.stop();
   console.log('DONE');

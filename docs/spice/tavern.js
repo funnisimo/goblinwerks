@@ -24,9 +24,9 @@ async function enterTavern(port, player) {
   const welcome = GW.text.apply('ΩyellowΩ§port§ Tavern', { port: port.name });
   const len = GW.text.length(welcome);
   let cx = 16 + Math.floor((64-len)/2);
-  buffer.plotText(cx, 1, welcome);
+  buffer.drawText(cx, 1, welcome);
 
-  buffer.applyText(21, 3, 'What can I get you?');
+  buffer.drawText(21, 3, 'What can I get you?');
 
   const list = GW.make.list({
     letters: true,
@@ -46,7 +46,7 @@ async function enterTavern(port, player) {
   ];
 
   while(running) {
-    list.plot(buffer, 21, 5, data);
+    list.draw(buffer, 21, 5, data);
     GW.ui.draw();
 
     await list.loop();

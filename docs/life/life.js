@@ -44,9 +44,10 @@ function handleMove(e) {
 // alive = @, dead = ' '
 function draw() {
 	data.forEach( (v, x, y) => {
-		canvas.buffer.plot(x, y, v ? ALIVE : DEAD);
+		GW.ui.buffer.drawSprite(x, y, v ? ALIVE : DEAD);
 	});
-	// canvas.draw();
+	// canvas.render();
+  GW.ui.buffer.render();
 }
 
 
@@ -85,16 +86,19 @@ function runSim() {
 }
 
 // start the environment
-function start() {
+async function start() {
 	canvas = GW.ui.start({ tileSize: 11, div: 'game', io: false });
-	canvas.element.onmousedown = handleClick;
-	canvas.element.onmousemove = handleMove;
+  document.body.appendChild(canvas.node);
+	canvas.node.onmousedown = handleClick;
+	canvas.node.onmousemove = handleMove;
 	document.onkeydown = runSim;
 
-	canvas.buffer.plotText(20, 15, 'Click to Turn on/off some cells.', [100,50,0]);
-	canvas.buffer.plotText(20, 17, 'Press any key to run simulation.', [100,50,0]);
-	data = GW.grid.alloc(canvas.width, canvas.height);
-	// canvas.draw();
+  data = GW.grid.alloc(canvas.width, canvas.height);
+
+	GW.ui.buffer.drawText(20, 15, 'Click to Turn on/off some cells.', [100,50,0]);
+	GW.ui.buffer.drawText(20, 17, 'Press any key to run simulation.', [100,50,0]);
+  GW.ui.buffer.render();
+
 }
 
 window.onload = start;

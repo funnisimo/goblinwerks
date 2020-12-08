@@ -11,11 +11,13 @@ let KEYMAP = {};
 // const KEYMAPS = [];
 const EVENTS = [];
 const DEAD_EVENTS = [];
+const LAST_CLICK = { x: -1, y: -1 };
 
 export const KEYPRESS  = def.KEYPRESS  = 'keypress';
 export const MOUSEMOVE = def.MOUSEMOVE = 'mousemove';
 export const CLICK 		 = def.CLICK 		 = 'click';
 export const TICK 		 = def.TICK 		 = 'tick';
+export const MOUSEUP   = def.MOUSEUP   = 'mouseup';
 
 const CONTROL_CODES = [
 	'ShiftLeft', 		'ShiftRight',
@@ -59,10 +61,15 @@ io.clearEvents = clearEvents;
 
 
 export function pushEvent(ev) {
+
+  if (PAUSED) {
+    console.log('PAUSED EVENT', ev.type);
+  }
+
   if (EVENTS.length) {
 		const last = EVENTS[EVENTS.length - 1];
-		if (last.type === MOUSEMOVE) {
-	    if (last.type === ev.type) {
+		if (last.type === ev.type) {
+	    if (last.type === MOUSEMOVE) {
 				last.x = ev.x;
 			  last.y = ev.y;
 				io.recycleEvent(ev);
@@ -71,22 +78,36 @@ export function pushEvent(ev) {
 		}
   }
 
+  // Keep clicks down to one per cell if holding down mouse button
+  if (ev.type === CLICK) {
+    if (LAST_CLICK.x == ev.x && LAST_CLICK.y == ev.y) {
+      io.recycleEvent(ev);
+      return;
+    }
+    LAST_CLICK.x = ev.x;
+    LAST_CLICK.y = ev.y;
+  }
+  else if (ev.type == MOUSEUP) {
+    LAST_CLICK.x = -1;
+    LAST_CLICK.y = -1;
+    io.recycleEvent(ev);
+    return;
+  }
+
 	if (CURRENT_HANDLER) {
   	CURRENT_HANDLER(ev);
   }
+  else if (ev.type === TICK) {
+    const first = EVENTS[0];
+    if (first && first.type === TICK) {
+      first.dt += ev.dt;
+      io.recycleEvent(ev);
+      return;
+    }
+    EVENTS.unshift(ev);	// ticks go first
+  }
   else {
-		if (ev.type === TICK) {
-			const first = EVENTS[0];
-			if (first && first.type === TICK) {
-				first.dt += ev.dt;
-				io.recycleEvent(ev);
-				return;
-			}
-			EVENTS.unshift(ev);	// ticks go first
-		}
-		else {
-			EVENTS.push(ev);
-		}
+    EVENTS.push(ev);
   }
 }
 
@@ -249,7 +270,10 @@ export function makeMouseEvent(e, x, y) {
 	ev.altKey = e.altKey;
 	ev.metaKey = e.metaKey;
 
-  ev.type = e.buttons ? CLICK : MOUSEMOVE;
+  ev.type = e.type;
+  if (e.buttons && e.type !== 'mouseup') {
+    ev.type = CLICK;
+  }
   ev.key = null;
   ev.code = null;
   ev.x = x;
@@ -272,17 +296,24 @@ let PAUSED = null;
 export function pauseEvents() {
 	if (PAUSED) return;
 	PAUSED = CURRENT_HANDLER;
+  CURRENT_HANDLER = null;
 	// io.debug('events paused');
 }
 
 io.pauseEvents = pauseEvents;
 
 export function resumeEvents() {
+  if (!PAUSED) return;
+
+  if (CURRENT_HANDLER) {
+    console.warn('overwrite CURRENT HANDLER!');
+  }
+
 	CURRENT_HANDLER = PAUSED;
 	PAUSED = null;
 	// io.debug('resuming events');
 
-	if (EVENTS.length && CURRENT_HANDLER) {
+  if (EVENTS.length && CURRENT_HANDLER) {
 		const e = EVENTS.shift();
 		// io.debug('- processing paused event', e.type);
 		CURRENT_HANDLER(e);
@@ -315,6 +346,13 @@ export function nextEvent(ms, match) {
 
 	if (ms == 0) return null;
 
+  if (CURRENT_HANDLER) {
+    console.warn('OVERWRITE HANDLER - nextEvent');
+  }
+  else if (EVENTS.length) {
+    console.warn('SET HANDLER WITH QUEUED EVENTS - nextEvent');
+  }
+
   CURRENT_HANDLER = ((e) => {
 		if (e.type === MOUSEMOVE) {
 			io.mouse.x = e.x;
@@ -341,19 +379,8 @@ io.nextEvent = nextEvent;
 
 export async function tickMs(ms=1) {
 	let done;
-	let elapsed = 0;
 
-	CURRENT_HANDLER = ((e) => {
-  	if (e.type !== TICK) {
-			EVENTS.push(e);
-    	return;
-    }
-		elapsed += e.dt;
-		if (elapsed >= ms) {
-			CURRENT_HANDLER = null;
-			done(elapsed);
-		}
-  });
+	setTimeout(() => done(), ms);
 
   return new Promise( (resolve) => done = resolve );
 }

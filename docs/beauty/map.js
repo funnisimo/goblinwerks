@@ -598,6 +598,6 @@ GW.viewport.setFilter( (buf, x, y, map) => {
     } else {
       entity = TREE;
     }
-    buf.plot(entity.sprite);
+    buf.drawSprite(entity.sprite);
   }
 });

@@ -1,4 +1,5 @@
 
+import { DataBuffer } from 'gw-canvas';
 import * as GW from './index.js';
 import * as UTILS from '../test/utils.js';
 
@@ -10,7 +11,7 @@ describe('Message', () => {
     let buffer;
 
     beforeEach( () => {
-      buffer = GW.make.buffer(100, 34);
+      buffer = new DataBuffer(100, 34);
     });
 
     test('adds messages when on top', () => {

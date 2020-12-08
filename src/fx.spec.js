@@ -8,15 +8,16 @@ describe('FX', () => {
 
     GW.cosmetic.seed(12345);
 
+    const FLOOR = GW.tiles.FLOOR;
     const m = GW.make.map(20, 20, { tile: 'FLOOR', boundary: 'WALL' });
     const cell = m.cell(2, 2);
     expect(cell.sprites).toBeNull();
 
-    const sprite = GW.make.sprite();
+    const sprite = new GW.types.Sprite();
     GW.map.getCellAppearance(m, 2, 2, sprite);
-    expect(sprite.ch).toEqual(GW.tiles.FLOOR.sprite.ch);
-    expect(sprite.fg.css()).toEqual('#5c5c5c');
-    expect(sprite.bg.css()).toEqual('#05051a');
+    expect(sprite.ch).toEqual(FLOOR.sprite.ch);
+    expect(sprite.fg).toBakeFrom(FLOOR.sprite.fg);
+    expect(sprite.bg).toBakeFrom(FLOOR.sprite.bg);
 
     const hit = GW.make.sprite('!', 'red');
     let resolved = false;
@@ -29,16 +30,16 @@ describe('FX', () => {
 
     GW.map.getCellAppearance(m, 2, 2, sprite);
     expect(sprite.ch).toEqual(hit.ch);
-    expect(sprite.fg).toEqualColor(hit.fg);
-    expect(sprite.bg.css()).toEqual('#05051a');
+    expect(sprite.fg).toEqual(hit.fg);
+    expect(sprite.bg).toBakeFrom(FLOOR.sprite.bg);
 
     GW.fx.tick(101);
     expect(cell.sprites).toBeNull();
 
     GW.map.getCellAppearance(m, 2, 2, sprite);
     expect(sprite.ch).toEqual(GW.tiles.FLOOR.sprite.ch);
-    expect(sprite.fg.css()).toEqual('#4f4f4f'); // cosmetic difference
-    expect(sprite.bg.css()).toEqual('#08051a'); // cosmetic difference
+    expect(sprite.fg).toBakeFrom(FLOOR.sprite.fg);
+    expect(sprite.bg).toBakeFrom(FLOOR.sprite.bg);
 
     expect(resolved).toBeFalsy();
     await p;

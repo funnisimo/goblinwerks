@@ -278,7 +278,7 @@ export function setDefaults(obj, def, custom=null) {
         dest[key] = defValue.slice();
       }
       else if (typeof defValue === 'object') {
-        dest[key] = Object.assign({}, defValue);
+        dest[key] = defValue; // Object.assign({}, defValue); -- this breaks assigning a Color object as a default...
       }
       else {
         dest[key] = defValue;
@@ -316,6 +316,17 @@ export function kindDefaults(obj, def) {
   }
 
   return setDefaults(obj, def, custom);
+}
+
+export function pick(obj, ...fields) {
+  const data = {};
+  fields.forEach( (f) => {
+    const v = obj[f];
+    if (v !== undefined) {
+      data[f] = v;
+    }
+  });
+  return data;
 }
 
 export function clearObject(obj) {
