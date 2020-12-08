@@ -10606,7 +10606,7 @@ class Tile$1 {
       if (opts.color instanceof types.Color) {
         color = opts.color;
       }
-      result = apply('Ω§color§Ω§name§∆', { color, name: this.name });
+      result = `Ω${color}Ω${this.name}∆`;
     }
 
     if (opts.article && this.article) {
