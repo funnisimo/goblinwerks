@@ -61,6 +61,11 @@ io.clearEvents = clearEvents;
 
 
 export function pushEvent(ev) {
+
+  if (PAUSED) {
+    console.log('PAUSED EVENT', ev.type);
+  }
+
   if (EVENTS.length) {
 		const last = EVENTS[EVENTS.length - 1];
 		if (last.type === ev.type) {
@@ -298,6 +303,12 @@ export function pauseEvents() {
 io.pauseEvents = pauseEvents;
 
 export function resumeEvents() {
+  if (!PAUSED) return;
+
+  if (CURRENT_HANDLER) {
+    console.warn('overwrite CURRENT HANDLER!');
+  }
+
 	CURRENT_HANDLER = PAUSED;
 	PAUSED = null;
 	// io.debug('resuming events');

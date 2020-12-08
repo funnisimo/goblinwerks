@@ -33,10 +33,11 @@ fx.playAll = playAll;
 export function tick(dt) {
   if (!ANIMATIONS.length) return false;
 
-  IO.pauseEvents();
   ANIMATIONS.forEach( (a) => a && a.tick(dt) );
   ANIMATIONS = ANIMATIONS.filter( (a) => a && !a.done );
-  IO.resumeEvents();
+  // if (ANIMATIONS.length == 0) {
+  //   IO.resumeEvents();
+  // }
   return true;
 }
 
@@ -47,6 +48,7 @@ let BUSY = false;
 export async function playRealTime(animation) {
   animation.playFx = fx.playRealTime;
 
+  // IO.pauseEvents();
   animation.start();
   ANIMATIONS.push(animation);
   return new Promise( (resolve) => animation.callback = resolve );

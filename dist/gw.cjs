@@ -5262,6 +5262,11 @@ io.clearEvents = clearEvents;
 
 
 function pushEvent(ev) {
+
+  if (PAUSED) {
+    console.log('PAUSED EVENT', ev.type);
+  }
+
   if (EVENTS$1.length) {
 		const last = EVENTS$1[EVENTS$1.length - 1];
 		if (last.type === ev.type) {
@@ -5499,6 +5504,12 @@ function pauseEvents() {
 io.pauseEvents = pauseEvents;
 
 function resumeEvents() {
+  if (!PAUSED) return;
+
+  if (CURRENT_HANDLER) {
+    console.warn('overwrite CURRENT HANDLER!');
+  }
+
 	CURRENT_HANDLER = PAUSED;
 	PAUSED = null;
 	// io.debug('resuming events');
@@ -11449,10 +11460,11 @@ fx.playAll = playAll;
 function tick(dt) {
   if (!ANIMATIONS.length) return false;
 
-  io.pauseEvents();
   ANIMATIONS.forEach( (a) => a && a.tick(dt) );
   ANIMATIONS = ANIMATIONS.filter( (a) => a && !a.done );
-  io.resumeEvents();
+  // if (ANIMATIONS.length == 0) {
+  //   IO.resumeEvents();
+  // }
   return true;
 }
 
@@ -11461,6 +11473,7 @@ fx.tick = tick;
 async function playRealTime(animation) {
   animation.playFx = fx.playRealTime;
 
+  // IO.pauseEvents();
   animation.start();
   ANIMATIONS.push(animation);
   return new Promise( (resolve) => animation.callback = resolve );
