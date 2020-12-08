@@ -82,6 +82,7 @@ export function start(opts={}) {
     if (opts.io && typeof document !== 'undefined') {
       ui.canvas.node.onmousedown = ui.onmousedown;
       ui.canvas.node.onmousemove = ui.onmousemove;
+      ui.canvas.node.onmouseup = ui.onmouseup;
     	document.onkeydown = ui.onkeydown;
     }
 
@@ -363,6 +364,15 @@ export function onmousedown(e) {
 }
 
 ui.onmousedown = onmousedown;
+
+export function onmouseup(e) {
+	const x = ui.canvas.toX(e.clientX);
+	const y = ui.canvas.toY(e.clientY);
+	const ev = IO.makeMouseEvent(e, x, y);
+	IO.pushEvent(ev);
+}
+
+ui.onmouseup = onmouseup;
 
 
 //////////////////

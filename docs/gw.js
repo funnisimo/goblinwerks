@@ -5216,11 +5216,13 @@ void main() {
   // const KEYMAPS = [];
   const EVENTS$1 = [];
   const DEAD_EVENTS = [];
+  const LAST_CLICK = { x: -1, y: -1 };
 
   const KEYPRESS  = def.KEYPRESS  = 'keypress';
   const MOUSEMOVE = def.MOUSEMOVE = 'mousemove';
   const CLICK 		 = def.CLICK 		 = 'click';
   const TICK 		 = def.TICK 		 = 'tick';
+  const MOUSEUP   = def.MOUSEUP   = 'mouseup';
 
   const CONTROL_CODES = [
   	'ShiftLeft', 		'ShiftRight',
@@ -5264,20 +5266,32 @@ void main() {
 
 
   function pushEvent(ev) {
-    // if (ev.type !== TICK) {
-    //   console.log('pushEvent = type=%s, x=%d, y=%d, key=%s, EVENTS.length=%d, CURRENT_HANDLER=%s',
-    //       ev.type, ev.x, ev.y, ev.key, EVENTS.length, !!CURRENT_HANDLER);
-    // }
     if (EVENTS$1.length) {
   		const last = EVENTS$1[EVENTS$1.length - 1];
-  		if (last.type === MOUSEMOVE) {
-  	    if (last.type === ev.type) {
+  		if (last.type === ev.type) {
+  	    if (last.type === MOUSEMOVE) {
   				last.x = ev.x;
   			  last.y = ev.y;
   				io.recycleEvent(ev);
   	      return;
   	    }
   		}
+    }
+
+    // Keep clicks down to one per cell if holding down mouse button
+    if (ev.type === CLICK) {
+      if (LAST_CLICK.x == ev.x && LAST_CLICK.y == ev.y) {
+        io.recycleEvent(ev);
+        return;
+      }
+      LAST_CLICK.x = ev.x;
+      LAST_CLICK.y = ev.y;
+    }
+    else if (ev.type == MOUSEUP) {
+      LAST_CLICK.x = -1;
+      LAST_CLICK.y = -1;
+      io.recycleEvent(ev);
+      return;
     }
 
   	if (CURRENT_HANDLER) {
@@ -5456,7 +5470,10 @@ void main() {
   	ev.altKey = e.altKey;
   	ev.metaKey = e.metaKey;
 
-    ev.type = e.buttons ? CLICK : MOUSEMOVE;
+    ev.type = e.type;
+    if (e.buttons && e.type !== 'mouseup') {
+      ev.type = CLICK;
+    }
     ev.key = null;
     ev.code = null;
     ev.x = x;
@@ -5556,26 +5573,8 @@ void main() {
 
   async function tickMs(ms=1) {
   	let done;
-  	let elapsed = 0;
 
-    if (CURRENT_HANDLER) {
-      console.warn('OVERWRITE HANDLER - tickMs');
-    }
-    else if (EVENTS$1.length) {
-      console.warn('SET HANDLER WITH QUEUED EVENTS - tickMs');
-    }
-
-  	CURRENT_HANDLER = ((e) => {
-    	if (e.type !== TICK) {
-  			EVENTS$1.push(e);
-      	return;
-      }
-  		elapsed += e.dt;
-  		if (elapsed >= ms) {
-  			CURRENT_HANDLER = null;
-  			done(elapsed);
-  		}
-    });
+  	setTimeout(() => done(), ms);
 
     return new Promise( (resolve) => done = resolve );
   }
@@ -14553,6 +14552,7 @@ void main() {
       if (opts.io && typeof document !== 'undefined') {
         ui.canvas.node.onmousedown = ui.onmousedown;
         ui.canvas.node.onmousemove = ui.onmousemove;
+        ui.canvas.node.onmouseup = ui.onmouseup;
       	document.onkeydown = ui.onkeydown;
       }
 
@@ -14833,6 +14833,15 @@ void main() {
   }
 
   ui.onmousedown = onmousedown;
+
+  function onmouseup(e) {
+  	const x = ui.canvas.toX(e.clientX);
+  	const y = ui.canvas.toY(e.clientY);
+  	const ev = io.makeMouseEvent(e, x, y);
+  	io.pushEvent(ev);
+  }
+
+  ui.onmouseup = onmouseup;
 
 
   //////////////////
