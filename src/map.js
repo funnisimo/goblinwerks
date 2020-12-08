@@ -797,7 +797,7 @@ export function getCellAppearance(map, x, y, dest) {
       Color.swap(dest.fg, dest.bg);
     } else {
       // if (!GAME.trueColorMode || !dest.needDistinctness) {
-          dest.fg.mix(highlight, CONFIG.cursorPathIntensity || 20);
+          // dest.fg.mix(highlight, CONFIG.cursorPathIntensity || 20);
       // }
       dest.bg.mix(highlight, CONFIG.cursorPathIntensity || 20);
     }

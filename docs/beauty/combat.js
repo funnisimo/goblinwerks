@@ -238,7 +238,7 @@ async function combat(actor, target, ctx) {
   const x = 0;
   const y = GW.viewport.bounds.y;
 
-  buffer.blackOutRect(x, y, width, height, 'darkest_gray');
+  buffer.fillRect(x, y, width, height, 0, 0, 'darkest_gray');
   buffer.drawText(x + 36, y + 1, 'BATTLE OF THORNS', 'yellow');
   // buffer.drawText(x + 2, y + 3, 'Press <Enter> to exit');
 

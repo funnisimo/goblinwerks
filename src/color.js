@@ -3,10 +3,10 @@ import { cosmetic } from './random.js';
 import * as Utils from './utils.js';
 import { types, make as MAKE, colors } from './gw.js';
 
-import { Color as CanvasColor, configure as canvasConfigure } from 'gw-canvas';
+import { Color as GWColor, configure } from 'gw-canvas';
 
 
-canvasConfigure({
+configure({
   colorLookup(name) {
     return colors[name] || null
   },
@@ -190,7 +190,7 @@ canvasConfigure({
 //   }
 // }
 
-export class Color extends CanvasColor {
+export class Color extends GWColor {
   constructor(...args) {
     super(...args);
     this.id = null;
@@ -250,29 +250,30 @@ export function make(...args) {
 MAKE.color = make;
 
 
+
+
+export function from(arg, base256) {
+  if (typeof arg === 'string') {
+    const color = colors[arg];
+    if (color) return color;
+  }
+  if (arg instanceof Color) {
+    return arg;
+  }
+  return Color.from(arg, base256);
+}
+
 export function addKind(name, ...args) {
   let color;
   if (args.length == 1 && args[0] instanceof Color) {
     color = args[0];
   }
-  else if (args.length > 1 && typeof args[1] === 'number'){
-    color = MAKE.color(args);
-  }
   else {
-    color = MAKE.color(...args);
+    color = make(...args);
   }
 	colors[name] = color;
   color.id = name;
 	return color;
-}
-
-
-export function from(arg) {
-  if (typeof arg === 'string') {
-    const color = colors[arg];
-    if (color) return color;
-  }
-  return MAKE.color(arg);
 }
 
 

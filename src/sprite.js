@@ -1,7 +1,7 @@
 
 import { Mixer } from 'gw-canvas';
 import * as Color from './color.js';
-import { types, make } from './gw.js';
+import { types, make, ui } from './gw.js';
 
 const TEMP_BG = new types.Color();
 
@@ -50,7 +50,7 @@ export class Sprite extends Mixer {
     return true;
   }
 
-  fade(color, pct) {
+  mix(color, pct) {
     if (this.bg) this.bg.mix(color, pct);
     if (this.fg) this.fg.mix(color, pct);
     this.needsUpdate = true;
@@ -118,14 +118,24 @@ export class Sprite extends Mixer {
 types.Sprite = Sprite;
 
 export function makeSprite(ch, fg, bg, opacity) {
-  if (ch && Array.isArray(ch)) {
+  if (ch && ch instanceof Color.Color) {
+    bg = ch;
+    ch = undefined;
+  }
+  else if (ch && Array.isArray(ch)) {
     [ch, fg, bg, opacity] = ch;
   }
-  if (ch && typeof ch === 'object') {
+  else if (ch && typeof ch === 'object') {
     if (ch.fg) { ch.fg = Color.from(ch.fg); }
     if (ch.bg) { ch.bg = Color.from(ch.bg); }
     return ch;
   }
+
+  if ((bg === undefined) && ch && ch.length > 1) {
+    bg = ch;
+    ch = undefined;
+  }
+
   if (typeof fg === 'number') {
     opacity = fg;
     fg = undefined;
@@ -133,10 +143,6 @@ export function makeSprite(ch, fg, bg, opacity) {
   if (typeof bg === 'number') {
     opacity = bg;
     bg = undefined;
-  }
-  if (!fg && ch && ch.length > 1) {
-    bg = ch;
-    ch = undefined;
   }
 
   if (fg) fg = Color.from(fg);

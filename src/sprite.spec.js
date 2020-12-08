@@ -92,6 +92,12 @@ describe('Sprite', () => {
     expect(g.bg).toBeUndefined();
     expect(g.opacity).toBeUndefined();
 
+    const h = GW.sprite.install('TEST', GW.colors.white);
+    expect(h.ch).toBeUndefined();
+    expect(h.bg).toBe(GW.colors.white);
+    expect(h.fg).toBeUndefined();
+    expect(h.opacity).toBeUndefined();
+
     const i = GW.sprite.install('TEST', null, null, null);
     expect(i).toEqual({ ch: null, fg: null, bg: null });
 

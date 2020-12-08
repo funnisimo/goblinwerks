@@ -59,6 +59,10 @@ io.clearEvents = clearEvents;
 
 
 export function pushEvent(ev) {
+  // if (ev.type !== TICK) {
+  //   console.log('pushEvent = type=%s, x=%d, y=%d, key=%s, EVENTS.length=%d, CURRENT_HANDLER=%s',
+  //       ev.type, ev.x, ev.y, ev.key, EVENTS.length, !!CURRENT_HANDLER);
+  // }
   if (EVENTS.length) {
 		const last = EVENTS[EVENTS.length - 1];
 		if (last.type === MOUSEMOVE) {
@@ -74,19 +78,17 @@ export function pushEvent(ev) {
 	if (CURRENT_HANDLER) {
   	CURRENT_HANDLER(ev);
   }
+  else if (ev.type === TICK) {
+    const first = EVENTS[0];
+    if (first && first.type === TICK) {
+      first.dt += ev.dt;
+      io.recycleEvent(ev);
+      return;
+    }
+    EVENTS.unshift(ev);	// ticks go first
+  }
   else {
-		if (ev.type === TICK) {
-			const first = EVENTS[0];
-			if (first && first.type === TICK) {
-				first.dt += ev.dt;
-				io.recycleEvent(ev);
-				return;
-			}
-			EVENTS.unshift(ev);	// ticks go first
-		}
-		else {
-			EVENTS.push(ev);
-		}
+    EVENTS.push(ev);
   }
 }
 
@@ -272,6 +274,7 @@ let PAUSED = null;
 export function pauseEvents() {
 	if (PAUSED) return;
 	PAUSED = CURRENT_HANDLER;
+  CURRENT_HANDLER = null;
 	// io.debug('events paused');
 }
 
@@ -282,7 +285,7 @@ export function resumeEvents() {
 	PAUSED = null;
 	// io.debug('resuming events');
 
-	if (EVENTS.length && CURRENT_HANDLER) {
+  if (EVENTS.length && CURRENT_HANDLER) {
 		const e = EVENTS.shift();
 		// io.debug('- processing paused event', e.type);
 		CURRENT_HANDLER(e);
@@ -315,6 +318,13 @@ export function nextEvent(ms, match) {
 
 	if (ms == 0) return null;
 
+  if (CURRENT_HANDLER) {
+    console.warn('OVERWRITE HANDLER - nextEvent');
+  }
+  else if (EVENTS.length) {
+    console.warn('SET HANDLER WITH QUEUED EVENTS - nextEvent');
+  }
+
   CURRENT_HANDLER = ((e) => {
 		if (e.type === MOUSEMOVE) {
 			io.mouse.x = e.x;
@@ -342,6 +352,13 @@ io.nextEvent = nextEvent;
 export async function tickMs(ms=1) {
 	let done;
 	let elapsed = 0;
+
+  if (CURRENT_HANDLER) {
+    console.warn('OVERWRITE HANDLER - tickMs');
+  }
+  else if (EVENTS.length) {
+    console.warn('SET HANDLER WITH QUEUED EVENTS - tickMs');
+  }
 
 	CURRENT_HANDLER = ((e) => {
   	if (e.type !== TICK) {

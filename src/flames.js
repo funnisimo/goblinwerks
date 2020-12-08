@@ -57,8 +57,8 @@ function antiAlias(mask /* char[COLS][ROWS] */) {
 			if (mask[i][j] < 100) {
 				nbCount = 0;
 				for (dir=0; dir<4; dir++) {
-					x = i + nbDirs[dir][0];
-					y = j + nbDirs[dir][1];
+					x = i + GW.def.dirs[dir][0];
+					y = j + GW.def.dirs[dir][1];
 					if (mask.hasXY(x, y) && mask[x][y] == 100) {
 						nbCount++;
 					}
@@ -143,7 +143,7 @@ export class Flames {
   		}
 
   		// Anti-alias the mask.
-  		// antiAlias(mask); // SWC - I am not sure I like the anti-alias look.
+  		// antiAlias(this.mask); // SWC - I am not sure I like the anti-alias look.
   	}
 
     // Seed source color random components.

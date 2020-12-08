@@ -57,7 +57,7 @@ async function enterPort() {
 
   const buffer = GW.ui.startDialog();
 
-  buffer.fade('black', 50);
+  buffer.mix('black', 50);
   buffer.blackOutRect(16, 0, 64, 38, 'darkest_gray');
   const welcome = GW.text.apply('ΩyellowΩWelcome to §name§', this);
   const len = GW.text.length(welcome);

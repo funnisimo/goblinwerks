@@ -146,6 +146,7 @@ class EscapeItem extends GW.types.ItemKind {
     }
     GW.message.add('PICKUP', { actor, item });
     actor.flags |= GW.flags.actor.AF_CHANGED;
+    ctx.quiet = true;
     return current;
   }
 }
@@ -664,6 +665,7 @@ async function start() {
 	const success = await GW.game.start({ player: PLAYER, map, fov: true });
   await GW.ui.fadeTo(GW.colors.black, 1000);
 
+  GW.ui.buffer.blackOut();
   // did you win?
   if (!success) {
     GW.ui.buffer.wrapText(10, 10, 40, 'Thank you for playing.  Please try again soon!', 'white', null);
@@ -671,7 +673,7 @@ async function start() {
   else {
     GW.ui.buffer.wrapText(10, 10, 40, 'What a great performance.  Please play again soon!', 'white', null);
   }
-  canvas.render();
+  GW.ui.buffer.render();
 
   GW.ui.stop();
   console.log('DONE');

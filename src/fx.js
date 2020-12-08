@@ -37,7 +37,6 @@ export function tick(dt) {
   ANIMATIONS.forEach( (a) => a && a.tick(dt) );
   ANIMATIONS = ANIMATIONS.filter( (a) => a && !a.done );
   IO.resumeEvents();
-
   return true;
 }
 

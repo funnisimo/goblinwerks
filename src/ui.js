@@ -1,4 +1,6 @@
 
+// import { withFont } from 'gw-canvas';
+
 import { io as IO } from './io.js';
 import * as Flags from './flags.js';
 import * as Utils from './utils.js';
@@ -6,7 +8,9 @@ import { sprite as SPRITE } from './sprite.js';
 import * as Color from './color.js';
 import * as Text from './text.js';
 import * as Path from './path.js';
+import { Buffer } from './buffer.js';
 import { data as DATA, types, fx as FX, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, make, sidebar as SIDEBAR, config as CONFIG, colors as COLORS, commands as COMMANDS } from './gw.js';
+
 
 ui.debug = Utils.NOOP;
 
@@ -26,14 +30,14 @@ let REDRAW_UI = false;
 
 let time = 0;
 
-let RUNNING = false;
+let LOOP;
 
 function uiLoop(t) {
 	t = t || performance.now();
 
-  if (RUNNING) {
-    requestAnimationFrame(uiLoop);
-  }
+  // if (RUNNING) {
+  //   requestAnimationFrame(uiLoop);
+  // }
 
 	const dt = Math.floor(t - time);
 	time = t;
@@ -45,8 +49,8 @@ function uiLoop(t) {
 		const ev = IO.makeTickEvent(dt);
 		IO.pushEvent(ev);
 	}
-
-	ui.canvas.render();
+  //
+	// ui.canvas.render();
 }
 
 
@@ -72,8 +76,8 @@ export function start(opts={}) {
   });
 
   if (!ui.canvas && (opts.canvas !== false)) {
-    ui.canvas = new types.Canvas(opts.width, opts.height, opts.div, opts);
-    ui.buffer = ui.canvas._buffer;
+    ui.canvas = make.canvas({ width: opts.width, height: opts.height, node: opts.div, font: opts.font, tileWidth: 14, tileHeight: 16 });
+    ui.buffer = new Buffer(ui.canvas);
 
     if (opts.io && typeof document !== 'undefined') {
       ui.canvas.node.onmousedown = ui.onmousedown;
@@ -82,10 +86,10 @@ export function start(opts={}) {
     }
 
     // TODO - init sidebar, messages, flavor, menu
-    UI_BUFFER = UI_BUFFER || ui.canvas.allocBuffer();
-    UI_BASE = UI_BASE || ui.canvas.allocBuffer();
-    // UI_OVERLAY = UI_OVERLAY || ui.canvas.allocBuffer();
-    UI_BASE.nullify();
+    UI_BUFFER = UI_BUFFER || new Buffer(ui.canvas);
+    UI_BASE = UI_BASE || new Buffer(ui.canvas);
+    // UI_OVERLAY = UI_OVERLAY || new Buffer(ui.canvas);
+    // UI_BASE.nullify();
     // UI_OVERLAY.nullify();
 
     ui.blackOutDisplay();
@@ -158,8 +162,8 @@ export function start(opts={}) {
   CLICK_MOVE = opts.clickToMove;
 
   if (opts.loop) {
-    RUNNING = true;
-  	uiLoop();
+    LOOP = setInterval(uiLoop, 16);
+  	// uiLoop();
   }
 
   return ui.canvas;
@@ -169,7 +173,9 @@ ui.start = start;
 
 
 export function stop() {
-	RUNNING = false;
+  if (!LOOP) return;
+  clearInterval(LOOP);
+	LOOP = null;
 }
 
 ui.stop = stop;
@@ -441,6 +447,7 @@ function updatePathToCursor() {
   if (!PATH_ACTIVE) return;
 
   if (CURSOR.x == player.x && CURSOR.y == player.y) return;
+  if (CURSOR.x < 0 || CURSOR.y < 0) return ui.updatePath();
 
   const mapToMe = player.updateMapToMe();
   const path = Path.getPath(map, mapToMe, CURSOR.x, CURSOR.y, player);
@@ -488,12 +495,10 @@ export async function prompt(text, args) {
 ui.prompt = prompt;
 
 
-export async function fadeTo(color, duration=1000, src) {
+export async function fadeTo(color, duration=1000) {
 
-  src = src || UI_BUFFER;
   color = GW.color.from(color);
-
-  const buffer = ui.canvas.allocBuffer();
+  const buffer = startDialog();
 
   let pct = 0;
   let elapsed = 0;
@@ -506,16 +511,12 @@ export async function fadeTo(color, duration=1000, src) {
 
     pct = Math.floor(100*elapsed/duration);
 
-    buffer.copy(src);
-    buffer._data.forEach( (c, x, y) => {
-      c.fg.mix(color, pct);
-      c.bg.mix(color, pct);
-    });
-    ui.canvas.overlay(buffer);
-    ui.canvas.render();
+    resetDialog();
+    buffer.mix(color, pct);
+    buffer.render();
   }
 
-  ui.canvas.freeBuffer(buffer);
+  finishDialog(buffer);
 
 }
 
@@ -535,7 +536,7 @@ export async function alert(duration, text, args) {
   const y = Math.floor(ui.canvas.height / 2) - 1;
   buffer.fillRect(x, y, len + 4, 3, ' ', 'black', 'black');
 	buffer.drawText(x + 2, y + 1, text);
-	ui.draw();
+	buffer.render();
 
 	await IO.pause(duration || 30 * 1000);
 
@@ -564,7 +565,7 @@ export async function confirm(opts, prompt, args) {
   });
 
   const buffer = ui.startDialog();
-  buffer.fade('black', 50);
+  buffer.mix('black', 50);
 
 	const btnOK = 'OK=Enter';
 	const btnCancel = 'Cancel=Escape';
@@ -577,7 +578,7 @@ export async function confirm(opts, prompt, args) {
   if (opts.allowCancel) {
     buffer.drawText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, 'white');
   }
-	ui.draw();
+	buffer.render();
 
 	let result;
 	while(result === undefined) {
@@ -600,7 +601,7 @@ export async function confirm(opts, prompt, args) {
         if (opts.allowCancel) {
           buffer.drawText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, isCancel ? GW.colors.teal : GW.colors.white);
         }
-				ui.draw();
+				buffer.render();
 			},
 			click() {
 				if (ev.x < x || ev.x > x + len + 4) return;
@@ -655,7 +656,7 @@ async function chooseTarget(choices, prompt, opts={}) {
 
 			buf.drawSprite(x, y, TARGET_SPRITE);
 		}
-		ui.draw();
+		buf.render();
 	}
 
 	draw();
@@ -713,7 +714,7 @@ export async function inputNumberBox(opts, prompt, args) {
   });
 
   const buffer = ui.startDialog();
-  buffer.fade('black', 50);
+  buffer.mix('black', 50);
 
 	const btnOK = 'OK=Enter';
 	const btnCancel = 'Cancel=Escape';
@@ -727,7 +728,7 @@ export async function inputNumberBox(opts, prompt, args) {
   if (opts.allowCancel) {
     buffer.drawText(x + len + 4 - btnCancel.length - 2, y + 4, btnCancel);
   }
-	ui.draw();
+	buffer.render();
 
   const value = await ui.getInputAt(x + 2, y + 2, len - 4, opts);
 
@@ -754,7 +755,7 @@ async function getInputAt(x, y, maxLength, opts={})
 
   let ev;
 	do {
-    GW.ui.draw();
+    buffer.render();
 
 		ev = await GW.io.nextKeyPress(-1);
 		if ( (ev.key == 'Delete' || ev.key == 'Backspace') && charNum > 0) {
@@ -790,7 +791,7 @@ async function getInputAt(x, y, maxLength, opts={})
 	} while ((!inputText.length) || ev.key != 'Enter');
 
   GW.ui.finishDialog();
-  GW.ui.draw(); // reverts to old display
+  // GW.ui.draw(); // reverts to old display
 	return inputText;
 }
 
@@ -800,13 +801,15 @@ ui.getInputAt = getInputAt;
 // DIALOG
 
 const UI_LAYERS = [];
+const BUFFERS = [];
 
 function startDialog() {
   IN_DIALOG = true;
   const base = UI_OVERLAY || null;
   UI_LAYERS.push(base);
-  UI_OVERLAY = ui.canvas.allocBuffer();
-  UI_OVERLAY._data.forEach( (c) => c.opacity = 0 );
+  UI_OVERLAY = BUFFERS.pop() || new Buffer(ui.canvas);
+  // UI_OVERLAY._data.forEach( (c) => c.opacity = 0 );
+  UI_OVERLAY.copyFromCanvas();
   return UI_OVERLAY;
 }
 
@@ -824,9 +827,9 @@ ui.resetDialog = resetDialog;
 function finishDialog() {
   if (!IN_DIALOG) return;
 
-  ui.canvas.freeBuffer(UI_OVERLAY);
-  UI_OVERLAY = UI_LAYERS.pop();
-  ui.canvas.overlay(UI_OVERLAY || UI_BUFFER);
+  BUFFERS.push(UI_OVERLAY);
+  UI_OVERLAY = UI_LAYERS.pop() || UI_BUFFER;
+  UI_OVERLAY.render();
 
   IN_DIALOG = (UI_LAYERS.length > 0);
 }
@@ -838,7 +841,7 @@ ui.finishDialog = finishDialog;
 function draw() {
   if (IN_DIALOG) {
     // ui.canvas.overlay(UI_BASE);
-    ui.canvas.overlay(UI_OVERLAY);
+    UI_OVERLAY.render();
   }
   else if (ui.canvas && DATA.map) {
     // const side = GW.sidebar.draw(UI_BUFFER);
@@ -848,7 +851,7 @@ function draw() {
     if (SIDEBAR.bounds) SIDEBAR.draw(UI_BUFFER);
 
     // if (commitCombatMessage() || REDRAW_UI || side || map) {
-    ui.canvas.overlay(UI_BUFFER);
+    UI_BUFFER.render();
     // ui.canvas.overlay(UI_OVERLAY);
       REDRAW_UI = false;
 			UPDATE_REQUESTED = 0;

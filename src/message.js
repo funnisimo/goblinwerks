@@ -2,6 +2,7 @@
 import * as Color from './color.js';
 import { io as IO } from './io.js';
 import * as Text from './text.js';
+import { Sprite } from './sprite.js';
 import * as GW from './gw.js';
 
 
@@ -269,28 +270,36 @@ async function showArchive() {
 	  {
 			GW.ui.resetDialog();
 
+      // // Set the dbuf opacity, and do a fade from bottom to top to make it clear that the bottom messages are the most recent.
+      // const mixer = new Sprite();
+			// for (j=0; j < currentMessageCount && j < dbuf.height; j++) {
+			// 	fadePercent = 40 * (j + totalMessageCount - currentMessageCount) / totalMessageCount + 60;
+			// 	for (i=0; i<MSG_BOUNDS.width; i++) {
+			// 		const x = MSG_BOUNDS.toOuterX(i);
+      //     const y = isOnTop ? j : dbuf.height - j - 1;
+      //     mixer.blackOut();
+      //     mixer.drawSprite(dbuf.get(x, y));
+      //     mixer.mix(GW.colors.black, fadePercent);
+      //     dbuf.drawSprite(x, y, mixer);
+			// 		// dbuf._data[x][y].opacity = INTERFACE_OPACITY;
+			// 		// if (dbuf._data[x][y].char != ' ') {
+			// 		// 	for (k=0; k<3; k++) {
+			// 		// 		dbuf._data[x][y].fg[k] = dbuf._data[x][y].fg[k] * fadePercent / 100;
+			// 		// 	}
+			// 		// }
+			// 	}
+			// }
+      //
+
 			// Print the message archive text to the dbuf.
 			for (j=0; j < currentMessageCount && j < dbuf.height; j++) {
 				const pos = (CURRENT_ARCHIVE_POS - currentMessageCount + ARCHIVE_LINES + j) % ARCHIVE_LINES;
         const y = isOnTop ? j : dbuf.height - j - 1;
 
-				dbuf.wrapText(MSG_BOUNDS.toOuterX(0), y, MSG_BOUNDS.width, ARCHIVE[pos], GW.colors.white, GW.colors.black);
-			}
+        fadePercent = Math.floor(50 * (currentMessageCount - j) / currentMessageCount);
+        const fg = GW.colors.white.clone().mix(GW.colors.black, fadePercent);
 
-			// Set the dbuf opacity, and do a fade from bottom to top to make it clear that the bottom messages are the most recent.
-			for (j=0; j < currentMessageCount && j < dbuf.height; j++) {
-				fadePercent = 40 * (j + totalMessageCount - currentMessageCount) / totalMessageCount + 60;
-				for (i=0; i<MSG_BOUNDS.width; i++) {
-					const x = MSG_BOUNDS.toOuterX(i);
-
-          const y = isOnTop ? j : dbuf.height - j - 1;
-					dbuf._data[x][y].opacity = INTERFACE_OPACITY;
-					if (dbuf._data[x][y].char != ' ') {
-						for (k=0; k<3; k++) {
-							dbuf._data[x][y].fg[k] = dbuf._data[x][y].fg[k] * fadePercent / 100;
-						}
-					}
-				}
+				dbuf.wrapText(MSG_BOUNDS.toOuterX(0), y, MSG_BOUNDS.width, ARCHIVE[pos], fg, GW.colors.black);
 			}
 
 			GW.ui.draw();

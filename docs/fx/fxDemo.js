@@ -153,7 +153,7 @@ GW.sprite.install('magic', '*', 'purple');
 
 GW.commands.showBolt = showBolt;
 
-const PROJECTILE = GW.make.sprite('|-\\/', 'orange');
+const PROJECTILE = GW.make.sprite('|-\\/', 'orange', null); // null makes sprite with ch.length > 1 possible
 
 async function showProjectile(e) {
 
@@ -287,7 +287,8 @@ async function showHelp() {
 
 	buf.fillRect(8, 1, 64, y, null, null, 'black' );
 
-	GW.ui.draw();
+	// GW.ui.draw();
+  buf.render();
 	await GW.io.nextKeyPress(-1);
 	GW.ui.finishDialog();
 }

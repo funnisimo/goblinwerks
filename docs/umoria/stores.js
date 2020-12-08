@@ -463,7 +463,7 @@ async function showStoreInventory(buffer, store, actor) {
       }
     }
 
-    GW.ui.draw();
+    buffer.render();
 
     await table.loop({
       Escape() {
@@ -619,7 +619,7 @@ async function showPlayerInventory(buffer, store, actor) {
       }
     }
 
-    GW.ui.draw();
+    buffer.render();
 
     await GW.io.loop({
       Escape() {

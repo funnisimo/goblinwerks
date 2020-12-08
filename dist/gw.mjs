@@ -1565,6 +1565,60 @@ function makeRange(config, rng) {
 
 make.range = makeRange;
 
+// Copy of: https://github.com/ondras/fastiles/blob/master/ts/utils.ts (v2.1.0)
+const QUAD = [
+    0, 0, 1, 0, 0, 1,
+    0, 1, 1, 0, 1, 1
+];
+function createProgram(gl, ...sources) {
+    const p = gl.createProgram();
+    [gl.VERTEX_SHADER, gl.FRAGMENT_SHADER].forEach((type, index) => {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, sources[index]);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            throw new Error(gl.getShaderInfoLog(shader));
+        }
+        gl.attachShader(p, shader);
+    });
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+        throw new Error(gl.getProgramInfoLog(p));
+    }
+    return p;
+}
+function createTexture(gl) {
+    let t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    return t;
+}
+function createGeometry(gl, attribs, width, height) {
+    let tileCount = width * height;
+    let positionData = new Uint16Array(tileCount * QUAD.length);
+    let uvData = new Uint8Array(tileCount * QUAD.length);
+    let i = 0;
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            QUAD.forEach(value => {
+                positionData[i] = (i % 2 ? y : x) + value;
+                uvData[i] = value;
+                i++;
+            });
+        }
+    }
+    const position = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, position);
+    gl.vertexAttribIPointer(attribs["position"], 2, gl.UNSIGNED_SHORT, 0, 0);
+    gl.bufferData(gl.ARRAY_BUFFER, positionData, gl.STATIC_DRAW);
+    const uv = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, uv);
+    gl.vertexAttribIPointer(attribs["uv"], 2, gl.UNSIGNED_BYTE, 0, 0);
+    gl.bufferData(gl.ARRAY_BUFFER, uvData, gl.STATIC_DRAW);
+    return { position, uv };
+}
+
 // Based on: https://github.com/ondras/fastiles/blob/master/ts/shaders.ts (v2.1.0)
 const VS = `
 #version 300 es
@@ -1616,6 +1670,321 @@ void main() {
 	fragColor = vec4(mix(bgRgb, fgRgb, texel), 1.0);
 }`.trim();
 
+// Based on: https://github.com/ondras/fastiles/blob/master/ts/scene.ts (v2.1.0)
+const VERTICES_PER_TILE = 6;
+class Canvas {
+    constructor(options) {
+        this._data = new Uint32Array();
+        this._buffers = {};
+        this._attribs = {};
+        this._uniforms = {};
+        this._renderRequested = false;
+        this._autoRender = true;
+        this._width = 50;
+        this._height = 25;
+        if (!options.glyphs)
+            throw new Error('You must supply glyphs for the canvas.');
+        this._gl = this._initGL(options.node);
+        this._configure(options);
+    }
+    get node() { return this._gl.canvas; }
+    get width() { return this._width; }
+    get height() { return this._height; }
+    get tileWidth() { return this._glyphs.tileWidth; }
+    get tileHeight() { return this._glyphs.tileHeight; }
+    get pxWidth() { return this.node.clientWidth; }
+    get pxHeight() { return this.node.clientHeight; }
+    get glyphs() { return this._glyphs; }
+    set glyphs(glyphs) {
+        const gl = this._gl;
+        const uniforms = this._uniforms;
+        if (glyphs === this._glyphs && !glyphs.needsUpdate)
+            return;
+        if (glyphs !== this._glyphs) {
+            this._glyphs = glyphs;
+            this.resize(this._width, this._height);
+            gl.uniform2uiv(uniforms["tileSize"], [this.tileWidth, this.tileHeight]);
+        }
+        this._uploadGlyphs();
+    }
+    _configure(options) {
+        this._width = options.width || this._width;
+        this._height = options.height || this._height;
+        this._autoRender = (options.render !== false);
+        this.glyphs = options.glyphs;
+    }
+    resize(width, height) {
+        this._width = width;
+        this._height = height;
+        const node = this.node;
+        node.width = this._width * this.tileWidth;
+        node.height = this._height * this.tileHeight;
+        const gl = this._gl;
+        const uniforms = this._uniforms;
+        gl.viewport(0, 0, node.width, node.height);
+        gl.uniform2ui(uniforms["viewportSize"], node.width, node.height);
+        this._createGeometry();
+        this._createData();
+    }
+    draw(x, y, glyph, fg, bg) {
+        let index = y * this._width + x;
+        index *= VERTICES_PER_TILE;
+        glyph = glyph & 0xFF;
+        bg = bg & 0xFFF;
+        fg = fg & 0xFFF;
+        const style = (glyph << 24) + (bg << 12) + fg;
+        this._data[index + 2] = style;
+        this._data[index + 5] = style;
+        this._requestRender();
+    }
+    copy(buffer) {
+        buffer.data.forEach((style, i) => {
+            const index = i * VERTICES_PER_TILE;
+            this._data[index + 2] = style;
+            this._data[index + 5] = style;
+        });
+        this._requestRender();
+    }
+    copyTo(buffer) {
+        const n = this.width * this.height;
+        const dest = buffer.data;
+        for (let i = 0; i < n; ++i) {
+            const index = i * VERTICES_PER_TILE;
+            dest[i] = this._data[index + 2];
+        }
+    }
+    _initGL(node) {
+        if (typeof node === 'string') {
+            const el = document.getElementById(node);
+            if (!el)
+                throw new Error('Failed to find element with id:' + node);
+            if (!(el instanceof HTMLCanvasElement)) {
+                node = document.createElement('canvas');
+                el.appendChild(node);
+            }
+            else {
+                node = el;
+            }
+        }
+        else if (!node) {
+            node = document.createElement("canvas");
+        }
+        let gl = node.getContext("webgl2");
+        if (!gl) {
+            throw new Error("WebGL 2 not supported");
+        }
+        const p = createProgram(gl, VS, FS);
+        gl.useProgram(p);
+        const attributeCount = gl.getProgramParameter(p, gl.ACTIVE_ATTRIBUTES);
+        for (let i = 0; i < attributeCount; i++) {
+            gl.enableVertexAttribArray(i);
+            let info = gl.getActiveAttrib(p, i);
+            this._attribs[info.name] = i;
+        }
+        const uniformCount = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+        for (let i = 0; i < uniformCount; i++) {
+            let info = gl.getActiveUniform(p, i);
+            this._uniforms[info.name] = gl.getUniformLocation(p, info.name);
+        }
+        gl.uniform1i(this._uniforms["font"], 0);
+        this._texture = createTexture(gl);
+        return gl;
+    }
+    _createGeometry() {
+        const gl = this._gl;
+        this._buffers.position && gl.deleteBuffer(this._buffers.position);
+        this._buffers.uv && gl.deleteBuffer(this._buffers.uv);
+        let buffers = createGeometry(gl, this._attribs, this._width, this._height);
+        Object.assign(this._buffers, buffers);
+    }
+    _createData() {
+        const gl = this._gl;
+        const attribs = this._attribs;
+        const tileCount = this._width * this._height;
+        this._buffers.style && gl.deleteBuffer(this._buffers.style);
+        this._data = new Uint32Array(tileCount * VERTICES_PER_TILE);
+        const style = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, style);
+        gl.vertexAttribIPointer(attribs["style"], 1, gl.UNSIGNED_INT, 0, 0);
+        Object.assign(this._buffers, { style });
+    }
+    _requestRender() {
+        if (this._renderRequested)
+            return;
+        this._renderRequested = true;
+        if (!this._autoRender)
+            return;
+        requestAnimationFrame(() => this.render());
+    }
+    render() {
+        const gl = this._gl;
+        if (this._glyphs.needsUpdate) { // auto keep glyphs up to date
+            this._uploadGlyphs();
+        }
+        else if (!this._renderRequested) {
+            return;
+        }
+        this._renderRequested = false;
+        gl.bindBuffer(gl.ARRAY_BUFFER, this._buffers.style);
+        gl.bufferData(gl.ARRAY_BUFFER, this._data, gl.DYNAMIC_DRAW);
+        gl.drawArrays(gl.TRIANGLES, 0, this._width * this._height * VERTICES_PER_TILE);
+    }
+    _uploadGlyphs() {
+        if (!this._glyphs.needsUpdate)
+            return;
+        const gl = this._gl;
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, this._texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this._glyphs.node);
+        this._requestRender();
+        this._glyphs.needsUpdate = false;
+    }
+    hasXY(x, y) {
+        return x >= 0 && y >= 0 && x < this.width && y < this.height;
+    }
+    toX(x) {
+        return Math.floor(this.width * x / this.node.clientWidth);
+    }
+    toY(y) {
+        return Math.floor(this.height * y / this.node.clientHeight);
+    }
+}
+
+class Glyphs {
+    constructor(opts = {}) {
+        this._tileWidth = 12;
+        this._tileHeight = 16;
+        this.needsUpdate = true;
+        this._map = {};
+        opts.font = opts.font || 'monospace';
+        this._node = document.createElement('canvas');
+        this._ctx = this.node.getContext('2d');
+        this._configure(opts);
+    }
+    static fromImage(src) {
+        if (typeof src === 'string') {
+            if (src.startsWith('data:'))
+                throw new Error('Glyph: You must load a data string into an image element and use that.');
+            const el = document.getElementById(src);
+            if (!el)
+                throw new Error('Glyph: Failed to find image element with id:' + src);
+            src = el;
+        }
+        const glyph = new this({ tileWidth: src.width / 16, tileHeight: src.height / 16 });
+        glyph._ctx.drawImage(src, 0, 0);
+        return glyph;
+    }
+    static fromFont(src) {
+        if (typeof src === 'string') {
+            src = { font: src };
+        }
+        const glyphs = new this(src);
+        const basicOnly = src.basicOnly || src.basic || false;
+        glyphs._initGlyphs(basicOnly);
+        return glyphs;
+    }
+    get node() { return this._node; }
+    get tileWidth() { return this._tileWidth; }
+    get tileHeight() { return this._tileHeight; }
+    get pxWidth() { return this._node.width; }
+    get pxHeight() { return this._node.height; }
+    forChar(ch) {
+        if (ch === null || ch === undefined)
+            return -1;
+        return this._map[ch] || -1;
+    }
+    _configure(opts) {
+        this._tileWidth = opts.tileWidth || this.tileWidth;
+        this._tileHeight = opts.tileHeight || this.tileHeight;
+        this.node.width = 16 * this.tileWidth;
+        this.node.height = 16 * this.tileHeight;
+        this._ctx.fillStyle = 'black';
+        this._ctx.fillRect(0, 0, this.pxWidth, this.pxHeight);
+        const size = opts.fontSize || opts.size || Math.max(this.tileWidth, this.tileHeight);
+        this._ctx.font = '' + size + 'px ' + opts.font;
+        this._ctx.textAlign = 'center';
+        this._ctx.textBaseline = 'middle';
+        this._ctx.fillStyle = 'white';
+    }
+    draw(n, ch) {
+        if (n > 256)
+            throw new Error('Cannot draw more than 256 glyphs.');
+        const x = (n % 16) * this.tileWidth;
+        const y = Math.floor(n / 16) * this.tileHeight;
+        const cx = x + Math.floor(this.tileWidth / 2);
+        const cy = y + Math.floor(this.tileHeight / 2);
+        this._ctx.save();
+        this._ctx.beginPath();
+        this._ctx.rect(x, y, this.tileWidth, this.tileHeight);
+        this._ctx.clip();
+        if (typeof ch === 'function') {
+            ch(this._ctx, x, y, this.tileWidth, this.tileHeight);
+        }
+        else {
+            if (this._map[ch] === undefined)
+                this._map[ch] = n;
+            this._ctx.fillText(ch, cx, cy);
+        }
+        this._ctx.restore();
+        this.needsUpdate = true;
+    }
+    _initGlyphs(basicOnly = false) {
+        for (let i = 32; i < 127; ++i) {
+            this.draw(i, String.fromCharCode(i));
+        }
+        if (!basicOnly) {
+            [' ', '\u263a', '\u263b', '\u2665', '\u2666', '\u2663', '\u2660', '\u263c',
+                '\u2600', '\u2605', '\u2606', '\u2642', '\u2640', '\u266a', '\u266b', '\u2638',
+                '\u25b6', '\u25c0', '\u2195', '\u203c', '\u204b', '\u262f', '\u2318', '\u2616',
+                '\u2191', '\u2193', '\u2192', '\u2190', '\u2126', '\u2194', '\u25b2', '\u25bc',
+            ].forEach((ch, i) => {
+                this.draw(i, ch);
+            });
+            // [
+            // '\u2302',
+            // '\u2b09', '\u272a', '\u2718', '\u2610', '\u2611', '\u25ef', '\u25ce', '\u2690',
+            // '\u2691', '\u2598', '\u2596', '\u259d', '\u2597', '\u2744', '\u272d', '\u2727',
+            // '\u25e3', '\u25e4', '\u25e2', '\u25e5', '\u25a8', '\u25a7', '\u259a', '\u265f',
+            // '\u265c', '\u265e', '\u265d', '\u265b', '\u265a', '\u301c', '\u2694', '\u2692',
+            // '\u25b6', '\u25bc', '\u25c0', '\u25b2', '\u25a4', '\u25a5', '\u25a6', '\u257a',
+            // '\u257b', '\u2578', '\u2579', '\u2581', '\u2594', '\u258f', '\u2595', '\u272d',
+            // '\u2591', '\u2592', '\u2593', '\u2503', '\u252b', '\u2561', '\u2562', '\u2556',
+            // '\u2555', '\u2563', '\u2551', '\u2557', '\u255d', '\u255c', '\u255b', '\u2513',
+            // '\u2517', '\u253b', '\u2533', '\u2523', '\u2501', '\u254b', '\u255e', '\u255f',
+            // '\u255a', '\u2554', '\u2569', '\u2566', '\u2560', '\u2550', '\u256c', '\u2567',
+            // '\u2568', '\u2564', '\u2565', '\u2559', '\u2558', '\u2552', '\u2553', '\u256b',
+            // '\u256a', '\u251b', '\u250f', '\u2588', '\u2585', '\u258c', '\u2590', '\u2580',
+            // '\u03b1', '\u03b2', '\u0393', '\u03c0', '\u03a3', '\u03c3', '\u03bc', '\u03c4',
+            // '\u03a6', '\u03b8', '\u03a9', '\u03b4', '\u221e', '\u03b8', '\u03b5', '\u03b7',
+            // '\u039e', '\u00b1', '\u2265', '\u2264', '\u2234', '\u2237', '\u00f7', '\u2248',
+            // '\u22c4', '\u22c5', '\u2217', '\u27b5', '\u2620', '\u2625', '\u25fc', '\u25fb'
+            // ].forEach( (ch, i) => {
+            //   this.draw(i + 127, ch); 
+            // });
+            ['\u2302',
+                '\u00C7', '\u00FC', '\u00E9', '\u00E2', '\u00E4', '\u00E0', '\u00E5', '\u00E7',
+                '\u00EA', '\u00EB', '\u00E8', '\u00EF', '\u00EE', '\u00EC', '\u00C4', '\u00C5',
+                '\u00C9', '\u00E6', '\u00C6', '\u00F4', '\u00F6', '\u00F2', '\u00FB', '\u00F9',
+                '\u00FF', '\u00D6', '\u00DC', '\u00A2', '\u00A3', '\u00A5', '\u20A7', '\u0192',
+                '\u00E1', '\u00ED', '\u00F3', '\u00FA', '\u00F1', '\u00D1', '\u00AA', '\u00BA',
+                '\u00BF', '\u2310', '\u00AC', '\u00BD', '\u00BC', '\u00A1', '\u00AB', '\u00BB',
+                '\u2591', '\u2592', '\u2593', '\u2502', '\u2524', '\u2561', '\u2562', '\u2556',
+                '\u2555', '\u2563', '\u2551', '\u2557', '\u255D', '\u255C', '\u255B', '\u2510',
+                '\u2514', '\u2534', '\u252C', '\u251C', '\u2500', '\u253C', '\u255E', '\u255F',
+                '\u255A', '\u2554', '\u2569', '\u2566', '\u2560', '\u2550', '\u256C', '\u2567',
+                '\u2568', '\u2564', '\u2565', '\u2559', '\u2558', '\u2552', '\u2553', '\u256B',
+                '\u256A', '\u2518', '\u250C', '\u2588', '\u2584', '\u258C', '\u2590', '\u2580',
+                '\u03B1', '\u00DF', '\u0393', '\u03C0', '\u03A3', '\u03C3', '\u00B5', '\u03C4',
+                '\u03A6', '\u0398', '\u03A9', '\u03B4', '\u221E', '\u03C6', '\u03B5', '\u2229',
+                '\u2261', '\u00B1', '\u2265', '\u2264', '\u2320', '\u2321', '\u00F7', '\u2248',
+                '\u00B0', '\u2219', '\u00B7', '\u221A', '\u207F', '\u00B2', '\u25A0', '\u00A0'
+            ].forEach((ch, i) => {
+                this.draw(i + 127, ch);
+            });
+        }
+    }
+}
+
 var options = {
     random: Math.random.bind(Math),
     colorLookup: ((_) => null),
@@ -1647,12 +2016,9 @@ class Color extends Int16Array {
         }
         return new this(...vals);
     }
-    static fromString(css) {
+    static fromCss(css) {
         if (!css.startsWith('#')) {
-            const l = options.colorLookup(css);
-            if (l)
-                return l;
-            throw new Error('Color strings must be of form "#abc" or "#abcdef" - received: [' + css + ']');
+            throw new Error('Color CSS strings must be of form "#abc" or "#abcdef" - received: [' + css + ']');
         }
         const c = Number.parseInt(css.substring(1), 16);
         let r, g, b;
@@ -1695,7 +2061,10 @@ class Color extends Int16Array {
             return arg.clone();
         }
         if (typeof arg === 'string') {
-            return this.fromString(arg);
+            const l = options.colorLookup(arg);
+            if (l)
+                return l.clone();
+            return this.fromCss(arg);
         }
         else if (Array.isArray(arg)) {
             return this.fromArray(arg, base256);
@@ -1709,10 +2078,15 @@ class Color extends Int16Array {
     }
     static from(...args) {
         const arg = args[0];
-        if (arg instanceof this)
+        if (arg instanceof Color)
             return arg;
         if (arg < 0)
             return new this(-1);
+        if (typeof arg === 'string') {
+            const l = options.colorLookup(arg);
+            if (l)
+                return l;
+        }
         return this.make(arg, args[1]);
     }
     constructor(r = -1, g = 0, b = 0, rand = 0, redRand = 0, greenRand = 0, blueRand = 0) {
@@ -1772,6 +2146,9 @@ class Color extends Int16Array {
     equals(other) {
         if (typeof other === 'string') {
             return (other.length > 4) ? (this.toString(true) == other) : (this.toString() == other);
+        }
+        else if (typeof other === 'number') {
+            return (this.toInt() == other) || (this.toInt(true) == other);
         }
         const O = Color.from(other);
         if (this.isNull())
@@ -1997,6 +2374,96 @@ class Color extends Int16Array {
 }
 const BLACK = new Color(0, 0, 0);
 const WHITE = new Color(100, 100, 100);
+
+class DataBuffer {
+    constructor(width, height) {
+        this._width = width;
+        this._height = height;
+        this._data = new Uint32Array(width * height);
+    }
+    get data() { return this._data; }
+    get width() { return this._width; }
+    get height() { return this._height; }
+    get(x, y) {
+        let index = y * this.width + x;
+        const style = this._data[index] || 0;
+        const glyph = (style >> 24);
+        const bg = (style >> 12) & 0xFFF;
+        const fg = (style & 0xFFF);
+        return { glyph, fg, bg };
+    }
+    _toGlyph(ch) {
+        if (ch === null || ch === undefined)
+            return -1;
+        return ch.charCodeAt(0);
+    }
+    draw(x, y, glyph = -1, fg = -1, bg = -1) {
+        let index = y * this.width + x;
+        const current = this._data[index] || 0;
+        if (typeof glyph !== 'number') {
+            glyph = this._toGlyph(glyph);
+        }
+        if (typeof fg !== 'number') {
+            fg = Color.from(fg).toInt();
+        }
+        if (typeof bg !== 'number') {
+            bg = Color.from(bg).toInt();
+        }
+        glyph = (glyph >= 0) ? (glyph & 0xFF) : (current >> 24);
+        bg = (bg >= 0) ? (bg & 0xFFF) : ((current >> 12) & 0xFFF);
+        fg = (fg >= 0) ? (fg & 0xFFF) : (current & 0xFFF);
+        const style = (glyph << 24) + (bg << 12) + fg;
+        this._data[index] = style;
+        return this;
+    }
+    // This is without opacity - opacity must be done in Mixer
+    drawSprite(x, y, sprite) {
+        const glyph = sprite.ch ? sprite.ch : sprite.glyph;
+        // const fg = sprite.fg ? sprite.fg.toInt() : -1;
+        // const bg = sprite.bg ? sprite.bg.toInt() : -1;
+        return this.draw(x, y, glyph, sprite.fg, sprite.bg);
+    }
+    blackOut(x, y) {
+        if (arguments.length == 0) {
+            return this.fill(0, 0, 0);
+        }
+        return this.draw(x, y, 0, 0, 0);
+    }
+    fill(glyph = 0, fg = 0xFFF, bg = 0) {
+        if (typeof glyph == 'string') {
+            glyph = this._toGlyph(glyph);
+        }
+        glyph = glyph & 0xFF;
+        fg = fg & 0xFFF;
+        bg = bg & 0xFFF;
+        const style = (glyph << 24) + (bg << 12) + fg;
+        this._data.fill(style);
+        return this;
+    }
+    copy(other) {
+        this._data.set(other._data);
+        return this;
+    }
+}
+class Buffer extends DataBuffer {
+    constructor(canvas) {
+        super(canvas.width, canvas.height);
+        this._canvas = canvas;
+        canvas.copyTo(this);
+    }
+    get canvas() { return this._canvas; }
+    _toGlyph(ch) {
+        return this._canvas.glyphs.forChar(ch);
+    }
+    render() {
+        this._canvas.copy(this);
+        return this;
+    }
+    copyFromCanvas() {
+        this._canvas.copyTo(this);
+        return this;
+    }
+}
 
 class Mixer {
     constructor() {
@@ -2355,29 +2822,30 @@ function make$2(...args) {
 make.color = make$2;
 
 
+
+
+function from(arg, base256) {
+  if (typeof arg === 'string') {
+    const color = colors[arg];
+    if (color) return color;
+  }
+  if (arg instanceof Color$1) {
+    return arg;
+  }
+  return Color$1.from(arg, base256);
+}
+
 function addKind(name, ...args) {
   let color;
   if (args.length == 1 && args[0] instanceof Color$1) {
     color = args[0];
   }
-  else if (args.length > 1 && typeof args[1] === 'number'){
-    color = make.color(args);
-  }
   else {
-    color = make.color(...args);
+    color = make$2(...args);
   }
 	colors[name] = color;
   color.id = name;
 	return color;
-}
-
-
-function from(arg) {
-  if (typeof arg === 'string') {
-    const color = colors[arg];
-    if (color) return color;
-  }
-  return make.color(arg);
 }
 
 
@@ -2540,8 +3008,8 @@ var color = {
   Color: Color$1,
   separate: separate,
   make: make$2,
-  addKind: addKind,
   from: from,
+  addKind: addKind,
   swap: swap,
   diff: diff,
   addSpread: addSpread
@@ -2763,7 +3231,9 @@ function eachChar(text, fn, fg, bg) {
             else {
                 colors.push([ctx.fg, ctx.bg]);
                 const color = text.substring(i + 1, j);
-                ([ctx.fg, ctx.bg] = color.split('|'));
+                const newColors = color.split('|');
+                ctx.fg = newColors[0] || ctx.fg;
+                ctx.bg = newColors[1] || ctx.bg;
                 colorFn(ctx);
                 i = j;
                 continue;
@@ -3291,7 +3761,7 @@ class Sprite extends Mixer {
     return true;
   }
 
-  fade(color, pct) {
+  mix(color, pct) {
     if (this.bg) this.bg.mix(color, pct);
     if (this.fg) this.fg.mix(color, pct);
     this.needsUpdate = true;
@@ -3359,14 +3829,24 @@ class Sprite extends Mixer {
 types.Sprite = Sprite;
 
 function makeSprite(ch, fg, bg, opacity) {
-  if (ch && Array.isArray(ch)) {
+  if (ch && ch instanceof Color$1) {
+    bg = ch;
+    ch = undefined;
+  }
+  else if (ch && Array.isArray(ch)) {
     [ch, fg, bg, opacity] = ch;
   }
-  if (ch && typeof ch === 'object') {
+  else if (ch && typeof ch === 'object') {
     if (ch.fg) { ch.fg = from(ch.fg); }
     if (ch.bg) { ch.bg = from(ch.bg); }
     return ch;
   }
+
+  if ((bg === undefined) && ch && ch.length > 1) {
+    bg = ch;
+    ch = undefined;
+  }
+
   if (typeof fg === 'number') {
     opacity = fg;
     fg = undefined;
@@ -3374,10 +3854,6 @@ function makeSprite(ch, fg, bg, opacity) {
   if (typeof bg === 'number') {
     opacity = bg;
     bg = undefined;
-  }
-  if (!fg && ch && ch.length > 1) {
-    bg = ch;
-    ch = undefined;
   }
 
   if (fg) fg = from(fg);
@@ -4266,384 +4742,401 @@ var grid = {
   fillBlob: fillBlob
 };
 
-class Buffer {
-  constructor(w, h) {
-    this.width = w;
-    this.height = h;
-    this._data = alloc(w, h, () => new types.Sprite() );
-    this.needsUpdate = true;
-  }
+DataBuffer.prototype.drawText = function(x, y, text$1, fg, bg) {
+  eachChar(text$1, (ch, color, bg, i) => {
+    this.draw(i + x, y, ch, color || colors.white, bg);
+  }, fg, bg);
+  return ++y;
+};
 
-  copy(other) {
-    this._data.forEach( (c, i, j) => c.copy(other._data[i][j]) );
-    this.needsUpdate = true;
-  }
+DataBuffer.prototype.wrapText = function(x0, y0, width, text$1, fg, bg, opts={}) {
+  if (typeof opts === 'number') { opts = { indent: opts }; }
+  fg = fg || 'white';
+  // if (typeof fg === 'string') { fg = GW.colors[fg]; }
+  // if (typeof bg === 'string') { bg = GW.colors[bg]; }
+  width = Math.min(width, this.width - x0);
+  const indent = opts.indent || 0;
 
-  nullify() {
-    this._data.forEach( (c) => c.nullify() );
-    this.needsUpdate = true;
-  }
+  text$1 = wordWrap(text$1, width, indent);
 
-  // nullifyRect(x, y, w, h) {
-  //   this._data.forRect(x, y, w, h, (c) => c.nullify() );
-  //   this.needsUpdate = true;
-  // }
-
-  // nullifyCell(x, y) {
-  //   this._data[x][y].nullify();
-  //   this.needsUpdate = true;
-  // }
-
-  blackOut(bg) {
-    this._data.forEach( (c) => c.blackOut(bg) );
-    this.needsUpdate = true;
-  }
-
-  blackOutRect(x, y, w, h, bg) {
-    this._data.forRect(x, y, w, h, (c) => c.blackOut(bg) );
-    this.needsUpdate = true;
-  }
-
-  // blackOutCell(x, y) {
-  //   this._data[x][y].blackOut();
-  //   this.needsUpdate = true;
-  // }
-
-  fade(color$1, pct) {
-    color$1 = from(color$1);
-    this._data.forEach( (s) => s.fade(color$1, pct) );
-  }
-
-  dump(fmt) { this._data.dump( fmt || ((s) => s.ch) ); }
-
-  drawSprite(x, y, sprite) {
-    if (sprite.opacity <= 0) return;
-
-    if (!this._data.hasXY(x, y)) {
-      WARN('invalid coordinates: ' + x + ', ' + y);
-      return false;
-    }
-    const destCell = this._data[x][y];
-    if (destCell.drawSprite(sprite)) {
-      this.needsUpdate = true;
-    }
-    return this.needsUpdate;
-  }
-
-  draw(x, y, ch, fg, bg) {
-    if (!this._data.hasXY(x, y)) {
-      WARN('invalid coordinates: ' + x + ', ' + y);
+  let x = x0;
+  let y = y0;
+  eachChar(text$1, (ch, fg0, bg0) => {
+    if (ch == '\n') {
+      while(x < x0 + width) {
+        this.draw(x++, y, ' ', colors.black, bg0);
+      }
+      ++y;
+      x = x0 + indent;
       return;
     }
+    this.draw(x++, y, ch, fg0, bg0);
+  }, fg, bg);
 
-    if (typeof fg === 'string') { fg = colors[fg]; }
-    if (typeof bg === 'string') { bg = colors[bg]; }
-    const destCell = this._data[x][y];
-    destCell.draw(ch, fg, bg);
-    this.needsUpdate = true;
+  while(x < x0 + width) {
+    this.draw(x++, y, ' ', colors.black, bg);
   }
 
-  // XXXXXXXXXX
-  drawText(x, y, text$1, fg, bg) {
-    eachChar(text$1, (ch, color, bg, i) => {
-      this.draw(i + x, y, ch, color || colors.white, bg);
-    }, fg, bg);
-  }
+  return ++y;
+};
 
-  // applyText(x, y, text, args={}) {
-  //   text = Text.apply(text, args);
-  //   Text.eachChar(text, (ch, color, bg, i) => {
-  //     this.draw(i + x, y, ch, color || GW.colors.white, null);
-  //   }, args.fg, args.bg);
-  // }
-
-
-  // plotLine(x, y, w, text, fg, bg) {
-  //   return this.wrapText(x, y, w, text, fg, bg);
-  //   // if (typeof fg === 'string') { fg = GW.colors[fg]; }
-  //   // if (typeof bg === 'string') { bg = GW.colors[bg]; }
-  //   // fg = fg || GW.colors.white;
-  //   // let len = Text.length(text);
-  //   // Text.eachChar(text, (ch, color, _bg, i) => {
-  //   //   this.draw(i + x, y, ch, color || fg, _bg || bg);
-  //   // });
-  //   // for(let i = len; i < w; ++i) {
-  //   //   this.draw(i + x, y, ' ', bg, bg);
-  //   // }
-  // }
-
-  wrapText(x0, y0, width, text$1, fg, bg, opts={}) {
-    if (typeof opts === 'number') { opts = { indent: opts }; }
-    fg = fg || 'white';
-    if (typeof fg === 'string') { fg = colors[fg]; }
-    if (typeof bg === 'string') { bg = colors[bg]; }
-    width = Math.min(width, this.width - x0);
-    const indent = opts.indent || 0;
-
-    text$1 = wordWrap(text$1, width, indent);
-
-    let x = x0;
-    let y = y0;
-    eachChar(text$1, (ch, fg0, bg0) => {
-      if (ch == '\n') {
-        while(x < x0 + width) {
-          this.draw(x++, y, ' ', colors.black, bg);
-        }
-        ++y;
-        x = x0 + indent;
-        return;
-      }
-      this.draw(x++, y, ch, fg0, bg0);
-    }, fg, bg);
-
-    while(x < x0 + width) {
-      this.draw(x++, y, ' ', colors.black, bg);
+DataBuffer.prototype.fillRect = function(x, y, w, h, ch, fg, bg) {
+  // if (typeof fg === 'string') { fg = GW.colors[fg]; }
+  // if (typeof bg === 'string') { bg = GW.colors[bg]; }
+  for(let i = x; i < x + w; ++i) {
+    for(let j = y; j < y + h; ++j) {
+      this.draw(i, j, ch, fg, bg);
     }
-
-    return ++y;
   }
+  return this;
+};
 
-  fill(ch, fg, bg) {
-    this.fillRect(0, 0, this.width, this.height, ch, fg, bg);
+DataBuffer.prototype.blackOutRect = function(x, y, w, h, bg) {
+  bg = bg || 'black';
+  return this.fillRect(x, y, w, h, 0, 0, bg);
+};
+
+DataBuffer.prototype.highlight = function(x, y, highlightColor, strength)
+{
+  const mixer = new Sprite();
+	const data = this.get(x, y);
+  mixer.drawSprite(data);
+	mixer.fg.add(highlightColor, strength);
+	mixer.bg.add(highlightColor, strength);
+  this.drawSprite(x, y, mixer);
+  return this;
+};
+
+DataBuffer.prototype.mix = function(color, percent) {
+
+  const mixer = new Sprite();
+  for(let x = 0; x < this.width; ++x) {
+    for(let y = 0; y < this.height; ++y) {
+      const data = this.get(x, y);
+      mixer.drawSprite(data);
+    	mixer.fg.mix(color, percent);
+    	mixer.bg.mix(color, percent);
+      this.drawSprite(x, y, mixer);
+    }
   }
+  return this;
+};
 
-  fillRect(x, y, w, h, ch, fg, bg) {
-    if (typeof fg === 'string') { fg = colors[fg]; }
-    if (typeof bg === 'string') { bg = colors[bg]; }
-    this._data.forRect(x, y, w, h, (destCell, i, j) => {
-      destCell.draw(ch, fg, bg);
-    });
-    this.needsUpdate = true;
+
+DataBuffer.prototype.dump = function() {
+  const data = [];
+  let header = '    ';
+  for(let x = 0; x < this.width; ++x) {
+    if ((x%10) == 0) header += ' ';
+    header += (x%10);
   }
+  data.push(header);
+  data.push('');
 
-  // // Very low-level. Changes displayBuffer directly.
-	highlight(x, y, highlightColor, strength)
-	{
-		const cell = this._data[x][y];
-		cell.fg.add(highlightColor, strength);
-		cell.bg.add(highlightColor, strength);
-		cell.needsUpdate = true;
-    this.needsUpdate = true;
-	}
+  for(let y = 0; y < this.height; ++y) {
+    let line = `${(''+y).padStart(2)}] `;
+    for(let x = 0; x < this.width; ++x) {
+      if ((x % 10) == 0) line += ' ';
+      const data = this.get(x, y);
+      line += String.fromCharCode(data.glyph || 32);
+    }
+    data.push(line);
+  }
+  console.log(data.join('\n'));
+};
 
-}
+let NEXT_GLYPH = 128;
 
+Buffer.prototype._toGlyph = function(ch) {
+  if (ch === null || ch === undefined) return -1;
+
+  let glyph = this.canvas.glyphs.forChar(ch);
+  if (glyph < 0) {
+    console.log('Register new Glyph', ch, ch.charCodeAt(0), NEXT_GLYPH);
+    glyph = NEXT_GLYPH;
+    this.canvas.glyphs.draw(NEXT_GLYPH++, ch);
+  }
+  return glyph;
+};
+
+types.DataBuffer = DataBuffer;
 types.Buffer = Buffer;
 
-function makeBuffer(w, h) {
-  return new types.Buffer(w, h);
-}
-
-make.buffer = makeBuffer;
+// function makeBuffer(w, h) {
+//   return new GW.types.Buffer(w, h);
+// }
+//
+// GW.make.buffer = makeBuffer;
 
 const DEFAULT_FONT = 'monospace';
 
-var canvas = {};
-
-
-
-function setFont(canvas, size, name) {
-  canvas.font = name || DEFAULT_FONT;
-  canvas.ctx.font = (size) + 'px ' + canvas.font;
-  canvas.ctx.textAlign = 'center';
-  canvas.ctx.textBaseline = 'middle';
-}
-
-
-function handleResizeEvent() {
-
-  const rect = this.node.getBoundingClientRect();
-  this.pxWidth  = rect.width;
-  this.pxHeight = rect.height;
-  ui.debug('canvas resize', rect);
-
-  this._buffer._data.forEach((c) => { c.needsUpdate = true; });
-}
-
-
-
-class Canvas {
-  constructor(w, h, div, opts={}) {
-    this._buffer = make.buffer(w, h);
-    this.dead = [];
-    this.displayRatio = 1;
-    this.width  = w;
-    this.height = h;
-
-    if (typeof document !== 'undefined') {
-      let parent = document;
-      this.node = document.getElementById(div);
-      if (this.node && this.node.tagName !== 'CANVAS') {
-        parent = this.node;
-        this.node = null;
-      }
-      if (!this.node) {
-        // Need to create canvas
-        this.node = document.createElement('canvas');
-        parent.appendChild(this.node);
-      }
-
-      this.ctx = this.node.getContext('2d');
-      this.displayRatio = window.devicePixelRatio || 1;
-
-      const bounds = this.node.getBoundingClientRect();
-      const size = Math.min(Math.floor(bounds.width / this.width), Math.floor(bounds.height / this.height));
-
-      this.tileSize = opts.tileSize || size;
-      this.pxWidth  = bounds.width;
-      this.pxHeight = bounds.height;
-    }
-    else {
-      this.tileSize = opts.tileSize || 16;
-      this.pxWidth  = this.tileSize * this.width  * this.displayRatio;
-      this.pxHeight = this.tileSize * this.height * this.displayRatio;
-    }
-
-    this.dances = false;
-
-    if (typeof window !== 'undefined') {
-      this.node.width = this.width * this.tileSize;
-      this.node.height = this.height * this.tileSize;
-
-      window.addEventListener('resize', handleResizeEvent.bind(this));
-      handleResizeEvent.call(this);
-
-      this.font = opts.font;
-      setFont(this, this.tileSize, this.font);
-    }
-
-  }
-
-  hasXY(x, y) {
-    return this._buffer._data.hasXY(x, y);
-  }
-
-  toX(x) {
-    return Math.floor(this._buffer.width * x / this.pxWidth);
-  }
-
-  toY(y) {
-    return Math.floor(this._buffer.height * y / this.pxHeight);
-  }
-
-  render() {
-    if ((this._buffer.needsUpdate || this.dances)) {
-
-      this._buffer.needsUpdate = false;
-      this.dances = false;
-
-      this._buffer._data.forEach( (cell, i, j) => {
-        if (cell.fg.dances || cell.bg.dances) {
-          this.dances = true;
-          if (cosmetic.value() < 0.0005) {
-            cell.needsUpdate = true;
-          }
-        }
-
-        if (cell.needsUpdate) {
-          if (cell.wasHanging && j < this._buffer.height - 1) {
-            this._buffer._data[i][j + 1].needsUpdate = true;	// redraw the row below any hanging letters that changed
-            cell.wasHanging = false;
-          }
-          if (cell.wasFlying && j) {
-            this._buffer._data[i][j - 1].needsUpdate = true;
-            this._buffer.needsUpdate = true;
-            cell.wasFlying = false;
-          }
-
-          this._renderCell(cell, i, j);
-          cell.needsUpdate = false;
-        }
-      });
-
-    }
-  }
-
-  _renderCell(cell, x, y) {
-    const ctx = this.ctx;
-    const tileSize = this.tileSize;// * this.displayRatio;
-
-    if (cell.bg && !cell.bg.isNull()) {
-      const backCss = cell.bg.css();
-      ctx.fillStyle = backCss;
-
-      ctx.fillRect(
-        x * tileSize,
-        y * tileSize,
-        tileSize,
-        tileSize
-      );
-    }
-
-    if (cell.ch && cell.ch !== ' ' && cell.fg && !cell.fg.isNull()) {
-      const foreCss = cell.fg.css();
-      ctx.fillStyle = foreCss;
-
-      const textX = x * tileSize + Math.floor(tileSize * 0.5);
-      const textY = y * tileSize + Math.floor(tileSize * 0.5);
-
-      ctx.fillText(
-        cell.ch,
-        textX,
-        textY
-      );
-    }
-  }
-
-  allocBuffer() {
-    let buf;
-    if (this.dead.length) {
-      buf = this.dead.pop();
-    }
-    else {
-      buf = new types.Buffer(this._buffer.width, this._buffer.height);
-    }
-
-    buf.copy(this._buffer);
-    return buf;
-  }
-
-  freeBuffer(...bufs) {
-    bufs.forEach( (buf) => this.dead.push(buf) );
-  }
-
-  copyBuffer(dest) {
-    dest.copy(this._buffer);
-  }
-
-  // draws overBuf over the current canvas with per-cell pseudotransparency as specified in overBuf.
-  // If previousBuf is not null, it gets filled with the preexisting canvas for reversion purposes.
-  overlay( overBuf,  previousBuf) {
-    if (previousBuf) {
-      previousBuf.copy(this._buffer);
-    }
-    this._overlayRect(overBuf, 0, 0, this._buffer.width, this._buffer.height);
-  }
-
-  // draws overBuf over the current canvas with per-cell pseudotransparency as specified in overBuf.
-  // If previousBuf is not null, it gets filled with the preexisting canvas for reversion purposes.
-  _overlayRect(overBuf, x, y, w, h) {
-    let i, j;
-
-    for (i=x; i<x + w; i++) {
-      for (j=y; j<y + h; j++) {
-        const src = overBuf._data[i][j];
-        if (src.opacity) {
-          const dest = this._buffer._data[i][j];
-          if (!dest.equals(src)) {
-            dest.copy(src); // was copy
-            dest.needsUpdate = true;
-            this._buffer.needsUpdate = true;
-          }
-        }
-      }
-    }
-
-  }
-
-}
-
 types.Canvas = Canvas;
+
+function makeGlyphs(opts={}) {
+  if (typeof opts === 'string') {
+    opts = { font: opts };
+  }
+  else if (typeof opts === 'number') {
+    opts = { size: opts };
+  }
+  opts.font = opts.font || DEFAULT_FONT;
+  opts.basic = true;
+
+  const glyphs = Glyphs.fromFont(opts);
+
+  [
+    // arrows (4)
+    '\u2190', '\u2191', '\u2192', '\u2193',
+
+    // border drawing (11)
+    '\u2550','\u2551','\u2554','\u2557','\u255A','\u255D','\u2560','\u2563','\u2566','\u2569','\u256C',
+
+    // Floor,  dagger   omega    target 1, target 2, open flag, flag      3 dots    4 dots
+    '\u2219', '\u2020', '\u03A9', '\u25ef', '\u25ce', '\u2690', '\u2691', '\u2234', '\u2237',
+
+  ].forEach( (ch, i) => {
+    glyphs.draw(i + 1, ch);
+  });
+
+  return glyphs;
+}
+
+make.glyphs = makeGlyphs;
+
+
+function makeCanvas(opts={}) {
+  const glyphs = makeGlyphs(opts);
+  opts.glyphs = glyphs;
+  return new Canvas(opts);
+}
+
+make.canvas = makeCanvas;
+
+// export var canvas = {};
+//
+//
+//
+// function setFont(canvas, size, name) {
+//   canvas.font = name || DEFAULT_FONT;
+//   canvas.ctx.font = (size) + 'px ' + canvas.font;
+//   canvas.ctx.textAlign = 'center';
+//   canvas.ctx.textBaseline = 'middle';
+// }
+//
+//
+// function fillBg(canvas, css) {
+//     canvas.ctx.fillStyle = css || '#000';
+//     canvas.ctx.fillRect(
+//         0,
+//         0,
+//         canvas.width,
+//         canvas.height
+//     );
+// }
+//
+//
+// function handleResizeEvent() {
+//
+//   const rect = this.node.getBoundingClientRect();
+//   this.pxWidth  = rect.width;
+//   this.pxHeight = rect.height;
+//   UI.debug('canvas resize', rect);
+//
+//   this._buffer._data.forEach((c) => { c.needsUpdate = true; });
+// }
+
+//
+//
+// class Canvas {
+//   constructor(w, h, div, opts={}) {
+//     this._buffer = make.buffer(w, h);
+//     this.dead = [];
+//     this.displayRatio = 1;
+//     this.width  = w;
+//     this.height = h;
+//
+//     if (typeof document !== 'undefined') {
+//       let parent = document;
+//       this.node = document.getElementById(div);
+//       if (this.node && this.node.tagName !== 'CANVAS') {
+//         parent = this.node;
+//         this.node = null;
+//       }
+//       if (!this.node) {
+//         // Need to create canvas
+//         this.node = document.createElement('canvas');
+//         parent.appendChild(this.node);
+//       }
+//
+//       this.ctx = this.node.getContext('2d');
+//       this.displayRatio = window.devicePixelRatio || 1;
+//
+//       const bounds = this.node.getBoundingClientRect();
+//       const size = Math.min(Math.floor(bounds.width / this.width), Math.floor(bounds.height / this.height));
+//
+//       this.tileSize = opts.tileSize || size;
+//       this.pxWidth  = bounds.width;
+//       this.pxHeight = bounds.height;
+//     }
+//     else {
+//       this.tileSize = opts.tileSize || 16;
+//       this.pxWidth  = this.tileSize * this.width  * this.displayRatio;
+//       this.pxHeight = this.tileSize * this.height * this.displayRatio;
+//     }
+//
+//     this.dances = false;
+//
+//     if (typeof window !== 'undefined') {
+//       this.node.width = this.width * this.tileSize;
+//       this.node.height = this.height * this.tileSize;
+//
+//       window.addEventListener('resize', handleResizeEvent.bind(this));
+//       handleResizeEvent.call(this);
+//
+//       this.font = opts.font;
+//       setFont(this, this.tileSize, this.font);
+//     }
+//
+//   }
+//
+//   hasXY(x, y) {
+//     return this._buffer._data.hasXY(x, y);
+//   }
+//
+//   toX(x) {
+//     return Math.floor(this._buffer.width * x / this.pxWidth);
+//   }
+//
+//   toY(y) {
+//     return Math.floor(this._buffer.height * y / this.pxHeight);
+//   }
+//
+//   render() {
+//     if ((this._buffer.needsUpdate || this.dances)) {
+//       let i, j;
+//
+//       this._buffer.needsUpdate = false;
+//       this.dances = false;
+//       const _drawCell = canvas.drawCell;
+//
+//       this._buffer._data.forEach( (cell, i, j) => {
+//         if (cell.fg.dances || cell.bg.dances) {
+//           this.dances = true;
+//           if (cosmetic.value() < 0.0005) {
+//             cell.needsUpdate = true;
+//           }
+//         }
+//
+//         if (cell.needsUpdate) {
+//           if (cell.wasHanging && j < this._buffer.height - 1) {
+//             this._buffer._data[i][j + 1].needsUpdate = true;	// redraw the row below any hanging letters that changed
+//             cell.wasHanging = false;
+//           }
+//           if (cell.wasFlying && j) {
+//             this._buffer._data[i][j - 1].needsUpdate = true;
+//             this._buffer.needsUpdate = true;
+//             cell.wasFlying = false;
+//           }
+//
+//           this._renderCell(cell, i, j);
+//           cell.needsUpdate = false;
+//         }
+//       });
+//
+//     }
+//   }
+//
+//   _renderCell(cell, x, y) {
+//     const ctx = this.ctx;
+//     const tileSize = this.tileSize;// * this.displayRatio;
+//
+//     if (cell.bg && !cell.bg.isNull()) {
+//       const backCss = cell.bg.css();
+//       ctx.fillStyle = backCss;
+//
+//       ctx.fillRect(
+//         x * tileSize,
+//         y * tileSize,
+//         tileSize,
+//         tileSize
+//       );
+//     }
+//
+//     if (cell.ch && cell.ch !== ' ' && cell.fg && !cell.fg.isNull()) {
+//       const foreCss = cell.fg.css();
+//       ctx.fillStyle = foreCss;
+//
+//       const textX = x * tileSize + Math.floor(tileSize * 0.5);
+//       const textY = y * tileSize + Math.floor(tileSize * 0.5);
+//
+//       ctx.fillText(
+//         cell.ch,
+//         textX,
+//         textY
+//       );
+//     }
+//   }
+//
+//   allocBuffer() {
+//     let buf;
+//     if (this.dead.length) {
+//       buf = this.dead.pop();
+//     }
+//     else {
+//       buf = new types.Buffer(this._buffer.width, this._buffer.height);
+//     }
+//
+//     buf.copy(this._buffer);
+//     return buf;
+//   }
+//
+//   freeBuffer(...bufs) {
+//     bufs.forEach( (buf) => this.dead.push(buf) );
+//   }
+//
+//   copyBuffer(dest) {
+//     dest.copy(this._buffer);
+//   }
+//
+//   // draws overBuf over the current canvas with per-cell pseudotransparency as specified in overBuf.
+//   // If previousBuf is not null, it gets filled with the preexisting canvas for reversion purposes.
+//   overlay( overBuf,  previousBuf) {
+//     if (previousBuf) {
+//       previousBuf.copy(this._buffer);
+//     }
+//     this._overlayRect(overBuf, 0, 0, this._buffer.width, this._buffer.height);
+//   }
+//
+//   // draws overBuf over the current canvas with per-cell pseudotransparency as specified in overBuf.
+//   // If previousBuf is not null, it gets filled with the preexisting canvas for reversion purposes.
+//   _overlayRect(overBuf, x, y, w, h) {
+//     let i, j;
+//
+//     for (i=x; i<x + w; i++) {
+//       for (j=y; j<y + h; j++) {
+//         const src = overBuf._data[i][j];
+//         if (src.opacity) {
+//           const dest = this._buffer._data[i][j];
+//           if (!dest.equals(src)) {
+//             dest.copy(src); // was copy
+//             dest.needsUpdate = true;
+//             this._buffer.needsUpdate = true;
+//           }
+//         }
+//       }
+//     }
+//
+//   }
+//
+// }
+//
+// types.Canvas = Canvas;
+
+var canvas = {
+  __proto__: null,
+  Canvas: Canvas,
+  makeGlyphs: makeGlyphs
+};
 
 function frequency(v) {
   if (!v) return 100;
@@ -4765,6 +5258,10 @@ io.clearEvents = clearEvents;
 
 
 function pushEvent(ev) {
+  // if (ev.type !== TICK) {
+  //   console.log('pushEvent = type=%s, x=%d, y=%d, key=%s, EVENTS.length=%d, CURRENT_HANDLER=%s',
+  //       ev.type, ev.x, ev.y, ev.key, EVENTS.length, !!CURRENT_HANDLER);
+  // }
   if (EVENTS$1.length) {
 		const last = EVENTS$1[EVENTS$1.length - 1];
 		if (last.type === MOUSEMOVE) {
@@ -4780,19 +5277,17 @@ function pushEvent(ev) {
 	if (CURRENT_HANDLER) {
   	CURRENT_HANDLER(ev);
   }
+  else if (ev.type === TICK) {
+    const first = EVENTS$1[0];
+    if (first && first.type === TICK) {
+      first.dt += ev.dt;
+      io.recycleEvent(ev);
+      return;
+    }
+    EVENTS$1.unshift(ev);	// ticks go first
+  }
   else {
-		if (ev.type === TICK) {
-			const first = EVENTS$1[0];
-			if (first && first.type === TICK) {
-				first.dt += ev.dt;
-				io.recycleEvent(ev);
-				return;
-			}
-			EVENTS$1.unshift(ev);	// ticks go first
-		}
-		else {
-			EVENTS$1.push(ev);
-		}
+    EVENTS$1.push(ev);
   }
 }
 
@@ -4978,6 +5473,7 @@ let PAUSED = null;
 function pauseEvents() {
 	if (PAUSED) return;
 	PAUSED = CURRENT_HANDLER;
+  CURRENT_HANDLER = null;
 	// io.debug('events paused');
 }
 
@@ -4988,7 +5484,7 @@ function resumeEvents() {
 	PAUSED = null;
 	// io.debug('resuming events');
 
-	if (EVENTS$1.length && CURRENT_HANDLER) {
+  if (EVENTS$1.length && CURRENT_HANDLER) {
 		const e = EVENTS$1.shift();
 		// io.debug('- processing paused event', e.type);
 		CURRENT_HANDLER(e);
@@ -5021,6 +5517,13 @@ function nextEvent(ms, match) {
 
 	if (ms == 0) return null;
 
+  if (CURRENT_HANDLER) {
+    console.warn('OVERWRITE HANDLER - nextEvent');
+  }
+  else if (EVENTS$1.length) {
+    console.warn('SET HANDLER WITH QUEUED EVENTS - nextEvent');
+  }
+
   CURRENT_HANDLER = ((e) => {
 		if (e.type === MOUSEMOVE) {
 			io.mouse.x = e.x;
@@ -5048,6 +5551,13 @@ io.nextEvent = nextEvent;
 async function tickMs(ms=1) {
 	let done;
 	let elapsed = 0;
+
+  if (CURRENT_HANDLER) {
+    console.warn('OVERWRITE HANDLER - tickMs');
+  }
+  else if (EVENTS$1.length) {
+    console.warn('SET HANDLER WITH QUEUED EVENTS - tickMs');
+  }
 
 	CURRENT_HANDLER = ((e) => {
   	if (e.type !== TICK) {
@@ -8343,7 +8853,7 @@ function getCellAppearance(map, x, y, dest) {
       swap(dest.fg, dest.bg);
     } else {
       // if (!GAME.trueColorMode || !dest.needDistinctness) {
-          dest.fg.mix(highlight, config.cursorPathIntensity || 20);
+          // dest.fg.mix(highlight, CONFIG.cursorPathIntensity || 20);
       // }
       dest.bg.mix(highlight, config.cursorPathIntensity || 20);
     }
@@ -9931,7 +10441,6 @@ async function gameOver(isWin, msg, args) {
   ui.updateNow();
   await fx.flashSprite(data.map, data.player.x, data.player.y, 'hilite', 500, 3);
   data.gameHasEnded = true;
-
 }
 
 
@@ -10004,7 +10513,7 @@ class Tile$1 {
       mechFlags: 0,
       layer: 0,
       priority: -1,
-      sprite: make.sprite(),
+      sprite: {},
       events: {},
       light: null,  // id of light for this tile
       flavor: null,
@@ -10113,7 +10622,7 @@ class Tile$1 {
     if (this.flags & Tile.T_LAVA && actor) {
       if (!cell.hasTileFlag(Tile.T_BRIDGE) && !actor.status.levitating) {
         actor.kill();
-        await gameOver(false, '#red#you fall into lava and perish.');
+        await gameOver(false, 'ΩredΩyou fall into lava and perish.');
         return true;
       }
     }
@@ -10943,7 +11452,6 @@ function tick(dt) {
   ANIMATIONS.forEach( (a) => a && a.tick(dt) );
   ANIMATIONS = ANIMATIONS.filter( (a) => a && !a.done );
   io.resumeEvents();
-
   return true;
 }
 
@@ -12613,7 +13121,7 @@ message.confirmAll = confirmAll;
 
 
 async function showArchive() {
-	let i, j, k, reverse, fadePercent, totalMessageCount, currentMessageCount;
+	let j, reverse, fadePercent, totalMessageCount, currentMessageCount;
 	let fastForward;
 
   if (!MSG_BOUNDS) return;
@@ -12637,28 +13145,36 @@ async function showArchive() {
 	  {
 			ui.resetDialog();
 
+      // // Set the dbuf opacity, and do a fade from bottom to top to make it clear that the bottom messages are the most recent.
+      // const mixer = new Sprite();
+			// for (j=0; j < currentMessageCount && j < dbuf.height; j++) {
+			// 	fadePercent = 40 * (j + totalMessageCount - currentMessageCount) / totalMessageCount + 60;
+			// 	for (i=0; i<MSG_BOUNDS.width; i++) {
+			// 		const x = MSG_BOUNDS.toOuterX(i);
+      //     const y = isOnTop ? j : dbuf.height - j - 1;
+      //     mixer.blackOut();
+      //     mixer.drawSprite(dbuf.get(x, y));
+      //     mixer.mix(GW.colors.black, fadePercent);
+      //     dbuf.drawSprite(x, y, mixer);
+			// 		// dbuf._data[x][y].opacity = INTERFACE_OPACITY;
+			// 		// if (dbuf._data[x][y].char != ' ') {
+			// 		// 	for (k=0; k<3; k++) {
+			// 		// 		dbuf._data[x][y].fg[k] = dbuf._data[x][y].fg[k] * fadePercent / 100;
+			// 		// 	}
+			// 		// }
+			// 	}
+			// }
+      //
+
 			// Print the message archive text to the dbuf.
 			for (j=0; j < currentMessageCount && j < dbuf.height; j++) {
 				const pos = (CURRENT_ARCHIVE_POS - currentMessageCount + ARCHIVE_LINES + j) % ARCHIVE_LINES;
         const y = isOnTop ? j : dbuf.height - j - 1;
 
-				dbuf.wrapText(MSG_BOUNDS.toOuterX(0), y, MSG_BOUNDS.width, ARCHIVE[pos], colors.white, colors.black);
-			}
+        fadePercent = Math.floor(50 * (currentMessageCount - j) / currentMessageCount);
+        const fg = colors.white.clone().mix(colors.black, fadePercent);
 
-			// Set the dbuf opacity, and do a fade from bottom to top to make it clear that the bottom messages are the most recent.
-			for (j=0; j < currentMessageCount && j < dbuf.height; j++) {
-				fadePercent = 40 * (j + totalMessageCount - currentMessageCount) / totalMessageCount + 60;
-				for (i=0; i<MSG_BOUNDS.width; i++) {
-					const x = MSG_BOUNDS.toOuterX(i);
-
-          const y = isOnTop ? j : dbuf.height - j - 1;
-					dbuf._data[x][y].opacity = INTERFACE_OPACITY;
-					if (dbuf._data[x][y].char != ' ') {
-						for (k=0; k<3; k++) {
-							dbuf._data[x][y].fg[k] = dbuf._data[x][y].fg[k] * fadePercent / 100;
-						}
-					}
-				}
+				dbuf.wrapText(MSG_BOUNDS.toOuterX(0), y, MSG_BOUNDS.width, ARCHIVE[pos], fg, colors.black);
 			}
 
 			ui.draw();
@@ -12743,19 +13259,19 @@ function drawViewport(buffer, map) {
     }
   }
 
+  const buf = new Sprite();
   for(let x = 0; x < VIEWPORT.width; ++x) {
     for(let y = 0; y < VIEWPORT.height; ++y) {
 
-      const buf = buffer._data[x + VIEWPORT.x][y + VIEWPORT.y];
+      buf.blackOut();
       const mapX = x + VIEWPORT.offsetX;
       const mapY = y + VIEWPORT.offsetY;
       if (map.hasXY(mapX, mapY)) {
         map$1.getCellAppearance(map, mapX, mapY, buf);
         map.clearCellFlags(mapX, mapY, Cell.NEEDS_REDRAW | Cell.CELL_CHANGED);
       }
-      else {
-        buf.blackOut();
-      }
+
+      buffer.drawSprite(x + VIEWPORT.x, y + VIEWPORT.y, buf);
 
       if (VIEW_FILTER) {
         VIEW_FILTER(buf, mapX, mapY, map);
@@ -13233,7 +13749,7 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
 
 	// Unhighlight if it's highlighted as part of the path.
 	const cell$1 = map.cell(monst.x, monst.y);
-  const monstApp = buf._data[x][y];
+  const monstApp = new Sprite();
 	cell.getAppearance(cell$1, monstApp);
 
 	if (dim) {
@@ -13264,6 +13780,7 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
       }
   }
 
+  buf.drawSprite(x, y, monstApp);
   buf.drawText(x + 1, y, ': ', fg);
 	y = buf.wrapText(x + 3, y, SIDE_BOUNDS.width - 3, monstName, fg, bg);
 
@@ -13449,13 +13966,14 @@ function sidebarAddMapCell(entry, y, dim, highlight, buf) {
   const x = SIDE_BOUNDS.x;
 	const initialY = y;
 
-  const app = buf._data[x][y];
+  const app = new Sprite();
 	cell.getAppearance(cell$1, app);
 	if (dim) {
 		app.fg.mix(bg, 50);
 		app.bg.mix(bg, 50);
 	}
 
+  buf.drawSprite(x, y, app);
 	buf.draw(x + 1, y, ":", fg, bg);
 	let name = cell$1.getName();
 	name = capitalize(name);
@@ -13494,13 +14012,14 @@ function sidebarAddItemInfo(entry, y, dim, highlight, buf) {
 	const initialY = y;
   const x = SIDE_BOUNDS.x;
 
-  const app = buf._data[x][y];
+  const app = new Sprite();
 	cell.getAppearance(cell$1, app);
 	if (dim) {
 		app.fg.mix(colors.black, 50);
 		app.bg.mix(colors.black, 50);
 	}
 
+  buf.drawSprite(x, y, app);
 	buf.draw(x + 1, y, ":", fg, colors.black);
 	if (config.playbackOmniscience || !DATA.player.status.hallucinating) {
 		name = theItem.getName({ color: !dim, details: true });
@@ -13976,14 +14495,14 @@ let IN_DIALOG = false;
 
 let time = 0;
 
-let RUNNING = false;
+let LOOP;
 
 function uiLoop(t) {
 	t = t || performance.now();
 
-  if (RUNNING) {
-    requestAnimationFrame(uiLoop);
-  }
+  // if (RUNNING) {
+  //   requestAnimationFrame(uiLoop);
+  // }
 
 	const dt = Math.floor(t - time);
 	time = t;
@@ -13995,8 +14514,8 @@ function uiLoop(t) {
 		const ev = io.makeTickEvent(dt);
 		io.pushEvent(ev);
 	}
-
-	ui.canvas.render();
+  //
+	// ui.canvas.render();
 }
 
 
@@ -14022,8 +14541,8 @@ function start$2(opts={}) {
   });
 
   if (!ui.canvas && (opts.canvas !== false)) {
-    ui.canvas = new types.Canvas(opts.width, opts.height, opts.div, opts);
-    ui.buffer = ui.canvas._buffer;
+    ui.canvas = make.canvas({ width: opts.width, height: opts.height, node: opts.div, font: opts.font, tileWidth: 14, tileHeight: 16 });
+    ui.buffer = new Buffer(ui.canvas);
 
     if (opts.io && typeof document !== 'undefined') {
       ui.canvas.node.onmousedown = ui.onmousedown;
@@ -14032,10 +14551,10 @@ function start$2(opts={}) {
     }
 
     // TODO - init sidebar, messages, flavor, menu
-    UI_BUFFER = UI_BUFFER || ui.canvas.allocBuffer();
-    UI_BASE = UI_BASE || ui.canvas.allocBuffer();
-    // UI_OVERLAY = UI_OVERLAY || ui.canvas.allocBuffer();
-    UI_BASE.nullify();
+    UI_BUFFER = UI_BUFFER || new Buffer(ui.canvas);
+    UI_BASE = UI_BASE || new Buffer(ui.canvas);
+    // UI_OVERLAY = UI_OVERLAY || new Buffer(ui.canvas);
+    // UI_BASE.nullify();
     // UI_OVERLAY.nullify();
 
     ui.blackOutDisplay();
@@ -14107,8 +14626,8 @@ function start$2(opts={}) {
   CLICK_MOVE = opts.clickToMove;
 
   if (opts.loop) {
-    RUNNING = true;
-  	uiLoop();
+    LOOP = setInterval(uiLoop, 16);
+  	// uiLoop();
   }
 
   return ui.canvas;
@@ -14118,7 +14637,9 @@ ui.start = start$2;
 
 
 function stop() {
-	RUNNING = false;
+  if (!LOOP) return;
+  clearInterval(LOOP);
+	LOOP = null;
 }
 
 ui.stop = stop;
@@ -14390,6 +14911,7 @@ function updatePathToCursor() {
   if (!PATH_ACTIVE) return;
 
   if (CURSOR.x == player.x && CURSOR.y == player.y) return;
+  if (CURSOR.x < 0 || CURSOR.y < 0) return ui.updatePath();
 
   const mapToMe = player.updateMapToMe();
   const path$1 = getPath(map, mapToMe, CURSOR.x, CURSOR.y, player);
@@ -14437,12 +14959,10 @@ async function prompt(text$1, args) {
 ui.prompt = prompt;
 
 
-async function fadeTo(color, duration=1000, src) {
+async function fadeTo(color, duration=1000) {
 
-  src = src || UI_BUFFER;
   color = GW.color.from(color);
-
-  const buffer = ui.canvas.allocBuffer();
+  const buffer = startDialog();
 
   let pct = 0;
   let elapsed = 0;
@@ -14455,16 +14975,12 @@ async function fadeTo(color, duration=1000, src) {
 
     pct = Math.floor(100*elapsed/duration);
 
-    buffer.copy(src);
-    buffer._data.forEach( (c, x, y) => {
-      c.fg.mix(color, pct);
-      c.bg.mix(color, pct);
-    });
-    ui.canvas.overlay(buffer);
-    ui.canvas.render();
+    resetDialog();
+    buffer.mix(color, pct);
+    buffer.render();
   }
 
-  ui.canvas.freeBuffer(buffer);
+  finishDialog();
 
 }
 
@@ -14484,7 +15000,7 @@ async function alert(duration, text$1, args) {
   const y = Math.floor(ui.canvas.height / 2) - 1;
   buffer.fillRect(x, y, len + 4, 3, ' ', 'black', 'black');
 	buffer.drawText(x + 2, y + 1, text$1);
-	ui.draw();
+	buffer.render();
 
 	await io.pause(duration || 30 * 1000);
 
@@ -14513,7 +15029,7 @@ async function confirm(opts, prompt, args) {
   });
 
   const buffer = ui.startDialog();
-  buffer.fade('black', 50);
+  buffer.mix('black', 50);
 
 	const btnOK = 'OK=Enter';
 	const btnCancel = 'Cancel=Escape';
@@ -14526,7 +15042,7 @@ async function confirm(opts, prompt, args) {
   if (opts.allowCancel) {
     buffer.drawText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, 'white');
   }
-	ui.draw();
+	buffer.render();
 
 	let result;
 	while(result === undefined) {
@@ -14549,7 +15065,7 @@ async function confirm(opts, prompt, args) {
         if (opts.allowCancel) {
           buffer.drawText(x + len + 4 - btnCancel.length - 2, y + 3, btnCancel, isCancel ? GW.colors.teal : GW.colors.white);
         }
-				ui.draw();
+				buffer.render();
 			},
 			click() {
 				if (ev.x < x || ev.x > x + len + 4) return;
@@ -14603,7 +15119,7 @@ async function chooseTarget(choices, prompt, opts={}) {
 
 			buf.drawSprite(x, y, TARGET_SPRITE);
 		}
-		ui.draw();
+		buf.render();
 	}
 
 	draw();
@@ -14661,7 +15177,7 @@ async function inputNumberBox(opts, prompt, args) {
   });
 
   const buffer = ui.startDialog();
-  buffer.fade('black', 50);
+  buffer.mix('black', 50);
 
 	const btnOK = 'OK=Enter';
 	const btnCancel = 'Cancel=Escape';
@@ -14675,7 +15191,7 @@ async function inputNumberBox(opts, prompt, args) {
   if (opts.allowCancel) {
     buffer.drawText(x + len + 4 - btnCancel.length - 2, y + 4, btnCancel);
   }
-	ui.draw();
+	buffer.render();
 
   const value = await ui.getInputAt(x + 2, y + 2, len - 4, opts);
 
@@ -14702,7 +15218,7 @@ async function getInputAt(x, y, maxLength, opts={})
 
   let ev;
 	do {
-    GW.ui.draw();
+    buffer.render();
 
 		ev = await GW.io.nextKeyPress(-1);
 		if ( (ev.key == 'Delete' || ev.key == 'Backspace') && charNum > 0) {
@@ -14736,7 +15252,7 @@ async function getInputAt(x, y, maxLength, opts={})
 	} while ((!inputText.length) || ev.key != 'Enter');
 
   GW.ui.finishDialog();
-  GW.ui.draw(); // reverts to old display
+  // GW.ui.draw(); // reverts to old display
 	return inputText;
 }
 
@@ -14746,13 +15262,15 @@ ui.getInputAt = getInputAt;
 // DIALOG
 
 const UI_LAYERS = [];
+const BUFFERS = [];
 
 function startDialog() {
   IN_DIALOG = true;
   const base = UI_OVERLAY || null;
   UI_LAYERS.push(base);
-  UI_OVERLAY = ui.canvas.allocBuffer();
-  UI_OVERLAY._data.forEach( (c) => c.opacity = 0 );
+  UI_OVERLAY = BUFFERS.pop() || new Buffer(ui.canvas);
+  // UI_OVERLAY._data.forEach( (c) => c.opacity = 0 );
+  UI_OVERLAY.copyFromCanvas();
   return UI_OVERLAY;
 }
 
@@ -14770,9 +15288,9 @@ ui.resetDialog = resetDialog;
 function finishDialog() {
   if (!IN_DIALOG) return;
 
-  ui.canvas.freeBuffer(UI_OVERLAY);
-  UI_OVERLAY = UI_LAYERS.pop();
-  ui.canvas.overlay(UI_OVERLAY || UI_BUFFER);
+  BUFFERS.push(UI_OVERLAY);
+  UI_OVERLAY = UI_LAYERS.pop() || UI_BUFFER;
+  UI_OVERLAY.render();
 
   IN_DIALOG = (UI_LAYERS.length > 0);
 }
@@ -14784,7 +15302,7 @@ ui.finishDialog = finishDialog;
 function draw() {
   if (IN_DIALOG) {
     // ui.canvas.overlay(UI_BASE);
-    ui.canvas.overlay(UI_OVERLAY);
+    UI_OVERLAY.render();
   }
   else if (ui.canvas && data.map) {
     // const side = GW.sidebar.draw(UI_BUFFER);
@@ -14794,7 +15312,7 @@ function draw() {
     if (sidebar.bounds) sidebar.draw(UI_BUFFER);
 
     // if (commitCombatMessage() || REDRAW_UI || side || map) {
-    ui.canvas.overlay(UI_BUFFER);
+    UI_BUFFER.render();
 			UPDATE_REQUESTED = 0;
     // }
   }
@@ -15197,7 +15715,7 @@ async function moveDir(actor, dir, opts={}) {
   // CHECK SOME SANITY MOVES
   if (cell.hasTileFlag(Tile.T_LAVA) && !cell.hasTileFlag(Tile.T_BRIDGE)) {
     if (!isPlayer) return false;
-    if (!await UI.confirm('That is certain death!  Proceed anyway?')) {
+    if (!await ui.confirm('That is certain death!  Proceed anyway?')) {
       return false;
     }
   }
@@ -16113,7 +16631,7 @@ class Flames {
   		}
 
   		// Anti-alias the mask.
-  		// antiAlias(mask); // SWC - I am not sure I like the anti-alias look.
+  		// antiAlias(this.mask); // SWC - I am not sure I like the anti-alias look.
   	}
 
     // Seed source color random components.

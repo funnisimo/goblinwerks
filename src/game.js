@@ -291,7 +291,6 @@ export async function gameOver(isWin, msg, args) {
   UI.updateNow();
   await FX.flashSprite(DATA.map, DATA.player.x, DATA.player.y, 'hilite', 500, 3);
   DATA.gameHasEnded = true;
-
 }
 
 

@@ -247,7 +247,8 @@ async function start() {
 
 	MAP = makeMap();
 	GW.message.add('WELCOME');
-	GW.game.start({ player: PLAYER, map: MAP });
+	await GW.game.start({ player: PLAYER, map: MAP });
+  console.log('DONE');
 }
 
 window.onload = start;

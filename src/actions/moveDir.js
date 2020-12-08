@@ -94,7 +94,7 @@ export async function moveDir(actor, dir, opts={}) {
   // CHECK SOME SANITY MOVES
   if (cell.hasTileFlag(Flags.Tile.T_LAVA) && !cell.hasTileFlag(Flags.Tile.T_BRIDGE)) {
     if (!isPlayer) return false;
-    if (!await UI.confirm('That is certain death!  Proceed anyway?')) {
+    if (!await GW.ui.confirm('That is certain death!  Proceed anyway?')) {
       return false;
     }
   }

@@ -4,6 +4,7 @@ import * as Flags from './flags.js';
 import * as Utils from './utils.js';
 import * as Grid from './grid.js';
 import * as Text from './text.js';
+import { Sprite } from './sprite.js';
 import { cell as CELL } from './cell.js';
 import { map as MAP } from './map.js';
 import * as GW from './gw.js';
@@ -469,7 +470,7 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
 
 	// Unhighlight if it's highlighted as part of the path.
 	const cell = map.cell(monst.x, monst.y);
-  const monstApp = buf._data[x][y];
+  const monstApp = new Sprite();
 	CELL.getAppearance(cell, monstApp);
 
 	if (dim) {
@@ -500,6 +501,7 @@ function sidebarAddName(entry, y, dim, highlight, buf) {
       }
   }
 
+  buf.drawSprite(x, y, monstApp);
   buf.drawText(x + 1, y, ': ', fg);
 	y = buf.wrapText(x + 3, y, SIDE_BOUNDS.width - 3, monstName, fg, bg);
 
@@ -687,13 +689,14 @@ function sidebarAddMapCell(entry, y, dim, highlight, buf) {
   const x = SIDE_BOUNDS.x;
 	const initialY = y;
 
-  const app = buf._data[x][y];
+  const app = new Sprite();
 	CELL.getAppearance(cell, app);
 	if (dim) {
 		app.fg.mix(bg, 50);
 		app.bg.mix(bg, 50);
 	}
 
+  buf.drawSprite(x, y, app);
 	buf.draw(x + 1, y, ":", fg, bg);
 	let name = cell.getName();
 	name = Text.capitalize(name);
@@ -735,13 +738,14 @@ function sidebarAddItemInfo(entry, y, dim, highlight, buf) {
 	const initialY = y;
   const x = SIDE_BOUNDS.x;
 
-  const app = buf._data[x][y];
+  const app = new Sprite();
 	CELL.getAppearance(cell, app);
 	if (dim) {
 		app.fg.mix(GW.colors.black, 50);
 		app.bg.mix(GW.colors.black, 50);
 	}
 
+  buf.drawSprite(x, y, app);
 	buf.draw(x + 1, y, ":", fg, GW.colors.black);
 	if (GW.config.playbackOmniscience || !DATA.player.status.hallucinating) {
 		name = theItem.getName({ color: !dim, details: true });
