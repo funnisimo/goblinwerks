@@ -42,7 +42,7 @@ export async function takeTurn() {
 
   while(!PLAYER.turnTime) {
     const ev = await IO.nextEvent(PLAYER.travelDest ? 0 : 1000);
-    if (!ev) {
+    if (PLAYER.travelDest && ((!ev) || (ev.type === GW.def.TICK))) {
       await GW.actions.travel(PLAYER);
     }
     else {

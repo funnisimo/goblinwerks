@@ -176,7 +176,7 @@ describe('Message', () => {
       let lines = GW.text.splitIntoLines(text, 34, 9);
       // console.log(lines);
       expect(lines.length).toEqual(2);
-      expect(lines[1]).toEqual('<3ΩredΩ+#∆>');
+      expect(lines[1]).toEqual('ΩorangeΩtreachery∆ <3ΩredΩ+#∆>');
 
       // split on ' '
       lines = GW.text.splitIntoLines(text, 35, 9);
@@ -186,15 +186,23 @@ describe('Message', () => {
     });
 
     test('push/pop colors', () => {
-      const raw = 'ΩyellowΩWelcome to Town!∆\nΩdark_purpleΩVisit our shops to equip yourself for a journey into the ΩgreenΩDungeons of Moria∆.  Once you are prepared, enter the dungeon and seek the Ωdark_redΩ#Balrog∆.  Destroy him to free us all!∆\nΩwhiteΩPress <?> for help.';
+      const raw = 'ΩyellowΩWelcome to Town!∆\nΩdark_purpleΩVisit our shops to equip yourself for a journey into the ΩgreenΩDungeons of Moria∆.  Once you are prepared, enter the dungeon and seek the Ωdark_redΩBalrog∆.  Destroy him to free us all!∆\nPress <?> for help.';
+
       const lines = GW.text.splitIntoLines(raw, 80);
-      // console.log(lines);
+
+      // lines.forEach( (l) => {
+      //   console.log(GW.text.length(l), l.length, l);
+      // });
+
       expect(lines.length).toEqual(5);
       const purple = 'Ωdark_purpleΩ';
       expect(lines[1].substring(0,13)).toEqual(purple);
+      expect(lines[1].substring(13,18)).toEqual('Visit');
       expect(lines[2].substring(0,13)).toEqual(purple);
+      expect(lines[2].substring(13,17)).toEqual('Once');
       expect(lines[3].substring(0,13)).toEqual(purple);
-      expect(lines[4].substring(0,7)).toEqual('ΩwhiteΩ');
+      expect(lines[3].substring(13, 17)).toEqual('free');
+      expect(lines[4].substring(0,5)).toEqual('Press');
     });
 
   });

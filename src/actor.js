@@ -428,14 +428,23 @@ export class Actor {
       mapToMe.x = mapToMe.y = -1;
     }
     if (mapToMe.x != this.x || mapToMe.y != this.y) {
-      const costGrid = Grid.alloc(map.width, map.height);
-      this.fillCostGrid(map, costGrid);
+      let costGrid = this.costGrid;
+      if (!costGrid) {
+        costGrid = this.costGrid = Grid.alloc(map.width, map.height);
+        this.fillCostGrid(map, costGrid);
+      }
       Path.calculateDistances(mapToMe, this.x, this.y, costGrid, true);
-      Grid.free(costGrid);
+      // Grid.free(costGrid);
     }
     return mapToMe;
   }
 
+  invalidateCostMap() {
+    if (this.costGrid) {
+      Grid.free(this.costGrid);
+      this.costGrid = null;
+    }
+  }
 
   // combat helpers
   calcDamageTo(defender, attackInfo, ctx) {
@@ -630,10 +639,10 @@ function endActorTurn(theActor, turnTime=1) {
 
   if (theActor.isPlayer()) {
     Visibility.update(DATA.map, theActor.x, theActor.y, theActor.current.fov);
-    UI.requestUpdate(48);
+    // UI.requestUpdate(1);  // 48
   }
   else if (theActor.kind.isOrWasVisibleToPlayer(theActor, DATA.map) && theActor.turnTime) {
-    UI.requestUpdate();
+    UI.requestUpdate(10);
   }
 }
 

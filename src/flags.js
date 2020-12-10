@@ -23,9 +23,44 @@ export const Action = installFlag('action', {
   A_OPEN        : Fl(11),
   A_CLOSE       : Fl(12),
 
+  A_TALK        : Fl(13),
+
 	A_GRABBABLE : 'A_PULL, A_SLIDE',
   A_WIELD     : 'A_EQUIP',
   A_NO_PICKUP : 'A_PICKUP',   // All items have pickup by default, using the A_PICKUP means 'NO PICKUP' for items, so we have this alias to help
+});
+
+
+///////////////////////////////////////////////////////
+// ACTOR - BEHAVIORS
+
+
+export const Behavior = installFlag('behavior', {
+  BB_MOVES_RANDOM_12: Fl(0),
+  BB_MOVES_RANDOM_25: Fl(1),
+  BB_MOVES_RANDOM_50: Fl(2),
+  BB_FLEES_NEAR_DEATH: Fl(3),  // monster flees when under 25% health and re-engages when over 75%
+  BB_NEVER_SLEEPS: Fl(4), // monster is always awake (for ai)
+  BB_MAINTAINS_DISTANCE: Fl(5), // monster tries to keep a distance of 3 tiles between it and player
+  BB_USES_STAIRS: Fl(6),
+  BB_GETS_TURN_ON_ACTIVATION: Fl(7), // monster never gets a turn, except when its machine is activated
+  BB_ALWAYS_USE_ABILITY: Fl(8),   // monster will never fail to use special ability if eligible (no random factor)
+  BB_DF_ON_DEATH: Fl(9),	       // monster spawns its DF when it dies
+  BB_AVOID_CORRIDORS: Fl(10),   // monster will avoid corridors when hunting
+  BB_OPEN_DOORS: Fl(11),
+  BB_PASS_WALLS: Fl(12),
+  BB_PICKUP_ITEMS: Fl(13),
+  BB_INANIMATE: Fl(14),
+  BB_IMMOBILE: Fl(15),        // monster won't move or perform melee attacks (can do magic attacks)
+  BB_ALWAYS_HUNTING: Fl(16),  // monster is never asleep or in wandering mode
+  BB_DOES_NOT_TRACK_LEADER: Fl(17), // monster will not follow its leader around
+  BB_PASS_MONSTERS: Fl(18),
+  BB_AVOID_COMBAT: Fl(19),
+  BB_PERM_FLEEING: Fl(20),  // TODO - REMOVE?
+  BB_TARGETS_GROUND: Fl(21),
+  BB_TARGETS_AIR: Fl(22),
+  BB_TARGETS_BUILDINGS: Fl(23),
+  BB_CANNOT_ATTACK: Fl(24),
 });
 
 

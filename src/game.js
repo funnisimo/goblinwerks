@@ -264,7 +264,7 @@ export async function updateEnvironment() {
   await map.tick();
   Visibility.update(map, DATA.player.x, DATA.player.y, DATA.player.current.fov);
 
-  UI.requestUpdate();
+  // UI.requestUpdate();
 
   return map.config.tick;
 }

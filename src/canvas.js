@@ -1,5 +1,5 @@
 
-import { Canvas, Glyphs, withImage, configure } from 'gw-canvas';
+import { Canvas, Canvas2D, NotSupportedError, Glyphs, withImage, configure } from 'gw-canvas';
 
 import { cosmetic } from './random.js';
 import * as GW from './gw.js';
@@ -51,7 +51,14 @@ GW.make.glyphs = makeGlyphs;
 function makeCanvas(opts={}) {
   const glyphs = makeGlyphs(opts);
   opts.glyphs = glyphs;
-  return new Canvas(opts);
+  try {
+    return new Canvas(opts);
+  }
+  catch(e) {
+    if (!(e instanceof NotSupportedError)) throw e;
+  }
+
+  return new Canvas2D(opts);
 }
 
 GW.make.canvas = makeCanvas;

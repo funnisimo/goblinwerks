@@ -14,16 +14,18 @@ function demoteCellVisibility(cell, i, j, map) {
   }
 }
 
-function promoteCellVisibility(cell, i, j, map) {
+function _updateCellVisibility(cell, i, j, map) {
 
-	if (cell.flags & Flags.Cell.IN_FOV
-		&& (map.hasVisibleLight(i, j))
-		&& !(cell.flags & Flags.Cell.CLAIRVOYANT_DARKENED))
-	{
-		cell.flags |= Flags.Cell.VISIBLE;
-	}
+  const isVisible = (cell.flags & Flags.Cell.VISIBLE);
+  const wasVisible = (cell.flags & Flags.Cell.WAS_VISIBLE);
 
-	if ((cell.flags & Flags.Cell.VISIBLE) && !(cell.flags & Flags.Cell.WAS_VISIBLE)) { // if the cell became visible this move
+  if (isVisible && wasVisible) {
+    if (cell.lightChanged()) {
+      map.redrawCell(cell);
+    }
+    return true;
+  }
+	else if (isVisible && !wasVisible) { // if the cell became visible this move
 		if (!(cell.flags & Flags.Cell.REVEALED) && DATA.automationActive) {
         if (cell.item) {
             const theItem = cell.item;
@@ -38,21 +40,56 @@ function promoteCellVisibility(cell, i, j, map) {
             MSG.add('§you§ §see§ ΩbackgroundMessageColorΩ§item§∆.', { actor: GW.data.player, item: tile.name });
         }
     }
-    cell.markRevealed();
+    map.markRevealed(i, j);
 		map.redrawCell(cell);
-	} else if (!(cell.flags & Flags.Cell.VISIBLE) && (cell.flags & Flags.Cell.WAS_VISIBLE)) { // if the cell ceased being visible this move
+    return true;
+	} else if ((!isVisible) && wasVisible) { // if the cell ceased being visible this move
     cell.storeMemory();
 		map.redrawCell(cell);
-	} else if (!(cell.flags & Flags.Cell.CLAIRVOYANT_VISIBLE) && (cell.flags & Flags.Cell.WAS_CLAIRVOYANT_VISIBLE)) { // ceased being clairvoyantly visible
+    return true;
+	}
+  return false;
+}
+
+function _updateCellClairyvoyance(cell, i, j, map) {
+  const isClairy = (cell.flags & Flags.Cell.CLAIRVOYANT_VISIBLE);
+  const wasClairy = (cell.flags & Flags.Cell.WAS_CLAIRVOYANT_VISIBLE);
+
+  if (isClairy && wasClairy) {
+    if (cell.lightChanged()) {
+      map.redrawCell(cell);
+    }
+    return true;
+  }
+  else if ((!isClairy) && wasClairy) { // ceased being clairvoyantly visible
 		cell.storeMemory();
 		map.redrawCell(cell);
-	} else if (!(cell.flags & Flags.Cell.WAS_CLAIRVOYANT_VISIBLE) && (cell.flags & Flags.Cell.CLAIRVOYANT_VISIBLE)) { // became clairvoyantly visible
+    return true;
+	} else if ((!wasClairy) && (isClairy)) { // became clairvoyantly visible
 		cell.flags &= ~STABLE_MEMORY;
 		map.redrawCell(cell);
-	} else if (!(cell.flags & Flags.Cell.TELEPATHIC_VISIBLE) && (cell.flags & Flags.Cell.WAS_TELEPATHIC_VISIBLE)) { // ceased being telepathically visible
+    return true;
+	}
+
+  return false;
+}
+
+
+function _updateCellTelepathy(cell, i, j, map) {
+  const isTele = (cell.flags & Flags.Cell.TELEPATHIC_VISIBLE);
+  const wasTele = (cell.flags & Flags.Cell.WAS_TELEPATHIC_VISIBLE);
+
+  if (isTele && wasTele) {
+    if (cell.lightChanged()) {
+      map.redrawCell(cell);
+    }
+    return true;
+  }
+  else if ((!isTele) && wasTele) { // ceased being telepathically visible
     cell.storeMemory();
 		map.redrawCell(cell);
-	} else if (!(cell.flags & Flags.Cell.WAS_TELEPATHIC_VISIBLE) && (cell.flags & Flags.Cell.TELEPATHIC_VISIBLE)) { // became telepathically visible
+    return true;
+	} else if ((wasTele) && (isTele)) { // became telepathically visible
     if (!(cell.flags & Flags.Cell.REVEALED)
 			&& !cell.hasTileFlag(Flags.Tile.T_PATHING_BLOCKER))
 		{
@@ -60,19 +97,51 @@ function promoteCellVisibility(cell, i, j, map) {
     }
 		cell.flags &= ~Flags.Cell.STABLE_MEMORY;
 		map.redrawCell(cell);
-	} else if (!(cell.flags & Flags.Cell.MONSTER_DETECTED) && (cell.flags & Flags.Cell.WAS_MONSTER_DETECTED)) { // ceased being detected visible
-		cell.flags &= ~Flags.Cell.STABLE_MEMORY;
-		map.redrawCell(cell);
-    cell.storeMemory();
-	} else if (!(cell.flags & Flags.Cell.WAS_MONSTER_DETECTED) && (cell.flags & Flags.Cell.MONSTER_DETECTED)) { // became detected visible
-		cell.flags &= ~Flags.Cell.STABLE_MEMORY;
-		map.redrawCell(cell);
-    cell.storeMemory();
-	} else if (cell.isAnyKindOfVisible()
-			   && cell.lightChanged()) // if the cell's light color changed this move
-	{
-   map.redrawCell(cell);
+    return true;
 	}
+  return false;
+}
+
+
+function _updateCellDetect(cell, i, j, map) {
+  const isMonst = (cell.flags & Flags.Cell.MONSTER_DETECTED);
+  const wasMonst = (cell.flags & Flags.Cell.WAS_MONSTER_DETECTED);
+
+  if (isMonst && wasMonst) {
+    if (cell.lightChanged()) {
+      map.redrawCell(cell);
+    }
+    return true;
+  }
+  else if ((!isMonst) && (wasMonst)) { // ceased being detected visible
+		cell.flags &= ~Flags.Cell.STABLE_MEMORY;
+		map.redrawCell(cell);
+    cell.storeMemory();
+    return true;
+	} else if ((!wasMonst) && (isMonst)) { // became detected visible
+		cell.flags &= ~Flags.Cell.STABLE_MEMORY;
+		map.redrawCell(cell);
+    cell.storeMemory();
+    return true;
+	}
+  return false;
+}
+
+
+function promoteCellVisibility(cell, i, j, map) {
+
+	if (cell.flags & Flags.Cell.IN_FOV
+		&& (map.hasVisibleLight(i, j))
+		&& !(cell.flags & Flags.Cell.CLAIRVOYANT_DARKENED))
+	{
+		cell.flags |= Flags.Cell.VISIBLE;
+	}
+
+  if (_updateCellVisibility(cell, i, j, map)) return;
+  if (_updateCellClairyvoyance(cell, i, j, map)) return;
+  if (_updateCellTelepathy(cell, i, j, map)) return;
+  if (_updateCellDetect(cell, i, j, map)) return;
+
 }
 
 

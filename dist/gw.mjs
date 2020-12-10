@@ -886,9 +886,44 @@ const Action = installFlag('action', {
   A_OPEN        : Fl(11),
   A_CLOSE       : Fl(12),
 
+  A_TALK        : Fl(13),
+
 	A_GRABBABLE : 'A_PULL, A_SLIDE',
   A_WIELD     : 'A_EQUIP',
   A_NO_PICKUP : 'A_PICKUP',   // All items have pickup by default, using the A_PICKUP means 'NO PICKUP' for items, so we have this alias to help
+});
+
+
+///////////////////////////////////////////////////////
+// ACTOR - BEHAVIORS
+
+
+const Behavior = installFlag('behavior', {
+  BB_MOVES_RANDOM_12: Fl(0),
+  BB_MOVES_RANDOM_25: Fl(1),
+  BB_MOVES_RANDOM_50: Fl(2),
+  BB_FLEES_NEAR_DEATH: Fl(3),  // monster flees when under 25% health and re-engages when over 75%
+  BB_NEVER_SLEEPS: Fl(4), // monster is always awake (for ai)
+  BB_MAINTAINS_DISTANCE: Fl(5), // monster tries to keep a distance of 3 tiles between it and player
+  BB_USES_STAIRS: Fl(6),
+  BB_GETS_TURN_ON_ACTIVATION: Fl(7), // monster never gets a turn, except when its machine is activated
+  BB_ALWAYS_USE_ABILITY: Fl(8),   // monster will never fail to use special ability if eligible (no random factor)
+  BB_DF_ON_DEATH: Fl(9),	       // monster spawns its DF when it dies
+  BB_AVOID_CORRIDORS: Fl(10),   // monster will avoid corridors when hunting
+  BB_OPEN_DOORS: Fl(11),
+  BB_PASS_WALLS: Fl(12),
+  BB_PICKUP_ITEMS: Fl(13),
+  BB_INANIMATE: Fl(14),
+  BB_IMMOBILE: Fl(15),        // monster won't move or perform melee attacks (can do magic attacks)
+  BB_ALWAYS_HUNTING: Fl(16),  // monster is never asleep or in wandering mode
+  BB_DOES_NOT_TRACK_LEADER: Fl(17), // monster will not follow its leader around
+  BB_PASS_MONSTERS: Fl(18),
+  BB_AVOID_COMBAT: Fl(19),
+  BB_PERM_FLEEING: Fl(20),  // TODO - REMOVE?
+  BB_TARGETS_GROUND: Fl(21),
+  BB_TARGETS_AIR: Fl(22),
+  BB_TARGETS_BUILDINGS: Fl(23),
+  BB_CANNOT_ATTACK: Fl(24),
 });
 
 
@@ -1672,22 +1707,32 @@ void main() {
 
 // Based on: https://github.com/ondras/fastiles/blob/master/ts/scene.ts (v2.1.0)
 const VERTICES_PER_TILE = 6;
-class Canvas {
+class NotSupportedError extends Error {
+    constructor(...params) {
+        // Pass remaining arguments (including vendor specific ones) to parent constructor
+        super(...params);
+        // Maintains proper stack trace for where our error was thrown (only available on V8)
+        // @ts-ignore
+        if (Error.captureStackTrace) {
+            // @ts-ignore
+            Error.captureStackTrace(this, NotSupportedError);
+        }
+        this.name = 'NotSupportedError';
+    }
+}
+class BaseCanvas {
     constructor(options) {
-        this._data = new Uint32Array();
-        this._buffers = {};
-        this._attribs = {};
-        this._uniforms = {};
         this._renderRequested = false;
         this._autoRender = true;
         this._width = 50;
         this._height = 25;
         if (!options.glyphs)
             throw new Error('You must supply glyphs for the canvas.');
-        this._gl = this._initGL(options.node);
+        this._node = this._createNode();
+        this._createContext();
         this._configure(options);
     }
-    get node() { return this._gl.canvas; }
+    get node() { return this._node; }
     get width() { return this._width; }
     get height() { return this._height; }
     get tileWidth() { return this._glyphs.tileWidth; }
@@ -1696,22 +1741,38 @@ class Canvas {
     get pxHeight() { return this.node.clientHeight; }
     get glyphs() { return this._glyphs; }
     set glyphs(glyphs) {
-        const gl = this._gl;
-        const uniforms = this._uniforms;
-        if (glyphs === this._glyphs && !glyphs.needsUpdate)
-            return;
-        if (glyphs !== this._glyphs) {
-            this._glyphs = glyphs;
-            this.resize(this._width, this._height);
-            gl.uniform2uiv(uniforms["tileSize"], [this.tileWidth, this.tileHeight]);
-        }
-        this._uploadGlyphs();
+        this._setGlyphs(glyphs);
+    }
+    _createNode() {
+        return document.createElement("canvas");
     }
     _configure(options) {
         this._width = options.width || this._width;
         this._height = options.height || this._height;
         this._autoRender = (options.render !== false);
-        this.glyphs = options.glyphs;
+        this._setGlyphs(options.glyphs);
+        if (options.div) {
+            let el;
+            if (typeof options.div === 'string') {
+                el = document.getElementById(options.div);
+                if (!el) {
+                    console.warn('Failed to find parent element by ID: ' + options.div);
+                }
+            }
+            else {
+                el = options.div;
+            }
+            if (el && el.appendChild) {
+                el.appendChild(this.node);
+            }
+        }
+    }
+    _setGlyphs(glyphs) {
+        if (glyphs === this._glyphs)
+            return false;
+        this._glyphs = glyphs;
+        this.resize(this._width, this._height);
+        return true;
     }
     resize(width, height) {
         this._width = width;
@@ -1719,23 +1780,135 @@ class Canvas {
         const node = this.node;
         node.width = this._width * this.tileWidth;
         node.height = this._height * this.tileHeight;
-        const gl = this._gl;
-        const uniforms = this._uniforms;
-        gl.viewport(0, 0, node.width, node.height);
-        gl.uniform2ui(uniforms["viewportSize"], node.width, node.height);
-        this._createGeometry();
-        this._createData();
     }
     draw(x, y, glyph, fg, bg) {
-        let index = y * this._width + x;
-        index *= VERTICES_PER_TILE;
         glyph = glyph & 0xFF;
         bg = bg & 0xFFF;
         fg = fg & 0xFFF;
-        const style = (glyph << 24) + (bg << 12) + fg;
-        this._data[index + 2] = style;
-        this._data[index + 5] = style;
+        const style = (glyph * (1 << 24)) + (bg * (1 << 12)) + fg;
+        this._set(x, y, style);
+    }
+    _requestRender() {
+        if (this._renderRequested)
+            return;
+        this._renderRequested = true;
+        if (!this._autoRender)
+            return;
+        requestAnimationFrame(() => this.render());
+    }
+    _set(x, y, style) {
+        let index = y * this.width + x;
+        const current = this._data[index];
+        if (current !== style) {
+            this._data[index] = style;
+            this._requestRender();
+            return true;
+        }
+        return false;
+    }
+    copy(buffer) {
+        this._data.set(buffer.data);
         this._requestRender();
+    }
+    copyTo(buffer) {
+        buffer.data.set(this._data);
+    }
+    hasXY(x, y) {
+        return x >= 0 && y >= 0 && x < this.width && y < this.height;
+    }
+    toX(x) {
+        return Math.floor(this.width * x / this.node.clientWidth);
+    }
+    toY(y) {
+        return Math.floor(this.height * y / this.node.clientHeight);
+    }
+}
+class Canvas extends BaseCanvas {
+    constructor(options) {
+        super(options);
+    }
+    _createContext() {
+        let gl = this.node.getContext("webgl2");
+        if (!gl) {
+            throw new NotSupportedError("WebGL 2 not supported");
+        }
+        this._gl = gl;
+        this._buffers = {};
+        this._attribs = {};
+        this._uniforms = {};
+        const p = createProgram(gl, VS, FS);
+        gl.useProgram(p);
+        const attributeCount = gl.getProgramParameter(p, gl.ACTIVE_ATTRIBUTES);
+        for (let i = 0; i < attributeCount; i++) {
+            gl.enableVertexAttribArray(i);
+            let info = gl.getActiveAttrib(p, i);
+            this._attribs[info.name] = i;
+        }
+        const uniformCount = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+        for (let i = 0; i < uniformCount; i++) {
+            let info = gl.getActiveUniform(p, i);
+            this._uniforms[info.name] = gl.getUniformLocation(p, info.name);
+        }
+        gl.uniform1i(this._uniforms["font"], 0);
+        this._texture = createTexture(gl);
+    }
+    _createGeometry() {
+        const gl = this._gl;
+        this._buffers.position && gl.deleteBuffer(this._buffers.position);
+        this._buffers.uv && gl.deleteBuffer(this._buffers.uv);
+        let buffers = createGeometry(gl, this._attribs, this.width, this.height);
+        Object.assign(this._buffers, buffers);
+    }
+    _createData() {
+        const gl = this._gl;
+        const attribs = this._attribs;
+        const tileCount = this.width * this.height;
+        this._buffers.style && gl.deleteBuffer(this._buffers.style);
+        this._data = new Uint32Array(tileCount * VERTICES_PER_TILE);
+        const style = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, style);
+        gl.vertexAttribIPointer(attribs["style"], 1, gl.UNSIGNED_INT, 0, 0);
+        Object.assign(this._buffers, { style });
+    }
+    _setGlyphs(glyphs) {
+        if (!super._setGlyphs(glyphs))
+            return false;
+        const gl = this._gl;
+        const uniforms = this._uniforms;
+        gl.uniform2uiv(uniforms["tileSize"], [this.tileWidth, this.tileHeight]);
+        this._uploadGlyphs();
+        return true;
+    }
+    _uploadGlyphs() {
+        if (!this._glyphs.needsUpdate)
+            return;
+        const gl = this._gl;
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, this._texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this._glyphs.node);
+        this._requestRender();
+        this._glyphs.needsUpdate = false;
+    }
+    resize(width, height) {
+        super.resize(width, height);
+        const gl = this._gl;
+        const uniforms = this._uniforms;
+        gl.viewport(0, 0, this.node.width, this.node.height);
+        gl.uniform2ui(uniforms["viewportSize"], this.node.width, this.node.height);
+        this._createGeometry();
+        this._createData();
+    }
+    _set(x, y, style) {
+        let index = y * this.width + x;
+        index *= VERTICES_PER_TILE;
+        const current = this._data[index + 2];
+        if (current !== style) {
+            this._data[index + 2] = style;
+            this._data[index + 5] = style;
+            this._requestRender();
+            return true;
+        }
+        return false;
     }
     copy(buffer) {
         buffer.data.forEach((style, i) => {
@@ -1753,69 +1926,6 @@ class Canvas {
             dest[i] = this._data[index + 2];
         }
     }
-    _initGL(node) {
-        if (typeof node === 'string') {
-            const el = document.getElementById(node);
-            if (!el)
-                throw new Error('Failed to find element with id:' + node);
-            if (!(el instanceof HTMLCanvasElement)) {
-                node = document.createElement('canvas');
-                el.appendChild(node);
-            }
-            else {
-                node = el;
-            }
-        }
-        else if (!node) {
-            node = document.createElement("canvas");
-        }
-        let gl = node.getContext("webgl2");
-        if (!gl) {
-            throw new Error("WebGL 2 not supported");
-        }
-        const p = createProgram(gl, VS, FS);
-        gl.useProgram(p);
-        const attributeCount = gl.getProgramParameter(p, gl.ACTIVE_ATTRIBUTES);
-        for (let i = 0; i < attributeCount; i++) {
-            gl.enableVertexAttribArray(i);
-            let info = gl.getActiveAttrib(p, i);
-            this._attribs[info.name] = i;
-        }
-        const uniformCount = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
-        for (let i = 0; i < uniformCount; i++) {
-            let info = gl.getActiveUniform(p, i);
-            this._uniforms[info.name] = gl.getUniformLocation(p, info.name);
-        }
-        gl.uniform1i(this._uniforms["font"], 0);
-        this._texture = createTexture(gl);
-        return gl;
-    }
-    _createGeometry() {
-        const gl = this._gl;
-        this._buffers.position && gl.deleteBuffer(this._buffers.position);
-        this._buffers.uv && gl.deleteBuffer(this._buffers.uv);
-        let buffers = createGeometry(gl, this._attribs, this._width, this._height);
-        Object.assign(this._buffers, buffers);
-    }
-    _createData() {
-        const gl = this._gl;
-        const attribs = this._attribs;
-        const tileCount = this._width * this._height;
-        this._buffers.style && gl.deleteBuffer(this._buffers.style);
-        this._data = new Uint32Array(tileCount * VERTICES_PER_TILE);
-        const style = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, style);
-        gl.vertexAttribIPointer(attribs["style"], 1, gl.UNSIGNED_INT, 0, 0);
-        Object.assign(this._buffers, { style });
-    }
-    _requestRender() {
-        if (this._renderRequested)
-            return;
-        this._renderRequested = true;
-        if (!this._autoRender)
-            return;
-        requestAnimationFrame(() => this.render());
-    }
     render() {
         const gl = this._gl;
         if (this._glyphs.needsUpdate) { // auto keep glyphs up to date
@@ -1829,24 +1939,72 @@ class Canvas {
         gl.bufferData(gl.ARRAY_BUFFER, this._data, gl.DYNAMIC_DRAW);
         gl.drawArrays(gl.TRIANGLES, 0, this._width * this._height * VERTICES_PER_TILE);
     }
-    _uploadGlyphs() {
-        if (!this._glyphs.needsUpdate)
-            return;
-        const gl = this._gl;
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, this._texture);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this._glyphs.node);
+}
+class Canvas2D extends BaseCanvas {
+    constructor(options) {
+        super(options);
+    }
+    _createContext() {
+        const ctx = this.node.getContext('2d');
+        if (!ctx) {
+            throw new NotSupportedError('2d context not supported!');
+        }
+        this._ctx = ctx;
+    }
+    _set(x, y, style) {
+        const result = super._set(x, y, style);
+        if (result) {
+            this._changed[y * this.width + x] = 1;
+        }
+        return result;
+    }
+    resize(width, height) {
+        super.resize(width, height);
+        this._data = new Uint32Array(width * height);
+        this._changed = new Int8Array(width * height);
+    }
+    copy(buffer) {
+        for (let i = 0; i < this._data.length; ++i) {
+            if (this._data[i] !== buffer.data[i]) {
+                this._data[i] = buffer.data[i];
+                this._changed[i] = 1;
+            }
+        }
         this._requestRender();
-        this._glyphs.needsUpdate = false;
     }
-    hasXY(x, y) {
-        return x >= 0 && y >= 0 && x < this.width && y < this.height;
+    render() {
+        this._renderRequested = false;
+        for (let i = 0; i < this._changed.length; ++i) {
+            if (this._changed[i])
+                this._renderCell(i);
+            this._changed[i] = 0;
+        }
     }
-    toX(x) {
-        return Math.floor(this.width * x / this.node.clientWidth);
-    }
-    toY(y) {
-        return Math.floor(this.height * y / this.node.clientHeight);
+    _renderCell(index) {
+        const x = index % this.width;
+        const y = Math.floor(index / this.width);
+        const style = this._data[index];
+        const glyph = (style / (1 << 24)) >> 0;
+        const bg = (style >> 12) & 0xFFF;
+        const fg = (style & 0xFFF);
+        const px = x * this.tileWidth;
+        const py = y * this.tileHeight;
+        const gx = (glyph % 16) * this.tileWidth;
+        const gy = Math.floor(glyph / 16) * this.tileHeight;
+        // this._ctx.fillStyle = '#' + bg.toString(16).padStart(3, '0');
+        // this._ctx.fillRect(px, py, this.tileWidth, this.tileHeight);
+        // 
+        // this._ctx.fillStyle = '#' + fg.toString(16).padStart(3, '0');
+        // this._ctx.drawImage(this.glyphs.node, gx, gy, this.tileWidth, this.tileHeight, px, py, this.tileWidth, this.tileHeight);
+        const d = this.glyphs.ctx.getImageData(gx, gy, this.tileWidth, this.tileHeight);
+        for (let di = 0; di < d.width * d.height; ++di) {
+            const src = (d.data[di * 4] > 127) ? fg : bg;
+            d.data[di * 4 + 0] = ((src & 0xF00) >> 8) * 17;
+            d.data[di * 4 + 1] = ((src & 0xF0) >> 4) * 17;
+            d.data[di * 4 + 2] = (src & 0xF) * 17;
+            d.data[di * 4 + 3] = 255; // not transparent anymore
+        }
+        this._ctx.putImageData(d, px, py);
     }
 }
 
@@ -1884,6 +2042,7 @@ class Glyphs {
         return glyphs;
     }
     get node() { return this._node; }
+    get ctx() { return this._ctx; }
     get tileWidth() { return this._tileWidth; }
     get tileHeight() { return this._tileHeight; }
     get pxWidth() { return this._node.width; }
@@ -2451,7 +2610,7 @@ class Buffer extends DataBuffer {
         this._canvas = canvas;
         canvas.copyTo(this);
     }
-    get canvas() { return this._canvas; }
+    // get canvas() { return this._canvas; }
     _toGlyph(ch) {
         return this._canvas.glyphs.forChar(ch);
     }
@@ -3132,8 +3291,10 @@ function nextBreak(text, start) {
     while (i < text.length) {
         const ch = text[i];
         if (ch == ' ') {
-            while (text[i + 1] == ' ')
+            while (text[i + 1] == ' ') {
                 ++i;
+                ++l; // need to count the extra spaces as part of the word
+            }
             return [i, l];
         }
         if (ch == '-') {
@@ -4526,12 +4687,13 @@ let NEXT_GLYPH = 128;
 
 Buffer.prototype._toGlyph = function(ch) {
   if (ch === null || ch === undefined) return -1;
+  if (ch === ' ') return 0;
 
-  let glyph = this.canvas.glyphs.forChar(ch);
+  let glyph = this._canvas.glyphs.forChar(ch);
   if (glyph < 0) {
     console.log('Register new Glyph', ch, ch.charCodeAt(0), NEXT_GLYPH);
     glyph = NEXT_GLYPH;
-    this.canvas.glyphs.draw(NEXT_GLYPH++, ch);
+    this._canvas.glyphs.draw(NEXT_GLYPH++, ch);
   }
   return glyph;
 };
@@ -4583,7 +4745,14 @@ make.glyphs = makeGlyphs;
 function makeCanvas(opts={}) {
   const glyphs = makeGlyphs(opts);
   opts.glyphs = glyphs;
-  return new Canvas(opts);
+  try {
+    return new Canvas(opts);
+  }
+  catch(e) {
+    if (!(e instanceof NotSupportedError)) throw e;
+  }
+
+  return new Canvas2D(opts);
 }
 
 make.canvas = makeCanvas;
@@ -7258,12 +7427,13 @@ class Cell$1 {
 
   markRevealed() {
     this.flags &= ~Cell.STABLE_MEMORY;
-    if (!(this.flags & Cell.REVEALED)) {
-      this.flags |= Cell.REVEALED;
-      if (!this.hasTileFlag(Tile.T_PATHING_BLOCKER)) {
-        data.xpxpThisTurn++;
-      }
+    if ((this.flags & Cell.REVEALED)) return false;
+
+    this.flags |= Cell.REVEALED;
+    if (!this.hasTileFlag(Tile.T_PATHING_BLOCKER)) {
+      data.xpxpThisTurn++;
     }
+    return true;
   }
 
   obstructsLayer(layer) {
@@ -7627,7 +7797,12 @@ class Map$1 {
       c.storeMemory();
     });
   }
-	markRevealed(x, y) { return this.cell(x, y).markRevealed(); }
+	markRevealed(x, y) {
+		if (!this.cell(x, y).markRevealed()) return;
+    if (data.player) {
+      data.player.invalidateCostMap();
+    }
+	}
 	isVisible(x, y)    { return this.cell(x, y).isVisible(); }
 	isAnyKindOfVisible(x, y) { return this.cell(x, y).isAnyKindOfVisible(); }
   isOrWasAnyKindOfVisible(x, y) { return this.cell(x, y).isOrWasAnyKindOfVisible(); }
@@ -8582,16 +8757,18 @@ function demoteCellVisibility(cell, i, j, map) {
   }
 }
 
-function promoteCellVisibility(cell, i, j, map) {
+function _updateCellVisibility(cell, i, j, map) {
 
-	if (cell.flags & Cell.IN_FOV
-		&& (map.hasVisibleLight(i, j))
-		&& !(cell.flags & Cell.CLAIRVOYANT_DARKENED))
-	{
-		cell.flags |= Cell.VISIBLE;
-	}
+  const isVisible = (cell.flags & Cell.VISIBLE);
+  const wasVisible = (cell.flags & Cell.WAS_VISIBLE);
 
-	if ((cell.flags & Cell.VISIBLE) && !(cell.flags & Cell.WAS_VISIBLE)) { // if the cell became visible this move
+  if (isVisible && wasVisible) {
+    if (cell.lightChanged()) {
+      map.redrawCell(cell);
+    }
+    return true;
+  }
+	else if (isVisible && !wasVisible) { // if the cell became visible this move
 		if (!(cell.flags & Cell.REVEALED) && data.automationActive) {
         if (cell.item) {
             const theItem = cell.item;
@@ -8606,21 +8783,56 @@ function promoteCellVisibility(cell, i, j, map) {
             MSG.add('§you§ §see§ ΩbackgroundMessageColorΩ§item§∆.', { actor: GW.data.player, item: tile.name });
         }
     }
-    cell.markRevealed();
+    map.markRevealed(i, j);
 		map.redrawCell(cell);
-	} else if (!(cell.flags & Cell.VISIBLE) && (cell.flags & Cell.WAS_VISIBLE)) { // if the cell ceased being visible this move
+    return true;
+	} else if ((!isVisible) && wasVisible) { // if the cell ceased being visible this move
     cell.storeMemory();
 		map.redrawCell(cell);
-	} else if (!(cell.flags & Cell.CLAIRVOYANT_VISIBLE) && (cell.flags & Cell.WAS_CLAIRVOYANT_VISIBLE)) { // ceased being clairvoyantly visible
+    return true;
+	}
+  return false;
+}
+
+function _updateCellClairyvoyance(cell, i, j, map) {
+  const isClairy = (cell.flags & Cell.CLAIRVOYANT_VISIBLE);
+  const wasClairy = (cell.flags & Cell.WAS_CLAIRVOYANT_VISIBLE);
+
+  if (isClairy && wasClairy) {
+    if (cell.lightChanged()) {
+      map.redrawCell(cell);
+    }
+    return true;
+  }
+  else if ((!isClairy) && wasClairy) { // ceased being clairvoyantly visible
 		cell.storeMemory();
 		map.redrawCell(cell);
-	} else if (!(cell.flags & Cell.WAS_CLAIRVOYANT_VISIBLE) && (cell.flags & Cell.CLAIRVOYANT_VISIBLE)) { // became clairvoyantly visible
+    return true;
+	} else if ((!wasClairy) && (isClairy)) { // became clairvoyantly visible
 		cell.flags &= ~STABLE_MEMORY;
 		map.redrawCell(cell);
-	} else if (!(cell.flags & Cell.TELEPATHIC_VISIBLE) && (cell.flags & Cell.WAS_TELEPATHIC_VISIBLE)) { // ceased being telepathically visible
+    return true;
+	}
+
+  return false;
+}
+
+
+function _updateCellTelepathy(cell, i, j, map) {
+  const isTele = (cell.flags & Cell.TELEPATHIC_VISIBLE);
+  const wasTele = (cell.flags & Cell.WAS_TELEPATHIC_VISIBLE);
+
+  if (isTele && wasTele) {
+    if (cell.lightChanged()) {
+      map.redrawCell(cell);
+    }
+    return true;
+  }
+  else if ((!isTele) && wasTele) { // ceased being telepathically visible
     cell.storeMemory();
 		map.redrawCell(cell);
-	} else if (!(cell.flags & Cell.WAS_TELEPATHIC_VISIBLE) && (cell.flags & Cell.TELEPATHIC_VISIBLE)) { // became telepathically visible
+    return true;
+	} else if ((wasTele) && (isTele)) { // became telepathically visible
     if (!(cell.flags & Cell.REVEALED)
 			&& !cell.hasTileFlag(Tile.T_PATHING_BLOCKER))
 		{
@@ -8628,19 +8840,51 @@ function promoteCellVisibility(cell, i, j, map) {
     }
 		cell.flags &= ~Cell.STABLE_MEMORY;
 		map.redrawCell(cell);
-	} else if (!(cell.flags & Cell.MONSTER_DETECTED) && (cell.flags & Cell.WAS_MONSTER_DETECTED)) { // ceased being detected visible
-		cell.flags &= ~Cell.STABLE_MEMORY;
-		map.redrawCell(cell);
-    cell.storeMemory();
-	} else if (!(cell.flags & Cell.WAS_MONSTER_DETECTED) && (cell.flags & Cell.MONSTER_DETECTED)) { // became detected visible
-		cell.flags &= ~Cell.STABLE_MEMORY;
-		map.redrawCell(cell);
-    cell.storeMemory();
-	} else if (cell.isAnyKindOfVisible()
-			   && cell.lightChanged()) // if the cell's light color changed this move
-	{
-   map.redrawCell(cell);
+    return true;
 	}
+  return false;
+}
+
+
+function _updateCellDetect(cell, i, j, map) {
+  const isMonst = (cell.flags & Cell.MONSTER_DETECTED);
+  const wasMonst = (cell.flags & Cell.WAS_MONSTER_DETECTED);
+
+  if (isMonst && wasMonst) {
+    if (cell.lightChanged()) {
+      map.redrawCell(cell);
+    }
+    return true;
+  }
+  else if ((!isMonst) && (wasMonst)) { // ceased being detected visible
+		cell.flags &= ~Cell.STABLE_MEMORY;
+		map.redrawCell(cell);
+    cell.storeMemory();
+    return true;
+	} else if ((!wasMonst) && (isMonst)) { // became detected visible
+		cell.flags &= ~Cell.STABLE_MEMORY;
+		map.redrawCell(cell);
+    cell.storeMemory();
+    return true;
+	}
+  return false;
+}
+
+
+function promoteCellVisibility(cell, i, j, map) {
+
+	if (cell.flags & Cell.IN_FOV
+		&& (map.hasVisibleLight(i, j))
+		&& !(cell.flags & Cell.CLAIRVOYANT_DARKENED))
+	{
+		cell.flags |= Cell.VISIBLE;
+	}
+
+  if (_updateCellVisibility(cell, i, j, map)) return;
+  if (_updateCellClairyvoyance(cell, i, j, map)) return;
+  if (_updateCellTelepathy(cell, i, j, map)) return;
+  if (_updateCellDetect(cell, i, j, map)) return;
+
 }
 
 
@@ -9130,14 +9374,23 @@ class Actor$1 {
       mapToMe.x = mapToMe.y = -1;
     }
     if (mapToMe.x != this.x || mapToMe.y != this.y) {
-      const costGrid = alloc(map.width, map.height);
-      this.fillCostGrid(map, costGrid);
+      let costGrid = this.costGrid;
+      if (!costGrid) {
+        costGrid = this.costGrid = alloc(map.width, map.height);
+        this.fillCostGrid(map, costGrid);
+      }
       calculateDistances(mapToMe, this.x, this.y, costGrid, true);
-      free(costGrid);
+      // Grid.free(costGrid);
     }
     return mapToMe;
   }
 
+  invalidateCostMap() {
+    if (this.costGrid) {
+      free(this.costGrid);
+      this.costGrid = null;
+    }
+  }
 
   // combat helpers
   calcDamageTo(defender, attackInfo, ctx) {
@@ -9331,10 +9584,10 @@ function endActorTurn(theActor, turnTime=1) {
 
   if (theActor.isPlayer()) {
     update$1(data.map, theActor.x, theActor.y, theActor.current.fov);
-    ui.requestUpdate(48);
+    // UI.requestUpdate(1);  // 48
   }
   else if (theActor.kind.isOrWasVisibleToPlayer(theActor, data.map) && theActor.turnTime) {
-    ui.requestUpdate();
+    ui.requestUpdate(10);
   }
 }
 
@@ -9532,7 +9785,7 @@ async function takeTurn$1() {
 
   while(!PLAYER.turnTime) {
     const ev = await io.nextEvent(PLAYER.travelDest ? 0 : 1000);
-    if (!ev) {
+    if (PLAYER.travelDest && ((!ev) || (ev.type === GW.def.TICK))) {
       await GW.actions.travel(PLAYER);
     }
     else {
@@ -10417,7 +10670,7 @@ async function updateEnvironment() {
   await map.tick();
   update$1(map, data.player.x, data.player.y, data.player.current.fov);
 
-  ui.requestUpdate();
+  // UI.requestUpdate();
 
   return map.config.tick;
 }
@@ -11471,19 +11724,21 @@ class FOV {
         // fov.debug('CAST: row=%d, start=%d, end=%d, start < end => cancel', row, startSlope.toFixed(2), endSlope.toFixed(2));
         return;
       }
-      fov.debug('CAST: row=%d, start=%d, end=%d, x=%d,%d, y=%d,%d', row, startSlope.toFixed(2), endSlope.toFixed(2), xx, xy, yx, yy);
+      // fov.debug('CAST: row=%d, start=%d, end=%d, x=%d,%d, y=%d,%d', row, startSlope.toFixed(2), endSlope.toFixed(2), xx, xy, yx, yy);
 
       let nextStart = startSlope;
 
       let blocked = false;
       let deltaY = -row;
+      let currentX, currentY, outerSlope, innerSlope, maxSlope, minSlope = 0;
+
       for (let deltaX = -row; deltaX <= 0; deltaX++) {
-          let currentX = Math.floor(this.startX + deltaX * xx + deltaY * xy);
-          let currentY = Math.floor(this.startY + deltaX * yx + deltaY * yy);
-          let outerSlope = (deltaX - 0.5) / (deltaY + 0.5);
-          let innerSlope = (deltaX + 0.5) / (deltaY - 0.5);
-          let maxSlope = ((deltaX) / (deltaY + 0.5));
-          let minSlope = ((deltaX + 0.5) / (deltaY));
+          currentX = Math.floor(this.startX + deltaX * xx + deltaY * xy);
+          currentY = Math.floor(this.startY + deltaX * yx + deltaY * yy);
+          outerSlope = (deltaX - 0.5) / (deltaY + 0.5);
+          innerSlope = (deltaX + 0.5) / (deltaY - 0.5);
+          maxSlope = ((deltaX) / (deltaY + 0.5));
+          minSlope = ((deltaX + 0.5) / (deltaY));
 
           if (!this.hasXY(currentX, currentY)) {
             blocked = true;
@@ -11491,7 +11746,7 @@ class FOV {
             continue;
           }
 
-          fov.debug('- test %d,%d ... start=%d, min=%d, max=%d, end=%d, dx=%d, dy=%d', currentX, currentY, startSlope.toFixed(2), maxSlope.toFixed(2), minSlope.toFixed(2), endSlope.toFixed(2), deltaX, deltaY);
+          // fov.debug('- test %d,%d ... start=%d, min=%d, max=%d, end=%d, dx=%d, dy=%d', currentX, currentY, startSlope.toFixed(2), maxSlope.toFixed(2), minSlope.toFixed(2), endSlope.toFixed(2), deltaX, deltaY);
 
           if (startSlope < minSlope) {
               blocked = this.isBlocked(currentX, currentY);
@@ -11505,12 +11760,12 @@ class FOV {
           if (radius < this.maxRadius) {
               const bright = (1 - (radius / this.maxRadius));
               this.setVisible(currentX, currentY, bright);
-              fov.debug('       - visible');
+              // fov.debug('       - visible');
           }
 
           if (blocked) { //previous cell was a blocking one
               if (this.isBlocked(currentX,currentY)) {//hit a wall
-                  fov.debug('       - blocked ... nextStart: %d', innerSlope.toFixed(2));
+                  // fov.debug('       - blocked ... nextStart: %d', innerSlope.toFixed(2));
                   nextStart = innerSlope;
                   continue;
               } else {
@@ -11518,7 +11773,7 @@ class FOV {
               }
           } else {
               if (this.isBlocked(currentX, currentY) && row < this.maxRadius) {//hit a wall within sight line
-                  fov.debug('       - blocked ... start:%d, end:%d, nextStart: %d', nextStart.toFixed(2), outerSlope.toFixed(2), innerSlope.toFixed(2));
+                  // fov.debug('       - blocked ... start:%d, end:%d, nextStart: %d', nextStart.toFixed(2), outerSlope.toFixed(2), innerSlope.toFixed(2));
                   blocked = true;
                   this.castLight(row + 1, nextStart, outerSlope, xx, xy, yx, yy);
                   nextStart = innerSlope;
@@ -14007,7 +14262,7 @@ function start$2(opts={}) {
   });
 
   if (!ui.canvas && (opts.canvas !== false)) {
-    ui.canvas = make.canvas({ width: opts.width, height: opts.height, node: opts.div, font: opts.font, tileWidth: 14, tileHeight: 16 });
+    ui.canvas = make.canvas({ width: opts.width, height: opts.height, div: opts.div, font: opts.font, tileWidth: 14, tileHeight: 16 });
     ui.buffer = new Buffer(ui.canvas);
 
     if (opts.io && typeof document !== 'undefined') {
@@ -14239,14 +14494,9 @@ async function updateNow(t=1) {
 	t = Math.max(t, UPDATE_REQUESTED, 0);
 	UPDATE_REQUESTED = 0;
   ui.debug('update now - %d', t);
-
 	ui.draw();
-	ui.canvas.render();
 	if (t) {
-		// const now = performance.now();
-		// ui.debug('UI update - with timeout:', t);
 		const r = await io.tickMs(t);
-		// ui.debug('- done', r, Math.floor(performance.now() - now));
 	}
 }
 
@@ -14742,11 +14992,11 @@ const BUFFERS = [];
 
 function startDialog() {
   IN_DIALOG = true;
-  const base = UI_OVERLAY || null;
+  const base = UI_OVERLAY || UI_BUFFER;
   UI_LAYERS.push(base);
   UI_OVERLAY = BUFFERS.pop() || new Buffer(ui.canvas);
   // UI_OVERLAY._data.forEach( (c) => c.opacity = 0 );
-  UI_OVERLAY.copyFromCanvas();
+  UI_OVERLAY.copy(base);
   return UI_OVERLAY;
 }
 

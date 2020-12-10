@@ -95,7 +95,12 @@ export class Map {
       c.storeMemory();
     });
   }
-	markRevealed(x, y) { return this.cell(x, y).markRevealed(); }
+	markRevealed(x, y) {
+		if (!this.cell(x, y).markRevealed()) return;
+    if (DATA.player) {
+      DATA.player.invalidateCostMap();
+    }
+	}
 	isVisible(x, y)    { return this.cell(x, y).isVisible(); }
 	isAnyKindOfVisible(x, y) { return this.cell(x, y).isAnyKindOfVisible(); }
   isOrWasAnyKindOfVisible(x, y) { return this.cell(x, y).isOrWasAnyKindOfVisible(); }

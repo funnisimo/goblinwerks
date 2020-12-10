@@ -331,12 +331,13 @@ class Cell {
 
   markRevealed() {
     this.flags &= ~Flags.Cell.STABLE_MEMORY;
-    if (!(this.flags & Flags.Cell.REVEALED)) {
-      this.flags |= Flags.Cell.REVEALED;
-      if (!this.hasTileFlag(Flags.Tile.T_PATHING_BLOCKER)) {
-        DATA.xpxpThisTurn++;
-      }
+    if ((this.flags & Flags.Cell.REVEALED)) return false;
+
+    this.flags |= Flags.Cell.REVEALED;
+    if (!this.hasTileFlag(Flags.Tile.T_PATHING_BLOCKER)) {
+      DATA.xpxpThisTurn++;
     }
+    return true;
   }
 
   obstructsLayer(layer) {
