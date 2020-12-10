@@ -15,7 +15,8 @@
     "@babel/preset-env": "^7.11.5",
     "@rollup/plugin-node-resolve": "^10.0.0",
     "babel-jest": "^26.5.2",
-    "gw-text": "^1.0.9",
+    "gw-text": "^1.0.10",
+    "gw-canvas": "^1.1.1",
     "jest": "^26.4.2",
     "jest-diff": "^26.6.2",
     "jest-extended": "^0.11.5",
@@ -52,8 +53,5 @@
         }
       ]
     ]
-  },
-  "dependencies": {
-    "gw-canvas": "^1.0.13"
   }
 }
