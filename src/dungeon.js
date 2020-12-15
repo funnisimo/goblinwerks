@@ -1,11 +1,8 @@
 
 import * as Grid from './grid.js';
-import { random } from './random.js';
-import * as Utils from './utils.js';
+import { utils as Utils, random } from 'gw-core';
 import * as Path from './path.js';
 import * as Flags from './flags.js';
-import { map as MAP } from './map.js';
-import { tile as TILE } from './tile.js';
 import { diggers as DIGGERS, digger as DIGGER } from './digger.js';
 import { def, make } from './gw.js';
 

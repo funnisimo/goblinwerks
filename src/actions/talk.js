@@ -1,6 +1,4 @@
-import * as Flags from '../flags.js';
-import * as Utils from '../utils.js';
-import * as GW from '../gw.js';
+
 import { actions as Actions } from './index.js';
 
 export async function talk(actor, target, ctx={}) {

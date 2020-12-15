@@ -1,8 +1,7 @@
 
 import * as Color from './color.js';
 import * as Flags from './flags.js';
-import * as Utils from './utils.js';
-import { random } from './random.js';
+import { utils as Utils, random, range as Range } from 'gw-core';
 import * as Grid from './grid.js';
 import * as Frequency from './frequency.js';
 import * as Text from './text.js';
@@ -250,7 +249,7 @@ export class Actor {
     if (this.kind.stats) {
       Object.entries(this.kind.stats).forEach( ([key, value]) => {
         if (typeof value !== 'number') {
-          value = make.range(value).value();
+          value = Range.make(value).value();
         }
         this.current[key] = this.prior[key] = this.max[key] = value;
       });

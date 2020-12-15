@@ -1,6 +1,6 @@
 
 import { actions as Actions } from './index.js';
-import * as Utils from '../utils.js';
+import { utils as Utils } from 'gw-core';
 import * as GW from '../gw.js';
 
 

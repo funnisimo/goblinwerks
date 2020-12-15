@@ -1,6 +1,5 @@
 
-import { random } from './random.js';
-import * as Utils from './utils.js';
+import { utils as Utils, random } from 'gw-core';
 import { def, data as DATA, types, make as MAKE } from './gw.js';
 
 

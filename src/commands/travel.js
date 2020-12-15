@@ -1,12 +1,6 @@
 
 
-import * as Flags from '../flags.js';
-import * as Utils from '../utils.js';
-import * as Grid from '../grid.js';
-import * as Path from '../path.js';
 import { actions as Actions } from '../actions/index.js';
-import * as Actor from '../actor.js';
-import * as FX from '../fx.js';
 import { data as DATA, def, commands, ui as UI, message as MSG, config as CONFIG } from '../gw.js';
 
 

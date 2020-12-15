@@ -3,7 +3,7 @@
 import * as Flags from './flags.js';
 import { io as IO } from './io.js';
 import * as Light from './light.js';
-import * as Utils from './utils.js';
+import { utils as Utils } from 'gw-core';
 import { startActorTurn } from './actor.js';
 import { make, data as DATA, types, ui as UI } from './gw.js';
 

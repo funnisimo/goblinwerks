@@ -1,10 +1,1353 @@
+/**
+ * GW.utils
+ * @module utils
+ */
+// DIRS are organized clockwise
+// - first 4 are arrow directions
+//   >> rotate 90 degrees clockwise ==>> newIndex = (oldIndex + 1) % 4
+//   >> opposite direction ==>> oppIndex = (index + 2) % 4
+// - last 4 are diagonals
+//   >> rotate 90 degrees clockwise ==>> newIndex = 4 + (oldIndex + 1) % 4;
+//   >> opposite diagonal ==>> newIndex = 4 + (index + 2) % 4;
+const DIRS = [
+    [0, 1],
+    [1, 0],
+    [0, -1],
+    [-1, 0],
+    [1, 1],
+    [1, -1],
+    [-1, -1],
+    [-1, 1],
+];
+const NO_DIRECTION = -1;
+const UP = 0;
+const RIGHT = 1;
+const DOWN = 2;
+const LEFT = 3;
+const RIGHT_UP = 4;
+const RIGHT_DOWN = 5;
+const LEFT_DOWN = 6;
+const LEFT_UP = 7;
+// CLOCK DIRS are organized clockwise, starting at UP
+// >> opposite = (index + 4) % 8
+// >> 90 degrees rotate right = (index + 2) % 8
+// >> 90 degrees rotate left = (8 + index - 2) % 8
+const CLOCK_DIRS = [
+    [0, 1],
+    [1, 1],
+    [1, 0],
+    [1, -1],
+    [0, -1],
+    [-1, -1],
+    [-1, 0],
+    [-1, 1],
+];
+function NOOP() { }
+function TRUE() {
+    return true;
+}
+function FALSE() {
+    return false;
+}
+function ONE() {
+    return 1;
+}
+function ZERO() {
+    return 0;
+}
+function IDENTITY(x) {
+    return x;
+}
+/**
+ * clamps a value between min and max (inclusive)
+ * @param v {Number} the value to clamp
+ * @param min {Number} the minimum value
+ * @param max {Number} the maximum value
+ * @returns {Number} the clamped value
+ */
+function clamp(v, min, max) {
+    if (v < min)
+        return min;
+    if (v > max)
+        return max;
+    return v;
+}
+function x(src) {
+    // @ts-ignore
+    return src.x || src[0] || 0;
+}
+function y(src) {
+    // @ts-ignore
+    return src.y || src[1] || 0;
+}
+function copyXY(dest, src) {
+    dest.x = x(src);
+    dest.y = y(src);
+}
+function addXY(dest, src) {
+    dest.x += x(src);
+    dest.y += y(src);
+}
+function equalsXY(dest, src) {
+    return dest.x == x(src) && dest.y == y(src);
+}
+function lerpXY(a, b, pct) {
+    if (pct > 1) {
+        pct = pct / 100;
+    }
+    pct = clamp(pct, 0, 1);
+    const dx = x(b) - x(a);
+    const dy = y(b) - y(a);
+    const x2 = x(a) + Math.floor(dx * pct);
+    const y2 = y(a) + Math.floor(dy * pct);
+    return [x2, y2];
+}
+function distanceBetween(x1, y1, x2, y2) {
+    const x = Math.abs(x1 - x2);
+    const y = Math.abs(y1 - y2);
+    const min = Math.min(x, y);
+    return x + y - 0.6 * min;
+}
+function distanceFromTo(a, b) {
+    return distanceBetween(x(a), y(a), x(b), y(b));
+}
+function calcRadius(x, y) {
+    return distanceBetween(0, 0, x, y);
+}
+function dirBetween(x, y, toX, toY) {
+    let diffX = toX - x;
+    let diffY = toY - y;
+    if (diffX && diffY) {
+        const absX = Math.abs(diffX);
+        const absY = Math.abs(diffY);
+        if (absX >= 2 * absY) {
+            diffY = 0;
+        }
+        else if (absY >= 2 * absX) {
+            diffX = 0;
+        }
+    }
+    return [Math.sign(diffX), Math.sign(diffY)];
+}
+function dirFromTo(a, b) {
+    return dirBetween(x(a), y(a), x(b), y(b));
+}
+function dirIndex(dir) {
+    const x0 = x(dir);
+    const y0 = y(dir);
+    return DIRS.findIndex((a) => a[0] == x0 && a[1] == y0);
+}
+function isOppositeDir(a, b) {
+    if (a[0] + b[0] != 0)
+        return false;
+    if (a[1] + b[1] != 0)
+        return false;
+    return true;
+}
+function isSameDir(a, b) {
+    return a[0] == b[0] && a[1] == b[1];
+}
+function dirSpread(dir) {
+    const result = [dir];
+    if (dir[0] == 0) {
+        result.push([1, dir[1]]);
+        result.push([-1, dir[1]]);
+    }
+    else if (dir[1] == 0) {
+        result.push([dir[0], 1]);
+        result.push([dir[0], -1]);
+    }
+    else {
+        result.push([dir[0], 0]);
+        result.push([0, dir[1]]);
+    }
+    return result;
+}
+function stepFromTo(a, b, fn) {
+    const x0 = x(a);
+    const y0 = y(a);
+    const diff = [x(b) - x0, y(b) - y0];
+    const steps = Math.abs(diff[0]) + Math.abs(diff[1]);
+    const c = [0, 0];
+    const last = [99999, 99999];
+    for (let step = 0; step <= steps; ++step) {
+        c[0] = x0 + Math.floor((diff[0] * step) / steps);
+        c[1] = y0 + Math.floor((diff[1] * step) / steps);
+        if (c[0] != last[0] || c[1] != last[1]) {
+            fn(c[0], c[1]);
+        }
+        last[0] = c[0];
+        last[1] = c[1];
+    }
+}
+// Draws the smooth gradient that appears on a button when you hover over or depress it.
+// Returns the percentage by which the current tile should be averaged toward a hilite color.
+function smoothHiliteGradient(currentXValue, maxXValue) {
+    return Math.floor(100 * Math.sin((Math.PI * currentXValue) / maxXValue));
+}
+function assignField(dest, src, key) {
+    const current = dest[key];
+    const updated = src[key];
+    if (current && current.copy && updated) {
+        current.copy(updated);
+    }
+    else if (current && current.clear && !updated) {
+        current.clear();
+    }
+    else if (current && current.nullify && !updated) {
+        current.nullify();
+    }
+    else if (updated && updated.clone) {
+        dest[key] = updated.clone(); // just use same object (shallow copy)
+    }
+    else if (updated && Array.isArray(updated)) {
+        dest[key] = updated.slice();
+    }
+    else if (current && Array.isArray(current)) {
+        current.length = 0;
+    }
+    else {
+        dest[key] = updated;
+    }
+}
+// export function copyObject(dest, src) {
+//   Object.keys(dest).forEach( (key) => {
+//     assignField(dest, src, key);
+//   });
+// }
+// export function assignObject(dest, src) {
+//   Object.keys(src).forEach( (key) => {
+//     assignField(dest, src, key);
+//   });
+// }
+function assignOmitting(omit, dest, src) {
+    if (typeof omit === "string") {
+        omit = omit.split(/[,|]/g).map((t) => t.trim());
+    }
+    Object.keys(src).forEach((key) => {
+        if (omit.includes(key))
+            return;
+        assignField(dest, src, key);
+    });
+}
+function setDefault(obj, field, val) {
+    if (obj[field] === undefined) {
+        obj[field] = val;
+    }
+}
+function setDefaults(obj, def, custom = null) {
+    let dest;
+    Object.keys(def).forEach((key) => {
+        const origKey = key;
+        let defValue = def[key];
+        dest = obj;
+        // allow for => 'stats.health': 100
+        const parts = key.split(".");
+        while (parts.length > 1) {
+            key = parts.shift();
+            if (dest[key] === undefined) {
+                dest = dest[key] = {};
+            }
+            else if (typeof dest[key] !== "object") {
+                ERROR("Trying to set default member on non-object config item: " + origKey);
+            }
+            else {
+                dest = dest[key];
+            }
+        }
+        key = parts.shift();
+        let current = dest[key];
+        // console.log('def - ', key, current, defValue, obj, dest);
+        if (custom && custom(dest, key, current, defValue)) ;
+        else if (current === undefined) {
+            if (defValue === null) {
+                dest[key] = null;
+            }
+            else if (Array.isArray(defValue)) {
+                dest[key] = defValue.slice();
+            }
+            else if (typeof defValue === "object") {
+                dest[key] = defValue; // Object.assign({}, defValue); -- this breaks assigning a Color object as a default...
+            }
+            else {
+                dest[key] = defValue;
+            }
+        }
+    });
+}
+function kindDefaults(obj, def) {
+    function custom(dest, key, current, defValue) {
+        if (key.search(/[fF]lags$/) < 0)
+            return false;
+        if (!current) {
+            current = [];
+        }
+        else if (typeof current == "string") {
+            current = current.split(/[,|]/).map((t) => t.trim());
+        }
+        else if (!Array.isArray(current)) {
+            current = [current];
+        }
+        if (typeof defValue === "string") {
+            defValue = defValue.split(/[,|]/).map((t) => t.trim());
+        }
+        else if (!Array.isArray(defValue)) {
+            defValue = [defValue];
+        }
+        // console.log('flags', key, defValue, current);
+        dest[key] = defValue.concat(current);
+        return true;
+    }
+    return setDefaults(obj, def, custom);
+}
+function pick(obj, ...fields) {
+    const data = {};
+    fields.forEach((f) => {
+        const v = obj[f];
+        if (v !== undefined) {
+            data[f] = v;
+        }
+    });
+    return data;
+}
+function clearObject(obj) {
+    Object.keys(obj).forEach((key) => (obj[key] = undefined));
+}
+function ERROR(message) {
+    throw new Error(message);
+}
+function WARN(...args) {
+    console.warn(...args);
+}
+function getOpt(obj, member, _default) {
+    const v = obj[member];
+    if (v === undefined)
+        return _default;
+    return v;
+}
+function firstOpt(field, ...args) {
+    for (let arg of args) {
+        if (typeof arg !== "object" || Array.isArray(arg)) {
+            return arg;
+        }
+        if (arg[field] !== undefined) {
+            return arg[field];
+        }
+    }
+    return undefined;
+}
+function arraysIntersect(a, b) {
+    return a.some((av) => b.includes(av));
+}
+function sum(arr) {
+    return arr.reduce((a, b) => a + b);
+}
+function chainLength(root) {
+    let count = 0;
+    while (root) {
+        count += 1;
+        root = root.next;
+    }
+    return count;
+}
+function chainIncludes(chain, entry) {
+    while (chain && chain !== entry) {
+        chain = chain.next;
+    }
+    return chain === entry;
+}
+function eachChain(item, fn) {
+    let index = 0;
+    while (item) {
+        const next = item.next;
+        fn(item, index++);
+        item = next;
+    }
+    return index; // really count
+}
+function addToChain(obj, name, entry) {
+    entry.next = obj[name] || null;
+    obj[name] = entry;
+    return true;
+}
+function removeFromChain(obj, name, entry) {
+    const root = obj[name];
+    if (root === entry) {
+        obj[name] = entry.next || null;
+        entry.next = null;
+        return true;
+    }
+    else if (!root) {
+        return false;
+    }
+    else {
+        let prev = root;
+        let current = prev.next;
+        while (current && current !== entry) {
+            prev = current;
+            current = prev.next;
+        }
+        if (current === entry) {
+            prev.next = current.next || null;
+            entry.next = null;
+            return true;
+        }
+    }
+    return false;
+}
+
+var utils$1 = {
+    __proto__: null,
+    DIRS: DIRS,
+    NO_DIRECTION: NO_DIRECTION,
+    UP: UP,
+    RIGHT: RIGHT,
+    DOWN: DOWN,
+    LEFT: LEFT,
+    RIGHT_UP: RIGHT_UP,
+    RIGHT_DOWN: RIGHT_DOWN,
+    LEFT_DOWN: LEFT_DOWN,
+    LEFT_UP: LEFT_UP,
+    CLOCK_DIRS: CLOCK_DIRS,
+    NOOP: NOOP,
+    TRUE: TRUE,
+    FALSE: FALSE,
+    ONE: ONE,
+    ZERO: ZERO,
+    IDENTITY: IDENTITY,
+    clamp: clamp,
+    x: x,
+    y: y,
+    copyXY: copyXY,
+    addXY: addXY,
+    equalsXY: equalsXY,
+    lerpXY: lerpXY,
+    distanceBetween: distanceBetween,
+    distanceFromTo: distanceFromTo,
+    calcRadius: calcRadius,
+    dirBetween: dirBetween,
+    dirFromTo: dirFromTo,
+    dirIndex: dirIndex,
+    isOppositeDir: isOppositeDir,
+    isSameDir: isSameDir,
+    dirSpread: dirSpread,
+    stepFromTo: stepFromTo,
+    smoothHiliteGradient: smoothHiliteGradient,
+    assignOmitting: assignOmitting,
+    setDefault: setDefault,
+    setDefaults: setDefaults,
+    kindDefaults: kindDefaults,
+    pick: pick,
+    clearObject: clearObject,
+    ERROR: ERROR,
+    WARN: WARN,
+    getOpt: getOpt,
+    firstOpt: firstOpt,
+    arraysIntersect: arraysIntersect,
+    sum: sum,
+    chainLength: chainLength,
+    chainIncludes: chainIncludes,
+    eachChain: eachChain,
+    addToChain: addToChain,
+    removeFromChain: removeFromChain
+};
+
+const RANDOM_CONFIG = {
+    make: () => {
+        return Math.random.bind(Math);
+    },
+};
+function lotteryDrawArray(rand, frequencies) {
+    let i, maxFreq, randIndex;
+    maxFreq = 0;
+    for (i = 0; i < frequencies.length; i++) {
+        maxFreq += frequencies[i];
+    }
+    if (maxFreq <= 0) {
+        console.warn("Lottery Draw - no frequencies", frequencies, frequencies.length);
+        return 0;
+    }
+    randIndex = rand.range(0, maxFreq - 1);
+    for (i = 0; i < frequencies.length; i++) {
+        if (frequencies[i] > randIndex) {
+            return i;
+        }
+        else {
+            randIndex -= frequencies[i];
+        }
+    }
+    console.warn("Lottery Draw failed.", frequencies, frequencies.length);
+    return 0;
+}
+function lotteryDrawObject(rand, weights) {
+    const entries = Object.entries(weights);
+    const frequencies = entries.map(([_, weight]) => weight);
+    const index = lotteryDrawArray(rand, frequencies);
+    return entries[index][0];
+}
+class Random {
+    constructor() {
+        this._fn = RANDOM_CONFIG.make();
+    }
+    static configure(opts) {
+        if (opts.make) {
+            if (typeof opts.make !== "function")
+                throw new Error("Random make parameter must be a function.");
+            if (typeof opts.make(12345) !== "function")
+                throw new Error("Random make function must accept a numeric seed and return a random function.");
+            RANDOM_CONFIG.make = opts.make;
+            random.seed();
+            cosmetic$1.seed();
+        }
+    }
+    seed(val) {
+        this._fn = RANDOM_CONFIG.make(val);
+    }
+    value() {
+        return this._fn();
+    }
+    float() {
+        return this.value();
+    }
+    number(max = 0) {
+        max = max || Number.MAX_SAFE_INTEGER;
+        return Math.floor(this._fn() * max);
+    }
+    int(max = 0) {
+        return this.number(max);
+    }
+    range(lo, hi) {
+        if (hi <= lo)
+            return hi;
+        const diff = hi - lo + 1;
+        return lo + this.number(diff);
+    }
+    dice(count, sides, addend = 0) {
+        let total = 0;
+        let mult = 1;
+        if (count < 0) {
+            count = -count;
+            mult = -1;
+        }
+        addend = addend || 0;
+        for (let i = 0; i < count; ++i) {
+            total += this.range(1, sides);
+        }
+        total *= mult;
+        return total + addend;
+    }
+    weighted(weights) {
+        if (Array.isArray(weights)) {
+            return lotteryDrawArray(this, weights);
+        }
+        return lotteryDrawObject(this, weights);
+    }
+    item(list) {
+        if (!Array.isArray(list)) {
+            list = Object.values(list);
+        }
+        return list[this.range(0, list.length - 1)];
+    }
+    key(obj) {
+        return this.item(Object.keys(obj));
+    }
+    shuffle(list, fromIndex = 0, toIndex = 0) {
+        if (arguments.length == 2) {
+            toIndex = fromIndex;
+            fromIndex = 0;
+        }
+        let i, r, buf;
+        toIndex = toIndex || list.length;
+        fromIndex = fromIndex || 0;
+        for (i = fromIndex; i < toIndex; i++) {
+            r = this.range(fromIndex, toIndex - 1);
+            if (i != r) {
+                buf = list[r];
+                list[r] = list[i];
+                list[i] = buf;
+            }
+        }
+        return list;
+    }
+    sequence(n) {
+        const list = [];
+        for (let i = 0; i < n; i++) {
+            list[i] = i;
+        }
+        return this.shuffle(list);
+    }
+    chance(percent, outOf = 100) {
+        if (percent <= 0)
+            return false;
+        if (percent >= outOf)
+            return true;
+        return this.number(outOf) < percent;
+    }
+    // Get a random int between lo and hi, inclusive, with probability distribution
+    // affected by clumps.
+    clumped(lo, hi, clumps) {
+        if (hi <= lo) {
+            return lo;
+        }
+        if (clumps <= 1) {
+            return this.range(lo, hi);
+        }
+        let i, total = 0, numSides = Math.floor((hi - lo) / clumps);
+        for (i = 0; i < (hi - lo) % clumps; i++) {
+            total += this.range(0, numSides + 1);
+        }
+        for (; i < clumps; i++) {
+            total += this.range(0, numSides);
+        }
+        return total + lo;
+    }
+}
+const random = new Random();
+const cosmetic$1 = new Random();
+
+class Range {
+    constructor(lower, upper = 0, clumps = 1, rng) {
+        this._rng = rng || random;
+        if (Array.isArray(lower)) {
+            clumps = lower[2];
+            upper = lower[1];
+            lower = lower[0];
+        }
+        else if (lower instanceof Range) {
+            clumps = lower.clumps;
+            upper = lower.hi;
+            lower = lower.lo;
+        }
+        if (upper < lower) {
+            [upper, lower] = [lower, upper];
+        }
+        this.lo = lower || 0;
+        this.hi = upper || this.lo;
+        this.clumps = clumps || 1;
+    }
+    value() {
+        return this._rng.clumped(this.lo, this.hi, this.clumps);
+    }
+    toString() {
+        if (this.lo >= this.hi) {
+            return "" + this.lo;
+        }
+        return `${this.lo}-${this.hi}`;
+    }
+}
+function make(config, rng) {
+    if (!config)
+        return new Range(0, 0, 0, rng);
+    if (config instanceof Range)
+        return config; // you can supply a custom range object
+    // if (config.value) return config;  // calc or damage
+    if (typeof config == "function")
+        throw new Error("Custom range functions not supported - extend Range");
+    if (config === undefined || config === null)
+        return new Range(0, 0, 0, rng);
+    if (typeof config == "number")
+        return new Range(config, config, 1, rng);
+    // @ts-ignore
+    if (config === true || config === false)
+        throw new Error("Invalid random config: " + config);
+    if (Array.isArray(config)) {
+        return new Range(config[0], config[1], config[2], rng);
+    }
+    if (typeof config !== "string") {
+        throw new Error("Calculations must be strings.  Received: " + JSON.stringify(config));
+    }
+    if (config.length == 0)
+        return new Range(0, 0, 0, rng);
+    const RE = /^(?:([+-]?\d*)[Dd](\d+)([+-]?\d*)|([+-]?\d+)-(\d+):?(\d+)?|([+-]?\d+)~(\d+)|([+-]?\d+\.?\d*))/g;
+    let results;
+    while ((results = RE.exec(config)) !== null) {
+        if (results[2]) {
+            let count = Number.parseInt(results[1]) || 1;
+            const sides = Number.parseInt(results[2]);
+            const addend = Number.parseInt(results[3]) || 0;
+            const lower = addend + count;
+            const upper = addend + count * sides;
+            return new Range(lower, upper, count, rng);
+        }
+        else if (results[4] && results[5]) {
+            const min = Number.parseInt(results[4]);
+            const max = Number.parseInt(results[5]);
+            const clumps = Number.parseInt(results[6]);
+            return new Range(min, max, clumps, rng);
+        }
+        else if (results[7] && results[8]) {
+            const base = Number.parseInt(results[7]);
+            const std = Number.parseInt(results[8]);
+            return new Range(base - 2 * std, base + 2 * std, 3, rng);
+        }
+        else if (results[9]) {
+            const v = Number.parseFloat(results[9]);
+            return new Range(v, v, 1, rng);
+        }
+    }
+    throw new Error("Not a valid range - " + config);
+}
+
+var range = {
+    __proto__: null,
+    Range: Range,
+    make: make
+};
+
+const DIRS$1 = DIRS;
+const CDIRS = CLOCK_DIRS;
+function _formatGridValue(v) {
+    if (v === false) {
+        return " ";
+    }
+    else if (v === true) {
+        return "T";
+    }
+    else if (v < 10) {
+        return "" + v;
+    }
+    else if (v < 36) {
+        return String.fromCharCode("a".charCodeAt(0) + v - 10);
+    }
+    else if (v < 62) {
+        return String.fromCharCode("A".charCodeAt(0) + v - 10 - 26);
+    }
+    else if (typeof v === "string") {
+        return v[0];
+    }
+    else {
+        return "#";
+    }
+}
+class Grid extends Array {
+    constructor(w, h, v) {
+        super(w);
+        for (let x = 0; x < w; ++x) {
+            if (typeof v === "function") {
+                this[x] = new Array(h)
+                    .fill(0)
+                    .map((_, i) => v(x, i));
+            }
+            else {
+                this[x] = new Array(h).fill(v);
+            }
+        }
+        this._width = w;
+        this._height = h;
+        // @ts-ignore
+        this.type = v.constructor.name;
+    }
+    get width() {
+        return this._width;
+    }
+    get height() {
+        return this._height;
+    }
+    resize(width, height, v) {
+        const fn = typeof v === "function" ? v : () => v;
+        while (this.length < width)
+            this.push([]);
+        let x = 0;
+        let y = 0;
+        for (x = 0; x < width; ++x) {
+            const col = this[x];
+            for (y = 0; y < Math.min(height, col.length); ++y) {
+                col[y] = fn(x, y);
+            }
+            while (col.length < height) {
+                col.push(fn(x, col.length));
+            }
+        }
+        this._width = width;
+        this._height = height;
+        if (this.x !== undefined) {
+            this.x = undefined;
+            this.y = undefined;
+        }
+    }
+    // @ts-ignore
+    forEach(fn) {
+        let i, j;
+        for (i = 0; i < this.width; i++) {
+            for (j = 0; j < this.height; j++) {
+                fn(this[i][j], i, j, this);
+            }
+        }
+    }
+    eachNeighbor(x, y, fn, only4dirs = false) {
+        const maxIndex = only4dirs ? 4 : 8;
+        for (let d = 0; d < maxIndex; ++d) {
+            const dir = DIRS$1[d];
+            const i = x + dir[0];
+            const j = y + dir[1];
+            if (this.hasXY(i, j)) {
+                fn(this[i][j], i, j, this);
+            }
+        }
+    }
+    forRect(x, y, w, h, fn) {
+        w = Math.min(this.width - x, w);
+        h = Math.min(this.height - y, h);
+        for (let i = x; i < x + w; ++i) {
+            for (let j = y; j < y + h; ++j) {
+                fn(this[i][j], i, j, this);
+            }
+        }
+    }
+    // @ts-ignore
+    map(fn) {
+        return super.map((col, x) => {
+            return col.map((v, y) => fn(v, x, y, this));
+        });
+    }
+    forCircle(x, y, radius, fn) {
+        let i, j;
+        for (i = Math.max(0, x - radius - 1); i < Math.min(this.width, x + radius + 1); i++) {
+            for (j = Math.max(0, y - radius - 1); j < Math.min(this.height, y + radius + 1); j++) {
+                if (this.hasXY(i, j) &&
+                    (i - x) * (i - x) + (j - y) * (j - y) < radius * radius + radius) {
+                    // + radius softens the circle
+                    fn(this[i][j], i, j, this);
+                }
+            }
+        }
+    }
+    hasXY(x, y) {
+        return x >= 0 && y >= 0 && x < this.width && y < this.height;
+    }
+    isBoundaryXY(x, y) {
+        return (this.hasXY(x, y) &&
+            (x == 0 || x == this.width - 1 || y == 0 || y == this.height - 1));
+    }
+    calcBounds() {
+        const bounds = { left: this.width, top: this.height, right: 0, bottom: 0 };
+        this.forEach((v, i, j) => {
+            if (!v)
+                return;
+            if (bounds.left > i)
+                bounds.left = i;
+            if (bounds.right < i)
+                bounds.right = i;
+            if (bounds.top > j)
+                bounds.top = j;
+            if (bounds.bottom < j)
+                bounds.bottom = j;
+        });
+        return bounds;
+    }
+    update(fn) {
+        let i, j;
+        for (i = 0; i < this.width; i++) {
+            for (j = 0; j < this.height; j++) {
+                this[i][j] = fn(this[i][j], i, j, this);
+            }
+        }
+    }
+    updateRect(x, y, width, height, fn) {
+        let i, j;
+        for (i = x; i < x + width; i++) {
+            for (j = y; j < y + height; j++) {
+                if (this.hasXY(i, j)) {
+                    this[i][j] = fn(this[i][j], i, j, this);
+                }
+            }
+        }
+    }
+    updateCircle(x, y, radius, fn) {
+        let i, j;
+        for (i = Math.max(0, x - radius - 1); i < Math.min(this.width, x + radius + 1); i++) {
+            for (j = Math.max(0, y - radius - 1); j < Math.min(this.height, y + radius + 1); j++) {
+                if (this.hasXY(i, j) &&
+                    (i - x) * (i - x) + (j - y) * (j - y) < radius * radius + radius) {
+                    // + radius softens the circle
+                    this[i][j] = fn(this[i][j], i, j, this);
+                }
+            }
+        }
+    }
+    // @ts-ignore
+    fill(v) {
+        const fn = typeof v === "function" ? v : () => v;
+        this.update(fn);
+    }
+    fillRect(x, y, w, h, v) {
+        const fn = typeof v === "function" ? v : () => v;
+        this.updateRect(x, y, w, h, fn);
+    }
+    fillCircle(x, y, radius, v) {
+        const fn = typeof v === "function" ? v : () => v;
+        this.updateCircle(x, y, radius, fn);
+    }
+    replace(findValue, replaceValue) {
+        this.update((v) => (v == findValue ? replaceValue : v));
+    }
+    copy(from) {
+        // TODO - check width, height?
+        this.update((_, i, j) => from[i][j]);
+    }
+    count(match) {
+        const fn = typeof match === "function"
+            ? match
+            : (v) => v == match;
+        let count = 0;
+        this.forEach((v, i, j) => {
+            if (fn(v, i, j, this))
+                ++count;
+        });
+        return count;
+    }
+    dump(fmtFn) {
+        this.dumpRect(0, 0, this.width, this.height, fmtFn);
+    }
+    dumpRect(left, top, width, height, fmtFn) {
+        let i, j;
+        fmtFn = fmtFn || _formatGridValue;
+        left = clamp(left, 0, this.width - 2);
+        top = clamp(top, 0, this.height - 2);
+        const right = clamp(left + width, 1, this.width - 1);
+        const bottom = clamp(top + height, 1, this.height - 1);
+        let output = [];
+        for (j = top; j <= bottom; j++) {
+            let line = ("" + j + "]").padStart(3, " ");
+            for (i = left; i <= right; i++) {
+                if (i % 10 == 0) {
+                    line += " ";
+                }
+                const v = this[i][j];
+                line += fmtFn(v, i, j)[0];
+            }
+            output.push(line);
+        }
+        console.log(output.join("\n"));
+    }
+    dumpAround(x, y, radius) {
+        this.dumpRect(x - radius, y - radius, 2 * radius, 2 * radius);
+    }
+    closestMatchingLoc(x, y, fn) {
+        let bestLoc = [-1, -1];
+        let bestDistance = this.width + this.height;
+        this.forEach((v, i, j) => {
+            if (fn(v, i, j, this)) {
+                const dist = distanceBetween(x, y, i, j);
+                if (dist < bestDistance) {
+                    bestLoc[0] = i;
+                    bestLoc[1] = j;
+                    bestDistance = dist;
+                }
+                else if (dist == bestDistance && random.chance(50)) {
+                    bestLoc[0] = i;
+                    bestLoc[1] = j;
+                }
+            }
+        });
+        return bestLoc;
+    }
+    firstMatchingLoc(v) {
+        const fn = typeof v === "function" ? v : (val) => val == v;
+        for (let i = 0; i < this.width; ++i) {
+            for (let j = 0; j < this.height; ++j) {
+                if (fn(this[i][j], i, j, this)) {
+                    return [i, j];
+                }
+            }
+        }
+        return [-1, -1];
+    }
+    randomMatchingLoc(v, deterministic = false) {
+        let locationCount = 0;
+        let i, j, index;
+        const fn = typeof v === "function" ? v : (val) => val == v;
+        locationCount = 0;
+        this.forEach((v, i, j) => {
+            if (fn(v, i, j, this)) {
+                locationCount++;
+            }
+        });
+        if (locationCount == 0) {
+            return [-1, -1];
+        }
+        else if (deterministic) {
+            index = Math.floor(locationCount / 2);
+        }
+        else {
+            index = random.range(0, locationCount - 1);
+        }
+        for (i = 0; i < this.width && index >= 0; i++) {
+            for (j = 0; j < this.height && index >= 0; j++) {
+                if (fn(this[i][j], i, j, this)) {
+                    if (index == 0) {
+                        return [i, j];
+                    }
+                    index--;
+                }
+            }
+        }
+        return [-1, -1];
+    }
+    matchingLocNear(x, y, v, deterministic = false) {
+        let loc = [-1, -1];
+        let i, j, k, candidateLocs, randIndex;
+        const fn = typeof v === "function" ? v : (val) => val == v;
+        candidateLocs = 0;
+        // count up the number of candidate locations
+        for (k = 0; k < Math.max(this.width, this.height) && !candidateLocs; k++) {
+            for (i = x - k; i <= x + k; i++) {
+                for (j = y - k; j <= y + k; j++) {
+                    if (this.hasXY(i, j) &&
+                        (i == x - k || i == x + k || j == y - k || j == y + k) &&
+                        fn(this[i][j], i, j, this)) {
+                        candidateLocs++;
+                    }
+                }
+            }
+        }
+        if (candidateLocs == 0) {
+            return [-1, -1];
+        }
+        // and pick one
+        if (deterministic) {
+            randIndex = 1 + Math.floor(candidateLocs / 2);
+        }
+        else {
+            randIndex = 1 + random.number(candidateLocs);
+        }
+        for (k = 0; k < Math.max(this.width, this.height); k++) {
+            for (i = x - k; i <= x + k; i++) {
+                for (j = y - k; j <= y + k; j++) {
+                    if (this.hasXY(i, j) &&
+                        (i == x - k || i == x + k || j == y - k || j == y + k) &&
+                        fn(this[i][j], i, j, this)) {
+                        if (--randIndex == 0) {
+                            loc[0] = i;
+                            loc[1] = j;
+                            return loc;
+                        }
+                    }
+                }
+            }
+        }
+        // brogueAssert(false);
+        return [-1, -1]; // should never reach this point
+    }
+    // Rotates around the cell, counting up the number of distinct strings of neighbors with the same test result in a single revolution.
+    //		Zero means there are no impassable tiles adjacent.
+    //		One means it is adjacent to a wall.
+    //		Two means it is in a hallway or something similar.
+    //		Three means it is the center of a T-intersection or something similar.
+    //		Four means it is in the intersection of two hallways.
+    //		Five or more means there is a bug.
+    arcCount(x, y, testFn) {
+        let arcCount, dir, oldX, oldY, newX, newY;
+        // brogueAssert(grid.hasXY(x, y));
+        testFn = testFn || IDENTITY;
+        arcCount = 0;
+        for (dir = 0; dir < CDIRS.length; dir++) {
+            oldX = x + CDIRS[(dir + 7) % 8][0];
+            oldY = y + CDIRS[(dir + 7) % 8][1];
+            newX = x + CDIRS[dir][0];
+            newY = y + CDIRS[dir][1];
+            // Counts every transition from passable to impassable or vice-versa on the way around the cell:
+            if ((this.hasXY(newX, newY) &&
+                testFn(this[newX][newY], newX, newY, this)) !=
+                (this.hasXY(oldX, oldY) && testFn(this[oldX][oldY], oldX, oldY, this))) {
+                arcCount++;
+            }
+        }
+        return Math.floor(arcCount / 2); // Since we added one when we entered a wall and another when we left.
+    }
+}
+const GRID_CACHE = [];
+class NumGrid extends Grid {
+    static alloc(w, h, v = 0) {
+        let grid = GRID_CACHE.pop();
+        if (!grid) {
+            return new NumGrid(w, h, v);
+        }
+        grid.resize(w, h, v);
+        return grid;
+    }
+    static free(grid) {
+        if (grid) {
+            if (GRID_CACHE.indexOf(grid) >= 0)
+                return;
+            GRID_CACHE.push(grid);
+        }
+    }
+    constructor(w, h, v = 0) {
+        super(w, h, v);
+    }
+    findReplaceRange(findValueMin, findValueMax, fillValue) {
+        this.update((v) => {
+            if (v >= findValueMin && v <= findValueMax) {
+                return fillValue;
+            }
+            return v;
+        });
+    }
+    // Flood-fills the grid from (x, y) along cells that are within the eligible range.
+    // Returns the total count of filled cells.
+    floodFillRange(x, y, eligibleValueMin = 0, eligibleValueMax = 0, fillValue = 0) {
+        let dir;
+        let newX, newY, fillCount = 1;
+        if (fillValue >= eligibleValueMin && fillValue <= eligibleValueMax) {
+            throw new Error("Invalid grid flood fill");
+        }
+        this[x][y] = fillValue;
+        for (dir = 0; dir < 4; dir++) {
+            newX = x + DIRS$1[dir][0];
+            newY = y + DIRS$1[dir][1];
+            if (this.hasXY(newX, newY) &&
+                this[newX][newY] >= eligibleValueMin &&
+                this[newX][newY] <= eligibleValueMax) {
+                fillCount += this.floodFillRange(newX, newY, eligibleValueMin, eligibleValueMax, fillValue);
+            }
+        }
+        return fillCount;
+    }
+    invert() {
+        this.update((v) => (v ? 0 : 1));
+    }
+    closestLocWithValue(x, y, value = 1) {
+        return this.closestMatchingLoc(x, y, (v) => v == value);
+    }
+    // Takes a grid as a mask of valid locations, chooses one randomly and returns it as (x, y).
+    // If there are no valid locations, returns (-1, -1).
+    randomLocWithValue(validValue = 1) {
+        return this.randomMatchingLoc((v) => v == validValue);
+    }
+    getQualifyingLocNear(x, y, deterministic = false) {
+        return this.matchingLocNear(x, y, (v) => !!v, deterministic);
+    }
+    leastPositiveValue() {
+        let least = Number.MAX_SAFE_INTEGER;
+        this.forEach((v) => {
+            if (v > 0 && v < least) {
+                least = v;
+            }
+        });
+        return least;
+    }
+    randomLeastPositiveLoc(deterministic = false) {
+        const targetValue = this.leastPositiveValue();
+        return this.randomMatchingLoc((v) => v == targetValue, deterministic);
+    }
+    // Marks a cell as being a member of blobNumber, then recursively iterates through the rest of the blob
+    floodFill(x, y, matchValue, fillValue) {
+        let dir;
+        let newX, newY, numberOfCells = 1;
+        const matchFn = typeof matchValue == "function"
+            ? matchValue
+            : (v) => v == matchValue;
+        const fillFn = typeof fillValue == "function" ? fillValue : () => fillValue;
+        this[x][y] = fillFn(this[x][y], x, y, this);
+        // Iterate through the four cardinal neighbors.
+        for (dir = 0; dir < 4; dir++) {
+            newX = x + DIRS$1[dir][0];
+            newY = y + DIRS$1[dir][1];
+            if (!this.hasXY(newX, newY)) {
+                continue;
+            }
+            if (matchFn(this[newX][newY], newX, newY, this)) {
+                // If the neighbor is an unmarked region cell,
+                numberOfCells += this.floodFill(newX, newY, matchFn, fillFn); // then recurse.
+            }
+        }
+        return numberOfCells;
+    }
+    _cellularAutomataRound(birthParameters /* char[9] */, survivalParameters /* char[9] */) {
+        let i, j, nbCount, newX, newY;
+        let dir;
+        let buffer2;
+        buffer2 = NumGrid.alloc(this.width, this.height);
+        buffer2.copy(this); // Make a backup of this in buffer2, so that each generation is isolated.
+        let didSomething = false;
+        for (i = 0; i < this.width; i++) {
+            for (j = 0; j < this.height; j++) {
+                nbCount = 0;
+                for (dir = 0; dir < DIRS$1.length; dir++) {
+                    newX = i + DIRS$1[dir][0];
+                    newY = j + DIRS$1[dir][1];
+                    if (this.hasXY(newX, newY) && buffer2[newX][newY]) {
+                        nbCount++;
+                    }
+                }
+                if (!buffer2[i][j] && birthParameters[nbCount] == "t") {
+                    this[i][j] = 1; // birth
+                    didSomething = true;
+                }
+                else if (buffer2[i][j] && survivalParameters[nbCount] == "t") ;
+                else {
+                    this[i][j] = 0; // death
+                    didSomething = true;
+                }
+            }
+        }
+        NumGrid.free(buffer2);
+        return didSomething;
+    }
+    // Loads up **grid with the results of a cellular automata simulation.
+    fillBlob(roundCount, minBlobWidth, minBlobHeight, maxBlobWidth, maxBlobHeight, percentSeeded, birthParameters, survivalParameters) {
+        let i, j, k;
+        let blobNumber, blobSize, topBlobNumber, topBlobSize;
+        let topBlobMinX, topBlobMinY, topBlobMaxX, topBlobMaxY, blobWidth, blobHeight;
+        let foundACellThisLine;
+        if (minBlobWidth >= maxBlobWidth) {
+            minBlobWidth = Math.round(0.75 * maxBlobWidth);
+            maxBlobWidth = Math.round(1.25 * maxBlobWidth);
+        }
+        if (minBlobHeight >= maxBlobHeight) {
+            minBlobHeight = Math.round(0.75 * maxBlobHeight);
+            maxBlobHeight = Math.round(1.25 * maxBlobHeight);
+        }
+        const left = Math.floor((this.width - maxBlobWidth) / 2);
+        const top = Math.floor((this.height - maxBlobHeight) / 2);
+        // Generate blobs until they satisfy the minBlobWidth and minBlobHeight restraints
+        do {
+            // Clear buffer.
+            this.fill(0);
+            // Fill relevant portion with noise based on the percentSeeded argument.
+            for (i = 0; i < maxBlobWidth; i++) {
+                for (j = 0; j < maxBlobHeight; j++) {
+                    this[i + left][j + top] = random.chance(percentSeeded) ? 1 : 0;
+                }
+            }
+            // Some iterations of cellular automata
+            for (k = 0; k < roundCount; k++) {
+                if (!this._cellularAutomataRound(birthParameters, survivalParameters)) {
+                    k = roundCount; // cellularAutomataRound did not make any changes
+                }
+            }
+            // Now to measure the result. These are best-of variables; start them out at worst-case values.
+            topBlobSize = 0;
+            topBlobNumber = 0;
+            topBlobMinX = this.width;
+            topBlobMaxX = 0;
+            topBlobMinY = this.height;
+            topBlobMaxY = 0;
+            // Fill each blob with its own number, starting with 2 (since 1 means floor), and keeping track of the biggest:
+            blobNumber = 2;
+            for (i = 0; i < this.width; i++) {
+                for (j = 0; j < this.height; j++) {
+                    if (this[i][j] == 1) {
+                        // an unmarked blob
+                        // Mark all the cells and returns the total size:
+                        blobSize = this.floodFill(i, j, 1, blobNumber);
+                        if (blobSize > topBlobSize) {
+                            // if this blob is a new record
+                            topBlobSize = blobSize;
+                            topBlobNumber = blobNumber;
+                        }
+                        blobNumber++;
+                    }
+                }
+            }
+            // Figure out the top blob's height and width:
+            // First find the max & min x:
+            for (i = 0; i < this.width; i++) {
+                foundACellThisLine = false;
+                for (j = 0; j < this.height; j++) {
+                    if (this[i][j] == topBlobNumber) {
+                        foundACellThisLine = true;
+                        break;
+                    }
+                }
+                if (foundACellThisLine) {
+                    if (i < topBlobMinX) {
+                        topBlobMinX = i;
+                    }
+                    if (i > topBlobMaxX) {
+                        topBlobMaxX = i;
+                    }
+                }
+            }
+            // Then the max & min y:
+            for (j = 0; j < this.height; j++) {
+                foundACellThisLine = false;
+                for (i = 0; i < this.width; i++) {
+                    if (this[i][j] == topBlobNumber) {
+                        foundACellThisLine = true;
+                        break;
+                    }
+                }
+                if (foundACellThisLine) {
+                    if (j < topBlobMinY) {
+                        topBlobMinY = j;
+                    }
+                    if (j > topBlobMaxY) {
+                        topBlobMaxY = j;
+                    }
+                }
+            }
+            blobWidth = topBlobMaxX - topBlobMinX + 1;
+            blobHeight = topBlobMaxY - topBlobMinY + 1;
+        } while (blobWidth < minBlobWidth ||
+            blobHeight < minBlobHeight ||
+            topBlobNumber == 0);
+        // Replace the winning blob with 1's, and everything else with 0's:
+        for (i = 0; i < this.width; i++) {
+            for (j = 0; j < this.height; j++) {
+                if (this[i][j] == topBlobNumber) {
+                    this[i][j] = 1;
+                }
+                else {
+                    this[i][j] = 0;
+                }
+            }
+        }
+        // Populate the returned variables.
+        return {
+            x: topBlobMinX,
+            y: topBlobMinY,
+            width: blobWidth,
+            height: blobHeight,
+        };
+    }
+}
+// Grid.fillBlob = fillBlob;
+const alloc = NumGrid.alloc.bind(NumGrid);
+const free = NumGrid.free.bind(NumGrid);
+
+// Based on random numbers in umoria
+const RNG_M = 2**31 - 1;
+const RNG_A = 16807;
+const RNG_Q = Math.floor(RNG_M / RNG_A); // m div a 127773L
+const RNG_R = RNG_M % RNG_A;   // m mod a 2836L
+
+function makeRng(seed=0) {
+  let _seed = (seed || Date.now()) % RNG_M;
+  let _v = ((_seed % (RNG_M - 1)) + 1);
+
+  // returns a pseudo-random number from [0, 1)
+  function gwRandom() {
+    const high = Math.floor(_v / RNG_Q);
+    const low = Math.floor(_v % RNG_Q);
+    const test = Math.floor(RNG_A * low - RNG_R * high);
+
+    if (test > 0) {
+        _v = test;
+    } else {
+        _v = (test + RNG_M);
+    }
+    const v = _v - 1;
+    const pct = v/RNG_M;
+    if (pct >= 1.0) throw new Error('Error in gwRandom! pct=' + pct.toFixed(4));
+    else if (pct < 0) throw new Error('Error in gwRandom! pct=' + pct.toFixed(4));
+
+    return pct;
+  }
+  
+  return gwRandom;
+}
+
+Random.configure({ make: makeRng });
+
 var def = {};
 var types = {};
 
 var colors = {};
 var sprites = {};
 
-var make = {};
+var make$1 = {};
 var install = {};
 
 var ui = {};
@@ -116,484 +1459,11 @@ class Bounds {
 
 types.Bounds = Bounds;
 
-function make$1(x, y, w, h) {
+function make$2(x, y, w, h) {
   return new types.Bounds(x, y, w, h);
 }
 
-make.bounds = make$1;
-
-/**
- * GW.utils
- * @module utils
- */
-
-
-var makeDebug = (typeof debug !== 'undefined') ? debug : (() => (() => {}));
-
-function NOOP()  {}
-function TRUE()  { return true; }
-function FALSE() { return false; }
-function ONE() { return 1; }
-function ZERO() { return 0; }
-function IDENTITY(x) { return x; }
-
-/**
- * clamps a value between min and max (inclusive)
- * @param v {Number} the value to clamp
- * @param min {Number} the minimum value
- * @param max {Number} the maximum value
- * @returns {Number} the clamped value
- */
-function clamp(v, min, max) {
-  if (v < min) return min;
-  if (v > max) return max;
-  return v;
-}
-
-function x(src) {
-  return src.x || src[0] || 0;
-}
-
-function y(src) {
-  return src.y || src[1] || 0;
-}
-
-function copyXY(dest, src) {
-  dest.x = x(src);
-  dest.y = y(src);
-}
-
-function addXY(dest, src) {
-  dest.x += x(src);
-  dest.y += y(src);
-}
-
-function equalsXY(dest, src) {
-  return (dest.x == x(src))
-  && (dest.y == y(src));
-}
-
-function lerpXY(a, b, pct) {
-	if (pct > 1) { pct = pct / 100; }
-  pct = clamp(pct, 0, 1);
-  const dx = x(b) - x(a);
-  const dy = y(b) - y(a);
-  const x2 = x(a) + Math.floor(dx * pct);
-  const y2 = y(a) + Math.floor(dy * pct);
-  return [x2, y2];
-}
-
-
-function distanceBetween(x1, y1, x2, y2) {
-  const x = Math.abs(x1 - x2);
-  const y = Math.abs(y1 - y2);
-  const min = Math.min(x, y);
-  return x + y - (0.6 * min);
-}
-
-function distanceFromTo(a, b) {
-  return distanceBetween(x(a), y(a), x(b), y(b));
-}
-
-function calcRadius(x, y) {
-  return distanceBetween(0,0, x, y);
-}
-
-function dirBetween(x, y, toX, toY) {
-	let diffX = toX - x;
-	let diffY = toY - y;
-	if (diffX && diffY) {
-		const absX = Math.abs(diffX);
-		const absY = Math.abs(diffY);
-		if (absX >= 2 * absY) { diffY = 0; }
-		else if (absY >= 2 * absX) { diffX = 0; }
-	}
-	return [Math.sign(diffX), Math.sign(diffY)];
-}
-
-function dirFromTo(a, b) {
-  return dirBetween(x(a), y(a), x(b), y(b));
-}
-
-function dirIndex(dir) {
-  const x = dir.x || dir[0] || 0;
-  const y = dir.y || dir[1] || 0;
-  return def.dirs.findIndex( (a) => a[0] == x && a[1] == y );
-}
-
-function isOppositeDir(a, b) {
-  if (a[0] + b[0] != 0) return false;
-  if (a[1] + b[1] != 0) return false;
-  return true;
-}
-
-function isSameDir(a, b) {
-  return a[0] == b[0] && a[1] == b[1];
-}
-
-function dirSpread(dir) {
-  const result = [dir];
-  if (dir[0] == 0) {
-    result.push( [ 1, dir[1]] );
-    result.push( [-1, dir[1]] );
-  }
-  else if (dir[1] == 0) {
-    result.push( [dir[0], 1] );
-    result.push( [dir[0],-1] );
-  }
-  else {
-    result.push( [dir[0], 0] );
-    result.push( [0, dir[1]] );
-  }
-  return result;
-}
-
-function stepFromTo(a, b, fn) {
-  const diff = [x(b) - x(a), y(b) - y(a)];
-  const steps = Math.abs(diff[0]) + Math.abs(diff[1]);
-  const c = [0, 0];
-  const last = [99999, 99999];
-
-  for(let step = 0; step <= steps; ++step) {
-    c[0] = a[0] + Math.floor(diff[0] * step / steps);
-    c[1] = a[1] + Math.floor(diff[1] * step / steps);
-    if (c[0] != last[0] || c[1] != last[1]) {
-      fn(c[0], c[1]);
-    }
-    last[0] = c[0];
-    last[1] = c[1];
-  }
-}
-
-
-// Draws the smooth gradient that appears on a button when you hover over or depress it.
-// Returns the percentage by which the current tile should be averaged toward a hilite color.
-function smoothHiliteGradient(currentXValue, maxXValue) {
-    return Math.floor(100 * Math.sin(Math.PI * currentXValue / (maxXValue)));
-}
-
-
-
-
-function extend(obj, name, fn) {
-  const base = obj[name] || NOOP;
-  const newFn = fn.bind(obj, base.bind(obj));
-  newFn.fn = fn;
-  newFn.base = base;
-  obj[name] = newFn;
-}
-
-// export function rebase(obj, name, newBase) {
-//   const fns = [];
-//   let fn = obj[name];
-
-//   while(fn && fn.fn) {
-//     fns.push(fn.fn);
-//     fn = fn.base;
-//   }
-
-//   obj[name] = newBase;
-
-//   while(fns.length) {
-//     fn = fns.pop();
-//     extend(obj, name, fn);
-//   }
-// }
-
-function cloneObject(obj) {
-  const other = Object.create(obj.__proto__);
-  assignObject(other, obj);
-  return other;
-}
-
-function assignField(dest, src, key) {
-  const current = dest[key];
-  const updated = src[key];
-  if (current && current.copy && updated) {
-    current.copy(updated);
-  }
-  else if (current && current.clear && !updated) {
-    current.clear();
-  }
-  else if (current && current.nullify && !updated) {
-    current.nullify();
-  }
-  else if (updated && updated.clone) {
-    dest[key] = updated.clone();	// just use same object (shallow copy)
-  }
-  else if (updated && Array.isArray(updated)) {
-    dest[key] = updated.slice();
-  }
-  else if (current && Array.isArray(current)) {
-    current.length = 0;
-  }
-  else {
-    dest[key] = updated;
-  }
-}
-
-function copyObject(dest, src) {
-  Object.keys(dest).forEach( (key) => {
-    assignField(dest, src, key);
-  });
-}
-
-function assignObject(dest, src) {
-  Object.keys(src).forEach( (key) => {
-    assignField(dest, src, key);
-  });
-}
-
-function assignOmitting(omit, dest, src) {
-  if (typeof omit === 'string') {
-    omit = omit.split(/[,|]/g).map( (t) => t.trim() );
-  }
-  Object.keys(src).forEach( (key) => {
-    if (omit.includes(key)) return;
-    assignField(dest, src, key);
-  });
-}
-
-function setDefault(obj, field, val) {
-  if (obj[field] === undefined) {
-    obj[field] = val;
-  }
-}
-
-function setDefaults(obj, def, custom=null) {
-  let dest;
-  Object.keys(def).forEach( (key) => {
-    const origKey = key;
-    let defValue = def[key];
-    dest = obj;
-
-    // allow for => 'stats.health': 100
-    const parts = key.split('.');
-    while (parts.length > 1) {
-      key = parts.shift();
-      if (dest[key] === undefined) {
-        dest = dest[key] = {};
-      }
-      else if (typeof dest[key] !== 'object') {
-        ERROR('Trying to set default member on non-object config item: ' + origKey);
-      }
-      else {
-        dest = dest[key];
-      }
-    }
-
-    key = parts.shift();
-    let current = dest[key];
-
-    // console.log('def - ', key, current, defValue, obj, dest);
-
-    if (custom && custom(dest, key, current, defValue)) ;
-    else if (current === undefined) {
-      if (defValue === null) {
-        dest[key] = null;
-      }
-      else if (Array.isArray(defValue)) {
-        dest[key] = defValue.slice();
-      }
-      else if (typeof defValue === 'object') {
-        dest[key] = defValue; // Object.assign({}, defValue); -- this breaks assigning a Color object as a default...
-      }
-      else {
-        dest[key] = defValue;
-      }
-    }
-  });
-}
-
-function kindDefaults(obj, def) {
-
-  function custom(dest, key, current, defValue) {
-    if (key.search(/[fF]lags$/) < 0) return false;
-
-    if (!current) {
-      current = [];
-    }
-    else if (typeof current == 'string') {
-      current = current.split(/[,|]/).map( (t) => t.trim() );
-    }
-    else if (!Array.isArray(current)) {
-      current = [current];
-    }
-
-    if (typeof defValue === 'string') {
-      defValue = defValue.split(/[,|]/).map( (t) => t.trim() );
-    }
-    else if (!Array.isArray(defValue)) {
-      defValue = [defValue];
-    }
-
-    // console.log('flags', key, defValue, current);
-
-    dest[key] = defValue.concat(current);
-    return true;
-  }
-
-  return setDefaults(obj, def, custom);
-}
-
-function pick(obj, ...fields) {
-  const data = {};
-  fields.forEach( (f) => {
-    const v = obj[f];
-    if (v !== undefined) {
-      data[f] = v;
-    }
-  });
-  return data;
-}
-
-function clearObject(obj) {
-  Object.keys(obj).forEach( (key) => obj[key] = undefined );
-}
-
-function ERROR(message) {
-  throw new Error(message);
-}
-
-function WARN(...args) {
-  console.warn(...args);
-}
-
-function getOpt(obj, member, _default) {
-  const v = obj[member];
-  if (v === undefined) return _default;
-  return v;
-}
-
-function firstOpt(field, ...args) {
-  for(let arg of args) {
-    if (typeof arg !== 'object' || Array.isArray(arg)) {
-      return arg;
-    }
-    if (arg[field] !== undefined) {
-      return arg[field];
-    }
-  }
-  return undefined;
-}
-
-function arraysIntersect(a, b) {
-  return a.some( (av) => b.includes(av) );
-}
-
-function sum(arr) {
-  return arr.reduce( (a, b) => a + b );
-}
-
-// CHAIN
-
-function chainLength(item) {
-  let count = 0;
-  while(item) {
-    count += 1;
-    item = item.next;
-  }
-  return count;
-}
-
-function chainIncludes(chain, entry) {
-  while (chain && chain !== entry) {
-    chain = chain.next;
-  }
-  return (chain === entry);
-}
-
-function eachChain(item, fn) {
-  let index = 0;
-  while(item) {
-    const next = item.next;
-    fn(item, index++);
-    item = next;
-  }
-  return index; // really count
-}
-
-function addToChain(obj, name, entry) {
-  entry.next = obj[name] || null;
-  obj[name] = entry;
-  return true;
-}
-
-function removeFromChain(obj, name, entry) {
-  const root = obj[name];
-  if (root === entry) {
-    obj[name] = entry.next || null;
-    entry.next = null;
-    return true;
-  }
-  else if (!root) {
-    return false;
-  }
-  else {
-    let prev = root;
-    let current = prev.next;
-    while(current && current !== entry) {
-      prev = current;
-      current = prev.next;
-    }
-    if (current === entry) {
-      prev.next = current.next || null;
-      entry.next = null;
-      return true;
-    }
-  }
-  return false;
-}
-
-var utils$1 = {
-  __proto__: null,
-  makeDebug: makeDebug,
-  NOOP: NOOP,
-  TRUE: TRUE,
-  FALSE: FALSE,
-  ONE: ONE,
-  ZERO: ZERO,
-  IDENTITY: IDENTITY,
-  clamp: clamp,
-  x: x,
-  y: y,
-  copyXY: copyXY,
-  addXY: addXY,
-  equalsXY: equalsXY,
-  lerpXY: lerpXY,
-  distanceBetween: distanceBetween,
-  distanceFromTo: distanceFromTo,
-  calcRadius: calcRadius,
-  dirBetween: dirBetween,
-  dirFromTo: dirFromTo,
-  dirIndex: dirIndex,
-  isOppositeDir: isOppositeDir,
-  isSameDir: isSameDir,
-  dirSpread: dirSpread,
-  stepFromTo: stepFromTo,
-  smoothHiliteGradient: smoothHiliteGradient,
-  extend: extend,
-  cloneObject: cloneObject,
-  copyObject: copyObject,
-  assignObject: assignObject,
-  assignOmitting: assignOmitting,
-  setDefault: setDefault,
-  setDefaults: setDefaults,
-  kindDefaults: kindDefaults,
-  pick: pick,
-  clearObject: clearObject,
-  ERROR: ERROR,
-  WARN: WARN,
-  getOpt: getOpt,
-  firstOpt: firstOpt,
-  arraysIntersect: arraysIntersect,
-  sum: sum,
-  chainLength: chainLength,
-  chainIncludes: chainIncludes,
-  eachChain: eachChain,
-  addToChain: addToChain,
-  removeFromChain: removeFromChain
-};
+make$1.bounds = make$2;
 
 var EVENTS = {};
 
@@ -644,7 +1514,7 @@ function addListener(event, fn, context, once) {
   }
 
   const listener = new Listener(fn, context || null, once);
-  addToChain(EVENTS, event, listener);
+  utils$1.addToChain(EVENTS, event, listener);
   return listener;
 }
 
@@ -690,9 +1560,9 @@ function removeListener(event, fn, context, once) {
     return;
   }
 
-  eachChain(EVENTS[event], (l) => {
+  utils$1.eachChain(EVENTS[event], (l) => {
     if (l.matches(fn, context, once)) {
-      removeFromChain(EVENTS, event, l);
+      utils$1.removeFromChain(EVENTS, event, l);
     }
   });
 }
@@ -750,7 +1620,7 @@ async function emit(...args) {
 
   while(listener) {
     let next = listener.next;
-    if (listener.once) removeFromChain(EVENTS, event, listener);
+    if (listener.once) utils$1.removeFromChain(EVENTS, event, listener);
     await listener.fn.apply(listener.context, args);
     listener = next;
   }
@@ -857,10 +1727,10 @@ function makeFlag(values) {
   return flag;
 }
 
-make.flag = makeFlag;
+make$1.flag = makeFlag;
 
 function installFlag(flagName, values) {
-  const flag = make.flag(values);
+  const flag = make$1.flag(values);
   flags[flagName] = flag;
   return flag;
 }
@@ -1351,321 +2221,6 @@ const Map = installFlag('map', {
   MAP_DEFAULT: 'MAP_STABLE_LIGHTS, MAP_STABLE_GLOW_LIGHTS, MAP_FOV_CHANGED',
 });
 
-// Based on random numbers in umoria
-const RNG_M = 2**31 - 1;
-const RNG_A = 16807;
-const RNG_Q = Math.floor(RNG_M / RNG_A); // m div a 127773L
-const RNG_R = RNG_M % RNG_A;   // m mod a 2836L
-
-
-
-function lotteryDrawArray(rand, frequencies) {
-    let i, maxFreq, randIndex;
-    maxFreq = 0;
-    for (i = 0; i < frequencies.length; i++) {
-        maxFreq += frequencies[i];
-    }
-		if (maxFreq <= 0) {
-			// WARN('Lottery Draw - no frequencies', frequencies, frequencies.length);
-			return -1;
-		}
-
-    randIndex = rand.range(0, maxFreq - 1);
-    for (i = 0; i < frequencies.length; i++) {
-      if (frequencies[i] > randIndex) {
-          return i;
-      } else {
-          randIndex -= frequencies[i];
-      }
-    }
-    WARN('Lottery Draw failed.', frequencies, frequencies.length);
-    return 0;
-}
-
-function lotteryDrawObject(rand, weights) {
-  const entries = Object.entries(weights);
-
-  const frequencies = entries.map( ([key, weight]) => weight );
-  const index = lotteryDrawArray(rand, frequencies);
-  return entries[index][0];
-}
-
-
-
-class Random {
-  constructor(seed) {
-    this.debug = NOOP;
-    this.seed(seed);
-  }
-
-  // seeds with the time if called with a parameter of 0; returns the seed regardless.
-  // All RNGs are seeded simultaneously and identically.
-  seed(seed) {
-    if (!seed) {
-      return this._seed;
-    }
-    this._seed = (seed || Date.now()) % RNG_M;
-    this._v = ((this._seed % (RNG_M - 1)) + 1);
-		this.count = 0;
-
-    this.debug('seed', this._seed);
-  	return this._seed;
-  }
-
-  // returns a pseudo-random number from set 0, 1, 2, ..., RNG_M - 2
-  number(max) {
-    if (max==1) return 0;
-
-		++this.count;
-    const high = Math.floor(this._v / RNG_Q);
-    const low = Math.floor(this._v % RNG_Q);
-    const test = Math.floor(RNG_A * low - RNG_R * high);
-
-    if (test > 0) {
-        this._v = test;
-    } else {
-        this._v = (test + RNG_M);
-    }
-    const v = this._v - 1;
-    const result = max ? (v % max) : v;
-    this.debug(result);
-    return result;
-  }
-
-  int(n) {
-    return this.number(n);
-  }
-
-  float() {
-    return this.value();
-  }
-
-  value() {
-    return (this.number() / (RNG_M - 1));
-  }
-
-  range(lo, hi) {
-    if (hi <= lo) return hi;
-  	const diff = (hi - lo) + 1;
-  	return lo + (this.number(diff));
-  }
-
-  dice(count, sides, addend) {
-  	let total = 0;
-  	let mult = 1;
-  	if (count < 0) {
-  		count = -count;
-  		mult = -1;
-  	}
-    addend = addend || 0;
-  	for(let i = 0; i < count; ++i) {
-  		total += this.range(1, sides);
-  	}
-  	total *= mult;
-  	return total + addend;
-  }
-
-
-  lottery(weights) {
-    return this.weighted(weights);
-  }
-
-  weighted(weights) {
-    if (Array.isArray(weights)) {
-      return lotteryDrawArray(this, weights);
-    }
-    return lotteryDrawObject(this, weights);
-  }
-
-  index(weights) {
-    return lotteryDrawArray(this, weights);
-  }
-
-
-  // Get a random int between lo and hi, inclusive, with probability distribution
-  // affected by clumps.
-  clumped(lo, hi, clumps) {
-  	if (hi <= lo) {
-  		return lo;
-  	}
-  	if (clumps <= 1) {
-  		return this.range(lo, hi);
-  	}
-
-  	let i, total = 0, numSides = Math.floor((hi - lo) / clumps);
-
-  	for(i=0; i < (hi - lo) % clumps; i++) {
-  		total += this.range(0, numSides + 1);
-  	}
-
-  	for(; i< clumps; i++) {
-  		total += this.range(0, numSides);
-  	}
-
-  	return (total + lo);
-  }
-
-  chance(percent, outOf=100) {
-    if (percent <= 0) return false;
-    if (percent >= outOf) return true;
-  	return (this.range(0, outOf-1) < percent);
-  }
-
-  item(list) {
-    if (!Array.isArray(list)) {
-      list = Object.values(list);
-    }
-    return list[this.range(0, list.length - 1)];
-  }
-
-  key(obj) {
-    return this.item(Object.keys(obj));
-  }
-
-  shuffle(list, fromIndex, toIndex) {
-  	if (arguments.length == 2) {
-  		toIndex = fromIndex;
-  		fromIndex = 0;
-  	}
-
-  	let i, r, buf;
-  	toIndex = toIndex || list.length;
-  	fromIndex = fromIndex || 0;
-
-  	for (i = fromIndex; i < toIndex; i++) {
-  		r = this.range(fromIndex, toIndex-1);
-  		if (i != r) {
-  			buf = list[r];
-  			list[r] = list[i];
-  			list[i] = buf;
-  		}
-  	}
-    return list;
-  }
-
-  sequence(n) {
-    const list = [];
-    for (let i=0; i<n; i++) {
-      list[i] = i;
-    }
-    return this.shuffle(list);
-  }
-}
-
-Random.MAX = RNG_M;
-
-types.Random = Random;
-
-
-var RANDOM_SEED = Date.now();
-
-function makeRng(seed) {
-  return new types.Random(seed);
-}
-
-make.rng = makeRng;
-
-var random = new Random(RANDOM_SEED);
-var cosmetic = new Random(RANDOM_SEED);
-
-
-
-
-class Range {
-	constructor(lower, upper, clump, rng) {
-    this.rng = rng || random;
-		if (arguments.length == 1) {
-			if (Array.isArray(lower)) {
-				clump = lower[2];
-				upper = lower[1];
-				lower = lower[0];
-			}
-			else if (typeof lower !== 'number') {
-				clump = lower.clumps;
-				upper = lower.hi;
-				lower = lower.lo || lower;
-			}
-		}
-
-		this.lo = lower || 0;
-		this.hi = upper || this.lo;
-		this.clumps = clump || 1;
-	}
-
-  value() {
-    return this.rng.clumped(this.lo, this.hi, this.clumps);
-  }
-
-  toString() {
-    if (this.lo >= this.hi) {
-      return '' + this.lo;
-    }
-    return `${this.lo}-${this.hi}`;
-  }
-}
-
-types.Range = Range;
-
-
-function makeRange(config, rng) {
-
-  if (!config) return new Range(0, 0, 0, rng);
-  if (config instanceof Range) return config; // you can supply a custom range object
-  if (config.value) return config;  // calc or damage
-
-  if (typeof config == 'function') ERROR('Custom range functions not supported - extend Range');
-
-  if (config === undefined || config === null) return new Range(0, 0, 0, rng);
-  if (typeof config == 'number') return new Range(config, config, 1, rng);
-
-  if (config === true || config === false) ERROR('Invalid random config: ' + config);
-
-  if (Array.isArray(config)) {
-		return new Range(config[0], config[1], config[2], rng);
-	}
-  if (config.lo !== undefined) {
-    return new Range(config.lo, config.hi, config.clumps, rng);
-  }
-  if (typeof config !== 'string') {
-    ERROR('Calculations must be strings.  Received: ' + JSON.stringify(config));
-  }
-  if (config.length == 0) return new Range(0);
-
-	const RE = /^(?:([+-]?\d*)[Dd](\d+)([+-]?\d*)|([+-]?\d+)-(\d+):?(\d+)?|([+-]?\d+)~(\d+)|([+-]?\d+\.?\d*))/g;
-  let results;
-  while ((results = RE.exec(config)) !== null) {
-    if (results[2]) {
-      let count = Number.parseInt(results[1]) || 1;
-      const sides = Number.parseInt(results[2]);
-      const addend = Number.parseInt(results[3]) || 0;
-
-      const lower = addend + count;
-      const upper = addend + (count * sides);
-
-      return new Range(lower, upper, count, rng);
-    }
-    else if (results[4] && results[5]) {
-      const min = Number.parseInt(results[4]);
-      const max = Number.parseInt(results[5]);
-      const clumps = Number.parseInt(results[6]);
-      return new Range(min, max, clumps, rng);
-    }
-    else if (results[7] && results[8]) {
-      const base = Number.parseInt(results[7]);
-      const std = Number.parseInt(results[8]);
-      return new Range(base - 2*std, base + 2*std, 3, rng);
-    }
-		else if (results[9]) {
-      const v = Number.parseFloat(results[9]);
-      return new Range(v, v, 1, rng);
-    }
-  }
-
-  return null;  // This is not a valid range
-}
-
-make.range = makeRange;
-
 // Copy of: https://github.com/ondras/fastiles/blob/master/ts/utils.ts (v2.1.0)
 const QUAD = [
     0, 0, 1, 0, 0, 1,
@@ -2064,11 +2619,10 @@ class Canvas2D extends BaseCanvas {
         // this._ctx.drawImage(this.glyphs.node, gx, gy, this.tileWidth, this.tileHeight, px, py, this.tileWidth, this.tileHeight);
         const d = this.glyphs.ctx.getImageData(gx, gy, this.tileWidth, this.tileHeight);
         for (let di = 0; di < d.width * d.height; ++di) {
-            const pct = d.data[di * 4] / 255;
-            const inv = 1.0 - pct;
-            d.data[di * 4 + 0] = pct * (((fg & 0xF00) >> 8) * 17) + inv * (((bg & 0xF00) >> 8) * 17);
-            d.data[di * 4 + 1] = pct * (((fg & 0xF0) >> 4) * 17) + inv * (((bg & 0xF0) >> 4) * 17);
-            d.data[di * 4 + 2] = pct * ((fg & 0xF) * 17) + inv * ((bg & 0xF) * 17);
+            const src = (d.data[di * 4] > 127) ? fg : bg;
+            d.data[di * 4 + 0] = ((src & 0xF00) >> 8) * 17;
+            d.data[di * 4 + 1] = ((src & 0xF0) >> 4) * 17;
+            d.data[di * 4 + 2] = (src & 0xF) * 17;
             d.data[di * 4 + 3] = 255; // not transparent anymore
         }
         this._ctx.putImageData(d, px, py);
@@ -2856,7 +3410,7 @@ const separate = Color$1.separate.bind(Color$1);
 types.Color = Color$1;
 
 
-function make$2(...args) {
+function make$3(...args) {
   if (args.length == 0) return new Color$1(0,0,0);
   if (args.length == 1 && typeof args[0] === 'string') {
     const color = colors[args[0]];
@@ -2868,7 +3422,7 @@ function make$2(...args) {
   return Color$1.make(...args);
 }
 
-make.color = make$2;
+make$1.color = make$3;
 
 
 
@@ -2890,7 +3444,7 @@ function addKind(name, ...args) {
     color = args[0];
   }
   else {
-    color = make$2(...args);
+    color = make$3(...args);
   }
 	colors[name] = color;
   color.id = name;
@@ -2960,15 +3514,15 @@ addSpread('silver',      75,   75,   75);
 addSpread('gold',        100,  85,   0);
 
 var color = {
-  __proto__: null,
-  Color: Color$1,
-  separate: separate,
-  make: make$2,
-  from: from,
-  addKind: addKind,
-  swap: swap,
-  diff: diff,
-  addSpread: addSpread
+    __proto__: null,
+    Color: Color$1,
+    separate: separate,
+    make: make$3,
+    from: from,
+    addKind: addKind,
+    swap: swap,
+    diff: diff,
+    addSpread: addSpread
 };
 
 var options$1 = {
@@ -3654,25 +4208,25 @@ addHelper('eachColor', (ctx) => {
 });
 
 var text = {
-  __proto__: null,
-  playerPronoun: playerPronoun,
-  singularPronoun: singularPronoun,
-  pluralPronoun: pluralPronoun,
-  isVowel: isVowel,
-  toSingularVerb: toSingularVerb,
-  toPluralVerb: toPluralVerb,
-  toPluralNoun: toPluralNoun,
-  spliceRaw: spliceRaw,
-  splitIntoLines: splitIntoLines,
-  apply: apply,
-  firstChar: firstChar,
-  eachChar: eachChar,
-  length: length,
-  center: center,
-  capitalize: capitalize,
-  removeColors: removeColors,
-  wordWrap: wordWrap,
-  compile: compile
+    __proto__: null,
+    playerPronoun: playerPronoun,
+    singularPronoun: singularPronoun,
+    pluralPronoun: pluralPronoun,
+    isVowel: isVowel,
+    toSingularVerb: toSingularVerb,
+    toPluralVerb: toPluralVerb,
+    toPluralNoun: toPluralNoun,
+    spliceRaw: spliceRaw,
+    splitIntoLines: splitIntoLines,
+    apply: apply,
+    firstChar: firstChar,
+    eachChar: eachChar,
+    length: length,
+    center: center,
+    capitalize: capitalize,
+    removeColors: removeColors,
+    wordWrap: wordWrap,
+    compile: compile
 };
 
 const TEMP_BG = new types.Color();
@@ -3762,25 +4316,25 @@ function makeSprite(ch, fg, bg, opacity) {
   return { ch, fg, bg, opacity };
 }
 
-make.sprite = makeSprite;
+make$1.sprite = makeSprite;
 
 function install$1(name, ch, fg, bg, opacity) {
-	const sprite = make.sprite(ch, fg, bg, opacity);
+	const sprite = make$1.sprite(ch, fg, bg, opacity);
 	sprites[name] = sprite;
 	return sprite;
 }
 
 var sprite = {
-  __proto__: null,
-  Sprite: Sprite,
-  makeSprite: makeSprite,
-  install: install$1
+    __proto__: null,
+    Sprite: Sprite,
+    makeSprite: makeSprite,
+    install: install$1
 };
 
-const GRID_CACHE = [];
+const GRID_CACHE$1 = [];
 
-const DIRS = def.dirs;
-const CDIRS = def.clockDirs;
+const DIRS$2 = def.dirs;
+const CDIRS$1 = def.clockDirs;
 
 // var GRID = {};
 // export { GRID as grid };
@@ -3795,10 +4349,10 @@ function makeArray(l, fn) {
 	return arr;
 }
 
-make.array = makeArray;
+make$1.array = makeArray;
 
 
-class Grid extends Array {
+class Grid$1 extends Array {
 	constructor(w, h, v) {
 		v = v || 0;
 		const fn = (typeof v === 'function') ? v : (() => v);
@@ -3821,7 +4375,7 @@ class Grid extends Array {
 	eachNeighbor(x, y, fn, only4dirs) {
 		const maxIndex = only4dirs ? 4 : 8;
 		for(let d = 0; d < maxIndex; ++d) {
-			const dir = DIRS[d];
+			const dir = DIRS$2[d];
 			const i = x + dir[0];
 			const j = y + dir[1];
 			if (this.hasXY(i, j)) {
@@ -3954,7 +4508,7 @@ class Grid extends Array {
 
 		this.forEach( (v, i, j) => {
 			if (fn(v, i, j, this)) {
-				const dist = distanceBetween(x, y, i, j);
+				const dist = utils$1.distanceBetween(x, y, i, j);
 				if (dist < bestDistance) {
 					bestLoc[0] = i;
 					bestLoc[1] = j;
@@ -4086,14 +4640,14 @@ class Grid extends Array {
 
 	  // brogueAssert(grid.hasXY(x, y));
 
-		testFn = testFn || IDENTITY;
+		testFn = testFn || utils$1.IDENTITY;
 
 		arcCount = 0;
-		for (dir = 0; dir < CDIRS.length; dir++) {
-			oldX = x + CDIRS[(dir + 7) % 8][0];
-			oldY = y + CDIRS[(dir + 7) % 8][1];
-			newX = x + CDIRS[dir][0];
-			newY = y + CDIRS[dir][1];
+		for (dir = 0; dir < CDIRS$1.length; dir++) {
+			oldX = x + CDIRS$1[(dir + 7) % 8][0];
+			oldY = y + CDIRS$1[(dir + 7) % 8][1];
+			newX = x + CDIRS$1[dir][0];
+			newY = y + CDIRS$1[dir][1];
 			// Counts every transition from passable to impassable or vice-versa on the way around the cell:
 			if ((this.hasXY(newX, newY) && testFn(this[newX][newY], newX, newY, this))
 				!= (this.hasXY(oldX, oldY) && testFn(this[oldX][oldY], oldX, oldY, this)))
@@ -4106,26 +4660,26 @@ class Grid extends Array {
 
 }
 
-types.Grid = Grid;
+types.Grid = Grid$1;
 
 
-function make$3(w, h, v) {
+function make$4(w, h, v) {
 	return new types.Grid(w, h, v);
 }
 
-make.grid = make$3;
+make$1.grid = make$4;
 
 
 // mallocing two-dimensional arrays! dun dun DUN!
-function alloc(w, h, v) {
+function alloc$1(w, h, v) {
 
 	w = w || (data.map ? data.map.width : 100);
 	h = h || (data.map ? data.map.height : 34);
 	v = v || 0;
 
-	let grid = GRID_CACHE.pop();
+	let grid = GRID_CACHE$1.pop();
   if (!grid) {
-    return make$3(w, h, v);
+    return make$4(w, h, v);
   }
   return resizeAndClearGrid(grid, w, h, v);
 }
@@ -4133,9 +4687,9 @@ function alloc(w, h, v) {
 // Grid.alloc = alloc;
 
 
-function free(grid) {
+function free$1(grid) {
 	if (grid) {
-		GRID_CACHE.push(grid);
+		GRID_CACHE$1.push(grid);
 	}
 }
 
@@ -4143,7 +4697,7 @@ function free(grid) {
 
 
 function resizeAndClearGrid(grid, width, height, value=0) {
-	if (!grid) return alloc(width, height, () => value());
+	if (!grid) return alloc$1(width, height, () => value());
 
 	const fn = (typeof value === 'function') ? value : (() => value);
 
@@ -4202,7 +4756,7 @@ function dump(grid, fmtFn) {
 // Grid.dump = dump;
 
 
-function _formatGridValue(v) {
+function _formatGridValue$1(v) {
 	if (v === false) {
 		return ' ';
 	}
@@ -4229,12 +4783,12 @@ function _formatGridValue(v) {
 function dumpRect(grid, left, top, width, height, fmtFn) {
 	let i, j;
 
-	fmtFn = fmtFn || _formatGridValue;
+	fmtFn = fmtFn || _formatGridValue$1;
 
-	left = clamp(left, 0, grid.width - 2);
-	top = clamp(top, 0, grid.height - 2);
-	const right = clamp(left + width, 1, grid.width - 1);
-	const bottom = clamp(top + height, 1, grid.height - 1);
+	left = utils$1.clamp(left, 0, grid.width - 2);
+	top = utils$1.clamp(top, 0, grid.height - 2);
+	const right = utils$1.clamp(left + width, 1, grid.width - 1);
+	const bottom = utils$1.clamp(top + height, 1, grid.height - 1);
 
 	let output = [];
 
@@ -4286,13 +4840,13 @@ function floodFillRange(grid, x, y, eligibleValueMin, eligibleValueMax, fillValu
 	let newX, newY, fillCount = 1;
 
   if (fillValue >= eligibleValueMin && fillValue <= eligibleValueMax) {
-		ERROR('Invalid grid flood fill');
+		utils$1.ERROR('Invalid grid flood fill');
 	}
 
   grid[x][y] = fillValue;
   for (dir = 0; dir < 4; dir++) {
-      newX = x + DIRS[dir][0];
-      newY = y + DIRS[dir][1];
+      newX = x + DIRS$2[dir][0];
+      newY = y + DIRS$2[dir][1];
       if (grid.hasXY(newX, newY)
           && grid[newX][newY] >= eligibleValueMin
           && grid[newX][newY] <= eligibleValueMax)
@@ -4388,8 +4942,8 @@ function floodFill(grid, x, y, matchValue, fillValue) {
 
 	// Iterate through the four cardinal neighbors.
 	for (dir=0; dir<4; dir++) {
-		newX = x + DIRS[dir][0];
-		newY = y + DIRS[dir][1];
+		newX = x + DIRS$2[dir][0];
+		newY = y + DIRS$2[dir][1];
 		if (!grid.hasXY(newX, newY)) {
 			continue;
 		}
@@ -4430,10 +4984,10 @@ function directionOfDoorSite(grid, x, y, isOpen=1) {
 
     solutionDir = def.NO_DIRECTION;
     for (dir=0; dir<4; dir++) {
-        newX = x + DIRS[dir][0];
-        newY = y + DIRS[dir][1];
-        oppX = x - DIRS[dir][0];
-        oppY = y - DIRS[dir][1];
+        newX = x + DIRS$2[dir][0];
+        newY = y + DIRS$2[dir][1];
+        oppX = x - DIRS$2[dir][0];
+        oppY = y - DIRS$2[dir][1];
         if (grid.hasXY(oppX, oppY)
             && grid.hasXY(newX, newY)
             && fnOpen(grid[oppX][oppY],oppX, oppY, grid))
@@ -4457,16 +5011,16 @@ function cellularAutomataRound(grid, birthParameters /* char[9] */, survivalPara
     let dir;
     let buffer2;
 
-    buffer2 = alloc(grid.width, grid.height, 0);
+    buffer2 = alloc$1(grid.width, grid.height, 0);
     buffer2.copy(grid); // Make a backup of grid in buffer2, so that each generation is isolated.
 
 		let didSomething = false;
     for(i=0; i<grid.width; i++) {
         for(j=0; j<grid.height; j++) {
             nbCount = 0;
-            for (dir=0; dir< DIRS.length; dir++) {
-                newX = i + DIRS[dir][0];
-                newY = j + DIRS[dir][1];
+            for (dir=0; dir< DIRS$2.length; dir++) {
+                newX = i + DIRS$2[dir][0];
+                newY = j + DIRS$2[dir][1];
                 if (grid.hasXY(newX, newY)
                     && buffer2[newX][newY])
 								{
@@ -4483,7 +5037,7 @@ function cellularAutomataRound(grid, birthParameters /* char[9] */, survivalPara
         }
     }
 
-    free(buffer2);
+    free$1(buffer2);
 		return didSomething;
 }
 
@@ -4622,29 +5176,29 @@ function fillBlob(grid,
 // Grid.fillBlob = fillBlob;
 
 var grid = {
-  __proto__: null,
-  makeArray: makeArray,
-  Grid: Grid,
-  make: make$3,
-  alloc: alloc,
-  free: free,
-  dump: dump,
-  dumpRect: dumpRect,
-  dumpAround: dumpAround,
-  findAndReplace: findAndReplace,
-  floodFillRange: floodFillRange,
-  invert: invert,
-  intersection: intersection,
-  unite: unite,
-  closestLocationWithValue: closestLocationWithValue,
-  randomLocationWithValue: randomLocationWithValue,
-  getQualifyingLocNear: getQualifyingLocNear,
-  leastPositiveValue: leastPositiveValue,
-  randomLeastPositiveLocation: randomLeastPositiveLocation,
-  floodFill: floodFill,
-  offsetZip: offsetZip,
-  directionOfDoorSite: directionOfDoorSite,
-  fillBlob: fillBlob
+    __proto__: null,
+    makeArray: makeArray,
+    Grid: Grid$1,
+    make: make$4,
+    alloc: alloc$1,
+    free: free$1,
+    dump: dump,
+    dumpRect: dumpRect,
+    dumpAround: dumpAround,
+    findAndReplace: findAndReplace,
+    floodFillRange: floodFillRange,
+    invert: invert,
+    intersection: intersection,
+    unite: unite,
+    closestLocationWithValue: closestLocationWithValue,
+    randomLocationWithValue: randomLocationWithValue,
+    getQualifyingLocNear: getQualifyingLocNear,
+    leastPositiveValue: leastPositiveValue,
+    randomLeastPositiveLocation: randomLeastPositiveLocation,
+    floodFill: floodFill,
+    offsetZip: offsetZip,
+    directionOfDoorSite: directionOfDoorSite,
+    fillBlob: fillBlob
 };
 
 DataBuffer.prototype.drawText = function(x, y, text$1, fg, bg) {
@@ -4773,7 +5327,7 @@ const DEFAULT_FONT = 'monospace';
 types.Canvas = Canvas;
 
 configure({
-  random: cosmetic.value.bind(cosmetic),
+  random: cosmetic$1.value.bind(cosmetic$1),
 });
 
 
@@ -4806,7 +5360,7 @@ function makeGlyphs(opts={}) {
   return glyphs;
 }
 
-make.glyphs = makeGlyphs;
+make$1.glyphs = makeGlyphs;
 
 
 function makeCanvas(opts={}) {
@@ -4822,12 +5376,12 @@ function makeCanvas(opts={}) {
   return new Canvas2D(opts);
 }
 
-make.canvas = makeCanvas;
+make$1.canvas = makeCanvas;
 
 var canvas = {
-  __proto__: null,
-  Canvas: Canvas,
-  makeGlyphs: makeGlyphs
+    __proto__: null,
+    Canvas: Canvas,
+    makeGlyphs: makeGlyphs
 };
 
 function frequency(v) {
@@ -4872,7 +5426,7 @@ function frequency(v) {
   return (() => 0);
 }
 
-make.frequency = frequency;
+make$1.frequency = frequency;
 
 function forDanger(frequency, danger) {
   if (typeof frequency === 'number') {
@@ -4894,14 +5448,14 @@ function forDanger(frequency, danger) {
 }
 
 var frequency$1 = {
-  __proto__: null,
-  frequency: frequency,
-  forDanger: forDanger
+    __proto__: null,
+    frequency: frequency,
+    forDanger: forDanger
 };
 
 var io = {};
 
-io.debug = NOOP;
+io.debug = utils$1.NOOP;
 
 let KEYMAP = {};
 // const KEYMAPS = [];
@@ -5034,7 +5588,7 @@ async function dispatchEvent(ev, km) {
 			result = await commands$1[command](ev);
 		}
 		else {
-			WARN('No command found: ' + command);
+			utils$1.WARN('No command found: ' + command);
 		}
 	}
 
@@ -5222,7 +5776,7 @@ io.resumeEvents = resumeEvents;
 
 
 function nextEvent(ms, match) {
-	match = match || TRUE;
+	match = match || utils$1.TRUE;
 	let elapsed = 0;
 
 	while (EVENTS$1.length) {
@@ -5287,7 +5841,7 @@ io.tickMs = tickMs;
 
 async function nextKeyPress(ms, match) {
   if (ms === undefined) ms = -1;
-	match = match || TRUE;
+	match = match || utils$1.TRUE;
 	function matchingKey(e) {
   	if (e.type !== KEYPRESS) return false;
     return match(e);
@@ -5299,7 +5853,7 @@ io.nextKeyPress = nextKeyPress;
 
 async function nextKeyOrClick(ms, matchFn) {
 	if (ms === undefined) ms = -1;
-	matchFn = matchFn || TRUE;
+	matchFn = matchFn || utils$1.TRUE;
 	function match(e) {
   	if (e.type !== KEYPRESS && e.type !== CLICK) return false;
     return matchFn(e);
@@ -5360,7 +5914,7 @@ function makeDijkstraMap(w, h) {
 	return {
 		eightWays: false,
 		front: makeCostLink(-1),
-		links: make.array(w * h, (i) => makeCostLink(i) ),
+		links: make$1.array(w * h, (i) => makeCostLink(i) ),
 		width: w,
 		height: h,
 	};
@@ -5371,7 +5925,7 @@ function getLink(map, x, y) {
 }
 
 
-const DIRS$1 = def.dirs;
+const DIRS$3 = def.dirs;
 
 function update(map) {
 	let dir, dirs;
@@ -5385,7 +5939,7 @@ function update(map) {
 
 	while (head != null) {
 		for (dir = 0; dir < dirs; dir++) {
-			linkIndex = head.index + (DIRS$1[dir][0] + map.width * DIRS$1[dir][1]);
+			linkIndex = head.index + (DIRS$3[dir][0] + map.width * DIRS$3[dir][1]);
 			if (linkIndex < 0 || linkIndex >= map.width * map.height) continue;
 			link = map.links[linkIndex];
 
@@ -5395,10 +5949,10 @@ function update(map) {
 			if (dir >= 4) {
 				diagCost = 0.4142;
 				let way1, way1index, way2, way2index;
-				way1index = head.index + DIRS$1[dir][0];
+				way1index = head.index + DIRS$3[dir][0];
 				if (way1index < 0 || way1index >= map.width * map.height) continue;
 
-				way2index = head.index + map.width * DIRS$1[dir][1];
+				way2index = head.index + map.width * DIRS$3[dir][1];
 				if (way2index < 0 || way2index >= map.width * map.height) continue;
 
 				way1 = map.links[way1index];
@@ -5804,19 +6358,19 @@ function getPath(map, distanceMap, originX, originY, actor) {
 // GW.path.from = getMonsterPathOnMap;
 
 var path = {
-  __proto__: null,
-  dijkstraScan: dijkstraScan,
-  calculateDistances: calculateDistances,
-  nextStep: nextStep,
-  getPath: getPath
+    __proto__: null,
+    dijkstraScan: dijkstraScan,
+    calculateDistances: calculateDistances,
+    nextStep: nextStep,
+    getPath: getPath
 };
 
 var digger = {};
 var diggers = {};
 
-digger.debug = NOOP;
+digger.debug = utils$1.NOOP;
 
-const DIRS$2 = def.dirs;
+const DIRS$4 = def.dirs;
 
 
 const TILE = 1;
@@ -5837,14 +6391,14 @@ function checkDiggerConfig(config, opts) {
   config = config || {};
   opts = opts || {};
 
-  if (!config.width || !config.height) ERROR('All diggers require config to include width and height.');
+  if (!config.width || !config.height) utils$1.ERROR('All diggers require config to include width and height.');
 
   Object.entries(opts).forEach( ([key,expect]) => {
     const have = config[key];
 
     if (expect === true) {	// needs to be a number > 0
       if (typeof have !== 'number') {
-        ERROR('Invalid configuration for digger: ' + key + ' expected number received ' + typeof have);
+        utils$1.ERROR('Invalid configuration for digger: ' + key + ' expected number received ' + typeof have);
       }
     }
     else if (typeof expect === 'number') {	// needs to be a number, this is the default
@@ -5858,7 +6412,7 @@ function checkDiggerConfig(config, opts) {
         config[key] = new Array(expect.length).fill(have);
       }
       else if (!Array.isArray(have)) {
-        WARN('Received unexpected config for digger : ' + key + ' expected array, received ' + typeof have + ', using defaults.');
+        utils$1.WARN('Received unexpected config for digger : ' + key + ' expected array, received ' + typeof have + ', using defaults.');
         config[key] = expect.slice();
       }
       else if (expect.length > have.length) {
@@ -5868,7 +6422,7 @@ function checkDiggerConfig(config, opts) {
       }
     }
     else {
-      WARN('Unexpected digger configuration parameter: ', key, expect);
+      utils$1.WARN('Unexpected digger configuration parameter: ', key, expect);
     }
   });
 
@@ -5885,7 +6439,7 @@ function digCavern(config, grid$1) {
   let destX, destY;
   let blobGrid;
 
-  blobGrid = alloc(grid$1.width, grid$1.height, 0);
+  blobGrid = alloc$1(grid$1.width, grid$1.height, 0);
 
   const minWidth  = Math.floor(0.5 * config.width); // 6
   const maxWidth  = config.width;
@@ -5901,7 +6455,7 @@ function digCavern(config, grid$1) {
 
   // ...and copy it to the master grid.
   offsetZip(grid$1, blobGrid, destX - bounds.x, destY - bounds.y, TILE);
-  free(blobGrid);
+  free$1(blobGrid);
   return config.id;
 }
 
@@ -5918,11 +6472,11 @@ function digChoiceRoom(config, grid) {
     choices = Object.keys(config.choices);
   }
   else {
-    ERROR('Expected choices to be either array of choices or map { digger: weight }');
+    utils$1.ERROR('Expected choices to be either array of choices or map { digger: weight }');
   }
   for(let choice of choices) {
     if (!diggers[choice]) {
-      ERROR('Missing digger choice: ' + choice);
+      utils$1.ERROR('Missing digger choice: ' + choice);
     }
   }
 
@@ -5933,7 +6487,7 @@ function digChoiceRoom(config, grid) {
     id = random.item(config.choices);
   }
   else {
-    id = random.lottery(config.choices);
+    id = random.weighted(config.choices);
   }
   const digger = diggers[id];
   let digConfig = digger;
@@ -6122,7 +6676,7 @@ function chooseRandomDoorSites(sourceGrid) {
   let dir;
   let doorSiteFailed;
 
-  const grid$1 = alloc(sourceGrid.width, sourceGrid.height);
+  const grid$1 = alloc$1(sourceGrid.width, sourceGrid.height);
   grid$1.copy(sourceGrid);
 
   for (i=0; i<grid$1.width; i++) {
@@ -6132,15 +6686,15 @@ function chooseRandomDoorSites(sourceGrid) {
               if (dir != def.NO_DIRECTION) {
                   // Trace a ray 10 spaces outward from the door site to make sure it doesn't intersect the room.
                   // If it does, it's not a valid door site.
-                  newX = i + DIRS$2[dir][0];
-                  newY = j + DIRS$2[dir][1];
+                  newX = i + DIRS$4[dir][0];
+                  newY = j + DIRS$4[dir][1];
                   doorSiteFailed = false;
                   for (k=0; k<10 && grid$1.hasXY(newX, newY) && !doorSiteFailed; k++) {
                       if (grid$1[newX][newY]) {
                           doorSiteFailed = true;
                       }
-                      newX += DIRS$2[dir][0];
-                      newY += DIRS$2[dir][1];
+                      newX += DIRS$4[dir][0];
+                      newY += DIRS$4[dir][1];
                   }
                   if (!doorSiteFailed) {
                       grid$1[i][j] = dir + 10000; // So as not to conflict with other tiles.
@@ -6157,7 +6711,7 @@ function chooseRandomDoorSites(sourceGrid) {
       doorSites[dir] = loc.slice();
   }
 
-  free(grid$1);
+  free$1(grid$1);
   return doorSites;
 }
 
@@ -6174,8 +6728,8 @@ function attachHallway(grid, doorSitesArray, opts) {
     opts = opts || {};
     const tile = opts.tile || 1;
 
-    const horizontalLength = firstOpt('horizontalHallLength', opts, [9,15]);
-    const verticalLength = firstOpt('verticalHallLength', opts, [2,9]);
+    const horizontalLength = utils$1.firstOpt('horizontalHallLength', opts, [9,15]);
+    const verticalLength = utils$1.firstOpt('verticalHallLength', opts, [2,9]);
 
     // Pick a direction.
     dir = opts.dir;
@@ -6185,8 +6739,8 @@ function attachHallway(grid, doorSitesArray, opts) {
           dir = dirs[i];
           if (doorSitesArray[dir][0] != -1
               && doorSitesArray[dir][1] != -1
-              && grid.hasXY(doorSitesArray[dir][0] + Math.floor(DIRS$2[dir][0] * horizontalLength[1]),
-                                     doorSitesArray[dir][1] + Math.floor(DIRS$2[dir][1] * verticalLength[1])) ) {
+              && grid.hasXY(doorSitesArray[dir][0] + Math.floor(DIRS$4[dir][0] * horizontalLength[1]),
+                                     doorSitesArray[dir][1] + Math.floor(DIRS$4[dir][1] * verticalLength[1])) ) {
                   break; // That's our direction!
           }
       }
@@ -6204,20 +6758,20 @@ function attachHallway(grid, doorSitesArray, opts) {
     x = doorSitesArray[dir][0];
     y = doorSitesArray[dir][1];
 
-    const attachLoc = [x - DIRS$2[dir][0], y - DIRS$2[dir][1]];
+    const attachLoc = [x - DIRS$4[dir][0], y - DIRS$4[dir][1]];
     for (i = 0; i < length; i++) {
         if (grid.hasXY(x, y)) {
             grid[x][y] = tile;
         }
-        x += DIRS$2[dir][0];
-        y += DIRS$2[dir][1];
+        x += DIRS$4[dir][0];
+        y += DIRS$4[dir][1];
     }
-    x = clamp(x - DIRS$2[dir][0], 0, grid.width - 1);
-    y = clamp(y - DIRS$2[dir][1], 0, grid.height - 1); // Now (x, y) points at the last interior cell of the hallway.
+    x = utils$1.clamp(x - DIRS$4[dir][0], 0, grid.width - 1);
+    y = utils$1.clamp(y - DIRS$4[dir][1], 0, grid.height - 1); // Now (x, y) points at the last interior cell of the hallway.
     allowObliqueHallwayExit = random.chance(15);
     for (dir2 = 0; dir2 < 4; dir2++) {
-        newX = x + DIRS$2[dir2][0];
-        newY = y + DIRS$2[dir2][1];
+        newX = x + DIRS$4[dir2][0];
+        newY = y + DIRS$4[dir2][1];
 
         if ((dir2 != dir && !allowObliqueHallwayExit)
             || !grid.hasXY(newX, newY)
@@ -6236,14 +6790,1355 @@ function attachHallway(grid, doorSitesArray, opts) {
 
 digger.attachHallway = attachHallway;
 
+const DIRS$5 = def.dirs;
+
+var dungeon = {};
+
+dungeon.debug = utils$1.NOOP;
+
+const NOTHING = 0;
+let FLOOR = 'FLOOR';
+let DOOR = 'DOOR';
+let BRIDGE = 'BRIDGE';
+let UP_STAIRS = 'UP_STAIRS';
+let DOWN_STAIRS = 'DOWN_STAIRS';
+let WALL = 'WALL';
+let LAKE = 'LAKE';
+
+
+let SITE = null;
+let LOCS;
+
+
+function start(map, opts={}) {
+
+  LOCS = random.sequence(map.width * map.height);
+
+  const startX = opts.x || -1;
+  const startY = opts.y || -1;
+  if (startX > 0) {
+    map.locations.start = [startX, startY];
+  }
+
+  SITE = map;
+}
+
+dungeon.start = start;
+
+
+function finish() {
+  removeDiagonalOpenings();
+  finishWalls();
+  finishDoors();
+}
+
+dungeon.finish = finish;
+
+
+// Returns an array of door sites if successful
+function digRoom(opts={}) {
+  const hallChance = utils$1.firstOpt('hallChance', opts, SITE.config, 0);
+  const diggerId = opts.digger || opts.id || 'SMALL'; // TODO - get random id
+
+  const digger$1 = diggers[diggerId];
+  if (!digger$1) {
+    throw new Error('Failed to find digger: ' + diggerId);
+  }
+
+  const config = Object.assign({}, digger$1, opts);
+  let locs = opts.locs || opts.loc || null;
+  if (!Array.isArray(locs)) {
+    locs = null;
+  }
+  else if (locs && locs.length && locs.length == 2 && typeof locs[0] == 'number') {
+    locs = [locs];
+  }
+  else if (locs.length == 0) {
+    locs = null;
+  }
+
+  const grid$1 = alloc$1(SITE.width, SITE.height);
+
+  let result = false;
+  let tries = opts.tries || 10;
+  while(--tries >= 0 && !result) {
+    grid$1.fill(NOTHING);
+
+    const id = digger$1.fn(config, grid$1);
+    dungeon.debug('Dig room:', id);
+    const doors = digger.chooseRandomDoorSites(grid$1);
+    if (random.chance(hallChance)) {
+      digger.attachHallway(grid$1, doors, SITE.config);
+    }
+
+    if (locs) {
+      // try the doors first
+      result = attachRoomAtDoors(grid$1, doors, locs, opts);
+      if (!result) {
+        // otherwise try everywhere
+        for(let i = 0; i < locs.length && !result; ++i) {
+          if (locs[i][0] > 0) {
+            result = attachRoomAtXY(grid$1, locs[i], doors, opts);
+          }
+        }
+      }
+    }
+    else {
+      result = attachRoomToDungeon(grid$1, doors, opts);
+    }
+
+  }
+
+  free$1(grid$1);
+  return result;
+}
+
+dungeon.digRoom = digRoom;
+
+
+
+function roomAttachesAt(roomGrid, roomToSiteX, roomToSiteY) {
+    let xRoom, yRoom, xSite, ySite, i, j;
+
+    for (xRoom = 0; xRoom < roomGrid.width; xRoom++) {
+        for (yRoom = 0; yRoom < roomGrid.height; yRoom++) {
+            if (roomGrid[xRoom][yRoom]) {
+                xSite = xRoom + roomToSiteX;
+                ySite = yRoom + roomToSiteY;
+
+                for (i = xSite - 1; i <= xSite + 1; i++) {
+                    for (j = ySite - 1; j <= ySite + 1; j++) {
+                        if (!SITE.hasXY(i, j)
+                            || SITE.isBoundaryXY(i, j)
+                            || !SITE.cell(i, j).isNull())
+                        {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return true;
+}
+
+
+
+
+function attachRoomToDungeon(roomGrid, doorSites, opts={}) {
+
+  // Slide hyperspace across real space, in a random but predetermined order, until the room matches up with a wall.
+  for (let i = 0; i < LOCS.length; i++) {
+      const x = Math.floor(LOCS[i] / SITE.height);
+      const y = LOCS[i] % SITE.height;
+
+      if (!SITE.cell(x, y).isNull()) continue;
+      const dir = directionOfDoorSite(SITE.cells, x, y, (c) => (c.hasTile(FLOOR) && !c.isLiquid()) );
+      if (dir != def.NO_DIRECTION) {
+        const oppDir = (dir + 2) % 4;
+
+        const offsetX = x - doorSites[oppDir][0];
+        const offsetY = y - doorSites[oppDir][1];
+
+        if (doorSites[oppDir][0] != -1
+            && roomAttachesAt(roomGrid, offsetX, offsetY))
+        {
+          dungeon.debug("- attachRoom: ", x, y, oppDir);
+
+          // Room fits here.
+          offsetZip(SITE.cells, roomGrid, offsetX, offsetY, (d, s, i, j) => SITE.setTile(i, j, opts.tile || FLOOR) );
+          if (opts.door || (opts.placeDoor !== false)) {
+            SITE.setTile(x, y, opts.door || DOOR); // Door site.
+          }
+          doorSites[oppDir][0] = -1;
+          doorSites[oppDir][1] = -1;
+          for(let i = 0; i < doorSites.length; ++i) {
+            if (doorSites[i][0] > 0) {
+              doorSites[i][0] += offsetX;
+              doorSites[i][1] += offsetY;
+            }
+          }
+          return doorSites;
+        }
+      }
+  }
+
+  return false;
+}
+
+
+function attachRoomAtXY(roomGrid, xy, doors, opts={}) {
+
+  // Slide hyperspace across real space, in a random but predetermined order, until the room matches up with a wall.
+  for (let i = 0; i < LOCS.length; i++) {
+      const x = Math.floor(LOCS[i] / SITE.height);
+      const y = LOCS[i] % SITE.height;
+
+      if (roomGrid[x][y]) continue;
+
+      const dir = directionOfDoorSite(roomGrid, x, y);
+      if (dir != def.NO_DIRECTION) {
+        const d = DIRS$5[dir];
+        if (roomAttachesAt(roomGrid, xy[0] - x, xy[1] - y)) {
+          offsetZip(SITE.cells, roomGrid, xy[0] - x, xy[1] - y, (d, s, i, j) => SITE.setTile(i, j, opts.tile || FLOOR) );
+          if (opts.door || (opts.placeDoor !== false)) {
+            SITE.setTile(xy[0], xy[1], opts.door || DOOR); // Door site.
+          }
+          doors[dir][0] = -1;
+          doors[dir][1] = -1;
+          for(let i = 0; i < doors.length; ++i) {
+            if (doors[i][0] > 0) {
+              doors[i][0] += xy[0] - x;
+              doors[i][1] += xy[1] - y;
+            }
+          }
+          return doors;
+        }
+      }
+  }
+
+  return false;
+}
+
+
+
+function insertRoomAtXY(x, y, roomGrid, doorSites, opts={}) {
+
+  const dirs = random.sequence(4);
+
+  for(let dir of dirs) {
+    const oppDir = (dir + 2) % 4;
+
+    if (doorSites[oppDir][0] != -1
+        && roomAttachesAt(roomGrid, x - doorSites[oppDir][0], y - doorSites[oppDir][1]))
+    {
+      // dungeon.debug("attachRoom: ", x, y, oppDir);
+
+      // Room fits here.
+      const offX = x - doorSites[oppDir][0];
+      const offY = y - doorSites[oppDir][1];
+      offsetZip(SITE.cells, roomGrid, offX, offY, (d, s, i, j) => SITE.setTile(i, j, opts.tile || FLOOR) );
+      if (opts.door || (opts.placeDoor !== false)) {
+        SITE.setTile(x, y, opts.door || DOOR); // Door site.
+      }
+      const newDoors = doorSites.map( (site) => {
+        const x0 = site[0] + offX;
+        const y0 = site[1] + offY;
+        if (x0 == x && y0 == y) return [-1,-1];
+        return [x0,y0];
+      });
+      return newDoors;
+    }
+  }
+  return false;
+}
+
+
+function attachRoomAtDoors(roomGrid, roomDoors, siteDoors, opts={}) {
+
+  const doorIndexes = random.sequence(siteDoors.length);
+
+  // Slide hyperspace across real space, in a random but predetermined order, until the room matches up with a wall.
+  for (let i = 0; i < doorIndexes.length; i++) {
+    const index = doorIndexes[i];
+    const x = siteDoors[index][0];
+    const y = siteDoors[index][1];
+
+    const doors = insertRoomAtXY(x, y, roomGrid, roomDoors, opts);
+    if (doors) return doors;
+  }
+
+  return false;
+}
+
+
+function digLake(opts={}) {
+  let i, j, k;
+  let x, y;
+  let lakeMaxHeight, lakeMaxWidth, lakeMinSize, tries, maxCount, canDisrupt;
+  let count = 0;
+
+  lakeMaxHeight = opts.height || 15;
+  lakeMaxWidth = opts.width || 30;
+  lakeMinSize = opts.minSize || 5;
+  tries = opts.tries || 20;
+  maxCount = 1; // opts.count || tries;
+  canDisrupt = opts.canDisrupt || false;
+
+  const lakeGrid = alloc$1(SITE.width, SITE.height, 0);
+
+  for (; lakeMaxHeight >= lakeMinSize && lakeMaxWidth >= lakeMinSize && count < maxCount; lakeMaxHeight--, lakeMaxWidth -= 2) { // lake generations
+
+    lakeGrid.fill(NOTHING);
+    const bounds = fillBlob(lakeGrid, 5, 4, 4, lakeMaxWidth, lakeMaxHeight, 55, "ffffftttt", "ffffttttt");
+
+    for (k=0; k < tries && count < maxCount; k++) { // placement attempts
+        // propose a position for the top-left of the lakeGrid in the dungeon
+        x = random.range(1 - bounds.x, lakeGrid.width - bounds.width - bounds.x - 2);
+        y = random.range(1 - bounds.y, lakeGrid.height - bounds.height - bounds.y - 2);
+
+      if (canDisrupt || !lakeDisruptsPassability(lakeGrid, -x, -y)) { // level with lake is completely connected
+        dungeon.debug("Placed a lake!", x, y);
+
+        ++count;
+        // copy in lake
+        for (i = 0; i < bounds.width; i++) {  // skip boundary
+          for (j = 0; j < bounds.height; j++) { // skip boundary
+            if (lakeGrid[i + bounds.x][j + bounds.y]) {
+              const sx = i + bounds.x + x;
+              const sy = j + bounds.y + y;
+              SITE.setTile(sx, sy, opts.tile || LAKE);
+            }
+          }
+        }
+        break;
+      }
+    }
+  }
+  free$1(lakeGrid);
+  return count;
+
+}
+
+dungeon.digLake = digLake;
+
+
+function lakeDisruptsPassability(lakeGrid, dungeonToGridX, dungeonToGridY) {
+  return SITE.gridDisruptsPassability(lakeGrid, { gridOffsetX: dungeonToGridX, gridOffsetY: dungeonToGridY });
+}
+
+
+
+// Add some loops to the otherwise simply connected network of rooms.
+function addLoops(minimumPathingDistance, maxConnectionLength) {
+    let startX, startY, endX, endY;
+    let i, j, d, x, y;
+
+    minimumPathingDistance = minimumPathingDistance || Math.floor(Math.min(SITE.width,SITE.height)/2);
+    maxConnectionLength = maxConnectionLength || 1; // by default only break walls down
+
+    const siteGrid = SITE.cells;
+    const pathGrid = alloc$1(SITE.width, SITE.height);
+    const costGrid = alloc$1(SITE.width, SITE.height);
+
+    const dirCoords = [[1, 0], [0, 1]];
+
+    SITE.fillCostGrid(costGrid);
+
+    function isValidTunnelStart(x, y, dir) {
+      if (!SITE.hasXY(x, y)) return false;
+      if (!SITE.hasXY(x + dir[1], y + dir[0])) return false;
+      if (!SITE.hasXY(x - dir[1], y - dir[0])) return false;
+      if (!SITE.cell(x, y).isNull()) return false;
+      if (!SITE.cell(x + dir[1], y + dir[0]).isNull()) return false;
+      if (!SITE.cell(x - dir[1], y - dir[0]).isNull()) return false;
+      return true;
+    }
+
+    function isValidTunnelEnd(x, y, dir) {
+      if (!SITE.hasXY(x, y)) return false;
+      if (!SITE.hasXY(x + dir[1], y + dir[0])) return false;
+      if (!SITE.hasXY(x - dir[1], y - dir[0])) return false;
+      if (!SITE.cell(x, y).isNull()) return true;
+      if (!SITE.cell(x + dir[1], y + dir[0]).isNull()) return true;
+      if (!SITE.cell(x - dir[1], y - dir[0]).isNull()) return true;
+      return false;
+    }
+
+    for (i = 0; i < LOCS.length; i++) {
+        x = Math.floor(LOCS[i] / siteGrid.height);
+        y = LOCS[i] % siteGrid.height;
+
+        const cell = siteGrid[x][y];
+        if (cell.isNull()) {
+            for (d=0; d <= 1; d++) { // Try a horizontal door, and then a vertical door.
+                let dir = dirCoords[d];
+                if (!isValidTunnelStart(x, y, dir)) continue;
+                j = maxConnectionLength;
+
+                // check up/left
+                if (SITE.hasXY(x + dir[0], y + dir[1]) && SITE.cell(x + dir[0], y + dir[1]).hasTile(FLOOR)) {
+                  // just can't build directly into a door
+                  if (!SITE.hasXY(x - dir[0], y - dir[1]) || SITE.cell(x - dir[0], y - dir[1]).hasTile(DOOR)) {
+                    continue;
+                  }
+                }
+                else if (SITE.hasXY(x - dir[0], y - dir[1]) && SITE.cell(x - dir[0], y - dir[1]).hasTile(FLOOR)) {
+                  if (!SITE.hasXY(x + dir[0], y + dir[1]) || SITE.cell(x + dir[0], y + dir[1]).hasTile(DOOR)) {
+                    continue;
+                  }
+                  dir = dir.map( (v) => -1*v );
+                }
+                else {
+                  continue; // not valid start for tunnel
+                }
+
+                startX = x + dir[0];
+                startY = y + dir[1];
+                endX = x;
+                endY = y;
+
+                for(j = 0; j < maxConnectionLength; ++j) {
+                  endX -= dir[0];
+                  endY -= dir[1];
+
+                  // if (SITE.hasXY(endX, endY) && !SITE.cell(endX, endY).isNull()) {
+                  if (isValidTunnelEnd(endX, endY, dir)) {
+                    break;
+                  }
+                }
+
+                if (j < maxConnectionLength) {
+                  calculateDistances(pathGrid, startX, startY, costGrid, false);
+                  // pathGrid.fill(30000);
+                  // pathGrid[startX][startY] = 0;
+                  // dijkstraScan(pathGrid, costGrid, false);
+                  if (pathGrid[endX][endY] > minimumPathingDistance && pathGrid[endX][endY] < 30000) { // and if the pathing distance between the two flanking floor tiles exceeds minimumPathingDistance,
+
+                      dungeon.debug('Adding Loop', startX, startY, ' => ', endX, endY, ' : ', pathGrid[endX][endY]);
+
+                      while(endX !== startX || endY !== startY) {
+                        if (SITE.cell(endX, endY).isNull()) {
+                          SITE.setTile(endX, endY, FLOOR);
+                          costGrid[endX][endY] = 1;          // (Cost map also needs updating.)
+                        }
+                        endX += dir[0];
+                        endY += dir[1];
+                      }
+                      SITE.setTile(x, y, DOOR);             // then turn the tile into a doorway.
+                      break;
+                  }
+                }
+            }
+        }
+    }
+    free$1(pathGrid);
+    free$1(costGrid);
+}
+
+dungeon.addLoops = addLoops;
+
+
+function isBridgeCandidate(x, y, bridgeDir) {
+  if (SITE.hasTile(x, y, BRIDGE)) return true;
+  if (!SITE.isLiquid(x, y)) return false;
+  if (!SITE.isLiquid(x + bridgeDir[1], y + bridgeDir[0])) return false;
+  if (!SITE.isLiquid(x - bridgeDir[1], y - bridgeDir[0])) return false;
+  return true;
+}
+
+// Add some loops to the otherwise simply connected network of rooms.
+function addBridges(minimumPathingDistance, maxConnectionLength) {
+    let newX, newY;
+    let i, j, d, x, y;
+
+    maxConnectionLength = maxConnectionLength || 1; // by default only break walls down
+
+    const siteGrid = SITE.cells;
+    const pathGrid = alloc$1(SITE.width, SITE.height);
+    const costGrid = alloc$1(SITE.width, SITE.height);
+
+    const dirCoords = [[1, 0], [0, 1]];
+
+    SITE.fillCostGrid(costGrid);
+
+    for (i = 0; i < LOCS.length; i++) {
+        x = Math.floor(LOCS[i] / siteGrid.height);
+        y = LOCS[i] % siteGrid.height;
+
+        if (SITE.hasXY(x, y) && (!SITE.isNull(x, y)) && SITE.canBePassed(x, y)) {
+            for (d=0; d <= 1; d++) { // Try right, then down
+                const bridgeDir = dirCoords[d];
+                newX = x + bridgeDir[0];
+                newY = y + bridgeDir[1];
+                j = maxConnectionLength;
+
+                if (!SITE.hasXY(newX, newY)) continue;
+
+                // check for line of lake tiles
+                // if (isBridgeCandidate(newX, newY, bridgeDir)) {
+                if (SITE.isLiquid(newX, newY)) {
+                  for(j = 0; j < maxConnectionLength; ++j) {
+                    newX += bridgeDir[0];
+                    newY += bridgeDir[1];
+
+                    // if (!isBridgeCandidate(newX, newY, bridgeDir)) {
+                    if (!SITE.isLiquid(newX, newY)) {
+                      break;
+                    }
+                  }
+                }
+
+                if ((!SITE.isNull(newX, newY)) && SITE.canBePassed(newX, newY) && (j < maxConnectionLength)) {
+                  calculateDistances(pathGrid, newX, newY, costGrid, false);
+                  // pathGrid.fill(30000);
+                  // pathGrid[newX][newY] = 0;
+                  // dijkstraScan(pathGrid, costGrid, false);
+                  if (pathGrid[x][y] > minimumPathingDistance && pathGrid[x][y] < def.PDS_NO_PATH) { // and if the pathing distance between the two flanking floor tiles exceeds minimumPathingDistance,
+
+                      dungeon.debug('Adding Bridge', x, y, ' => ', newX, newY);
+
+                      while(x !== newX || y !== newY) {
+                        if (isBridgeCandidate(x, y, bridgeDir)) {
+                          SITE.setTile(x, y, BRIDGE);
+                          costGrid[x][y] = 1;          // (Cost map also needs updating.)
+                        }
+                        else {
+                          SITE.setTile(x, y, FLOOR);
+                          costGrid[x][y] = 1;
+                        }
+                        x += bridgeDir[0];
+                        y += bridgeDir[1];
+                      }
+                      break;
+                  }
+                }
+            }
+        }
+    }
+    free$1(pathGrid);
+    free$1(costGrid);
+}
+
+dungeon.addBridges = addBridges;
+
+
+
+function removeDiagonalOpenings() {
+  let i, j, k, x1, y1;
+  let diagonalCornerRemoved;
+
+	do {
+		diagonalCornerRemoved = false;
+		for (i=0; i<SITE.width-1; i++) {
+			for (j=0; j<SITE.height-1; j++) {
+				for (k=0; k<=1; k++) {
+					if ((SITE.canBePassed(i + k, j))
+						&& (!SITE.canBePassed(i + (1-k), j))
+						&& (SITE.isObstruction(i + (1-k), j))
+						&& (!SITE.canBePassed(i + k, j+1))
+						&& (SITE.isObstruction(i + k, j+1))
+						&& (SITE.canBePassed(i + (1-k), j+1)))
+          {
+						if (random.chance(50)) {
+							x1 = i + (1-k);
+							y1 = j;
+						} else {
+							x1 = i + k;
+							y1 = j + 1;
+						}
+            diagonalCornerRemoved = true;
+            SITE.setTile(x1, y1, FLOOR);
+            dungeon.debug('Removed diagonal opening', x1, y1);
+					}
+				}
+			}
+		}
+	} while (diagonalCornerRemoved == true);
+}
+
+dungeon.removeDiagonalOpenings = removeDiagonalOpenings;
+
+
+function finishDoors(map) {
+  map = map || SITE;
+  let i, j;
+
+	for (i=1; i<map.width-1; i++) {
+		for (j=1; j<map.height-1; j++) {
+			if (map.isDoor(i, j))
+			{
+				if ((map.canBePassed(i+1, j) || map.canBePassed(i-1, j))
+					&& (map.canBePassed(i, j+1) || map.canBePassed(i, j-1)))
+        {
+					// If there's passable terrain to the left or right, and there's passable terrain
+					// above or below, then the door is orphaned and must be removed.
+					map.setTile(i, j, FLOOR);
+          dungeon.debug('Removed orphan door', i, j);
+				} else if ((map.blocksPathing(i+1, j) ? 1 : 0)
+						   + (map.blocksPathing(i-1, j) ? 1 : 0)
+						   + (map.blocksPathing(i, j+1) ? 1 : 0)
+						   + (map.blocksPathing(i, j-1) ? 1 : 0) >= 3)
+        {
+					// If the door has three or more pathing blocker neighbors in the four cardinal directions,
+					// then the door is orphaned and must be removed.
+          map.setTile(i, j, FLOOR);
+          dungeon.debug('Removed blocked door', i, j);
+				}
+			}
+		}
+	}
+}
+
+dungeon.finishDoors = finishDoors;
+
+function finishWalls(map) {
+  map = map || SITE;
+  map.forEach( (cell, i, j) => {
+    if (cell.isNull()) {
+      map.setTile(i, j, WALL);
+    }
+  });
+}
+
+dungeon.finishWalls = finishWalls;
+
+
+
+function isValidStairLoc(c, x, y, map) {
+  map = map || SITE;
+  let count = 0;
+  if (!(c.isNull() || c.isWall())) return false;
+
+  for(let i = 0; i < 4; ++i) {
+    const dir = def.dirs[i];
+    if (!map.hasXY(x + dir[0], y + dir[1])) return false;
+    if (!map.hasXY(x - dir[0], y - dir[1])) return false;
+    const cell = map.cell(x + dir[0], y + dir[1]);
+    if (cell.hasTile(FLOOR)) {
+      count += 1;
+      const va = map.cell(x - dir[0] + dir[1], y - dir[1] + dir[0]);
+      if (!(va.isNull() || va.isWall())) return false;
+      const vb = map.cell(x - dir[0] - dir[1], y - dir[1] - dir[0]);
+      if (!(vb.isNull() || vb.isWall())) return false;
+    }
+    else if (!(cell.isNull() || cell.isWall())) {
+      return false;
+    }
+  }
+  return count == 1;
+}
+
+dungeon.isValidStairLoc = isValidStairLoc;
+
+
+function setupStairs(map, x, y, tile) {
+
+	const indexes = random.sequence(4);
+
+	let dir;
+	for(let i = 0; i < indexes.length; ++i) {
+		dir = def.dirs[i];
+		const x0 = x + dir[0];
+		const y0 = y + dir[1];
+		const cell = map.cell(x0, y0);
+		if (cell.hasTile(FLOOR) && cell.isEmpty()) {
+			const oppCell = map.cell(x - dir[0], y - dir[1]);
+			if (oppCell.isNull() || oppCell.isWall()) break;
+		}
+
+		dir = null;
+	}
+
+	if (!dir) utils$1.ERROR('No stair direction found!');
+
+	map.setTile(x, y, tile);
+
+	const dirIndex = def.clockDirs.findIndex( (d) => d[0] == dir[0] && d[1] == dir[1] );
+
+	for(let i = 0; i < def.clockDirs.length; ++i) {
+		const l = i ? i - 1 : 7;
+		const r = (i + 1) % 8;
+		if (i == dirIndex || l == dirIndex || r == dirIndex ) continue;
+		const d = def.clockDirs[i];
+		map.setTile(x + d[0], y + d[1], WALL);
+    map.setCellFlags(x + d[0], y + d[1], Cell.IMPREGNABLE);
+	}
+
+	dungeon.debug('setup stairs', x, y, tile);
+	return true;
+}
+
+dungeon.setupStairs = setupStairs;
+
+
+function addStairs(opts = {}) {
+
+  const map = opts.map || SITE;
+  let needUp = (opts.up !== false);
+  let needDown = (opts.down !== false);
+  const minDistance = opts.minDistance || Math.floor(Math.max(map.width,map.height)/2);
+  const isValidStairLoc = opts.isValid || dungeon.isValidStairLoc;
+  const setupFn = opts.setup || dungeon.setupStairs;
+
+  let upLoc = Array.isArray(opts.up) ? opts.up : null;
+  let downLoc = Array.isArray(opts.down) ? opts.down : null;
+
+  if (opts.start && typeof opts.start !== 'string') {
+    let start = opts.start;
+    if (start === true) {
+      start = map.randomMatchingLoc( isValidStairLoc );
+    }
+    else {
+      start = map.matchingLocNear(utils$1.x(start), utils$1.y(start), isValidStairLoc);
+    }
+    map.locations.start = start;
+  }
+
+  if (upLoc && downLoc) {
+    upLoc = map.matchingLocNear(utils$1.x(upLoc), utils$1.y(upLoc), isValidStairLoc);
+    downLoc = map.matchingLocNear(utils$1.x(downLoc), utils$1.y(downLoc), isValidStairLoc);
+  }
+  else if (upLoc && !downLoc) {
+    upLoc = map.matchingLocNear(utils$1.x(upLoc), utils$1.y(upLoc), isValidStairLoc);
+    if (needDown) {
+      downLoc = map.randomMatchingLoc( (v, x, y) => {
+    		if (utils$1.distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
+    		return isValidStairLoc(v, x, y, map);
+    	});
+    }
+  }
+  else if (downLoc && !upLoc) {
+    downLoc = map.matchingLocNear(utils$1.x(downLoc), utils$1.y(downLoc), isValidStairLoc);
+    if (needUp) {
+      upLoc = map.randomMatchingLoc( (v, x, y) => {
+    		if (utils$1.distanceBetween(x, y, downLoc[0], downLoc[1]) < minDistance) return false;
+    		return isValidStairLoc(v, x, y, map);
+    	});
+    }
+  }
+  else if (needUp) {
+    upLoc = map.randomMatchingLoc( isValidStairLoc );
+    if (needDown) {
+      downLoc = map.randomMatchingLoc( (v, x, y) => {
+    		if (utils$1.distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
+    		return isValidStairLoc(v, x, y, map);
+    	});
+    }
+  }
+  else if (needDown) {
+    downLoc = map.randomMatchingLoc( isValidStairLoc );
+  }
+
+  if (upLoc) {
+    map.locations.up = upLoc.slice();
+    setupFn(map, upLoc[0], upLoc[1], opts.upTile || UP_STAIRS);
+    if (opts.start === 'up') map.locations.start = map.locations.up;
+  }
+  if (downLoc) {
+    map.locations.down = downLoc.slice();
+    setupFn(map, downLoc[0], downLoc[1], opts.downTile || DOWN_STAIRS);
+    if (opts.start === 'down') map.locations.start = map.locations.down;
+  }
+
+  return !!(upLoc || downLoc);
+}
+
+dungeon.addStairs = addStairs;
+
+const TileLayer = def.layer;
+
+
+class TileEvent$1 {
+	constructor(opts={})
+	{
+		if (typeof opts === 'function') {
+			opts = {
+				fn: opts,
+			};
+		}
+
+		this.tile = opts.tile || 0;
+		this.fn = opts.fn || null;
+		this.item = opts.item || null;
+		this.chance = opts.chance || 0;
+		this.volume = opts.volume || 0;
+
+		// spawning pattern:
+		this.spread = opts.spread || 0;
+		this.radius = opts.radius || 0;
+		this.decrement = opts.decrement || 0;
+		this.flags = TileEvent.toFlag(opts.flags);
+		this.matchTile = opts.matchTile || opts.needs || 0;	/* ENUM tileType */
+		this.next = opts.next || null;	/* ENUM makeEventTypes */
+
+		this.message = opts.message || null;
+	  this.lightFlare = opts.flare || 0;
+		this.flashColor = opts.flash ? from(opts.flash) : null;
+		// this.effectRadius = radius || 0;
+		this.messageDisplayed = false;
+		this.eventName = opts.event || opts.emit || null;	// name of the event to emit when activated
+		this.id = opts.id || null;
+	}
+
+}
+
+types.TileEvent = TileEvent$1;
+
+
+// Dungeon features, spawned from Architect.c:
+function make$5(opts) {
+  if (!opts) return null;
+  if (typeof opts === 'string') {
+    opts = { tile: opts };
+  }
+	const te = new types.TileEvent(opts);
+	return te;
+}
+
+make$1.tileEvent = make$5;
+
+
+function addKind$1(id, event) {
+	if (arguments.length > 2 || !(event instanceof types.TileEvent)) {
+		event = make$1.tileEvent(...[].slice.call(arguments, 1));
+	}
+  tileEvents$1[id] = event;
+	if (event) tileEvent.id = id;
+	return event;
+}
+
+
+addKind$1('DF_NONE');
+
+
+
+function resetAllMessages() {
+	Object.values(tileEvents).forEach( (f) => {
+		if (f instanceof types.TileEvent) {
+			f.messageDisplayed = false;
+		}
+	});
+}
+
+
+
+
+// returns whether the feature was successfully generated (false if we aborted because of blocking)
+async function spawn(feat, ctx) {
+	let i, j;
+	let tile, itemKind;
+
+	if (!feat) return false;
+	if (!ctx) return false;
+
+	if (typeof feat === 'string') {
+		const name = feat;
+		feat = tileEvents$1[feat];
+		if (!feat) utils$1.ERROR('Unknown tile Event: ' + name);
+	}
+
+	if (typeof feat === 'function') {
+		return feat(ctx);
+	}
+
+	const map = ctx.map;
+	const x = ctx.x;
+	const y = ctx.y;
+
+	if (!map || x === undefined || y === undefined) {
+		utils$1.ERROR('MAP, x, y are required in context.');
+	}
+
+	if (ctx.safe && map.hasCellMechFlag(x, y, CellMech.EVENT_FIRED_THIS_TURN)) {
+		if (!(feat.flags & TileEvent.DFF_ALWAYS_FIRE)) {
+      // tileEvent.debug('spawn - already fired.');
+			return false;
+		}
+	}
+
+	// tileEvent.debug('spawn', x, y, 'id=', feat.id, 'tile=', feat.tile, 'item=', feat.item);
+
+	const refreshCell = ctx.refreshCell = ctx.refreshCell || !(feat.flags & TileEvent.DFF_NO_REDRAW_CELL);
+	const abortIfBlocking = ctx.abortIfBlocking = ctx.abortIfBlocking || (feat.flags & TileEvent.DFF_ABORT_IF_BLOCKS_MAP);
+
+  // if ((feat.flags & DFF_RESURRECT_ALLY) && !resurrectAlly(x, y))
+	// {
+  //     return false;
+  // }
+
+  if (feat.message && feat.message.length && !feat.messageDisplayed && map.isVisible(x, y)) {
+		feat.messageDisplayed = true;
+		MSG.add(feat.message);
+	}
+
+  if (feat.tile) {
+		tile = tiles[feat.tile];
+		if (!tile) {
+			utils$1.ERROR('Unknown tile: ' + feat.tile);
+		}
+	}
+
+	if (feat.item) {
+		itemKind = itemKinds[feat.item];
+		if (!itemKind) {
+			utils$1.ERROR('Unknown item: ' + feat.item);
+		}
+	}
+
+	// Blocking keeps track of whether to abort if it turns out that the DF would obstruct the level.
+	const blocking = ctx.blocking = ((abortIfBlocking
+							 && !(feat.flags & TileEvent.DFF_PERMIT_BLOCKING)
+							 && ((tile && (tile.flags & (Tile.T_PATHING_BLOCKER)))
+										|| (itemKind && (itemKind.flags & ItemKind.IK_BLOCKS_MOVE))
+										|| (feat.flags & TileEvent.DFF_TREAT_AS_BLOCKING))) ? true : false);
+
+	// tileEvent.debug('- blocking', blocking);
+
+	const spawnMap = alloc$1(map.width, map.height);
+
+	let didSomething = false;
+	computeSpawnMap(feat, spawnMap, ctx);
+  if (!blocking || !map.gridDisruptsPassability(spawnMap, { bounds: ctx.bounds })) {
+		if (feat.flags & TileEvent.DFF_EVACUATE_CREATURES) { // first, evacuate creatures, so that they do not re-trigger the tile.
+				if (evacuateCreatures(map, spawnMap)) {
+          didSomething = true;
+        }
+		}
+
+		if (feat.flags & TileEvent.DFF_EVACUATE_ITEMS) { // first, evacuate items, so that they do not re-trigger the tile.
+				if (evacuateItems(map, spawnMap)) {
+          didSomething = true;
+        }
+		}
+
+		if (feat.flags & TileEvent.DFF_NULLIFY_CELL) { // first, clear other tiles (not base/ground)
+				if (nullifyCells(map, spawnMap, feat.flags)) {
+          didSomething = true;
+        }
+		}
+
+		if (tile || itemKind || feat.fn) {
+			if (await spawnTiles(feat, spawnMap, ctx, tile, itemKind)) {
+        didSomething = true;
+      }
+		}
+	}
+
+	if (didSomething && (feat.flags & TileEvent.DFF_PROTECTED)) {
+		spawnMap.forEach( (v, i, j) => {
+			if (!v) return;
+			const cell = map.cell(i, j);
+			cell.mechFlags |= CellMech.EVENT_PROTECTED;
+		});
+	}
+
+	// if (refreshCell && feat.tile
+	// 	&& (tile.flags & (Flags.Tile.T_IS_FIRE | Flags.Tile.T_AUTO_DESCENT))
+	// 	&& map.hasTileFlag(PLAYER.xLoc, PLAYER.yLoc, (Flags.Tile.T_IS_FIRE | Flags.Tile.T_AUTO_DESCENT)))
+	// {
+	// 	await applyInstantTileEffectsToCreature(PLAYER);
+	// }
+
+	// apply tile effects
+	if (didSomething) {
+		for(let i = 0; i < spawnMap.width; ++i) {
+			for(let j = 0; j < spawnMap.height; ++j) {
+				const v = spawnMap[i][j];
+				if (!v || data.gameHasEnded) continue;
+				const cell = map.cell(i, j);
+				if (cell.actor || cell.item) {
+					for(let t of cell.tiles()) {
+						await t.applyInstantEffects(map, i, j, cell);
+						if (data.gameHasEnded) {
+							return true;
+						}
+					}
+				}
+			}
+		}
+	}
+
+  if (feat.eventName) {
+		await emit(feat.eventName, ctx);
+    didSomething = true;
+	}
+
+	if (data.gameHasEnded) {
+		free$1(spawnMap);
+		return didSomething;
+	}
+
+  //	if (succeeded && feat.message[0] && !feat.messageDisplayed && isVisible(x, y)) {
+  //		feat.messageDisplayed = true;
+  //		message(feat.message, false);
+  //	}
+  if (feat.next && (didSomething || feat.flags & TileEvent.DFF_SUBSEQ_ALWAYS)) {
+    // tileEvent.debug('- subsequent: %s, everywhere=%s', feat.next, feat.flags & Flags.TileEvent.DFF_SUBSEQ_EVERYWHERE);
+    if (feat.flags & TileEvent.DFF_SUBSEQ_EVERYWHERE) {
+        for (i=0; i<map.width; i++) {
+            for (j=0; j<map.height; j++) {
+                if (spawnMap[i][j]) {
+										ctx.x = i;
+										ctx.y = j;
+                    await spawn(feat.next, ctx);
+                }
+            }
+        }
+				ctx.x = x;
+				ctx.y = y;
+    }
+		else {
+        await spawn(feat.next, ctx);
+    }
+	}
+	if (didSomething) {
+    if (feat.tile
+        && (tile.flags & (Tile.T_IS_DEEP_WATER | Tile.T_LAVA | Tile.T_AUTO_DESCENT)))
+		{
+        data.updateMapToShoreThisTurn = false;
+    }
+
+    // awaken dormant creatures?
+    // if (feat.flags & Flags.TileEvent.DFF_ACTIVATE_DORMANT_MONSTER) {
+    //     for (monst of map.dormant) {
+    //         if (monst.x == x && monst.y == y || spawnMap[monst.x][monst.y]) {
+    //             // found it!
+    //             toggleMonsterDormancy(monst);
+    //         }
+    //     }
+    // }
+  }
+
+	if (didSomething) {
+    spawnMap.forEach( (v, i, j) => {
+      if (v) map.redrawXY(i, j);
+    });
+
+		ui.requestUpdate();
+
+		if (!(feat.flags & TileEvent.DFF_NO_MARK_FIRED)) {
+			spawnMap.forEach( (v, i, j) => {
+				if (v) {
+					map.setCellFlags(i, j, 0, CellMech.EVENT_FIRED_THIS_TURN);
+				}
+			});
+		}
+	}
+
+  // tileEvent.debug('- spawn complete : @%d,%d, ok=%s, feat=%s', ctx.x, ctx.y, didSomething, feat.id);
+
+	free$1(spawnMap);
+	return didSomething;
+}
+
+
+
+function cellIsOk(feat, x, y, ctx) {
+	const map = ctx.map;
+	if (!map.hasXY(x, y)) return false;
+	const cell = map.cell(x, y);
+
+	if (feat.flags & TileEvent.DFF_BUILD_IN_WALLS) {
+		if (!cell.isWall()) return false;
+	}
+	else if (feat.flags & TileEvent.DFF_MUST_TOUCH_WALLS) {
+		let ok = false;
+		map.eachNeighbor(x, y, (c) => {
+			if (c.isWall()) {
+				ok = true;
+			}
+		});
+		if (!ok) return false;
+	}
+	else if (feat.flags & TileEvent.DFF_NO_TOUCH_WALLS) {
+		let ok = true;
+		map.eachNeighbor(x, y, (c) => {
+			if (c.isWall()) {
+				ok = false;
+			}
+		});
+		if (!ok) return false;
+	}
+
+	if (ctx.bounds && !ctx.bounds.containsXY(x, y)) return false;
+	if (feat.matchTile && !cell.hasTile(feat.matchTile)) return false;
+	if (cell.hasTileFlag(Tile.T_OBSTRUCTS_TILE_EFFECTS) && !feat.matchTile && (ctx.x != x || ctx.y != y)) return false;
+
+	return true;
+}
+
+
+function computeSpawnMap(feat, spawnMap, ctx)
+{
+	let i, j, dir, t, x2, y2;
+	let madeChange;
+
+	const map = ctx.map;
+	const x = ctx.x;
+	const y = ctx.y;
+	const bounds = ctx.bounds || null;
+
+	let startProb = feat.spread || 0;
+	let probDec = feat.decrement || 0;
+
+	if (feat.matchTile && typeof feat.matchTile === 'string') {
+		const name = feat.matchTile;
+		const tile = tiles[name];
+		if (!tile) {
+			utils$1.ERROR('Failed to find match tile with name:' + name);
+		}
+		feat.matchTile = tile.id;
+	}
+
+	spawnMap[x][y] = t = 1; // incremented before anything else happens
+
+	let radius = feat.radius || 0;
+	if (feat.flags & TileEvent.DFF_SPREAD_CIRCLE) {
+		radius = 0;
+		startProb = startProb || 100;
+		if (startProb >= 100) {
+			probDec = probDec || 100;
+		}
+		while ( random.chance(startProb) ) {
+			startProb -= probDec;
+			++radius;
+		}
+		startProb = 100;
+		probDec = 0;
+	}
+
+	if (radius) {
+		startProb = startProb || 100;
+		spawnMap.updateCircle(x, y, radius, (v, i, j) => {
+			if (!cellIsOk(feat, i, j, ctx)) return 0;
+
+			const dist = Math.floor(utils$1.distanceBetween(x, y, i, j));
+			const prob = startProb - (dist * probDec);
+			if (!random.chance(prob)) return 0;
+			return 1;
+		});
+		spawnMap[x][y] = 1;
+	}
+	else if (startProb) {
+		madeChange = true;
+		if (startProb >= 100) {
+			probDec = probDec || 100;
+		}
+
+		if (feat.flags & TileEvent.DFF_SPREAD_LINE) {
+			x2 = x;
+			y2 = y;
+			const dir = def.dirs[random.number(4)];
+			while(madeChange) {
+				madeChange = false;
+				x2 = x2 + dir[0];
+				y2 = y2 + dir[1];
+				if (spawnMap.hasXY(x2, y2) && !spawnMap[x2][y2] && cellIsOk(feat, x2, y2, ctx) && random.chance(startProb)) {
+					spawnMap[x2][y2] = 1;
+					madeChange = true;
+					startProb -= probDec;
+				}
+			}
+		}
+		else {
+			if (probDec <= 0) probDec = startProb;
+			while (madeChange && startProb > 0) {
+				madeChange = false;
+				t++;
+				for (i = 0; i < map.width; i++) {
+					for (j=0; j < map.height; j++) {
+						if (spawnMap[i][j] == t - 1) {
+							for (dir = 0; dir < 4; dir++) {
+								x2 = i + def.dirs[dir][0];
+								y2 = j + def.dirs[dir][1];
+								if (spawnMap.hasXY(x2, y2) && !spawnMap[x2][y2] && cellIsOk(feat, x2, y2, ctx) && random.chance(startProb)) {
+									spawnMap[x2][y2] = t;
+									madeChange = true;
+								}
+							}
+						}
+					}
+				}
+				startProb -= probDec;
+			}
+
+		}
+
+	}
+
+	if (!cellIsOk(feat, x, y, ctx)) {
+			spawnMap[x][y] = 0;
+	}
+
+}
+
+
+
+async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
+{
+	let i, j;
+	let accomplishedSomething;
+
+	accomplishedSomething = false;
+
+	const blockedByOtherLayers = (feat.flags & TileEvent.DFF_BLOCKED_BY_OTHER_LAYERS);
+	const superpriority = (feat.flags & TileEvent.DFF_SUPERPRIORITY);
+	const applyEffects = ctx.refreshCell;
+	const map = ctx.map;
+  const volume = ctx.volume || feat.volume || (tile ? tile.volume : 0);
+
+	for (i=0; i<spawnMap.width; i++) {
+		for (j=0; j<spawnMap.height; j++) {
+
+			if (!spawnMap[i][j]) continue;	// If it's not flagged for building in the spawn map,
+			spawnMap[i][j] = 0; // so that the spawnmap reflects what actually got built
+
+			const cell = map.cell(i, j);
+			if (cell.mechFlags & CellMech.EVENT_PROTECTED) continue;
+
+			if (tile) {
+				if (cell.layers[tile.layer] === tile.id) { 														// If the new cell does not already contains the fill terrain,
+          if (tile.layer == TileLayer.GAS) {
+            spawnMap[i][j] = 1;
+            cell.gasVolume += volume;
+          }
+          else if (tile.layer == TileLayer.LIQUID) {
+            spawnMap[i][j] = 1;
+            cell.liquidVolume += volume;
+          }
+        }
+        else if ((superpriority || cell.tile(tile.layer).priority < tile.priority)  // If the terrain in the layer to be overwritten has a higher priority number (unless superpriority),
+					&& (!cell.obstructsLayer(tile.layer))															    // If we will be painting into the surface layer when that cell forbids it,
+          && ((!cell.item) || !(feat.flags & TileEvent.DFF_BLOCKED_BY_ITEMS))
+          && ((!cell.actor) || !(feat.flags & TileEvent.DFF_BLOCKED_BY_ACTORS))
+					&& (!blockedByOtherLayers || cell.highestPriorityTile().priority < tile.priority))  // if the fill won't violate the priority of the most important terrain in this cell:
+				{
+					spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
+
+					map.setTile(i, j, tile, volume);
+          // map.redrawCell(cell);
+					// if (volume && cell.gas) {
+					//     cell.volume += (feat.volume || 0);
+					// }
+
+					// debug('- tile', i, j, 'tile=', tile.id);
+
+					// cell.mechFlags |= Flags.CellMech.EVENT_FIRED_THIS_TURN;
+					accomplishedSomething = true;
+				}
+			}
+
+			if (itemKind) {
+				if (superpriority || !cell.item) {
+					if (!cell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS)) {
+						spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
+						if (cell.item) {
+							map.removeItem(cell.item);
+						}
+						const item = make$1.item(itemKind);
+						map.addItem(i, j, item);
+            // map.redrawCell(cell);
+						// cell.mechFlags |= Flags.CellMech.EVENT_FIRED_THIS_TURN;
+						accomplishedSomething = true;
+						// tileEvent.debug('- item', i, j, 'item=', itemKind.id);
+					}
+				}
+			}
+
+			if (feat.fn) {
+				if (await feat.fn(i, j, ctx)) {
+					spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
+          // map.redrawCell(cell);
+					// cell.mechFlags |= Flags.CellMech.EVENT_FIRED_THIS_TURN;
+					accomplishedSomething = true;
+				}
+			}
+		}
+	}
+	if (accomplishedSomething) {
+		map.changed(true);
+	}
+	return accomplishedSomething;
+}
+
+
+
+
+function nullifyCells(map, spawnMap, flags) {
+  let didSomething = false;
+  const nullSurface = flags & TileEvent.DFF_NULL_SURFACE;
+  const nullLiquid = flags & TileEvent.DFF_NULL_LIQUID;
+  const nullGas = flags & TileEvent.DFF_NULL_GAS;
+	spawnMap.forEach( (v, i, j) => {
+		if (!v) return;
+		map.nullifyCellLayers(i, j, nullLiquid, nullSurface, nullGas);
+    didSomething = true;
+	});
+  return didSomething;
+}
+
+
+
+function evacuateCreatures(map, blockingMap) {
+	let i, j;
+	let monst;
+
+  let didSomething = false;
+	for (i=0; i<map.width; i++) {
+		for (j=0; j<map.height; j++) {
+			if (blockingMap[i][j]
+				&& (map.hasCellFlag(i, j, Cell.HAS_ACTOR)))
+			{
+				monst = map.actorAt(i, j);
+				const forbidFlags = monst.forbiddenTileFlags();
+				const loc = map.matchingLocNear(
+									 i, j, (cell) => {
+										 if (cell.hasFlags(Cell.HAS_ACTOR)) return false;
+										 if (cell.hasTileFlags(forbidFlags)) return false;
+										 return true;
+									 },
+									 { hallwaysAllowed: true, blockingMap });
+				map.moveActor(loc[0], loc[1], monst);
+        map.redrawXY(loc[0], loc[1]);
+        didSomething = true;
+			}
+		}
+	}
+  return didSomething;
+}
+
+
+
+
+function evacuateItems(map, blockingMap) {
+
+  let didSomething = false;
+	blockingMap.forEach( (v, i, j) => {
+		if (!v) return;
+		const cell = map.cell(i, j);
+		if (!cell.item) return;
+
+		const forbidFlags = cell.item.kind.forbiddenTileFlags();
+		const loc = map.matchingLocNear(
+							 i, j, (cell) => {
+								 if (cell.hasFlags(Cell.HAS_ITEM)) return false;
+								 if (cell.hasTileFlags(forbidFlags)) return false;
+								 return true;
+							 },
+							 { hallwaysAllowed: true, blockingMap });
+		if (loc) {
+			map.removeItem(cell.item);
+			map.addItem(loc[0], loc[1], cell.item);
+      map.redrawXY(loc[0], loc[1]);
+      didSomething = true;
+		}
+	});
+  return didSomething;
+}
+
+var tileEvent$1 = {
+    __proto__: null,
+    TileEvent: TileEvent$1,
+    make: make$5,
+    addKind: addKind$1,
+    resetAllMessages: resetAllMessages,
+    spawn: spawn,
+    computeSpawnMap: computeSpawnMap,
+    spawnTiles: spawnTiles,
+    nullifyCells: nullifyCells,
+    evacuateCreatures: evacuateCreatures,
+    evacuateItems: evacuateItems
+};
+
 def.INTENSITY_DARK = 20; // less than 20% for highest color in rgb
 
-const LIGHT_COMPONENTS = make$2();
+const LIGHT_COMPONENTS = make$3();
 
 class Light {
-	constructor(color$1, range, fadeTo, pass) {
+	constructor(color$1, range$1, fadeTo, pass) {
 		this.color = from(color$1) || null;	/* color */
-		this.radius = make.range(range || 1);
+		this.radius = range.make(range$1 || 1);
 		this.fadeTo = Number.parseInt(fadeTo) || 0;
 		this.passThroughActors = (pass && (pass !== 'false')) ? true : false; // generally no, but miner light does
 	}
@@ -6277,7 +8172,7 @@ class Light {
   	const dispelShadows = !maintainShadows && (intensity(LIGHT_COMPONENTS) > def.INTENSITY_DARK);
   	const fadeToPercent = this.fadeTo;
 
-    const grid$1 = alloc(map.width, map.height, 0);
+    const grid$1 = alloc$1(map.width, map.height, 0);
   	map.calcFov(grid$1, x, y, outerRadius, (this.passThroughActors ? 0 : Cell.HAS_ACTOR), Tile.T_OBSTRUCTS_VISION, !isMinersLight);
 
     let overlappedFieldOfView = false;
@@ -6286,7 +8181,7 @@ class Light {
       if (!v) return;
       const cell = map.cell(i, j);
 
-      lightMultiplier = Math.floor(100 - (100 - fadeToPercent) * (distanceBetween(x, y, i, j) / radius));
+      lightMultiplier = Math.floor(100 - (100 - fadeToPercent) * (utils$1.distanceBetween(x, y, i, j) / radius));
       for (k=0; k<3; k++) {
         cell.light[k] += Math.floor(LIGHT_COMPONENTS[k] * lightMultiplier / 100);
       }
@@ -6305,7 +8200,7 @@ class Light {
   		cell.flags &= ~Cell.IS_IN_SHADOW;
   	}
 
-  	free(grid$1);
+  	free$1(grid$1);
     return overlappedFieldOfView;
   }
 
@@ -6320,7 +8215,7 @@ function intensity(color) {
 }
 
 
-function make$4(color, radius, fadeTo, pass) {
+function make$6(color, radius, fadeTo, pass) {
 
 	if (arguments.length == 1) {
 		if (color && color.color) {
@@ -6344,7 +8239,7 @@ function make$4(color, radius, fadeTo, pass) {
 	return new types.Light(color, radius, fadeTo, pass);
 }
 
-make.light = make$4;
+make$1.light = make$6;
 
 const LIGHT_SOURCES = lights;
 
@@ -6352,10 +8247,10 @@ const LIGHT_SOURCES = lights;
 // TODO - USE STRINGS FOR LIGHT SOURCE IDS???
 //      - addLightKind(id, source) { LIIGHT_SOURCES[id] = source; }
 //      - LIGHT_SOURCES = {};
-function addKind$1(id, ...args) {
+function addKind$2(id, ...args) {
 	let source = args[0];
 	if (source && !(source instanceof types.Light)) {
-		source = make.light(...args);
+		source = make$1.light(...args);
 	}
 	LIGHT_SOURCES[id] = source;
 	if (source) source.id = id;
@@ -6367,7 +8262,7 @@ function addKind$1(id, ...args) {
 function addKinds(config) {
 	const entries = Object.entries(config);
 	entries.forEach( ([name,info]) => {
-		addKind$1(name, info);
+		addKind$2(name, info);
 	});
 }
 
@@ -6379,7 +8274,7 @@ function from$1(...args) {
 		const cached = LIGHT_SOURCES[args[0]];
 		if (cached) return cached;
 	}
-	return make$4(...args);
+	return make$6(...args);
 }
 
 
@@ -6499,7 +8394,7 @@ function updateLighting(map) {
 	}
 
 	// Cycle through monsters and paint their lights:
-  eachChain(map.actors, (actor) => {
+  utils$1.eachChain(map.actors, (actor) => {
     if (actor.kind.light) {
 			actor.kind.light.paint(map, actor.x, actor.y);
 		}
@@ -6557,631 +8452,1188 @@ function playerInDarkness(map, PLAYER, darkColor) {
 }
 
 var light = {
-  __proto__: null,
-  intensity: intensity,
-  make: make$4,
-  addKind: addKind$1,
-  addKinds: addKinds,
-  from: from$1,
-  backUpLighting: backUpLighting,
-  restoreLighting: restoreLighting,
-  recordOldLights: recordOldLights,
-  zeroOutLights: zeroOutLights,
-  recordGlowLights: recordGlowLights,
-  restoreGlowLights: restoreGlowLights,
-  updateLighting: updateLighting,
-  playerInDarkness: playerInDarkness
+    __proto__: null,
+    intensity: intensity,
+    make: make$6,
+    addKind: addKind$2,
+    addKinds: addKinds,
+    from: from$1,
+    backUpLighting: backUpLighting,
+    restoreLighting: restoreLighting,
+    recordOldLights: recordOldLights,
+    zeroOutLights: zeroOutLights,
+    recordGlowLights: recordGlowLights,
+    restoreGlowLights: restoreGlowLights,
+    updateLighting: updateLighting,
+    playerInDarkness: playerInDarkness
 };
 
-const TileLayer = def.layer;
-
-
-class TileEvent$1 {
-	constructor(opts={})
-	{
-		if (typeof opts === 'function') {
-			opts = {
-				fn: opts,
-			};
-		}
-
-		this.tile = opts.tile || 0;
-		this.fn = opts.fn || null;
-		this.item = opts.item || null;
-		this.chance = opts.chance || 0;
-		this.volume = opts.volume || 0;
-
-		// spawning pattern:
-		this.spread = opts.spread || 0;
-		this.radius = opts.radius || 0;
-		this.decrement = opts.decrement || 0;
-		this.flags = TileEvent.toFlag(opts.flags);
-		this.matchTile = opts.matchTile || opts.needs || 0;	/* ENUM tileType */
-		this.next = opts.next || null;	/* ENUM makeEventTypes */
-
-		this.message = opts.message || null;
-	  this.lightFlare = opts.flare || 0;
-		this.flashColor = opts.flash ? from(opts.flash) : null;
-		// this.effectRadius = radius || 0;
-		this.messageDisplayed = false;
-		this.eventName = opts.event || opts.emit || null;	// name of the event to emit when activated
-		this.id = opts.id || null;
-	}
-
-}
-
-types.TileEvent = TileEvent$1;
-
-
-// Dungeon features, spawned from Architect.c:
-function make$5(opts) {
-  if (!opts) return null;
-  if (typeof opts === 'string') {
-    opts = { tile: opts };
+function demoteCellVisibility(cell, i, j, map) {
+  cell.flags &= ~Cell.WAS_VISIBLE;
+  if (cell.flags & Cell.VISIBLE) {
+    cell.flags &= ~Cell.VISIBLE;
+    cell.flags |= Cell.WAS_VISIBLE;
   }
-	const te = new types.TileEvent(opts);
-	return te;
 }
 
-make.tileEvent = make$5;
+function _updateCellVisibility(cell, i, j, map) {
 
+  const isVisible = (cell.flags & Cell.VISIBLE);
+  const wasVisible = (cell.flags & Cell.WAS_VISIBLE);
 
-function addKind$2(id, event) {
-	if (arguments.length > 2 || !(event instanceof types.TileEvent)) {
-		event = make.tileEvent(...[].slice.call(arguments, 1));
-	}
-  tileEvents$1[id] = event;
-	if (event) tileEvent.id = id;
-	return event;
-}
-
-
-addKind$2('DF_NONE');
-
-
-
-function resetAllMessages() {
-	Object.values(tileEvents).forEach( (f) => {
-		if (f instanceof types.TileEvent) {
-			f.messageDisplayed = false;
-		}
-	});
-}
-
-
-
-
-// returns whether the feature was successfully generated (false if we aborted because of blocking)
-async function spawn(feat, ctx) {
-	let i, j;
-	let tile, itemKind;
-
-	if (!feat) return false;
-	if (!ctx) return false;
-
-	if (typeof feat === 'string') {
-		const name = feat;
-		feat = tileEvents$1[feat];
-		if (!feat) ERROR('Unknown tile Event: ' + name);
-	}
-
-	if (typeof feat === 'function') {
-		return feat(ctx);
-	}
-
-	const map = ctx.map;
-	const x = ctx.x;
-	const y = ctx.y;
-
-	if (!map || x === undefined || y === undefined) {
-		ERROR('MAP, x, y are required in context.');
-	}
-
-	if (ctx.safe && map.hasCellMechFlag(x, y, CellMech.EVENT_FIRED_THIS_TURN)) {
-		if (!(feat.flags & TileEvent.DFF_ALWAYS_FIRE)) {
-      // tileEvent.debug('spawn - already fired.');
-			return false;
-		}
-	}
-
-	// tileEvent.debug('spawn', x, y, 'id=', feat.id, 'tile=', feat.tile, 'item=', feat.item);
-
-	const refreshCell = ctx.refreshCell = ctx.refreshCell || !(feat.flags & TileEvent.DFF_NO_REDRAW_CELL);
-	const abortIfBlocking = ctx.abortIfBlocking = ctx.abortIfBlocking || (feat.flags & TileEvent.DFF_ABORT_IF_BLOCKS_MAP);
-
-  // if ((feat.flags & DFF_RESURRECT_ALLY) && !resurrectAlly(x, y))
-	// {
-  //     return false;
-  // }
-
-  if (feat.message && feat.message.length && !feat.messageDisplayed && map.isVisible(x, y)) {
-		feat.messageDisplayed = true;
-		MSG.add(feat.message);
-	}
-
-  if (feat.tile) {
-		tile = tiles[feat.tile];
-		if (!tile) {
-			ERROR('Unknown tile: ' + feat.tile);
-		}
-	}
-
-	if (feat.item) {
-		itemKind = itemKinds[feat.item];
-		if (!itemKind) {
-			ERROR('Unknown item: ' + feat.item);
-		}
-	}
-
-	// Blocking keeps track of whether to abort if it turns out that the DF would obstruct the level.
-	const blocking = ctx.blocking = ((abortIfBlocking
-							 && !(feat.flags & TileEvent.DFF_PERMIT_BLOCKING)
-							 && ((tile && (tile.flags & (Tile.T_PATHING_BLOCKER)))
-										|| (itemKind && (itemKind.flags & ItemKind.IK_BLOCKS_MOVE))
-										|| (feat.flags & TileEvent.DFF_TREAT_AS_BLOCKING))) ? true : false);
-
-	// tileEvent.debug('- blocking', blocking);
-
-	const spawnMap = alloc(map.width, map.height);
-
-	let didSomething = false;
-	computeSpawnMap(feat, spawnMap, ctx);
-  if (!blocking || !map.gridDisruptsPassability(spawnMap, { bounds: ctx.bounds })) {
-		if (feat.flags & TileEvent.DFF_EVACUATE_CREATURES) { // first, evacuate creatures, so that they do not re-trigger the tile.
-				if (evacuateCreatures(map, spawnMap)) {
-          didSomething = true;
-        }
-		}
-
-		if (feat.flags & TileEvent.DFF_EVACUATE_ITEMS) { // first, evacuate items, so that they do not re-trigger the tile.
-				if (evacuateItems(map, spawnMap)) {
-          didSomething = true;
-        }
-		}
-
-		if (feat.flags & TileEvent.DFF_NULLIFY_CELL) { // first, clear other tiles (not base/ground)
-				if (nullifyCells(map, spawnMap, feat.flags)) {
-          didSomething = true;
-        }
-		}
-
-		if (tile || itemKind || feat.fn) {
-			if (await spawnTiles(feat, spawnMap, ctx, tile, itemKind)) {
-        didSomething = true;
-      }
-		}
-	}
-
-	if (didSomething && (feat.flags & TileEvent.DFF_PROTECTED)) {
-		spawnMap.forEach( (v, i, j) => {
-			if (!v) return;
-			const cell = map.cell(i, j);
-			cell.mechFlags |= CellMech.EVENT_PROTECTED;
-		});
-	}
-
-	// if (refreshCell && feat.tile
-	// 	&& (tile.flags & (Flags.Tile.T_IS_FIRE | Flags.Tile.T_AUTO_DESCENT))
-	// 	&& map.hasTileFlag(PLAYER.xLoc, PLAYER.yLoc, (Flags.Tile.T_IS_FIRE | Flags.Tile.T_AUTO_DESCENT)))
-	// {
-	// 	await applyInstantTileEffectsToCreature(PLAYER);
-	// }
-
-	// apply tile effects
-	if (didSomething) {
-		for(let i = 0; i < spawnMap.width; ++i) {
-			for(let j = 0; j < spawnMap.height; ++j) {
-				const v = spawnMap[i][j];
-				if (!v || data.gameHasEnded) continue;
-				const cell = map.cell(i, j);
-				if (cell.actor || cell.item) {
-					for(let t of cell.tiles()) {
-						await t.applyInstantEffects(map, i, j, cell);
-						if (data.gameHasEnded) {
-							return true;
-						}
-					}
-				}
-			}
-		}
-	}
-
-  if (feat.eventName) {
-		await emit(feat.eventName, ctx);
-    didSomething = true;
-	}
-
-	if (data.gameHasEnded) {
-		free(spawnMap);
-		return didSomething;
-	}
-
-  //	if (succeeded && feat.message[0] && !feat.messageDisplayed && isVisible(x, y)) {
-  //		feat.messageDisplayed = true;
-  //		message(feat.message, false);
-  //	}
-  if (feat.next && (didSomething || feat.flags & TileEvent.DFF_SUBSEQ_ALWAYS)) {
-    // tileEvent.debug('- subsequent: %s, everywhere=%s', feat.next, feat.flags & Flags.TileEvent.DFF_SUBSEQ_EVERYWHERE);
-    if (feat.flags & TileEvent.DFF_SUBSEQ_EVERYWHERE) {
-        for (i=0; i<map.width; i++) {
-            for (j=0; j<map.height; j++) {
-                if (spawnMap[i][j]) {
-										ctx.x = i;
-										ctx.y = j;
-                    await spawn(feat.next, ctx);
-                }
+  if (isVisible && wasVisible) {
+    if (cell.lightChanged()) {
+      map.redrawCell(cell);
+    }
+  }
+	else if (isVisible && !wasVisible) { // if the cell became visible this move
+		if (!(cell.flags & Cell.REVEALED) && data.automationActive) {
+        if (cell.item) {
+            const theItem = cell.item;
+            if (theItem.hasKindFlag(ItemKind.IK_INTERRUPT_EXPLORATION_WHEN_SEEN)) {
+                MSG.add('§you§ §see§ ΩitemMessageColorΩ§item§∆.', { item, actor: GW.data.player });
             }
         }
-				ctx.x = x;
-				ctx.y = y;
+        if (!(cell.flags & Cell.MAGIC_MAPPED)
+            && cell.hasTileMechFlag(TileMech.TM_INTERRUPT_EXPLORATION_WHEN_SEEN))
+				{
+            const tile = cell.tileWithMechFlag(TileMech.TM_INTERRUPT_EXPLORATION_WHEN_SEEN);
+            MSG.add('§you§ §see§ ΩbackgroundMessageColorΩ§item§∆.', { actor: GW.data.player, item: tile.name });
+        }
     }
-		else {
-        await spawn(feat.next, ctx);
-    }
+    map.markRevealed(i, j);
+		map.redrawCell(cell);
+	} else if ((!isVisible) && wasVisible) { // if the cell ceased being visible this move
+    cell.storeMemory();
+		map.redrawCell(cell);
 	}
-	if (didSomething) {
-    if (feat.tile
-        && (tile.flags & (Tile.T_IS_DEEP_WATER | Tile.T_LAVA | Tile.T_AUTO_DESCENT)))
-		{
-        data.updateMapToShoreThisTurn = false;
-    }
+  return isVisible;
+}
 
-    // awaken dormant creatures?
-    // if (feat.flags & Flags.TileEvent.DFF_ACTIVATE_DORMANT_MONSTER) {
-    //     for (monst of map.dormant) {
-    //         if (monst.x == x && monst.y == y || spawnMap[monst.x][monst.y]) {
-    //             // found it!
-    //             toggleMonsterDormancy(monst);
-    //         }
-    //     }
-    // }
+function _updateCellClairyvoyance(cell, i, j, map) {
+  const isClairy = (cell.flags & Cell.CLAIRVOYANT_VISIBLE);
+  const wasClairy = (cell.flags & Cell.WAS_CLAIRVOYANT_VISIBLE);
+
+  if (isClairy && wasClairy) {
+    if (cell.lightChanged()) {
+      map.redrawCell(cell);
+    }
+  }
+  else if ((!isClairy) && wasClairy) { // ceased being clairvoyantly visible
+		cell.storeMemory();
+		map.redrawCell(cell);
+	} else if ((!wasClairy) && (isClairy)) { // became clairvoyantly visible
+		cell.flags &= ~STABLE_MEMORY;
+		map.redrawCell(cell);
+	}
+
+  return isClairy;
+}
+
+
+function _updateCellTelepathy(cell, i, j, map) {
+  const isTele = (cell.flags & Cell.TELEPATHIC_VISIBLE);
+  const wasTele = (cell.flags & Cell.WAS_TELEPATHIC_VISIBLE);
+
+  if (isTele && wasTele) {
+    if (cell.lightChanged()) {
+      map.redrawCell(cell);
+    }
+  }
+  else if ((!isTele) && wasTele) { // ceased being telepathically visible
+    cell.storeMemory();
+		map.redrawCell(cell);
+	} else if ((!wasTele) && (isTele)) { // became telepathically visible
+    if (!(cell.flags & Cell.REVEALED)
+			&& !cell.hasTileFlag(Tile.T_PATHING_BLOCKER))
+		{
+			data.xpxpThisTurn++;
+    }
+		cell.flags &= ~Cell.STABLE_MEMORY;
+		map.redrawCell(cell);
+	}
+  return isTele;
+}
+
+
+function _updateCellDetect(cell, i, j, map) {
+  const isMonst = (cell.flags & Cell.MONSTER_DETECTED);
+  const wasMonst = (cell.flags & Cell.WAS_MONSTER_DETECTED);
+
+  if (isMonst && wasMonst) {
+    if (cell.lightChanged()) {
+      map.redrawCell(cell);
+    }
+  }
+  else if ((!isMonst) && (wasMonst)) { // ceased being detected visible
+		cell.flags &= ~Cell.STABLE_MEMORY;
+		map.redrawCell(cell);
+    cell.storeMemory();
+	} else if ((!wasMonst) && (isMonst)) { // became detected visible
+		cell.flags &= ~Cell.STABLE_MEMORY;
+		map.redrawCell(cell);
+    cell.storeMemory();
+	}
+  return isMonst;
+}
+
+
+function promoteCellVisibility(cell, i, j, map) {
+
+	if (cell.flags & Cell.IN_FOV
+		&& (map.hasVisibleLight(i, j))
+		&& !(cell.flags & Cell.CLAIRVOYANT_DARKENED))
+	{
+		cell.flags |= Cell.VISIBLE;
+	}
+
+  if (_updateCellVisibility(cell, i, j, map)) return;
+  if (_updateCellClairyvoyance(cell, i, j, map)) return;
+  if (_updateCellTelepathy(cell, i, j, map)) return;
+  if (_updateCellDetect(cell, i, j, map)) return;
+
+}
+
+
+function initMap(map) {
+  if (!config.fov) {
+    map.forEach( (cell) => cell.flags |= Cell.REVEALED );
+    return;
   }
 
-	if (didSomething) {
-    spawnMap.forEach( (v, i, j) => {
-      if (v) map.redrawXY(i, j);
+  map.clearFlags(0, Cell.IS_WAS_ANY_KIND_OF_VISIBLE);
+}
+
+
+function update$1(map, x, y, maxRadius) {
+  if (!config.fov) return;
+
+  if (!(map.flags & Map.MAP_FOV_CHANGED)) return;
+  map.flags &= ~Map.MAP_FOV_CHANGED;
+
+  map.forEach( demoteCellVisibility );
+  map.clearFlags(0, Cell.IN_FOV);
+
+  // Calculate player's field of view (distinct from what is visible, as lighting hasn't been done yet).
+  const grid$1 = alloc$1(map.width, map.height, 0);
+  map.calcFov(grid$1, x, y, maxRadius);
+  grid$1.forEach( (v, i, j) => {
+    if (v) {
+      map.setCellFlags(i, j, Cell.IN_FOV);
+    }
+  });
+  free$1(grid$1);
+
+	map.setCellFlags(x, y, Cell.IN_FOV | Cell.VISIBLE);
+
+	// if (PLAYER.bonus.clairvoyance < 0) {
+  //   discoverCell(PLAYER.xLoc, PLAYER.yLoc);
+	// }
+  //
+	// if (PLAYER.bonus.clairvoyance != 0) {
+	// 	updateClairvoyance();
+	// }
+  //
+  // updateTelepathy();
+	// updateMonsterDetection();
+
+	// updateLighting();
+	map.forEach( promoteCellVisibility );
+
+	// if (PLAYER.status.hallucinating > 0) {
+	// 	for (theItem of DUNGEON.items) {
+	// 		if ((pmap[theItem.xLoc][theItem.yLoc].flags & DISCOVERED) && refreshDisplay) {
+	// 			refreshDungeonCell(theItem.xLoc, theItem.yLoc);
+	// 		}
+	// 	}
+	// 	for (monst of DUNGEON.monsters) {
+	// 		if ((pmap[monst.xLoc][monst.yLoc].flags & DISCOVERED) && refreshDisplay) {
+	// 			refreshDungeonCell(monst.xLoc, monst.yLoc);
+	// 		}
+	// 	}
+	// }
+
+}
+
+var visibility = {
+    __proto__: null,
+    initMap: initMap,
+    update: update$1
+};
+
+var actions = {};
+
+actions.debug = utils$1.NOOP;
+
+var actor = {};
+var actorKinds = {};
+
+actor.debug = utils$1.NOOP;
+
+
+
+
+class ActorKind$1 {
+  constructor(opts={}) {
+		this.name = opts.name || 'item';
+		this.description = opts.description || opts.desc || '';
+    this.article = (opts.article === undefined) ? 'a' : opts.article;
+		this.sprite = make$1.sprite(opts.sprite || opts);
+    this.flags = ActorKind.toFlag(opts.flags);
+		this.actionFlags = Action.toFlag(opts.flags);
+    this.behaviors = Behaviors.toFlag(opts.flags);
+		// this.attackFlags = Flags.Attack.toFlag(opts.flags);
+		this.stats = Object.assign({}, opts.stats || {});
+    this.regen = Object.assign({}, opts.regen || {});
+		this.id = opts.id || null;
+    this.bump = opts.bump || ['attack'];  // attack me by default if you bump into me
+    this.frequency = make$1.frequency(opts.frequency || this.stats.frequency);
+
+    if (typeof this.bump === 'string') {
+      this.bump = this.bump.split(/[,|]/).map( (t) => t.trim() );
+    }
+    if (!Array.isArray(this.bump)) {
+      this.bump = [this.bump];
+    }
+
+    this.corpse = opts.corpse ? make$1.tileEvent(opts.corpse) : null;
+    this.blood = opts.blood ? make$1.tileEvent(opts.blood) : null;
+
+    this.speed = opts.speed || config.defaultSpeed || 120;
+
+    if (opts.consoleColor === false) {
+      this.consoleColor = false;
+    }
+    else {
+      this.consoleColor = opts.consoleColor || true;
+      if (typeof this.consoleColor === 'string') {
+        this.consoleColor = from(this.consoleColor);
+      }
+    }
+
+    this.attacks = opts.attacks || null;
+
+    this.ai = null;
+    if (opts.ai) {
+      if (typeof opts.ai === 'function') {
+        opts.ai = [opts.ai];
+      }
+      else if (typeof opts.ai === 'string') {
+        opts.ai = opts.ai.split(/[,|]/).map( (t) => t.trim() );
+      }
+
+      this.ai = opts.ai.map( (v) => {
+        if (typeof v === 'string') return ai[v];
+        if (typeof v === 'function') return { act: v };
+        return v;
+      });
+    }
+    if (opts.sidebar) {
+      this.sidebar = opts.sidebar.bind(this);
+    }
+    if (opts.calcEquipmentBonuses) {
+      this.calcEquipmentBonuses = opts.calcEquipmentBonuses.bind(this);
+    }
+
+  }
+
+  make(actor, opts) {}
+
+  // other is visible to player (invisible, in darkness, etc...) -- NOT LOS/FOV check
+  canVisualize(actor, other, map) {
+    return true;
+  }
+
+  isOrWasVisibleToPlayer(actor, map) {
+    map = map || data.map;
+		return map.isOrWasAnyKindOfVisible(actor.x, actor.y);
+	}
+
+  alwaysVisible(actor) {
+    return this.flags & (ActorKind.AF_IMMOBILE | ActorKind.AF_INANIMATE);
+  }
+
+  avoidedCellFlags(actor) {
+    return Cell.HAS_ACTOR;
+  }
+
+  avoidedTileFlags(actor) {
+    return 0; // ???
+  }
+
+  forbiddenCellFlags(actor) {
+		return Cell.HAS_ACTOR;
+	}
+
+	forbiddenTileFlags(actor) {
+		return Tile.T_PATHING_BLOCKER;
+	}
+
+  forbiddenTileMechFlags(actor) {
+    return 0;
+  }
+
+  canPass(actor, other) {
+    return actor.isPlayer() == other.isPlayer();
+  }
+
+  calcBashDamage(actor, item, ctx) {
+    return 1;
+  }
+
+  willAttack(actor, other, ctx) {
+    return (actor.isPlayer() !== other.isPlayer());
+  }
+
+  applyDamage(actor, amount, source, ctx) {
+    amount = Math.min(actor.current.health, amount);
+    actor.prior.health = actor.current.health;
+    actor.current.health -= amount;
+    actor.changed(true);
+    return amount;
+  }
+
+  heal(actor, amount=0) {
+    const delta = Math.min(amount, actor.max.health - actor.current.health);
+    actor.current.health += delta;
+    actor.changed(true);
+    return delta;
+  }
+
+  kill(actor) {
+    actor.current.health = 0;
+    if (actor.isPlayer()) {
+      data.gameHasEnded = true;
+    }
+    // const map = DATA.map;
+		// map.removeActor(this);
+		// in the future do something here (HP = 0?  Flag?)
+	}
+
+  getAwarenessDistance(actor, other) {
+    // TODO - Take light/stealth into account
+    //      - if lit,  then check max(perception, stealth)
+    //      - if shadow   - check infravision ? max(perception, stealth) : min(percention,stealth)
+    //      - if darkness - check infravision ? min(perception, stealth) : 1.6;
+    return actor.current.perception || 10;  // ???
+  }
+
+  getName(actor, opts={}) {
+    if (opts === true) { opts = { article: true }; }
+    if (opts === false) { opts = {}; }
+    if (typeof opts === 'string') { opts = { article: opts }; }
+
+    let result = actor.name || this.name;
+    if (!opts.formal && actor.isPlayer()) {
+      result = 'you';
+    }
+    if (opts.color || (this.consoleColor && (opts.color !== false))) {
+      let color$1 = opts.color;
+      if (typeof color$1 === 'boolean') {
+        color$1 = this.consoleColor;
+        if (typeof color$1 === 'boolean') {
+          color$1 = this.sprite.fg;
+        }
+      }
+      if (color$1 && typeof opts.color !== 'string') {
+        color$1 = from(color$1);
+        color$1 = color$1.isNull() ? null : color$1.toString();
+      }
+      if (color$1) {
+        result = apply('Ω§color§Ω§result§∆', { color: color$1, result });
+      }
+    }
+
+    if (opts.article && (this.article !== false)) {
+      if (opts.formal || !actor.isPlayer()) {
+        let article = (opts.article === true) ? this.article : opts.article;
+        if (article == 'a' && isVowel(firstChar(result))) {
+          article = 'an';
+        }
+        result = article + ' ' + result;
+      }
+    }
+    return result;
+  }
+}
+
+types.ActorKind = ActorKind$1;
+
+function addActorKind(id, opts={}) {
+	opts.id = id;
+  let kind;
+  if (opts instanceof types.ActorKind) {
+    kind = opts;
+  }
+  else {
+    kind = new types.ActorKind(opts);
+  }
+	actorKinds[id] = kind;
+	return kind;
+}
+
+actor.addKind = addActorKind;
+
+function addActorKinds(opts={}) {
+  Object.entries(opts).forEach( ([key, config]) => {
+    actor.addKind(key, config);
+  });
+}
+
+actor.addKinds = addActorKinds;
+
+let ACTOR_COUNT = 0;
+
+class Actor$1 {
+	constructor(kind, opts={}) {
+		this.x = -1;
+    this.y = -1;
+    this.flags = Actor.toFlag(opts.flags);
+    this.kind = kind || {};
+    this.turnTime = 0;
+		this.status = {};
+    this.name = opts.name || null;
+
+    this.pack = null;
+    this.slots = {};
+
+    // stats
+    this.current = { health: 1 };
+    this.max = { health: 1 };
+    this.prior = { health: 1 };
+    if (this.kind.stats) {
+      Object.entries(this.kind.stats).forEach( ([key, value]) => {
+        if (typeof value !== 'number') {
+          value = range.make(value).value();
+        }
+        this.current[key] = this.prior[key] = this.max[key] = value;
+      });
+    }
+    if (opts.stats) {
+      Object.assign(this.current, opts.stats);
+    }
+
+    // this is so we can change speeds with modifiers more easily
+    this.current.speed = this.max.speed = this.prior.speed = kind.speed;
+
+    this.regen = { health: 0 };
+    if (this.kind.regen) {
+      Object.assign(this.regen, this.kind.regen);
+    }
+    if (opts.regen) {
+      Object.assign(this.regen, opts.regen);
+    }
+
+    if (this.kind.ai) {
+      this.kind.ai.forEach( (ai) => {
+        const fn = ai.act || ai.fn || ai;
+        if (typeof fn !== 'function') {
+          utils$1.ERROR('Invalid AI - must be function, or object with function for act or fn member.');
+        }
+        if (ai.init) {
+          ai.init(this);
+        }
+      });
+    }
+
+    this.id = ++ACTOR_COUNT;
+
+    if (opts.female) {
+      this.flags &= ~Actor.AF_MALE;
+      this.flags |= Actor.AF_FEMALE;
+    }
+    else if (opts.male) {
+      this.flags &= ~Actor.AF_FEMALE;
+      this.flags |= Actor.AF_MALE;
+    }
+    else if (this.hasAllFlags(Actor.AF_MALE | Actor.AF_FEMALE)) {
+      const remove = random.chance(50) ? Actor.AF_MALE : Actor.AF_FEMALE;
+      this.flags &= ~remove;
+    }
+
+    this.kind.make(this, opts);
+    if (this.kind.calcEquipmentBonuses) {
+      this.kind.calcEquipmentBonuses(this);
+    }
+  }
+
+  turnEnded() { return this.flags & Actor.AF_TURN_ENDED; }
+
+  isPlayer() { return this === data.player; }
+  isDead() { return (this.current.health <= 0) || (this.flags & Actor.AF_DYING); }
+  isInanimate() { return this.kind.flags & ActorKind.AK_INANIMATE; }
+  isInvulnerable() { return this.kind.flags & ActorKind.AK_INVULNERABLE; }
+
+  isFemale() { return this.flags & Actor.AF_FEMALE; }
+  isMale() { return this.flags & Actor.AF_MALE; }
+
+  hasAllFlags(flags) {
+    return (this.flags & flags) === flags;
+  }
+
+  hasActionFlag(flag) {
+    if (this.isPlayer()) return true; // Players can do everything
+    return this.kind.actionFlags & flag;
+  }
+
+  changed(v) {
+    if (v) {
+      this.flags |= Actor.AF_CHANGED;
+    }
+    else if (v !== undefined) {
+      this.flags &= ~Actor.AF_CHANGED;
+    }
+    return (this.flags & Actor.AF_CHANGED);
+  }
+
+  async bumpBy(actor, ctx) {
+
+    if (this.kind.bump && typeof this.kind.bump === 'function') {
+      return this.kind.bump(actor, this, ctx);
+    }
+
+    const kind = this.kind;
+    const actorActions = this.bump || [];
+    const kindActions  = this.kind.bump || [];
+
+    const allBump = actorActions.concat(kindActions);
+
+    for(let i = 0; i < allBump.length; ++i) {
+      let bumpFn = allBump[i];
+      if (typeof bumpFn === 'string') {
+        bumpFn = actions[bumpFn] || kind[bumpFn] || utils$1.FALSE;
+      }
+
+      if (await bumpFn(actor, this, ctx) !== false) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+	endTurn(turnTime) {
+    if (this.kind.endTurn) {
+      turnTime = this.kind.endTurn(this, turnTime) || turnTime;
+    }
+    actor.endTurn(this, turnTime);
+	}
+
+  kill() {
+    this.flags |= Actor.AF_DYING;
+    this.changed(true);
+    this.kind.kill(this);
+    if (this.mapToMe) {
+      free$1(this.mapToMe);
+      this.mapToMe = null;
+    }
+    if (this.travelGrid) {
+      free$1(this.travelGrid);
+      this.travelGrid = null;
+    }
+  }
+
+  // MOVEMENT/VISION
+
+  isVisible(map) {
+    map = map || data.map;
+    return map.isVisible(this.x, this.y);
+  }
+
+  isAnyKindOfVisible(map) {
+    map = map || data.map;
+    return map.isAnyKindOfVisible(this.x, this.y);
+  }
+
+  canDirectlySee(other, map) {
+    map = map || data.map;
+
+    //
+    if (!this.kind.canVisualize(this, other, map)) {
+      return false;
+    }
+
+    if (this.isPlayer()) {
+      return map.isVisible(other.x, other.y);
+    }
+    else if (other.isPlayer()) {
+      return map.isVisible(this.x, this.y);
+    }
+    else {
+      let dist = utils$1.distanceFromTo(this, other);
+      if (dist < 2) return true;  // next to each other
+
+      // TODO - Make a raycast that can tell if there is clear vision from here to there
+      const grid$1 = alloc$1(map.width, map.height);
+      map.calcFov(grid$1, this.x, this.y, dist + 1);
+      const result = grid$1[other.x][other.y];
+      free$1(grid$1);
+      return result;
+    }
+  }
+
+  avoidsCell(cell, x, y) {
+    const limitToPlayerKnowledge = this.isPlayer();
+    const avoidedCellFlags = this.kind.avoidedCellFlags(this);
+    const forbiddenTileFlags = this.kind.forbiddenTileFlags(this);
+    const avoidedTileFlags = this.kind.avoidedTileFlags(this);
+
+    if (cell.hasFlag(avoidedCellFlags, limitToPlayerKnowledge)) return true;
+    if (cell.hasTileFlag(forbiddenTileFlags | avoidedTileFlags, limitToPlayerKnowledge)) return true;
+    return false;
+  }
+
+  fillCostGrid(map, grid) {
+    const avoidedCellFlags = this.kind.avoidedCellFlags(this);
+    const forbiddenTileFlags = this.kind.forbiddenTileFlags(this);
+    const avoidedTileFlags = this.kind.avoidedTileFlags(this);
+    const isPlayer = this.isPlayer();
+
+    map.fillCostGrid(grid, (cell, x, y) => {
+      if (isPlayer && !cell.isRevealed()) return def.PDS_OBSTRUCTION;
+      if (cell.hasTileFlag(forbiddenTileFlags, isPlayer)) return def.PDS_FORBIDDEN;
+      if (cell.hasTileFlag(avoidedTileFlags, isPlayer)) return def.PDS_AVOIDED;
+      if (cell.hasFlag(avoidedCellFlags, isPlayer)) return def.PDS_AVOIDED;
+      return 1;
+    });
+  }
+
+  updateMapToMe(force=false) {
+    const map = data.map;
+    let mapToMe = this.mapToMe;
+    if (!mapToMe) {
+      mapToMe = this.mapToMe = alloc$1(map.width, map.height);
+      mapToMe.x = mapToMe.y = -1;
+    }
+    if (mapToMe.x != this.x || mapToMe.y != this.y || force) {
+      let costGrid = this.costGrid;
+      if (!costGrid) {
+        costGrid = this.costGrid = alloc$1(map.width, map.height);
+        this.fillCostGrid(map, costGrid);
+      }
+      else if (force) {
+        this.fillCostGrid(map, costGrid);
+      }
+      calculateDistances(mapToMe, this.x, this.y, costGrid, true);
+      // Grid.free(costGrid);
+    }
+    return mapToMe;
+  }
+
+  invalidateCostMap() {
+    if (this.costGrid) {
+      free$1(this.costGrid);
+      this.costGrid = null;
+    }
+  }
+
+  // combat helpers
+  calcDamageTo(defender, attackInfo, ctx) {
+    let damage = attackInfo.damage;
+    if (typeof damage === 'function') {
+      damage = damage(this, defender, attackInfo, ctx) || 1;
+    }
+    return damage;
+  }
+
+  // Descriptions
+
+  getName(opts={}) {
+    if (typeof opts === 'string') { opts = { article: opts }; }
+    let base = this.kind.getName(this, opts);
+    return base;
+  }
+
+  getVerb(verb) {
+    if (this.isPlayer()) return verb;
+    return toSingularVerb(verb);
+  }
+
+  getPronoun(pn) {
+    if (this.isPlayer()) {
+      return playerPronoun[pn];
+    }
+
+    return singularPronoun[pn];
+  }
+
+  debug(...args) {
+  	// if (this.flags & Flags.Actor.AF_DEBUG)
+  	actor.debug(...args);
+  }
+
+  // STATS
+
+  adjustStat(stat, delta) {
+    if (this.max[stat] === undefined) {
+      this.max[stat] = Math.max(0, delta);
+    }
+    this.current[stat] = utils$1.clamp((this.current[stat] || 0) + delta, 0, this.max[stat]);
+    this.changed(true);
+  }
+
+  statChangePercent(name) {
+    const current = this.current[name] || 0;
+    const prior = this.prior[name] || 0;
+    const max = Math.max(this.max[name] || 0, current, prior);
+
+    return Math.floor(100 * (current - prior)/max);
+  }
+
+  initStat(stat, value) {
+    this.max[stat] = this.current[stat] = this.prior[stat] = value;
+  }
+
+  // INVENTORY
+
+  addToPack(item) {
+    let quantityLeft = (item.quantity || 1);
+    // Stacking?
+    if (item.isStackable()) {
+      let current = this.pack;
+      while(current && quantityLeft) {
+        if (current.kind === item.kind) {
+          quantityLeft -= item.quantity;
+          current.quantity += item.quantity;
+          item.quantity = 0;
+          item.destroy();
+        }
+        current = current.next;
+      }
+      if (!quantityLeft) {
+        return true;
+      }
+    }
+
+    // Limits to inventory length?
+    // if too many items - return false
+
+    if (utils$1.addToChain(this, 'pack', item)) {
+      return true;
+    }
+    return false;
+  }
+
+  removeFromPack(item) {
+    return utils$1.removeFromChain(this, 'pack', item);
+  }
+
+  eachPack(fn) {
+    utils$1.eachChain(this.pack, fn);
+  }
+
+  itemWillFitInPack(item, quantity) {
+    if (!this.pack) return true;
+    const maxSize = GW.config.PACK_MAX_ITEMS || 26;
+
+    const count = utils$1.chainLength(this.pack);
+    if (count < maxSize) return true;
+
+    if (!item.isStackable()) return false;
+    let willStack = false;
+    utils$1.eachChain(this.pack, (packItem) => {
+      if (item.willStackInto(packItem, quantity)) {
+        willStack = true;
+      }
     });
 
-		ui.requestUpdate();
+    return willStack;
+  }
 
-		if (!(feat.flags & TileEvent.DFF_NO_MARK_FIRED)) {
-			spawnMap.forEach( (v, i, j) => {
-				if (v) {
-					map.setCellFlags(i, j, 0, CellMech.EVENT_FIRED_THIS_TURN);
-				}
-			});
-		}
-	}
+  // EQUIPMENT
 
-  // tileEvent.debug('- spawn complete : @%d,%d, ok=%s, feat=%s', ctx.x, ctx.y, didSomething, feat.id);
+  equip(item) {
+    const slot = item.kind.slot;
+    if (!slot) return false;
+    if (this.slots[slot]) return false;
+    this.slots[slot] = item;
+    return true;
+  }
 
-	free(spawnMap);
-	return didSomething;
-}
+  unequip(item) {
+    const slot = item.kind.slot;
+    if (this.slots[slot] === item) {
+      this.slots[slot] = null;
+      return true;
+    }
+    return false;
+  }
 
+  unequipSlot(slot) {
+    const item = this.slots[slot] || null;
+    this.slots[slot] = null;
+    return item;
+  }
 
+  eachEquip(fn) {
+    Object.values(this.slots).filter( (a) => a ).forEach( (o) => fn(o) );
+  }
 
-function cellIsOk(feat, x, y, ctx) {
-	const map = ctx.map;
-	if (!map.hasXY(x, y)) return false;
-	const cell = map.cell(x, y);
-
-	if (feat.flags & TileEvent.DFF_BUILD_IN_WALLS) {
-		if (!cell.isWall()) return false;
-	}
-	else if (feat.flags & TileEvent.DFF_MUST_TOUCH_WALLS) {
-		let ok = false;
-		map.eachNeighbor(x, y, (c) => {
-			if (c.isWall()) {
-				ok = true;
-			}
-		});
-		if (!ok) return false;
-	}
-	else if (feat.flags & TileEvent.DFF_NO_TOUCH_WALLS) {
-		let ok = true;
-		map.eachNeighbor(x, y, (c) => {
-			if (c.isWall()) {
-				ok = false;
-			}
-		});
-		if (!ok) return false;
-	}
-
-	if (ctx.bounds && !ctx.bounds.containsXY(x, y)) return false;
-	if (feat.matchTile && !cell.hasTile(feat.matchTile)) return false;
-	if (cell.hasTileFlag(Tile.T_OBSTRUCTS_TILE_EFFECTS) && !feat.matchTile && (ctx.x != x || ctx.y != y)) return false;
-
-	return true;
-}
-
-
-function computeSpawnMap(feat, spawnMap, ctx)
-{
-	let i, j, dir, t, x2, y2;
-	let madeChange;
-
-	const map = ctx.map;
-	const x = ctx.x;
-	const y = ctx.y;
-	const bounds = ctx.bounds || null;
-
-	let startProb = feat.spread || 0;
-	let probDec = feat.decrement || 0;
-
-	if (feat.matchTile && typeof feat.matchTile === 'string') {
-		const name = feat.matchTile;
-		const tile = tiles[name];
-		if (!tile) {
-			ERROR('Failed to find match tile with name:' + name);
-		}
-		feat.matchTile = tile.id;
-	}
-
-	spawnMap[x][y] = t = 1; // incremented before anything else happens
-
-	let radius = feat.radius || 0;
-	if (feat.flags & TileEvent.DFF_SPREAD_CIRCLE) {
-		radius = 0;
-		startProb = startProb || 100;
-		if (startProb >= 100) {
-			probDec = probDec || 100;
-		}
-		while ( random.chance(startProb) ) {
-			startProb -= probDec;
-			++radius;
-		}
-		startProb = 100;
-		probDec = 0;
-	}
-
-	if (radius) {
-		startProb = startProb || 100;
-		spawnMap.updateCircle(x, y, radius, (v, i, j) => {
-			if (!cellIsOk(feat, i, j, ctx)) return 0;
-
-			const dist = Math.floor(distanceBetween(x, y, i, j));
-			const prob = startProb - (dist * probDec);
-			if (!random.chance(prob)) return 0;
-			return 1;
-		});
-		spawnMap[x][y] = 1;
-	}
-	else if (startProb) {
-		madeChange = true;
-		if (startProb >= 100) {
-			probDec = probDec || 100;
-		}
-
-		if (feat.flags & TileEvent.DFF_SPREAD_LINE) {
-			x2 = x;
-			y2 = y;
-			const dir = def.dirs[random.number(4)];
-			while(madeChange) {
-				madeChange = false;
-				x2 = x2 + dir[0];
-				y2 = y2 + dir[1];
-				if (spawnMap.hasXY(x2, y2) && !spawnMap[x2][y2] && cellIsOk(feat, x2, y2, ctx) && random.chance(startProb)) {
-					spawnMap[x2][y2] = 1;
-					madeChange = true;
-					startProb -= probDec;
-				}
-			}
-		}
-		else {
-			while (madeChange && startProb > 0) {
-				madeChange = false;
-				t++;
-				for (i = 0; i < map.width; i++) {
-					for (j=0; j < map.height; j++) {
-						if (spawnMap[i][j] == t - 1) {
-							for (dir = 0; dir < 4; dir++) {
-								x2 = i + def.dirs[dir][0];
-								y2 = j + def.dirs[dir][1];
-								if (spawnMap.hasXY(x2, y2) && !spawnMap[x2][y2] && cellIsOk(feat, x2, y2, ctx) && random.chance(startProb)) {
-									spawnMap[x2][y2] = t;
-									madeChange = true;
-								}
-							}
-						}
-					}
-				}
-				startProb -= probDec;
-			}
-
-		}
-
-	}
-
-	if (!cellIsOk(feat, x, y, ctx)) {
-			spawnMap[x][y] = 0;
-	}
+  toString() {
+    return this.getName(false);
+  }
 
 }
 
+types.Actor = Actor$1;
 
 
-async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
-{
-	let i, j;
-	let accomplishedSomething;
+function makeActor(kind, opts) {
+  if (typeof kind === 'string') {
+    kind = actorKinds[kind];
+  }
+  else if (!(kind instanceof types.ActorKind)) {
+    let type = 'ActorKind';
+    if (kind.type) {
+      type = kind.type;
+    }
+    kind = new types[type](kind, opts);
+  }
+  return new types.Actor(kind, opts);
+}
 
-	accomplishedSomething = false;
+make$1.actor = makeActor;
 
-	const blockedByOtherLayers = (feat.flags & TileEvent.DFF_BLOCKED_BY_OTHER_LAYERS);
-	const superpriority = (feat.flags & TileEvent.DFF_SUPERPRIORITY);
-	const applyEffects = ctx.refreshCell;
-	const map = ctx.map;
-  const volume = ctx.volume || feat.volume || (tile ? tile.volume : 0);
+function startActorTurn(theActor) {
+  theActor.flags &= ~Actor.AF_TURN_ENDED;
+  theActor.turnTime = 0;
+  Object.assign(theActor.prior, theActor.current);
+}
 
-	for (i=0; i<spawnMap.width; i++) {
-		for (j=0; j<spawnMap.height; j++) {
+actor.startTurn = startActorTurn;
 
-			if (!spawnMap[i][j]) continue;	// If it's not flagged for building in the spawn map,
-			spawnMap[i][j] = 0; // so that the spawnmap reflects what actually got built
+function endActorTurn(theActor, turnTime=1) {
+  if (theActor.turnEnded()) return;
 
-			const cell = map.cell(i, j);
-			if (cell.mechFlags & CellMech.EVENT_PROTECTED) continue;
+  theActor.flags |= Actor.AF_TURN_ENDED;
+  theActor.turnTime = Math.floor(theActor.current.speed * turnTime);
 
-			if (tile) {
-				if (cell.layers[tile.layer] === tile.id) { 														// If the new cell does not already contains the fill terrain,
-          if (tile.layer == TileLayer.GAS) {
-            spawnMap[i][j] = 1;
-            cell.gasVolume += volume;
-          }
-          else if (tile.layer == TileLayer.LIQUID) {
-            spawnMap[i][j] = 1;
-            cell.liquidVolume += volume;
-          }
-        }
-        else if ((superpriority || cell.tile(tile.layer).priority < tile.priority)  // If the terrain in the layer to be overwritten has a higher priority number (unless superpriority),
-					&& (!cell.obstructsLayer(tile.layer))															    // If we will be painting into the surface layer when that cell forbids it,
-          && ((!cell.item) || !(feat.flags & TileEvent.DFF_BLOCKED_BY_ITEMS))
-          && ((!cell.actor) || !(feat.flags & TileEvent.DFF_BLOCKED_BY_ACTORS))
-					&& (!blockedByOtherLayers || cell.highestPriorityTile().priority < tile.priority))  // if the fill won't violate the priority of the most important terrain in this cell:
-				{
-					spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
+  if (!theActor.isDead()) {
+    for(let stat in theActor.regen) {
+      const turns = theActor.regen[stat];
+      if (turns > 0) {
+        const amt = 1/turns;
+        theActor.adjustStat(stat, amt);
+      }
+    }
+  }
 
-					map.setTile(i, j, tile, volume);
-          // map.redrawCell(cell);
-					// if (volume && cell.gas) {
-					//     cell.volume += (feat.volume || 0);
-					// }
+  if (theActor.isPlayer()) {
+    update$1(data.map, theActor.x, theActor.y, theActor.current.fov);
+    // UI.requestUpdate(1);  // 48
+  }
+  else if (theActor.kind.isOrWasVisibleToPlayer(theActor, data.map) && theActor.turnTime) {
+    ui.requestUpdate(10);
+  }
+}
 
-					// debug('- tile', i, j, 'tile=', tile.id);
+actor.endTurn = endActorTurn;
 
-					// cell.mechFlags |= Flags.CellMech.EVENT_FIRED_THIS_TURN;
-					accomplishedSomething = true;
-				}
-			}
+// TODO - move back to game??
+async function takeTurn(theActor) {
+  theActor.debug('actor turn...', data.time, theActor.id);
+  if (theActor.isDead() || data.gameHasEnded) return 0;
 
-			if (itemKind) {
-				if (superpriority || !cell.item) {
-					if (!cell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS)) {
-						spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
-						if (cell.item) {
-							map.removeItem(cell.item);
-						}
-						const item = make.item(itemKind);
-						map.addItem(i, j, item);
-            // map.redrawCell(cell);
-						// cell.mechFlags |= Flags.CellMech.EVENT_FIRED_THIS_TURN;
-						accomplishedSomething = true;
-						// tileEvent.debug('- item', i, j, 'item=', itemKind.id);
-					}
-				}
-			}
+	await actor.startTurn(theActor);
+  if (theActor.kind.ai) {
+    for(let i = 0; i < theActor.kind.ai.length; ++i) {
+      const ai = theActor.kind.ai[i];
+      const fn = ai.act || ai.fn || ai;
+      const success = await fn.call(ai, theActor);
+      if (success) {
+        // console.log(' - ai acted', theActor.id);
+        break;
+      }
+    }
+  }
+	// theActor.endTurn();
+  return theActor.turnTime;	// actual or idle time
+}
 
-			if (feat.fn) {
-				if (await feat.fn(i, j, ctx)) {
-					spawnMap[i][j] = 1; // so that the spawnmap reflects what actually got built
-          // map.redrawCell(cell);
-					// cell.mechFlags |= Flags.CellMech.EVENT_FIRED_THIS_TURN;
-					accomplishedSomething = true;
-				}
-			}
+actor.takeTurn = takeTurn;
+
+
+
+
+
+function chooseKinds(opts={}) {
+  opts.danger = opts.danger || 1;
+  if (opts.kinds) {
+    return opts.kinds.map( (a) => {
+      if (typeof a === 'string') return GW.actorKinds[a];
+      return a;
+    });
+  }
+
+  let count = opts.count || 0;
+  if (opts.tries && opts.chance) {
+    for(let i = 0; i < opts.tries; ++i) {
+      if (random.chance(opts.chance)) {
+        ++count;
+      }
+    }
+  }
+  else if (opts.chance < 100) {
+    while(random.chance(opts.chance)) {
+      ++count;
+    }
+  }
+  if (!count) {
+    utils$1.WARN('Tried to place 0 actors.');
+    return [];
+  }
+
+  let choices = opts.choices;
+  // TODO - allow ['THING'] and { THING: 20 }
+  if (!choices) {
+    let matchKindFn = opts.matchKindFn || utils$1.TRUE;
+    choices = Object.values(GW.actorKinds).filter(matchKindFn);
+  }
+
+  let frequencies;
+  if (Array.isArray(choices)) {
+    choices = choices.map( (v) => {
+      if (typeof v === 'string') return actorKinds[v];
+      return v;
+    });
+    frequencies = choices.map( (k) => forDanger(k.frequency, opts.danger) );
+  }
+  else {
+    // { THING: 20, OTHER: 10 }
+    choices = Object.keys(choices).map( (v) => actorKinds[v] );
+    frequencies = Object.values(choices);
+  }
+
+  if (!choices.length) {
+    utils$1.WARN('Tried to place actors - 0 qualifying kinds to choose from.');
+    return [];
+  }
+
+  const kinds = [];
+  for(let i = 0; i < count; ++i) {
+    const index = random.lottery(frequencies);
+    kinds.push(choices[index]);
+  }
+
+  return kinds;
+}
+
+
+function generateAndPlace(map, opts={}) {
+  if (typeof opts === 'number') { opts = { tries: opts }; }
+  if (Array.isArray(opts)) { opts = { kinds: opts }; }
+  utils$1.setDefaults(opts, {
+    tries: 0,
+    count: 0,
+    chance: 100,
+    outOfBandChance: 0,
+    matchKindFn: null,
+    allowHallways: false,
+    avoid: 'start',
+    locTries: 500,
+    choices: null,
+    kinds: null,
+    makeOpts: null,
+  });
+
+  let danger = opts.danger || map.config.danger || 1;
+  while (random.chance(opts.outOfBandChance)) {
+    ++danger;
+  }
+  opts.danger = danger;
+
+  const kinds = chooseKinds(opts);
+
+  const blocked = alloc$1(map.width, map.height);
+  // TODO - allow [x,y] in addition to 'name'
+  if (opts.avoid && map.locations[opts.avoid]) {
+    const loc = map.locations[opts.avoid];
+    map.calcFov(blocked, loc[0], loc[1], 20);
+  }
+
+  let placed = 0;
+
+  const makeOpts = Object.assign({ danger }, opts.makeOpts || {});
+
+  const matchOpts = {
+    allowHallways: opts.allowHallways,
+    blockingMap: blocked,
+    allowLiquid: false,
+    forbidCellFlags: 0,
+    forbidTileFlags: 0,
+    forbidTileMechFlags: 0,
+    tries: opts.locTries,
+  };
+
+  for(let i = 0; i < kinds.length; ++i) {
+    const kind = kinds[i];
+    const actor = make$1.actor(kind, makeOpts);
+
+    matchOpts.forbidCellFlags = kind.forbiddenCellFlags(actor);
+    matchOpts.forbidTileFlags = kind.forbiddenTileFlags(actor);
+    matchOpts.forbidTileMechFlags = kind.forbiddenTileMechFlags(actor);
+
+    const loc = map.randomMatchingLoc(matchOpts);
+    if (loc && loc[0] > 0) {
+      map.addActor(loc[0], loc[1], actor);
+      ++placed;
+    }
+  }
+
+  free$1(blocked);
+  return placed;
+}
+
+actor.generateAndPlace = generateAndPlace;
+
+var player = {};
+
+player.debug = utils$1.NOOP;
+
+
+
+function makePlayer(kind={}) {
+  if (!(kind instanceof types.ActorKind)) {
+    utils$1.kindDefaults(kind, {
+      ch:'@', fg: 'white',
+      name: 'you', article: false,
+      'attacks.melee': { verb: 'punch', damage: 1 },
+      bump: ['talk', 'attack'],
+    });
+    kind = new types.ActorKind(kind);
+  }
+  return new types.Actor(kind);
+}
+
+make$1.player = makePlayer;
+
+
+
+async function takeTurn$1() {
+  const PLAYER = data.player;
+  player.debug('player turn...', data.time);
+  if (PLAYER.isDead() || data.gameHasEnded) {
+    return 0;
+  }
+  updateLighting(data.map);
+  await ui.updateIfRequested();
+  await startActorTurn(PLAYER);
+
+  while(!PLAYER.turnTime) {
+    const ev = await io.nextEvent(PLAYER.travelDest ? 0 : 1000);
+    if (PLAYER.travelDest && ((!ev) || (ev.type === GW.def.TICK))) {
+      await GW.actions.travel(PLAYER);
+    }
+    else {
+      if (!await ui.dispatchEvent(ev)) {
+        await io.dispatchEvent(ev);
+      }
+      await ui.updateIfRequested();
+    }
+    if (data.gameHasEnded) {
+      return 0;
+    }
+  }
+
+  player.debug('...end turn', PLAYER.turnTime);
+  return PLAYER.turnTime;
+}
+
+player.takeTurn = takeTurn$1;
+
+
+
+function isValidStartLoc(cell, x, y) {
+  if (cell.hasTileFlag(Tile.T_PATHING_BLOCKER | Tile.T_HAS_STAIRS)) {
+    return false;
+  }
+  return true;
+}
+
+player.isValidStartLoc = isValidStartLoc;
+
+class Scheduler {
+	constructor() {
+  	this.next = null;
+    this.time = 0;
+    this.cache = null;
+  }
+
+	clear() {
+		while(this.next) {
+			const current = this.next;
+			this.next = current.next;
+			current.next = this.cache;
+			this.cache = current;
 		}
 	}
-	if (accomplishedSomething) {
-		map.changed(true);
-	}
-	return accomplishedSomething;
-}
 
+  push(fn, delay=1) {
+    let item;
+    if (this.cache) {
+    	item = this.cache;
+      this.cache = item.next;
+			item.next = null;
+    }
+    else {
+    	item = { fn: null, time: 0, next: null };
+    }
+		item.fn = fn;
+    item.time = this.time + delay;
+    if (!this.next) {
+	    this.next = item;
+    }
+    else {
+    	let current = this;
+      let next = current.next;
+    	while(next && next.time <= item.time) {
+      	current = next;
+        next = current.next;
+      }
+      item.next = current.next;
+      current.next = item;
+    }
+		return item;
+  }
 
+  pop() {
+  	const n = this.next;
+		if (!n) return null;
 
+    this.next = n.next;
+    n.next = this.cache;
+    this.cache = n;
 
-function nullifyCells(map, spawnMap, flags) {
-  let didSomething = false;
-  const nullSurface = flags & TileEvent.DFF_NULL_SURFACE;
-  const nullLiquid = flags & TileEvent.DFF_NULL_LIQUID;
-  const nullGas = flags & TileEvent.DFF_NULL_GAS;
-	spawnMap.forEach( (v, i, j) => {
-		if (!v) return;
-		map.nullifyCellLayers(i, j, nullLiquid, nullSurface, nullGas);
-    didSomething = true;
-	});
-  return didSomething;
-}
+		this.time = Math.max(n.time, this.time);	// so you can schedule -1 as a time uint
+    return n.fn;
+  }
 
+	remove(item) {
+    if ((!item) || (!this.next)) return;
+		if (this.next === item) {
+			this.next = item.next;
+			return;
+		}
+		let prev = this.next;
+		let current = prev.next;
+		while( current && current !== item ) {
+			prev = current;
+			current = current.next;
+		}
 
-
-function evacuateCreatures(map, blockingMap) {
-	let i, j;
-	let monst;
-
-  let didSomething = false;
-	for (i=0; i<map.width; i++) {
-		for (j=0; j<map.height; j++) {
-			if (blockingMap[i][j]
-				&& (map.hasCellFlag(i, j, Cell.HAS_ACTOR)))
-			{
-				monst = map.actorAt(i, j);
-				const forbidFlags = monst.forbiddenTileFlags();
-				const loc = map.matchingLocNear(
-									 i, j, (cell) => {
-										 if (cell.hasFlags(Cell.HAS_ACTOR)) return false;
-										 if (cell.hasTileFlags(forbidFlags)) return false;
-										 return true;
-									 },
-									 { hallwaysAllowed: true, blockingMap });
-				map.moveActor(loc[0], loc[1], monst);
-        map.redrawXY(loc[0], loc[1]);
-        didSomething = true;
-			}
+		if (current === item) {
+			prev.next = current.next;
 		}
 	}
-  return didSomething;
 }
 
-
-
-
-function evacuateItems(map, blockingMap) {
-
-  let didSomething = false;
-	blockingMap.forEach( (v, i, j) => {
-		if (!v) return;
-		const cell = map.cell(i, j);
-		if (!cell.item) return;
-
-		const forbidFlags = cell.item.kind.forbiddenTileFlags();
-		const loc = map.matchingLocNear(
-							 i, j, (cell) => {
-								 if (cell.hasFlags(Cell.HAS_ITEM)) return false;
-								 if (cell.hasTileFlags(forbidFlags)) return false;
-								 return true;
-							 },
-							 { hallwaysAllowed: true, blockingMap });
-		if (loc) {
-			map.removeItem(cell.item);
-			map.addItem(loc[0], loc[1], cell.item);
-      map.redrawXY(loc[0], loc[1]);
-      didSomething = true;
-		}
-	});
-  return didSomething;
-}
-
-var tileEvent$1 = {
-  __proto__: null,
-  TileEvent: TileEvent$1,
-  make: make$5,
-  addKind: addKind$2,
-  resetAllMessages: resetAllMessages,
-  spawn: spawn,
-  computeSpawnMap: computeSpawnMap,
-  spawnTiles: spawnTiles,
-  nullifyCells: nullifyCells,
-  evacuateCreatures: evacuateCreatures,
-  evacuateItems: evacuateItems
-};
+const scheduler = new Scheduler();
 
 var cell = {};
 
 const TileLayer$1 = def.layer;
 
-cell.debug = NOOP;
+cell.debug = utils$1.NOOP;
 
 addKind('cursorColor', 25, 100, 150);
 config.cursorPathIntensity = 50;
@@ -7207,7 +9659,10 @@ class CellMemory {
   }
 
   copy(other) {
-    copyObject(this, other);
+    const sprite = this.sprite;
+    Object.assign(this, other);
+    this.sprite = sprite;
+    this.sprite.copy(other.sprite);
   }
 }
 
@@ -7223,7 +9678,7 @@ class Cell$1 {
   }
 
   copy(other) {
-    copyObject(this, other);
+    utils$1.copyObject(this, other);
   }
 
   nullify() {
@@ -7549,11 +10004,11 @@ class Cell$1 {
       tileId = tile.id;
     }
     else if (tileId !== 0){
-      ERROR('Unknown tile: ' + tileId);
+      utils$1.ERROR('Unknown tile: ' + tileId);
     }
 
     if (!tile) {
-      WARN('Unknown tile - ' + tileId);
+      utils$1.WARN('Unknown tile - ' + tileId);
       tile = tiles['0'];
       tileId = 0;
     }
@@ -7774,7 +10229,7 @@ function makeCell(...args) {
 }
 
 
-make.cell = makeCell;
+make$1.cell = makeCell;
 
 
 function getAppearance(cell, dest) {
@@ -7785,10 +10240,10 @@ function getAppearance(cell, dest) {
   for( let tile of cell.tiles() ) {
     let alpha = 100;
     if (tile.layer == TileLayer$1.LIQUID) {
-      alpha = clamp(cell.liquidVolume || 0, 20, 100);
+      alpha = utils$1.clamp(cell.liquidVolume || 0, 20, 100);
     }
     else if (tile.layer == TileLayer$1.GAS) {
-      alpha = clamp(cell.gasVolume || 0, 20, 100);
+      alpha = utils$1.clamp(cell.gasVolume || 0, 20, 100);
     }
     memory.drawSprite(tile.sprite, alpha);
     if (tile.mechFlags & TileMech.TM_VISUALLY_DISTINCT) {
@@ -7815,11 +10270,11 @@ function getAppearance(cell, dest) {
 cell.getAppearance = getAppearance;
 
 var map$1 = {};
-map$1.debug = NOOP;
+map$1.debug = utils$1.NOOP;
 
 const TileLayer$2 = def.layer;
 
-setDefaults(config, {
+utils$1.setDefaults(config, {
   'map.deepestLevel': 99,
 });
 
@@ -7828,7 +10283,7 @@ class Map$1 {
 	constructor(w, h, opts={}) {
 		this.width = w;
 		this.height = h;
-		this.cells = make.grid(w, h, () => new types.Cell() );
+		this.cells = make$1.grid(w, h, () => new types.Cell() );
 		this.locations = opts.locations || {};
 		this.config = Object.assign({}, opts);
 		this.config.tick = this.config.tick || 100;
@@ -7838,7 +10293,7 @@ class Map$1 {
 		this.ambientLight = null;
 		const ambient = (opts.ambient || opts.ambientLight || opts.light);
 		if (ambient) {
-			this.ambientLight = make.color(ambient);
+			this.ambientLight = make$1.color(ambient);
 		}
     this.lights = null;
     this.id = opts.id;
@@ -8040,7 +10495,7 @@ class Map$1 {
 	}
 
 	fillCostGrid(costGrid, costFn) {
-		costFn = costFn || ONE;
+		costFn = costFn || utils$1.ONE;
 		this.cells.forEach( (cell, i, j) => {
       if (cell.isNull()) {
         costGrid[i][j] = def.PDS_OBSTRUCTION;
@@ -8088,7 +10543,7 @@ class Map$1 {
 					if (!this.hasXY(i, j)) continue;
 					const cell = this.cell(i, j);
 					// if ((i == x-k || i == x+k || j == y-k || j == y+k)
-					if ((Math.ceil(distanceBetween(x, y, i, j)) == k)
+					if ((Math.ceil(utils$1.distanceBetween(x, y, i, j)) == k)
 							&& (!blockingMap || !blockingMap[i][j])
 							&& matcher(cell, i, j, this)
 							&& (!forbidLiquid || !cell.liquid)
@@ -8132,7 +10587,7 @@ class Map$1 {
     const hallwaysAllowed = opts.hallwaysAllowed || opts.hallways || false;
 		const blockingMap = opts.blockingMap || null;
 		const forbidLiquid = opts.forbidLiquid || opts.forbidLiquids || false;
-    const matcher = opts.match || opts.test || TRUE;
+    const matcher = opts.match || opts.test || utils$1.TRUE;
     const forbidCellFlags = opts.forbidCellFlags || 0;
     const forbidTileFlags = opts.forbidTileFlags || 0;
     const forbidTileMechFlags = opts.forbidTileMechFlags || 0;
@@ -8179,12 +10634,12 @@ class Map$1 {
   }
 
   removeLight(info) {
-    removeFromChain(this, 'lights', info);
+    utils$1.removeFromChain(this, 'lights', info);
     this.flags &= ~(Map.MAP_STABLE_LIGHTS | Map.MAP_STABLE_GLOW_LIGHTS);
   }
 
   eachLight( fn ) {
-    eachChain(this.lights, (info) => fn(info.light, info.x, info.y));
+    utils$1.eachChain(this.lights, (info) => fn(info.light, info.x, info.y));
     this.eachCell( (cell, x, y) => {
       for(let tile of cell.tiles() ) {
         if (tile.light) {
@@ -8309,7 +10764,7 @@ class Map$1 {
 		const cell = this.cell(actor.x, actor.y);
 		if (cell.actor === actor) {
 			cell.actor = null;
-      removeFromChain(this, 'actors', actor);
+      utils$1.removeFromChain(this, 'actors', actor);
 			cell.flags &= ~Cell.HAS_ACTOR;
       cell.removeSprite(actor.sprite);
 			cell.removeSprite(actor.kind.sprite);
@@ -8425,7 +10880,7 @@ class Map$1 {
 		cell.removeSprite(theItem.kind.sprite);
 
 		cell.item = null;
-    removeFromChain(this, 'items', theItem);
+    utils$1.removeFromChain(this, 'items', theItem);
 
     if (theItem.light || theItem.kind.light) {
       this.flags &= ~(Map.MAP_STABLE_LIGHTS);
@@ -8454,7 +10909,7 @@ class Map$1 {
   gridDisruptsPassability(blockingGrid, opts={})
   {
 
-  	const walkableGrid = alloc(this.width, this.height);
+  	const walkableGrid = alloc$1(this.width, this.height);
   	let disrupts = false;
 
   	const gridOffsetX = opts.gridOffsetX || 0;
@@ -8497,7 +10952,7 @@ class Map$1 {
   		}
   	}
 
-  	free(walkableGrid);
+  	free$1(walkableGrid);
   	return disrupts;
   }
 
@@ -8597,7 +11052,7 @@ function makeMap(w, h, opts={}) {
 	return map;
 }
 
-make.map = makeMap;
+make$1.map = makeMap;
 
 
 function getCellAppearance(map, x, y, dest) {
@@ -8648,7 +11103,7 @@ map$1.getCellAppearance = getCellAppearance;
 
 function addText(map, x, y, text, fg, bg, layer) {
 	for(let ch of text) {
-		const sprite = make.sprite(ch, fg, bg);
+		const sprite = make$1.sprite(ch, fg, bg);
     const cell = map.cell(x++, y);
     cell.addSprite(layer || TileLayer$2.GROUND, sprite);
 	}
@@ -8661,7 +11116,7 @@ function updateGas(map) {
 
   if (map.flags & Map.MAP_NO_GAS) return;
 
-  const newVolume = alloc(map.width, map.height);
+  const newVolume = alloc$1(map.width, map.height);
 
 	map.forEach( (c, x, y) => {
 		if (c.hasTileFlag(Tile.T_OBSTRUCTS_GAS)) return;
@@ -8722,7 +11177,7 @@ function updateGas(map) {
   }
   map.changed(true);
 
-  free(newVolume);
+  free$1(newVolume);
 }
 
 map$1.updateGas = updateGas;
@@ -8733,7 +11188,7 @@ function updateLiquid(map) {
 
   if (map.flags & Map.MAP_NO_LIQUID) return;
 
-  const newVolume = alloc(map.width, map.height);
+  const newVolume = alloc$1(map.width, map.height);
 
 	map.forEach( (c, x, y) => {
 		if (c.hasTileFlag(Tile.T_OBSTRUCTS_LIQUID)) return;
@@ -8803,7 +11258,7 @@ function updateLiquid(map) {
 
   map.changed(true);
 
-  free(newVolume);
+  free$1(newVolume);
 }
 
 map$1.updateLiquid = updateLiquid;
@@ -8883,1166 +11338,6 @@ function getLine(map, fromX, fromY, toX, toY) {
 
 map$1.getLine = getLine;
 
-function demoteCellVisibility(cell, i, j, map) {
-  cell.flags &= ~Cell.WAS_VISIBLE;
-  if (cell.flags & Cell.VISIBLE) {
-    cell.flags &= ~Cell.VISIBLE;
-    cell.flags |= Cell.WAS_VISIBLE;
-  }
-}
-
-function _updateCellVisibility(cell, i, j, map) {
-
-  const isVisible = (cell.flags & Cell.VISIBLE);
-  const wasVisible = (cell.flags & Cell.WAS_VISIBLE);
-
-  if (isVisible && wasVisible) {
-    if (cell.lightChanged()) {
-      map.redrawCell(cell);
-    }
-  }
-	else if (isVisible && !wasVisible) { // if the cell became visible this move
-		if (!(cell.flags & Cell.REVEALED) && data.automationActive) {
-        if (cell.item) {
-            const theItem = cell.item;
-            if (theItem.hasKindFlag(ItemKind.IK_INTERRUPT_EXPLORATION_WHEN_SEEN)) {
-                MSG.add('§you§ §see§ ΩitemMessageColorΩ§item§∆.', { item, actor: GW.data.player });
-            }
-        }
-        if (!(cell.flags & Cell.MAGIC_MAPPED)
-            && cell.hasTileMechFlag(TileMech.TM_INTERRUPT_EXPLORATION_WHEN_SEEN))
-				{
-            const tile = cell.tileWithMechFlag(TileMech.TM_INTERRUPT_EXPLORATION_WHEN_SEEN);
-            MSG.add('§you§ §see§ ΩbackgroundMessageColorΩ§item§∆.', { actor: GW.data.player, item: tile.name });
-        }
-    }
-    map.markRevealed(i, j);
-		map.redrawCell(cell);
-	} else if ((!isVisible) && wasVisible) { // if the cell ceased being visible this move
-    cell.storeMemory();
-		map.redrawCell(cell);
-	}
-  return isVisible;
-}
-
-function _updateCellClairyvoyance(cell, i, j, map) {
-  const isClairy = (cell.flags & Cell.CLAIRVOYANT_VISIBLE);
-  const wasClairy = (cell.flags & Cell.WAS_CLAIRVOYANT_VISIBLE);
-
-  if (isClairy && wasClairy) {
-    if (cell.lightChanged()) {
-      map.redrawCell(cell);
-    }
-  }
-  else if ((!isClairy) && wasClairy) { // ceased being clairvoyantly visible
-		cell.storeMemory();
-		map.redrawCell(cell);
-	} else if ((!wasClairy) && (isClairy)) { // became clairvoyantly visible
-		cell.flags &= ~STABLE_MEMORY;
-		map.redrawCell(cell);
-	}
-
-  return isClairy;
-}
-
-
-function _updateCellTelepathy(cell, i, j, map) {
-  const isTele = (cell.flags & Cell.TELEPATHIC_VISIBLE);
-  const wasTele = (cell.flags & Cell.WAS_TELEPATHIC_VISIBLE);
-
-  if (isTele && wasTele) {
-    if (cell.lightChanged()) {
-      map.redrawCell(cell);
-    }
-  }
-  else if ((!isTele) && wasTele) { // ceased being telepathically visible
-    cell.storeMemory();
-		map.redrawCell(cell);
-	} else if ((!wasTele) && (isTele)) { // became telepathically visible
-    if (!(cell.flags & Cell.REVEALED)
-			&& !cell.hasTileFlag(Tile.T_PATHING_BLOCKER))
-		{
-			data.xpxpThisTurn++;
-    }
-		cell.flags &= ~Cell.STABLE_MEMORY;
-		map.redrawCell(cell);
-	}
-  return isTele;
-}
-
-
-function _updateCellDetect(cell, i, j, map) {
-  const isMonst = (cell.flags & Cell.MONSTER_DETECTED);
-  const wasMonst = (cell.flags & Cell.WAS_MONSTER_DETECTED);
-
-  if (isMonst && wasMonst) {
-    if (cell.lightChanged()) {
-      map.redrawCell(cell);
-    }
-  }
-  else if ((!isMonst) && (wasMonst)) { // ceased being detected visible
-		cell.flags &= ~Cell.STABLE_MEMORY;
-		map.redrawCell(cell);
-    cell.storeMemory();
-	} else if ((!wasMonst) && (isMonst)) { // became detected visible
-		cell.flags &= ~Cell.STABLE_MEMORY;
-		map.redrawCell(cell);
-    cell.storeMemory();
-	}
-  return isMonst;
-}
-
-
-function promoteCellVisibility(cell, i, j, map) {
-
-	if (cell.flags & Cell.IN_FOV
-		&& (map.hasVisibleLight(i, j))
-		&& !(cell.flags & Cell.CLAIRVOYANT_DARKENED))
-	{
-		cell.flags |= Cell.VISIBLE;
-	}
-
-  if (_updateCellVisibility(cell, i, j, map)) return;
-  if (_updateCellClairyvoyance(cell, i, j, map)) return;
-  if (_updateCellTelepathy(cell, i, j, map)) return;
-  if (_updateCellDetect(cell, i, j, map)) return;
-
-}
-
-
-function initMap(map) {
-  if (!config.fov) {
-    map.forEach( (cell) => cell.flags |= Cell.REVEALED );
-    return;
-  }
-
-  map.clearFlags(0, Cell.IS_WAS_ANY_KIND_OF_VISIBLE);
-}
-
-
-function update$1(map, x, y, maxRadius) {
-  if (!config.fov) return;
-
-  if (!(map.flags & Map.MAP_FOV_CHANGED)) return;
-  map.flags &= ~Map.MAP_FOV_CHANGED;
-
-  map.forEach( demoteCellVisibility );
-  map.clearFlags(0, Cell.IN_FOV);
-
-  // Calculate player's field of view (distinct from what is visible, as lighting hasn't been done yet).
-  const grid$1 = alloc(map.width, map.height, 0);
-  map.calcFov(grid$1, x, y, maxRadius);
-  grid$1.forEach( (v, i, j) => {
-    if (v) {
-      map.setCellFlags(i, j, Cell.IN_FOV);
-    }
-  });
-  free(grid$1);
-
-	map.setCellFlags(x, y, Cell.IN_FOV | Cell.VISIBLE);
-
-	// if (PLAYER.bonus.clairvoyance < 0) {
-  //   discoverCell(PLAYER.xLoc, PLAYER.yLoc);
-	// }
-  //
-	// if (PLAYER.bonus.clairvoyance != 0) {
-	// 	updateClairvoyance();
-	// }
-  //
-  // updateTelepathy();
-	// updateMonsterDetection();
-
-	// updateLighting();
-	map.forEach( promoteCellVisibility );
-
-	// if (PLAYER.status.hallucinating > 0) {
-	// 	for (theItem of DUNGEON.items) {
-	// 		if ((pmap[theItem.xLoc][theItem.yLoc].flags & DISCOVERED) && refreshDisplay) {
-	// 			refreshDungeonCell(theItem.xLoc, theItem.yLoc);
-	// 		}
-	// 	}
-	// 	for (monst of DUNGEON.monsters) {
-	// 		if ((pmap[monst.xLoc][monst.yLoc].flags & DISCOVERED) && refreshDisplay) {
-	// 			refreshDungeonCell(monst.xLoc, monst.yLoc);
-	// 		}
-	// 	}
-	// }
-
-}
-
-var visibility = {
-  __proto__: null,
-  initMap: initMap,
-  update: update$1
-};
-
-var actions = {};
-
-actions.debug = NOOP;
-
-var actor = {};
-var actorKinds = {};
-
-actor.debug = NOOP;
-
-
-
-
-class ActorKind$1 {
-  constructor(opts={}) {
-		this.name = opts.name || 'item';
-		this.description = opts.description || opts.desc || '';
-    this.article = (opts.article === undefined) ? 'a' : opts.article;
-		this.sprite = make.sprite(opts.sprite || opts);
-    this.flags = ActorKind.toFlag(opts.flags);
-		this.actionFlags = Action.toFlag(opts.flags);
-    this.behaviors = Behaviors.toFlag(opts.flags);
-		// this.attackFlags = Flags.Attack.toFlag(opts.flags);
-		this.stats = Object.assign({}, opts.stats || {});
-    this.regen = Object.assign({}, opts.regen || {});
-		this.id = opts.id || null;
-    this.bump = opts.bump || ['attack'];  // attack me by default if you bump into me
-    this.frequency = make.frequency(opts.frequency || this.stats.frequency);
-
-    if (typeof this.bump === 'string') {
-      this.bump = this.bump.split(/[,|]/).map( (t) => t.trim() );
-    }
-    if (!Array.isArray(this.bump)) {
-      this.bump = [this.bump];
-    }
-
-    this.corpse = opts.corpse ? make.tileEvent(opts.corpse) : null;
-    this.blood = opts.blood ? make.tileEvent(opts.blood) : null;
-
-    this.speed = opts.speed || config.defaultSpeed || 120;
-
-    if (opts.consoleColor === false) {
-      this.consoleColor = false;
-    }
-    else {
-      this.consoleColor = opts.consoleColor || true;
-      if (typeof this.consoleColor === 'string') {
-        this.consoleColor = from(this.consoleColor);
-      }
-    }
-
-    this.attacks = opts.attacks || null;
-
-    this.ai = null;
-    if (opts.ai) {
-      if (typeof opts.ai === 'function') {
-        opts.ai = [opts.ai];
-      }
-      else if (typeof opts.ai === 'string') {
-        opts.ai = opts.ai.split(/[,|]/).map( (t) => t.trim() );
-      }
-
-      this.ai = opts.ai.map( (v) => {
-        if (typeof v === 'string') return ai[v];
-        if (typeof v === 'function') return { act: v };
-        return v;
-      });
-    }
-    if (opts.sidebar) {
-      this.sidebar = opts.sidebar.bind(this);
-    }
-    if (opts.calcEquipmentBonuses) {
-      this.calcEquipmentBonuses = opts.calcEquipmentBonuses.bind(this);
-    }
-
-  }
-
-  make(actor, opts) {}
-
-  // other is visible to player (invisible, in darkness, etc...) -- NOT LOS/FOV check
-  canVisualize(actor, other, map) {
-    return true;
-  }
-
-  isOrWasVisibleToPlayer(actor, map) {
-    map = map || data.map;
-		return map.isOrWasAnyKindOfVisible(actor.x, actor.y);
-	}
-
-  alwaysVisible(actor) {
-    return this.flags & (ActorKind.AF_IMMOBILE | ActorKind.AF_INANIMATE);
-  }
-
-  avoidedCellFlags(actor) {
-    return Cell.HAS_ACTOR;
-  }
-
-  avoidedTileFlags(actor) {
-    return 0; // ???
-  }
-
-  forbiddenCellFlags(actor) {
-		return Cell.HAS_ACTOR;
-	}
-
-	forbiddenTileFlags(actor) {
-		return Tile.T_PATHING_BLOCKER;
-	}
-
-  forbiddenTileMechFlags(actor) {
-    return 0;
-  }
-
-  canPass(actor, other) {
-    return actor.isPlayer() == other.isPlayer();
-  }
-
-  calcBashDamage(actor, item, ctx) {
-    return 1;
-  }
-
-  willAttack(actor, other, ctx) {
-    return (actor.isPlayer() !== other.isPlayer());
-  }
-
-  applyDamage(actor, amount, source, ctx) {
-    amount = Math.min(actor.current.health, amount);
-    actor.prior.health = actor.current.health;
-    actor.current.health -= amount;
-    actor.changed(true);
-    return amount;
-  }
-
-  heal(actor, amount=0) {
-    const delta = Math.min(amount, actor.max.health - actor.current.health);
-    actor.current.health += delta;
-    actor.changed(true);
-    return delta;
-  }
-
-  kill(actor) {
-    actor.current.health = 0;
-    if (actor.isPlayer()) {
-      data.gameHasEnded = true;
-    }
-    // const map = DATA.map;
-		// map.removeActor(this);
-		// in the future do something here (HP = 0?  Flag?)
-	}
-
-  getAwarenessDistance(actor, other) {
-    // TODO - Take light/stealth into account
-    //      - if lit,  then check max(perception, stealth)
-    //      - if shadow   - check infravision ? max(perception, stealth) : min(percention,stealth)
-    //      - if darkness - check infravision ? min(perception, stealth) : 1.6;
-    return actor.current.perception || 10;  // ???
-  }
-
-  getName(actor, opts={}) {
-    if (opts === true) { opts = { article: true }; }
-    if (opts === false) { opts = {}; }
-    if (typeof opts === 'string') { opts = { article: opts }; }
-
-    let result = actor.name || this.name;
-    if (!opts.formal && actor.isPlayer()) {
-      result = 'you';
-    }
-    if (opts.color || (this.consoleColor && (opts.color !== false))) {
-      let color$1 = opts.color;
-      if (typeof color$1 === 'boolean') {
-        color$1 = this.consoleColor;
-        if (typeof color$1 === 'boolean') {
-          color$1 = this.sprite.fg;
-        }
-      }
-      if (color$1 && typeof opts.color !== 'string') {
-        color$1 = from(color$1);
-        color$1 = color$1.isNull() ? null : color$1.toString();
-      }
-      if (color$1) {
-        result = apply('Ω§color§Ω§result§∆', { color: color$1, result });
-      }
-    }
-
-    if (opts.article && (this.article !== false)) {
-      if (opts.formal || !actor.isPlayer()) {
-        let article = (opts.article === true) ? this.article : opts.article;
-        if (article == 'a' && isVowel(firstChar(result))) {
-          article = 'an';
-        }
-        result = article + ' ' + result;
-      }
-    }
-    return result;
-  }
-}
-
-types.ActorKind = ActorKind$1;
-
-function addActorKind(id, opts={}) {
-	opts.id = id;
-  let kind;
-  if (opts instanceof types.ActorKind) {
-    kind = opts;
-  }
-  else {
-    kind = new types.ActorKind(opts);
-  }
-	actorKinds[id] = kind;
-	return kind;
-}
-
-actor.addKind = addActorKind;
-
-function addActorKinds(opts={}) {
-  Object.entries(opts).forEach( ([key, config]) => {
-    actor.addKind(key, config);
-  });
-}
-
-actor.addKinds = addActorKinds;
-
-let ACTOR_COUNT = 0;
-
-class Actor$1 {
-	constructor(kind, opts={}) {
-		this.x = -1;
-    this.y = -1;
-    this.flags = Actor.toFlag(opts.flags);
-    this.kind = kind || {};
-    this.turnTime = 0;
-		this.status = {};
-    this.name = opts.name || null;
-
-    this.pack = null;
-    this.slots = {};
-
-    // stats
-    this.current = { health: 1 };
-    this.max = { health: 1 };
-    this.prior = { health: 1 };
-    if (this.kind.stats) {
-      Object.entries(this.kind.stats).forEach( ([key, value]) => {
-        if (typeof value !== 'number') {
-          value = make.range(value).value();
-        }
-        this.current[key] = this.prior[key] = this.max[key] = value;
-      });
-    }
-    if (opts.stats) {
-      Object.assign(this.current, opts.stats);
-    }
-
-    // this is so we can change speeds with modifiers more easily
-    this.current.speed = this.max.speed = this.prior.speed = kind.speed;
-
-    this.regen = { health: 0 };
-    if (this.kind.regen) {
-      Object.assign(this.regen, this.kind.regen);
-    }
-    if (opts.regen) {
-      Object.assign(this.regen, opts.regen);
-    }
-
-    if (this.kind.ai) {
-      this.kind.ai.forEach( (ai) => {
-        const fn = ai.act || ai.fn || ai;
-        if (typeof fn !== 'function') {
-          ERROR('Invalid AI - must be function, or object with function for act or fn member.');
-        }
-        if (ai.init) {
-          ai.init(this);
-        }
-      });
-    }
-
-    this.id = ++ACTOR_COUNT;
-
-    if (opts.female) {
-      this.flags &= ~Actor.AF_MALE;
-      this.flags |= Actor.AF_FEMALE;
-    }
-    else if (opts.male) {
-      this.flags &= ~Actor.AF_FEMALE;
-      this.flags |= Actor.AF_MALE;
-    }
-    else if (this.hasAllFlags(Actor.AF_MALE | Actor.AF_FEMALE)) {
-      const remove = random.chance(50) ? Actor.AF_MALE : Actor.AF_FEMALE;
-      this.flags &= ~remove;
-    }
-
-    this.kind.make(this, opts);
-    if (this.kind.calcEquipmentBonuses) {
-      this.kind.calcEquipmentBonuses(this);
-    }
-  }
-
-  turnEnded() { return this.flags & Actor.AF_TURN_ENDED; }
-
-  isPlayer() { return this === data.player; }
-  isDead() { return (this.current.health <= 0) || (this.flags & Actor.AF_DYING); }
-  isInanimate() { return this.kind.flags & ActorKind.AK_INANIMATE; }
-  isInvulnerable() { return this.kind.flags & ActorKind.AK_INVULNERABLE; }
-
-  isFemale() { return this.flags & Actor.AF_FEMALE; }
-  isMale() { return this.flags & Actor.AF_MALE; }
-
-  hasAllFlags(flags) {
-    return (this.flags & flags) === flags;
-  }
-
-  hasActionFlag(flag) {
-    if (this.isPlayer()) return true; // Players can do everything
-    return this.kind.actionFlags & flag;
-  }
-
-  changed(v) {
-    if (v) {
-      this.flags |= Actor.AF_CHANGED;
-    }
-    else if (v !== undefined) {
-      this.flags &= ~Actor.AF_CHANGED;
-    }
-    return (this.flags & Actor.AF_CHANGED);
-  }
-
-  async bumpBy(actor, ctx) {
-
-    if (this.kind.bump && typeof this.kind.bump === 'function') {
-      return this.kind.bump(actor, this, ctx);
-    }
-
-    const kind = this.kind;
-    const actorActions = this.bump || [];
-    const kindActions  = this.kind.bump || [];
-
-    const allBump = actorActions.concat(kindActions);
-
-    for(let i = 0; i < allBump.length; ++i) {
-      let bumpFn = allBump[i];
-      if (typeof bumpFn === 'string') {
-        bumpFn = actions[bumpFn] || kind[bumpFn] || FALSE;
-      }
-
-      if (await bumpFn(actor, this, ctx) !== false) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-	endTurn(turnTime) {
-    if (this.kind.endTurn) {
-      turnTime = this.kind.endTurn(this, turnTime) || turnTime;
-    }
-    actor.endTurn(this, turnTime);
-	}
-
-  kill() {
-    this.flags |= Actor.AF_DYING;
-    this.changed(true);
-    this.kind.kill(this);
-    if (this.mapToMe) {
-      free(this.mapToMe);
-      this.mapToMe = null;
-    }
-    if (this.travelGrid) {
-      free(this.travelGrid);
-      this.travelGrid = null;
-    }
-  }
-
-  // MOVEMENT/VISION
-
-  isVisible(map) {
-    map = map || data.map;
-    return map.isVisible(this.x, this.y);
-  }
-
-  isAnyKindOfVisible(map) {
-    map = map || data.map;
-    return map.isAnyKindOfVisible(this.x, this.y);
-  }
-
-  canDirectlySee(other, map) {
-    map = map || data.map;
-
-    //
-    if (!this.kind.canVisualize(this, other, map)) {
-      return false;
-    }
-
-    if (this.isPlayer()) {
-      return map.isVisible(other.x, other.y);
-    }
-    else if (other.isPlayer()) {
-      return map.isVisible(this.x, this.y);
-    }
-    else {
-      let dist = distanceFromTo(this, other);
-      if (dist < 2) return true;  // next to each other
-
-      // TODO - Make a raycast that can tell if there is clear vision from here to there
-      const grid$1 = alloc(map.width, map.height);
-      map.calcFov(grid$1, this.x, this.y, dist + 1);
-      const result = grid$1[other.x][other.y];
-      free(grid$1);
-      return result;
-    }
-  }
-
-  avoidsCell(cell, x, y) {
-    const limitToPlayerKnowledge = this.isPlayer();
-    const avoidedCellFlags = this.kind.avoidedCellFlags(this);
-    const forbiddenTileFlags = this.kind.forbiddenTileFlags(this);
-    const avoidedTileFlags = this.kind.avoidedTileFlags(this);
-
-    if (cell.hasFlag(avoidedCellFlags, limitToPlayerKnowledge)) return true;
-    if (cell.hasTileFlag(forbiddenTileFlags | avoidedTileFlags, limitToPlayerKnowledge)) return true;
-    return false;
-  }
-
-  fillCostGrid(map, grid) {
-    const avoidedCellFlags = this.kind.avoidedCellFlags(this);
-    const forbiddenTileFlags = this.kind.forbiddenTileFlags(this);
-    const avoidedTileFlags = this.kind.avoidedTileFlags(this);
-    const isPlayer = this.isPlayer();
-
-    map.fillCostGrid(grid, (cell, x, y) => {
-      if (isPlayer && !cell.isRevealed()) return def.PDS_OBSTRUCTION;
-      if (cell.hasTileFlag(forbiddenTileFlags, isPlayer)) return def.PDS_FORBIDDEN;
-      if (cell.hasTileFlag(avoidedTileFlags, isPlayer)) return def.PDS_AVOIDED;
-      if (cell.hasFlag(avoidedCellFlags, isPlayer)) return def.PDS_AVOIDED;
-      return 1;
-    });
-  }
-
-  updateMapToMe(force=false) {
-    const map = data.map;
-    let mapToMe = this.mapToMe;
-    if (!mapToMe) {
-      mapToMe = this.mapToMe = alloc(map.width, map.height);
-      mapToMe.x = mapToMe.y = -1;
-    }
-    if (mapToMe.x != this.x || mapToMe.y != this.y || force) {
-      let costGrid = this.costGrid;
-      if (!costGrid) {
-        costGrid = this.costGrid = alloc(map.width, map.height);
-        this.fillCostGrid(map, costGrid);
-      }
-      else if (force) {
-        this.fillCostGrid(map, costGrid);
-      }
-      calculateDistances(mapToMe, this.x, this.y, costGrid, true);
-      // Grid.free(costGrid);
-    }
-    return mapToMe;
-  }
-
-  invalidateCostMap() {
-    if (this.costGrid) {
-      free(this.costGrid);
-      this.costGrid = null;
-    }
-  }
-
-  // combat helpers
-  calcDamageTo(defender, attackInfo, ctx) {
-    let damage = attackInfo.damage;
-    if (typeof damage === 'function') {
-      damage = damage(this, defender, attackInfo, ctx) || 1;
-    }
-    return damage;
-  }
-
-  // Descriptions
-
-  getName(opts={}) {
-    if (typeof opts === 'string') { opts = { article: opts }; }
-    let base = this.kind.getName(this, opts);
-    return base;
-  }
-
-  getVerb(verb) {
-    if (this.isPlayer()) return verb;
-    return toSingularVerb(verb);
-  }
-
-  getPronoun(pn) {
-    if (this.isPlayer()) {
-      return playerPronoun[pn];
-    }
-
-    return singularPronoun[pn];
-  }
-
-  debug(...args) {
-  	// if (this.flags & Flags.Actor.AF_DEBUG)
-  	actor.debug(...args);
-  }
-
-  // STATS
-
-  adjustStat(stat, delta) {
-    if (this.max[stat] === undefined) {
-      this.max[stat] = Math.max(0, delta);
-    }
-    this.current[stat] = clamp((this.current[stat] || 0) + delta, 0, this.max[stat]);
-    this.changed(true);
-  }
-
-  statChangePercent(name) {
-    const current = this.current[name] || 0;
-    const prior = this.prior[name] || 0;
-    const max = Math.max(this.max[name] || 0, current, prior);
-
-    return Math.floor(100 * (current - prior)/max);
-  }
-
-  initStat(stat, value) {
-    this.max[stat] = this.current[stat] = this.prior[stat] = value;
-  }
-
-  // INVENTORY
-
-  addToPack(item) {
-    let quantityLeft = (item.quantity || 1);
-    // Stacking?
-    if (item.isStackable()) {
-      let current = this.pack;
-      while(current && quantityLeft) {
-        if (current.kind === item.kind) {
-          quantityLeft -= item.quantity;
-          current.quantity += item.quantity;
-          item.quantity = 0;
-          item.destroy();
-        }
-        current = current.next;
-      }
-      if (!quantityLeft) {
-        return true;
-      }
-    }
-
-    // Limits to inventory length?
-    // if too many items - return false
-
-    if (addToChain(this, 'pack', item)) {
-      return true;
-    }
-  }
-
-  removeFromPack(item) {
-    return removeFromChain(this, 'pack', item);
-  }
-
-  eachPack(fn) {
-    eachChain(this.pack, fn);
-  }
-
-  itemWillFitInPack(item, quantity) {
-    if (!this.pack) return true;
-    const maxSize = GW.config.PACK_MAX_ITEMS || 26;
-
-    const count = chainLength(this.pack);
-    if (count < maxSize) return true;
-
-    if (!item.isStackable()) return false;
-    let willStack = false;
-    eachChain(this.pack, (packItem) => {
-      if (item.willStackInto(packItem, quantity)) {
-        willStack = true;
-      }
-    });
-
-    return willStack;
-  }
-
-  // EQUIPMENT
-
-  equip(item) {
-    const slot = item.kind.slot;
-    if (!slot) return false;
-    if (this.slots[slot]) return false;
-    this.slots[slot] = item;
-    return true;
-  }
-
-  unequip(item) {
-    const slot = item.kind.slot;
-    if (this.slots[slot] === item) {
-      this.slots[slot] = null;
-      return true;
-    }
-    return false;
-  }
-
-  unequipSlot(slot) {
-    const item = this.slots[slot] || null;
-    this.slots[slot] = null;
-    return item;
-  }
-
-  eachEquip(fn) {
-    Object.values(this.slots).filter( (a) => a ).forEach( (o) => fn(o) );
-  }
-
-  toString() {
-    return this.getName(false);
-  }
-
-}
-
-types.Actor = Actor$1;
-
-
-function makeActor(kind, opts) {
-  if (typeof kind === 'string') {
-    kind = actorKinds[kind];
-  }
-  else if (!(kind instanceof types.ActorKind)) {
-    let type = 'ActorKind';
-    if (kind.type) {
-      type = kind.type;
-    }
-    kind = new types[type](kind, opts);
-  }
-  return new types.Actor(kind, opts);
-}
-
-make.actor = makeActor;
-
-function startActorTurn(theActor) {
-  theActor.flags &= ~Actor.AF_TURN_ENDED;
-  theActor.turnTime = 0;
-  Object.assign(theActor.prior, theActor.current);
-}
-
-actor.startTurn = startActorTurn;
-
-function endActorTurn(theActor, turnTime=1) {
-  if (theActor.turnEnded()) return;
-
-  theActor.flags |= Actor.AF_TURN_ENDED;
-  theActor.turnTime = Math.floor(theActor.current.speed * turnTime);
-
-  if (!theActor.isDead()) {
-    for(let stat in theActor.regen) {
-      const turns = theActor.regen[stat];
-      if (turns > 0) {
-        const amt = 1/turns;
-        theActor.adjustStat(stat, amt);
-      }
-    }
-  }
-
-  if (theActor.isPlayer()) {
-    update$1(data.map, theActor.x, theActor.y, theActor.current.fov);
-    // UI.requestUpdate(1);  // 48
-  }
-  else if (theActor.kind.isOrWasVisibleToPlayer(theActor, data.map) && theActor.turnTime) {
-    ui.requestUpdate(10);
-  }
-}
-
-actor.endTurn = endActorTurn;
-
-// TODO - move back to game??
-async function takeTurn(theActor) {
-  theActor.debug('actor turn...', data.time, theActor.id);
-  if (theActor.isDead() || data.gameHasEnded) return 0;
-
-	await actor.startTurn(theActor);
-  if (theActor.kind.ai) {
-    for(let i = 0; i < theActor.kind.ai.length; ++i) {
-      const ai = theActor.kind.ai[i];
-      const fn = ai.act || ai.fn || ai;
-      const success = await fn.call(ai, theActor);
-      if (success) {
-        // console.log(' - ai acted', theActor.id);
-        break;
-      }
-    }
-  }
-	// theActor.endTurn();
-  return theActor.turnTime;	// actual or idle time
-}
-
-actor.takeTurn = takeTurn;
-
-
-
-
-
-function chooseKinds(opts={}) {
-  opts.danger = opts.danger || 1;
-  if (opts.kinds) {
-    return opts.kinds.map( (a) => {
-      if (typeof a === 'string') return GW.actorKinds[a];
-      return a;
-    });
-  }
-
-  let count = opts.count || 0;
-  if (opts.tries && opts.chance) {
-    for(let i = 0; i < opts.tries; ++i) {
-      if (random.chance(opts.chance)) {
-        ++count;
-      }
-    }
-  }
-  else if (opts.chance < 100) {
-    while(random.chance(opts.chance)) {
-      ++count;
-    }
-  }
-  if (!count) {
-    WARN('Tried to place 0 actors.');
-    return [];
-  }
-
-  let choices = opts.choices;
-  // TODO - allow ['THING'] and { THING: 20 }
-  if (!choices) {
-    let matchKindFn = opts.matchKindFn || TRUE;
-    choices = Object.values(GW.actorKinds).filter(matchKindFn);
-  }
-
-  let frequencies;
-  if (Array.isArray(choices)) {
-    choices = choices.map( (v) => {
-      if (typeof v === 'string') return actorKinds[v];
-      return v;
-    });
-    frequencies = choices.map( (k) => forDanger(k.frequency, opts.danger) );
-  }
-  else {
-    // { THING: 20, OTHER: 10 }
-    choices = Object.keys(choices).map( (v) => actorKinds[v] );
-    frequencies = Object.values(choices);
-  }
-
-  if (!choices.length) {
-    WARN('Tried to place actors - 0 qualifying kinds to choose from.');
-    return [];
-  }
-
-  const kinds = [];
-  for(let i = 0; i < count; ++i) {
-    const index = random.lottery(frequencies);
-    kinds.push(choices[index]);
-  }
-
-  return kinds;
-}
-
-
-function generateAndPlace(map, opts={}) {
-  if (typeof opts === 'number') { opts = { tries: opts }; }
-  if (Array.isArray(opts)) { opts = { kinds: opts }; }
-  setDefaults(opts, {
-    tries: 0,
-    count: 0,
-    chance: 100,
-    outOfBandChance: 0,
-    matchKindFn: null,
-    allowHallways: false,
-    avoid: 'start',
-    locTries: 500,
-    choices: null,
-    kinds: null,
-    makeOpts: null,
-  });
-
-  let danger = opts.danger || map.config.danger || 1;
-  while (random.chance(opts.outOfBandChance)) {
-    ++danger;
-  }
-  opts.danger = danger;
-
-  const kinds = chooseKinds(opts);
-
-  const blocked = alloc(map.width, map.height);
-  // TODO - allow [x,y] in addition to 'name'
-  if (opts.avoid && map.locations[opts.avoid]) {
-    const loc = map.locations[opts.avoid];
-    map.calcFov(blocked, loc[0], loc[1], 20);
-  }
-
-  let placed = 0;
-
-  const makeOpts = Object.assign({ danger }, opts.makeOpts || {});
-
-  const matchOpts = {
-    allowHallways: opts.allowHallways,
-    blockingMap: blocked,
-    allowLiquid: false,
-    forbidCellFlags: 0,
-    forbidTileFlags: 0,
-    forbidTileMechFlags: 0,
-    tries: opts.locTries,
-  };
-
-  for(let i = 0; i < kinds.length; ++i) {
-    const kind = kinds[i];
-    const actor = make.actor(kind, makeOpts);
-
-    matchOpts.forbidCellFlags = kind.forbiddenCellFlags(actor);
-    matchOpts.forbidTileFlags = kind.forbiddenTileFlags(actor);
-    matchOpts.forbidTileMechFlags = kind.forbiddenTileMechFlags(actor);
-
-    const loc = map.randomMatchingLoc(matchOpts);
-    if (loc && loc[0] > 0) {
-      map.addActor(loc[0], loc[1], actor);
-      ++placed;
-    }
-  }
-
-  free(blocked);
-  return placed;
-}
-
-actor.generateAndPlace = generateAndPlace;
-
-var player = {};
-
-player.debug = NOOP;
-
-
-
-function makePlayer(kind={}) {
-  if (!(kind instanceof types.ActorKind)) {
-    kindDefaults(kind, {
-      ch:'@', fg: 'white',
-      name: 'you', article: false,
-      'attacks.melee': { verb: 'punch', damage: 1 },
-      bump: ['talk', 'attack'],
-    });
-    kind = new types.ActorKind(kind);
-  }
-  return new types.Actor(kind);
-}
-
-make.player = makePlayer;
-
-
-
-async function takeTurn$1() {
-  const PLAYER = data.player;
-  player.debug('player turn...', data.time);
-  if (PLAYER.isDead() || data.gameHasEnded) {
-    return 0;
-  }
-  updateLighting(data.map);
-  await ui.updateIfRequested();
-  await startActorTurn(PLAYER);
-
-  while(!PLAYER.turnTime) {
-    const ev = await io.nextEvent(PLAYER.travelDest ? 0 : 1000);
-    if (PLAYER.travelDest && ((!ev) || (ev.type === GW.def.TICK))) {
-      await GW.actions.travel(PLAYER);
-    }
-    else {
-      if (!await ui.dispatchEvent(ev)) {
-        await io.dispatchEvent(ev);
-      }
-      await ui.updateIfRequested();
-    }
-    if (data.gameHasEnded) {
-      return 0;
-    }
-  }
-
-  player.debug('...end turn', PLAYER.turnTime);
-  return PLAYER.turnTime;
-}
-
-player.takeTurn = takeTurn$1;
-
-
-
-function isValidStartLoc(cell, x, y) {
-  if (cell.hasTileFlag(Tile.T_PATHING_BLOCKER | Tile.T_HAS_STAIRS)) {
-    return false;
-  }
-  return true;
-}
-
-player.isValidStartLoc = isValidStartLoc;
-
-class Scheduler {
-	constructor() {
-  	this.next = null;
-    this.time = 0;
-    this.cache = null;
-  }
-
-	clear() {
-		while(this.next) {
-			const current = this.next;
-			this.next = current.next;
-			current.next = this.cache;
-			this.cache = current;
-		}
-	}
-
-  push(fn, delay=1) {
-    let item;
-    if (this.cache) {
-    	item = this.cache;
-      this.cache = item.next;
-			item.next = null;
-    }
-    else {
-    	item = { fn: null, time: 0, next: null };
-    }
-		item.fn = fn;
-    item.time = this.time + delay;
-    if (!this.next) {
-	    this.next = item;
-    }
-    else {
-    	let current = this;
-      let next = current.next;
-    	while(next && next.time <= item.time) {
-      	current = next;
-        next = current.next;
-      }
-      item.next = current.next;
-      current.next = item;
-    }
-		return item;
-  }
-
-  pop() {
-  	const n = this.next;
-		if (!n) return null;
-
-    this.next = n.next;
-    n.next = this.cache;
-    this.cache = n;
-
-		this.time = Math.max(n.time, this.time);	// so you can schedule -1 as a time uint
-    return n.fn;
-  }
-
-	remove(item) {
-    if ((!item) || (!this.next)) return;
-		if (this.next === item) {
-			this.next = item.next;
-			return;
-		}
-		let prev = this.next;
-		let current = prev.next;
-		while( current && current !== item ) {
-			prev = current;
-			current = current.next;
-		}
-
-		if (current === item) {
-			prev.next = current.next;
-		}
-	}
-}
-
-const scheduler = new Scheduler();
-
 let ANIMATIONS = [];
 
 function busy$1() {
@@ -10098,7 +11393,7 @@ class FX {
   constructor(opts={}) {
     this.tilNextTurn = opts.speed || opts.duration || 1000;
     this.speed = opts.speed || opts.duration || 1000;
-    this.callback = NOOP;
+    this.callback = utils$1.NOOP;
     this.done = false;
   }
 
@@ -10209,7 +11504,7 @@ class MovingSpriteFX extends SpriteFX {
     super(map, sprite, source.x, source.y, { speed });
     this.target = target;
     this.path = map$1.getLine(this.map, source.x, source.y, this.target.x, this.target.y);
-    this.stepFn = stepFn || TRUE;
+    this.stepFn = stepFn || utils$1.TRUE;
   }
 
   step() {
@@ -10255,7 +11550,7 @@ async function bolt(map, source, target, sprite, opts={}) {
 
 async function projectile(map, source, target, sprite, opts) {
   if (sprite.ch.length == 4) {
-    const dir = dirFromTo(source, target);
+    const dir = utils$1.dirFromTo(source, target);
     let index = 0;
     if (dir[0] && dir[1]) {
       index = 2;
@@ -10267,10 +11562,10 @@ async function projectile(map, source, target, sprite, opts) {
       index = 1;
     }
     const ch = sprite.ch[index];
-    sprite = make.sprite(ch, sprite.fg, sprite.bg);
+    sprite = make$1.sprite(ch, sprite.fg, sprite.bg);
   }
   else if (sprite.ch.length !== 1) {
-    ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
+    utils$1.ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
   }
 
   return bolt(map, source, target, sprite, opts);
@@ -10370,7 +11665,7 @@ class BeamFX extends FX {
     this.sprite = sprite;
     this.fade = fade || speed;
     this.path = map$1.getLine(this.map, this.x, this.y, this.target.x, this.target.y);
-    this.stepFn = stepFn || TRUE;
+    this.stepFn = stepFn || utils$1.TRUE;
   }
 
   step() {
@@ -10434,7 +11729,7 @@ class ExplosionFX extends FX {
     speed = speed || 20;
     super({ speed });
     this.map = map;
-    this.grid = alloc(map.width, map.height);
+    this.grid = alloc$1(map.width, map.height);
     if (fovGrid) {
       this.grid.copy(fovGrid);
     }
@@ -10449,7 +11744,7 @@ class ExplosionFX extends FX {
     this.fade = fade || 100;
     this.shape = shape || 'o';
     this.center = (center === undefined) ? true : center;
-    this.stepFn = stepFn || TRUE;
+    this.stepFn = stepFn || utils$1.TRUE;
     this.count = 0;
   }
 
@@ -10479,7 +11774,7 @@ class ExplosionFX extends FX {
       col = this.grid[x];
       for(let y = minY; y <= maxY; ++y) {
         if (col[y] != 1) continue;  // not in FOV
-        dist = distanceBetween(this.x, this.y, x, y);
+        dist = utils$1.distanceBetween(this.x, this.y, x, y);
         if (dist <= this.radius) {
           this.visit(x, y);
         }
@@ -10525,7 +11820,7 @@ class ExplosionFX extends FX {
   }
 
   stop(result) {
-    this.grid = free(this.grid);
+    this.grid = free$1(this.grid);
     return super.stop(result);
   }
 }
@@ -10561,27 +11856,27 @@ function explosionFor(map, grid, x, y, radius, sprite, opts={}) {
 }
 
 var fx = {
-  __proto__: null,
-  busy: busy$1,
-  playAll: playAll,
-  tick: tick,
-  playRealTime: playRealTime,
-  playGameTime: playGameTime,
-  FX: FX,
-  SpriteFX: SpriteFX,
-  flashSprite: flashSprite,
-  hit: hit,
-  miss: miss,
-  MovingSpriteFX: MovingSpriteFX,
-  bolt: bolt,
-  projectile: projectile,
-  BeamFX: BeamFX,
-  beam: beam,
-  explosion: explosion,
-  explosionFor: explosionFor
+    __proto__: null,
+    busy: busy$1,
+    playAll: playAll,
+    tick: tick,
+    playRealTime: playRealTime,
+    playGameTime: playGameTime,
+    FX: FX,
+    SpriteFX: SpriteFX,
+    flashSprite: flashSprite,
+    hit: hit,
+    miss: miss,
+    MovingSpriteFX: MovingSpriteFX,
+    bolt: bolt,
+    projectile: projectile,
+    BeamFX: BeamFX,
+    beam: beam,
+    explosion: explosion,
+    explosionFor: explosionFor
 };
 
-const GAME_DEBUG = NOOP;
+const GAME_DEBUG = utils$1.NOOP;
 
 data.time = 0;
 data.running = false;
@@ -10589,7 +11884,7 @@ data.turnTime = 10;
 
 
 
-async function start(opts={}) {
+async function start$1(opts={}) {
 
   data.time = 0;
   data.running = true;
@@ -10614,7 +11909,7 @@ async function start(opts={}) {
     map = await getMap(map);
   }
 
-  if (!map) ERROR('No map!');
+  if (!map) utils$1.ERROR('No map!');
 
   if (opts.fov) {
     config.fov = true;
@@ -10649,7 +11944,7 @@ function buildMap(id=0) {
     width = viewport.bounds.width;
     height = viewport.bounds.height;
   }
-  const map = make.map(width, height, { tile: 'FLOOR', boundary: 'WALL' });
+  const map = make$1.map(width, height, { tile: 'FLOOR', boundary: 'WALL' });
   map.id = id;
   return map;
 }
@@ -10676,7 +11971,7 @@ async function startMap(map, loc='start') {
     if (data.map._tick) scheduler.remove(data.map._tick);
     data.map._tick = null;
 
-    eachChain(data.map.actors, (actor) => {
+    utils$1.eachChain(data.map.actors, (actor) => {
       if (actor._tick) {
         scheduler.remove(actor._tick);
         actor._tick = null;
@@ -10724,7 +12019,7 @@ async function startMap(map, loc='start') {
 
   updateLighting(map);
 
-  eachChain(map.actors, (actor) => {
+  utils$1.eachChain(map.actors, (actor) => {
     queueActor(actor);
   });
 
@@ -10778,10 +12073,12 @@ async function loop$1() {
       else {
         if (scheduler.time > data.time) {
           data.time = scheduler.time;
+          GAME_DEBUG('- update now: %d', scheduler.time);
           await ui.updateIfRequested();
         }
         const turnTime = await fn();
         if (turnTime) {
+          GAME_DEBUG('- push actor: %d + %d = %d', scheduler.time, turnTime, scheduler.time + turnTime);
           scheduler.push(fn, turnTime);
         }
         data.map.resetEvents();
@@ -10813,6 +12110,8 @@ async function cancelDelay(timer) {
 }
 
 async function updateEnvironment() {
+
+  GAME_DEBUG('update environment');
 
   const map = data.map;
   if (!map) return 0;
@@ -10875,7 +12174,7 @@ async function useStairs(x, y) {
     mapId = map.id - 1;
   }
 
-  GAME_DEBUG('use stairs : was on: %d [%d,%d], going to: %d %s', map.id);
+  GAME_DEBUG('use stairs : was on: %d [%d,%d], going to: %d %s', map.id, x, y, mapId, start);
 
   const newMap = await getMap(mapId);
 
@@ -10885,18 +12184,18 @@ async function useStairs(x, y) {
 }
 
 var game = {
-  __proto__: null,
-  start: start,
-  get buildMap () { return buildMap; },
-  getMap: getMap,
-  startMap: startMap,
-  queuePlayer: queuePlayer,
-  queueActor: queueActor,
-  delay: delay,
-  cancelDelay: cancelDelay,
-  updateEnvironment: updateEnvironment,
-  gameOver: gameOver,
-  useStairs: useStairs
+    __proto__: null,
+    start: start$1,
+    get buildMap () { return buildMap; },
+    getMap: getMap,
+    startMap: startMap,
+    queuePlayer: queuePlayer,
+    queueActor: queueActor,
+    delay: delay,
+    cancelDelay: cancelDelay,
+    updateEnvironment: updateEnvironment,
+    gameOver: gameOver,
+    useStairs: useStairs
 };
 
 var tile = {};
@@ -10929,8 +12228,8 @@ class Tile$1 {
       id: null,
       dissipate: 2000, // 20% of 10000
     });
-    assignOmitting(['events'], this, base);
-    assignOmitting(['Extends', 'extends', 'flags', 'mechFlags', 'sprite', 'events', 'ch', 'fg', 'bg'], this, config);
+    utils$1.assignOmitting(['events'], this, base);
+    utils$1.assignOmitting(['Extends', 'extends', 'flags', 'mechFlags', 'sprite', 'events', 'ch', 'fg', 'bg'], this, config);
     if (this.priority < 0) {
       this.priority = 50;
     }
@@ -10939,7 +12238,7 @@ class Tile$1 {
     this.mechFlags = TileMech.toFlag(this.mechFlags, config.mechFlags || config.flags);
 
     if (config.sprite || (config.ch || config.fg || config.bg)) {
-      this.sprite = make.sprite(config.sprite || config);
+      this.sprite = make$1.sprite(config.sprite || config);
     }
     if (base.events) {
       Object.assign(this.events, base.events);
@@ -10947,7 +12246,7 @@ class Tile$1 {
     if (config.events) {
       Object.entries(config.events).forEach( ([key,info]) => {
         if (info) {
-          this.events[key] = make.tileEvent(info);
+          this.events[key] = make$1.tileEvent(info);
         }
         else {
           delete this.events[key];
@@ -11066,7 +12365,7 @@ function addTileKind(id, base, config) {
   }
 
   if (typeof base === 'string') {
-    base = tiles[base] || ERROR('Unknown base tile: ' + base);
+    base = tiles[base] || utils$1.ERROR('Unknown base tile: ' + base);
   }
 
   config.name = config.name || id.toLowerCase();
@@ -11094,745 +12393,9 @@ function addTileKinds(config={}) {
 
 tile.addKinds = addTileKinds;
 
-const DIRS$3 = def.dirs;
-
-var dungeon = {};
-
-dungeon.debug = NOOP;
-
-const NOTHING = 0;
-let FLOOR = 'FLOOR';
-let DOOR = 'DOOR';
-let BRIDGE = 'BRIDGE';
-let UP_STAIRS = 'UP_STAIRS';
-let DOWN_STAIRS = 'DOWN_STAIRS';
-let WALL = 'WALL';
-let LAKE = 'LAKE';
-
-
-let SITE = null;
-let LOCS;
-
-
-function start$1(map, opts={}) {
-
-  LOCS = random.sequence(map.width * map.height);
-
-  const startX = opts.x || -1;
-  const startY = opts.y || -1;
-  if (startX > 0) {
-    map.locations.start = [startX, startY];
-  }
-
-  SITE = map;
-}
-
-dungeon.start = start$1;
-
-
-function finish() {
-  removeDiagonalOpenings();
-  finishWalls();
-  finishDoors();
-}
-
-dungeon.finish = finish;
-
-
-// Returns an array of door sites if successful
-function digRoom(opts={}) {
-  const hallChance = firstOpt('hallChance', opts, SITE.config, 0);
-  const diggerId = opts.digger || opts.id || 'SMALL'; // TODO - get random id
-
-  const digger$1 = diggers[diggerId];
-  if (!digger$1) {
-    throw new Error('Failed to find digger: ' + diggerId);
-  }
-
-  const config = Object.assign({}, digger$1, opts);
-  let locs = opts.locs || opts.loc || null;
-  if (!Array.isArray(locs)) {
-    locs = null;
-  }
-  else if (locs && locs.length && locs.length == 2 && typeof locs[0] == 'number') {
-    locs = [locs];
-  }
-  else if (locs.length == 0) {
-    locs = null;
-  }
-
-  const grid$1 = alloc(SITE.width, SITE.height);
-
-  let result = false;
-  let tries = opts.tries || 10;
-  while(--tries >= 0 && !result) {
-    grid$1.fill(NOTHING);
-
-    const id = digger$1.fn(config, grid$1);
-    dungeon.debug('Dig room:', id);
-    const doors = digger.chooseRandomDoorSites(grid$1);
-    if (random.chance(hallChance)) {
-      digger.attachHallway(grid$1, doors, SITE.config);
-    }
-
-    if (locs) {
-      // try the doors first
-      result = attachRoomAtDoors(grid$1, doors, locs, opts);
-      if (!result) {
-        // otherwise try everywhere
-        for(let i = 0; i < locs.length && !result; ++i) {
-          if (locs[i][0] > 0) {
-            result = attachRoomAtXY(grid$1, locs[i], doors, opts);
-          }
-        }
-      }
-    }
-    else {
-      result = attachRoomToDungeon(grid$1, doors, opts);
-    }
-
-  }
-
-  free(grid$1);
-  return result;
-}
-
-dungeon.digRoom = digRoom;
-
-
-
-function roomAttachesAt(roomGrid, roomToSiteX, roomToSiteY) {
-    let xRoom, yRoom, xSite, ySite, i, j;
-
-    for (xRoom = 0; xRoom < roomGrid.width; xRoom++) {
-        for (yRoom = 0; yRoom < roomGrid.height; yRoom++) {
-            if (roomGrid[xRoom][yRoom]) {
-                xSite = xRoom + roomToSiteX;
-                ySite = yRoom + roomToSiteY;
-
-                for (i = xSite - 1; i <= xSite + 1; i++) {
-                    for (j = ySite - 1; j <= ySite + 1; j++) {
-                        if (!SITE.hasXY(i, j)
-                            || SITE.isBoundaryXY(i, j)
-                            || !SITE.cell(i, j).isNull())
-                        {
-                            return false;
-                        }
-                    }
-                }
-            }
-        }
-    }
-    return true;
-}
-
-
-
-
-function attachRoomToDungeon(roomGrid, doorSites, opts={}) {
-
-  // Slide hyperspace across real space, in a random but predetermined order, until the room matches up with a wall.
-  for (let i = 0; i < LOCS.length; i++) {
-      const x = Math.floor(LOCS[i] / SITE.height);
-      const y = LOCS[i] % SITE.height;
-
-      if (!SITE.cell(x, y).isNull()) continue;
-      const dir = directionOfDoorSite(SITE.cells, x, y, (c) => (c.hasTile(FLOOR) && !c.isLiquid()) );
-      if (dir != def.NO_DIRECTION) {
-        const oppDir = (dir + 2) % 4;
-
-        const offsetX = x - doorSites[oppDir][0];
-        const offsetY = y - doorSites[oppDir][1];
-
-        if (doorSites[oppDir][0] != -1
-            && roomAttachesAt(roomGrid, offsetX, offsetY))
-        {
-          dungeon.debug("- attachRoom: ", x, y, oppDir);
-
-          // Room fits here.
-          offsetZip(SITE.cells, roomGrid, offsetX, offsetY, (d, s, i, j) => SITE.setTile(i, j, opts.tile || FLOOR) );
-          if (opts.door || (opts.placeDoor !== false)) {
-            SITE.setTile(x, y, opts.door || DOOR); // Door site.
-          }
-          doorSites[oppDir][0] = -1;
-          doorSites[oppDir][1] = -1;
-          for(let i = 0; i < doorSites.length; ++i) {
-            if (doorSites[i][0] > 0) {
-              doorSites[i][0] += offsetX;
-              doorSites[i][1] += offsetY;
-            }
-          }
-          return doorSites;
-        }
-      }
-  }
-
-  return false;
-}
-
-
-function attachRoomAtXY(roomGrid, xy, doors, opts={}) {
-
-  // Slide hyperspace across real space, in a random but predetermined order, until the room matches up with a wall.
-  for (let i = 0; i < LOCS.length; i++) {
-      const x = Math.floor(LOCS[i] / SITE.height);
-      const y = LOCS[i] % SITE.height;
-
-      if (roomGrid[x][y]) continue;
-
-      const dir = directionOfDoorSite(roomGrid, x, y);
-      if (dir != def.NO_DIRECTION) {
-        const d = DIRS$3[dir];
-        if (roomAttachesAt(roomGrid, xy[0] - x, xy[1] - y)) {
-          offsetZip(SITE.cells, roomGrid, xy[0] - x, xy[1] - y, (d, s, i, j) => SITE.setTile(i, j, opts.tile || FLOOR) );
-          if (opts.door || (opts.placeDoor !== false)) {
-            SITE.setTile(xy[0], xy[1], opts.door || DOOR); // Door site.
-          }
-          doors[dir][0] = -1;
-          doors[dir][1] = -1;
-          for(let i = 0; i < doors.length; ++i) {
-            if (doors[i][0] > 0) {
-              doors[i][0] += xy[0] - x;
-              doors[i][1] += xy[1] - y;
-            }
-          }
-          return doors;
-        }
-      }
-  }
-
-  return false;
-}
-
-
-
-function insertRoomAtXY(x, y, roomGrid, doorSites, opts={}) {
-
-  const dirs = random.sequence(4);
-
-  for(let dir of dirs) {
-    const oppDir = (dir + 2) % 4;
-
-    if (doorSites[oppDir][0] != -1
-        && roomAttachesAt(roomGrid, x - doorSites[oppDir][0], y - doorSites[oppDir][1]))
-    {
-      // dungeon.debug("attachRoom: ", x, y, oppDir);
-
-      // Room fits here.
-      const offX = x - doorSites[oppDir][0];
-      const offY = y - doorSites[oppDir][1];
-      offsetZip(SITE.cells, roomGrid, offX, offY, (d, s, i, j) => SITE.setTile(i, j, opts.tile || FLOOR) );
-      if (opts.door || (opts.placeDoor !== false)) {
-        SITE.setTile(x, y, opts.door || DOOR); // Door site.
-      }
-      const newDoors = doorSites.map( (site) => {
-        const x0 = site[0] + offX;
-        const y0 = site[1] + offY;
-        if (x0 == x && y0 == y) return [-1,-1];
-        return [x0,y0];
-      });
-      return newDoors;
-    }
-  }
-  return false;
-}
-
-
-function attachRoomAtDoors(roomGrid, roomDoors, siteDoors, opts={}) {
-
-  const doorIndexes = random.sequence(siteDoors.length);
-
-  // Slide hyperspace across real space, in a random but predetermined order, until the room matches up with a wall.
-  for (let i = 0; i < doorIndexes.length; i++) {
-    const index = doorIndexes[i];
-    const x = siteDoors[index][0];
-    const y = siteDoors[index][1];
-
-    const doors = insertRoomAtXY(x, y, roomGrid, roomDoors, opts);
-    if (doors) return doors;
-  }
-
-  return false;
-}
-
-
-function digLake(opts={}) {
-  let i, j, k;
-  let x, y;
-  let lakeMaxHeight, lakeMaxWidth, lakeMinSize, tries, maxCount, canDisrupt;
-  let count = 0;
-
-  lakeMaxHeight = opts.height || 15;
-  lakeMaxWidth = opts.width || 30;
-  lakeMinSize = opts.minSize || 5;
-  tries = opts.tries || 20;
-  maxCount = 1; // opts.count || tries;
-  canDisrupt = opts.canDisrupt || false;
-
-  const lakeGrid = alloc(SITE.width, SITE.height, 0);
-
-  for (; lakeMaxHeight >= lakeMinSize && lakeMaxWidth >= lakeMinSize && count < maxCount; lakeMaxHeight--, lakeMaxWidth -= 2) { // lake generations
-
-    lakeGrid.fill(NOTHING);
-    const bounds = fillBlob(lakeGrid, 5, 4, 4, lakeMaxWidth, lakeMaxHeight, 55, "ffffftttt", "ffffttttt");
-
-    for (k=0; k < tries && count < maxCount; k++) { // placement attempts
-        // propose a position for the top-left of the lakeGrid in the dungeon
-        x = random.range(1 - bounds.x, lakeGrid.width - bounds.width - bounds.x - 2);
-        y = random.range(1 - bounds.y, lakeGrid.height - bounds.height - bounds.y - 2);
-
-      if (canDisrupt || !lakeDisruptsPassability(lakeGrid, -x, -y)) { // level with lake is completely connected
-        dungeon.debug("Placed a lake!", x, y);
-
-        ++count;
-        // copy in lake
-        for (i = 0; i < bounds.width; i++) {  // skip boundary
-          for (j = 0; j < bounds.height; j++) { // skip boundary
-            if (lakeGrid[i + bounds.x][j + bounds.y]) {
-              const sx = i + bounds.x + x;
-              const sy = j + bounds.y + y;
-              SITE.setTile(sx, sy, opts.tile || LAKE);
-            }
-          }
-        }
-        break;
-      }
-    }
-  }
-  free(lakeGrid);
-  return count;
-
-}
-
-dungeon.digLake = digLake;
-
-
-function lakeDisruptsPassability(lakeGrid, dungeonToGridX, dungeonToGridY) {
-  return SITE.gridDisruptsPassability(lakeGrid, { gridOffsetX: dungeonToGridX, gridOffsetY: dungeonToGridY });
-}
-
-
-
-// Add some loops to the otherwise simply connected network of rooms.
-function addLoops(minimumPathingDistance, maxConnectionLength) {
-    let startX, startY, endX, endY;
-    let i, j, d, x, y;
-
-    minimumPathingDistance = minimumPathingDistance || Math.floor(Math.min(SITE.width,SITE.height)/2);
-    maxConnectionLength = maxConnectionLength || 1; // by default only break walls down
-
-    const siteGrid = SITE.cells;
-    const pathGrid = alloc(SITE.width, SITE.height);
-    const costGrid = alloc(SITE.width, SITE.height);
-
-    const dirCoords = [[1, 0], [0, 1]];
-
-    SITE.fillCostGrid(costGrid);
-
-    function isValidTunnelStart(x, y, dir) {
-      if (!SITE.hasXY(x, y)) return false;
-      if (!SITE.hasXY(x + dir[1], y + dir[0])) return false;
-      if (!SITE.hasXY(x - dir[1], y - dir[0])) return false;
-      if (!SITE.cell(x, y).isNull()) return false;
-      if (!SITE.cell(x + dir[1], y + dir[0]).isNull()) return false;
-      if (!SITE.cell(x - dir[1], y - dir[0]).isNull()) return false;
-      return true;
-    }
-
-    function isValidTunnelEnd(x, y, dir) {
-      if (!SITE.hasXY(x, y)) return false;
-      if (!SITE.hasXY(x + dir[1], y + dir[0])) return false;
-      if (!SITE.hasXY(x - dir[1], y - dir[0])) return false;
-      if (!SITE.cell(x, y).isNull()) return true;
-      if (!SITE.cell(x + dir[1], y + dir[0]).isNull()) return true;
-      if (!SITE.cell(x - dir[1], y - dir[0]).isNull()) return true;
-      return false;
-    }
-
-    for (i = 0; i < LOCS.length; i++) {
-        x = Math.floor(LOCS[i] / siteGrid.height);
-        y = LOCS[i] % siteGrid.height;
-
-        const cell = siteGrid[x][y];
-        if (cell.isNull()) {
-            for (d=0; d <= 1; d++) { // Try a horizontal door, and then a vertical door.
-                let dir = dirCoords[d];
-                if (!isValidTunnelStart(x, y, dir)) continue;
-                j = maxConnectionLength;
-
-                // check up/left
-                if (SITE.hasXY(x + dir[0], y + dir[1]) && SITE.cell(x + dir[0], y + dir[1]).hasTile(FLOOR)) {
-                  // just can't build directly into a door
-                  if (!SITE.hasXY(x - dir[0], y - dir[1]) || SITE.cell(x - dir[0], y - dir[1]).hasTile(DOOR)) {
-                    continue;
-                  }
-                }
-                else if (SITE.hasXY(x - dir[0], y - dir[1]) && SITE.cell(x - dir[0], y - dir[1]).hasTile(FLOOR)) {
-                  if (!SITE.hasXY(x + dir[0], y + dir[1]) || SITE.cell(x + dir[0], y + dir[1]).hasTile(DOOR)) {
-                    continue;
-                  }
-                  dir = dir.map( (v) => -1*v );
-                }
-                else {
-                  continue; // not valid start for tunnel
-                }
-
-                startX = x + dir[0];
-                startY = y + dir[1];
-                endX = x;
-                endY = y;
-
-                for(j = 0; j < maxConnectionLength; ++j) {
-                  endX -= dir[0];
-                  endY -= dir[1];
-
-                  // if (SITE.hasXY(endX, endY) && !SITE.cell(endX, endY).isNull()) {
-                  if (isValidTunnelEnd(endX, endY, dir)) {
-                    break;
-                  }
-                }
-
-                if (j < maxConnectionLength) {
-                  calculateDistances(pathGrid, startX, startY, costGrid, false);
-                  // pathGrid.fill(30000);
-                  // pathGrid[startX][startY] = 0;
-                  // dijkstraScan(pathGrid, costGrid, false);
-                  if (pathGrid[endX][endY] > minimumPathingDistance && pathGrid[endX][endY] < 30000) { // and if the pathing distance between the two flanking floor tiles exceeds minimumPathingDistance,
-
-                      dungeon.debug('Adding Loop', startX, startY, ' => ', endX, endY, ' : ', pathGrid[endX][endY]);
-
-                      while(endX !== startX || endY !== startY) {
-                        if (SITE.cell(endX, endY).isNull()) {
-                          SITE.setTile(endX, endY, FLOOR);
-                          costGrid[endX][endY] = 1;          // (Cost map also needs updating.)
-                        }
-                        endX += dir[0];
-                        endY += dir[1];
-                      }
-                      SITE.setTile(x, y, DOOR);             // then turn the tile into a doorway.
-                      break;
-                  }
-                }
-            }
-        }
-    }
-    free(pathGrid);
-    free(costGrid);
-}
-
-dungeon.addLoops = addLoops;
-
-
-function isBridgeCandidate(x, y, bridgeDir) {
-  if (SITE.hasTile(x, y, BRIDGE)) return true;
-  if (!SITE.isLiquid(x, y)) return false;
-  if (!SITE.isLiquid(x + bridgeDir[1], y + bridgeDir[0])) return false;
-  if (!SITE.isLiquid(x - bridgeDir[1], y - bridgeDir[0])) return false;
-  return true;
-}
-
-// Add some loops to the otherwise simply connected network of rooms.
-function addBridges(minimumPathingDistance, maxConnectionLength) {
-    let newX, newY;
-    let i, j, d, x, y;
-
-    maxConnectionLength = maxConnectionLength || 1; // by default only break walls down
-
-    const siteGrid = SITE.cells;
-    const pathGrid = alloc(SITE.width, SITE.height);
-    const costGrid = alloc(SITE.width, SITE.height);
-
-    const dirCoords = [[1, 0], [0, 1]];
-
-    SITE.fillCostGrid(costGrid);
-
-    for (i = 0; i < LOCS.length; i++) {
-        x = Math.floor(LOCS[i] / siteGrid.height);
-        y = LOCS[i] % siteGrid.height;
-
-        if (SITE.hasXY(x, y) && (!SITE.isNull(x, y)) && SITE.canBePassed(x, y)) {
-            for (d=0; d <= 1; d++) { // Try right, then down
-                const bridgeDir = dirCoords[d];
-                newX = x + bridgeDir[0];
-                newY = y + bridgeDir[1];
-                j = maxConnectionLength;
-
-                if (!SITE.hasXY(newX, newY)) continue;
-
-                // check for line of lake tiles
-                // if (isBridgeCandidate(newX, newY, bridgeDir)) {
-                if (SITE.isLiquid(newX, newY)) {
-                  for(j = 0; j < maxConnectionLength; ++j) {
-                    newX += bridgeDir[0];
-                    newY += bridgeDir[1];
-
-                    // if (!isBridgeCandidate(newX, newY, bridgeDir)) {
-                    if (!SITE.isLiquid(newX, newY)) {
-                      break;
-                    }
-                  }
-                }
-
-                if ((!SITE.isNull(newX, newY)) && SITE.canBePassed(newX, newY) && (j < maxConnectionLength)) {
-                  calculateDistances(pathGrid, newX, newY, costGrid, false);
-                  // pathGrid.fill(30000);
-                  // pathGrid[newX][newY] = 0;
-                  // dijkstraScan(pathGrid, costGrid, false);
-                  if (pathGrid[x][y] > minimumPathingDistance && pathGrid[x][y] < def.PDS_NO_PATH) { // and if the pathing distance between the two flanking floor tiles exceeds minimumPathingDistance,
-
-                      dungeon.debug('Adding Bridge', x, y, ' => ', newX, newY);
-
-                      while(x !== newX || y !== newY) {
-                        if (isBridgeCandidate(x, y, bridgeDir)) {
-                          SITE.setTile(x, y, BRIDGE);
-                          costGrid[x][y] = 1;          // (Cost map also needs updating.)
-                        }
-                        else {
-                          SITE.setTile(x, y, FLOOR);
-                          costGrid[x][y] = 1;
-                        }
-                        x += bridgeDir[0];
-                        y += bridgeDir[1];
-                      }
-                      break;
-                  }
-                }
-            }
-        }
-    }
-    free(pathGrid);
-    free(costGrid);
-}
-
-dungeon.addBridges = addBridges;
-
-
-
-function removeDiagonalOpenings() {
-  let i, j, k, x1, y1;
-  let diagonalCornerRemoved;
-
-	do {
-		diagonalCornerRemoved = false;
-		for (i=0; i<SITE.width-1; i++) {
-			for (j=0; j<SITE.height-1; j++) {
-				for (k=0; k<=1; k++) {
-					if ((SITE.canBePassed(i + k, j))
-						&& (!SITE.canBePassed(i + (1-k), j))
-						&& (SITE.isObstruction(i + (1-k), j))
-						&& (!SITE.canBePassed(i + k, j+1))
-						&& (SITE.isObstruction(i + k, j+1))
-						&& (SITE.canBePassed(i + (1-k), j+1)))
-          {
-						if (random.chance(50)) {
-							x1 = i + (1-k);
-							y1 = j;
-						} else {
-							x1 = i + k;
-							y1 = j + 1;
-						}
-            diagonalCornerRemoved = true;
-            SITE.setTile(x1, y1, FLOOR);
-            dungeon.debug('Removed diagonal opening', x1, y1);
-					}
-				}
-			}
-		}
-	} while (diagonalCornerRemoved == true);
-}
-
-dungeon.removeDiagonalOpenings = removeDiagonalOpenings;
-
-
-function finishDoors(map) {
-  map = map || SITE;
-  let i, j;
-
-	for (i=1; i<map.width-1; i++) {
-		for (j=1; j<map.height-1; j++) {
-			if (map.isDoor(i, j))
-			{
-				if ((map.canBePassed(i+1, j) || map.canBePassed(i-1, j))
-					&& (map.canBePassed(i, j+1) || map.canBePassed(i, j-1)))
-        {
-					// If there's passable terrain to the left or right, and there's passable terrain
-					// above or below, then the door is orphaned and must be removed.
-					map.setTile(i, j, FLOOR);
-          dungeon.debug('Removed orphan door', i, j);
-				} else if ((map.blocksPathing(i+1, j) ? 1 : 0)
-						   + (map.blocksPathing(i-1, j) ? 1 : 0)
-						   + (map.blocksPathing(i, j+1) ? 1 : 0)
-						   + (map.blocksPathing(i, j-1) ? 1 : 0) >= 3)
-        {
-					// If the door has three or more pathing blocker neighbors in the four cardinal directions,
-					// then the door is orphaned and must be removed.
-          map.setTile(i, j, FLOOR);
-          dungeon.debug('Removed blocked door', i, j);
-				}
-			}
-		}
-	}
-}
-
-dungeon.finishDoors = finishDoors;
-
-function finishWalls(map) {
-  map = map || SITE;
-  map.forEach( (cell, i, j) => {
-    if (cell.isNull()) {
-      map.setTile(i, j, WALL);
-    }
-  });
-}
-
-dungeon.finishWalls = finishWalls;
-
-
-
-function isValidStairLoc(c, x, y, map) {
-  map = map || SITE;
-  let count = 0;
-  if (!(c.isNull() || c.isWall())) return false;
-
-  for(let i = 0; i < 4; ++i) {
-    const dir = def.dirs[i];
-    if (!map.hasXY(x + dir[0], y + dir[1])) return false;
-    if (!map.hasXY(x - dir[0], y - dir[1])) return false;
-    const cell = map.cell(x + dir[0], y + dir[1]);
-    if (cell.hasTile(FLOOR)) {
-      count += 1;
-      const va = map.cell(x - dir[0] + dir[1], y - dir[1] + dir[0]);
-      if (!(va.isNull() || va.isWall())) return false;
-      const vb = map.cell(x - dir[0] - dir[1], y - dir[1] - dir[0]);
-      if (!(vb.isNull() || vb.isWall())) return false;
-    }
-    else if (!(cell.isNull() || cell.isWall())) {
-      return false;
-    }
-  }
-  return count == 1;
-}
-
-dungeon.isValidStairLoc = isValidStairLoc;
-
-
-function setupStairs(map, x, y, tile) {
-
-	const indexes = random.sequence(4);
-
-	let dir;
-	for(let i = 0; i < indexes.length; ++i) {
-		dir = def.dirs[i];
-		const x0 = x + dir[0];
-		const y0 = y + dir[1];
-		const cell = map.cell(x0, y0);
-		if (cell.hasTile(FLOOR) && cell.isEmpty()) {
-			const oppCell = map.cell(x - dir[0], y - dir[1]);
-			if (oppCell.isNull() || oppCell.isWall()) break;
-		}
-
-		dir = null;
-	}
-
-	if (!dir) ERROR('No stair direction found!');
-
-	map.setTile(x, y, tile);
-
-	const dirIndex = def.clockDirs.findIndex( (d) => d[0] == dir[0] && d[1] == dir[1] );
-
-	for(let i = 0; i < def.clockDirs.length; ++i) {
-		const l = i ? i - 1 : 7;
-		const r = (i + 1) % 8;
-		if (i == dirIndex || l == dirIndex || r == dirIndex ) continue;
-		const d = def.clockDirs[i];
-		map.setTile(x + d[0], y + d[1], WALL);
-    map.setCellFlags(x + d[0], y + d[1], Cell.IMPREGNABLE);
-	}
-
-	dungeon.debug('setup stairs', x, y, tile);
-	return true;
-}
-
-dungeon.setupStairs = setupStairs;
-
-
-function addStairs(opts = {}) {
-
-  const map = opts.map || SITE;
-  let needUp = (opts.up !== false);
-  let needDown = (opts.down !== false);
-  const minDistance = opts.minDistance || Math.floor(Math.max(map.width,map.height)/2);
-  const isValidStairLoc = opts.isValid || dungeon.isValidStairLoc;
-  const setupFn = opts.setup || dungeon.setupStairs;
-
-  let upLoc = Array.isArray(opts.up) ? opts.up : null;
-  let downLoc = Array.isArray(opts.down) ? opts.down : null;
-
-  if (opts.start && typeof opts.start !== 'string') {
-    let start = opts.start;
-    if (start === true) {
-      start = map.randomMatchingLoc( isValidStairLoc );
-    }
-    else {
-      start = map.matchingLocNear(x(start), y(start), isValidStairLoc);
-    }
-    map.locations.start = start;
-  }
-
-  if (upLoc && downLoc) {
-    upLoc = map.matchingLocNear(x(upLoc), y(upLoc), isValidStairLoc);
-    downLoc = map.matchingLocNear(x(downLoc), y(downLoc), isValidStairLoc);
-  }
-  else if (upLoc && !downLoc) {
-    upLoc = map.matchingLocNear(x(upLoc), y(upLoc), isValidStairLoc);
-    if (needDown) {
-      downLoc = map.randomMatchingLoc( (v, x, y) => {
-    		if (distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
-    		return isValidStairLoc(v, x, y, map);
-    	});
-    }
-  }
-  else if (downLoc && !upLoc) {
-    downLoc = map.matchingLocNear(x(downLoc), y(downLoc), isValidStairLoc);
-    if (needUp) {
-      upLoc = map.randomMatchingLoc( (v, x, y) => {
-    		if (distanceBetween(x, y, downLoc[0], downLoc[1]) < minDistance) return false;
-    		return isValidStairLoc(v, x, y, map);
-    	});
-    }
-  }
-  else if (needUp) {
-    upLoc = map.randomMatchingLoc( isValidStairLoc );
-    if (needDown) {
-      downLoc = map.randomMatchingLoc( (v, x, y) => {
-    		if (distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
-    		return isValidStairLoc(v, x, y, map);
-    	});
-    }
-  }
-  else if (needDown) {
-    downLoc = map.randomMatchingLoc( isValidStairLoc );
-  }
-
-  if (upLoc) {
-    map.locations.up = upLoc.slice();
-    setupFn(map, upLoc[0], upLoc[1], opts.upTile || UP_STAIRS);
-    if (opts.start === 'up') map.locations.start = map.locations.up;
-  }
-  if (downLoc) {
-    map.locations.down = downLoc.slice();
-    setupFn(map, downLoc[0], downLoc[1], opts.downTile || DOWN_STAIRS);
-    if (opts.start === 'down') map.locations.start = map.locations.down;
-  }
-
-  return !!(upLoc || downLoc);
-}
-
-dungeon.addStairs = addStairs;
-
 var fov = {};
 
-fov.debug = NOOP;
+fov.debug = utils$1.NOOP;
 
 // strategy =
 // {
@@ -11844,9 +12407,9 @@ fov.debug = NOOP;
 class FOV {
   constructor(strategy) {
     this.isBlocked = strategy.isBlocked;
-    this.calcRadius = strategy.calcRadius || calcRadius;
+    this.calcRadius = strategy.calcRadius || utils$1.calcRadius;
     this.setVisible = strategy.setVisible;
-    this.hasXY = strategy.hasXY || TRUE;
+    this.hasXY = strategy.hasXY || utils$1.TRUE;
   }
 
   calculate(x, y, maxRadius) {
@@ -11945,7 +12508,7 @@ async function applyDamage(attacker, defender, attackInfo, ctx) {
 
   ctx.damage = defender.kind.applyDamage(defender, ctx.damage, attacker, ctx);
 
-  let msg = firstOpt('msg', attackInfo, ctx, true);
+  let msg = utils$1.firstOpt('msg', attackInfo, ctx, true);
   if (msg) {
     if (typeof msg !== 'string') {
       let verb = attackInfo.verb || 'hit';
@@ -11959,7 +12522,7 @@ async function applyDamage(attacker, defender, attackInfo, ctx) {
   const ctx2 = { map, x: defender.x, y: defender.y, volume: ctx.damage };
 
   if (map) {
-    let hit$1 = firstOpt('fx', attackInfo, ctx, false);
+    let hit$1 = utils$1.firstOpt('fx', attackInfo, ctx, false);
     if (hit$1) {
       await hit(map, defender);
     }
@@ -11975,7 +12538,7 @@ async function applyDamage(attacker, defender, attackInfo, ctx) {
         await spawn(defender.kind.corpse, ctx2);
       }
       if (defender.pack && !defender.isPlayer()) {
-        eachChain(defender.pack, (item) => {
+        utils$1.eachChain(defender.pack, (item) => {
           map.addItemNear(defender.x, defender.y, item);
         });
       }
@@ -11989,8 +12552,8 @@ async function applyDamage(attacker, defender, attackInfo, ctx) {
 }
 
 var combat$1 = {
-  __proto__: null,
-  applyDamage: applyDamage
+    __proto__: null,
+    applyDamage: applyDamage
 };
 
 async function grab(e) {
@@ -12199,9 +12762,9 @@ async function fire(e) {
 
   const candidates = [];
   let choice;
-  eachChain(map.actors, (target) => {
+  utils$1.eachChain(map.actors, (target) => {
     if (actor === target) return;
-    if (distanceFromTo(actor, target) <= range) {
+    if (utils$1.distanceFromTo(actor, target) <= range) {
       if (!actor.kind.willAttack(actor, target)) return;
       if (!actor.canDirectlySee(target, map)) return;
       candidates.push(target);
@@ -12216,7 +12779,7 @@ async function fire(e) {
   }
   else {
     candidates.sort( (a, b) => {
-      return distanceFromTo(actor, a) - distanceFromTo(actor, b);
+      return utils$1.distanceFromTo(actor, a) - utils$1.distanceFromTo(actor, b);
     });
     choice = await ui.chooseTarget(candidates, 'Fire at which target?');
   }
@@ -12363,7 +12926,7 @@ async function travel(e) {
 
 commands$1.travel = travel;
 
-commands$1.debug = NOOP;
+commands$1.debug = utils$1.NOOP;
 
 async function rest(e) {
 	data.player.endTurn();
@@ -12378,7 +12941,7 @@ class ItemKind$1 {
 		this.name = opts.name || 'item';
 		this.flavor = opts.flavor || null;
     this.article = (opts.article === undefined) ? 'a' : opts.article;
-		this.sprite = make.sprite(opts.sprite || opts);
+		this.sprite = make$1.sprite(opts.sprite || opts);
     this.flags = ItemKind.toFlag(opts.flags);
 		this.actionFlags = Action.toFlag(opts.flags);
 		this.attackFlags = ItemAttack.toFlag(opts.flags);
@@ -12387,7 +12950,7 @@ class ItemKind$1 {
     this.slot = opts.slot || null;
     this.projectile = null;
     this.verb = opts.verb || null;
-    this.frequency = make.frequency(opts.frequency || this.stats.frequency);
+    this.frequency = make$1.frequency(opts.frequency || this.stats.frequency);
 
     this.bump = opts.bump || ['pickup'];  // pick me up by default if you bump into me
 
@@ -12399,9 +12962,9 @@ class ItemKind$1 {
     }
 
     if (opts.projectile) {
-      this.projectile = make.sprite(opts.projectile);
+      this.projectile = make$1.sprite(opts.projectile);
     }
-    this.corpse = opts.corpse ? make.tileEvent(opts.corpse) : null;
+    this.corpse = opts.corpse ? make$1.tileEvent(opts.corpse) : null;
 
     if (opts.consoleColor === false) {
       this.consoleColor = false;
@@ -12547,7 +13110,7 @@ class Item$1 {
 
   split(quantity=1) {
     if (quantity >= this.quantity) return null;
-    const newItem = make.item(this.kind, { quantity, flags: this.flags, stats: this.stats });
+    const newItem = make$1.item(this.kind, { quantity, flags: this.flags, stats: this.stats });
     this.quantity -= quantity;
     return newItem;
   }
@@ -12569,7 +13132,7 @@ class Item$1 {
       for(let i = 0; i < actions$1.length; ++i) {
         let fn = actions$1[i];
         if (typeof fn === 'string') {
-          fn = actions[fn] || this.kind[fn] || FALSE;
+          fn = actions[fn] || this.kind[fn] || utils$1.FALSE;
         }
 
         if (await fn(actor, this, ctx)) {
@@ -12611,7 +13174,7 @@ function makeItem(kind, opts) {
 		const name = kind;
 		kind = itemKinds[name];
 		if (!kind) {
-      WARN('Unknown Item Kind: ' + name);
+      utils$1.WARN('Unknown Item Kind: ' + name);
       return null;
     }
 	}
@@ -12619,7 +13182,7 @@ function makeItem(kind, opts) {
   return item;
 }
 
-make.item = makeItem;
+make$1.item = makeItem;
 
 
 
@@ -12647,14 +13210,14 @@ function chooseKinds$1(opts={}) {
     }
   }
   if (!count) {
-    WARN('Tried to place 0 actors.');
+    utils$1.WARN('Tried to place 0 actors.');
     return [];
   }
 
   let choices = opts.choices;
   // TODO - allow ['THING'] and { THING: 20 }
   if (!choices) {
-    let matchKindFn = opts.matchKindFn || TRUE;
+    let matchKindFn = opts.matchKindFn || utils$1.TRUE;
     choices = Object.values(itemKinds).filter(matchKindFn);
   }
 
@@ -12673,7 +13236,7 @@ function chooseKinds$1(opts={}) {
   }
 
   if (!choices.length) {
-    WARN('Tried to place actors - 0 qualifying kinds to choose from.');
+    utils$1.WARN('Tried to place actors - 0 qualifying kinds to choose from.');
     return [];
   }
 
@@ -12690,7 +13253,7 @@ function chooseKinds$1(opts={}) {
 function generateAndPlace$1(map, opts={}) {
   if (typeof opts === 'number') { opts = { tries: opts }; }
   if (Array.isArray(opts)) { opts = { kinds: opts }; }
-  setDefaults(opts, {
+  utils$1.setDefaults(opts, {
     count: 0,
     tries: 0,
     chance: 100,
@@ -12712,7 +13275,7 @@ function generateAndPlace$1(map, opts={}) {
 
   const kinds = chooseKinds$1(opts);
 
-  const blocked = alloc(map.width, map.height);
+  const blocked = alloc$1(map.width, map.height);
   // TODO - allow [x,y] in addition to 'name'
   if (opts.block && map.locations[opts.block]) {
     const loc = map.locations[opts.block];
@@ -12735,7 +13298,7 @@ function generateAndPlace$1(map, opts={}) {
 
   for(let i = 0; i < kinds.length; ++i) {
     const kind = kinds[i];
-    const item = make.item(kind, makeOpts);
+    const item = make$1.item(kind, makeOpts);
 
     matchOpts.forbidCellFlags = kind.forbiddenCellFlags(item);
     matchOpts.forbidTileFlags = kind.forbiddenTileFlags(item);
@@ -12748,7 +13311,7 @@ function generateAndPlace$1(map, opts={}) {
     }
   }
 
-  free(blocked);
+  free$1(blocked);
   return placed;
 }
 
@@ -12860,7 +13423,7 @@ message.forceRedraw = forceRedraw;
 
 function drawMessages(buffer) {
 	let i;
-	const tempColor = make.color();
+	const tempColor = make$1.color();
 	let messageColor;
 
   if (!NEEDS_UPDATE || !MSG_BOUNDS) return false;
@@ -13180,7 +13743,7 @@ const SIDEBAR_FOCUS = [-1,-1];
 const sidebar$1 = sidebar;
 const DATA = data;
 
-sidebar$1.debug = NOOP;
+sidebar$1.debug = utils$1.NOOP;
 
 const blueBar = addKind('blueBar', 	15,		10,		50);
 const redBar = 	addKind('redBar', 	45,		10,		15);
@@ -13209,7 +13772,7 @@ function sortSidebarItems(items) {
 	else {
 		const x = DATA.player ? DATA.player.x : 0;
 		const y = DATA.player ? DATA.player.y : 0;
-		distFn = ((item) => distanceBetween(item.x, item.y, x, y));
+		distFn = ((item) => utils$1.distanceBetween(item.x, item.y, x, y));
 	}
 	items.forEach( (item) => {
 		item.dist = distFn(item);
@@ -13227,7 +13790,7 @@ function refreshSidebar(map) {
 
 	// Gather sidebar entries
 	const entries = [];
-	const doneCells = alloc();
+	const doneCells = alloc$1();
   let same = true;
 
 	if (DATA.player) {
@@ -13321,7 +13884,7 @@ function refreshSidebar(map) {
 		}
 	});
 
-	free(doneCells);
+	free$1(doneCells);
 
 	// sort entries
 	sortSidebarItems(entries);
@@ -13436,7 +13999,7 @@ function sidebarPrevTarget() {
 		sidebar$1.focus(DATA.player.x, DATA.player.y);
     return SIDEBAR_FOCUS;
 	}
-	if (SIDEBAR_FOCUS[0] < 0 || equalsXY(DATA.player, SIDEBAR_FOCUS)) {
+	if (SIDEBAR_FOCUS[0] < 0 || utils$1.equalsXY(DATA.player, SIDEBAR_FOCUS)) {
 		sidebar$1.focus(SIDEBAR_ENTRIES[SIDEBAR_ENTRIES.length - 1].x, SIDEBAR_ENTRIES[SIDEBAR_ENTRIES.length - 1].y);
     return SIDEBAR_FOCUS;
 	}
@@ -13693,7 +14256,7 @@ function addProgressBar(y, buf, barText, current, max, color$1, dim) {
 		max = 1;
 	}
 
-	color$1 = make$2(color$1);
+	color$1 = make$3(color$1);
 	if (!(y % 2)) {
 		color$1.mix(colors.black, 25);
 	}
@@ -14184,7 +14747,7 @@ class Table {
     this.activeColor = from(opts.selectedColor || colors.teal);
     this.disabledColor = from(opts.disabledColor || colors.black);
     this.active = opts.active || -1;
-    this.bounds = make.bounds();
+    this.bounds = make$1.bounds();
     this.selected = -1;
     this.cancelled = false;
     this.count = 0;
@@ -14336,11 +14899,11 @@ class Table {
 types.Table = Table;
 
 
-function make$6(...args) {
+function make$7(...args) {
   return new types.Table(...args);
 }
 
-make.table = make$6;
+make$1.table = make$7;
 
 class List extends types.Table {
   constructor(opts={}) {
@@ -14351,13 +14914,13 @@ class List extends types.Table {
 
 types.List = List;
 
-function make$7(...args) {
+function make$8(...args) {
   return new types.List(...args);
 }
 
-make.list = make$7;
+make$1.list = make$8;
 
-ui.debug = NOOP;
+ui.debug = utils$1.NOOP;
 
 let SHOW_FLAVOR = false;
 let SHOW_CURSOR = false;
@@ -14399,7 +14962,7 @@ function uiLoop(t) {
 
 function start$2(opts={}) {
 
-  setDefaults(opts, {
+  utils$1.setDefaults(opts, {
     width: 100,
     height: 34,
     bg: 'black',
@@ -14419,7 +14982,7 @@ function start$2(opts={}) {
   });
 
   if (!ui.canvas && (opts.canvas !== false)) {
-    ui.canvas = make.canvas({ width: opts.width, height: opts.height, div: opts.div, font: opts.font, tileWidth: 14, tileHeight: 16 });
+    ui.canvas = make$1.canvas({ width: opts.width, height: opts.height, div: opts.div, font: opts.font, tileWidth: 14, tileHeight: 16 });
     ui.buffer = new Buffer(ui.canvas);
 
     if (opts.io && typeof document !== 'undefined') {
@@ -14906,7 +15469,7 @@ async function confirm(opts, prompt, args) {
     text$1 = apply(prompt, args);
   }
 
-  setDefaults(opts, {
+  utils$1.setDefaults(opts, {
     allowCancel: true,
     bg: 'black',
   });
@@ -15051,7 +15614,7 @@ async function inputNumberBox(opts, prompt, args) {
     text$1 = apply(prompt, args);
   }
 
-  setDefaults(opts, {
+  utils$1.setDefaults(opts, {
     allowCancel: true,
     min: 1,
     max: 99,
@@ -15209,10 +15772,10 @@ ui.draw = draw;
 
 function plotProgressBar(buf, x, y, width, barText, textColor, pct, barColor) {
   if (pct > 1) pct /= 100;
-  pct = clamp(pct, 0, 1);
+  pct = utils$1.clamp(pct, 0, 1);
 
-	barColor = make$2(barColor);
-  textColor = make$2(textColor);
+	barColor = make$3(barColor);
+  textColor = make$3(textColor);
   const darkenedBarColor = barColor.clone().mix(colors.black, 75);
 
   barText = center(barText, width);
@@ -15265,7 +15828,7 @@ class Button {
     	this.x = 0;					// button's leftmost cell will be drawn at (x, y)
     	this.y = 0;
     	this.hotkey = []; // [10];		// up to 10 hotkeys to trigger the button
-    	this.color = make.color();			// background of the button; further gradient-ized when displayed
+    	this.color = make$1.color();			// background of the button; further gradient-ized when displayed
     	this.opacity = 0;				// further reduced by 50% if not enabled
     	this.symbol = [];	//[COLS]		// Automatically replace the nth asterisk in the button label text with
     								// the nth character supplied here, if one is given.
@@ -15296,7 +15859,7 @@ class Button {
 
   draw(buffer) {
     let width, midPercent, symbolNumber, opacity;
-  	let fColor = make.color(), bColor = make.color(), fColorBase, bColorBase, bColorEdge, bColorMid;
+  	let fColor = make$1.color(), bColor = make$1.color(), fColorBase, bColorBase, bColorEdge, bColorMid;
 
   	if (!(this.flags & ButtonFlags.B_DRAW)) {
   		return;
@@ -15340,7 +15903,7 @@ class Button {
       fColor.copy(color$1 || fColorBase);
 
       if (this.flags & ButtonFlags.B_GRADIENT) {
-        midPercent = smoothHiliteGradient(i, width - 1);
+        midPercent = utils$1.smoothHiliteGradient(i, width - 1);
   			bColor.copy(bColorEdge);
   			bColor.mix(bColorMid, midPercent);
   		}
@@ -15378,7 +15941,7 @@ class Button {
 
 types.Button = Button;
 
-make.button = ((opts) => new Button(opts));
+make$1.button = ((opts) => new Button(opts));
 
 
 
@@ -15426,7 +15989,7 @@ class Buttons {
     if (text) {
       opts.text = text;
     }
-    const button = make.button(opts);
+    const button = make$1.button(opts);
     this.buttons.push(button);
     return button;
   }
@@ -15510,7 +16073,7 @@ class Buttons {
 
 types.Buttons = Buttons;
 
-make.buttons = (() => new Buttons());
+make$1.buttons = (() => new Buttons());
 
 hordes.all = [];
 const HORDE_CHANCE = [];
@@ -15519,13 +16082,13 @@ class Horde$1 {
   constructor(config={}) {
     this.minions = null;
     Object.assign(this,config);
-    this.frequency = make.frequency(this.frequency);
+    this.frequency = make$1.frequency(this.frequency);
     this.flags = Horde.toFlag(this.flags);
   }
 }
 
 
-function make$8(...args) {
+function make$9(...args) {
   let opts = args[0];
   if (args.length == 1 && Array.isArray(args[0])) args = args[0];
   if (args.length == 2 && (typeof args[0] === 'string') && (typeof args[1] === 'object')) {
@@ -15541,10 +16104,10 @@ function make$8(...args) {
   return new Horde$1(opts);
 }
 
-make.horde = make$8;
+make$1.horde = make$9;
 
 function addKind$4(id, ...args) {
-  const horde = make$8(...args);
+  const horde = make$9(...args);
   horde.id = id;
   if (hordes[id]) {
     const index = hordes.all.indexOf(hordes[id]);
@@ -15613,7 +16176,7 @@ function spawn$1(hordeId, map, x, y) {
   console.log('spawn leader', horde.leader);
 
   // console.log('HORDE SPAWN', horde);
-	const leader = make.actor(horde.leader);
+	const leader = make$1.actor(horde.leader);
 
 	// if (horde.flags & Flags.Horde.HORDE_LEADER_CAPTIVE) {
 	// 	leader.state |= BeingState.BS_CAPTIVE;
@@ -15637,7 +16200,7 @@ function spawn$1(hordeId, map, x, y) {
     }
     else {
       // opts is matcher config
-      setDefaults(opts, {
+      utils$1.setDefaults(opts, {
         forbidCellFlags: leader.kind.forbiddenCellFlags(),
         forbidTileFlags: leader.kind.forbiddenTileFlags(),
         forbidTileMechFlags: leader.kind.forbiddenTileMechFlags(),
@@ -15697,14 +16260,14 @@ function spawnRandom(map, blockedFov, forbiddenFlags=0, requiredFlags=0)
 }
 
 var horde = {
-  __proto__: null,
-  Horde: Horde$1,
-  make: make$8,
-  addKind: addKind$4,
-  removeKind: removeKind,
-  pick: pick$1,
-  spawn: spawn$1,
-  spawnRandom: spawnRandom
+    __proto__: null,
+    Horde: Horde$1,
+    make: make$9,
+    addKind: addKind$4,
+    removeKind: removeKind,
+    pick: pick$1,
+    spawn: spawn$1,
+    spawnRandom: spawnRandom
 };
 
 async function moveDir(actor, dir, opts={}) {
@@ -15807,12 +16370,12 @@ async function moveDir(actor, dir, opts={}) {
   }
 
   if (actor.grabbed && !isPush) {
-    const dirToItem = dirFromTo(actor, actor.grabbed);
+    const dirToItem = utils$1.dirFromTo(actor, actor.grabbed);
     let destXY = [actor.grabbed.x + dir[0], actor.grabbed.y + dir[1]];
     const destCell = map.cell(destXY[0], destXY[1]);
 
     let blocked = (destCell.item || destCell.hasTileFlag(Tile.T_OBSTRUCTS_ITEMS | Tile.T_OBSTRUCTS_PASSABILITY));
-    if (isOppositeDir(dirToItem, dir)) {  // pull
+    if (utils$1.isOppositeDir(dirToItem, dir)) {  // pull
       if (!actor.grabbed.hasActionFlag(Action.A_PULL)) {
         message.forPlayer(actor, '%s cannot pull %s.', actor.getName({article: 'the', color: true }), actor.grabbed.getFlavor());
         return false;
@@ -15838,7 +16401,7 @@ async function moveDir(actor, dir, opts={}) {
   const wasVisible = map.isVisible(actor.x, actor.y);
 
   if (!map.moveActor(newX, newY, actor)) {
-    ERROR('Move failed! ' + newX + ',' + newY);
+    utils$1.ERROR('Move failed! ' + newX + ',' + newY);
     // TURN ENDED (1/2 turn)?
     return false;
   }
@@ -16047,7 +16610,7 @@ async function attack$1(actor, target, ctx={}) {
   const info = attacks[type];
   if (!info) return false;
 
-  const dist = Math.floor(distanceFromTo(actor, target));
+  const dist = Math.floor(utils$1.distanceFromTo(actor, target));
   if (dist > (info.range || 1)) {
     return false;
   }
@@ -16091,7 +16654,7 @@ async function itemAttack(actor, target, ctx={}) {
   let damage  = item.stats.damage || 1;
   const verb  = item.kind.verb || 'hit';
 
-  const dist = Math.floor(distanceFromTo(actor, target));
+  const dist = Math.floor(utils$1.distanceFromTo(actor, target));
   if (dist > (range)) {
     return false;
   }
@@ -16145,8 +16708,8 @@ async function moveToward(actor, x, y, ctx) {
   }
 
   if (destCell.isVisible() && fromCell.isVisible()) {
-    const dir = dirBetween(actor.x, actor.y, x, y); // TODO = try 3 directions direct, -45, +45
-    const spread = dirSpread(dir);
+    const dir = utils$1.dirBetween(actor.x, actor.y, x, y); // TODO = try 3 directions direct, -45, +45
+    const spread = utils$1.dirSpread(dir);
     ctx.bump = false;
     for(let i = 0; i < spread.length; ++i) {
       const d = spread[i];
@@ -16159,14 +16722,14 @@ async function moveToward(actor, x, y, ctx) {
 
   let travelGrid = actor.travelGrid;
   if (!travelGrid) {
-    travelGrid = actor.travelGrid = alloc(map.width, map.height);
+    travelGrid = actor.travelGrid = alloc$1(map.width, map.height);
     travelGrid.x = travelGrid.y = -1;
   }
   if (travelGrid.x != x || travelGrid.y != y) {
-    const costGrid = alloc(map.width, map.height);
+    const costGrid = alloc$1(map.width, map.height);
     actor.fillCostGrid(map, costGrid);
     calculateDistances(travelGrid, x, y, costGrid, true);
-    free(costGrid);
+    free$1(costGrid);
   }
 
   const dir = nextStep(map, travelGrid, actor.x, actor.y, actor, true);
@@ -16220,7 +16783,7 @@ async function push$1(actor, item, ctx={}) {
 
   const map = ctx.map || data.map;
   const cell = ctx.cell || map.cell(ctx.x, ctx.y);
-  const dir = ctx.dir || dirFromTo(actor, item);
+  const dir = ctx.dir || utils$1.dirFromTo(actor, item);
 
   if (!item.hasActionFlag(Action.A_PUSH)) {
     ctx.item = item;
@@ -16319,7 +16882,7 @@ async function equip(actor, item, ctx={}) {
 
   success = actor.equip(item);
   if (!success) {
-    const article = chainIncludes(actor.pack, item) ? 'your' : true;
+    const article = utils$1.chainIncludes(actor.pack, item) ? 'your' : true;
     message.add('EQUIP_FAILED', { actor, item });
     // TODO - Re-equip other?
     return false;
@@ -16439,7 +17002,7 @@ async function travel$1(actor, ctx={}) {
     return false;
   }
 
-  const dir = dirFromTo(actor, path$1[path$1.length - 2]);
+  const dir = utils$1.dirFromTo(actor, path$1[path$1.length - 2]);
   return await actions.moveDir(actor, dir, ctx);
 }
 
@@ -16462,7 +17025,7 @@ async function sleep(actor, ctx={}) {
   const map = ctx.map || data.map;
   const player = data.player;
   if (player) {
-    const dist = distanceFromTo(actor, player);
+    const dist = utils$1.distanceFromTo(actor, player);
     const notice = actor.kind.getAwarenessDistance(actor, player); // does/should this take into account stealth?
     if (dist <= notice && actor.canDirectlySee(player)) {
       actor.adjustStat('sleep', -Math.round(notice/dist));
@@ -16506,7 +17069,7 @@ ai.moveRandomly = { act: moveRandomly };
 async function attackPlayer(actor, ctx) {
   const player = data.player;
 
-  const dist = distanceFromTo(actor, player);
+  const dist = utils$1.distanceFromTo(actor, player);
   if (dist >= 2) return false;
 
   return actions.attack(actor, player, ctx);
@@ -16520,7 +17083,7 @@ async function talkToPlayer(actor, ctx) {
 
   if (!actor.kind.talk) return false;
 
-  const dist = distanceFromTo(actor, player);
+  const dist = utils$1.distanceFromTo(actor, player);
   if (dist >= 2) return false;
 
   return actions.talk(actor, player, ctx);
@@ -16535,7 +17098,7 @@ async function moveTowardPlayer(actor, ctx={}) {
   const map = ctx.map || data.map;
   const cell = map.cell(actor.x, actor.y);
 
-  const dist = distanceFromTo(actor, player);
+  const dist = utils$1.distanceFromTo(actor, player);
   if (dist < 2) return false; // Already next to player
 
   if (cell.flags & Cell.IN_FOV) {
@@ -16680,13 +17243,13 @@ class Flames {
   constructor(buffer, opts={}) {
     this.buffer = buffer;
 
-    this.mask = make.grid(buffer.width, buffer.height);
-    this.flames = make.grid(buffer.width, buffer.height + MENU_FLAME_ROW_PADDING, () => [0, 0, 0] );
+    this.mask = make$1.grid(buffer.width, buffer.height);
+    this.flames = make$1.grid(buffer.width, buffer.height + MENU_FLAME_ROW_PADDING, () => [0, 0, 0] );
   	this.colorSources = []; 	// [red, green, blue, rand], one for each color source
-  	this.colors = make.grid(buffer.width, buffer.height + MENU_FLAME_ROW_PADDING, null );
-    this.colorStorage = make.array(buffer.width, () => make.color() );
+  	this.colors = make$1.grid(buffer.width, buffer.height + MENU_FLAME_ROW_PADDING, null );
+    this.colorStorage = make$1.array(buffer.width, () => make$1.color() );
 
-    setDefaults(opts, {
+    utils$1.setDefaults(opts, {
       primary: flameSourceColor,
       secondary: flameSourceColorSecondary,
       'flames.#': flameTitleColor,
@@ -16717,7 +17280,7 @@ class Flames {
   	let colorSourceCount = 0;
     this.colorStorage.forEach( (c, i) => {
       c.copy(opts.primary);
-      c.mix(opts.secondary, 100 - (smoothHiliteGradient(i, this.colors.width - 1) + 25));
+      c.mix(opts.secondary, 100 - (utils$1.smoothHiliteGradient(i, this.colors.width - 1) + 25));
       this.colors[i][this.colors.height - 1] = c;
       colorSourceCount++;
     });
@@ -16761,7 +17324,7 @@ class Flames {
 
   update() {
     let i, j, k, l, x, y;
-  	let tempFlames = make.array(this.flames.width, () => [0,0,0]);
+  	let tempFlames = make$1.array(this.flames.width, () => [0,0,0]);
   	let colorSourceNumber, rand;
 
   	colorSourceNumber = 0;
@@ -16818,7 +17381,7 @@ class Flames {
   				// First, cause the color to drift a little.
   				for (k=0; k<4; k++) {
   					this.colorSources[colorSourceNumber][k] += cosmetic.range(-MENU_FLAME_COLOR_DRIFT_SPEED, MENU_FLAME_COLOR_DRIFT_SPEED);
-  					this.colorSources[colorSourceNumber][k] = clamp(this.colorSources[colorSourceNumber][k], 0, 1000);
+  					this.colorSources[colorSourceNumber][k] = utils$1.clamp(this.colorSources[colorSourceNumber][k], 0, 1000);
   				}
 
   				// Then, add the color to this tile's flames.
@@ -16837,7 +17400,7 @@ class Flames {
 
   draw() {
   	let i, j;
-    const tempColor = make.color();
+    const tempColor = make$1.color();
   	const maskColor = colors.black;
     let dchar;
 
@@ -16874,8 +17437,8 @@ class Flames {
 types.Flames = Flames;
 
 var flames = {
-  __proto__: null,
-  Flames: Flames
+    __proto__: null,
+    Flames: Flames
 };
 
-export { actions, actor, actorKinds, addListener, ai, canvas, cell, clearEvent, color, colors, combat$1 as combat, commands$1 as commands, config, cosmetic, data, def, digger, diggers, dungeon, emit, flag, flags, flames, flavor, fov, frequency$1 as frequency, fx, game, grid, horde, hordes, install, io, item$1 as item, itemKinds, light, lights, make, map$1 as map, maps, message, messages, off, on, once, path, player, random, removeAllListeners, removeListener, scheduler, sidebar, sprite, sprites, text, tile, tileEvent$1 as tileEvent, tileEvents$1 as tileEvents, tiles, types, ui, utils$1 as utils, viewport, visibility };
+export { actions, actor, actorKinds, addListener, ai, canvas, cell, clearEvent, color, colors, combat$1 as combat, commands$1 as commands, config, cosmetic$1 as cosmetic, data, def, digger, diggers, dungeon, emit, flag, flags, flames, flavor, fov, frequency$1 as frequency, fx, game, grid, horde, hordes, install, io, item$1 as item, itemKinds, light, lights, make$1 as make, map$1 as map, maps, message, messages, off, on, once, path, player, random, range, removeAllListeners, removeListener, scheduler, sidebar, sprite, sprites, text, tile, tileEvent$1 as tileEvent, tileEvents$1 as tileEvents, tiles, types, ui, utils$1 as utils, viewport, visibility };

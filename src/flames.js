@@ -1,8 +1,7 @@
 
 import * as Color from './color.js';
 import * as Text from './text.js';
-import * as Utils from './utils.js';
-import { cosmetic } from './random.js';
+import { utils as Utils, random } from 'gw-core';
 import * as GW from './gw.js';
 
 

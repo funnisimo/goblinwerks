@@ -1,7 +1,6 @@
 
-import { random } from './random.js';
 import * as Flags from './flags.js';
-import * as Utils from './utils.js';
+import { utils as Utils, random } from 'gw-core';
 import * as Color from './color.js';
 import * as Light from './light.js';
 import * as TileEvent from './tileEvent.js';
@@ -38,7 +37,10 @@ class CellMemory {
   }
 
   copy(other) {
-    Utils.copyObject(this, other);
+    const sprite = this.sprite;
+    Object.assign(this, other);
+    this.sprite = sprite;
+    this.sprite.copy(other.sprite);
   }
 }
 

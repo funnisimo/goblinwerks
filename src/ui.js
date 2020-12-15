@@ -3,7 +3,7 @@
 
 import { io as IO } from './io.js';
 import * as Flags from './flags.js';
-import * as Utils from './utils.js';
+import { utils as Utils } from 'gw-core';
 import * as SPRITE from './sprite.js';
 import * as Color from './color.js';
 import * as Text from './text.js';

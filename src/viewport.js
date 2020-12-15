@@ -1,6 +1,5 @@
 
 
-import * as Utils from './utils.js';
 import * as Flags from './flags.js';
 import { map as MAP } from './map.js';
 import { Sprite } from './sprite.js';

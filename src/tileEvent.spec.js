@@ -85,12 +85,13 @@ describe('tileEvent', () => {
     GW.random.seed(12345);
     grid = GW.grid.alloc(20, 20);
     feat = GW.make.tileEvent({ tile: "WALL", spread: 50 });
+
     GW.tileEvent.computeSpawnMap(feat, grid, ctx);
     // grid.dump();
-    expect(grid.count( (v) => !!v )).toEqual(12);
+    expect(grid.count( (v) => !!v )).toEqual(3);
     expect(grid[10][10]).toEqual(1);
-    expect(grid[10][15]).toEqual(8);
-    expect(grid[10][14]).toEqual(0);
+    expect(grid[10][11]).toEqual(2);
+    expect(grid[10][9]).toEqual(0);
   });
 
   // { spread: 75, matchTile: "DOOR" }
@@ -121,23 +122,23 @@ describe('tileEvent', () => {
     feat = GW.make.tileEvent({ tile: "WALL", spread: 50, decrement: 10 });
     GW.tileEvent.computeSpawnMap(feat, grid, ctx);
     // grid.dump();
-    expect(grid.count( (v) => !!v )).toEqual(8);
+    expect(grid.count( (v) => !!v )).toEqual(9);
     expect(grid[10][10]).toEqual(1);
-    expect(grid[9][10]).toEqual(0);
-    expect(grid[11][12]).toEqual(6);
+    expect(grid[9][8]).toEqual(0);
+    expect(grid[8][8]).toEqual(5);
   });
 
 
   // DFF_SPREAD_CIRCLE
   test('{ spread: 50, decrement: 10, spread circle }', () => {
-    GW.random.seed(12345);
+    GW.random.seed(1234567);
     grid = GW.grid.alloc(20, 20);
     feat = GW.make.tileEvent({ tile: "WALL", spread: 90, decrement: 10, flags: 'DFF_SPREAD_CIRCLE' });
 
     GW.tileEvent.computeSpawnMap(feat, grid, ctx);
     // grid.dump();
-    expect(grid.count( (v) => !!v )).toEqual(61);
-    grid.forCircle(10, 10, 4, (v) => expect(v).toEqual(1) );
+    expect(grid.count( (v) => !!v )).toEqual(37);
+    grid.forCircle(10, 10, 3, (v) => expect(v).toEqual(1) );
   });
 
   test.todo('Add some walls and test that circle does not pass through them.');
@@ -161,12 +162,13 @@ describe('tileEvent', () => {
     grid = GW.grid.alloc(20, 20);
     feat = GW.make.tileEvent({ tile: "WALL", radius: 3, spread: 75 });
     // console.log(feat);
+
     GW.tileEvent.computeSpawnMap(feat, grid, ctx);
     // grid.dump();
-    expect(grid.count( (v) => !!v )).toEqual(24);
+    expect(grid.count( (v) => !!v )).toEqual(28);
     expect(grid[10][10]).toEqual(1);
-    expect(grid[11][10]).toEqual(0);
-    expect(grid[12][10]).toEqual(1);
+    expect(grid[9][12]).toEqual(0);
+    expect(grid[9][13]).toEqual(1);
   });
 
   // { radius: 3, spread: 75, decrement: 20 }
@@ -177,10 +179,10 @@ describe('tileEvent', () => {
     // console.log(feat);
     GW.tileEvent.computeSpawnMap(feat, grid, ctx);
     // grid.dump();
-    expect(grid.count( (v) => !!v )).toEqual(9);
+    expect(grid.count( (v) => !!v )).toEqual(16);
     expect(grid[10][10]).toEqual(1);
-    expect(grid[11][10]).toEqual(0);
-    expect(grid[12][10]).toEqual(1);
+    expect(grid[9][10]).toEqual(0);
+    expect(grid[8][10]).toEqual(1);
   });
 
   // { match: 2, radius: 1 }
@@ -451,7 +453,7 @@ describe('tileEvent', () => {
 
   // { tile: 'DOOR', line }
   test('{ tile: "DOOR", line }', async () => {
-    GW.random.seed(23456);
+    GW.random.seed(12345);  // 33333 = right
     const feat = GW.make.tileEvent({ tile: 'DOOR', flags: 'DFF_SPREAD_LINE', spread: 200, decrement: 50 });
 
     await GW.tileEvent.spawn(feat, ctx);
@@ -459,9 +461,9 @@ describe('tileEvent', () => {
     // map.dump();
 
     expect(map.hasTile(10, 10, 'DOOR')).toBeTruthy();
-    expect(map.hasTile(10, 9,  'DOOR')).toBeTruthy();
-    expect(map.hasTile(10, 8,  'DOOR')).toBeTruthy();
-    expect(map.hasTile(10, 7,  'DOOR')).toBeTruthy();
+    expect(map.hasTile(10, 11,  'DOOR')).toBeTruthy();
+    expect(map.hasTile(10, 12,  'DOOR')).toBeTruthy();
+    expect(map.hasTile(10, 13,  'DOOR')).toBeTruthy();
 
     expect(map.cells.count( (c) => c.hasTile('DOOR') )).toEqual(4);
   });

@@ -1,11 +1,11 @@
 
 
+import './random.js';
 import './bounds.js';
-export * as utils from './utils.js';
+export { utils, range, random, cosmetic } from 'gw-core';
 export * from './events.js';
 import './flag.js';
 import './flags.js';
-export { random, cosmetic } from './random.js';
 export * as color from './color.js';
 export * as text from './text.js';
 export * as sprite from './sprite.js';

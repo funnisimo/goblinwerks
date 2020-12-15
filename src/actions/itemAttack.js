@@ -1,6 +1,5 @@
 
-import * as Flags from '../flags.js';
-import * as Utils from '../utils.js';
+import { utils as Utils } from 'gw-core';
 import * as TileEvent from '../tileEvent.js';
 import { gameOver } from '../game.js';
 import * as FX from '../fx.js';

@@ -1,8 +1,6 @@
 
 import * as Flags from '../flags.js';
-import * as Utils from '../utils.js';
-import * as Actor from '../actor.js';
-import * as Item from '../item.js';
+import { utils as Utils } from 'gw-core';
 import * as Game from '../game.js';
 import * as FX from '../fx.js';
 import * as GW from '../gw.js'

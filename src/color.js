@@ -1,8 +1,5 @@
 
-import { cosmetic } from './random.js';
-import * as Utils from './utils.js';
 import { types, make as MAKE, colors } from './gw.js';
-
 import { Color as GWColor, configure } from 'gw-canvas';
 
 

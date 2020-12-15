@@ -1,7 +1,7 @@
 
 // CREDIT - This is adapted from: http://roguebasin.roguelikedevelopment.org/index.php?title=Improved_Shadowcasting_in_Java
 
-import * as Utils from './utils.js';
+import { utils as Utils } from 'gw-core';
 import { types, def } from './gw.js';
 
 

@@ -1,5 +1,5 @@
 
-import * as Utils from '../utils.js';
+import { utils as Utils } from 'gw-core';
 
 export var actions = {};
 

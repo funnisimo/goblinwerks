@@ -1,6 +1,5 @@
 
-import * as Flags from '../flags.js';
-import * as Utils from '../utils.js';
+import { utils as Utils } from 'gw-core';
 import { actions as Actions } from '../actions/index.js';
 import { data as DATA, def, commands, ui as UI, message as MSG } from '../gw.js';
 

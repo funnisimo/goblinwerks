@@ -1,6 +1,6 @@
 
 
-import * as Utils from '../utils.js';
+import { utils as Utils } from 'gw-core';
 import { data as DATA, commands } from '../gw.js';
 import './grab.js';
 import './movePlayer.js';

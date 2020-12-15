@@ -1,5 +1,4 @@
 
-import * as Utils from './utils.js';
 import * as Text from './text.js';
 import * as Color from './color.js';
 import * as IO from './io.js';

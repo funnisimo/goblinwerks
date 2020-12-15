@@ -1,6 +1,6 @@
 
 import * as Grid from './grid.js';
-import * as Utils from './utils.js';
+import { utils as Utils } from 'gw-core';
 import * as Sprite from './sprite.js';
 import { map as MAP } from './map.js';
 import { io as IO } from './io.js';

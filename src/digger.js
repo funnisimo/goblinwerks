@@ -1,7 +1,6 @@
 
 import * as Grid from './grid.js';
-import { random } from './random.js';
-import * as Utils from './utils.js';
+import { utils as Utils, random } from 'gw-core';
 import { make, def } from './gw.js';
 
 export var digger = {};
@@ -129,7 +128,7 @@ export function digChoiceRoom(config, grid) {
     id = random.item(config.choices);
   }
   else {
-    id = random.lottery(config.choices);
+    id = random.weighted(config.choices);
   }
   const digger = diggers[id];
   let digConfig = digger;
