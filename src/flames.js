@@ -1,7 +1,8 @@
 
+import { grid as Grid } from 'gw-core';
 import * as Color from './color.js';
 import * as Text from './text.js';
-import { utils as Utils, random } from 'gw-core';
+import { utils as Utils, cosmetic } from 'gw-core';
 import * as GW from './gw.js';
 
 
@@ -74,11 +75,11 @@ export class Flames {
   constructor(buffer, opts={}) {
     this.buffer = buffer;
 
-    this.mask = GW.make.grid(buffer.width, buffer.height);
-    this.flames = GW.make.grid(buffer.width, buffer.height + MENU_FLAME_ROW_PADDING, () => [0, 0, 0] );
+    this.mask = Grid.make(buffer.width, buffer.height);
+    this.flames = Grid.make(buffer.width, buffer.height + MENU_FLAME_ROW_PADDING, () => [0, 0, 0] );
   	this.colorSources = []; 	// [red, green, blue, rand], one for each color source
-  	this.colors = GW.make.grid(buffer.width, buffer.height + MENU_FLAME_ROW_PADDING, null );
-    this.colorStorage = GW.make.array(buffer.width, () => GW.make.color() );
+  	this.colors = Grid.make(buffer.width, buffer.height + MENU_FLAME_ROW_PADDING, null );
+    this.colorStorage = Grid.makeArray(buffer.width, () => GW.make.color() );
 
     Utils.setDefaults(opts, {
       primary: flameSourceColor,
@@ -155,7 +156,7 @@ export class Flames {
 
   update() {
     let i, j, k, l, x, y;
-  	let tempFlames = GW.make.array(this.flames.width, () => [0,0,0]);
+  	let tempFlames = Grid.makeArray(this.flames.width, () => [0,0,0]);
   	let colorSourceNumber, rand;
 
   	colorSourceNumber = 0;

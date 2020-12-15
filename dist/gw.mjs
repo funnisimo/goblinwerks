@@ -497,7 +497,7 @@ class Random {
                 throw new Error("Random make function must accept a numeric seed and return a random function.");
             RANDOM_CONFIG.make = opts.make;
             random.seed();
-            cosmetic$1.seed();
+            cosmetic.seed();
         }
     }
     seed(val) {
@@ -603,7 +603,7 @@ class Random {
     }
 }
 const random = new Random();
-const cosmetic$1 = new Random();
+const cosmetic = new Random();
 
 class Range {
     constructor(lower, upper = 0, clumps = 1, rng) {
@@ -744,8 +744,6 @@ class Grid extends Array {
         }
         this._width = w;
         this._height = h;
-        // @ts-ignore
-        this.type = v.constructor.name;
     }
     get width() {
         return this._width;
@@ -4542,7 +4540,7 @@ const DEFAULT_FONT = 'monospace';
 types.Canvas = Canvas;
 
 configure({
-  random: cosmetic$1.value.bind(cosmetic$1),
+  random: cosmetic.value.bind(cosmetic),
 });
 
 
@@ -16458,11 +16456,11 @@ class Flames {
   constructor(buffer, opts={}) {
     this.buffer = buffer;
 
-    this.mask = make$2.grid(buffer.width, buffer.height);
-    this.flames = make$2.grid(buffer.width, buffer.height + MENU_FLAME_ROW_PADDING, () => [0, 0, 0] );
+    this.mask = grid.make(buffer.width, buffer.height);
+    this.flames = grid.make(buffer.width, buffer.height + MENU_FLAME_ROW_PADDING, () => [0, 0, 0] );
   	this.colorSources = []; 	// [red, green, blue, rand], one for each color source
-  	this.colors = make$2.grid(buffer.width, buffer.height + MENU_FLAME_ROW_PADDING, null );
-    this.colorStorage = make$2.array(buffer.width, () => make$2.color() );
+  	this.colors = grid.make(buffer.width, buffer.height + MENU_FLAME_ROW_PADDING, null );
+    this.colorStorage = grid.makeArray(buffer.width, () => make$2.color() );
 
     utils$1.setDefaults(opts, {
       primary: flameSourceColor,
@@ -16539,7 +16537,7 @@ class Flames {
 
   update() {
     let i, j, k, l, x, y;
-  	let tempFlames = make$2.array(this.flames.width, () => [0,0,0]);
+  	let tempFlames = grid.makeArray(this.flames.width, () => [0,0,0]);
   	let colorSourceNumber, rand;
 
   	colorSourceNumber = 0;
@@ -16656,4 +16654,4 @@ var flames = {
     Flames: Flames
 };
 
-export { actions, actor, actorKinds, addListener, ai, canvas, cell, clearEvent, color, colors, combat$1 as combat, commands$1 as commands, config, cosmetic$1 as cosmetic, data, def, digger, diggers, dungeon, emit, flag, flags, flames, flavor, fov, frequency$1 as frequency, fx, game, grid, horde, hordes, install, io, item$1 as item, itemKinds, light, lights, make$2 as make, map$1 as map, maps, message, messages, off, on, once, path, player, random, range, removeAllListeners, removeListener, scheduler, sidebar, sprite, sprites, text, tile, tileEvent$1 as tileEvent, tileEvents$1 as tileEvents, tiles, types, ui, utils$1 as utils, viewport, visibility };
+export { actions, actor, actorKinds, addListener, ai, canvas, cell, clearEvent, color, colors, combat$1 as combat, commands$1 as commands, config, cosmetic, data, def, digger, diggers, dungeon, emit, flag, flags, flames, flavor, fov, frequency$1 as frequency, fx, game, grid, horde, hordes, install, io, item$1 as item, itemKinds, light, lights, make$2 as make, map$1 as map, maps, message, messages, off, on, once, path, player, random, range, removeAllListeners, removeListener, scheduler, sidebar, sprite, sprites, text, tile, tileEvent$1 as tileEvent, tileEvents$1 as tileEvents, tiles, types, ui, utils$1 as utils, viewport, visibility };
