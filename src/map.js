@@ -1,5 +1,5 @@
 
-import { utils as Utils, random, grid as Grid } from 'gw-core';
+import { utils as Utils, random, grid as Grid, fov as Fov } from 'gw-core';
 import * as Color from './color.js';
 import { cell as CELL } from './cell.js';
 import * as Flags from './flags.js';
@@ -712,7 +712,7 @@ export class Map {
     maxRadius = maxRadius || (this.width + this.height);
     grid.fill(0);
     const map = this;
-	  const FOV = new types.FOV({
+	  const FOV = new Fov.FOV({
       isBlocked(i, j) {
 	       return (!grid.hasXY(i, j)) || map.hasCellFlag(i, j, forbiddenFlags) || map.hasTileFlag(i, j, forbiddenTerrain) ;
 	    },

@@ -2,7 +2,7 @@
 
 import './random.js';
 import './bounds.js';
-export { utils, range, random, cosmetic, grid, io } from 'gw-core';
+export { utils, range, random, cosmetic, grid, io, fov } from 'gw-core';
 export * from './events.js';
 import './flag.js';
 import './flags.js';
@@ -24,7 +24,6 @@ export * as game from './game.js';
 export * as fx from './fx.js';
 export { actor, actorKinds } from './actor.js';
 export { player } from './player.js';
-export { fov } from './fov.js';
 export * as combat from './combat.js';
 import './commands/index.js';
 import './item.js';
