@@ -1,7 +1,7 @@
 
-
+import { io as IO } from 'gw-core';
 import { actions as Actions } from '../actions/index.js';
-import { data as DATA, def, commands, ui as UI, message as MSG, config as CONFIG } from '../gw.js';
+import { data as DATA, config as CONFIG } from '../gw.js';
 
 CONFIG.autoPickup = true;
 
@@ -17,10 +17,10 @@ async function movePlayer(e) {
   const ctx = { actor, map, x: newX, y: newY, cell };
   const isPlayer = actor.isPlayer();
 
-  commands.debug('movePlayer');
+  // commands.debug('movePlayer');
 
   const r = await Actions.moveDir(actor, dir, ctx);
   return r;
 }
 
-commands.movePlayer = movePlayer;
+IO.addCommand('movePlayer', movePlayer);

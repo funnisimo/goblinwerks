@@ -26,108 +26,108 @@ function toggleGameTime() {
 	return GW.ui.alert(500, text);
 }
 
-GW.commands.toggleGameTime = toggleGameTime;
+GW.io.addCommand('toggleGameTime', toggleGameTime);
 
 function selectWall() {
 	command = 'toggleWall';
 	return GW.ui.alert(500, 'Selected WALL.');
 }
 
-GW.commands.selectWall = selectWall;
+GW.io.addCommand('selectWall', selectWall);
 
 function selectBeam() {
 	command = 'showBeam';
 	return GW.ui.alert(500, 'Selected BEAM.');
 }
 
-GW.commands.selectBeam = selectBeam;
+GW.io.addCommand('selectBeam', selectBeam);
 
 function selectFlash() {
 	command = 'showFlash';
 	return GW.ui.alert(500, 'Selected FLASH.');
 }
 
-GW.commands.selectFlash = selectFlash;
+GW.io.addCommand('selectFlash', selectFlash);
 
 function selectBolt() {
 	command = 'showBolt';
 	return GW.ui.alert(500, 'Selected BOLT.');
 }
 
-GW.commands.selectBolt = selectBolt;
+GW.io.addCommand('selectBolt', selectBolt);
 
 async function selectHit() {
 	command = 'showHit';
 	await GW.ui.alert(500, 'Selected HIT.');
 }
 
-GW.commands.selectHit = selectHit;
+GW.io.addCommand('selectHit', selectHit);
 
 async function selectAura() {
 	command = 'showAura';
 	await GW.ui.alert(500, 'Selected AURA.');
 }
 
-GW.commands.selectAura = selectAura;
+GW.io.addCommand('selectAura', selectAura);
 
 async function selectExplosion() {
 	command = 'showExplosion';
 	await GW.ui.alert(500, 'Selected EXPLOSION.');
 }
 
-GW.commands.selectExplosion = selectExplosion;
+GW.io.addCommand('selectExplosion', selectExplosion);
 
 async function selectExplosionStar() {
 	command = 'showExplosionStar';
 	await GW.ui.alert(500, 'Selected STAR.');
 }
 
-GW.commands.selectExplosionStar = selectExplosionStar;
+GW.io.addCommand('selectExplosionStar', selectExplosionStar);
 
 async function selectExplosionPlus() {
 	command = 'showExplosionPlus';
 	await GW.ui.alert(500, 'Selected PLUS.');
 }
 
-GW.commands.selectExplosionPlus = selectExplosionPlus;
+GW.io.addCommand('selectExplosionPlus', selectExplosionPlus);
 
 async function selectExplosionX() {
 	command = 'showExplosionX';
 	await GW.ui.alert(500, 'Selected X.');
 }
 
-GW.commands.selectExplosionX = selectExplosionX;
+GW.io.addCommand('selectExplosionX', selectExplosionX);
 
 async function selectProjectile() {
 	command = 'showProjectile';
 	await GW.ui.alert(500, 'Selected PROJECTILE.');
 }
 
-GW.commands.selectProjectile = selectProjectile;
+GW.io.addCommand('selectProjectile', selectProjectile);
 
 
 function showFX(e) {
 	console.log('click', e.x, e.y, command);
 	if (e.x != PLAYER.x || e.y != PLAYER.y) {
-		const r = GW.commands[command](e);
+		const r = GW.io.commands[command](e);
 		if (isGameTime) PLAYER.endTurn();
 		return r;
 	}
 }
 
-GW.commands.showFX = showFX;
+GW.io.addCommand('showFX', showFX);
 
 function showFlash(e) {
 	return GW.fx.flashSprite(MAP, e.x, e.y, 'bump', 500, 3);
 }
 
-GW.commands.showFlash = showFlash;
+GW.io.addCommand('showFlash', showFlash);
 
 async function showHit(e) {
 	await GW.fx.hit(MAP, e);
 }
 
-GW.commands.showHit = showHit;
+GW.io.addCommand('showHit', showHit);
 
 async function showBeam(e) {
 	GW.fx.beam(MAP, PLAYER, { x: e.x, y: e.y }, 'lightning', { gameTime: isGameTime }).then( async (anim) => {
@@ -139,7 +139,7 @@ async function showBeam(e) {
 
 GW.sprite.install('lightning', '\u16f6', [200,200,200]);
 
-GW.commands.showBeam = showBeam;
+GW.io.addCommand('showBeam', showBeam);
 
 function showBolt(e) {
 	GW.fx.bolt(MAP, PLAYER, { x: e.x, y: e.y }, 'magic', { gameTime: isGameTime }).then( async (result) => {
@@ -151,7 +151,7 @@ function showBolt(e) {
 
 GW.sprite.install('magic', '*', 'purple');
 
-GW.commands.showBolt = showBolt;
+GW.io.addCommand('showBolt', showBolt);
 
 const PROJECTILE = GW.make.sprite('|-\\/', 'orange', null); // null makes sprite with ch.length > 1 possible
 
@@ -163,14 +163,14 @@ async function showProjectile(e) {
 	});
 }
 
-GW.commands.showProjectile = showProjectile;
+GW.io.addCommand('showProjectile', showProjectile);
 
 async function showAura(e) {
 
 	GW.fx.explosion(MAP, e.x, e.y, 3, 'magic', { shape: 'o', center: false, gameTime: isGameTime });
 }
 
-GW.commands.showAura = showAura;
+GW.io.addCommand('showAura', showAura);
 
 
 async function showExplosion(e) {
@@ -179,26 +179,26 @@ async function showExplosion(e) {
 
 GW.sprite.install('fireball', '&', 'dark_red', 50);
 
-GW.commands.showExplosion = showExplosion;
+GW.io.addCommand('showExplosion', showExplosion);
 
 
 async function showExplosionPlus(e) {
 	GW.fx.explosion(MAP, e.x, e.y, 7, 'fireball', { gameTime: isGameTime, shape: '+' });
 }
 
-GW.commands.showExplosionPlus = showExplosionPlus;
+GW.io.addCommand('showExplosionPlus', showExplosionPlus);
 
 async function showExplosionX(e) {
 	GW.fx.explosion(MAP, e.x, e.y, 7, 'fireball', { gameTime: isGameTime, shape: 'x' });
 }
 
-GW.commands.showExplosionX = showExplosionX;
+GW.io.addCommand('showExplosionX', showExplosionX);
 
 async function showExplosionStar(e) {
 	GW.fx.explosion(MAP, e.x, e.y, 7, 'fireball', { gameTime: isGameTime, shape: '*' });
 }
 
-GW.commands.showExplosionStar = showExplosionStar;
+GW.io.addCommand('showExplosionStar', showExplosionStar);
 
 async function toggleWall(e) {
 	const cell = MAP.cell(e.x, e.y);
@@ -212,13 +212,13 @@ async function toggleWall(e) {
 	GW.ui.draw();
 }
 
-GW.commands.toggleWall = toggleWall;
+GW.io.addCommand('toggleWall', toggleWall);
 
 async function rest(e) {
 	PLAYER.endTurn();
 }
 
-GW.commands.rest = rest;
+GW.io.addCommand('rest', rest);
 
 
 
@@ -253,7 +253,7 @@ function newMap() {
 	GW.game.startMap(map);
 }
 
-GW.commands.newMap = newMap;
+GW.io.addCommand('newMap', newMap);
 
 
 async function showHelp() {
@@ -293,7 +293,7 @@ async function showHelp() {
 	GW.ui.finishDialog();
 }
 
-GW.commands.showHelp = showHelp;
+GW.io.addCommand('showHelp', showHelp);
 
 
 // start the environment

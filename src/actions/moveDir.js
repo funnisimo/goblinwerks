@@ -23,7 +23,7 @@ export async function moveDir(actor, dir, opts={}) {
   actor.debug('moveDir', dir);
 
   if (!map.hasXY(newX, newY)) {
-    commands.debug('move blocked - invalid xy: %d,%d', newX, newY);
+    // commands.debug('move blocked - invalid xy: %d,%d', newX, newY);
     GW.message.forPlayer(actor, 'Blocked!');
     // TURN ENDED (1/2 turn)?
     return false;

@@ -15,7 +15,6 @@ export var viewport = {};
 export var flavor = {};
 export var sidebar = {};
 
-export var commands = {};
 export var ai = {};
 
 export var itemKinds = {};

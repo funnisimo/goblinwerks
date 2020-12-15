@@ -231,7 +231,7 @@ async function showHelp() {
 	GW.ui.finishDialog();
 }
 
-GW.commands.showHelp = showHelp;
+GW.io.addCommand('showHelp', showHelp);
 
 GW.message.addKind('WELCOME', 'ΩyellowΩWelcome to Lava Hop!∆\nGet across the Lava field safely to advance.\nPress <?> for help.');
 

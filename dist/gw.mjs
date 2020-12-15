@@ -1390,6 +1390,363 @@ var grid = {
     unite: unite
 };
 
+var commands = {};
+function addCommand(id, fn) {
+    commands[id] = fn;
+}
+let KEYMAP = {};
+const EVENTS = [];
+const DEAD_EVENTS = [];
+const LAST_CLICK = { x: -1, y: -1 };
+const KEYPRESS = "keypress";
+const MOUSEMOVE = "mousemove";
+const CLICK = "click";
+const TICK = "tick";
+const MOUSEUP = "mouseup";
+const CONTROL_CODES = [
+    "ShiftLeft",
+    "ShiftRight",
+    "ControlLeft",
+    "ControlRight",
+    "AltLeft",
+    "AltRight",
+    "MetaLeft",
+    "MetaRight",
+];
+var CURRENT_HANDLER = null;
+var PAUSED = null;
+function setKeymap(keymap) {
+    KEYMAP = keymap;
+}
+function hasEvents() {
+    return EVENTS.length;
+}
+function clearEvents() {
+    while (EVENTS.length) {
+        const ev = EVENTS.shift();
+        DEAD_EVENTS.push(ev);
+    }
+}
+function pushEvent(ev) {
+    if (PAUSED) {
+        console.log("PAUSED EVENT", ev.type);
+    }
+    if (EVENTS.length) {
+        const last = EVENTS[EVENTS.length - 1];
+        if (last.type === ev.type) {
+            if (last.type === MOUSEMOVE) {
+                last.x = ev.x;
+                last.y = ev.y;
+                recycleEvent(ev);
+                return;
+            }
+        }
+    }
+    // Keep clicks down to one per cell if holding down mouse button
+    if (ev.type === CLICK) {
+        if (LAST_CLICK.x == ev.x && LAST_CLICK.y == ev.y) {
+            recycleEvent(ev);
+            return;
+        }
+        LAST_CLICK.x = ev.x;
+        LAST_CLICK.y = ev.y;
+    }
+    else if (ev.type == MOUSEUP) {
+        LAST_CLICK.x = -1;
+        LAST_CLICK.y = -1;
+        recycleEvent(ev);
+        return;
+    }
+    if (CURRENT_HANDLER) {
+        CURRENT_HANDLER(ev);
+    }
+    else if (ev.type === TICK) {
+        const first = EVENTS[0];
+        if (first && first.type === TICK) {
+            first.dt += ev.dt;
+            recycleEvent(ev);
+            return;
+        }
+        EVENTS.unshift(ev); // ticks go first
+    }
+    else {
+        EVENTS.push(ev);
+    }
+}
+async function dispatchEvent(ev, km) {
+    let result;
+    let command;
+    km = km || KEYMAP;
+    if (typeof km === "function") {
+        command = km;
+    }
+    else if (ev.dir) {
+        command = km.dir;
+    }
+    else if (ev.type === KEYPRESS) {
+        // @ts-ignore
+        command = km[ev.key] || km[ev.code] || km.keypress;
+    }
+    else if (km[ev.type]) {
+        command = km[ev.type];
+    }
+    if (command) {
+        if (typeof command === "function") {
+            result = await command.call(km, ev);
+        }
+        else if (commands[command]) {
+            result = await commands[command](ev);
+        }
+        else {
+            WARN("No command found: " + command);
+        }
+    }
+    if ("next" in km && km.next === false) {
+        result = false;
+    }
+    recycleEvent(ev);
+    return result;
+}
+function recycleEvent(ev) {
+    DEAD_EVENTS.push(ev);
+}
+// TICK
+function makeTickEvent(dt) {
+    const ev = DEAD_EVENTS.pop() || {};
+    ev.shiftKey = false;
+    ev.ctrlKey = false;
+    ev.altKey = false;
+    ev.metaKey = false;
+    ev.type = TICK;
+    ev.key = null;
+    ev.code = null;
+    ev.x = -1;
+    ev.y = -1;
+    ev.dir = null;
+    ev.dt = dt;
+    return ev;
+}
+// KEYBOARD
+function makeKeyEvent(e) {
+    let key = e.key;
+    let code = e.code.toLowerCase();
+    if (e.shiftKey) {
+        key = key.toUpperCase();
+        code = code.toUpperCase();
+    }
+    if (e.ctrlKey) {
+        key = "^" + key;
+        code = "^" + code;
+    }
+    if (e.metaKey) {
+        key = "#" + key;
+        code = "#" + code;
+    }
+    if (e.altKey) {
+        code = "/" + code;
+    }
+    const ev = DEAD_EVENTS.pop() || {};
+    ev.shiftKey = e.shiftKey;
+    ev.ctrlKey = e.ctrlKey;
+    ev.altKey = e.altKey;
+    ev.metaKey = e.metaKey;
+    ev.type = KEYPRESS;
+    ev.key = key;
+    ev.code = code;
+    ev.x = -1;
+    ev.y = -1;
+    ev.clientX = -1;
+    ev.clientY = -1;
+    ev.dir = keyCodeDirection(e.code);
+    ev.dt = 0;
+    return ev;
+}
+function keyCodeDirection(key) {
+    const lowerKey = key.toLowerCase();
+    if (lowerKey === "arrowup") {
+        return [0, -1];
+    }
+    else if (lowerKey === "arrowdown") {
+        return [0, 1];
+    }
+    else if (lowerKey === "arrowleft") {
+        return [-1, 0];
+    }
+    else if (lowerKey === "arrowright") {
+        return [1, 0];
+    }
+    return null;
+}
+function ignoreKeyEvent(e) {
+    return CONTROL_CODES.includes(e.code);
+}
+// MOUSE
+var mouse = { x: -1, y: -1 };
+function makeMouseEvent(e, x, y) {
+    const ev = DEAD_EVENTS.pop() || {};
+    ev.shiftKey = e.shiftKey;
+    ev.ctrlKey = e.ctrlKey;
+    ev.altKey = e.altKey;
+    ev.metaKey = e.metaKey;
+    ev.type = e.type;
+    if (e.buttons && e.type !== "mouseup") {
+        ev.type = CLICK;
+    }
+    ev.key = null;
+    ev.code = null;
+    ev.x = x;
+    ev.y = y;
+    ev.clientX = e.clientX;
+    ev.clientY = e.clientY;
+    ev.dir = null;
+    ev.dt = 0;
+    return ev;
+}
+// IO
+function pauseEvents() {
+    if (PAUSED)
+        return;
+    PAUSED = CURRENT_HANDLER;
+    CURRENT_HANDLER = null;
+    // io.debug('events paused');
+}
+function resumeEvents() {
+    if (!PAUSED)
+        return;
+    if (CURRENT_HANDLER) {
+        console.warn("overwrite CURRENT HANDLER!");
+    }
+    CURRENT_HANDLER = PAUSED;
+    PAUSED = null;
+    // io.debug('resuming events');
+    if (EVENTS.length && CURRENT_HANDLER) {
+        const e = EVENTS.shift();
+        // io.debug('- processing paused event', e.type);
+        CURRENT_HANDLER(e);
+        // io.recycleEvent(e);	// DO NOT DO THIS B/C THE HANDLER MAY PUT IT BACK ON THE QUEUE (see tickMs)
+    }
+    // io.debug('events resumed');
+}
+function nextEvent(ms, match) {
+    match = match || TRUE;
+    let elapsed = 0;
+    while (EVENTS.length) {
+        const e = EVENTS.shift();
+        if (e.type === MOUSEMOVE) {
+            mouse.x = e.x;
+            mouse.y = e.y;
+        }
+        if (match(e)) {
+            return Promise.resolve(e);
+        }
+        recycleEvent(e);
+    }
+    let done;
+    if (ms === undefined) {
+        ms = -1; // wait forever
+    }
+    if (ms == 0)
+        return Promise.resolve(null);
+    if (CURRENT_HANDLER) {
+        console.warn("OVERWRITE HANDLER - nextEvent");
+    }
+    else if (EVENTS.length) {
+        console.warn("SET HANDLER WITH QUEUED EVENTS - nextEvent");
+    }
+    CURRENT_HANDLER = (e) => {
+        if (e.type === MOUSEMOVE) {
+            mouse.x = e.x;
+            mouse.y = e.y;
+        }
+        if (e.type === TICK && ms > 0) {
+            elapsed += e.dt;
+            if (elapsed < ms) {
+                return;
+            }
+        }
+        else if (!match(e))
+            return;
+        CURRENT_HANDLER = null;
+        e.dt = elapsed;
+        done(e);
+    };
+    return new Promise((resolve) => (done = resolve));
+}
+async function tickMs(ms = 1) {
+    let done;
+    setTimeout(() => done(), ms);
+    return new Promise((resolve) => (done = resolve));
+}
+async function nextKeyPress(ms, match) {
+    if (ms === undefined)
+        ms = -1;
+    match = match || TRUE;
+    function matchingKey(e) {
+        if (e.type !== KEYPRESS)
+            return false;
+        return match(e);
+    }
+    return nextEvent(ms, matchingKey);
+}
+async function nextKeyOrClick(ms, matchFn) {
+    if (ms === undefined)
+        ms = -1;
+    matchFn = matchFn || TRUE;
+    function match(e) {
+        if (e.type !== KEYPRESS && e.type !== CLICK)
+            return false;
+        return matchFn(e);
+    }
+    return nextEvent(ms, match);
+}
+async function pause(ms) {
+    const e = await nextKeyOrClick(ms);
+    return e && e.type !== TICK;
+}
+function waitForAck() {
+    return pause(5 * 60 * 1000); // 5 min
+}
+async function loop(keymap) {
+    let running = true;
+    while (running) {
+        const ev = await nextEvent();
+        if (ev && (await dispatchEvent(ev, keymap))) {
+            running = false;
+        }
+    }
+}
+
+var io = {
+    __proto__: null,
+    commands: commands,
+    addCommand: addCommand,
+    KEYPRESS: KEYPRESS,
+    MOUSEMOVE: MOUSEMOVE,
+    CLICK: CLICK,
+    TICK: TICK,
+    MOUSEUP: MOUSEUP,
+    setKeymap: setKeymap,
+    hasEvents: hasEvents,
+    clearEvents: clearEvents,
+    pushEvent: pushEvent,
+    dispatchEvent: dispatchEvent,
+    makeTickEvent: makeTickEvent,
+    makeKeyEvent: makeKeyEvent,
+    keyCodeDirection: keyCodeDirection,
+    ignoreKeyEvent: ignoreKeyEvent,
+    mouse: mouse,
+    makeMouseEvent: makeMouseEvent,
+    pauseEvents: pauseEvents,
+    resumeEvents: resumeEvents,
+    nextEvent: nextEvent,
+    tickMs: tickMs,
+    nextKeyPress: nextKeyPress,
+    nextKeyOrClick: nextKeyOrClick,
+    pause: pause,
+    waitForAck: waitForAck,
+    loop: loop
+};
+
 // Based on random numbers in umoria
 const RNG_M = 2**31 - 1;
 const RNG_A = 16807;
@@ -1439,7 +1796,6 @@ var viewport = {};
 var flavor = {};
 var sidebar = {};
 
-var commands$1 = {};
 var ai = {};
 
 var itemKinds = {};
@@ -1548,7 +1904,7 @@ function make$3(x, y, w, h) {
 
 make$2.bounds = make$3;
 
-var EVENTS = {};
+var EVENTS$1 = {};
 
 /**
  * Data for an event listener.
@@ -1597,7 +1953,7 @@ function addListener(event, fn, context, once) {
   }
 
   const listener = new Listener(fn, context || null, once);
-  utils$1.addToChain(EVENTS, event, listener);
+  utils$1.addToChain(EVENTS$1, event, listener);
   return listener;
 }
 
@@ -1637,15 +1993,15 @@ function once(event, fn, context) {
  * @public
  */
 function removeListener(event, fn, context, once) {
-  if (!EVENTS[event]) return;
+  if (!EVENTS$1[event]) return;
   if (!fn) {
     clearEvent(event);
     return;
   }
 
-  utils$1.eachChain(EVENTS[event], (l) => {
+  utils$1.eachChain(EVENTS$1[event], (l) => {
     if (l.matches(fn, context, once)) {
-      utils$1.removeFromChain(EVENTS, event, l);
+      utils$1.removeFromChain(EVENTS$1, event, l);
     }
   });
 }
@@ -1669,7 +2025,7 @@ function removeListener(event, fn, context, once) {
  * @param {String} evt The Event name.
  */
 function clearEvent(event) {
-  EVENTS[event] = null;
+  EVENTS$1[event] = null;
 }
 
 
@@ -1682,9 +2038,9 @@ function clearEvent(event) {
  */
 function removeAllListeners(event) {
   if (event) {
-    if (EVENTS[event]) clearEvent(event);
+    if (EVENTS$1[event]) clearEvent(event);
   } else {
-    EVENTS = {};
+    EVENTS$1 = {};
   }
 }
 
@@ -1698,12 +2054,12 @@ function removeAllListeners(event) {
  */
 async function emit(...args) {
   const event = args[0];
-  if (!EVENTS[event]) return false;  // no events to send
-  let listener = EVENTS[event];
+  if (!EVENTS$1[event]) return false;  // no events to send
+  let listener = EVENTS$1[event];
 
   while(listener) {
     let next = listener.next;
-    if (listener.once) utils$1.removeFromChain(EVENTS, event, listener);
+    if (listener.once) utils$1.removeFromChain(EVENTS$1, event, listener);
     await listener.fn.apply(listener.context, args);
     listener = next;
   }
@@ -4665,442 +5021,6 @@ var frequency$1 = {
     frequency: frequency,
     forDanger: forDanger
 };
-
-var io = {};
-
-io.debug = utils$1.NOOP;
-
-let KEYMAP = {};
-// const KEYMAPS = [];
-const EVENTS$1 = [];
-const DEAD_EVENTS = [];
-const LAST_CLICK = { x: -1, y: -1 };
-
-const KEYPRESS  = def.KEYPRESS  = 'keypress';
-const MOUSEMOVE = def.MOUSEMOVE = 'mousemove';
-const CLICK 		 = def.CLICK 		 = 'click';
-const TICK 		 = def.TICK 		 = 'tick';
-const MOUSEUP   = def.MOUSEUP   = 'mouseup';
-
-const CONTROL_CODES = [
-	'ShiftLeft', 		'ShiftRight',
-	'ControlLeft',  'ControlRight',
-	'AltLeft',   		'AltRight',
-	'MetaLeft',  		'MetaRight',
-];
-
-var CURRENT_HANDLER = null;
-
-
-function setKeymap(keymap) {
-	KEYMAP = keymap;
-	// KEYMAPS.push(keymap);
-}
-
-io.setKeymap = setKeymap;
-
-function busy() {
-	return KEYMAP.busy;
-	// return KEYMAPS.length && KEYMAPS[KEYMAPS.length - 1].busy;
-}
-
-io.busy = busy;
-
-function hasEvents() {
-	return EVENTS$1.length;
-}
-
-io.hasEvents = hasEvents;
-
-
-function clearEvents() {
-	while (EVENTS$1.length) {
-		const ev = EVENTS$1.shift();
-		DEAD_EVENTS.push(ev);
-	}
-}
-
-io.clearEvents = clearEvents;
-
-
-function pushEvent(ev) {
-
-  if (PAUSED) {
-    console.log('PAUSED EVENT', ev.type);
-  }
-
-  if (EVENTS$1.length) {
-		const last = EVENTS$1[EVENTS$1.length - 1];
-		if (last.type === ev.type) {
-	    if (last.type === MOUSEMOVE) {
-				last.x = ev.x;
-			  last.y = ev.y;
-				io.recycleEvent(ev);
-	      return;
-	    }
-		}
-  }
-
-  // Keep clicks down to one per cell if holding down mouse button
-  if (ev.type === CLICK) {
-    if (LAST_CLICK.x == ev.x && LAST_CLICK.y == ev.y) {
-      io.recycleEvent(ev);
-      return;
-    }
-    LAST_CLICK.x = ev.x;
-    LAST_CLICK.y = ev.y;
-  }
-  else if (ev.type == MOUSEUP) {
-    LAST_CLICK.x = -1;
-    LAST_CLICK.y = -1;
-    io.recycleEvent(ev);
-    return;
-  }
-
-	if (CURRENT_HANDLER) {
-  	CURRENT_HANDLER(ev);
-  }
-  else if (ev.type === TICK) {
-    const first = EVENTS$1[0];
-    if (first && first.type === TICK) {
-      first.dt += ev.dt;
-      io.recycleEvent(ev);
-      return;
-    }
-    EVENTS$1.unshift(ev);	// ticks go first
-  }
-  else {
-    EVENTS$1.push(ev);
-  }
-}
-
-io.pushEvent = pushEvent;
-
-
-async function dispatchEvent(ev, km) {
-	let result;
-	let command;
-
-	km = km || KEYMAP;
-
-	if (ev.dir) {
-		command = km.dir;
-	}
-	else if (ev.type === KEYPRESS) {
-		command = km[ev.key] || km[ev.code] || km.keypress;
-	}
-	else if (km[ev.type]) {
-		command = km[ev.type];
-	}
-
-	if (command) {
-		if (typeof command === 'function') {
-			result = await command.call(km, ev);
-		}
-		else if (commands$1[command]) {
-			result = await commands$1[command](ev);
-		}
-		else {
-			utils$1.WARN('No command found: ' + command);
-		}
-	}
-
-	if (km.next === false) {
-		result = false;
-	}
-
-	io.recycleEvent(ev);
-	return result;
-}
-
-io.dispatchEvent = dispatchEvent;
-
-
-function recycleEvent(ev) {
-	DEAD_EVENTS.push(ev);
-}
-
-io.recycleEvent = recycleEvent;
-
-// TICK
-
-function makeTickEvent(dt) {
-
-	const ev = DEAD_EVENTS.pop() || {};
-
-	ev.shiftKey = false;
-	ev.ctrlKey = false;
-	ev.altKey = false;
-	ev.metaKey = false;
-
-  ev.type = TICK;
-  ev.key = null;
-  ev.code = null;
-  ev.x = -1;
-  ev.y = -1;
-	ev.dir = null;
-	ev.dt = dt;
-
-  return ev;
-}
-
-io.makeTickEvent = makeTickEvent;
-
-// KEYBOARD
-
-function makeKeyEvent(e) {
-  let key = e.key;
-	let code = e.code.toLowerCase();
-
-  if (e.shiftKey) {
-    key = key.toUpperCase();
-		code = code.toUpperCase();
-  }
-  if (e.ctrlKey) 	{
-    key = '^' + key;
-		code = '^' + code;
-  }
-  if (e.metaKey) 	{
-    key = '#' + key;
-		code = '#' + code;
-  }
-	if (e.altKey) {
-		code = '/' + code;
-	}
-
-	const ev = DEAD_EVENTS.pop() || {};
-
-	ev.shiftKey = e.shiftKey;
-	ev.ctrlKey = e.ctrlKey;
-	ev.altKey = e.altKey;
-	ev.metaKey = e.metaKey;
-
-  ev.type = KEYPRESS;
-  ev.key = key;
-  ev.code = code;
-  ev.x = -1;
-  ev.y = -1;
-  ev.clientX = -1;
-  ev.clientY = -1;
-	ev.dir = io.keyCodeDirection(e.code);
-	ev.dt = 0;
-
-  return ev;
-}
-
-io.makeKeyEvent = makeKeyEvent;
-
-
-
-function keyCodeDirection(key) {
-	const lowerKey = key.toLowerCase();
-
-	if (lowerKey === 'arrowup') {
-		return [0,-1];
-	}
-	else if (lowerKey === 'arrowdown') {
-		return [0,1];
-	}
-	else if (lowerKey === 'arrowleft') {
-		return [-1, 0];
-	}
-	else if (lowerKey === 'arrowright') {
-		return [1,0];
-	}
-	return null;
-}
-
-io.keyCodeDirection = keyCodeDirection;
-
-function ignoreKeyEvent(e) {
-	return CONTROL_CODES.includes(e.code);
-}
-
-io.ignoreKeyEvent = ignoreKeyEvent;
-
-
-// MOUSE
-
-var mouse = {x: -1, y: -1};
-io.mouse = mouse;
-
-function makeMouseEvent(e, x, y) {
-
-	const ev = DEAD_EVENTS.pop() || {};
-
-	ev.shiftKey = e.shiftKey;
-	ev.ctrlKey = e.ctrlKey;
-	ev.altKey = e.altKey;
-	ev.metaKey = e.metaKey;
-
-  ev.type = e.type;
-  if (e.buttons && e.type !== 'mouseup') {
-    ev.type = CLICK;
-  }
-  ev.key = null;
-  ev.code = null;
-  ev.x = x;
-  ev.y = y;
-  ev.clientX = e.clientX;
-  ev.clientY = e.clientY;
-	ev.dir = null;
-	ev.dt = 0;
-
-  return ev;
-}
-
-io.makeMouseEvent = makeMouseEvent;
-
-
-// IO
-
-let PAUSED = null;
-
-function pauseEvents() {
-	if (PAUSED) return;
-	PAUSED = CURRENT_HANDLER;
-  CURRENT_HANDLER = null;
-	// io.debug('events paused');
-}
-
-io.pauseEvents = pauseEvents;
-
-function resumeEvents() {
-  if (!PAUSED) return;
-
-  if (CURRENT_HANDLER) {
-    console.warn('overwrite CURRENT HANDLER!');
-  }
-
-	CURRENT_HANDLER = PAUSED;
-	PAUSED = null;
-	// io.debug('resuming events');
-
-  if (EVENTS$1.length && CURRENT_HANDLER) {
-		const e = EVENTS$1.shift();
-		// io.debug('- processing paused event', e.type);
-		CURRENT_HANDLER(e);
-		// io.recycleEvent(e);	// DO NOT DO THIS B/C THE HANDLER MAY PUT IT BACK ON THE QUEUE (see tickMs)
-	}
-	// io.debug('events resumed');
-}
-
-io.resumeEvents = resumeEvents;
-
-
-function nextEvent(ms, match) {
-	match = match || utils$1.TRUE;
-	let elapsed = 0;
-
-	while (EVENTS$1.length) {
-  	const e = EVENTS$1.shift();
-		if (e.type === MOUSEMOVE) {
-			io.mouse.x = e.x;
-			io.mouse.y = e.y;
-		}
-
-		if (match(e)) {
-			return e;
-		}
-		io.recycleEvent(e);
-  }
-
-  let done;
-
-	if (ms == 0) return null;
-
-  if (CURRENT_HANDLER) {
-    console.warn('OVERWRITE HANDLER - nextEvent');
-  }
-  else if (EVENTS$1.length) {
-    console.warn('SET HANDLER WITH QUEUED EVENTS - nextEvent');
-  }
-
-  CURRENT_HANDLER = ((e) => {
-		if (e.type === MOUSEMOVE) {
-			io.mouse.x = e.x;
-			io.mouse.y = e.y;
-		}
-
-  	if (e.type === TICK && ms > 0) {
-    	elapsed += e.dt;
-    	if (elapsed < ms) {
-        return;
-      }
-    }
-    else if (!match(e)) return;
-
-    CURRENT_HANDLER = null;
-    e.dt = elapsed;
-  	done(e);
-  });
-
-  return new Promise( (resolve) => done = resolve );
-}
-
-io.nextEvent = nextEvent;
-
-async function tickMs(ms=1) {
-	let done;
-
-	setTimeout(() => done(), ms);
-
-  return new Promise( (resolve) => done = resolve );
-}
-
-io.tickMs = tickMs;
-
-
-
-async function nextKeyPress(ms, match) {
-  if (ms === undefined) ms = -1;
-	match = match || utils$1.TRUE;
-	function matchingKey(e) {
-  	if (e.type !== KEYPRESS) return false;
-    return match(e);
-  }
-  return io.nextEvent(ms, matchingKey);
-}
-
-io.nextKeyPress = nextKeyPress;
-
-async function nextKeyOrClick(ms, matchFn) {
-	if (ms === undefined) ms = -1;
-	matchFn = matchFn || utils$1.TRUE;
-	function match(e) {
-  	if (e.type !== KEYPRESS && e.type !== CLICK) return false;
-    return matchFn(e);
-  }
-  return io.nextEvent(ms, match);
-}
-
-io.nextKeyOrClick = nextKeyOrClick;
-
-async function pause(ms) {
-	const e = await io.nextKeyOrClick(ms);
-  return (e.type !== TICK);
-}
-
-io.pause = pause;
-
-function waitForAck() {
-	return io.pause(5 * 60 * 1000);	// 5 min
-}
-
-io.waitForAck = waitForAck;
-
-
-async function loop(handler) {
-  let running = true;
-  while(running) {
-    const ev = await io.nextEvent();
-    if (await io.dispatchEvent(ev, handler)) {
-      running = false;
-    }
-  }
-}
-
-io.loop = loop;
 
 // var PATH = {};
 // export { PATH as path };
@@ -10553,13 +10473,13 @@ map$1.getLine = getLine;
 
 let ANIMATIONS = [];
 
-function busy$1() {
+function busy() {
   return ANIMATIONS.some( (a) => a );
 }
 
 
 async function playAll() {
-  while(busy$1()) {
+  while(busy()) {
     const dt = await io.nextTick();
     ANIMATIONS.forEach( (a) => a && a.tick(dt) );
     ANIMATIONS = ANIMATIONS.filter( (a) => a && !a.done );
@@ -11070,7 +10990,7 @@ function explosionFor(map, grid, x, y, radius, sprite, opts={}) {
 
 var fx = {
     __proto__: null,
-    busy: busy$1,
+    busy: busy,
     playAll: playAll,
     tick: tick,
     playRealTime: playRealTime,
@@ -11808,7 +11728,7 @@ async function grab(e) {
   return true;
 }
 
-commands$1.grab = grab;
+io.addCommand('grab', grab);
 
 config.autoPickup = true;
 
@@ -11824,13 +11744,13 @@ async function movePlayer(e) {
   const ctx = { actor, map, x: newX, y: newY, cell };
   const isPlayer = actor.isPlayer();
 
-  commands$1.debug('movePlayer');
+  // commands.debug('movePlayer');
 
   const r = await actions.moveDir(actor, dir, ctx);
   return r;
 }
 
-commands$1.movePlayer = movePlayer;
+io.addCommand('movePlayer', movePlayer);
 
 async function bash(e) {
   const actor = e.actor || data.player;
@@ -11866,7 +11786,7 @@ async function bash(e) {
   return true;
 }
 
-commands$1.bash = bash;
+io.addCommand('bash', bash);
 
 async function open(e) {
   const actor = e.actor || data.player;
@@ -11912,7 +11832,7 @@ async function open(e) {
   return true;
 }
 
-commands$1.open = open;
+io.addCommand('open', open);
 
 async function close(e) {
   const actor = e.actor || data.player;
@@ -11958,7 +11878,7 @@ async function close(e) {
   return true;
 }
 
-commands$1.close = close;
+io.addCommand('close', close);
 
 async function fire(e) {
   const actor = e.actor || data.player;
@@ -12006,7 +11926,7 @@ async function fire(e) {
   return true;
 }
 
-commands$1.fire = fire;
+io.addCommand('fire', fire);
 
 async function attack(e) {
   const actor = e.actor || data.player;
@@ -12045,7 +11965,7 @@ async function attack(e) {
   return true;
 }
 
-commands$1.attack = attack;
+io.addCommand('attack', attack);
 
 async function push(e) {
   const actor = e.actor || data.player;
@@ -12081,7 +12001,7 @@ async function push(e) {
   return true;
 }
 
-commands$1.push = push;
+io.addCommand('push', push);
 
 async function talk(e) {
   const actor = e.actor || data.player;
@@ -12117,7 +12037,7 @@ async function talk(e) {
   return true;
 }
 
-commands$1.talk = talk;
+io.addCommand('talk', talk);
 
 async function travel(e) {
   const actor = e.actor || data.player;
@@ -12137,16 +12057,14 @@ async function travel(e) {
   return r;
 }
 
-commands$1.travel = travel;
-
-commands$1.debug = utils$1.NOOP;
+io.addCommand('travel', travel);
 
 async function rest(e) {
 	data.player.endTurn();
 	return true;
 }
 
-commands$1.rest = rest;
+io.addCommand('rest', rest);
 
 class ItemKind$1 {
   constructor(opts={}) {
@@ -14046,7 +13964,7 @@ class Table {
 
   async loop(handler) {
     while(true) {
-      const ev = await nextEvent();
+      const ev = await io.nextEvent();
       if (await this.dispatchEvent(ev, handler)) {
         return true;
       }
@@ -14057,9 +13975,9 @@ class Table {
     this.cancelled = false;
     this.selected = -1;
 
-    if (await dispatchEvent(ev, handler)) return true;
+    if (await io.dispatchEvent(ev, handler)) return true;
 
-    return await dispatchEvent(ev, {
+    return await io.dispatchEvent(ev, {
       Escape: () => {
         this.cancelled = true;
         return true;
@@ -14132,6 +14050,8 @@ function make$8(...args) {
 }
 
 make$2.list = make$8;
+
+const COMMANDS = io.commands;
 
 ui.debug = utils$1.NOOP;
 
@@ -14303,7 +14223,7 @@ ui.stop = stop;
 
 async function dispatchEvent$1(ev) {
 
-	if (ev.type === def.CLICK) {
+	if (ev.type === io.CLICK) {
 		if (message.bounds && message.bounds.containsXY(ev.x, ev.y)) {
 			await message.showArchive();
 			return true;
@@ -14323,18 +14243,18 @@ async function dispatchEvent$1(ev) {
       // ev.mapX = x0;
       // ev.mapY = y0;
       if (CLICK_MOVE) {
-        return await commands$1.travel(ev);
+        return await COMMANDS.travel(ev);
       }
     }
     else if (sidebar.bounds && sidebar.bounds.containsXY(ev.x, ev.y)) {
       if (CLICK_MOVE) {
         ev.mapX = CURSOR.x;
         ev.mapY = CURSOR.y;
-        return await commands$1.travel(ev);
+        return await COMMANDS.travel(ev);
       }
     }
 	}
-	else if (ev.type === def.MOUSEMOVE) {
+	else if (ev.type === io.MOUSEMOVE) {
     PATH_ACTIVE = true;
     MOUSE.x = ev.x;
     MOUSE.y = ev.y;
@@ -14367,12 +14287,12 @@ async function dispatchEvent$1(ev) {
 			return true;
 		}
 	}
-  else if (ev.type === def.KEYPRESS) {
+  else if (ev.type === io.KEYPRESS) {
     if (ev.key === 'Enter' && CLICK_MOVE) {
       if (PATH_ACTIVE) {
         ev.mapX = CURSOR.x;
         ev.mapY = CURSOR.y;
-        return await commands$1.travel(ev);
+        return await COMMANDS.travel(ev);
       }
     }
 
@@ -14784,7 +14704,7 @@ async function chooseTarget(choices, prompt, opts={}) {
 	draw();
 
 	while(waiting) {
-		const ev = await GW.io.nextEvent(100);
+		const ev = await io.nextEvent(100);
 		await io.dispatchEvent(ev, {
 			escape() { waiting = false; selected = -1; },
 			enter() { waiting = false; },
@@ -14879,7 +14799,7 @@ async function getInputAt(x, y, maxLength, opts={})
 	do {
     buffer.render();
 
-		ev = await GW.io.nextKeyPress(-1);
+		ev = await io.nextKeyPress(-1);
 		if ( (ev.key == 'Delete' || ev.key == 'Backspace') && charNum > 0) {
 			buffer.draw(x + charNum - 1, y, ' ', 'white');
 			charNum--;
@@ -15254,18 +15174,18 @@ class Buttons {
   }
 
   async dispatchEvent(ev) {
-    if (ev.type == def.MOUSEMOVE) {
+    if (ev.type == io.MOUSEMOVE) {
       const index = this._indexAtXY(ev.x, ev.y);
       this.focus(index);
       return (index >= 0);
     }
 
-    if (ev.type == def.CLICK) {
+    if (ev.type == io.CLICK) {
       const index = this._indexAtXY(ev.x, ev.y);
       await this.press(index);
       return (index >= 0);
     }
-  	if (ev.type == def.KEYPRESS) {
+  	if (ev.type == io.KEYPRESS) {
       for(let index = 0; index < this.buttons.length; ++index) {
         const button = this.buttons[index];
         if (button.hotkey.indexOf(ev.key) >= 0) {
@@ -15499,7 +15419,7 @@ async function moveDir(actor, dir, opts={}) {
   actor.debug('moveDir', dir);
 
   if (!map.hasXY(newX, newY)) {
-    commands.debug('move blocked - invalid xy: %d,%d', newX, newY);
+    // commands.debug('move blocked - invalid xy: %d,%d', newX, newY);
     message.forPlayer(actor, 'Blocked!');
     // TURN ENDED (1/2 turn)?
     return false;
@@ -16654,4 +16574,4 @@ var flames = {
     Flames: Flames
 };
 
-export { actions, actor, actorKinds, addListener, ai, canvas, cell, clearEvent, color, colors, combat$1 as combat, commands$1 as commands, config, cosmetic, data, def, digger, diggers, dungeon, emit, flag, flags, flames, flavor, fov, frequency$1 as frequency, fx, game, grid, horde, hordes, install, io, item$1 as item, itemKinds, light, lights, make$2 as make, map$1 as map, maps, message, messages, off, on, once, path, player, random, range, removeAllListeners, removeListener, scheduler, sidebar, sprite, sprites, text, tile, tileEvent$1 as tileEvent, tileEvents$1 as tileEvents, tiles, types, ui, utils$1 as utils, viewport, visibility };
+export { actions, actor, actorKinds, addListener, ai, canvas, cell, clearEvent, color, colors, combat$1 as combat, config, cosmetic, data, def, digger, diggers, dungeon, emit, flag, flags, flames, flavor, fov, frequency$1 as frequency, fx, game, grid, horde, hordes, install, io, item$1 as item, itemKinds, light, lights, make$2 as make, map$1 as map, maps, message, messages, off, on, once, path, player, random, range, removeAllListeners, removeListener, scheduler, sidebar, sprite, sprites, text, tile, tileEvent$1 as tileEvent, tileEvents$1 as tileEvents, tiles, types, ui, utils$1 as utils, viewport, visibility };

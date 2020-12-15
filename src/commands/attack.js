@@ -1,6 +1,7 @@
 
+import { io as IO } from 'gw-core';
 import { actions as Actions } from '../actions/index.js';
-import { data as DATA, def, commands, ui as UI, message as MSG } from '../gw.js';
+import { data as DATA, def, ui as UI, message as MSG } from '../gw.js';
 
 
 async function attack(e) {
@@ -40,4 +41,4 @@ async function attack(e) {
   return true;
 }
 
-commands.attack = attack;
+IO.addCommand('attack', attack);

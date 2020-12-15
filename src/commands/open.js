@@ -1,8 +1,9 @@
 
 
+import { io as IO } from 'gw-core';
 import * as Flags from '../flags.js';
 import { actions as Actions } from '../actions/index.js';
-import { data as DATA, def, commands, ui as UI, message as MSG } from '../gw.js';
+import { data as DATA, ui as UI, message as MSG } from '../gw.js';
 
 
 async function open(e) {
@@ -49,4 +50,4 @@ async function open(e) {
   return true;
 }
 
-commands.open = open;
+IO.addCommand('open', open);

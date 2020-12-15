@@ -1,17 +1,17 @@
 
 // import { withFont } from 'gw-canvas';
 
-import { io as IO } from './io.js';
 import * as Flags from './flags.js';
-import { utils as Utils } from 'gw-core';
+import { utils as Utils, io as IO } from 'gw-core';
 import * as SPRITE from './sprite.js';
 import * as Color from './color.js';
 import * as Text from './text.js';
 import * as Path from './path.js';
 import { Buffer } from './buffer.js';
 import * as FX from './fx.js';
-import { data as DATA, types, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, make, sidebar as SIDEBAR, config as CONFIG, colors as COLORS, commands as COMMANDS } from './gw.js';
+import { data as DATA, types, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, make, sidebar as SIDEBAR, config as CONFIG, colors as COLORS } from './gw.js';
 
+const COMMANDS = IO.commands;
 
 ui.debug = Utils.NOOP;
 
@@ -186,7 +186,7 @@ ui.stop = stop;
 
 export async function dispatchEvent(ev) {
 
-	if (ev.type === def.CLICK) {
+	if (ev.type === IO.CLICK) {
 		if (MSG.bounds && MSG.bounds.containsXY(ev.x, ev.y)) {
 			await MSG.showArchive();
 			return true;
@@ -217,7 +217,7 @@ export async function dispatchEvent(ev) {
       }
     }
 	}
-	else if (ev.type === def.MOUSEMOVE) {
+	else if (ev.type === IO.MOUSEMOVE) {
     PATH_ACTIVE = true;
     MOUSE.x = ev.x;
     MOUSE.y = ev.y;
@@ -250,7 +250,7 @@ export async function dispatchEvent(ev) {
 			return true;
 		}
 	}
-  else if (ev.type === def.KEYPRESS) {
+  else if (ev.type === IO.KEYPRESS) {
     if (ev.key === 'Enter' && CLICK_MOVE) {
       if (PATH_ACTIVE) {
         ev.mapX = CURSOR.x;
@@ -668,7 +668,7 @@ async function chooseTarget(choices, prompt, opts={}) {
 	draw();
 
 	while(waiting) {
-		const ev = await GW.io.nextEvent(100);
+		const ev = await IO.nextEvent(100);
 		await IO.dispatchEvent(ev, {
 			escape() { waiting = false; selected = -1; },
 			enter() { waiting = false; },
@@ -763,7 +763,7 @@ async function getInputAt(x, y, maxLength, opts={})
 	do {
     buffer.render();
 
-		ev = await GW.io.nextKeyPress(-1);
+		ev = await IO.nextKeyPress(-1);
 		if ( (ev.key == 'Delete' || ev.key == 'Backspace') && charNum > 0) {
 			buffer.draw(x + charNum - 1, y, ' ', 'white');
 			charNum--;

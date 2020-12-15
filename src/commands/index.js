@@ -1,7 +1,7 @@
 
 
-import { utils as Utils } from 'gw-core';
-import { data as DATA, commands } from '../gw.js';
+import { io as IO } from 'gw-core';
+import { data as DATA } from '../gw.js';
 import './grab.js';
 import './movePlayer.js';
 import './bash.js';
@@ -13,11 +13,9 @@ import './push.js';
 import './talk.js';
 import './travel.js';
 
-commands.debug = Utils.NOOP;
-
 async function rest(e) {
 	DATA.player.endTurn();
 	return true;
 }
 
-commands.rest = rest;
+IO.addCommand('rest', rest);

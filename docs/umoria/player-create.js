@@ -42,7 +42,7 @@ async function getPlayerGender(buffer) {
     GW.ui.draw();
 
     const ev = await GW.io.nextEvent(-1);
-    if (ev.type === GW.def.KEYPRESS) {
+    if (ev.type === GW.io.KEYPRESS) {
       const key = ev.key;
       if (key === 'Escape') {
         return -1;
@@ -57,12 +57,12 @@ async function getPlayerGender(buffer) {
         highlighted = Math.min(1, highlighted + 1);
       }
     }
-    else if (ev.type === GW.def.MOUSEMOVE) {
+    else if (ev.type === GW.io.MOUSEMOVE) {
       if (ev.y === y && ev.x < CHAR_INFO_COL) {
         highlighted = (ev.x < CHAR_ROLE_COL) ? 0 : 1;
       }
     }
-    else if (ev.type === GW.def.CLICK) {
+    else if (ev.type === GW.io.CLICK) {
       if (ev.y === y && ev.x < CHAR_INFO_COL) {
         return highlighted;
       }
@@ -115,7 +115,7 @@ async function getPlayerKind(buffer, genderId) {
 
     const ev = await GW.io.nextEvent(-1);
 
-    if (ev.type === GW.def.KEYPRESS) {
+    if (ev.type === GW.io.KEYPRESS) {
       const key = ev.key;
       if (key === 'Escape' || key === 'ArrowLeft') {
         return null;
@@ -130,12 +130,12 @@ async function getPlayerKind(buffer, genderId) {
         highlighted = Math.min(heroKinds.length - 1, highlighted + 1);
       }
     }
-    else if (ev.type === GW.def.MOUSEMOVE) {
+    else if (ev.type === GW.io.MOUSEMOVE) {
       if (ev.y >= 6 && ev.y < 6 + heroKinds.length ) {
         highlighted = ev.y - 6;
       }
     }
-    else if (ev.type === GW.def.CLICK) {
+    else if (ev.type === GW.io.CLICK) {
       if (ev.y < 5) return -1; // clicked gender
       if (ev.y >= 6 && ev.y < 6 + heroKinds.length ) {
         return heroKinds[highlighted].id;
@@ -201,7 +201,7 @@ async function getPlayerRole(buffer, kindId, genderId) {
 
     const ev = await GW.io.nextEvent(-1);
 
-    if (ev.type === GW.def.KEYPRESS) {
+    if (ev.type === GW.io.KEYPRESS) {
       const key = ev.key;
       if (key === 'Escape' || key == 'ArrowLeft') {
         return null;
@@ -216,14 +216,14 @@ async function getPlayerRole(buffer, kindId, genderId) {
         highlighted = Math.min(roles.length - 1, highlighted + 1);
       }
     }
-    else if (ev.type === GW.def.MOUSEMOVE) {
+    else if (ev.type === GW.io.MOUSEMOVE) {
       if (ev.x >= CHAR_ROLE_COL && ev.x <= CHAR_INFO_COL) {
         if (ev.y >= 6 && ev.y < 6 + roles.length) {
           highlighted = ev.y - 6;
         }
       }
     }
-    else if (ev.type === GW.def.CLICK) {
+    else if (ev.type === GW.io.CLICK) {
       if (ev.y < 5) return null;
       if (ev.x < CHAR_ROLE_COL) return null;
 
@@ -263,7 +263,7 @@ async function rollPlayerStats(buffer, kindId, roleId, genderId) {
     let reroll = false;
     do {
       const ev = await GW.io.nextKeyOrClick(-1);
-      if (ev.type === GW.def.KEYPRESS) {
+      if (ev.type === GW.io.KEYPRESS) {
         const key = ev.key;
         if (key === 'Escape' || key == 'ArrowLeft') {
           return false;
@@ -274,7 +274,7 @@ async function rollPlayerStats(buffer, kindId, roleId, genderId) {
         // else regenerate...
         reroll = player;
       }
-      else if (ev.type === GW.def.CLICK) {
+      else if (ev.type === GW.io.CLICK) {
         // regenerate...
         reroll = true;
       }

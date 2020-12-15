@@ -1,7 +1,7 @@
 
-
+import { io as IO } from 'gw-core';
 import { actions as Actions } from '../actions/index.js';
-import { data as DATA, def, commands, ui as UI, message as MSG, config as CONFIG } from '../gw.js';
+import { data as DATA } from '../gw.js';
 
 
 async function travel(e) {
@@ -22,4 +22,4 @@ async function travel(e) {
   return r;
 }
 
-commands.travel = travel;
+IO.addCommand('travel', travel);
