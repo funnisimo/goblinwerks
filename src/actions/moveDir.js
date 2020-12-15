@@ -11,6 +11,8 @@ import { actions as Actions } from './index.js';
 
 export async function moveDir(actor, dir, opts={}) {
 
+  const oldX = actor.x;
+  const oldY = actor.y;
   const newX = dir[0] + actor.x;
   const newY = dir[1] + actor.y;
   const map = opts.map || GW.data.map;
@@ -135,10 +137,22 @@ export async function moveDir(actor, dir, opts={}) {
     }
   }
 
+  const wasVisible = map.isVisible(actor.x, actor.y);
+
   if (!map.moveActor(newX, newY, actor)) {
     Utils.ERROR('Move failed! ' + newX + ',' + newY);
     // TURN ENDED (1/2 turn)?
     return false;
+  }
+
+  const isVisible = (cell.flags & Flags.Cell.VISIBLE);
+  if (isVisible && !wasVisible) {
+    if (actor.rememberedInCell) {
+      console.log('move - rememberedInCell');
+      actor.rememberedInCell.storeMemory(); // TODO - tell it not to store actors
+      actor.rememberedInCell._needsRedraw();
+      actor.rememberedInCell = null;
+    }
   }
 
   if (actor.isPlayer()) {

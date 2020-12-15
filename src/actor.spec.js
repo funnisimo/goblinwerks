@@ -42,6 +42,19 @@ describe('actor', () => {
     });
   });
 
+  describe('stats', () => {
+
+    test('can assign stats in a range or a number', () => {
+      actor = GW.make.actor({ name: 'test', stats: { a: 1, b: '2', c: [3,7,2], d: '3-7' }});
+      expect(actor.current.a).toEqual(1);
+      expect(actor.current.b).toEqual(2);
+      expect(actor.current.c).toBeGreaterThan(2);
+      expect(actor.current.c).toBeLessThan(8);
+      expect(actor.current.d).toBeGreaterThan(2);
+      expect(actor.current.d).toBeLessThan(8);
+    });
+  });
+
   describe('inventory', () => {
 
     test('actor has no inventory by default', () => {

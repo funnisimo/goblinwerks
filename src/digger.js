@@ -349,7 +349,7 @@ export function chooseRandomDoorSites(sourceGrid) {
   let doorSites = [];
   // Pick four doors, one in each direction, and store them in doorSites[dir].
   for (dir=0; dir<4; dir++) {
-      const loc = grid.randomMatchingXY(dir + 10000) || [-1, -1];
+      const loc = grid.randomMatchingLoc(dir + 10000) || [-1, -1];
       doorSites[dir] = loc.slice();
   }
 

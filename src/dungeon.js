@@ -688,47 +688,47 @@ export function addStairs(opts = {}) {
   if (opts.start && typeof opts.start !== 'string') {
     let start = opts.start;
     if (start === true) {
-      start = map.randomMatchingXY( isValidStairLoc );
+      start = map.randomMatchingLoc( isValidStairLoc );
     }
     else {
-      start = map.matchingXYNear(Utils.x(start), Utils.y(start), isValidStairLoc);
+      start = map.matchingLocNear(Utils.x(start), Utils.y(start), isValidStairLoc);
     }
     map.locations.start = start;
   }
 
   if (upLoc && downLoc) {
-    upLoc = map.matchingXYNear(Utils.x(upLoc), Utils.y(upLoc), isValidStairLoc);
-    downLoc = map.matchingXYNear(Utils.x(downLoc), Utils.y(downLoc), isValidStairLoc);
+    upLoc = map.matchingLocNear(Utils.x(upLoc), Utils.y(upLoc), isValidStairLoc);
+    downLoc = map.matchingLocNear(Utils.x(downLoc), Utils.y(downLoc), isValidStairLoc);
   }
   else if (upLoc && !downLoc) {
-    upLoc = map.matchingXYNear(Utils.x(upLoc), Utils.y(upLoc), isValidStairLoc);
+    upLoc = map.matchingLocNear(Utils.x(upLoc), Utils.y(upLoc), isValidStairLoc);
     if (needDown) {
-      downLoc = map.randomMatchingXY( (v, x, y) => {
+      downLoc = map.randomMatchingLoc( (v, x, y) => {
     		if (Utils.distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
     		return isValidStairLoc(v, x, y, map);
     	});
     }
   }
   else if (downLoc && !upLoc) {
-    downLoc = map.matchingXYNear(Utils.x(downLoc), Utils.y(downLoc), isValidStairLoc);
+    downLoc = map.matchingLocNear(Utils.x(downLoc), Utils.y(downLoc), isValidStairLoc);
     if (needUp) {
-      upLoc = map.randomMatchingXY( (v, x, y) => {
+      upLoc = map.randomMatchingLoc( (v, x, y) => {
     		if (Utils.distanceBetween(x, y, downLoc[0], downLoc[1]) < minDistance) return false;
     		return isValidStairLoc(v, x, y, map);
     	});
     }
   }
   else if (needUp) {
-    upLoc = map.randomMatchingXY( isValidStairLoc );
+    upLoc = map.randomMatchingLoc( isValidStairLoc );
     if (needDown) {
-      downLoc = map.randomMatchingXY( (v, x, y) => {
+      downLoc = map.randomMatchingLoc( (v, x, y) => {
     		if (Utils.distanceBetween(x, y, upLoc[0], upLoc[1]) < minDistance) return false;
     		return isValidStairLoc(v, x, y, map);
     	});
     }
   }
   else if (needDown) {
-    downLoc = map.randomMatchingXY( isValidStairLoc );
+    downLoc = map.randomMatchingLoc( isValidStairLoc );
   }
 
   if (upLoc) {

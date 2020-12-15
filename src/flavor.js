@@ -148,17 +148,15 @@ function getFlavorText(map, x, y) {
 	if (!map.isAnyKindOfVisible(x, y)) {
     buf = '';
 		if (cell.flags & Flags.Cell.REVEALED) { // memory
-			if (cell.memory.itemKind) {
+			if (cell.memory.item) {
         // if (player.status.hallucinating && !GW.GAME.playbackOmniscience) {
         //     object = GW.item.describeHallucinatedItem();
         // } else {
-            const kind = cell.memory.itemKind;
-            object = kind.getName({ quantity: cell.memory.itemQuantity }, { color: false, article: true });
+            object = cell.memory.item.getName({ color: false, article: true, quantity: cell.memory.itemQuantity });
             // object = GW.item.describeItemBasedOnParameters(cell.rememberedItemCategory, cell.rememberedItemKind, cell.rememberedItemQuantity);
         // }
-      } else if (cell.memory.actorKind) {
-        const kind = cell.memory.actorKind;
-        object = kind.getName({}, { color: false, article: true });
+      } else if (cell.memory.actor) {
+        object = cell.memory.actor.getName({ color: false, article: true });
 			} else {
 				object = TILES[cell.memory.tile].getFlavor();
 			}

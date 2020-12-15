@@ -64,7 +64,7 @@ GW.message.addKind('WELCOME', 'ΩyellowΩWelcome to Town!∆\nΩdark_purpleΩVis
 
 // start the environment
 async function start() {
-	const canvas = GW.ui.start({ width: 100, height: 38, sidebar: 20, div: 'game', messages: 5, wideMessages: false, cursor: true, flavor: true });
+	const canvas = GW.ui.start({ width: 100, height: 38, sidebar: 20, div: 'game', messages: 5, wideMessages: false, cursor: true, flavor: true, showPath: true, clickToMove: true });
 	GW.io.setKeymap({
 		dir: 'movePlayer', space: 'rest',
     '@': showCharacter,

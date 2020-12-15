@@ -88,7 +88,6 @@ function runSim() {
 // start the environment
 async function start() {
 	canvas = GW.ui.start({ tileSize: 11, div: 'game', io: false });
-  document.body.appendChild(canvas.node);
 	canvas.node.onmousedown = handleClick;
 	canvas.node.onmousemove = handleMove;
 	document.onkeydown = runSim;

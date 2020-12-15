@@ -89,8 +89,9 @@ class ItemKind {
     if (opts === true) { opts = { article: true }; }
     if (opts === false) { opts = {}; }
     if (typeof opts === 'string') { opts = { article: opts }; }
+    const quantity = opts.quantity || item.quantity;
 
-    let result = Text.toPluralNoun(item.name || this.name, item.quantity > 1);
+    let result = Text.toPluralNoun(item.name || this.name, quantity > 1);
     if (opts.color || (this.consoleColor && (opts.color !== false))) {
       let color = this.sprite.fg;
       if (this.consoleColor instanceof GW.types.Color) {
@@ -380,7 +381,7 @@ export function generateAndPlace(map, opts={}) {
     matchOpts.forbidTileFlags = kind.forbiddenTileFlags(item);
     matchOpts.forbidTileMechFlags = kind.forbiddenTileMechFlags(item);
 
-    const loc = map.randomMatchingXY(matchOpts);
+    const loc = map.randomMatchingLoc(matchOpts);
     if (loc && loc[0] > 0) {
       map.addItem(loc[0], loc[1], item);
       ++placed;

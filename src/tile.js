@@ -1,6 +1,5 @@
 
 import * as Game from './game.js';
-import * as Text from './text.js';
 import * as Flags from './flags.js';
 import * as Utils from './utils.js';
 import { types, def, make, data as DATA, flag as FLAG, tiles, colors as COLORS } from './gw.js';
@@ -113,7 +112,7 @@ export class Tile {
       if (opts.color instanceof types.Color) {
         color = opts.color;
       }
-      result = Text.apply('Ω§color§Ω§name§∆', { color, name: this.name });
+      result = `Ω${color}Ω${this.name}∆`;
     }
 
     if (opts.article && this.article) {

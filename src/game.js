@@ -150,7 +150,7 @@ export async function startMap(map, loc='start') {
       }
     }
 
-    startLoc = map.matchingXYNear(startLoc[0], startLoc[1], PLAYER.isValidStartLoc, { hallways: true });
+    startLoc = map.matchingLocNear(startLoc[0], startLoc[1], PLAYER.isValidStartLoc, { hallways: true });
 
     DATA.map.addActor(startLoc[0], startLoc[1], DATA.player);
 
@@ -264,7 +264,7 @@ export async function updateEnvironment() {
   await map.tick();
   Visibility.update(map, DATA.player.x, DATA.player.y, DATA.player.current.fov);
 
-  UI.requestUpdate();
+  // UI.requestUpdate();
 
   return map.config.tick;
 }

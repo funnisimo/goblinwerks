@@ -4,14 +4,19 @@ import * as GW from './gw.js';
 
 
 export function frequency(v) {
-  if (!v) return 100;
-  if (typeof v === 'number') return v;
+  if (v && typeof v === 'function') return v;
+  if (v === undefined) return (() => 100);
+  if (typeof v === 'number') return (() => v);
   if (typeof v === 'string') {
-    const parts = v.split(',');
+    const parts = v.split(/[,|]/).map( (t) => t.trim() );
     v = {};
-    parts.forEach( (p) => v[p] = 100 );
+    parts.forEach( (p) => {
+      let [level,weight] = p.split(':');
+
+      v[level] = weight ? Number.parseInt(weight) : 100;
+    });
   }
-  if (typeof v === 'object') {
+  if (v && typeof v === 'object') {
     const parts = Object.entries(v);
 
     const funcs = parts.map( ([levels,frequency]) => {
@@ -39,7 +44,7 @@ export function frequency(v) {
 
     return ((level) => funcs.reduce( (out, fn) => out || fn(level), 0) );
   }
-  return 0;
+  return (() => 0);
 }
 
 GW.make.frequency = frequency;

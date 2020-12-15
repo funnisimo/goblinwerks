@@ -43,8 +43,8 @@ class BeautyItem extends GW.types.ItemKind {
       name = name + ' of ' + combat;
 			item.stats.combatBonus = this.suffixes[combat];
 
-      item.sprite = this.sprite.clone();
-			item.sprite.fg.mix(GW.config.COMBAT_COLORS[item.stats.combatBonus], 50);
+      item.sprite = Object.assign({}, this.sprite);
+			item.sprite.fg = this.sprite.fg.clone().mix(GW.config.COMBAT_COLORS[item.stats.combatBonus], 50);
     }
 
     if (name != this.name) {

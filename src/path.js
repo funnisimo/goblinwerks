@@ -385,6 +385,7 @@ export function nextStep( map, distanceMap, x, y, traveler, useDiagonals) {
 
 	bestScore = 0;
 	bestDir = def.NO_DIRECTION;
+  const isPlayer = traveler && traveler.isPlayer();
 
 	for (dir = 0; dir < (useDiagonals ? 8 : 4); ++dir)
   {
@@ -394,7 +395,7 @@ export function nextStep( map, distanceMap, x, y, traveler, useDiagonals) {
     if (map.hasXY(newX, newY)) {
         blocked = false;
         const cell = map.cell(newX, newY);
-        blocker = cell.actor;
+        blocker = (isPlayer && !cell.isAnyKindOfVisible()) ? cell.memory.actor : cell.actor;
         if (traveler
             && traveler.avoidsCell(cell, newX, newY))
 				{
@@ -406,8 +407,8 @@ export function nextStep( map, distanceMap, x, y, traveler, useDiagonals) {
         }
         if (!blocked
 						&& (distanceMap[x][y] - distanceMap[newX][newY]) > bestScore
-            && !map.diagonalBlocked(x, y, newX, newY, traveler.isPlayer())
-            && map.isPassableNow(newX, newY, traveler.isPlayer()))
+            && !map.diagonalBlocked(x, y, newX, newY, isPlayer)
+            && map.isPassableNow(newX, newY, isPlayer))
 				{
             bestDir = dir;
             bestScore = distanceMap[x][y] - distanceMap[newX][newY];

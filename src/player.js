@@ -13,7 +13,7 @@ player.debug = Utils.NOOP;
 
 
 
-export function makePlayer(kind) {
+export function makePlayer(kind={}) {
   if (!(kind instanceof types.ActorKind)) {
     Utils.kindDefaults(kind, {
       ch:'@', fg: 'white',
@@ -42,7 +42,7 @@ export async function takeTurn() {
 
   while(!PLAYER.turnTime) {
     const ev = await IO.nextEvent(PLAYER.travelDest ? 0 : 1000);
-    if (!ev) {
+    if (PLAYER.travelDest && ((!ev) || (ev.type === GW.def.TICK))) {
       await GW.actions.travel(PLAYER);
     }
     else {

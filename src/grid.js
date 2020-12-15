@@ -220,7 +220,7 @@ export class Grid extends Array {
 		return [-1,-1];
 	}
 
-	randomMatchingXY(v, deterministic) {
+	randomMatchingLoc(v, deterministic) {
 		let locationCount;
 	  let i, j, index;
 
@@ -255,7 +255,7 @@ export class Grid extends Array {
 		return [-1,-1];
 	}
 
-	matchingXYNear(x, y, v, deterministic)
+	matchingLocNear(x, y, v, deterministic)
 	{
 	  let loc = [];
 		let i, j, k, candidateLocs, randIndex;
@@ -585,7 +585,7 @@ export function closestLocationWithValue(grid, x, y, value)
 // Takes a grid as a mask of valid locations, chooses one randomly and returns it as (x, y).
 // If there are no valid locations, returns (-1, -1).
 export function randomLocationWithValue(grid, validValue) {
-	return grid.randomMatchingXY( (v, i, j) => v == validValue );
+	return grid.randomMatchingLoc( (v, i, j) => v == validValue );
 }
 
 // Grid.randomLocationWithValue = randomLocationWithValue;
@@ -593,7 +593,7 @@ export function randomLocationWithValue(grid, validValue) {
 
 export function getQualifyingLocNear(grid, x, y, deterministic)
 {
-	return grid.matchingXYNear(x, y, (v, i, j) => !!v);
+	return grid.matchingLocNear(x, y, (v, i, j) => !!v);
 }
 
 // Grid.getQualifyingLocNear = getQualifyingLocNear;
@@ -614,7 +614,7 @@ export function leastPositiveValue(grid) {
 // If there are no valid locations, returns (-1, -1).
 export function randomLeastPositiveLocation(grid, deterministic) {
   const targetValue = leastPositiveValue(grid);
-	return grid.randomMatchingXY( (v) => v == targetValue );
+	return grid.randomMatchingLoc( (v) => v == targetValue );
 }
 
 // Grid.randomLeastPositiveLocation = randomLeastPositiveLocation;

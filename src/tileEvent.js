@@ -595,7 +595,7 @@ export function evacuateCreatures(map, blockingMap) {
 			{
 				monst = map.actorAt(i, j);
 				const forbidFlags = monst.forbiddenTileFlags();
-				const loc = map.matchingXYNear(
+				const loc = map.matchingLocNear(
 									 i, j, (cell) => {
 										 if (cell.hasFlags(Flags.Cell.HAS_ACTOR)) return false;
 										 if (cell.hasTileFlags(forbidFlags)) return false;
@@ -625,7 +625,7 @@ export function evacuateItems(map, blockingMap) {
 		if (!cell.item) return;
 
 		const forbidFlags = cell.item.kind.forbiddenTileFlags();
-		const loc = map.matchingXYNear(
+		const loc = map.matchingLocNear(
 							 i, j, (cell) => {
 								 if (cell.hasFlags(Flags.Cell.HAS_ITEM)) return false;
 								 if (cell.hasTileFlags(forbidFlags)) return false;

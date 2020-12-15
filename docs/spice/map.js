@@ -36,7 +36,7 @@ function makeMap(id=0) {
     const x = (slot % 4) * 16 + 8;
     const y = Math.floor(slot / 4) * 16 + 8;
 
-    const loc = map.matchingXYNear(x, y, (cell, x, y) => {
+    const loc = map.matchingLocNear(x, y, (cell, x, y) => {
       if (cell.ground == 'SEA') return false;
       return (map.passableArcCount(x, y) == 1);
     });

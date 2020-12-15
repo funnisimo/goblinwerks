@@ -80,6 +80,14 @@ function add(msg, args) {
 GW.message.add = add;
 
 
+function fromActor(actor, ...args) {
+  if (actor.isPlayer() || actor.isVisible()) {
+    add(...args);
+  }
+}
+
+GW.message.fromActor = fromActor;
+
 function forPlayer(actor, ...args) {
   if (!actor.isPlayer()) return;
   add(...args);

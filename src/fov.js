@@ -50,19 +50,21 @@ export class FOV {
         // fov.debug('CAST: row=%d, start=%d, end=%d, start < end => cancel', row, startSlope.toFixed(2), endSlope.toFixed(2));
         return;
       }
-      fov.debug('CAST: row=%d, start=%d, end=%d, x=%d,%d, y=%d,%d', row, startSlope.toFixed(2), endSlope.toFixed(2), xx, xy, yx, yy);
+      // fov.debug('CAST: row=%d, start=%d, end=%d, x=%d,%d, y=%d,%d', row, startSlope.toFixed(2), endSlope.toFixed(2), xx, xy, yx, yy);
 
       let nextStart = startSlope;
 
       let blocked = false;
       let deltaY = -row;
+      let currentX, currentY, outerSlope, innerSlope, maxSlope, minSlope = 0;
+
       for (let deltaX = -row; deltaX <= 0; deltaX++) {
-          let currentX = Math.floor(this.startX + deltaX * xx + deltaY * xy);
-          let currentY = Math.floor(this.startY + deltaX * yx + deltaY * yy);
-          let outerSlope = (deltaX - 0.5) / (deltaY + 0.5);
-          let innerSlope = (deltaX + 0.5) / (deltaY - 0.5);
-          let maxSlope = ((deltaX) / (deltaY + 0.5));
-          let minSlope = ((deltaX + 0.5) / (deltaY));
+          currentX = Math.floor(this.startX + deltaX * xx + deltaY * xy);
+          currentY = Math.floor(this.startY + deltaX * yx + deltaY * yy);
+          outerSlope = (deltaX - 0.5) / (deltaY + 0.5);
+          innerSlope = (deltaX + 0.5) / (deltaY - 0.5);
+          maxSlope = ((deltaX) / (deltaY + 0.5));
+          minSlope = ((deltaX + 0.5) / (deltaY));
 
           if (!this.hasXY(currentX, currentY)) {
             blocked = true;
@@ -70,7 +72,7 @@ export class FOV {
             continue;
           }
 
-          fov.debug('- test %d,%d ... start=%d, min=%d, max=%d, end=%d, dx=%d, dy=%d', currentX, currentY, startSlope.toFixed(2), maxSlope.toFixed(2), minSlope.toFixed(2), endSlope.toFixed(2), deltaX, deltaY);
+          // fov.debug('- test %d,%d ... start=%d, min=%d, max=%d, end=%d, dx=%d, dy=%d', currentX, currentY, startSlope.toFixed(2), maxSlope.toFixed(2), minSlope.toFixed(2), endSlope.toFixed(2), deltaX, deltaY);
 
           if (startSlope < minSlope) {
               blocked = this.isBlocked(currentX, currentY);
@@ -84,12 +86,12 @@ export class FOV {
           if (radius < this.maxRadius) {
               const bright = (1 - (radius / this.maxRadius));
               this.setVisible(currentX, currentY, bright);
-              fov.debug('       - visible');
+              // fov.debug('       - visible');
           }
 
           if (blocked) { //previous cell was a blocking one
               if (this.isBlocked(currentX,currentY)) {//hit a wall
-                  fov.debug('       - blocked ... nextStart: %d', innerSlope.toFixed(2));
+                  // fov.debug('       - blocked ... nextStart: %d', innerSlope.toFixed(2));
                   nextStart = innerSlope;
                   continue;
               } else {
@@ -97,7 +99,7 @@ export class FOV {
               }
           } else {
               if (this.isBlocked(currentX, currentY) && row < this.maxRadius) {//hit a wall within sight line
-                  fov.debug('       - blocked ... start:%d, end:%d, nextStart: %d', nextStart.toFixed(2), outerSlope.toFixed(2), innerSlope.toFixed(2));
+                  // fov.debug('       - blocked ... start:%d, end:%d, nextStart: %d', nextStart.toFixed(2), outerSlope.toFixed(2), innerSlope.toFixed(2));
                   blocked = true;
                   this.castLight(row + 1, nextStart, outerSlope, xx, xy, yx, yy);
                   nextStart = innerSlope;

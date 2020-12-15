@@ -77,7 +77,7 @@ export function start(opts={}) {
   });
 
   if (!ui.canvas && (opts.canvas !== false)) {
-    ui.canvas = make.canvas({ width: opts.width, height: opts.height, node: opts.div, font: opts.font, tileWidth: 14, tileHeight: 16 });
+    ui.canvas = make.canvas({ width: opts.width, height: opts.height, div: opts.div, font: opts.font, tileWidth: 14, tileHeight: 16 });
     ui.buffer = new Buffer(ui.canvas);
 
     if (opts.io && typeof document !== 'undefined') {
@@ -310,14 +310,9 @@ export async function updateNow(t=1) {
 	t = Math.max(t, UPDATE_REQUESTED, 0);
 	UPDATE_REQUESTED = 0;
   ui.debug('update now - %d', t);
-
 	ui.draw();
-	ui.canvas.render();
 	if (t) {
-		// const now = performance.now();
-		// ui.debug('UI update - with timeout:', t);
 		const r = await IO.tickMs(t);
-		// ui.debug('- done', r, Math.floor(performance.now() - now));
 	}
 }
 
@@ -816,11 +811,11 @@ const BUFFERS = [];
 
 function startDialog() {
   IN_DIALOG = true;
-  const base = UI_OVERLAY || null;
+  const base = UI_OVERLAY || UI_BUFFER;
   UI_LAYERS.push(base);
   UI_OVERLAY = BUFFERS.pop() || new Buffer(ui.canvas);
   // UI_OVERLAY._data.forEach( (c) => c.opacity = 0 );
-  UI_OVERLAY.copyFromCanvas();
+  UI_OVERLAY.copy(base);
   return UI_OVERLAY;
 }
 

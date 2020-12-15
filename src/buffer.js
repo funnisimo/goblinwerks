@@ -115,12 +115,13 @@ let NEXT_GLYPH = 128;
 
 Buffer.prototype._toGlyph = function(ch) {
   if (ch === null || ch === undefined) return -1;
+  if (ch === ' ') return 0;
 
-  let glyph = this.canvas.glyphs.forChar(ch);
+  let glyph = this._canvas.glyphs.forChar(ch);
   if (glyph < 0) {
     console.log('Register new Glyph', ch, ch.charCodeAt(0), NEXT_GLYPH);
     glyph = NEXT_GLYPH;
-    this.canvas.glyphs.draw(NEXT_GLYPH++, ch);
+    this._canvas.glyphs.draw(NEXT_GLYPH++, ch);
   }
   return glyph;
 }
