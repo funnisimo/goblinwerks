@@ -27,6 +27,7 @@ class ActorKind {
 		this.sprite = make.sprite(opts.sprite || opts);
     this.flags = Flags.ActorKind.toFlag(opts.flags);
 		this.actionFlags = Flags.Action.toFlag(opts.flags);
+    this.behaviors = Flags.Behaviors.toFlag(opts.flags);
 		// this.attackFlags = Flags.Attack.toFlag(opts.flags);
 		this.stats = Object.assign({}, opts.stats || {});
     this.regen = Object.assign({}, opts.regen || {});
@@ -99,7 +100,7 @@ class ActorKind {
   }
 
   avoidedCellFlags(actor) {
-    return Flags.Cell.HAS_MONSTER | Flags.Cell.HAS_ITEM;
+    return Flags.Cell.HAS_ACTOR;
   }
 
   avoidedTileFlags(actor) {
@@ -156,7 +157,11 @@ class ActorKind {
 	}
 
   getAwarenessDistance(actor, other) {
-    return 20;  // ???
+    // TODO - Take light/stealth into account
+    //      - if lit,  then check max(perception, stealth)
+    //      - if shadow   - check infravision ? max(perception, stealth) : min(percention,stealth)
+    //      - if darkness - check infravision ? min(perception, stealth) : 1.6;
+    return actor.current.perception || 10;  // ???
   }
 
   getName(actor, opts={}) {
@@ -243,13 +248,19 @@ export class Actor {
     this.max = { health: 1 };
     this.prior = { health: 1 };
     if (this.kind.stats) {
-      Object.assign(this.current, this.kind.stats);
-      Object.assign(this.max, this.kind.stats);
-      Object.assign(this.prior, this.kind.stats);
+      Object.entries(this.kind.stats).forEach( ([key, value]) => {
+        if (typeof value !== 'number') {
+          value = make.range(value).value();
+        }
+        this.current[key] = this.prior[key] = this.max[key] = value;
+      });
     }
     if (opts.stats) {
       Object.assign(this.current, opts.stats);
     }
+
+    // this is so we can change speeds with modifiers more easily
+    this.current.speed = this.max.speed = this.prior.speed = kind.speed;
 
     this.regen = { health: 0 };
     if (this.kind.regen) {
@@ -371,6 +382,16 @@ export class Actor {
 
   // MOVEMENT/VISION
 
+  isVisible(map) {
+    map = map || DATA.map;
+    return map.isVisible(this.x, this.y);
+  }
+
+  isAnyKindOfVisible(map) {
+    map = map || DATA.map;
+    return map.isAnyKindOfVisible(this.x, this.y);
+  }
+
   canDirectlySee(other, map) {
     map = map || DATA.map;
 
@@ -379,9 +400,11 @@ export class Actor {
       return false;
     }
 
-    if (this.isPlayer() || other.isPlayer()) {
-      other = (this.isPlayer()) ? other : this;
+    if (this.isPlayer()) {
       return map.isVisible(other.x, other.y);
+    }
+    else if (other.isPlayer()) {
+      return map.isVisible(this.x, this.y);
     }
     else {
       let dist = Utils.distanceFromTo(this, other);
@@ -397,12 +420,13 @@ export class Actor {
   }
 
   avoidsCell(cell, x, y) {
+    const limitToPlayerKnowledge = this.isPlayer();
     const avoidedCellFlags = this.kind.avoidedCellFlags(this);
     const forbiddenTileFlags = this.kind.forbiddenTileFlags(this);
     const avoidedTileFlags = this.kind.avoidedTileFlags(this);
 
-    if (cell.flags & avoidedCellFlags) return true;
-    if (cell.hasTileFlag(forbiddenTileFlags | avoidedTileFlags)) return true;
+    if (cell.hasFlag(avoidedCellFlags, limitToPlayerKnowledge)) return true;
+    if (cell.hasTileFlag(forbiddenTileFlags | avoidedTileFlags, limitToPlayerKnowledge)) return true;
     return false;
   }
 
@@ -410,27 +434,31 @@ export class Actor {
     const avoidedCellFlags = this.kind.avoidedCellFlags(this);
     const forbiddenTileFlags = this.kind.forbiddenTileFlags(this);
     const avoidedTileFlags = this.kind.avoidedTileFlags(this);
+    const isPlayer = this.isPlayer();
 
     map.fillCostGrid(grid, (cell, x, y) => {
-      if (this.isPlayer() && !cell.isRevealed()) return def.PDS_OBSTRUCTION;
-      if (cell.hasTileFlag(forbiddenTileFlags)) return def.PDS_FORBIDDEN;
-      if (cell.hasTileFlag(avoidedTileFlags)) return def.PDS_AVOIDED;
-      if (cell.flags & avoidedCellFlags) return def.PDS_AVOIDED;
+      if (isPlayer && !cell.isRevealed()) return def.PDS_OBSTRUCTION;
+      if (cell.hasTileFlag(forbiddenTileFlags, isPlayer)) return def.PDS_FORBIDDEN;
+      if (cell.hasTileFlag(avoidedTileFlags, isPlayer)) return def.PDS_AVOIDED;
+      if (cell.hasFlag(avoidedCellFlags, isPlayer)) return def.PDS_AVOIDED;
       return 1;
     });
   }
 
-  updateMapToMe() {
+  updateMapToMe(force=false) {
     const map = DATA.map;
     let mapToMe = this.mapToMe;
     if (!mapToMe) {
       mapToMe = this.mapToMe = Grid.alloc(map.width, map.height);
       mapToMe.x = mapToMe.y = -1;
     }
-    if (mapToMe.x != this.x || mapToMe.y != this.y) {
+    if (mapToMe.x != this.x || mapToMe.y != this.y || force) {
       let costGrid = this.costGrid;
       if (!costGrid) {
         costGrid = this.costGrid = Grid.alloc(map.width, map.height);
+        this.fillCostGrid(map, costGrid);
+      }
+      else if (force) {
         this.fillCostGrid(map, costGrid);
       }
       Path.calculateDistances(mapToMe, this.x, this.y, costGrid, true);
@@ -625,7 +653,7 @@ function endActorTurn(theActor, turnTime=1) {
   if (theActor.turnEnded()) return;
 
   theActor.flags |= Flags.Actor.AF_TURN_ENDED;
-  theActor.turnTime = Math.floor(theActor.kind.speed * turnTime);
+  theActor.turnTime = Math.floor(theActor.current.speed * turnTime);
 
   if (!theActor.isDead()) {
     for(let stat in theActor.regen) {
@@ -792,7 +820,7 @@ export function generateAndPlace(map, opts={}) {
     matchOpts.forbidTileFlags = kind.forbiddenTileFlags(actor);
     matchOpts.forbidTileMechFlags = kind.forbiddenTileMechFlags(actor);
 
-    const loc = map.randomMatchingXY(matchOpts);
+    const loc = map.randomMatchingLoc(matchOpts);
     if (loc && loc[0] > 0) {
       map.addActor(loc[0], loc[1], actor);
       ++placed;

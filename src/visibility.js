@@ -23,7 +23,6 @@ function _updateCellVisibility(cell, i, j, map) {
     if (cell.lightChanged()) {
       map.redrawCell(cell);
     }
-    return true;
   }
 	else if (isVisible && !wasVisible) { // if the cell became visible this move
 		if (!(cell.flags & Flags.Cell.REVEALED) && DATA.automationActive) {
@@ -42,13 +41,11 @@ function _updateCellVisibility(cell, i, j, map) {
     }
     map.markRevealed(i, j);
 		map.redrawCell(cell);
-    return true;
 	} else if ((!isVisible) && wasVisible) { // if the cell ceased being visible this move
     cell.storeMemory();
 		map.redrawCell(cell);
-    return true;
 	}
-  return false;
+  return isVisible;
 }
 
 function _updateCellClairyvoyance(cell, i, j, map) {
@@ -59,19 +56,16 @@ function _updateCellClairyvoyance(cell, i, j, map) {
     if (cell.lightChanged()) {
       map.redrawCell(cell);
     }
-    return true;
   }
   else if ((!isClairy) && wasClairy) { // ceased being clairvoyantly visible
 		cell.storeMemory();
 		map.redrawCell(cell);
-    return true;
 	} else if ((!wasClairy) && (isClairy)) { // became clairvoyantly visible
 		cell.flags &= ~STABLE_MEMORY;
 		map.redrawCell(cell);
-    return true;
 	}
 
-  return false;
+  return isClairy;
 }
 
 
@@ -83,13 +77,11 @@ function _updateCellTelepathy(cell, i, j, map) {
     if (cell.lightChanged()) {
       map.redrawCell(cell);
     }
-    return true;
   }
   else if ((!isTele) && wasTele) { // ceased being telepathically visible
     cell.storeMemory();
 		map.redrawCell(cell);
-    return true;
-	} else if ((wasTele) && (isTele)) { // became telepathically visible
+	} else if ((!wasTele) && (isTele)) { // became telepathically visible
     if (!(cell.flags & Flags.Cell.REVEALED)
 			&& !cell.hasTileFlag(Flags.Tile.T_PATHING_BLOCKER))
 		{
@@ -97,9 +89,8 @@ function _updateCellTelepathy(cell, i, j, map) {
     }
 		cell.flags &= ~Flags.Cell.STABLE_MEMORY;
 		map.redrawCell(cell);
-    return true;
 	}
-  return false;
+  return isTele;
 }
 
 
@@ -111,20 +102,17 @@ function _updateCellDetect(cell, i, j, map) {
     if (cell.lightChanged()) {
       map.redrawCell(cell);
     }
-    return true;
   }
   else if ((!isMonst) && (wasMonst)) { // ceased being detected visible
 		cell.flags &= ~Flags.Cell.STABLE_MEMORY;
 		map.redrawCell(cell);
     cell.storeMemory();
-    return true;
 	} else if ((!wasMonst) && (isMonst)) { // became detected visible
 		cell.flags &= ~Flags.Cell.STABLE_MEMORY;
 		map.redrawCell(cell);
     cell.storeMemory();
-    return true;
 	}
-  return false;
+  return isMonst;
 }
 
 

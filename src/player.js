@@ -13,7 +13,7 @@ player.debug = Utils.NOOP;
 
 
 
-export function makePlayer(kind) {
+export function makePlayer(kind={}) {
   if (!(kind instanceof types.ActorKind)) {
     Utils.kindDefaults(kind, {
       ch:'@', fg: 'white',

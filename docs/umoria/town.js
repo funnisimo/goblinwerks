@@ -132,6 +132,15 @@ async function generateTown(id=0) {
 
     // storeMaintenance();
 
+    let count = 10;
+    while(GW.random.chance(50)) {
+      ++count;
+    }
+
+    for(let i = 0; i < count; ++i) {
+      GW.horde.spawnRandom(map);
+    }
+
     map.revealAll();
     return map;
 }

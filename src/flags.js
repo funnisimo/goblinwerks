@@ -1,5 +1,5 @@
 
-import { Fl, installFlag } from './flag.js';
+import { Fl, installFlag, makeFlag } from './flag.js';
 
 
 ///////////////////////////////////////////////////////
@@ -30,12 +30,37 @@ export const Action = installFlag('action', {
   A_NO_PICKUP : 'A_PICKUP',   // All items have pickup by default, using the A_PICKUP means 'NO PICKUP' for items, so we have this alias to help
 });
 
+export const Treasure = installFlag('treasure', {
+  TR_CHANCE_12: Fl(0),
+  TR_CHANCE_25: Fl(1),
+  TR_CHANCE_50: Fl(2),
+  TR_CHANCE_100: Fl(3),
+  TR_GOLD: Fl(4),
+  TR_ITEMS: Fl(5),
+  TR_SMALL_ONLY: Fl(6),
+  TR_COUNT_1D2: Fl(7),
+  TR_COUNT_2D2: Fl(8),
+  TR_COUNT_4D2: Fl(9),
+  TR_MAGIC_12: Fl(10),  // chance each of the items is magic
+  TR_MAGIC_25: Fl(11),
+  TR_MAGIC_50: Fl(12),
+  TR_MAGIC_100: Fl(13),
+  // info on level of magical enchantment/items
+  // info on how much gold?
+
+  TR_LEVEL_MONSTER: Fl(27),
+  TR_LEVEL_PLAYER: Fl(28),
+  TR_LEVEL_MAP: Fl(29),
+  TR_LEVEL_BEST_OF_3: Fl(30),
+
+  TR_CHANCE_87: 'TR_CHANCE_12, TR_CHANCE_25, TR_CHANCE_50',
+});
 
 ///////////////////////////////////////////////////////
 // ACTOR - BEHAVIORS
 
 
-export const Behavior = installFlag('behavior', {
+export const Behaviors = installFlag('behavior', {
   BB_MOVES_RANDOM_12: Fl(0),
   BB_MOVES_RANDOM_25: Fl(1),
   BB_MOVES_RANDOM_50: Fl(2),
@@ -61,6 +86,8 @@ export const Behavior = installFlag('behavior', {
   BB_TARGETS_AIR: Fl(22),
   BB_TARGETS_BUILDINGS: Fl(23),
   BB_CANNOT_ATTACK: Fl(24),
+
+  BB_MOVES_RANDOM: 'BB_MOVES_RANDOM_12, BB_MOVES_RANDOM_25, BB_MOVES_RANDOM_50',
 });
 
 
@@ -86,6 +113,43 @@ export const ActorKind = installFlag('actorKind', {
   AK_IMMOBILE     : Fl(0),
   AK_INANIMATE    : Fl(1),
 });
+
+///////////////////////////////////////////////////////
+// HORDE
+
+
+export const Horde = installFlag('horde', [
+  'HORDE_DIES_ON_LEADER_DEATH',	  // if the leader dies, the horde will die instead of electing new leader
+	'HORDE_IS_SUMMONED',	          // minions summoned when any creature is the same species as the leader and casts summon
+  'HORDE_SUMMONED_AT_DISTANCE',   // summons will appear across the level, and will naturally path back to the leader
+	'HORDE_LEADER_CAPTIVE',	        // the leader is in chains and the followers are guards
+	'HORDE_NO_PERIODIC_SPAWN',	    // can spawn only when the level begins -- not afterwards
+	'HORDE_ALLIED_WITH_PLAYER',
+  'HORDE_NEVER_OOD',              // Horde cannot be generated out of depth
+
+	'HORDE_MACHINE_BOSS',	          // used in machines for a boss challenge
+	'HORDE_MACHINE_WATER_MONSTER',	// used in machines where the room floods with shallow water
+	'HORDE_MACHINE_CAPTIVE',	      // powerful captive monsters without any captors
+	'HORDE_MACHINE_STATUE',	        // the kinds of monsters that make sense in a statue
+	'HORDE_MACHINE_TURRET',	        // turrets, for hiding in walls
+	'HORDE_MACHINE_MUD',	          // bog monsters, for hiding in mud
+	'HORDE_MACHINE_KENNEL',	        // monsters that can appear in cages in kennels
+	'HORDE_VAMPIRE_FODDER',	        // monsters that are prone to capture and farming by vampires
+	'HORDE_MACHINE_LEGENDARY_ALLY',	// legendary allies
+  'HORDE_MACHINE_THIEF',          // monsters that can be generated in the key thief area machines
+  'HORDE_MACHINE_GOBLIN_WARREN',  // can spawn in goblin warrens
+]);
+
+Horde.HORDE_MACHINE_ONLY = Horde.toFlag(
+  'HORDE_MACHINE_BOSS',     'HORDE_MACHINE_WATER_MONSTER',
+  'HORDE_MACHINE_CAPTIVE',  'HORDE_MACHINE_STATUE',
+  'HORDE_MACHINE_TURRET',   'HORDE_MACHINE_MUD',
+  'HORDE_MACHINE_KENNEL',   'HORDE_VAMPIRE_FODDER',
+  'HORDE_MACHINE_LEGENDARY_ALLY', 'HORDE_MACHINE_THIEF',
+  'HORDE_MACHINE_GOBLIN_WARREN');
+
+Horde.HORDE_AVOID_SPAWN = Horde.HORDE_MACHINE_ONLY | Horde.HORDE_NO_PERIODIC_SPAWN;
+
 
 ///////////////////////////////////////////////////////
 // TILE

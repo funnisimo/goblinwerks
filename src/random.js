@@ -18,8 +18,8 @@ function lotteryDrawArray(rand, frequencies) {
         maxFreq += frequencies[i];
     }
 		if (maxFreq <= 0) {
-			WARN('Lottery Draw - no frequencies', frequencies, frequencies.length);
-			return 0;
+			// WARN('Lottery Draw - no frequencies', frequencies, frequencies.length);
+			return -1;
 		}
 
     randIndex = rand.range(0, maxFreq - 1);

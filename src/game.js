@@ -150,7 +150,7 @@ export async function startMap(map, loc='start') {
       }
     }
 
-    startLoc = map.matchingXYNear(startLoc[0], startLoc[1], PLAYER.isValidStartLoc, { hallways: true });
+    startLoc = map.matchingLocNear(startLoc[0], startLoc[1], PLAYER.isValidStartLoc, { hallways: true });
 
     DATA.map.addActor(startLoc[0], startLoc[1], DATA.player);
 

@@ -39,6 +39,7 @@ import './list.js';
 import './ui.js';
 import './buttons.js';
 export * as visibility from './visibility.js';
+export * as horde from './horde.js';
 
 import './actions/moveDir.js';
 import './actions/bash.js';

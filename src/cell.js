@@ -27,9 +27,9 @@ class CellMemory {
 
   nullify() {
     this.sprite.nullify();
-    this.itemKind = null;
+    this.item = null;
     this.itemQuantity = 0;
-    this.actorKind = null;
+    this.actor = null;
     this.tile = null;
     this.cellFlags = 0;
     this.cellMechFlags = 0;
@@ -105,6 +105,9 @@ class Cell {
   get gasTile() { return TILES[this.layers[3]]; }
 
   dump() {
+    if (this.actor) return this.actor.kind.sprite.ch;
+    if (this.item) return this.item.kind.sprite.ch;
+
     for(let i = this.layers.length - 1; i >= 0; --i) {
       if (!this.layers[i]) continue;
       const tile = TILES[this.layers[i]];
@@ -114,8 +117,8 @@ class Cell {
   }
   changed() { return this.flags & Flags.Cell.CELL_CHANGED; }
   isVisible() { return this.flags & Flags.Cell.VISIBLE; }
-  isAnyKindOfVisible() { return (this.flags & Flags.Cell.ANY_KIND_OF_VISIBLE) || CONFIG.playbackOmniscience; }
-  isOrWasAnyKindOfVisible() { return (this.flags & Flags.Cell.IS_WAS_ANY_KIND_OF_VISIBLE) || CONFIG.playbackOmniscience; }
+  isAnyKindOfVisible() { return (this.flags & Flags.Cell.ANY_KIND_OF_VISIBLE) /* || CONFIG.playbackOmniscience */; }
+  isOrWasAnyKindOfVisible() { return (this.flags & Flags.Cell.IS_WAS_ANY_KIND_OF_VISIBLE) /* || CONFIG.playbackOmniscience */; }
   isRevealed(orMapped) {
     const flag = Flags.Cell.REVEALED | (orMapped ? Flags.Cell.MAGIC_MAPPED : 0);
     return this.flags & flag;
@@ -123,6 +126,8 @@ class Cell {
   listInSidebar() {
     return this.hasTileMechFlag(Flags.TileMech.TM_LIST_IN_SIDEBAR);
   }
+
+  _needsRedraw() { this.flags |= Flags.Cell.NEEDS_REDRAW; }
 
   // TODO - Use functions in LIGHT to check these on cell.light directly???
   hasVisibleLight() { return Light.intensity(this.light) > def.INTENSITY_DARK; }  // TODO
@@ -164,16 +169,18 @@ class Cell {
     return flags;
   }
 
-  hasTileFlag(flagMask)	{
-    return !!(flagMask & this.tileFlags());
+  hasTileFlag(flagMask, limitToPlayerKnowledge)	{
+    const tileFlags = this.tileFlags(limitToPlayerKnowledge);
+    return !!(flagMask & tileFlags);
   }
 
   hasAllTileFlags(flags) {
     return (flags & this.tileFlags()) === flags;
   }
 
-  hasTileMechFlag(flagMask) {
-    return !!(flagMask & this.tileMechFlags());
+  hasTileMechFlag(flagMask, limitToPlayerKnowledge) {
+    const mechFlags = this.tileMechFlags(limitToPlayerKnowledge);
+    return !!(flagMask & mechFlags);
   }
 
   hasAllTileMechFlags(flags) {
@@ -192,6 +199,16 @@ class Cell {
     // if ((~cellFlag) & Flags.Cell.NEEDS_REDRAW) {
     //   this.flags |= Flags.Cell.NEEDS_REDRAW;
     // }
+  }
+
+  hasFlag(flag, limitToPlayerKnowledge) {
+    const flags = (limitToPlayerKnowledge && !this.isAnyKindOfVisible()) ? this.memory.cellFlags : this.flags;
+    return !!(flag & flags);
+  }
+
+  hasMechFlag(flag, limitToPlayerKnowledge) {
+    const flags = (limitToPlayerKnowledge && !this.isAnyKindOfVisible()) ? this.memory.cellMechFlags : this.mechFlags;
+    return !!(flag & flags);
   }
 
   hasTile(id) {
@@ -321,6 +338,11 @@ class Cell {
     const useMemory = limitToPlayerKnowledge && !this.isAnyKindOfVisible();
     let tileFlags = (useMemory) ? this.memory.tileFlags : this.tileFlags();
     return tileFlags & Flags.Tile.T_PATHING_BLOCKER;
+  }
+
+  blocksVision() {
+    let tileFlags = this.tileFlags();
+    return tileFlags & Flags.Tile.T_OBSTRUCTS_VISION;
   }
 
   isLiquid(limitToPlayerKnowledge) {
@@ -555,15 +577,24 @@ class Cell {
 		memory.cellMechFlags = this.mechFlags;
     memory.tile = this.highestPriorityTile().id;
 		if (this.item) {
-			memory.itemKind = this.item.kind;
+			memory.item = this.item;
 			memory.itemQuantity = this.item.quantity || 1;
 		}
 		else {
-			memory.itemKind = null;
+			memory.item = null;
 			memory.itemQuantity = 0;
 		}
-    memory.actorKind = (this.actor ? this.actor.kind : null);
+    memory.actor = this.actor;
     cell.getAppearance(this, memory.sprite);
+
+    if (this.actor && this.isOrWasAnyKindOfVisible()) {
+      if (this.actor.rememberedInCell && (this.actor.rememberedInCell !== this)) {
+        console.log('remembered in cell change');
+        this.actor.rememberedInCell.storeMemory();
+        this.actor.rememberedInCell._needsRedraw();
+      }
+      this.actor.rememberedInCell = this;
+    }
   }
 
 }

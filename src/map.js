@@ -13,6 +13,10 @@ map.debug = Utils.NOOP;
 
 const TileLayer = def.layer;
 
+Utils.setDefaults(CONFIG, {
+  'map.deepestLevel': 99,
+});
+
 
 export class Map {
 	constructor(w, h, opts={}) {
@@ -70,7 +74,7 @@ export class Map {
 
 	redrawCell(cell) {
     // if (cell.isAnyKindOfVisible()) {
-      cell.flags |= Flags.Cell.NEEDS_REDRAW;
+      cell._needsRedraw();
   		this.flags |= Flags.Map.MAP_CHANGED;
     // }
 	}
@@ -158,9 +162,11 @@ export class Map {
   isEmpty(x, y) { return this.cells[x][y].isEmpty(); }
 	isObstruction(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isObstruction(limitToPlayerKnowledge); }
   isDoor(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isDoor(limitToPlayerKnowledge); }
-  blocksPathing(x, y, limitToPlayerKnowledge) { return this.cells[x][y].blocksPathing(limitToPlayerKnowledge); }
   isLiquid(x, y, limitToPlayerKnowledge) { return this.cells[x][y].isLiquid(limitToPlayerKnowledge); }
   hasGas(x, y, limitToPlayerKnowledge) { return this.cells[x][y].hasGas(limitToPlayerKnowledge); }
+
+  blocksPathing(x, y, limitToPlayerKnowledge) { return this.cells[x][y].blocksPathing(limitToPlayerKnowledge); }
+  blocksVision(x, y) { return this.cells[x][y].blocksVision(); }
 
 	highestPriorityLayer(x, y, skipGas) { return this.cells[x][y].highestPriorityLayer(x, y); }
 	highestPriorityTile(x, y, skipGas) { return this.cells[x][y].highestPriorityTile(x, y); }
@@ -254,10 +260,14 @@ export class Map {
 	}
 
 	// blockingMap is optional
-	matchingXYNear(x, y, matcher, opts={})
+	matchingLocNear(x, y, matcher, opts={})
 	{
-	  let loc = [-1,-1];
 		let i, j, k;
+
+    if (typeof matcher !== 'function') {
+      opts = matcher || opts;
+      matcher = opts.match || opts.test;
+    }
 
 		const hallwaysAllowed = opts.hallwaysAllowed || opts.hallways || false;
 		const blockingMap = opts.blockingMap || null;
@@ -305,7 +315,7 @@ export class Map {
 	// no creatures, items or stairs and with either a matching liquid and dungeon type
 	// or at least one layer of type terrainType.
 	// A dungeon, liquid type of -1 will match anything.
-	randomMatchingXY(opts={}) {
+	randomMatchingLoc(opts={}) {
 		let failsafeCount = 0;
 		let x;
 		let y;
@@ -318,10 +328,11 @@ export class Map {
     const hallwaysAllowed = opts.hallwaysAllowed || opts.hallways || false;
 		const blockingMap = opts.blockingMap || null;
 		const forbidLiquid = opts.forbidLiquid || opts.forbidLiquids || false;
-    const matcher = opts.match || Utils.TRUE;
+    const matcher = opts.match || opts.test || Utils.TRUE;
     const forbidCellFlags = opts.forbidCellFlags || 0;
     const forbidTileFlags = opts.forbidTileFlags || 0;
     const forbidTileMechFlags = opts.forbidTileMechFlags || 0;
+    const tile = opts.tile || null;
     let tries = opts.tries || 500;
 
 		let retry = true;
@@ -334,6 +345,7 @@ export class Map {
 			cell = this.cell(x, y);
 
 			if ((!blockingMap || !blockingMap[x][y])
+          && ((!tile) || cell.hasTile(tile))
       		&& (!forbidLiquid || !cell.liquid)
           && (!forbidCellFlags || !(cell.flags & forbidCellFlags))
           && (!forbidTileFlags || !(cell.hasTileFlag(forbidTileFlags)))
@@ -462,7 +474,7 @@ export class Map {
 
 	addActorNear(x, y, theActor) {
 		const forbidTileFlags = GW.actor.avoidedFlags(theActor);
-		const loc = this.matchingXYNear(x, y, (cell, i, j) => {
+		const loc = this.matchingLocNear(x, y, (cell, i, j) => {
 			if (cell.flags & (Flags.Cell.HAS_ACTOR)) return false;
 			return !cell.hasTileFlag(forbidTileFlags);
 		});
@@ -513,6 +525,14 @@ export class Map {
 		}
     return false;
 	}
+
+  killActorAt(x, y) {
+    const actor = this.actorAt(x, y);
+    if (!actor) return false;
+    this.removeActor(actor);
+    actor.kill();
+    return true;
+  }
 
 	// dormantAt(x, y) {  // creature *
 	// 	if (!(this.cell(x, y).flags & Flags.Cell.HAS_DORMANT_MONSTER)) {
@@ -578,7 +598,7 @@ export class Map {
 	}
 
 	addItemNear(x, y, theItem) {
-		const loc = this.matchingXYNear(x, y, (cell, i, j) => {
+		const loc = this.matchingLocNear(x, y, (cell, i, j) => {
 			if (cell.flags & Flags.Cell.HAS_ITEM) return false;
 			return !cell.hasTileFlag(theItem.kind.forbiddenTileFlags());
 		});
@@ -708,6 +728,15 @@ export class Map {
     });
 	  return FOV.calculate(x, y, maxRadius, cautiousOnWalls);
 	}
+
+  losFromTo(a, b) {
+    const line = getLine(this, a.x, a.y, b.x, b.y);
+    if ((!line) || (!line.length)) return false;
+
+    return !line.some( (loc) => {
+      return this.blocksVision(loc[0], loc[1]);
+    });
+  }
 
 	// MEMORIES
 
