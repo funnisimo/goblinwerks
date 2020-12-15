@@ -1,6 +1,6 @@
 
 import { utils as Utils } from 'gw-core';
-import { def, data as DATA, commands as COMMANDS, make } from './gw.js';
+import { def, commands as COMMANDS } from './gw.js';
 
 
 export var io = {};

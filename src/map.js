@@ -3,7 +3,7 @@ import { utils as Utils, random, grid as Grid } from 'gw-core';
 import * as Color from './color.js';
 import { cell as CELL } from './cell.js';
 import * as Flags from './flags.js';
-import { types, def, make, data as DATA, config as CONFIG, flag as FLAG, colors as COLORS } from './gw.js';
+import { types, def, make, data as DATA, config as CONFIG, colors as COLORS } from './gw.js';
 
 
 export var map = {};
