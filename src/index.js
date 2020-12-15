@@ -2,14 +2,13 @@
 
 import './random.js';
 import './bounds.js';
-export { utils, range, random, cosmetic } from 'gw-core';
+export { utils, range, random, cosmetic, grid } from 'gw-core';
 export * from './events.js';
 import './flag.js';
 import './flags.js';
 export * as color from './color.js';
 export * as text from './text.js';
 export * as sprite from './sprite.js';
-export * as grid from './grid.js';
 import './buffer.js';
 export * as canvas from './canvas.js';
 export * as frequency from './frequency.js';

@@ -1,8 +1,7 @@
 
 import * as Color from './color.js';
 import * as Flags from './flags.js';
-import { utils as Utils, random, range as Range } from 'gw-core';
-import * as Grid from './grid.js';
+import { utils as Utils, random, range as Range, grid as Grid } from 'gw-core';
 import * as Frequency from './frequency.js';
 import * as Text from './text.js';
 import * as Path from './path.js';

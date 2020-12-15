@@ -57,7 +57,7 @@ describe('GW.grid', () => {
     a = GW.grid.alloc(80, 30);
     expect(a.count(1)).toEqual(0);
 
-    GW.grid.fillBlob(a, 5, 4, 4, 30, 15, 55, "ffffftttt", "ffffttttt");
+    a.fillBlob(5, 4, 4, 30, 15, 55, "ffffftttt", "ffffttttt");
     expect(a.count(1)).toBeGreaterThan(10);
   });
 
@@ -66,7 +66,7 @@ describe('GW.grid', () => {
     a = GW.grid.alloc(50, 30);
     expect(a.count(1)).toEqual(0);
 
-    GW.grid.fillBlob(a, 5, 12, 12, 10, 10, 55, "ffffftttt", "ffffttttt");
+    a.fillBlob(5, 12, 12, 10, 10, 55, "ffffftttt", "ffffttttt");
     expect(a.count(1)).toBeGreaterThan(10);
   });
 
@@ -74,7 +74,7 @@ describe('GW.grid', () => {
     a = GW.grid.alloc(20, 20);
     a.fill(1);
     expect(a.count(1)).toEqual(400);
-    GW.grid.floodFill(a, 0, 0, 1, 2);
+    a.floodFill(0, 0, 1, 2);
     expect(a.count(2)).toEqual(400);
   });
 

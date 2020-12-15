@@ -1,6 +1,5 @@
 
-import * as Grid from './grid.js';
-import { utils as Utils, random } from 'gw-core';
+import { utils as Utils, random, grid as Grid } from 'gw-core';
 import * as Path from './path.js';
 import * as Flags from './flags.js';
 import { diggers as DIGGERS, digger as DIGGER } from './digger.js';
@@ -192,7 +191,7 @@ function attachRoomAtXY(roomGrid, xy, doors, opts={}) {
 
       if (roomGrid[x][y]) continue;
 
-      const dir = Grid.directionOfDoorSite(roomGrid, x, y);
+      const dir = Grid.directionOfDoorSite(roomGrid, x, y, 1);
       if (dir != def.NO_DIRECTION) {
         const d = DIRS[dir];
         if (roomAttachesAt(roomGrid, xy[0] - x, xy[1] - y)) {
@@ -286,7 +285,7 @@ export function digLake(opts={}) {
   for (; lakeMaxHeight >= lakeMinSize && lakeMaxWidth >= lakeMinSize && count < maxCount; lakeMaxHeight--, lakeMaxWidth -= 2) { // lake generations
 
     lakeGrid.fill(NOTHING);
-    const bounds = Grid.fillBlob(lakeGrid, 5, 4, 4, lakeMaxWidth, lakeMaxHeight, 55, "ffffftttt", "ffffttttt");
+    const bounds = lakeGrid.fillBlob(5, 4, 4, lakeMaxWidth, lakeMaxHeight, 55, "ffffftttt", "ffffttttt");
 
     for (k=0; k < tries && count < maxCount; k++) { // placement attempts
         // propose a position for the top-left of the lakeGrid in the dungeon

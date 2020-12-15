@@ -79,7 +79,12 @@ describe('GW.dungeon', () => {
     let locs = [38, 28];
     let roomCount = 4;
 
+    debugger;
+
     locs = GW.dungeon.digRoom({ digger: 'ROOM', locs, tries: 20 });
+    if (!locs) {
+      fail('Failed on first room!');
+    }
 
     for(let i = 0; i < roomCount; ++i) {
   		locs = GW.dungeon.digRoom({ digger: 'ROOM', tries: 20 });
@@ -118,7 +123,7 @@ describe('GW.dungeon', () => {
 
     // map.dump();
 
-    expect(locs).toEqual([[28,10], [32,3], [25,2], [-1,-1]]);
+    expect(locs).toEqual([[28, 10], [32,3], [25,2], [-1,-1]]);
     expect(tileAt(38, 28)).toEqual('DOOR');
 
     map.cells.forRect(36, 22, 17, 6, (c, i, j) => expect(tileAt(i, j)).toEqual('FLOOR'));

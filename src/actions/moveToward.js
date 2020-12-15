@@ -1,7 +1,6 @@
 
-import * as Grid from '../grid.js';
 import * as Path from '../path.js';
-import { utils as Utils } from 'gw-core';
+import { utils as Utils, grid as Grid } from 'gw-core';
 import { data as DATA, def } from '../gw.js';
 import { actions as Actions } from './index.js';
 

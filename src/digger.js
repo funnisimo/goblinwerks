@@ -1,6 +1,5 @@
 
-import * as Grid from './grid.js';
-import { utils as Utils, random } from 'gw-core';
+import { utils as Utils, random, grid as Grid } from 'gw-core';
 import { make, def } from './gw.js';
 
 export var digger = {};
@@ -88,7 +87,7 @@ export function digCavern(config, grid) {
   const maxHeight = config.height;
 
   grid.fill(0);
-  const bounds = Grid.fillBlob(blobGrid, 5, minWidth, minHeight, maxWidth, maxHeight, 55, "ffffffttt", "ffffttttt");
+  const bounds = blobGrid.fillBlob(5, minWidth, minHeight, maxWidth, maxHeight, 55, "ffffffttt", "ffffttttt");
 
   // Position the new cave in the middle of the grid...
   destX = Math.floor((grid.width - bounds.width) / 2);
@@ -323,7 +322,7 @@ export function chooseRandomDoorSites(sourceGrid) {
   for (i=0; i<grid.width; i++) {
       for (j=0; j<grid.height; j++) {
           if (!grid[i][j]) {
-              dir = Grid.directionOfDoorSite(grid, i, j);
+              dir = Grid.directionOfDoorSite(grid, i, j, 1);
               if (dir != def.NO_DIRECTION) {
                   // Trace a ray 10 spaces outward from the door site to make sure it doesn't intersect the room.
                   // If it does, it's not a valid door site.

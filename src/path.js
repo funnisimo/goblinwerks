@@ -1,6 +1,6 @@
 
 import { def, make } from './gw.js';
-
+import { grid as Grid } from 'gw-core';
 
 // var PATH = {};
 // export { PATH as path };
@@ -27,7 +27,7 @@ function makeDijkstraMap(w, h) {
 	return {
 		eightWays: false,
 		front: makeCostLink(-1),
-		links: make.array(w * h, (i) => makeCostLink(i) ),
+		links: Grid.makeArray(w * h, (i) => makeCostLink(i) ),
 		width: w,
 		height: h,
 	};

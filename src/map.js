@@ -1,6 +1,5 @@
 
-import { utils as Utils, random } from 'gw-core';
-import * as Grid from './grid.js';
+import { utils as Utils, random, grid as Grid } from 'gw-core';
 import * as Color from './color.js';
 import { cell as CELL } from './cell.js';
 import * as Flags from './flags.js';
@@ -21,7 +20,7 @@ export class Map {
 	constructor(w, h, opts={}) {
 		this.width = w;
 		this.height = h;
-		this.cells = make.grid(w, h, () => new types.Cell() );
+		this.cells = Grid.make(w, h, () => new types.Cell() );
 		this.locations = opts.locations || {};
 		this.config = Object.assign({}, opts);
 		this.config.tick = this.config.tick || 100;
@@ -263,10 +262,10 @@ export class Map {
 	{
 		let i, j, k;
 
-    if (typeof matcher !== 'function') {
-      opts = matcher || opts;
-      matcher = opts.match || opts.test;
-    }
+		if (typeof matcher !== 'function') {
+			opts = matcher || opts;
+			matcher = opts.match || opts.test;
+		}
 
 		const hallwaysAllowed = opts.hallwaysAllowed || opts.hallways || false;
 		const blockingMap = opts.blockingMap || null;
@@ -287,7 +286,7 @@ export class Map {
 							&& matcher(cell, i, j, this)
 							&& (!forbidLiquid || !cell.liquid)
 							&& (hallwaysAllowed || this.passableArcCount(i, j) < 2))
-	        {
+	        		{
 						candidateLocs.push([i, j]);
 					}
 				}
@@ -295,13 +294,13 @@ export class Map {
 		}
 
 		if (candidateLocs.length == 0) {
-			return null;
+			return [-1,-1];
 		}
 
 		// and pick one
 		let randIndex = 0;
 		if (deterministic) {
-	    randIndex = Math.floor(candidateLocs.length / 2);
+	    	randIndex = Math.floor(candidateLocs.length / 2);
 		} else {
 			randIndex = random.number(candidateLocs.length);
 		}
@@ -687,7 +686,7 @@ export class Map {
   		for(let j = 0; j < walkableGrid.height && !disrupts; ++j) {
   			if (walkableGrid[i][j] == 1) {
   				if (first) {
-  					Grid.floodFill(walkableGrid, i, j, 1, 2);
+					walkableGrid.floodFill(i, j, 1, 2);
   					first = false;
   				}
   				else {
