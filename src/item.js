@@ -1,11 +1,8 @@
 
 import * as Color from './color.js';
 import * as Text from './text.js';
-import { random } from './random.js';
-import * as Grid from './grid.js';
 import * as Flags from './flags.js';
-import * as Utils from './utils.js';
-import * as Frequency from './frequency.js';
+import { utils as Utils, random, grid as Grid, frequency as Frequency } from 'gw-core';
 import { actions as Actions } from './actions/index.js';
 import * as GW from './gw.js';
 
@@ -26,7 +23,7 @@ class ItemKind {
     this.slot = opts.slot || null;
     this.projectile = null;
     this.verb = opts.verb || null;
-    this.frequency = GW.make.frequency(opts.frequency || this.stats.frequency);
+    this.frequency = Frequency.make(opts.frequency || this.stats.frequency);
 
     this.bump = opts.bump || ['pickup'];  // pick me up by default if you bump into me
 

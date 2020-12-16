@@ -1,7 +1,5 @@
 
-import * as Grid from '../grid.js';
-import * as Path from '../path.js';
-import * as Utils from '../utils.js';
+import { utils as Utils } from 'gw-core';
 import * as GW from '../gw.js';
 import { actions as Actions } from './index.js';
 
@@ -19,9 +17,8 @@ export async function travel(actor, ctx={}) {
     return false;
   }
 
-  actor.updateMapToMe();
+  const path = actor.getPath(actor.travelDest[0], actor.travelDest[1], map);
 
-  const path = Path.getPath(map, actor.mapToMe, actor.travelDest[0], actor.travelDest[1], actor);
   GW.ui.updatePath(path);
   if (!path || path.length <= 1) {  // 1 step is just the destination
     actor.travelDest = null;

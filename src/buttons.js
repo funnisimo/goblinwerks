@@ -1,6 +1,6 @@
 
 import * as Color from './color.js';
-import * as Utils from './utils.js';
+import { utils as Utils, io as IO } from 'gw-core';
 import * as Flag from './flag.js';
 import * as Text from './text.js';
 import * as GW from './gw.js';
@@ -251,18 +251,18 @@ class Buttons {
   }
 
   async dispatchEvent(ev) {
-    if (ev.type == GW.def.MOUSEMOVE) {
+    if (ev.type == IO.MOUSEMOVE) {
       const index = this._indexAtXY(ev.x, ev.y);
       this.focus(index);
       return (index >= 0);
     }
 
-    if (ev.type == GW.def.CLICK) {
+    if (ev.type == IO.CLICK) {
       const index = this._indexAtXY(ev.x, ev.y);
       await this.press(index);
       return (index >= 0);
     }
-  	if (ev.type == GW.def.KEYPRESS) {
+  	if (ev.type == IO.KEYPRESS) {
       for(let index = 0; index < this.buttons.length; ++index) {
         const button = this.buttons[index];
         if (button.hotkey.indexOf(ev.key) >= 0) {

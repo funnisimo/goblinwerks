@@ -1,8 +1,6 @@
 
-import { random, cosmetic } from './random.js';
-import * as Utils from './utils.js';
+import { utils as Utils, range as Range, grid as Grid } from 'gw-core';
 import * as Flags from './flags.js';
-import * as Grid from './grid.js';
 import * as Color from './color.js';
 import * as GW from './gw.js';
 
@@ -15,7 +13,7 @@ const LIGHT_COMPONENTS = Color.make();
 class Light {
 	constructor(color, range, fadeTo, pass) {
 		this.color = Color.from(color) || null;	/* color */
-		this.radius = GW.make.range(range || 1);
+		this.radius = Range.make(range || 1);
 		this.fadeTo = Number.parseInt(fadeTo) || 0;
 		this.passThroughActors = (pass && (pass !== 'false')) ? true : false; // generally no, but miner light does
 	}

@@ -1,11 +1,9 @@
 
-import { random } from './random.js';
-import * as Grid from './grid.js';
+import { utils as Utils, random, grid as Grid, fov as Fov, path as Path } from 'gw-core';
 import * as Color from './color.js';
 import { cell as CELL } from './cell.js';
 import * as Flags from './flags.js';
-import * as Utils from './utils.js';
-import { types, def, make, data as DATA, config as CONFIG, flag as FLAG, colors as COLORS } from './gw.js';
+import { types, def, make, data as DATA, config as CONFIG, colors as COLORS } from './gw.js';
 
 
 export var map = {};
@@ -22,7 +20,7 @@ export class Map {
 	constructor(w, h, opts={}) {
 		this.width = w;
 		this.height = h;
-		this.cells = make.grid(w, h, () => new types.Cell() );
+		this.cells = Grid.make(w, h, () => new types.Cell() );
 		this.locations = opts.locations || {};
 		this.config = Object.assign({}, opts);
 		this.config.tick = this.config.tick || 100;
@@ -238,10 +236,10 @@ export class Map {
 		costFn = costFn || Utils.ONE;
 		this.cells.forEach( (cell, i, j) => {
       if (cell.isNull()) {
-        costGrid[i][j] = def.PDS_OBSTRUCTION;
+        costGrid[i][j] = Path.OBSTRUCTION;
       }
       else {
-        costGrid[i][j] = cell.canBePassed() ? costFn(cell, i, j) : def.PDS_OBSTRUCTION;
+        costGrid[i][j] = cell.canBePassed() ? costFn(cell, i, j) : Path.OBSTRUCTION;
       }
     });
 	}
@@ -264,10 +262,10 @@ export class Map {
 	{
 		let i, j, k;
 
-    if (typeof matcher !== 'function') {
-      opts = matcher || opts;
-      matcher = opts.match || opts.test;
-    }
+		if (typeof matcher !== 'function') {
+			opts = matcher || opts;
+			matcher = opts.match || opts.test;
+		}
 
 		const hallwaysAllowed = opts.hallwaysAllowed || opts.hallways || false;
 		const blockingMap = opts.blockingMap || null;
@@ -288,7 +286,7 @@ export class Map {
 							&& matcher(cell, i, j, this)
 							&& (!forbidLiquid || !cell.liquid)
 							&& (hallwaysAllowed || this.passableArcCount(i, j) < 2))
-	        {
+	        		{
 						candidateLocs.push([i, j]);
 					}
 				}
@@ -296,13 +294,13 @@ export class Map {
 		}
 
 		if (candidateLocs.length == 0) {
-			return null;
+			return [-1,-1];
 		}
 
 		// and pick one
 		let randIndex = 0;
 		if (deterministic) {
-	    randIndex = Math.floor(candidateLocs.length / 2);
+	    	randIndex = Math.floor(candidateLocs.length / 2);
 		} else {
 			randIndex = random.number(candidateLocs.length);
 		}
@@ -688,7 +686,7 @@ export class Map {
   		for(let j = 0; j < walkableGrid.height && !disrupts; ++j) {
   			if (walkableGrid[i][j] == 1) {
   				if (first) {
-  					Grid.floodFill(walkableGrid, i, j, 1, 2);
+					walkableGrid.floodFill(i, j, 1, 2);
   					first = false;
   				}
   				else {
@@ -711,32 +709,32 @@ export class Map {
 	// is visible to the player; this is to prevent lights from illuminating a wall when the player is on the other
 	// side of the wall.
 	calcFov(grid, x, y, maxRadius, forbiddenFlags=0, forbiddenTerrain=Flags.Tile.T_OBSTRUCTS_VISION, cautiousOnWalls=false) {
-    maxRadius = maxRadius || (this.width + this.height);
-    grid.fill(0);
-    const map = this;
-	  const FOV = new types.FOV({
-      isBlocked(i, j) {
-	       return (!grid.hasXY(i, j)) || map.hasCellFlag(i, j, forbiddenFlags) || map.hasTileFlag(i, j, forbiddenTerrain) ;
-	    },
-      calcRadius(x, y) {
-        return Math.sqrt(x**2 + y ** 2);
-      },
-      setVisible(x, y, v) {
-        grid[x][y] = 1;
-      },
-      hasXY(x, y) { return grid.hasXY(x, y); }
-    });
-	  return FOV.calculate(x, y, maxRadius, cautiousOnWalls);
+		maxRadius = maxRadius || (this.width + this.height);
+		grid.fill(0);
+		const map = this;
+		const FOV = new Fov.FOV({
+		isBlocked(i, j) {
+			return (!grid.hasXY(i, j)) || map.hasCellFlag(i, j, forbiddenFlags) || map.hasTileFlag(i, j, forbiddenTerrain) ;
+			},
+		calcRadius(x, y) {
+			return Math.sqrt(x**2 + y ** 2);
+		},
+		setVisible(x, y, v) {
+			grid[x][y] = 1;
+		},
+		hasXY(x, y) { return grid.hasXY(x, y); }
+		});
+		return FOV.calculate(x, y, maxRadius, cautiousOnWalls);
 	}
 
-  losFromTo(a, b) {
-    const line = getLine(this, a.x, a.y, b.x, b.y);
-    if ((!line) || (!line.length)) return false;
+	losFromTo(a, b) {
+		const line = getLine(this, a.x, a.y, b.x, b.y);
+		if ((!line) || (!line.length)) return false;
 
-    return !line.some( (loc) => {
-      return this.blocksVision(loc[0], loc[1]);
-    });
-  }
+		return !line.some( (loc) => {
+		return this.blocksVision(loc[0], loc[1]);
+		});
+	}
 
 	// MEMORIES
 

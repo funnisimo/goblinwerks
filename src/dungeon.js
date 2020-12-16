@@ -1,11 +1,6 @@
 
-import * as Grid from './grid.js';
-import { random } from './random.js';
-import * as Utils from './utils.js';
-import * as Path from './path.js';
+import { utils as Utils, random, grid as Grid, path as Path } from 'gw-core';
 import * as Flags from './flags.js';
-import { map as MAP } from './map.js';
-import { tile as TILE } from './tile.js';
 import { diggers as DIGGERS, digger as DIGGER } from './digger.js';
 import { def, make } from './gw.js';
 
@@ -195,7 +190,7 @@ function attachRoomAtXY(roomGrid, xy, doors, opts={}) {
 
       if (roomGrid[x][y]) continue;
 
-      const dir = Grid.directionOfDoorSite(roomGrid, x, y);
+      const dir = Grid.directionOfDoorSite(roomGrid, x, y, 1);
       if (dir != def.NO_DIRECTION) {
         const d = DIRS[dir];
         if (roomAttachesAt(roomGrid, xy[0] - x, xy[1] - y)) {
@@ -289,7 +284,7 @@ export function digLake(opts={}) {
   for (; lakeMaxHeight >= lakeMinSize && lakeMaxWidth >= lakeMinSize && count < maxCount; lakeMaxHeight--, lakeMaxWidth -= 2) { // lake generations
 
     lakeGrid.fill(NOTHING);
-    const bounds = Grid.fillBlob(lakeGrid, 5, 4, 4, lakeMaxWidth, lakeMaxHeight, 55, "ffffftttt", "ffffttttt");
+    const bounds = lakeGrid.fillBlob(5, 4, 4, lakeMaxWidth, lakeMaxHeight, 55, "ffffftttt", "ffffttttt");
 
     for (k=0; k < tries && count < maxCount; k++) { // placement attempts
         // propose a position for the top-left of the lakeGrid in the dungeon
@@ -493,7 +488,7 @@ export function addBridges(minimumPathingDistance, maxConnectionLength) {
                   // pathGrid.fill(30000);
                   // pathGrid[newX][newY] = 0;
                   // dijkstraScan(pathGrid, costGrid, false);
-                  if (pathGrid[x][y] > minimumPathingDistance && pathGrid[x][y] < def.PDS_NO_PATH) { // and if the pathing distance between the two flanking floor tiles exceeds minimumPathingDistance,
+                  if (pathGrid[x][y] > minimumPathingDistance && pathGrid[x][y] < Path.NO_PATH) { // and if the pathing distance between the two flanking floor tiles exceeds minimumPathingDistance,
 
                       dungeon.debug('Adding Bridge', x, y, ' => ', newX, newY);
 

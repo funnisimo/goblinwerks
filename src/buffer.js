@@ -2,9 +2,6 @@
 import { DataBuffer, Buffer } from 'gw-canvas';
 
 import * as Text from './text.js';
-import * as Utils from './utils.js';
-import * as Color from './color.js';
-import * as Grid from './grid.js';
 import { Sprite } from './sprite.js';
 import * as GW from './gw.js';
 

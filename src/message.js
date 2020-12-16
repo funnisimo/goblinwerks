@@ -1,8 +1,6 @@
 
-import * as Color from './color.js';
-import { io as IO } from './io.js';
+import { io as IO } from 'gw-core';
 import * as Text from './text.js';
-import { Sprite } from './sprite.js';
 import * as GW from './gw.js';
 
 

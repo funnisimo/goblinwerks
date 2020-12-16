@@ -1,12 +1,8 @@
 
 import * as Color from './color.js';
 import * as Flags from './flags.js';
-import * as Utils from './utils.js';
-import { random } from './random.js';
-import * as Grid from './grid.js';
-import * as Frequency from './frequency.js';
+import { utils as Utils, random, range as Range, grid as Grid, path as Path, frequency as Frequency } from 'gw-core';
 import * as Text from './text.js';
-import * as Path from './path.js';
 import * as Visibility from './visibility.js';
 import { actions as Actions } from './actions/index.js';
 import { types, make, data as DATA, config as CONFIG, ui as UI, def, ai as AI, colors as COLORS } from './gw.js';
@@ -33,7 +29,7 @@ class ActorKind {
     this.regen = Object.assign({}, opts.regen || {});
 		this.id = opts.id || null;
     this.bump = opts.bump || ['attack'];  // attack me by default if you bump into me
-    this.frequency = make.frequency(opts.frequency || this.stats.frequency);
+    this.frequency = Frequency.make(opts.frequency || this.stats.frequency);
 
     if (typeof this.bump === 'string') {
       this.bump = this.bump.split(/[,|]/).map( (t) => t.trim() );
@@ -120,7 +116,7 @@ class ActorKind {
   }
 
   canPass(actor, other) {
-    return actor.isPlayer() == other.isPlayer();
+    return (actor === other) || (actor.isPlayer() == other.isPlayer());
   }
 
   calcBashDamage(actor, item, ctx) {
@@ -250,7 +246,7 @@ export class Actor {
     if (this.kind.stats) {
       Object.entries(this.kind.stats).forEach( ([key, value]) => {
         if (typeof value !== 'number') {
-          value = make.range(value).value();
+          value = Range.make(value).value();
         }
         this.current[key] = this.prior[key] = this.max[key] = value;
       });
@@ -437,10 +433,10 @@ export class Actor {
     const isPlayer = this.isPlayer();
 
     map.fillCostGrid(grid, (cell, x, y) => {
-      if (isPlayer && !cell.isRevealed()) return def.PDS_OBSTRUCTION;
-      if (cell.hasTileFlag(forbiddenTileFlags, isPlayer)) return def.PDS_FORBIDDEN;
-      if (cell.hasTileFlag(avoidedTileFlags, isPlayer)) return def.PDS_AVOIDED;
-      if (cell.hasFlag(avoidedCellFlags, isPlayer)) return def.PDS_AVOIDED;
+      if (isPlayer && !cell.isRevealed()) return Path.OBSTRUCTION;
+      if (cell.hasTileFlag(forbiddenTileFlags, isPlayer)) return Path.FORBIDDEN;
+      if (cell.hasTileFlag(avoidedTileFlags, isPlayer)) return Path.AVOIDED;
+      if (cell.hasFlag(avoidedCellFlags, isPlayer)) return Path.AVOIDED;
       return 1;
     });
   }
@@ -463,10 +459,45 @@ export class Actor {
       }
       Path.calculateDistances(mapToMe, this.x, this.y, costGrid, true);
       // Grid.free(costGrid);
+      mapToMe.x = this.x;
+      mapToMe.y = this.y;
     }
     return mapToMe;
   }
 
+  getPath(x, y, map) {
+    const traveler = this;
+		traveler.updateMapToMe();
+    const isPlayer = traveler.isPlayer();
+		map = map || DATA.map;
+	
+		function isBlocked(newX, newY, fromX, fromY) {
+			if (!map.hasXY(newX, newY)) return true;
+		
+			const cell = map.cell(newX, newY);
+			const blocker = (isPlayer && !cell.isAnyKindOfVisible()) ? cell.memory.actor : cell.actor;
+			if (traveler && (newX != traveler.x || newY != traveler.y)
+				&& traveler.avoidsCell(cell, newX, newY))
+			{
+				return true;
+			} else if (traveler && blocker
+				&& !traveler.kind.canPass(traveler, blocker))
+			{
+				return true;
+			}
+		
+			if (map.diagonalBlocked(fromX, fromY, newX, newY, isPlayer)
+				|| !map.isPassableNow(newX, newY, isPlayer))
+			{
+				return true;
+			}		
+			return false;
+		}
+		
+    return Path.getPath(traveler.mapToMe, x, y, isBlocked);
+  }
+  
+  
   invalidateCostMap() {
     if (this.costGrid) {
       Grid.free(this.costGrid);

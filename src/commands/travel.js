@@ -1,13 +1,7 @@
 
-
-import * as Flags from '../flags.js';
-import * as Utils from '../utils.js';
-import * as Grid from '../grid.js';
-import * as Path from '../path.js';
+import { io as IO } from 'gw-core';
 import { actions as Actions } from '../actions/index.js';
-import * as Actor from '../actor.js';
-import * as FX from '../fx.js';
-import { data as DATA, def, commands, ui as UI, message as MSG, config as CONFIG } from '../gw.js';
+import { data as DATA } from '../gw.js';
 
 
 async function travel(e) {
@@ -28,4 +22,4 @@ async function travel(e) {
   return r;
 }
 
-commands.travel = travel;
+IO.addCommand('travel', travel);

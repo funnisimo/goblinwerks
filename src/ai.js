@@ -1,7 +1,6 @@
 
 import * as Flags from './flags.js';
-import * as Utils from './utils.js';
-import { random } from './random.js';
+import { utils as Utils, random } from 'gw-core';
 import * as FX from './fx.js';
 import * as GW from './gw.js';
 import { actions as Actions } from './actions/index.js';

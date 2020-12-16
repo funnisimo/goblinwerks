@@ -1,7 +1,5 @@
 
-import * as Flags from '../flags.js';
-import * as Utils from '../utils.js';
-import { gameOver } from '../game.js';
+import { utils as Utils } from 'gw-core';
 import * as GW from '../gw.js';
 import { actions as Actions } from './index.js';
 import * as Combat from '../combat.js';

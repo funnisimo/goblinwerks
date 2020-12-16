@@ -1,8 +1,7 @@
 
-import * as Flags from '../flags.js';
-import * as Utils from '../utils.js';
+import { utils as Utils, io as IO } from 'gw-core';
 import { actions as Actions } from '../actions/index.js';
-import { data as DATA, def, commands, ui as UI, message as MSG } from '../gw.js';
+import { data as DATA, def, ui as UI, message as MSG } from '../gw.js';
 
 
 async function fire(e) {
@@ -51,4 +50,4 @@ async function fire(e) {
   return true;
 }
 
-commands.fire = fire;
+IO.addCommand('fire', fire);

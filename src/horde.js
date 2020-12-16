@@ -1,6 +1,5 @@
 
-import * as Utils from './utils.js';
-import { random } from './random.js';
+import { utils as Utils, random, frequency as Frequency } from 'gw-core';
 import * as Flags from './flags.js';
 import * as GW from './gw.js';
 
@@ -12,7 +11,7 @@ export class Horde {
   constructor(config={}) {
     this.minions = null;
     Object.assign(this,config);
-    this.frequency = GW.make.frequency(this.frequency);
+    this.frequency = Frequency.make(this.frequency);
     this.flags = Flags.Horde.toFlag(this.flags);
   }
 }

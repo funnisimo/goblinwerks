@@ -1,7 +1,8 @@
 
 import * as Game from './game.js';
 import * as Flags from './flags.js';
-import * as Utils from './utils.js';
+import { utils as Utils } from 'gw-core';
+
 import { types, def, make, data as DATA, flag as FLAG, tiles, colors as COLORS } from './gw.js';
 
 export var tile = {};

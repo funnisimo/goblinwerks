@@ -2,6 +2,21 @@
 const diff = require('jest-diff').default;
 
 expect.extend({
+  toBeInteger(received) {
+    if (typeof received !== 'number') {
+      throw new Error('expected value to be a number');
+    }
+
+    let success = Math.floor(received) == received;
+
+    return success ? ({
+      pass: true,
+      message: () => `Expected ${received} not to be an integer`,
+    }) : ({
+      pass: false,
+      message: () => `Expected ${received} to be an integer`,
+    });
+  },
   toBeInRange(received, lo, hi) {
     if (typeof lo !== 'number') {
       throw new Error('expected lo to be a number');

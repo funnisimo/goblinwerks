@@ -58,8 +58,8 @@ const COMBAT_BONUS_DISPLAY = [
 ];
 
 
-const COMBAT_BOARD = GW.make.grid(6,6); // , () => GW.random.number(4) + 1 );
-const COMBAT_SELECTED = GW.make.grid(6,6);
+const COMBAT_BOARD = GW.grid.make(6,6); // , () => GW.random.number(4) + 1 );
+const COMBAT_SELECTED = GW.grid.make(6,6);
 const COMBAT_CURSOR = [0,0];
 let COMBAT_COUNT = 0;
 

@@ -1,6 +1,6 @@
 
 
-import * as Grid from './grid.js';
+import { grid as Grid } from 'gw-core';
 import * as Flags from './flags.js';
 import { data as DATA, config as CONFIG } from './gw.js';
 

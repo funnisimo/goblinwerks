@@ -1,8 +1,6 @@
 
-import * as Utils from './utils.js';
-import * as Text from './text.js';
+import { utils as Utils } from 'gw-core';
 import * as TileEvent from './tileEvent.js';
-import * as Game from './game.js';
 import * as FX from './fx.js';
 import * as GW from './gw.js';
 

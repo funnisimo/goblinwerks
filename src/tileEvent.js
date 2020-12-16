@@ -1,10 +1,7 @@
 
+import { utils as Utils, random, grid as Grid, events as Events } from 'gw-core';
 import * as Color from './color.js';
-import { random } from './random.js';
-import * as Grid from './grid.js';
 import * as Flags from './flags.js';
-import * as Utils from './utils.js';
-import * as Events from './events.js';
 import * as GW from './gw.js';
 
 
@@ -422,6 +419,7 @@ export function computeSpawnMap(feat, spawnMap, ctx)
 			}
 		}
 		else {
+			if (probDec <= 0) probDec = startProb;
 			while (madeChange && startProb > 0) {
 				madeChange = false;
 				t++;
