@@ -2267,6 +2267,174 @@ var path = {
     getPath: getPath
 };
 
+/**
+ * Data for an event listener.
+ */
+class Listener {
+    /**
+     * Creates a Listener.
+     * @param {Function} fn The listener function.
+     * @param {Object} [context=null] The context to invoke the listener with.
+     * @param {Boolean} [once=false] Specify if the listener is a one-time listener.
+     */
+    constructor(fn, context, once = false) {
+        this.fn = fn;
+        this.context = context || null;
+        this.once = once || false;
+        this.next = null;
+    }
+    /**
+     * Compares this Listener to the parameters.
+     * @param {Function} fn - The function
+     * @param {Object} [context] - The context Object.
+     * @param {Boolean} [once] - Whether or not it is a one time handler.
+     * @returns Whether or not this Listener matches the parameters.
+     */
+    matches(fn, context, once) {
+        return (this.fn === fn &&
+            (once === undefined || once == this.once) &&
+            (!context || this.context === context));
+    }
+}
+var EVENTS$1 = {};
+/**
+ * Add a listener for a given event.
+ *
+ * @param {String} event The event name.
+ * @param {Function} fn The listener function.
+ * @param {*} context The context to invoke the listener with.
+ * @param {Boolean} once Specify if the listener is a one-time listener.
+ * @returns {Listener}
+ */
+function addListener(event, fn, context, once = false) {
+    if (typeof fn !== "function") {
+        throw new TypeError("The listener must be a function");
+    }
+    const listener = new Listener(fn, context || null, once);
+    addToChain(EVENTS$1, event, listener);
+    return listener;
+}
+/**
+ * Add a listener for a given event.
+ *
+ * @param {String} event The event name.
+ * @param {Function} fn The listener function.
+ * @param {*} context The context to invoke the listener with.
+ * @param {Boolean} once Specify if the listener is a one-time listener.
+ * @returns {Listener}
+ */
+function on(event, fn, context, once = false) {
+    return addListener(event, fn, context, once);
+}
+/**
+ * Add a one-time listener for a given event.
+ *
+ * @param {(String|Symbol)} event The event name.
+ * @param {Function} fn The listener function.
+ * @param {*} [context=this] The context to invoke the listener with.
+ * @returns {EventEmitter} `this`.
+ * @public
+ */
+function once(event, fn, context) {
+    return addListener(event, fn, context, true);
+}
+/**
+ * Remove the listeners of a given event.
+ *
+ * @param {String} event The event name.
+ * @param {Function} fn Only remove the listeners that match this function.
+ * @param {*} context Only remove the listeners that have this context.
+ * @param {Boolean} once Only remove one-time listeners.
+ * @returns {EventEmitter} `this`.
+ * @public
+ */
+function removeListener(event, fn, context, once = false) {
+    if (!EVENTS$1[event])
+        return;
+    if (!fn) {
+        clearEvent(event);
+        return;
+    }
+    eachChain(EVENTS$1[event], (obj) => {
+        const l = obj;
+        if (l.matches(fn, context, once)) {
+            removeFromChain(EVENTS$1, event, l);
+        }
+    });
+}
+/**
+ * Remove the listeners of a given event.
+ *
+ * @param {String} event The event name.
+ * @param {Function} fn Only remove the listeners that match this function.
+ * @param {*} context Only remove the listeners that have this context.
+ * @param {Boolean} once Only remove one-time listeners.
+ * @returns {EventEmitter} `this`.
+ * @public
+ */
+function off(event, fn, context, once = false) {
+    removeListener(event, fn, context, once);
+}
+/**
+ * Clear event by name.
+ *
+ * @param {String} evt The Event name.
+ */
+function clearEvent(event) {
+    EVENTS$1[event] = null;
+}
+/**
+ * Remove all listeners, or those of the specified event.
+ *
+ * @param {(String|Symbol)} [event] The event name.
+ * @returns {EventEmitter} `this`.
+ * @public
+ */
+function removeAllListeners(event) {
+    if (event) {
+        if (EVENTS$1[event])
+            clearEvent(event);
+    }
+    else {
+        EVENTS$1 = {};
+    }
+}
+/**
+ * Calls each of the listeners registered for a given event.
+ *
+ * @param {String} event The event name.
+ * @param {...*} args The additional arguments to the event handlers.
+ * @returns {Boolean} `true` if the event had listeners, else `false`.
+ * @public
+ */
+async function emit(...args) {
+    const event = args[0];
+    if (!EVENTS$1[event])
+        return false; // no events to send
+    let listener = EVENTS$1[event];
+    while (listener) {
+        let next = listener.next;
+        if (listener.once)
+            removeFromChain(EVENTS$1, event, listener);
+        await listener.fn.apply(listener.context, args);
+        listener = next;
+    }
+    return true;
+}
+
+var events = {
+    __proto__: null,
+    Listener: Listener,
+    addListener: addListener,
+    on: on,
+    once: once,
+    removeListener: removeListener,
+    off: off,
+    clearEvent: clearEvent,
+    removeAllListeners: removeAllListeners,
+    emit: emit
+};
+
 // Based on random numbers in umoria
 const RNG_M = 2**31 - 1;
 const RNG_A = 16807;
@@ -2423,168 +2591,6 @@ function make$3(x, y, w, h) {
 }
 
 make$2.bounds = make$3;
-
-var EVENTS$1 = {};
-
-/**
- * Data for an event listener.
- */
-class Listener {
-  /**
-   * Creates a Listener.
-   * @param {Function} fn The listener function.
-   * @param {Object} [context=null] The context to invoke the listener with.
-   * @param {Boolean} [once=false] Specify if the listener is a one-time listener.
-   */
-  constructor(fn, context, once) {
-    this.fn = fn;
-    this.context = context || null;
-    this.once = once || false;
-    this.next = null;
-  }
-
-  /**
-   * Compares this Listener to the parameters.
-   * @param {Function} fn - The function
-   * @param {Object} [context] - The context Object.
-   * @param {Boolean} [once] - Whether or not it is a one time handler.
-   * @returns Whether or not this Listener matches the parameters.
-   */
-  matches(fn, context, once) {
-    return ((this.fn === fn) &&
-        ((once === undefined) || (once == this.once)) &&
-        (!context || this.context === context));
-  }
-}
-
-
-/**
- * Add a listener for a given event.
- *
- * @param {String} event The event name.
- * @param {Function} fn The listener function.
- * @param {*} context The context to invoke the listener with.
- * @param {Boolean} once Specify if the listener is a one-time listener.
- * @returns {Listener}
- */
-function addListener(event, fn, context, once) {
-  if (typeof fn !== 'function') {
-    throw new TypeError('The listener must be a function');
-  }
-
-  const listener = new Listener(fn, context || null, once);
-  utils$1.addToChain(EVENTS$1, event, listener);
-  return listener;
-}
-
-/**
- * Add a listener for a given event.
- *
- * @param {String} event The event name.
- * @param {Function} fn The listener function.
- * @param {*} context The context to invoke the listener with.
- * @param {Boolean} once Specify if the listener is a one-time listener.
- * @returns {Listener}
- */
- function on(event, fn, context, once) {
-  return addListener(event, fn, context, once);
-}
-
-/**
- * Add a one-time listener for a given event.
- *
- * @param {(String|Symbol)} event The event name.
- * @param {Function} fn The listener function.
- * @param {*} [context=this] The context to invoke the listener with.
- * @returns {EventEmitter} `this`.
- * @public
- */
-function once(event, fn, context) {
-  return addListener(event, fn, context, true);
-}
-/**
- * Remove the listeners of a given event.
- *
- * @param {String} event The event name.
- * @param {Function} fn Only remove the listeners that match this function.
- * @param {*} context Only remove the listeners that have this context.
- * @param {Boolean} once Only remove one-time listeners.
- * @returns {EventEmitter} `this`.
- * @public
- */
-function removeListener(event, fn, context, once) {
-  if (!EVENTS$1[event]) return;
-  if (!fn) {
-    clearEvent(event);
-    return;
-  }
-
-  utils$1.eachChain(EVENTS$1[event], (l) => {
-    if (l.matches(fn, context, once)) {
-      utils$1.removeFromChain(EVENTS$1, event, l);
-    }
-  });
-}
-/**
- * Remove the listeners of a given event.
- *
- * @param {String} event The event name.
- * @param {Function} fn Only remove the listeners that match this function.
- * @param {*} context Only remove the listeners that have this context.
- * @param {Boolean} once Only remove one-time listeners.
- * @returns {EventEmitter} `this`.
- * @public
- */
- function off(event, fn, context, once) {
-  removeListener(event, fn, context, once);
-}
-
-/**
- * Clear event by name.
- *
- * @param {String} evt The Event name.
- */
-function clearEvent(event) {
-  EVENTS$1[event] = null;
-}
-
-
-/**
- * Remove all listeners, or those of the specified event.
- *
- * @param {(String|Symbol)} [event] The event name.
- * @returns {EventEmitter} `this`.
- * @public
- */
-function removeAllListeners(event) {
-  if (event) {
-    if (EVENTS$1[event]) clearEvent(event);
-  } else {
-    EVENTS$1 = {};
-  }
-}
-
-/**
- * Calls each of the listeners registered for a given event.
- *
- * @param {String} event The event name.
- * @param {...*} args The additional arguments to the event handlers.
- * @returns {Boolean} `true` if the event had listeners, else `false`.
- * @public
- */
-async function emit(...args) {
-  const event = args[0];
-  if (!EVENTS$1[event]) return false;  // no events to send
-  let listener = EVENTS$1[event];
-
-  while(listener) {
-    let next = listener.next;
-    if (listener.once) utils$1.removeFromChain(EVENTS$1, event, listener);
-    await listener.fn.apply(listener.context, args);
-    listener = next;
-  }
-  return true;
-}
 
 ///////////////////////////////////
 // FLAG
@@ -6917,7 +6923,7 @@ async function spawn(feat, ctx) {
 	}
 
   if (feat.eventName) {
-		await emit(feat.eventName, ctx);
+		await events.emit(feat.eventName, ctx);
     didSomething = true;
 	}
 
@@ -11105,7 +11111,7 @@ async function start$1(opts={}) {
 
   GW.utils.clearObject(maps);
 
-  await emit('GAME_START', opts);
+  await events.emit('GAME_START', opts);
 
   if (opts.width) {
     config.width = opts.width;
@@ -11178,7 +11184,7 @@ async function startMap(map, loc='start') {
   // scheduler.clear();
 
   if (data.map && data.player) {
-    await emit('STOP_MAP', data.map);
+    await events.emit('STOP_MAP', data.map);
 
     if (data.map._tick) scheduler.remove(data.map._tick);
     data.map._tick = null;
@@ -11251,7 +11257,7 @@ async function startMap(map, loc='start') {
     map._tick = scheduler.push( updateEnvironment, map.config.tick );
   }
 
-  await emit('MAP_START', map);
+  await events.emit('MAP_START', map);
 
 }
 
@@ -16542,4 +16548,6 @@ var flames = {
     Flames: Flames
 };
 
-export { actions, actor, actorKinds, addListener, ai, canvas, cell, clearEvent, color, colors, combat$1 as combat, config, cosmetic, data, def, digger, diggers, dungeon, emit, flag, flags, flames, flavor, fov, frequency$1 as frequency, fx, game, grid, horde, hordes, install, io, item$1 as item, itemKinds, light, lights, make$2 as make, map$1 as map, maps, message, messages, off, on, once, path, player, random, range, removeAllListeners, removeListener, scheduler, sidebar, sprite, sprites, text, tile, tileEvent$1 as tileEvent, tileEvents$1 as tileEvents, tiles, types, ui, utils$1 as utils, viewport, visibility };
+const { emit: emit$1, on: on$1, off: off$1, once: once$1 } = events;
+
+export { actions, actor, actorKinds, ai, canvas, cell, color, colors, combat$1 as combat, config, cosmetic, data, def, digger, diggers, dungeon, emit$1 as emit, events, flag, flags, flames, flavor, fov, frequency$1 as frequency, fx, game, grid, horde, hordes, install, io, item$1 as item, itemKinds, light, lights, make$2 as make, map$1 as map, maps, message, messages, off$1 as off, on$1 as on, once$1 as once, path, player, random, range, scheduler, sidebar, sprite, sprites, text, tile, tileEvent$1 as tileEvent, tileEvents$1 as tileEvents, tiles, types, ui, utils$1 as utils, viewport, visibility };
