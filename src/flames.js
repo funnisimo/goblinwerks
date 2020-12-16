@@ -1,8 +1,8 @@
 
-import { grid as Grid } from 'gw-core';
+import { grid as Grid } from 'gw-utils';
 import * as Color from './color.js';
 import * as Text from './text.js';
-import { utils as Utils, cosmetic } from 'gw-core';
+import { utils as Utils, cosmetic } from 'gw-utils';
 import * as GW from './gw.js';
 
 

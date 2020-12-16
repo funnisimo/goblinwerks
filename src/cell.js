@@ -1,6 +1,6 @@
 
 import * as Flags from './flags.js';
-import { utils as Utils, random } from 'gw-core';
+import { utils as Utils, random } from 'gw-utils';
 import * as Color from './color.js';
 import * as Light from './light.js';
 import * as TileEvent from './tileEvent.js';

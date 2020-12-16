@@ -1,6 +1,6 @@
 
 
-import { io as IO } from 'gw-core';
+import { io as IO } from 'gw-utils';
 import { data as DATA } from '../gw.js';
 import './grab.js';
 import './movePlayer.js';

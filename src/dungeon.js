@@ -1,5 +1,5 @@
 
-import { utils as Utils, random, grid as Grid, path as Path } from 'gw-core';
+import { utils as Utils, random, grid as Grid, path as Path } from 'gw-utils';
 import * as Flags from './flags.js';
 import { diggers as DIGGERS, digger as DIGGER } from './digger.js';
 import { def, make } from './gw.js';

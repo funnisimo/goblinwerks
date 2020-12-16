@@ -22,7 +22,7 @@
     "@rollup/plugin-node-resolve": "^10.0.0",
     "babel-jest": "^26.5.2",
     "gw-canvas": "^1.1.1",
-    "gw-core": "^0.0.1",
+    "gw-utils": "^0.0.2",
     "gw-text": "^1.0.10",
     "jest": "^26.4.2",
     "jest-diff": "^26.6.2",

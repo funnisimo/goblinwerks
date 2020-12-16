@@ -1,5 +1,5 @@
 
-import { utils as Utils, random, grid as Grid, events as Events } from 'gw-core';
+import { utils as Utils, random, grid as Grid, events as Events } from 'gw-utils';
 import * as Color from './color.js';
 import * as Flags from './flags.js';
 import * as GW from './gw.js';

@@ -1,6 +1,6 @@
 
 import * as Color from './color.js';
-import { utils as Utils, io as IO } from 'gw-core';
+import { utils as Utils, io as IO } from 'gw-utils';
 import * as Flag from './flag.js';
 import * as Text from './text.js';
 import * as GW from './gw.js';

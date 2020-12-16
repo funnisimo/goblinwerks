@@ -1,5 +1,5 @@
 
-import { utils as Utils } from 'gw-core';
+import { utils as Utils } from 'gw-utils';
 import * as TileEvent from './tileEvent.js';
 import * as FX from './fx.js';
 import * as GW from './gw.js';

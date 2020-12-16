@@ -1,5 +1,5 @@
 
-import { utils as Utils, random, grid as Grid, fov as Fov, path as Path } from 'gw-core';
+import { utils as Utils, random, grid as Grid, fov as Fov, path as Path } from 'gw-utils';
 import * as Color from './color.js';
 import { cell as CELL } from './cell.js';
 import * as Flags from './flags.js';

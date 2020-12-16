@@ -2,7 +2,7 @@
 // import { withFont } from 'gw-canvas';
 
 import * as Flags from './flags.js';
-import { utils as Utils, io as IO } from 'gw-core';
+import { utils as Utils, io as IO } from 'gw-utils';
 import * as SPRITE from './sprite.js';
 import * as Color from './color.js';
 import * as Text from './text.js';

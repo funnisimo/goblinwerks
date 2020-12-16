@@ -1,5 +1,5 @@
 
-import { io as IO } from 'gw-core';
+import { io as IO } from 'gw-utils';
 import * as Flags from '../flags.js';
 import { actions as Actions } from '../actions/index.js';
 import { data as DATA, def, ui as UI, message as MSG } from '../gw.js';

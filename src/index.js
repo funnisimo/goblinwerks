@@ -2,8 +2,8 @@
 
 import './random.js';
 import './bounds.js';
-export { utils, range, random, cosmetic, grid, io, fov, path, events, frequency } from 'gw-core';
-import { events as Events } from 'gw-core';
+export { utils, range, random, cosmetic, grid, io, fov, path, events, frequency } from 'gw-utils';
+import { events as Events } from 'gw-utils';
 export const { emit, on, off, once } = Events;
 
 import './flag.js';

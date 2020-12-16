@@ -1,5 +1,5 @@
 
-import { utils as Utils, random, frequency as Frequency } from 'gw-core';
+import { utils as Utils, random, frequency as Frequency } from 'gw-utils';
 import * as Flags from './flags.js';
 import * as GW from './gw.js';
 

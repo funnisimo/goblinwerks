@@ -1,5 +1,5 @@
 
-import { io as IO } from 'gw-core';
+import { io as IO } from 'gw-utils';
 import * as Text from './text.js';
 import * as GW from './gw.js';
 

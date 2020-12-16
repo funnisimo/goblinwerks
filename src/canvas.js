@@ -1,7 +1,7 @@
 
 import { Canvas, Canvas2D, NotSupportedError, Glyphs, withImage, configure } from 'gw-canvas';
 
-import { cosmetic } from 'gw-core';
+import { cosmetic } from 'gw-utils';
 import * as GW from './gw.js';
 
 

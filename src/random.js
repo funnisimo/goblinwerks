@@ -1,5 +1,5 @@
 
-import { Random } from 'gw-core';
+import { Random } from 'gw-utils';
 
 // Based on random numbers in umoria
 const RNG_M = 2**31 - 1;

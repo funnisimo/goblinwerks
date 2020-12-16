@@ -1,5 +1,5 @@
 
-import { utils as Utils, random, grid as Grid } from 'gw-core';
+import { utils as Utils, random, grid as Grid } from 'gw-utils';
 import { make, def } from './gw.js';
 
 export var digger = {};

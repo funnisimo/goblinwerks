@@ -1,7 +1,7 @@
 
 import * as Text from './text.js';
 import * as Color from './color.js';
-import { io as IO } from 'gw-core';
+import { io as IO } from 'gw-utils';
 import * as GW from './gw.js';
 
 

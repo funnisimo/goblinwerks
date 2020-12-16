@@ -1,7 +1,7 @@
 
 import * as Color from './color.js';
 import * as Flags from './flags.js';
-import { utils as Utils, grid as Grid } from 'gw-core';
+import { utils as Utils, grid as Grid } from 'gw-utils';
 import * as Text from './text.js';
 import { Sprite } from './sprite.js';
 import { cell as CELL } from './cell.js';

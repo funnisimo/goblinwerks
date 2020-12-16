@@ -1,5 +1,5 @@
 
-import { utils as Utils } from 'gw-core';
+import { utils as Utils } from 'gw-utils';
 
 export var actions = {};
 

@@ -1,7 +1,7 @@
 
 
 import * as Flags from './flags.js';
-import { utils as Utils, io as IO, events as Events, scheduler as Scheduler } from 'gw-core';
+import { utils as Utils, io as IO, events as Events, scheduler as Scheduler } from 'gw-utils';
 import * as Light from './light.js';
 import { actor as ACTOR } from './actor.js';
 import { player as PLAYER } from './player.js';
