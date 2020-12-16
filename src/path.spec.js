@@ -16,10 +16,10 @@ describe('GW.path', () => {
     distGrid = GW.grid.alloc(10, 10);
     costGrid = GW.grid.alloc(10, 10, 1);
 
-    costGrid[3][2] = GW.def.PDS_OBSTRUCTION;
-    costGrid[4][2] = GW.def.PDS_OBSTRUCTION;
-    costGrid[5][2] = GW.def.PDS_OBSTRUCTION;
-    costGrid[6][2] = GW.def.PDS_OBSTRUCTION;
+    costGrid[3][2] = GW.path.OBSTRUCTION;
+    costGrid[4][2] = GW.path.OBSTRUCTION;
+    costGrid[5][2] = GW.path.OBSTRUCTION;
+    costGrid[6][2] = GW.path.OBSTRUCTION;
 
     GW.path.calculateDistances(distGrid, 4, 4, costGrid, true);
 
@@ -45,9 +45,9 @@ describe('GW.path', () => {
     expect(player.mapToMe.x).toEqual(player.x);
     expect(player.mapToMe.y).toEqual(player.y);
 
-    const path = GW.path.getPath(map, player.mapToMe, 5, 7, player);
+    const path = player.getPath(5, 7, map);
     // console.log(path);
-    expect(path.length).toEqual(5);
+    expect(path.length).toEqual(6);
 
   });
 
@@ -95,7 +95,7 @@ describe('GW.path', () => {
       for(let i = 0; i < path.length; ++i) {
         const [x, y] = path[i];
         const ch = data[y-1][x-1];
-        if (!('X.'.includes(ch))) success = false;
+        if (!('@X.'.includes(ch))) success = false;
       }
     }
     if (!success) {
@@ -125,7 +125,7 @@ describe('GW.path', () => {
         const line = data[j];
         for(let i = 0; i < line.length; ++i) {
           const ch = line[i];
-          if (ch == 'X' || ch == '.') {
+          if (ch == 'X' || ch == '.' || ch == '@') {
             const x = i + 1;
             const y = j + 1;
             const v = player.mapToMe[x][y];
@@ -142,7 +142,7 @@ describe('GW.path', () => {
   function testPath(data) {
     const player = GW.make.player();
     const map = makeMap(data, player);
-    const path = GW.path.getPath(map, player.mapToMe, map.locations.end[0], map.locations.end[1], player);
+    const path = player.getPath(map.locations.end[0], map.locations.end[1], map);
     return testResults(data, map, player, path);
   }
 
@@ -154,6 +154,21 @@ describe('GW.path', () => {
       '####.   ',
       '####.   ',
       '@....   ',
+      '        ',
+    ];
+
+    expect(testPath(m)).toBeTruthy();
+  });
+
+  test('simple diagonal', () => {
+
+    const m = [
+      '        ',
+      '  X     ',
+      '   .    ',
+      '    @   ',
+      '        ',
+      '        ',
       '        ',
     ];
 
@@ -174,7 +189,7 @@ describe('GW.path', () => {
     expect(testPath(m)).toBeTruthy();
   });
 
-  test.only('handles player memory', () => {
+  test('handles player memory', () => {
     const data = [
       '####X   ',
       '#### .  ',
@@ -196,9 +211,7 @@ describe('GW.path', () => {
     map.moveActor(6,3,cell.actor);
     player.updateMapToMe(true);
 
-    debugger;
-
-    const path = GW.path.getPath(map, player.mapToMe, map.locations.end[0], map.locations.end[1], player);
+    const path = player.getPath(map.locations.end[0], map.locations.end[1], map);
     expect(testResults(data, map, player, path)).toBeTruthy();
   });
 

@@ -6,7 +6,6 @@ import { utils as Utils, io as IO } from 'gw-core';
 import * as SPRITE from './sprite.js';
 import * as Color from './color.js';
 import * as Text from './text.js';
-import * as Path from './path.js';
 import { Buffer } from './buffer.js';
 import * as FX from './fx.js';
 import { data as DATA, types, ui, message as MSG, def, viewport as VIEWPORT, flavor as FLAVOR, make, sidebar as SIDEBAR, config as CONFIG, colors as COLORS } from './gw.js';
@@ -455,8 +454,7 @@ function updatePathToCursor() {
   if (CURSOR.x == player.x && CURSOR.y == player.y) return;
   if (CURSOR.x < 0 || CURSOR.y < 0) return ui.updatePath();
 
-  const mapToMe = player.updateMapToMe();
-  const path = Path.getPath(map, mapToMe, CURSOR.x, CURSOR.y, player);
+  const path = player.getPath(CURSOR.x, CURSOR.y, map);
 
   ui.updatePath(path);
 }

@@ -2,7 +2,7 @@
 
 import './random.js';
 import './bounds.js';
-export { utils, range, random, cosmetic, grid, io, fov } from 'gw-core';
+export { utils, range, random, cosmetic, grid, io, fov, path } from 'gw-core';
 export * from './events.js';
 import './flag.js';
 import './flags.js';
@@ -12,7 +12,6 @@ export * as sprite from './sprite.js';
 import './buffer.js';
 export * as canvas from './canvas.js';
 export * as frequency from './frequency.js';
-export * as path from './path.js';
 export { digger, diggers } from './digger.js';
 export { dungeon } from './dungeon.js';
 export * as tileEvent from './tileEvent.js';

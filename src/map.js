@@ -1,5 +1,5 @@
 
-import { utils as Utils, random, grid as Grid, fov as Fov } from 'gw-core';
+import { utils as Utils, random, grid as Grid, fov as Fov, path as Path } from 'gw-core';
 import * as Color from './color.js';
 import { cell as CELL } from './cell.js';
 import * as Flags from './flags.js';
@@ -236,10 +236,10 @@ export class Map {
 		costFn = costFn || Utils.ONE;
 		this.cells.forEach( (cell, i, j) => {
       if (cell.isNull()) {
-        costGrid[i][j] = def.PDS_OBSTRUCTION;
+        costGrid[i][j] = Path.OBSTRUCTION;
       }
       else {
-        costGrid[i][j] = cell.canBePassed() ? costFn(cell, i, j) : def.PDS_OBSTRUCTION;
+        costGrid[i][j] = cell.canBePassed() ? costFn(cell, i, j) : Path.OBSTRUCTION;
       }
     });
 	}
@@ -709,32 +709,32 @@ export class Map {
 	// is visible to the player; this is to prevent lights from illuminating a wall when the player is on the other
 	// side of the wall.
 	calcFov(grid, x, y, maxRadius, forbiddenFlags=0, forbiddenTerrain=Flags.Tile.T_OBSTRUCTS_VISION, cautiousOnWalls=false) {
-    maxRadius = maxRadius || (this.width + this.height);
-    grid.fill(0);
-    const map = this;
-	  const FOV = new Fov.FOV({
-      isBlocked(i, j) {
-	       return (!grid.hasXY(i, j)) || map.hasCellFlag(i, j, forbiddenFlags) || map.hasTileFlag(i, j, forbiddenTerrain) ;
-	    },
-      calcRadius(x, y) {
-        return Math.sqrt(x**2 + y ** 2);
-      },
-      setVisible(x, y, v) {
-        grid[x][y] = 1;
-      },
-      hasXY(x, y) { return grid.hasXY(x, y); }
-    });
-	  return FOV.calculate(x, y, maxRadius, cautiousOnWalls);
+		maxRadius = maxRadius || (this.width + this.height);
+		grid.fill(0);
+		const map = this;
+		const FOV = new Fov.FOV({
+		isBlocked(i, j) {
+			return (!grid.hasXY(i, j)) || map.hasCellFlag(i, j, forbiddenFlags) || map.hasTileFlag(i, j, forbiddenTerrain) ;
+			},
+		calcRadius(x, y) {
+			return Math.sqrt(x**2 + y ** 2);
+		},
+		setVisible(x, y, v) {
+			grid[x][y] = 1;
+		},
+		hasXY(x, y) { return grid.hasXY(x, y); }
+		});
+		return FOV.calculate(x, y, maxRadius, cautiousOnWalls);
 	}
 
-  losFromTo(a, b) {
-    const line = getLine(this, a.x, a.y, b.x, b.y);
-    if ((!line) || (!line.length)) return false;
+	losFromTo(a, b) {
+		const line = getLine(this, a.x, a.y, b.x, b.y);
+		if ((!line) || (!line.length)) return false;
 
-    return !line.some( (loc) => {
-      return this.blocksVision(loc[0], loc[1]);
-    });
-  }
+		return !line.some( (loc) => {
+		return this.blocksVision(loc[0], loc[1]);
+		});
+	}
 
 	// MEMORIES
 

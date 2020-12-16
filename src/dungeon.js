@@ -1,6 +1,5 @@
 
-import { utils as Utils, random, grid as Grid } from 'gw-core';
-import * as Path from './path.js';
+import { utils as Utils, random, grid as Grid, path as Path } from 'gw-core';
 import * as Flags from './flags.js';
 import { diggers as DIGGERS, digger as DIGGER } from './digger.js';
 import { def, make } from './gw.js';
@@ -489,7 +488,7 @@ export function addBridges(minimumPathingDistance, maxConnectionLength) {
                   // pathGrid.fill(30000);
                   // pathGrid[newX][newY] = 0;
                   // dijkstraScan(pathGrid, costGrid, false);
-                  if (pathGrid[x][y] > minimumPathingDistance && pathGrid[x][y] < def.PDS_NO_PATH) { // and if the pathing distance between the two flanking floor tiles exceeds minimumPathingDistance,
+                  if (pathGrid[x][y] > minimumPathingDistance && pathGrid[x][y] < Path.NO_PATH) { // and if the pathing distance between the two flanking floor tiles exceeds minimumPathingDistance,
 
                       dungeon.debug('Adding Bridge', x, y, ' => ', newX, newY);
 
