@@ -2435,6 +2435,135 @@ var events = {
     emit: emit
 };
 
+function make$2(v) {
+    if (v === undefined)
+        return () => 100;
+    if (v === null)
+        return () => 0;
+    if (typeof v === "number")
+        return () => v;
+    if (v && typeof v === "function")
+        return v;
+    let base = {};
+    if (typeof v === "string") {
+        const parts = v.split(/[,|]/).map((t) => t.trim());
+        base = {};
+        parts.forEach((p) => {
+            let [level, weight] = p.split(":");
+            base[level] = Number.parseInt(weight) || 100;
+        });
+    }
+    else {
+        base = v;
+    }
+    if (base && typeof base === "object") {
+        const parts = Object.entries(base);
+        const funcs = parts.map(([levels, frequency]) => {
+            frequency = Number.parseInt(frequency);
+            if (levels.includes("-")) {
+                let [start, end] = levels
+                    .split("-")
+                    .map((t) => t.trim())
+                    .map((v) => Number.parseInt(v));
+                return (level) => level >= start && level <= end ? frequency : 0;
+            }
+            else if (levels.endsWith("+")) {
+                const found = Number.parseInt(levels);
+                return (level) => (level >= found ? frequency : 0);
+            }
+            else {
+                const found = Number.parseInt(levels);
+                return (level) => (level === found ? frequency : 0);
+            }
+        });
+        if (funcs.length == 1)
+            return funcs[0];
+        return (level) => funcs.reduce((out, fn) => out || fn(level), 0);
+    }
+    return () => 0;
+}
+
+var frequency = {
+    __proto__: null,
+    make: make$2
+};
+
+class Scheduler {
+    constructor() {
+        this.next = null;
+        this.time = 0;
+        this.cache = null;
+    }
+    clear() {
+        while (this.next) {
+            const current = this.next;
+            this.next = current.next;
+            current.next = this.cache;
+            this.cache = current;
+        }
+    }
+    push(fn, delay = 1) {
+        let item;
+        if (this.cache) {
+            item = this.cache;
+            this.cache = item.next;
+            item.next = null;
+        }
+        else {
+            item = { fn: null, time: 0, next: null };
+        }
+        item.fn = fn;
+        item.time = this.time + delay;
+        if (!this.next) {
+            this.next = item;
+        }
+        else {
+            let current = this;
+            let next = current.next;
+            while (next && next.time <= item.time) {
+                current = next;
+                next = current.next;
+            }
+            item.next = current.next;
+            current.next = item;
+        }
+        return item;
+    }
+    pop() {
+        const n = this.next;
+        if (!n)
+            return null;
+        this.next = n.next;
+        n.next = this.cache;
+        this.cache = n;
+        this.time = Math.max(n.time, this.time); // so you can schedule -1 as a time uint
+        return n.fn;
+    }
+    remove(item) {
+        if (!item || !this.next)
+            return;
+        if (this.next === item) {
+            this.next = item.next;
+            return;
+        }
+        let prev = this.next;
+        let current = prev.next;
+        while (current && current !== item) {
+            prev = current;
+            current = current.next;
+        }
+        if (current === item) {
+            prev.next = current.next;
+        }
+    }
+}
+// export const scheduler = new Scheduler();
+
+var scheduler = {
+    __proto__: null,
+    Scheduler: Scheduler
+};
+
 // Based on random numbers in umoria
 const RNG_M = 2**31 - 1;
 const RNG_A = 16807;
@@ -2475,7 +2604,7 @@ var types = {};
 var colors = {};
 var sprites = {};
 
-var make$2 = {};
+var make$3 = {};
 var install = {};
 
 var ui = {};
@@ -2586,11 +2715,11 @@ class Bounds {
 
 types.Bounds = Bounds;
 
-function make$3(x, y, w, h) {
+function make$4(x, y, w, h) {
   return new types.Bounds(x, y, w, h);
 }
 
-make$2.bounds = make$3;
+make$3.bounds = make$4;
 
 ///////////////////////////////////
 // FLAG
@@ -2692,10 +2821,10 @@ function makeFlag(values) {
   return flag;
 }
 
-make$2.flag = makeFlag;
+make$3.flag = makeFlag;
 
 function installFlag(flagName, values) {
-  const flag = make$2.flag(values);
+  const flag = make$3.flag(values);
   flags[flagName] = flag;
   return flag;
 }
@@ -4375,7 +4504,7 @@ const separate = Color$1.separate.bind(Color$1);
 types.Color = Color$1;
 
 
-function make$4(...args) {
+function make$5(...args) {
   if (args.length == 0) return new Color$1(0,0,0);
   if (args.length == 1 && typeof args[0] === 'string') {
     const color = colors[args[0]];
@@ -4387,7 +4516,7 @@ function make$4(...args) {
   return Color$1.make(...args);
 }
 
-make$2.color = make$4;
+make$3.color = make$5;
 
 
 
@@ -4409,7 +4538,7 @@ function addKind(name, ...args) {
     color = args[0];
   }
   else {
-    color = make$4(...args);
+    color = make$5(...args);
   }
 	colors[name] = color;
   color.id = name;
@@ -4482,7 +4611,7 @@ var color = {
     __proto__: null,
     Color: Color$1,
     separate: separate,
-    make: make$4,
+    make: make$5,
     from: from,
     addKind: addKind,
     swap: swap,
@@ -5281,10 +5410,10 @@ function makeSprite(ch, fg, bg, opacity) {
   return { ch, fg, bg, opacity };
 }
 
-make$2.sprite = makeSprite;
+make$3.sprite = makeSprite;
 
 function install$1(name, ch, fg, bg, opacity) {
-	const sprite = make$2.sprite(ch, fg, bg, opacity);
+	const sprite = make$3.sprite(ch, fg, bg, opacity);
 	sprites[name] = sprite;
 	return sprite;
 }
@@ -5455,7 +5584,7 @@ function makeGlyphs(opts={}) {
   return glyphs;
 }
 
-make$2.glyphs = makeGlyphs;
+make$3.glyphs = makeGlyphs;
 
 
 function makeCanvas(opts={}) {
@@ -5471,81 +5600,12 @@ function makeCanvas(opts={}) {
   return new Canvas2D(opts);
 }
 
-make$2.canvas = makeCanvas;
+make$3.canvas = makeCanvas;
 
 var canvas = {
     __proto__: null,
     Canvas: Canvas,
     makeGlyphs: makeGlyphs
-};
-
-function frequency(v) {
-  if (v && typeof v === 'function') return v;
-  if (v === undefined) return (() => 100);
-  if (typeof v === 'number') return (() => v);
-  if (typeof v === 'string') {
-    const parts = v.split(/[,|]/).map( (t) => t.trim() );
-    v = {};
-    parts.forEach( (p) => {
-      let [level,weight] = p.split(':');
-
-      v[level] = weight ? Number.parseInt(weight) : 100;
-    });
-  }
-  if (v && typeof v === 'object') {
-    const parts = Object.entries(v);
-
-    const funcs = parts.map( ([levels,frequency]) => {
-      frequency = Number.parseInt(frequency);
-
-      if (levels.includes('-')) {
-        let [start, end] = levels.split('-');
-        start = Number.parseInt(start);
-        end = Number.parseInt(end);
-        return ((level) => (level >= start && level <= end) ? frequency : 0);
-      }
-      else if (levels.endsWith('+')) {
-        const found = Number.parseInt(levels);
-        return ((level) => (level >= found) ? frequency : 0);
-      }
-      else {
-        const found = Number.parseInt(levels);
-        return ((level) => (level === found) ? frequency : 0);
-      }
-    });
-
-    if (funcs.length == 1) return funcs[0];
-
-    return ((level) => funcs.reduce( (out, fn) => out || fn(level), 0) );
-  }
-  return (() => 0);
-}
-
-make$2.frequency = frequency;
-
-function forDanger(frequency, danger) {
-  if (typeof frequency === 'number') {
-    return frequency;
-  }
-  if (typeof frequency === 'function') {
-    if (danger === undefined || danger < 0) {
-      if (data.map && data.map.config.danger) {
-        danger = data.map.config.danger;
-      }
-      else if (data.danger) {
-        danger = data.danger;
-      }
-      danger = 0;
-    }
-    return frequency(danger);
-  }
-  return 0;
-}
-
-var frequency$1 = {
-    __proto__: null,
-    frequency: frequency,
-    forDanger: forDanger
 };
 
 var digger = {};
@@ -6750,7 +6810,7 @@ types.TileEvent = TileEvent$1;
 
 
 // Dungeon features, spawned from Architect.c:
-function make$5(opts) {
+function make$6(opts) {
   if (!opts) return null;
   if (typeof opts === 'string') {
     opts = { tile: opts };
@@ -6759,12 +6819,12 @@ function make$5(opts) {
 	return te;
 }
 
-make$2.tileEvent = make$5;
+make$3.tileEvent = make$6;
 
 
 function addKind$1(id, event) {
 	if (arguments.length > 2 || !(event instanceof types.TileEvent)) {
-		event = make$2.tileEvent(...[].slice.call(arguments, 1));
+		event = make$3.tileEvent(...[].slice.call(arguments, 1));
 	}
   tileEvents$1[id] = event;
 	if (event) tileEvent.id = id;
@@ -7199,7 +7259,7 @@ async function spawnTiles(feat, spawnMap, ctx, tile, itemKind)
 						if (cell.item) {
 							map.removeItem(cell.item);
 						}
-						const item = make$2.item(itemKind);
+						const item = make$3.item(itemKind);
 						map.addItem(i, j, item);
             // map.redrawCell(cell);
 						// cell.mechFlags |= Flags.CellMech.EVENT_FIRED_THIS_TURN;
@@ -7303,7 +7363,7 @@ function evacuateItems(map, blockingMap) {
 var tileEvent$1 = {
     __proto__: null,
     TileEvent: TileEvent$1,
-    make: make$5,
+    make: make$6,
     addKind: addKind$1,
     resetAllMessages: resetAllMessages,
     spawn: spawn,
@@ -7316,7 +7376,7 @@ var tileEvent$1 = {
 
 def.INTENSITY_DARK = 20; // less than 20% for highest color in rgb
 
-const LIGHT_COMPONENTS = make$4();
+const LIGHT_COMPONENTS = make$5();
 
 class Light {
 	constructor(color$1, range$1, fadeTo, pass) {
@@ -7398,7 +7458,7 @@ function intensity(color) {
 }
 
 
-function make$6(color, radius, fadeTo, pass) {
+function make$7(color, radius, fadeTo, pass) {
 
 	if (arguments.length == 1) {
 		if (color && color.color) {
@@ -7422,7 +7482,7 @@ function make$6(color, radius, fadeTo, pass) {
 	return new types.Light(color, radius, fadeTo, pass);
 }
 
-make$2.light = make$6;
+make$3.light = make$7;
 
 const LIGHT_SOURCES = lights;
 
@@ -7433,7 +7493,7 @@ const LIGHT_SOURCES = lights;
 function addKind$2(id, ...args) {
 	let source = args[0];
 	if (source && !(source instanceof types.Light)) {
-		source = make$2.light(...args);
+		source = make$3.light(...args);
 	}
 	LIGHT_SOURCES[id] = source;
 	if (source) source.id = id;
@@ -7457,7 +7517,7 @@ function from$1(...args) {
 		const cached = LIGHT_SOURCES[args[0]];
 		if (cached) return cached;
 	}
-	return make$6(...args);
+	return make$7(...args);
 }
 
 
@@ -7637,7 +7697,7 @@ function playerInDarkness(map, PLAYER, darkColor) {
 var light = {
     __proto__: null,
     intensity: intensity,
-    make: make$6,
+    make: make$7,
     addKind: addKind$2,
     addKinds: addKinds,
     from: from$1,
@@ -7861,7 +7921,7 @@ class ActorKind$1 {
 		this.name = opts.name || 'item';
 		this.description = opts.description || opts.desc || '';
     this.article = (opts.article === undefined) ? 'a' : opts.article;
-		this.sprite = make$2.sprite(opts.sprite || opts);
+		this.sprite = make$3.sprite(opts.sprite || opts);
     this.flags = ActorKind.toFlag(opts.flags);
 		this.actionFlags = Action.toFlag(opts.flags);
     this.behaviors = Behaviors.toFlag(opts.flags);
@@ -7870,7 +7930,7 @@ class ActorKind$1 {
     this.regen = Object.assign({}, opts.regen || {});
 		this.id = opts.id || null;
     this.bump = opts.bump || ['attack'];  // attack me by default if you bump into me
-    this.frequency = make$2.frequency(opts.frequency || this.stats.frequency);
+    this.frequency = frequency.make(opts.frequency || this.stats.frequency);
 
     if (typeof this.bump === 'string') {
       this.bump = this.bump.split(/[,|]/).map( (t) => t.trim() );
@@ -7879,8 +7939,8 @@ class ActorKind$1 {
       this.bump = [this.bump];
     }
 
-    this.corpse = opts.corpse ? make$2.tileEvent(opts.corpse) : null;
-    this.blood = opts.blood ? make$2.tileEvent(opts.blood) : null;
+    this.corpse = opts.corpse ? make$3.tileEvent(opts.corpse) : null;
+    this.blood = opts.blood ? make$3.tileEvent(opts.blood) : null;
 
     this.speed = opts.speed || config.defaultSpeed || 120;
 
@@ -8510,7 +8570,7 @@ function makeActor(kind, opts) {
   return new types.Actor(kind, opts);
 }
 
-make$2.actor = makeActor;
+make$3.actor = makeActor;
 
 function startActorTurn(theActor) {
   theActor.flags &= ~Actor.AF_TURN_ENDED;
@@ -8614,7 +8674,7 @@ function chooseKinds(opts={}) {
       if (typeof v === 'string') return actorKinds[v];
       return v;
     });
-    frequencies = choices.map( (k) => forDanger(k.frequency, opts.danger) );
+    frequencies = choices.map( (k) => frequency.forDanger(k.frequency, opts.danger) );
   }
   else {
     // { THING: 20, OTHER: 10 }
@@ -8685,7 +8745,7 @@ function generateAndPlace(map, opts={}) {
 
   for(let i = 0; i < kinds.length; ++i) {
     const kind = kinds[i];
-    const actor = make$2.actor(kind, makeOpts);
+    const actor = make$3.actor(kind, makeOpts);
 
     matchOpts.forbidCellFlags = kind.forbiddenCellFlags(actor);
     matchOpts.forbidTileFlags = kind.forbiddenTileFlags(actor);
@@ -8723,7 +8783,7 @@ function makePlayer(kind={}) {
   return new types.Actor(kind);
 }
 
-make$2.player = makePlayer;
+make$3.player = makePlayer;
 
 
 
@@ -8769,83 +8829,6 @@ function isValidStartLoc(cell, x, y) {
 }
 
 player.isValidStartLoc = isValidStartLoc;
-
-class Scheduler {
-	constructor() {
-  	this.next = null;
-    this.time = 0;
-    this.cache = null;
-  }
-
-	clear() {
-		while(this.next) {
-			const current = this.next;
-			this.next = current.next;
-			current.next = this.cache;
-			this.cache = current;
-		}
-	}
-
-  push(fn, delay=1) {
-    let item;
-    if (this.cache) {
-    	item = this.cache;
-      this.cache = item.next;
-			item.next = null;
-    }
-    else {
-    	item = { fn: null, time: 0, next: null };
-    }
-		item.fn = fn;
-    item.time = this.time + delay;
-    if (!this.next) {
-	    this.next = item;
-    }
-    else {
-    	let current = this;
-      let next = current.next;
-    	while(next && next.time <= item.time) {
-      	current = next;
-        next = current.next;
-      }
-      item.next = current.next;
-      current.next = item;
-    }
-		return item;
-  }
-
-  pop() {
-  	const n = this.next;
-		if (!n) return null;
-
-    this.next = n.next;
-    n.next = this.cache;
-    this.cache = n;
-
-		this.time = Math.max(n.time, this.time);	// so you can schedule -1 as a time uint
-    return n.fn;
-  }
-
-	remove(item) {
-    if ((!item) || (!this.next)) return;
-		if (this.next === item) {
-			this.next = item.next;
-			return;
-		}
-		let prev = this.next;
-		let current = prev.next;
-		while( current && current !== item ) {
-			prev = current;
-			current = current.next;
-		}
-
-		if (current === item) {
-			prev.next = current.next;
-		}
-	}
-}
-
-const scheduler = new Scheduler();
 
 var cell = {};
 
@@ -9447,7 +9430,7 @@ function makeCell(...args) {
 }
 
 
-make$2.cell = makeCell;
+make$3.cell = makeCell;
 
 
 function getAppearance(cell, dest) {
@@ -9511,7 +9494,7 @@ class Map$1 {
 		this.ambientLight = null;
 		const ambient = (opts.ambient || opts.ambientLight || opts.light);
 		if (ambient) {
-			this.ambientLight = make$2.color(ambient);
+			this.ambientLight = make$3.color(ambient);
 		}
     this.lights = null;
     this.id = opts.id;
@@ -10270,7 +10253,7 @@ function makeMap(w, h, opts={}) {
 	return map;
 }
 
-make$2.map = makeMap;
+make$3.map = makeMap;
 
 
 function getCellAppearance(map, x, y, dest) {
@@ -10321,7 +10304,7 @@ map$1.getCellAppearance = getCellAppearance;
 
 function addText(map, x, y, text, fg, bg, layer) {
 	for(let ch of text) {
-		const sprite = make$2.sprite(ch, fg, bg);
+		const sprite = make$3.sprite(ch, fg, bg);
     const cell = map.cell(x++, y);
     cell.addSprite(layer || TileLayer$2.GROUND, sprite);
 	}
@@ -10597,7 +10580,7 @@ async function playGameTime(anim) {
   anim.playFx = playGameTime;
 
   anim.start();
-  scheduler.push(() => {
+  scheduler$1.push(() => {
     anim.step();
     ui.requestUpdate(1);
     return anim.done ? 0 : anim.speed;
@@ -10780,7 +10763,7 @@ async function projectile(map, source, target, sprite, opts) {
       index = 1;
     }
     const ch = sprite.ch[index];
-    sprite = make$2.sprite(ch, sprite.fg, sprite.bg);
+    sprite = make$3.sprite(ch, sprite.fg, sprite.bg);
   }
   else if (sprite.ch.length !== 1) {
     utils$1.ERROR('projectile requires 4 chars - vert,horiz,diag-left,diag-right (e.g: "|-\\/")');
@@ -11101,6 +11084,8 @@ data.running = false;
 data.turnTime = 10;
 
 
+const scheduler$1 = new scheduler.Scheduler();
+
 
 async function start$1(opts={}) {
 
@@ -11162,7 +11147,7 @@ function buildMap(id=0) {
     width = viewport.bounds.width;
     height = viewport.bounds.height;
   }
-  const map = make$2.map(width, height, { tile: 'FLOOR', boundary: 'WALL' });
+  const map = make$3.map(width, height, { tile: 'FLOOR', boundary: 'WALL' });
   map.id = id;
   return map;
 }
@@ -11186,12 +11171,12 @@ async function startMap(map, loc='start') {
   if (data.map && data.player) {
     await events.emit('STOP_MAP', data.map);
 
-    if (data.map._tick) scheduler.remove(data.map._tick);
+    if (data.map._tick) scheduler$1.remove(data.map._tick);
     data.map._tick = null;
 
     utils$1.eachChain(data.map.actors, (actor) => {
       if (actor._tick) {
-        scheduler.remove(actor._tick);
+        scheduler$1.remove(actor._tick);
         actor._tick = null;
       }
     });
@@ -11254,7 +11239,7 @@ async function startMap(map, loc='start') {
   }
 
   if (map.config.tick) {
-    map._tick = scheduler.push( updateEnvironment, map.config.tick );
+    map._tick = scheduler$1.push( updateEnvironment, map.config.tick );
   }
 
   await events.emit('MAP_START', map);
@@ -11283,21 +11268,21 @@ async function loop$1() {
       }
     }
     else {
-      const fn = scheduler.pop();
+      const fn = scheduler$1.pop();
       if (!fn) {
         utils.WARN('NO ACTORS! STOPPING GAME!');
         data.running = false;
       }
       else {
-        if (scheduler.time > data.time) {
-          data.time = scheduler.time;
-          GAME_DEBUG('- update now: %d', scheduler.time);
+        if (scheduler$1.time > data.time) {
+          data.time = scheduler$1.time;
+          GAME_DEBUG('- update now: %d', scheduler$1.time);
           await ui.updateIfRequested();
         }
         const turnTime = await fn();
         if (turnTime) {
-          GAME_DEBUG('- push actor: %d + %d = %d', scheduler.time, turnTime, scheduler.time + turnTime);
-          scheduler.push(fn, turnTime);
+          GAME_DEBUG('- push actor: %d + %d = %d', scheduler$1.time, turnTime, scheduler$1.time + turnTime);
+          scheduler$1.push(fn, turnTime);
         }
         data.map.resetEvents();
       }
@@ -11310,21 +11295,21 @@ async function loop$1() {
 
 
 function queuePlayer() {
-  data.player._tick = scheduler.push(player.takeTurn, data.player.kind.speed);
+  data.player._tick = scheduler$1.push(player.takeTurn, data.player.kind.speed);
 }
 
 
 function queueActor(actor$1) {
-  actor$1._tick = scheduler.push(actor.takeTurn.bind(null, actor$1), actor$1.kind.speed);
+  actor$1._tick = scheduler$1.push(actor.takeTurn.bind(null, actor$1), actor$1.kind.speed);
 }
 
 function delay(delay, fn) {
-  return scheduler.push(fn, delay);
+  return scheduler$1.push(fn, delay);
 }
 
 
 async function cancelDelay(timer) {
-  return scheduler.remove(timer);
+  return scheduler$1.remove(timer);
 }
 
 async function updateEnvironment() {
@@ -11403,6 +11388,7 @@ async function useStairs(x, y) {
 
 var game = {
     __proto__: null,
+    scheduler: scheduler$1,
     start: start$1,
     get buildMap () { return buildMap; },
     getMap: getMap,
@@ -11456,7 +11442,7 @@ class Tile$1 {
     this.mechFlags = TileMech.toFlag(this.mechFlags, config.mechFlags || config.flags);
 
     if (config.sprite || (config.ch || config.fg || config.bg)) {
-      this.sprite = make$2.sprite(config.sprite || config);
+      this.sprite = make$3.sprite(config.sprite || config);
     }
     if (base.events) {
       Object.assign(this.events, base.events);
@@ -11464,7 +11450,7 @@ class Tile$1 {
     if (config.events) {
       Object.entries(config.events).forEach( ([key,info]) => {
         if (info) {
-          this.events[key] = make$2.tileEvent(info);
+          this.events[key] = make$3.tileEvent(info);
         }
         else {
           delete this.events[key];
@@ -12048,7 +12034,7 @@ class ItemKind$1 {
 		this.name = opts.name || 'item';
 		this.flavor = opts.flavor || null;
     this.article = (opts.article === undefined) ? 'a' : opts.article;
-		this.sprite = make$2.sprite(opts.sprite || opts);
+		this.sprite = make$3.sprite(opts.sprite || opts);
     this.flags = ItemKind.toFlag(opts.flags);
 		this.actionFlags = Action.toFlag(opts.flags);
 		this.attackFlags = ItemAttack.toFlag(opts.flags);
@@ -12057,7 +12043,7 @@ class ItemKind$1 {
     this.slot = opts.slot || null;
     this.projectile = null;
     this.verb = opts.verb || null;
-    this.frequency = make$2.frequency(opts.frequency || this.stats.frequency);
+    this.frequency = frequency.make(opts.frequency || this.stats.frequency);
 
     this.bump = opts.bump || ['pickup'];  // pick me up by default if you bump into me
 
@@ -12069,9 +12055,9 @@ class ItemKind$1 {
     }
 
     if (opts.projectile) {
-      this.projectile = make$2.sprite(opts.projectile);
+      this.projectile = make$3.sprite(opts.projectile);
     }
-    this.corpse = opts.corpse ? make$2.tileEvent(opts.corpse) : null;
+    this.corpse = opts.corpse ? make$3.tileEvent(opts.corpse) : null;
 
     if (opts.consoleColor === false) {
       this.consoleColor = false;
@@ -12217,7 +12203,7 @@ class Item$1 {
 
   split(quantity=1) {
     if (quantity >= this.quantity) return null;
-    const newItem = make$2.item(this.kind, { quantity, flags: this.flags, stats: this.stats });
+    const newItem = make$3.item(this.kind, { quantity, flags: this.flags, stats: this.stats });
     this.quantity -= quantity;
     return newItem;
   }
@@ -12289,7 +12275,7 @@ function makeItem(kind, opts) {
   return item;
 }
 
-make$2.item = makeItem;
+make$3.item = makeItem;
 
 
 
@@ -12334,7 +12320,7 @@ function chooseKinds$1(opts={}) {
       if (typeof v === 'string') return itemKinds[v];
       return v;
     });
-    frequencies = choices.map( (k) => forDanger(k.frequency, opts.danger) );
+    frequencies = choices.map( (k) => frequency.forDanger(k.frequency, opts.danger) );
   }
   else {
     // { THING: 20, OTHER: 10 }
@@ -12405,7 +12391,7 @@ function generateAndPlace$1(map, opts={}) {
 
   for(let i = 0; i < kinds.length; ++i) {
     const kind = kinds[i];
-    const item = make$2.item(kind, makeOpts);
+    const item = make$3.item(kind, makeOpts);
 
     matchOpts.forbidCellFlags = kind.forbiddenCellFlags(item);
     matchOpts.forbidTileFlags = kind.forbiddenTileFlags(item);
@@ -12530,7 +12516,7 @@ message.forceRedraw = forceRedraw;
 
 function drawMessages(buffer) {
 	let i;
-	const tempColor = make$2.color();
+	const tempColor = make$3.color();
 	let messageColor;
 
   if (!NEEDS_UPDATE || !MSG_BOUNDS) return false;
@@ -13363,7 +13349,7 @@ function addProgressBar(y, buf, barText, current, max, color$1, dim) {
 		max = 1;
 	}
 
-	color$1 = make$4(color$1);
+	color$1 = make$5(color$1);
 	if (!(y % 2)) {
 		color$1.mix(colors.black, 25);
 	}
@@ -13854,7 +13840,7 @@ class Table {
     this.activeColor = from(opts.selectedColor || colors.teal);
     this.disabledColor = from(opts.disabledColor || colors.black);
     this.active = opts.active || -1;
-    this.bounds = make$2.bounds();
+    this.bounds = make$3.bounds();
     this.selected = -1;
     this.cancelled = false;
     this.count = 0;
@@ -14006,11 +13992,11 @@ class Table {
 types.Table = Table;
 
 
-function make$7(...args) {
+function make$8(...args) {
   return new types.Table(...args);
 }
 
-make$2.table = make$7;
+make$3.table = make$8;
 
 class List extends types.Table {
   constructor(opts={}) {
@@ -14021,11 +14007,11 @@ class List extends types.Table {
 
 types.List = List;
 
-function make$8(...args) {
+function make$9(...args) {
   return new types.List(...args);
 }
 
-make$2.list = make$8;
+make$3.list = make$9;
 
 const COMMANDS = io.commands;
 
@@ -14091,7 +14077,7 @@ function start$2(opts={}) {
   });
 
   if (!ui.canvas && (opts.canvas !== false)) {
-    ui.canvas = make$2.canvas({ width: opts.width, height: opts.height, div: opts.div, font: opts.font, tileWidth: 14, tileHeight: 16 });
+    ui.canvas = make$3.canvas({ width: opts.width, height: opts.height, div: opts.div, font: opts.font, tileWidth: 14, tileHeight: 16 });
     ui.buffer = new Buffer(ui.canvas);
 
     if (opts.io && typeof document !== 'undefined') {
@@ -14882,8 +14868,8 @@ function plotProgressBar(buf, x, y, width, barText, textColor, pct, barColor) {
   if (pct > 1) pct /= 100;
   pct = utils$1.clamp(pct, 0, 1);
 
-	barColor = make$4(barColor);
-  textColor = make$4(textColor);
+	barColor = make$5(barColor);
+  textColor = make$5(textColor);
   const darkenedBarColor = barColor.clone().mix(colors.black, 75);
 
   barText = center(barText, width);
@@ -14936,7 +14922,7 @@ class Button {
     	this.x = 0;					// button's leftmost cell will be drawn at (x, y)
     	this.y = 0;
     	this.hotkey = []; // [10];		// up to 10 hotkeys to trigger the button
-    	this.color = make$2.color();			// background of the button; further gradient-ized when displayed
+    	this.color = make$3.color();			// background of the button; further gradient-ized when displayed
     	this.opacity = 0;				// further reduced by 50% if not enabled
     	this.symbol = [];	//[COLS]		// Automatically replace the nth asterisk in the button label text with
     								// the nth character supplied here, if one is given.
@@ -14967,7 +14953,7 @@ class Button {
 
   draw(buffer) {
     let width, midPercent, symbolNumber, opacity;
-  	let fColor = make$2.color(), bColor = make$2.color(), fColorBase, bColorBase, bColorEdge, bColorMid;
+  	let fColor = make$3.color(), bColor = make$3.color(), fColorBase, bColorBase, bColorEdge, bColorMid;
 
   	if (!(this.flags & ButtonFlags.B_DRAW)) {
   		return;
@@ -15049,7 +15035,7 @@ class Button {
 
 types.Button = Button;
 
-make$2.button = ((opts) => new Button(opts));
+make$3.button = ((opts) => new Button(opts));
 
 
 
@@ -15097,7 +15083,7 @@ class Buttons {
     if (text) {
       opts.text = text;
     }
-    const button = make$2.button(opts);
+    const button = make$3.button(opts);
     this.buttons.push(button);
     return button;
   }
@@ -15181,7 +15167,7 @@ class Buttons {
 
 types.Buttons = Buttons;
 
-make$2.buttons = (() => new Buttons());
+make$3.buttons = (() => new Buttons());
 
 hordes.all = [];
 const HORDE_CHANCE = [];
@@ -15190,13 +15176,13 @@ class Horde$1 {
   constructor(config={}) {
     this.minions = null;
     Object.assign(this,config);
-    this.frequency = make$2.frequency(this.frequency);
+    this.frequency = frequency.make(this.frequency);
     this.flags = Horde.toFlag(this.flags);
   }
 }
 
 
-function make$9(...args) {
+function make$a(...args) {
   let opts = args[0];
   if (args.length == 1 && Array.isArray(args[0])) args = args[0];
   if (args.length == 2 && (typeof args[0] === 'string') && (typeof args[1] === 'object')) {
@@ -15212,10 +15198,10 @@ function make$9(...args) {
   return new Horde$1(opts);
 }
 
-make$2.horde = make$9;
+make$3.horde = make$a;
 
 function addKind$4(id, ...args) {
-  const horde = make$9(...args);
+  const horde = make$a(...args);
   horde.id = id;
   if (hordes[id]) {
     const index = hordes.all.indexOf(hordes[id]);
@@ -15284,7 +15270,7 @@ function spawn$1(hordeId, map, x, y) {
   console.log('spawn leader', horde.leader);
 
   // console.log('HORDE SPAWN', horde);
-	const leader = make$2.actor(horde.leader);
+	const leader = make$3.actor(horde.leader);
 
 	// if (horde.flags & Flags.Horde.HORDE_LEADER_CAPTIVE) {
 	// 	leader.state |= BeingState.BS_CAPTIVE;
@@ -15370,7 +15356,7 @@ function spawnRandom(map, blockedFov, forbiddenFlags=0, requiredFlags=0)
 var horde = {
     __proto__: null,
     Horde: Horde$1,
-    make: make$9,
+    make: make$a,
     addKind: addKind$4,
     removeKind: removeKind,
     pick: pick$1,
@@ -16354,7 +16340,7 @@ class Flames {
     this.flames = grid.make(buffer.width, buffer.height + MENU_FLAME_ROW_PADDING, () => [0, 0, 0] );
   	this.colorSources = []; 	// [red, green, blue, rand], one for each color source
   	this.colors = grid.make(buffer.width, buffer.height + MENU_FLAME_ROW_PADDING, null );
-    this.colorStorage = grid.makeArray(buffer.width, () => make$2.color() );
+    this.colorStorage = grid.makeArray(buffer.width, () => make$3.color() );
 
     utils$1.setDefaults(opts, {
       primary: flameSourceColor,
@@ -16507,7 +16493,7 @@ class Flames {
 
   draw() {
   	let i, j;
-    const tempColor = make$2.color();
+    const tempColor = make$3.color();
   	const maskColor = colors.black;
     let dchar;
 
@@ -16550,4 +16536,4 @@ var flames = {
 
 const { emit: emit$1, on: on$1, off: off$1, once: once$1 } = events;
 
-export { actions, actor, actorKinds, ai, canvas, cell, color, colors, combat$1 as combat, config, cosmetic, data, def, digger, diggers, dungeon, emit$1 as emit, events, flag, flags, flames, flavor, fov, frequency$1 as frequency, fx, game, grid, horde, hordes, install, io, item$1 as item, itemKinds, light, lights, make$2 as make, map$1 as map, maps, message, messages, off$1 as off, on$1 as on, once$1 as once, path, player, random, range, scheduler, sidebar, sprite, sprites, text, tile, tileEvent$1 as tileEvent, tileEvents$1 as tileEvents, tiles, types, ui, utils$1 as utils, viewport, visibility };
+export { actions, actor, actorKinds, ai, canvas, cell, color, colors, combat$1 as combat, config, cosmetic, data, def, digger, diggers, dungeon, emit$1 as emit, events, flag, flags, flames, flavor, fov, frequency, fx, game, grid, horde, hordes, install, io, item$1 as item, itemKinds, light, lights, make$3 as make, map$1 as map, maps, message, messages, off$1 as off, on$1 as on, once$1 as once, path, player, random, range, scheduler$1 as scheduler, sidebar, sprite, sprites, text, tile, tileEvent$1 as tileEvent, tileEvents$1 as tileEvents, tiles, types, ui, utils$1 as utils, viewport, visibility };

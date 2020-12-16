@@ -1,11 +1,10 @@
 
 
 import * as Flags from './flags.js';
-import { utils as Utils, io as IO, events as Events } from 'gw-core';
+import { utils as Utils, io as IO, events as Events, scheduler as Scheduler } from 'gw-core';
 import * as Light from './light.js';
 import { actor as ACTOR } from './actor.js';
 import { player as PLAYER } from './player.js';
-import { scheduler } from './scheduler.js';
 import * as Text from './text.js';
 import * as Sprite from './sprite.js';
 import * as Visibility from './visibility.js';
@@ -19,6 +18,8 @@ DATA.time = 0;
 DATA.running = false;
 DATA.turnTime = 10;
 
+
+export const scheduler = new Scheduler.Scheduler();
 
 
 export async function start(opts={}) {

@@ -1,8 +1,7 @@
 
 import * as Color from './color.js';
 import * as Flags from './flags.js';
-import { utils as Utils, random, range as Range, grid as Grid, path as Path } from 'gw-core';
-import * as Frequency from './frequency.js';
+import { utils as Utils, random, range as Range, grid as Grid, path as Path, frequency as Frequency } from 'gw-core';
 import * as Text from './text.js';
 import * as Visibility from './visibility.js';
 import { actions as Actions } from './actions/index.js';
@@ -30,7 +29,7 @@ class ActorKind {
     this.regen = Object.assign({}, opts.regen || {});
 		this.id = opts.id || null;
     this.bump = opts.bump || ['attack'];  // attack me by default if you bump into me
-    this.frequency = make.frequency(opts.frequency || this.stats.frequency);
+    this.frequency = Frequency.make(opts.frequency || this.stats.frequency);
 
     if (typeof this.bump === 'string') {
       this.bump = this.bump.split(/[,|]/).map( (t) => t.trim() );

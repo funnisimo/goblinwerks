@@ -2,7 +2,7 @@
 
 import './random.js';
 import './bounds.js';
-export { utils, range, random, cosmetic, grid, io, fov, path, events } from 'gw-core';
+export { utils, range, random, cosmetic, grid, io, fov, path, events, frequency } from 'gw-core';
 import { events as Events } from 'gw-core';
 export const { emit, on, off, once } = Events;
 
@@ -13,14 +13,13 @@ export * as text from './text.js';
 export * as sprite from './sprite.js';
 import './buffer.js';
 export * as canvas from './canvas.js';
-export * as frequency from './frequency.js';
 export { digger, diggers } from './digger.js';
 export { dungeon } from './dungeon.js';
 export * as tileEvent from './tileEvent.js';
 export { tile } from './tile.js';
 export { cell } from './cell.js';
 export { map } from './map.js';
-export { scheduler } from  './scheduler.js';
+export { scheduler } from  './game.js';
 export * as game from './game.js';
 export * as fx from './fx.js';
 export { actor, actorKinds } from './actor.js';

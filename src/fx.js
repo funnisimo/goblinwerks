@@ -2,7 +2,7 @@
 import { utils as Utils, grid as Grid, io as IO } from 'gw-core';
 import * as Sprite from './sprite.js';
 import { map as MAP } from './map.js';
-import { scheduler } from './scheduler.js';
+import { scheduler } from './game.js';
 
 import * as GW from './gw.js';
 
