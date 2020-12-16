@@ -1994,64 +1994,65 @@
             return true;
         return false;
     }
-    function pdsBatchInput(map, distanceMap, costMap, maxDistance, eightWays) {
-        let i, j;
-        map.eightWays = eightWays;
-        let left = map.front;
-        let right = map.front.right;
-        map.front.right = null;
-        for (i = 0; i < map.width; i++) {
-            for (j = 0; j < map.height; j++) {
-                let link = getLink(map, i, j);
-                if (distanceMap != null) {
-                    link.distance = distanceMap[i][j];
-                }
-                else {
-                    if (costMap != null) {
-                        // totally hackish; refactor
-                        link.distance = maxDistance;
-                    }
-                }
-                let cost;
-                if (isBoundaryXY(costMap, i, j)) {
-                    cost = OBSTRUCTION;
-                }
-                else {
-                    cost = costMap[i][j];
-                }
-                link.cost = cost;
-                if (cost > 0) {
-                    if (link.distance < maxDistance) {
-                        if (right === null || right.distance > link.distance) {
-                            // left and right are used to traverse the list; if many cells have similar values,
-                            // some time can be saved by not clearing them with each insertion.  this time,
-                            // sadly, we have to start from the front.
-                            left = map.front;
-                            right = map.front.right;
-                        }
-                        while (right !== null && right.distance < link.distance) {
-                            left = right;
-                            right = right.right;
-                        }
-                        link.right = right;
-                        link.left = left;
-                        left.right = link;
-                        if (right != null)
-                            right.left = link;
-                        left = link;
-                    }
-                    else {
-                        link.right = null;
-                        link.left = null;
-                    }
-                }
-                else {
-                    link.right = null;
-                    link.left = null;
-                }
-            }
-        }
-    }
+    // function pdsBatchInput(
+    //   map: DijkstraMap,
+    //   distanceMap: Grid.NumGrid,
+    //   costMap: Grid.NumGrid,
+    //   maxDistance: number,
+    //   eightWays: boolean
+    // ) {
+    //   let i, j;
+    //   map.eightWays = eightWays;
+    //   let left: CostLink | null = map.front;
+    //   let right: CostLink | null = map.front.right;
+    //   map.front.right = null;
+    //   for (i = 0; i < map.width; i++) {
+    //     for (j = 0; j < map.height; j++) {
+    //       let link = getLink(map, i, j);
+    //       if (distanceMap != null) {
+    //         link.distance = distanceMap[i][j];
+    //       } else {
+    //         if (costMap != null) {
+    //           // totally hackish; refactor
+    //           link.distance = maxDistance;
+    //         }
+    //       }
+    //       let cost;
+    //       if (isBoundaryXY(costMap, i, j)) {
+    //         cost = OBSTRUCTION;
+    //       } else {
+    //         cost = costMap[i][j];
+    //       }
+    //       link.cost = cost;
+    //       if (cost > 0) {
+    //         if (link.distance < maxDistance) {
+    //           if (right === null || right.distance > link.distance) {
+    //             // left and right are used to traverse the list; if many cells have similar values,
+    //             // some time can be saved by not clearing them with each insertion.  this time,
+    //             // sadly, we have to start from the front.
+    //             left = map.front;
+    //             right = map.front.right;
+    //           }
+    //           while (right !== null && right.distance < link.distance) {
+    //             left = right;
+    //             right = right.right;
+    //           }
+    //           link.right = right;
+    //           link.left = left;
+    //           left.right = link;
+    //           if (right != null) right.left = link;
+    //           left = link;
+    //         } else {
+    //           link.right = null;
+    //           link.left = null;
+    //         }
+    //       } else {
+    //         link.right = null;
+    //         link.left = null;
+    //       }
+    //     }
+    //   }
+    // }
     function batchOutput(map, distanceMap) {
         let i, j;
         update(map);
@@ -2063,20 +2064,26 @@
         }
     }
     var DIJKSTRA_MAP;
-    function dijkstraScan(distanceMap, costMap, useDiagonals = false) {
-        // static makeDijkstraMap map;
-        const width = distanceMap.length;
-        const height = distanceMap[0].length;
-        if (!DIJKSTRA_MAP ||
-            DIJKSTRA_MAP.width < width ||
-            DIJKSTRA_MAP.height < height) {
-            DIJKSTRA_MAP = makeDijkstraMap(width, height);
-        }
-        DIJKSTRA_MAP.width = width;
-        DIJKSTRA_MAP.height = height;
-        pdsBatchInput(DIJKSTRA_MAP, distanceMap, costMap, NO_PATH, useDiagonals);
-        batchOutput(DIJKSTRA_MAP, distanceMap);
-    }
+    // function dijkstraScan(
+    //   distanceMap: Grid.NumGrid,
+    //   costMap: Grid.NumGrid,
+    //   useDiagonals = false
+    // ) {
+    //   // static makeDijkstraMap map;
+    //   const width = distanceMap.length;
+    //   const height = distanceMap[0].length;
+    //   if (
+    //     !DIJKSTRA_MAP ||
+    //     DIJKSTRA_MAP.width < width ||
+    //     DIJKSTRA_MAP.height < height
+    //   ) {
+    //     DIJKSTRA_MAP = makeDijkstraMap(width, height);
+    //   }
+    //   DIJKSTRA_MAP.width = width;
+    //   DIJKSTRA_MAP.height = height;
+    //   pdsBatchInput(DIJKSTRA_MAP, distanceMap, costMap, NO_PATH, useDiagonals);
+    //   batchOutput(DIJKSTRA_MAP, distanceMap);
+    // }
     //
     // function populateGenericCostMap(costMap, map) {
     //   let i, j;
@@ -2261,7 +2268,6 @@
         OBSTRUCTION: OBSTRUCTION,
         AVOIDED: AVOIDED,
         NO_PATH: NO_PATH,
-        dijkstraScan: dijkstraScan,
         calculateDistances: calculateDistances,
         nextStep: nextStep,
         getPath: getPath
